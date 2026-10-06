@@ -350,11 +350,11 @@ class MapaController extends Controller
 
     /**
      * Rótulo corto de cada escalón de identificar() para la ficha del GPS ("Placa: …",
-     * "Serial: …"). El Excel usa el largo.
+     * "Chasis: …"). El Excel usa el largo.
      */
     private const IDENT_ROTULO = [
         'PLACA'            => 'Placa',
-        'SERIAL DE CHASIS' => 'Serial',
+        'SERIAL DE CHASIS' => 'Chasis',
         'SERIAL DE MOTOR'  => 'Serial motor',
         'CÓDIGO DE PATIO'  => 'Código',
         'ETIQUETA'         => 'Etiqueta',

@@ -4719,18 +4719,21 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 7px solid #fff;
     filter: drop-shadow(0 0 1px rgba(15, 23, 42, 0.8));
 }
-/* Ficha del equipo (popup). */
+/* Ficha del equipo (popup). 320 px (antes 272): más ancha, pedido del cliente, 06-10-2026. Va a
+   juego con minWidth / maxWidth del bindPopup en mapa_index.js. */
 .mapa-eq-pop .leaflet-popup-content-wrapper { padding: 0; border-radius: 12px; overflow: hidden; }
-.mapa-eq-pop .leaflet-popup-content { margin: 0; width: 272px !important; }
+.mapa-eq-pop .leaflet-popup-content { margin: 0; width: 320px !important; }
 /* Nunito, la letra del módulo Equipos (pedido del cliente, 30-09-2026): dentro del globo de
    Leaflet la ficha heredaba la de .leaflet-container (Helvetica/Arial) y no se parecía al resto. */
 .mapa-eq { color: #0f172a; font-family: "Nunito", sans-serif; font-size: 12.5px; line-height: 1.3; }
 /* Fondo azul claro (pedido del cliente, 01-10-2026; antes gris azul). */
 .mapa-eq-head { padding: 10px 12px 9px; border-left: 4px solid #94a3b8; background: #e8f1fb; border-bottom: 1px solid #cfe0f3; }
-/* Los tres renglones del encabezado (frente; tipo y marca; Modelo y Placa) con la MISMA letra:
-   mismo cuerpo y mismo grueso, sin mezclar negritas (pedido del cliente, 01-10-2026). 11,5 px en
-   el globo de /mapa (un punto menos, también pedido); el modal de Equipos pone el suyo. */
-.mapa-eq-frente, .mapa-eq-tit b, .mapa-eq-desc { font-size: 11.5px; font-weight: 700; }
+/* El frente y el renglón de tipo y marca con la MISMA letra: mismo cuerpo y mismo grueso, sin
+   mezclar negritas (pedido del cliente, 01-10-2026). 11,5 px en el globo de /mapa (un punto menos,
+   también pedido); el modal de Equipos pone el suyo. Los de Modelo / Placa y Chasis, más chicos y
+   más finos que el tipo y la marca (pedido del cliente, 06-10-2026). */
+.mapa-eq-frente, .mapa-eq-tit b { font-size: 11.5px; font-weight: 700; }
+.mapa-eq-desc { font-size: 10.5px; font-weight: 500; }
 /* Todo texto de la ficha que no cabe baja de renglón, pero como MÁXIMO a dos (pedido del cliente,
    01-10-2026); lo que sobra se corta con "…" y entero queda en el title. La dirección no entra:
    va en línea con su coordenada detrás y ya llega acortada (ver direccionCorta en gps_ficha.js). */
@@ -4746,10 +4749,10 @@ body:has(.mapa-page) { --mapa-col: 380px; }
    serial muy largo), se cortan con "…". */
 .mapa-eq-parte:not(:last-child) { margin-right: 8px; }
 .mapa-eq-entero { display: inline-block; max-width: 100%; vertical-align: bottom; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* El frente va arriba del todo, con su rótulo "ASIGNADO A" y una raya fina que lo separa de qué
-   equipo es. padding-right: deja libre la "×" de cerrar de Leaflet, arriba a la derecha. */
+/* El frente va arriba del todo, solo (sin "Asignado a": pedido del cliente, 06-10-2026), con una
+   raya fina que lo separa de qué equipo es. padding-right: deja libre la "×" de cerrar de Leaflet,
+   arriba a la derecha. */
 .mapa-eq-frente { padding: 0 18px 6px 0; margin-bottom: 6px; border-bottom: 1px solid #cfe0f3; }
-.mapa-eq-rot { margin-right: 2px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #64748b; }
 /* Dos columnas: a tres, "Encendido", el kilometraje o la fecha de la última señal no cabían. */
 .mapa-eq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: #e2e8f0; }
 .mapa-eq-cel { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 7px 8px; background: #fff; }
@@ -4887,13 +4890,15 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .mapa-eqp-eq-txt b {
     display: flex; align-items: baseline; gap: 6px; min-width: 0;
     overflow: hidden; white-space: nowrap;
-    font-size: 13px; font-weight: 800; color: #000;
+    color: #000;   /* letra y tamaño: los pone cada trozo (.mapa-eqp-tipo / .mapa-eqp-marca) */
 }
 /* El tipo en su propio span y no como texto suelto: dentro de un contenedor flex el texto suelto
    queda en una caja anónima, que CSS no puede alcanzar para recortarlo con puntos suspensivos. */
 .mapa-eqp-tipo { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* La marca, más discreta que el tipo: es el dato de apoyo, no el titular. */
-.mapa-eqp-marca { flex: none; font-size: 11px; font-weight: 700; color: #475569; letter-spacing: 0.2px; }
+/* El tipo con la MISMA letra y tamaño que la marca, pero en negro (pedido del cliente, 06-10-2026). */
+.mapa-eqp-tipo, .mapa-eqp-marca { font-size: 11px; font-weight: 700; letter-spacing: 0.2px; }
+.mapa-eqp-tipo { color: #000; }
+.mapa-eqp-marca { flex: none; color: #475569; }
 /* Segundo renglón: el MODELO y al lado la placa (o el serial). Cuando no caben los dos, el
    que cede es el MODELO — la placa nunca se recorta, que es el dato por el que se busca un equipo.
    Eso lo hace el reparto: el modelo puede encogerse (flex 0 1 auto + min-width 0) y la placa no

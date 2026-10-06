@@ -3416,7 +3416,7 @@
         // Identificador principal: placa; si no tiene, serial de chasis; si no, serial de motor;
         // y si tampoco, código de patio o etiqueta. Lo resuelve el servidor
         // (MapaController::identificar, la misma escalera del Excel) y llega en `ident`, con su
-        // rótulo en `ident_por` ("Placa", "Serial"…). Antes se repetía aquí y las dos copias no
+        // rótulo en `ident_por` ("Placa", "Chasis"…). Antes se repetía aquí y las dos copias no
         // recortaban los espacios igual: el mismo equipo podía llamarse distinto según la pantalla.
         function eqIdent(e) { return e.ident || 'Equipo ' + e.id; }
         // El tipo tal como se ENSEÑA. Se usa también para ordenar: mostrando "Sin tipo" pero
@@ -3544,7 +3544,7 @@
                     // buscador y el botón "Capas" (hasta ~152 px en el teléfono); sin este margen la
                     // ficha de un punto cercano al borde de arriba quedaba tapada por ellos. Si se
                     // cambia, ajustar el alto máximo de la ficha con poco alto (.mapa-eq-pop, CSS).
-                    m.bindPopup(function (capa) { return eqFicha(capa.eq); }, { className: 'mapa-eq-pop', maxWidth: 300, minWidth: 272, autoPanPaddingTopLeft: [20, 160] });
+                    m.bindPopup(function (capa) { return eqFicha(capa.eq); }, { className: 'mapa-eq-pop', maxWidth: 340, minWidth: 320, autoPanPaddingTopLeft: [20, 160] });
                     m.on('popupopen', function (ev) { eqCargarDireccion(ev.target); });
                     capaEquipos.marcas[e.id] = m;
                 }
@@ -3951,6 +3951,9 @@
                 // primeros escalones no añadía nada y el día que se cambiara el orden ahí dentro,
                 // la fila diría un identificador y la ficha otro.
                 var identifica = eqIdent(e);
+                // Con su rótulo delante: "Placa: A41BL3R" (pedido del cliente, 06-10-2026), o
+                // "Chasis: …" si no tiene placa. "Equipo N" no lleva rótulo.
+                var identRotulo = e.ident_por ? e.ident_por + ': ' : '';
                 // 3) el serial de chasis (pedido del cliente, 06-10-2026), con la MISMA regla que
                 //    la ficha: GpsFicha.chasisAparte (no se repite si ya es el del renglón 2).
                 var chasis = window.GpsFicha.chasisAparte({ chasis: e.serial_chasis, identPor: e.ident_por });
@@ -3967,9 +3970,9 @@
                         // span vacío se llevaría igual su hueco de separación.
                         '<small>' +
                             (e.modelo ? '<span class="mapa-eqp-modelo">' + esc(e.modelo) + '</span>' : '') +
-                            '<span class="mapa-eqp-id">' + esc(identifica) + '</span></small>' +
-                        (chasis ? '<small class="mapa-eqp-chasis" title="Serial de chasis: ' + esc(chasis) + '">' +
-                            '<span>Serial de chasis: ' + esc(chasis) + '</span></small>' : '') + '</span>' +
+                            '<span class="mapa-eqp-id">' + esc(identRotulo + identifica) + '</span></small>' +
+                        (chasis ? '<small class="mapa-eqp-chasis" title="Chasis: ' + esc(chasis) + '">' +
+                            '<span>Chasis: ' + esc(chasis) + '</span></small>' : '') + '</span>' +
                     '<span class="mapa-eqp-estado' + (linea ? ' en-linea' : '') + '">' + esc(eqEstadoTexto(e)) + '</span></div>';
             }).join('') + (orden.length > _panEq._lista.length
                 ? '<div class="mapa-eqp-mas">' + (orden.length - _panEq._lista.length) + ' más abajo</div>'

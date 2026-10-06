@@ -73,11 +73,11 @@
     // El serial de chasis va en su propio renglón SIEMPRE que lo haya (pedido del cliente,
     // 06-10-2026): en campo es lo que se coteja contra la chapa del equipo, y antes solo salía
     // cuando el equipo no tenía placa. Si ya ES el identificador (sin placa: identificar() bajó
-    // al serial y el rótulo es "Serial"), sale arriba y no se repite. Una sola regla para la
+    // al serial y el rótulo es "Chasis"), sale arriba y no se repite. Una sola regla para la
     // ficha y la lista del panel de /mapa, que tienen que decir lo mismo.
     function chasisAparte(eq) {
         var chasis = (eq.chasis == null ? '' : String(eq.chasis)).trim();   // trim() quita también el espacio duro
-        return String(eq.identPor || '').trim() === 'Serial' ? '' : chasis;
+        return String(eq.identPor || '').trim() === 'Chasis' ? '' : chasis;
     }
 
     window.GpsFicha = {
@@ -122,7 +122,7 @@
          * @param {object} eq  El equipo: { tipo, modelo, marca, ident, identPor, chasis, frente,
          *                     color, gps }. `ident` es CÓMO se llama (placa; si no, serial de chasis,
          *                     de motor, código o etiqueta) e `identPor` su rótulo ("Placa",
-         *                     "Serial"…, vacío para "Equipo N"). Los dos llegan resueltos
+         *                     "Chasis"…, vacío para "Equipo N"). Los dos llegan resueltos
          *                     del servidor (MapaController::identificar). `chasis` es el
          *                     serial de chasis, que va en su propio renglón aunque el
          *                     equipo se identifique por la placa.
@@ -152,7 +152,8 @@
             // si es un color de los que arma el sistema (#rgb / #rrggbb). Cualquier otra cosa, al gris.
             var color = /^#[0-9a-fA-F]{3,8}$/.test(String(eq.color || '')) ? eq.color : '#94a3b8';
             // Encabezado en cuatro renglones, todo en negro (pedido del cliente, 01-10-2026):
-            //   1. "ASIGNADO A" y el frente (proyecto), separado de lo de abajo por una raya fina;
+            //   1. el frente (proyecto), separado de lo de abajo por una raya fina; sin el rótulo
+            //      "Asignado a" delante (pedido del cliente, 06-10-2026);
             //   2. QUÉ es: el tipo y, al lado, la marca ("CHUTO  SINOTRUK");
             //   3. el modelo y CUÁL es: la placa o, si no tiene, el serial
             //      ("Modelo: ZZ4257V324JB1  Placa: A93BE7R"). Ese escalón (placa → serial…) llega
@@ -190,14 +191,13 @@
                 (op.dudosa ? '<div class="mapa-eq-dudosa"><i class="material-icons">location_off</i>' +
                     '<span>El GPS la reporta FUERA de Venezuela: no es donde está el equipo. Hay que revisar ese GPS.</span></div>' : '') +
                 '<div class="mapa-eq-head" style="border-left-color:' + color + '">' +
-                    '<div class="mapa-eq-frente" title="Asignado a ' + esc(frente) + '">' +
-                        '<span class="mapa-eq-rot">Asignado a</span> ' + esc(frente) + '</div>' +
+                    '<div class="mapa-eq-frente" title="' + esc(frente) + '">' + esc(frente) + '</div>' +
                     '<div class="mapa-eq-tit"><b title="' + esc(segundaTxt) + '">' + segunda + '</b></div>' +
                     // Sin "En línea / Sin conexión" (pedido del cliente, 01-10-2026): lo dice ya
                     // "Última señal", y el icono del mapa sale apagado si no está en línea.
                     (tercera ? '<div class="mapa-eq-desc" title="' + esc(terceraTxt) + '">' + tercera + '</div>' : '') +
-                    (chasis ? '<div class="mapa-eq-desc" title="Serial de chasis: ' + esc(chasis) + '">' +
-                        parte('Serial de chasis: ' + esc(chasis), true) + '</div>' : '') +
+                    (chasis ? '<div class="mapa-eq-desc" title="Chasis: ' + esc(chasis) + '">' +
+                        parte('Chasis: ' + esc(chasis), true) + '</div>' : '') +
                 '</div>' +
                 // Con la última posición conocida (`vieja`) los datos de abajo son de cuando se
                 // consultó, no de ahora: se dice, hasta que llegue la lectura nueva.

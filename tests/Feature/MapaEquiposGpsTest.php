@@ -144,7 +144,7 @@ class MapaEquiposGpsTest extends MySqlTestCase
         if ($placa !== '') {
             $this->assertSame([$placa, 'Placa'], [$datos['ident'], $datos['ident_por']]);
         } elseif ($chasis !== '') {
-            $this->assertSame([$chasis, 'Serial'], [$datos['ident'], $datos['ident_por']]);
+            $this->assertSame([$chasis, 'Chasis'], [$datos['ident'], $datos['ident_por']]);
         }
         $this->assertStringNotContainsString('authcode', $r->getContent());
 
@@ -279,13 +279,13 @@ class MapaEquiposGpsTest extends MySqlTestCase
 
         $casos = [
             [['PLACA' => 'A00AA0A', 'SERIAL_CHASIS' => 'CH-1'], ['A00AA0A', 'Placa']],
-            [['SERIAL_CHASIS' => 'CH-1', 'SERIAL_DE_MOTOR' => 'MO-1'], ['CH-1', 'Serial']],
+            [['SERIAL_CHASIS' => 'CH-1', 'SERIAL_DE_MOTOR' => 'MO-1'], ['CH-1', 'Chasis']],
             [['SERIAL_DE_MOTOR' => 'MO-1', 'CODIGO_PATIO' => 'CP-1'], ['MO-1', 'Serial motor']],
             [['CODIGO_PATIO' => 'CP-1', 'NUMERO_ETIQUETA' => 'ET-1'], ['CP-1', 'Código']],
             [['NUMERO_ETIQUETA' => 'ET-1'], ['ET-1', 'Etiqueta']],
             [[], ['Equipo ' . $id, '']],
             // Una placa con solo un espacio duro (pegada desde Excel) está vacía: baja al serial.
-            [['PLACA' => "\u{00A0}", 'SERIAL_CHASIS' => ' CH-2 '], ['CH-2', 'Serial']],
+            [['PLACA' => "\u{00A0}", 'SERIAL_CHASIS' => ' CH-2 '], ['CH-2', 'Chasis']],
         ];
         foreach ($casos as [$datos, $esperado]) {
             $poner($datos);

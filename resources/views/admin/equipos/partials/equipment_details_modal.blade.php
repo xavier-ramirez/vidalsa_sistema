@@ -535,7 +535,6 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
        la × del modal va en el encabezado del modal. */
     #gpsTrackerModal .mapa-eq-head { background: #ecfdf5; border-bottom-color: #bbf7d0; }
     #gpsTrackerModal .mapa-eq-frente { padding-right: 0; border-bottom-color: #bbf7d0; }
-    #gpsTrackerModal .mapa-eq-rot { font-size: 10.5px; color: #047857; }
     #gpsTrackerModal .mapa-eq-dudosa { padding-right: 12px; }
     .gps-vence { margin: 0; font-size: 11px; font-weight: 600; color: #475569; text-align: center; }
 
@@ -545,8 +544,8 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
        chicos de la ficha (9,5-11,5 px) costaban de leer. Solo aquí, que hay sitio; la tarjeta
        de /mapa es más angosta y se queda como está. */
     #gpsTrackerModal .mapa-eq-frente,
-    #gpsTrackerModal .mapa-eq-tit b,
-    #gpsTrackerModal .mapa-eq-desc { font-size: 13px; }
+    #gpsTrackerModal .mapa-eq-tit b { font-size: 13px; }
+    #gpsTrackerModal .mapa-eq-desc { font-size: 12px; }   /* Modelo / Placa y Chasis, más chicos que el tipo */
     #gpsTrackerModal .mapa-eq-cel span { font-size: 11px; }
     #gpsTrackerModal .mapa-eq-cel b { font-size: 14px; }
     #gpsTrackerModal .mapa-eq-cel small { font-size: 12px; }
@@ -818,7 +817,7 @@ if (!window._gpsModalScriptLoaded) {
             // Mientras el servidor contesta, qué equipo es sale de lo que trae el botón.
             var placa  = limpio(ds.equipoName, ['N/A', 'Sin Placa']);
             var serial = limpio(ds.equipoSerial, ['N/A', 'Sin Chasis']);
-            ponerIdent({ tipo: ds.equipoTipo, ident: placa || serial, ident_por: placa ? 'Placa' : 'Serial' });
+            ponerIdent({ tipo: ds.equipoTipo, ident: placa || serial, ident_por: placa ? 'Placa' : 'Chasis' });
 
             // Estado inicial: todo vacío y el mapa cargando.
             $('gps_ficha').innerHTML = '';
