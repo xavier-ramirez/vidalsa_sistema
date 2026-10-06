@@ -745,7 +745,7 @@ if (!window._gpsModalScriptLoaded) {
             $('gps_ident').textContent = '';
             ficha.innerHTML = window.GpsFicha.html({
                 tipo: eq.tipo, modelo: eq.modelo, marca: eq.marca,
-                ident: eq.ident, identPor: eq.ident_por,
+                ident: eq.ident, identPor: eq.ident_por, chasis: eq.serial_chasis,
                 frente: eq.frente, color: '#10b981', gps: g
             }, {
                 dudosa: !!g.fuera_de_venezuela,

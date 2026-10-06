@@ -105,11 +105,13 @@
          * El HTML de la ficha, o cadena vacía si el equipo no tiene posición que pintar
          * (sin `gps`, con `gps.ok` falso o sin coordenadas).
          *
-         * @param {object} eq  El equipo: { tipo, modelo, marca, ident, identPor, frente, color,
-         *                     gps }. `ident` es CÓMO se llama (placa; si no, serial de chasis,
+         * @param {object} eq  El equipo: { tipo, modelo, marca, ident, identPor, chasis, frente,
+         *                     color, gps }. `ident` es CÓMO se llama (placa; si no, serial de chasis,
          *                     de motor, código o etiqueta) e `identPor` su rótulo ("Placa",
          *                     "Serial"…, vacío para "Equipo N"). Los dos llegan resueltos
-         *                     del servidor (MapaController::identificar).
+         *                     del servidor (MapaController::identificar). `chasis` es el
+         *                     serial de chasis, que va en su propio renglón aunque el
+         *                     equipo se identifique por la placa.
          *                     `gps` es lo que devuelve Gps51Service.
          * @param {object} op  Opcional:
          *                     · dudosa   true si el GPS la reporta fuera del país: pinta el
@@ -148,6 +150,14 @@
             var tipo = limpio(eq.tipo) || 'Sin tipo';
             var modelo = limpio(eq.modelo), marca = limpio(eq.marca);
             var frente = limpio(eq.frente) || 'Sin frente';
+            // 4. El serial de chasis, en su propio renglón y SIEMPRE que lo haya (pedido del
+            //    cliente, 06-10-2026): en campo es lo que se coteja contra la chapa del equipo, y
+            //    antes solo salía cuando el equipo no tenía placa. En su renglón y no detrás de la
+            //    placa porque el de arriba ya llega a dos líneas con un modelo largo y un VIN de 17
+            //    caracteres lo cortaría con "…". Si ya es el identificador (sin placa, sale
+            //    "Serial: X" arriba), no se repite.
+            var chasis = limpio(eq.chasis);   // trim() de JS ya quita el espacio duro
+            if (chasis && identPor === 'Serial' && chasis === ident) chasis = '';
             // Cada dato es una .mapa-eq-parte y entre dos va un espacio (ahí puede partirse el
             // renglón) más el hueco del CSS. Los de "entero" (la marca, "Modelo: X", "Placa: X", la
             // coordenada) no se parten por dentro: si no caben, bajan enteros. El title sale de los
@@ -176,6 +186,8 @@
                     // Sin "En línea / Sin conexión" (pedido del cliente, 01-10-2026): lo dice ya
                     // "Última señal", y el icono del mapa sale apagado si no está en línea.
                     (tercera ? '<div class="mapa-eq-desc" title="' + esc(terceraTxt) + '">' + tercera + '</div>' : '') +
+                    (chasis ? '<div class="mapa-eq-desc" title="Serial de chasis: ' + esc(chasis) + '">' +
+                        parte('Serial de chasis: ' + esc(chasis), true) + '</div>' : '') +
                 '</div>' +
                 // Con la última posición conocida (`vieja`) los datos de abajo son de cuando se
                 // consultó, no de ahora: se dice, hasta que llegue la lectura nueva.

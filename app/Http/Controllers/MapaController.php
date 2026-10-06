@@ -170,6 +170,9 @@ class MapaController extends Controller
                 'marca'         => $equipo->MARCA,
                 'ident'         => $ident,
                 'ident_por'     => $identPor,
+                // Va SIEMPRE en la ficha, aunque el equipo se identifique por la placa (pedido del
+                // cliente, 06-10-2026): en campo el serial de chasis es lo que se coteja.
+                'serial_chasis' => $equipo->SERIAL_CHASIS,
                 'frente'        => optional($equipo->frenteActual)->NOMBRE_FRENTE,
             ],
             'gps'   => $authcode ? (Gps51Service::posiciones([$authcode])[$authcode] ?? null)

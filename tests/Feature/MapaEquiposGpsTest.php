@@ -132,11 +132,13 @@ class MapaEquiposGpsTest extends MySqlTestCase
         // La ficha arma su encabezado con esto: tipo, modelo y marca, y luego cómo se llama el
         // equipo con su rótulo (placa; si no, serial de chasis…).
         $datos = $r->json('equipo');
-        $this->assertEqualsCanonicalizing(['tipo', 'modelo', 'marca', 'ident', 'ident_por', 'frente'], array_keys($datos));
+        $this->assertEqualsCanonicalizing(['tipo', 'modelo', 'marca', 'ident', 'ident_por', 'serial_chasis', 'frente'], array_keys($datos));
         $eq = Equipo::with(['tipo', 'documentacion'])->find($equipo->ID_EQUIPO);
         $this->assertSame(optional($eq->tipo)->nombre, $datos['tipo']);
         $this->assertSame($eq->MODELO, $datos['modelo']);
         $this->assertSame($eq->MARCA, $datos['marca']);
+        // El serial de chasis va siempre, aunque el equipo se identifique por la placa.
+        $this->assertSame($eq->SERIAL_CHASIS, $datos['serial_chasis']);
         $placa = trim((string) optional($eq->documentacion)->PLACA);
         $chasis = trim((string) $eq->SERIAL_CHASIS);
         if ($placa !== '') {

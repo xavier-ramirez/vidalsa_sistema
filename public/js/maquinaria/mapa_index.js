@@ -3457,6 +3457,7 @@
         function eqFicha(e) {
             return window.GpsFicha.html({
                 tipo: e.tipo, modelo: e.modelo, marca: e.marca, ident: eqIdent(e), identPor: e.ident_por,
+                chasis: e.serial_chasis,
                 color: eqColor(e), frente: e.frente ? e.frente.nombre : null, gps: e.gps
             }, {
                 dudosa: eqDudosa(e),
