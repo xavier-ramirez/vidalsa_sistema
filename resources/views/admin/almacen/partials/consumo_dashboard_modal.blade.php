@@ -576,24 +576,24 @@
         //
         // Del cuarto en adelante, antes iba una escala de AZULES intercalada (oscuro, claro,
         // oscuro...). Con 18 proyectos eran 15 azules y el cliente veia "el azul repetido
-        // varias veces" (07-10-2026). Ahora cada proyecto tiene un color PROPIO: primero una
-        // familia fria (indigo, celeste, marino, lavanda, verde azulado,
-        // turquesa, pizarra, azul medio, verde) y, si hay mas proyectos, tonos de apoyo
-        // (ciruela, oliva, vino, mostaza, rosa, cafe, frambuesa). Solo quedan tres azules
-        // (marino, azul medio y celeste), separados en la lista y bien distintos.
+        // varias veces"; y una lista con lilas, verdes y rosados "no pegaba" (07-10-2026).
+        // Ahora cada proyecto tiene un color PROPIO sacado de la MISMA familia de la lamina:
+        // marino y celeste primero (como antes), y despues bronce, petroleo, turquesa,
+        // amarillo claro, gris calido, arena, cafe, pizarra, carmesi, azul medio, celeste
+        // palido, pizarra oscura, rosa palido y rojo frambuesa.
         //
-        // El ORDEN lo eligio scripts/validate_palette.js (skill dataviz), color por color,
-        // como el mas distinto de todos los anteriores. Dos tramos PEGADOS siempre se
-        // separan: vecinos dE >= 12,9 con daltonismo (minimo 8) y >= 18,3 a ojo normal
-        // (minimo 15). El marino, el ambar y el celeste son los de la lamina y quedan fuera
-        // de la banda de luz del validador; se aceptan porque cada barra lleva su total
-        // escrito, y la leyenda y el tooltip dicen quien es quien. Si se tocan estos hex o su
-        // orden, hay que volver a validarlos.
-        var CD_PALETA = ['#8f1410', '#ef5f24', '#f2b53c', '#4338ca', '#60c7fb', '#10335b', '#a78bfa',
-            '#0f766e', '#2dbbb4', '#475569', '#138be1', '#15803d', '#86198f', '#65a30d', '#9d174d',
-            '#a16207', '#f472b6', '#7c4a1e', '#be185d'];
-        // Mas de 19 proyectos: se repite la lista desde el CUARTO color (#4338ca). Los tres
-        // acentos son solo del podio, y el ultimo (#be185d) contra el rojo daba dE 13,7.
+        // El ORDEN lo eligio scripts/validate_palette.js (skill dataviz): dos tramos PEGADOS,
+        // y tambien los que quedan a uno de distancia, se separan siempre (vecinos dE >= 14,2
+        // con daltonismo, minimo 8; >= 19,1 a ojo normal, minimo 15; la pareja mas justa es
+        // naranja/ambar del podio). El marino, el ambar y los tonos claros quedan fuera de
+        // la banda de luz del validador; se aceptan porque cada barra lleva su total escrito,
+        // y la leyenda y el tooltip dicen quien es quien. Si se tocan estos hex o su orden,
+        // hay que volver a validarlos.
+        var CD_PALETA = ['#8f1410', '#ef5f24', '#f2b53c', '#10335b', '#60c7fb', '#a16207', '#0e7490',
+            '#2dbbb4', '#fde68a', '#78716c', '#d6a96b', '#7c2d12', '#94a3b8', '#be123c', '#138be1',
+            '#a5dcfd', '#475569', '#fda4af', '#e11d48'];
+        // Mas de 19 proyectos: se repite la lista desde el CUARTO color (#10335b). Los tres
+        // acentos son solo del podio, y el ultimo (#e11d48) pegado al rojo se confundiria.
         function cdColorProyecto(i) {
             var n = CD_PALETA.length;
             return i < n ? CD_PALETA[i] : CD_PALETA[3 + (i - n) % (n - 3)];

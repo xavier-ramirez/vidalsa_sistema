@@ -92,10 +92,24 @@ return new class extends Migration
             WHERE s.ID_STOCK <> g.keep_id
         ');
 
-        Schema::table('almacen_stock', function (Blueprint $table) {
-            $table->dropUnique('uq_stock_alm_prod_frente');
-            $table->unique(['ID_ALMACEN', 'ID_PRODUCTO'], 'uq_stock_alm_prod');
-            $table->dropColumn('ID_FRENTE');
-        });
+        // Mismo ORDEN que en up(), al revés: primero se restaura el índice viejo y solo
+        // después se borra el nuevo. Si se borra antes, MySQL aborta con "Cannot drop
+        // index 'uq_stock_alm_prod_frente': needed in a foreign key constraint" (la FK de
+        // ID_ALMACEN se queda sin índice que la cubra).
+        if (!$this->indiceExiste('uq_stock_alm_prod')) {
+            Schema::table('almacen_stock', function (Blueprint $table) {
+                $table->unique(['ID_ALMACEN', 'ID_PRODUCTO'], 'uq_stock_alm_prod');
+            });
+        }
+        if ($this->indiceExiste('uq_stock_alm_prod_frente')) {
+            Schema::table('almacen_stock', function (Blueprint $table) {
+                $table->dropUnique('uq_stock_alm_prod_frente');
+            });
+        }
+        if (Schema::hasColumn('almacen_stock', 'ID_FRENTE')) {
+            Schema::table('almacen_stock', function (Blueprint $table) {
+                $table->dropColumn('ID_FRENTE');
+            });
+        }
     }
 };

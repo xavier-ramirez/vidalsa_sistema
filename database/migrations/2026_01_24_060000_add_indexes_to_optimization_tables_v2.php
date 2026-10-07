@@ -44,21 +44,22 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('equipos', function (Blueprint $table) {
-            $table->dropIndex(['ID_FRENTE_ACTUAL']);
-            $table->dropIndex(['ESTADO_OPERATIVO']);
-            $table->dropIndex(['TIPO_EQUIPO']);
-            $table->dropIndex(['MARCA']);
-            $table->dropIndex(['MODELO']);
-            $table->dropIndex(['CATEGORIA_FLOTA']);
-        });
-
-        Schema::table('movilizacion_historial', function (Blueprint $table) {
-            $table->dropIndex(['ID_EQUIPO']);
-            $table->dropIndex(['ID_FRENTE_ORIGEN']);
-            $table->dropIndex(['ID_FRENTE_DESTINO']);
-            $table->dropIndex(['FECHA_DESPACHO']);
-            $table->dropIndex(['ESTADO_MVO']);
-        });
+        // Simétrico a up(): allí cada índice se crea solo si faltaba (y otras migraciones
+        // pueden haberlo borrado después), así que aquí se borra solo si EXISTE. Sin la
+        // guarda, migrate:reset abortaba con "Can't DROP INDEX ... check that it exists".
+        $quitar = [
+            'equipos' => ['ID_FRENTE_ACTUAL', 'ESTADO_OPERATIVO', 'TIPO_EQUIPO', 'MARCA', 'MODELO', 'CATEGORIA_FLOTA'],
+            'movilizacion_historial' => ['ID_EQUIPO', 'ID_FRENTE_ORIGEN', 'ID_FRENTE_DESTINO', 'FECHA_DESPACHO', 'ESTADO_MVO'],
+        ];
+        foreach ($quitar as $tabla => $columnas) {
+            $existentes = collect(DB::select("SHOW INDEXES FROM {$tabla}"))->pluck('Key_name')->toArray();
+            Schema::table($tabla, function (Blueprint $table) use ($tabla, $columnas, $existentes) {
+                foreach ($columnas as $col) {
+                    if (in_array($tabla . '_' . strtolower($col) . '_index', $existentes)) {
+                        $table->dropIndex([$col]);
+                    }
+                }
+            });
+        }
     }
 };
