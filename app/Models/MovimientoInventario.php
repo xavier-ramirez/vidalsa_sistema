@@ -47,32 +47,35 @@ class MovimientoInventario extends Model
     public const TIPOS_SALIDA  = [self::TIPO_SALIDA, self::TIPO_TRASPASO_SALIDA];
 
     /**
-     * Metadata visual de cada TIPO para los partials del kardex (label / color
-     * texto / color fondo / ícono). Centraliza la definición que antes vivía
-     * duplicada en kardex_rows.blade.php y kardex_rows_mini.blade.php — si
+     * Metadata visual de cada TIPO para los partials del kardex (label / color /
+     * ícono). Sin color de fondo: el tipo se lee solo con el color de la letra
+     * (pedido del cliente, 07-10-2026; antes iba en una pastilla). Centraliza la
+     * definición que antes vivía duplicada en kardex_rows.blade.php y
+     * kardex_rows_mini.blade.php — si
      * mañana renombramos "Auditoría" o cambiamos el ícono de "Traspaso", se
      * toca un solo sitio.
      *
-     * Formato: [LABEL_HUMANO, COLOR_TEXTO_HEX, COLOR_FONDO_HEX, MATERIAL_ICON]
+     * Formato: [LABEL_HUMANO, COLOR_TEXTO_HEX, MATERIAL_ICON] — el mismo que TIPO_META
+     * de movimientos-offline.js.
      */
     public const TIPO_META = [
-        self::TIPO_ENTRADA          => ['Entrada',  '#16a34a', '#dcfce7', 'add'],
+        self::TIPO_ENTRADA          => ['Entrada',  '#16a34a', 'add'],
         // Traspaso entre almacenes: se muestra como Entrada/Salida normal (mismo label y
         // color que su contraparte pura) — para el usuario una salida a otro almacén ES
         // una salida. El ícono direccional (south_west/north_east) y la columna de
         // contraparte/frente indican que fue un movimiento entre almacenes.
-        self::TIPO_TRASPASO_ENTRADA => ['Entrada',  '#16a34a', '#dcfce7', 'south_west'],
-        self::TIPO_SALIDA           => ['Salida',   '#dc2626', '#fee2e2', 'remove'],
-        self::TIPO_TRASPASO_SALIDA  => ['Salida',   '#dc2626', '#fee2e2', 'north_east'],
+        self::TIPO_TRASPASO_ENTRADA => ['Entrada',  '#16a34a', 'south_west'],
+        self::TIPO_SALIDA           => ['Salida',   '#dc2626', 'remove'],
+        self::TIPO_TRASPASO_SALIDA  => ['Salida',   '#dc2626', 'north_east'],
         // AJUSTE en BD = "Auditoría de Inventario" en UI (cuadre por conteo físico).
-        self::TIPO_AJUSTE           => ['Auditoría','#0067b1', '#e1effa', 'fact_check'],
+        self::TIPO_AJUSTE           => ['Auditoría','#0067b1', 'fact_check'],
         // Color propio (verde azulado) y no el verde de Entrada: suma al stock igual, pero
         // no es material nuevo y se tiene que distinguir de una compra de un vistazo.
-        self::TIPO_DEVOLUCION       => ['Devolución', '#0d9488', '#ccfbf1', 'assignment_return'],
+        self::TIPO_DEVOLUCION       => ['Devolución', '#0d9488', 'assignment_return'],
     ];
 
     /** Fallback usado cuando el TIPO no figura en la tabla (defensivo). */
-    public const TIPO_META_DEFAULT = ['?', '#475569', '#f1f5f9', 'swap_vert'];
+    public const TIPO_META_DEFAULT = ['?', '#475569', 'swap_vert'];
 
     /**
      * REFERENCIA de la ENTRADA que se registra al crear un producto con cantidad inicial

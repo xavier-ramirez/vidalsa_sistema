@@ -47,10 +47,10 @@
                 ?: ($m->TIPO === \App\Models\MovimientoInventario::TIPO_DEVOLUCION && isset($notasVigentes[$m->REFERENCIA]) ? $m->REFERENCIA : null);
         @endphp
         <tr class="alm-kp-fila">
-            {{-- Sin la píldora de fondo que llevaba el partial grande ($meta[2]): el cliente
-                 la pidió fuera de este modal. El color del tipo ($meta[1]) va en icono y texto. --}}
+            {{-- Sin píldora de fondo, igual que el partial grande: el color del tipo ($meta[1])
+                 va en icono y texto. --}}
             <td class="alm-kp-tipo" style="color:{{ $meta[1] }};">
-                <i class="material-icons">{{ $meta[3] }}</i>{{ $meta[0] }}
+                <i class="material-icons">{{ $meta[2] }}</i>{{ $meta[0] }}
             </td>
             <td class="alm-kp-cant" style="color:{{ $entra || ($m->TIPO==='AJUSTE' && $signo==='+') ? '#16a34a' : '#dc2626' }};">
                 {{ $signo }}{{ $fmt($mag) }} <span class="alm-kp-um">{{ $m->producto?->UM }}</span>

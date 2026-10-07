@@ -54,9 +54,9 @@
                 ? 'Registrado por: ' . $m->usuario->NOMBRE_COMPLETO
                 : 'Usuario no registrado';
         @endphp
-        <tr class="alm-mov-row" style="--mov-color: {{ $meta[1] }}; --mov-fondo: {{ $meta[2] }}">
-            {{-- Fecha + Tipo COMBINADOS en una sola columna: la fecha arriba y la pill
-                 de tipo debajo. En mobile la pill se oculta (.mv-tipo-inline) igual que
+        <tr class="alm-mov-row" style="--mov-color: {{ $meta[1] }}">
+            {{-- Fecha + Tipo COMBINADOS en una sola columna: la fecha arriba y el tipo
+                 debajo. En mobile el tipo se oculta (.mv-tipo-inline) igual que
                  antes hacía el td.mv-td-tipo — la cantidad ya comunica entrada/salida. --}}
             <td class="mv-td-fecha" data-label="Fecha">
                 {{-- Fecha del movimiento (FECHA, solo dia) + HORA real de registro (created_at,
@@ -64,7 +64,7 @@
                 <div>{{ optional($m->FECHA)->format('d/m/Y') }} <span class="mv-hora">{{ optional($m->created_at)->format('h:i A') }}</span></div>
                 {{-- El color lo toma de --mov-color, que la fila publica arriba. --}}
                 <span class="mv-tipo-inline">
-                    <i class="material-icons">{{ $meta[3] }}</i>{{ $meta[0] }}
+                    <i class="material-icons">{{ $meta[2] }}</i>{{ $meta[0] }}
                 </span>
             </td>
             {{-- Descripción del producto: "SERIAL: NOMBRE" — el CODIGO va primero (monoespaciado y resaltado)
@@ -107,14 +107,14 @@
             @endphp
             <td class="mv-td-cantidad {{ $entra || ($m->TIPO === 'AJUSTE' && $signo === '+') ? 'mv-suma' : 'mv-resta' }}" data-label="Cantidad">{{ $signo }}{{ $fmt($mag) }} <span class="mv-um">{{ $m->producto?->UM }}</span>
                 @if($devuelto > \App\Services\InventarioService::EPS)
-                    <span class="mv-devuelto" title="De lo entregado en esta línea ya volvieron {{ $fmt($devuelto) }} {{ $m->producto?->UM }}">devuelto {{ $fmt($devuelto) }}</span>
+                    <span class="mv-devuelto" title="De lo entregado en esta línea ya volvieron {{ $fmt($devuelto) }} {{ $m->producto?->UM }}">Devuelto {{ $fmt($devuelto) }}</span>
                 @endif
                 @if($m->NUMERO_NOTA && isset($corregidos[$m->NUMERO_NOTA . '|' . $m->ID_PRODUCTO]))
                     {{-- La nota se corrigió en este producto: abre la original (corrección en rojo)
                          y la corregida, lado a lado. Lo ve quien ve la nota. --}}
                     <button type="button" class="mv-corregida"
                             onclick="event.stopPropagation(); window.almVerCorreccion('{{ $m->NUMERO_NOTA }}');"
-                            title="Cantidad corregida: ver la nota original y la corregida">corregida</button>
+                            title="Cantidad corregida: ver la nota original y la corregida">Corregida</button>
                 @endif
             </td>
             {{-- Stock: solo el saldo RESULTANTE (cómo quedó tras el movimiento). El "antes → después"

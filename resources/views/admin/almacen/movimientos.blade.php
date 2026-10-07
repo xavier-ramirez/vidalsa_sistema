@@ -299,7 +299,7 @@
                      (sin width) para que absorba el espacio restante y se vea proporcional. Las demás
                      llevan ancho fijo acorde al contenido típico. --}}
                 <tr>
-                    {{-- Fecha + Tipo combinados en una sola columna (la pill de tipo va
+                    {{-- Fecha + Tipo combinados en una sola columna (el tipo va
                          debajo de la fecha en cada fila). Se eliminó la columna Tipo. --}}
                     {{-- Anchos de PC en PORCENTAJE y con table-layout:fixed (ver el CSS): en
                          reparto automático el navegador los ignoraba y repartía por contenido
