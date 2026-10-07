@@ -260,8 +260,8 @@
            al tocarla (la misma selección .mv-row-selected de siempre, una a la
            vez) se despliega el resto:
              ┌──────────────────────────────────────────────┐
-             │ 000124 BOTA DE SEGURIDAD…   −2 PAR    📄 ✎   │
-             │                          📋 Corregida        │
+             │ 000124 BOTA DE SEGURIDAD…   −2 PAR      📄   │
+             │                          📋 Corregida   ✎    │
              │                          📅 05/10/26         │
              │                             —   (tipo)       │
              │ 📍 TUBERÍA DE 30" VELADERO TRAMO I         ▾ │
@@ -370,10 +370,11 @@
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .tooltip-bubble { display: none !important; }
 
         /* Celda de la nota en la tarjeta RECOGIDA: solo los iconos, en su columna a la derecha
-           ("pdf"), del mismo negro que en escritorio y sin círculo de fondo. El número, la
-           referencia / OC, el proveedor y el deshacer salen al desplegarla. */
+           ("pdf"), del mismo negro que en escritorio y sin círculo de fondo; la nota ARRIBA y
+           Modificar DEBAJO (pedido del cliente, 07-10-2026). El número, la referencia / OC, el
+           proveedor y el deshacer salen al desplegarla. */
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref {
-            grid-area: pdf !important; position: static !important;
+            grid-area: pdf !important; position: static !important; flex-direction: column !important;
             justify-content: center !important; align-items: center !important; gap: 2px !important;
         }
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref::after { content: none !important; }
