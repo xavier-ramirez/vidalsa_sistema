@@ -586,7 +586,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                     box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.12); }
         .gps-plegar {
             display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0;
-            width: 100%; padding: 10px 16px; border: 0; background: #f8fafc; cursor: pointer;
+            width: 100%; padding: 10px 16px; border: 0; background: #f8fafc; cursor: default;
             font: inherit; font-size: 13px; font-weight: 800; color: #0f172a;
         }
         .gps-plegar .material-icons { font-size: 20px; color: #10b981; transition: transform 0.2s; }
@@ -666,11 +666,10 @@ if (!window._gpsModalScriptLoaded) {
                 if (!M.mapa) {
                     M.mapa = L.map(cont, {
                         zoomControl: true,
-                        attributionControl: false,   // sin el texto de créditos, igual que /mapa
-                        // Con un dedo se arrastra el mapa también en el teléfono: ahí ya no hay que
-                        // desplazar la página hasta la ficha, que va en su hoja de abajo (ver
-                        // toggleGpsInfo).
-                        dragging: true
+                        // Sin el texto de créditos, igual que /mapa. Se arrastra con un dedo también
+                        // en el teléfono (lo de Leaflet): ahí ya no hay que desplazar la página hasta
+                        // la ficha, que va en su hoja de abajo (ver plegarInfo).
+                        attributionControl: false
                     });
                     // Satélite de Google con los nombres de calles y lugares ya puestos: sin las
                     // nubes que trae el de Esri en algunas zonas (pedido del cliente, 01-10-2026).
