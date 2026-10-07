@@ -458,8 +458,6 @@
             var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
             return (0.299 * r + 0.587 * g + 0.114 * b) > 135;
         }
-        // Degradado vertical (claro arriba → marca abajo) para barras verticales.
-        function cdVGrad(c, a, b) { var ar = c.chart.chartArea; if (!ar) return b; var g = c.chart.ctx.createLinearGradient(0, ar.top, 0, ar.bottom); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
         // Degradado horizontal (marca izq → claro der) para barras horizontales.
         function cdHGrad(c, a, b) { var ar = c.chart.chartArea; if (!ar) return a; var g = c.chart.ctx.createLinearGradient(ar.left, 0, ar.right, 0); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
 
@@ -544,16 +542,15 @@
         };
 
         // ── 1) Comparacion volumetrica de despacho de stock por proyecto (apiladas) ──
-        // Una barra por mes; cada tramo, lo que consumió un proyecto. Salen TODOS: antes los de
-        // menos consumo se juntaban en "Otros proyectos" y el cliente no veía el suyo en el
-        // gráfico (pedido del 16-09-2026). La leyenda va a la IZQUIERDA, un proyecto debajo de
-        // otro, así que crecer en proyectos la alarga hacia abajo y no come ancho de barra.
+        // Una barra por mes; cada tramo, lo que consumió un proyecto (solo proyectos: lo que
+        // salió sin frente no entra, ver consumoPorMesFrente). Los 8 que más consumieron con su
+        // color y el resto en "Otros proyectos" (ver COLORES, abajo). La leyenda va a la
+        // IZQUIERDA, un proyecto debajo de otro, y no come ancho de barra.
         var cdEstrecho = window.innerWidth < 640;   // telefono: la leyenda va abajo y mas chica
         var mes = data.por_mes || [];
         // La grafica ARRANCA EN JUNIO (pedido del cliente, 17-09-2026). Abril y mayo son la
         // carga historica con la que se cuadraron los saldos de arranque: 1.007 salidas sin
-        // proyecto, que pintaban dos barras casi enteras de "Sin proyecto" y tapaban lo que
-        // de verdad se quiere leer. Solo se saltan si el usuario NO pidio un rango propio:
+        // proyecto (que ya no se pintan) y que dejarian dos meses casi vacios al principio. Solo se saltan si el usuario NO pidio un rango propio:
         // si escribe un "Desde" en el filtro, manda el suyo.
         var CD_PRIMER_MES = '2026-06';
         if (!((document.getElementById('cdashDesde') || {}).value || '')) {
@@ -561,114 +558,55 @@
         }
         var meses = mes.map(function (x) { return x.mes; });
         var porProy = data.por_mes_frente || [];
-        // COLORES de la pila (17-09-2026). El cliente pidio LOS MISMOS del ranking "Total
-        // de Consumo por Frente" del modulo de combustible (consumibles/graficos.blade.php,
-        // renderTotalFrente): los primeros puestos en tonos calidos y del siguiente para
-        // abajo una escala de AZUL que se va aclarando. Aqui se copia esa idea, no los hex
-        // sueltos: alla las barras son horizontales y llevan su rotulo al lado, asi que la
-        // rampa puede ir de corrido; en una pila los tramos se TOCAN, y de corrido dos vecinos
-        // salen dos azules casi iguales (ya paso y el cliente lo canto).
+        // COLORES de la pila (07-10-2026, pedido del cliente: "unos colores más elegantes").
+        // Los OCHO proyectos que más consumieron llevan cada uno un color de la paleta
+        // categórica de referencia (skill dataviz, references/palette.md), en ESE orden: el
+        // orden es el que la hace segura para daltonismo entre tramos vecinos. Comprobado con
+        // scripts/validate_palette.js: vecinos dE 9,1 (daltonismo, mínimo 8) y 19,6 (ojo
+        // normal, mínimo 15). Si se tocan estos hex o su orden, hay que volver a validarlos.
         //
-        // Por eso la rampa se parte por la mitad y se INTERCALA: oscuro, claro, oscuro,
-        // claro... Dos tramos pegados quedan siempre a media rampa de distancia, que es la
-        // mayor separacion que se puede sacar de un solo tono, y aun asi la leyenda se lee
-        // como una escala de azules de oscuro a claro.
-        //
-        // La escala se calcula con el numero de proyectos que HAY, no de una lista fija: con
-        // 5 proyectos los azules se reparten los 5, con 22 se reparten los 22. Asi nunca
-        // sobran tonos ni se repiten.
-        //
-        // LOS TONOS salen de la lamina de UNIDADES INOPERATIVAS DE FLOTA PESADA, que es la
-        // que el cliente puso de ejemplo: azul marino de cabecera, azules medios de los
-        // bloques, celeste de las tarjetas, y el rojo / naranja / ambar de los acentos. La
-        // rampa recorre esa escala de azules de punta a punta, ganando saturacion segun
-        // aclara (70% -> 95%), que es lo que evita el lila desvaido del intento anterior.
-        //
-        // COMPROBADO con scripts/validate_palette.js para los 22 proyectos de Barcelona:
-        //   - Separacion para daltonismo entre vecinos: dE 14,2 (deuteranopia) - minimo 8.
-        //   - Separacion a ojo normal entre vecinos:    dE 19,1                - minimo 15.
-        //   - Saturacion: el marino mas oscuro queda por debajo del minimo. Es el color de
-        //     la cabecera de la lamina; aclararlo seria salirse de lo que se pidio.
-        //   - Contraste sobre blanco: el ambar y los celestes mas claros quedan por debajo
-        //     de 3:1. Se acepta porque el color no es el unico dato: cada barra lleva su
-        //     total escrito encima y la leyenda dice quien es quien.
-        //
-        // Aviso para que no se pierda: el rojo tambien significa "mal" en el resto del
-        // sistema (stock bajo, inoperativo). Aqui NO significa eso: marca al que MAS saco.
-        // Los tres primeros puestos llevan los acentos calidos de la lamina de UNIDADES
-        // INOPERATIVAS DE FLOTA PESADA, que es de donde el cliente saco los tonos: rojo,
-        // naranja y ambar. El rojo se lo queda el proyecto que MAS saco.
-        //
-        // Van en este orden por una razon medida, no por gusto: con el rojo y el naranja
-        // pegados uno al otro la pareja daba dE 9,0 a ojo normal -se leian como el mismo
-        // color-. Bajando el rojo a #8f1410 y subiendo el naranja a #ef5f24 la pareja sube
-        // a 19,1. Si se tocan estos tres hex, hay que volver a pasar el validador.
-        var CD_ACENTOS = ['#8f1410', '#ef5f24', '#f2b53c'];
-        function cdHsl(h, s, l) {
-            s /= 100; l /= 100;
-            var a = s * Math.min(l, 1 - l);
-            var f = function (n) {
-                var k = (n + h / 30) % 12;
-                var v = l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
-                var t = Math.round(v * 255).toString(16);
-                return (t.length < 2 ? '0' : '') + t;
-            };
-            return '#' + f(0) + f(8) + f(4);
-        }
-        // n = cuantos PROYECTOS hay (sin contar "Sin proyecto", que va aparte).
-        function cdEscalaProyectos(n) {
-            var out = CD_ACENTOS.slice(0, Math.min(CD_ACENTOS.length, n));
-            var m = Math.max(n - CD_ACENTOS.length, 0);
-            if (!m) return out;
-            var rampa = [];
-            for (var i = 0; i < m; i++) {
-                var t = m > 1 ? i / (m - 1) : 0;
-                rampa.push(cdHsl(212 - 12 * t, 70 + 25 * t, 21 + 47 * t));
-            }
-            var mitad = Math.ceil(m / 2);
-            for (var j = 0; j < mitad; j++) {
-                out.push(rampa[j]);
-                if (mitad + j < m) out.push(rampa[mitad + j]);
-            }
-            return out;
-        }
-        // El tramo que NO es un proyecto va en el gris de la interfaz: el color queda
-        // reservado a los proyectos de verdad. Lleva su propio contador para que ese tramo
-        // no se coma un puesto de la escala.
-        var CD_COLOR_SIN_PROY = '#64748b';
-        var cdPaleta = [], cdTurnoColor = 0;
-        var cdColorProyecto = function (nombre) {
-            if (nombre === 'Sin proyecto') return CD_COLOR_SIN_PROY;
-            return cdPaleta[cdTurnoColor++ % cdPaleta.length];
-        };
+        // Del noveno para abajo NO se inventan más colores: con 18 proyectos los tonos salían
+        // parecidos y no se distinguían. Se juntan en un solo tramo gris, "Otros proyectos",
+        // y el tooltip de ese tramo dice cuáles son y cuánto puso cada uno en el mes. (Esto
+        // reemplaza al "salen TODOS" del 16-09-2026: con todos, el color ya no identificaba a
+        // nadie.) Cuatro tonos (verde agua, ámbar, rosa y el gris) quedan por debajo de 3:1
+        // sobre blanco: los cubre que cada barra lleve su total escrito, la leyenda y el tooltip.
+        var CD_PALETA = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+        var CD_OTROS = 'Otros proyectos', CD_COLOR_OTROS = '#94a3b8';
 
         var totalPorProy = {};
         porProy.forEach(function (x) { totalPorProy[x.proyecto] = (totalPorProy[x.proyecto] || 0) + x.total; });
         // Solo los que CONSUMIERON: un proyecto cuyas devoluciones se comen sus salidas queda
         // en cero o en negativo y no pinta ningun tramo; sin este filtro se colaba igual en
         // la leyenda, con su color, sin nada que mostrar.
-        var series = Object.keys(totalPorProy)
+        var orden = Object.keys(totalPorProy)
             .filter(function (p) { return totalPorProy[p] > 0; })
             .sort(function (a, b) { return totalPorProy[b] - totalPorProy[a]; });
+        var conColor = orden.slice(0, CD_PALETA.length);
+        var otros = orden.slice(CD_PALETA.length);
+        var esOtro = {};
+        otros.forEach(function (p) { esOtro[p] = true; });
 
-        var valor = {};   // proyecto|mes → total
+        var valor = {};    // proyecto|mes → total (los de "Otros", sumados bajo CD_OTROS)
+        var detalleOtros = {};   // mes → [[proyecto, total]…], para el tooltip del tramo gris
         porProy.forEach(function (x) {
-            var clave = x.proyecto + '|' + x.mes;
+            if (!(totalPorProy[x.proyecto] > 0)) return;
+            var nombre = esOtro[x.proyecto] ? CD_OTROS : x.proyecto;
+            var clave = nombre + '|' + x.mes;
             valor[clave] = (valor[clave] || 0) + x.total;
+            if (esOtro[x.proyecto] && x.total > 0) (detalleOtros[x.mes] = detalleOtros[x.mes] || []).push([x.proyecto, x.total]);
         });
-        // La escala se dimensiona con los proyectos que realmente pintan (sin contar
-        // "Sin proyecto", que tiene su gris aparte).
-        cdPaleta = cdEscalaProyectos(series.filter(function (p) { return p !== 'Sin proyecto'; }).length);
-        cdTurnoColor = 0;
-        var datasets = series.map(function (p) {
+        Object.keys(detalleOtros).forEach(function (m) { detalleOtros[m].sort(function (a, b) { return b[1] - a[1]; }); });
+
+        var series = conColor.concat(otros.length ? [CD_OTROS] : []);
+        var datasets = series.map(function (p, i) {
             return {
                 label: p,
                 data: meses.map(function (m) { return valor[p + '|' + m] || 0; }),
                 // Color PLANO. Se probo con degradado dentro de cada tramo y el cliente lo
-                // quito (17-09-2026): con veintitantos proyectos apilados el degradado
-                // aclaraba la parte de arriba de cada tramo y se confundia con el color del
-                // tramo de encima. Plano se lee mejor.
-                backgroundColor: cdColorProyecto(p),
+                // quito (17-09-2026): el degradado aclaraba la parte de arriba de cada tramo y
+                // se confundia con el color del tramo de encima. Plano se lee mejor.
+                backgroundColor: p === CD_OTROS ? CD_COLOR_OTROS : CD_PALETA[i],
                 // Sin raya blanca entre tramos: la quito el cliente (17-09-2026). La paleta
                 // ya separa los colores sola, y el borde picaba la pila en trocitos.
                 //
@@ -678,13 +616,6 @@
                 borderWidth: 0, borderRadius: 0, borderSkipped: false, maxBarThickness: 48,
             };
         });
-        // Sin desglose por proyecto (p. ej. filtrando uno solo) se dibuja la barra de siempre.
-        if (!datasets.length) {
-            datasets = [{ label: 'Consumo', data: mes.map(function (x) { return x.total; }),
-                backgroundColor: function (c) { return cdVGrad(c, '#38bdf8', '#0067b1'); },
-                hoverBackgroundColor: function (c) { return cdVGrad(c, '#0ea5e9', '#005a9e'); },
-                borderRadius: 6, borderSkipped: false, maxBarThickness: 44 }];
-        }
 
         // La leyenda de la izquierda crece hacia abajo con cada proyecto. Con los 320 px
         // fijos de .conleyenda, a partir de ~14 proyectos los ultimos quedaban cortados.
@@ -708,12 +639,18 @@
                     // A la IZQUIERDA (en el telefono abajo, que ahi no cabe): los proyectos
                     // quedan uno debajo de otro y las barras a su derecha.
                     legend: { display: datasets.length > 1, position: cdEstrecho ? 'bottom' : 'left', align: 'start',
+                        maxWidth: 300,   // los nombres largos ("TUBERÍA DE 30'' VELADERO TRAMO I") se cortaban contra el eje
                         labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle',
                             padding: cdEstrecho ? 8 : 14,
                             font: { size: cdEstrecho ? 10 : 11.5, family: "'Inter','Segoe UI',sans-serif", weight: 600 }, color: '#334155' } },
                     datalabels: CD_SIN_DATALABELS,
                     tooltip: Object.assign({}, cdTooltip, { callbacks: {
                         label: function (c) { return c.dataset.label + ': ' + fmt(c.parsed.y); },
+                        // El tramo gris dice quiénes lo forman y cuánto puso cada uno ese mes.
+                        afterLabel: function (c) {
+                            if (c.dataset.label !== CD_OTROS) return '';
+                            return (detalleOtros[meses[c.dataIndex]] || []).map(function (x) { return '   · ' + x[0] + ': ' + fmt(x[1]); });
+                        },
                         footer: function (items) {
                             var t = items.reduce(function (s, i) { return s + (Number(i.parsed.y) || 0); }, 0);
                             return items.length > 1 ? 'Total del mes: ' + fmt(t) : '';

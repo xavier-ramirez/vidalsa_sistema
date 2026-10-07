@@ -2520,14 +2520,16 @@ class AlmacenController extends Controller
     /**
      * El MISMO consumo por mes, partido por PROYECTO (el frente que recibió el material): es
      * lo que apila cada barra del gráfico, para ver de un vistazo cuánto puso cada proyecto en
-     * el mes. Lo que salió sin proyecto (bolsa común del almacén) va como "Sin proyecto".
+     * el mes. Solo PROYECTOS: lo que salió sin frente (bolsa común del almacén) no entra, ni
+     * en las barras ni en la leyenda (pedido del cliente, 07-10-2026; antes salía como
+     * "Sin proyecto").
      */
     private function consumoPorMesFrente(callable $base)
     {
         return $base()
-            ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'movimientos_inventario.ID_FRENTE')
+            ->join('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'movimientos_inventario.ID_FRENTE')
             ->selectRaw("DATE_FORMAT(movimientos_inventario.FECHA, '%Y-%m') as mes")
-            ->selectRaw('COALESCE(f.NOMBRE_FRENTE, ?) as proyecto', ['Sin proyecto'])
+            ->selectRaw('f.NOMBRE_FRENTE as proyecto')
             ->selectRaw('SUM(' . MovimientoInventario::SQL_CANTIDAD_NETA . ') as total')
             ->groupBy('mes', 'proyecto')->orderBy('mes')->get()
             ->map(fn ($r) => ['mes' => $r->mes, 'proyecto' => $r->proyecto, 'total' => (float) $r->total])
