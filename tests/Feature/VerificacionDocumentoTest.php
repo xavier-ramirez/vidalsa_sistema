@@ -1005,33 +1005,6 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertStringContainsString('NO esta entre las 3 unidades', (string) $reg->MOTIVO);
     }
 
-    public function test_el_racda_que_nombra_al_equipo_con_su_placa_anterior_lo_autoriza(): void
-    {
-        // El INTT le cambio la placa despues de la providencia: el RACDA lo nombra con la vieja.
-        // La tabla de flota de un ROTC ya leido une esa placa vieja con su serial.
-        [$equipo] = $this->equipoConDocumentos(['FECHA_RACDA' => '2027-07-14', 'FECHA_EMISION_RACDA' => '2025-07-14']);
-        $serial = DB::table('equipos')->where('ID_EQUIPO', $equipo)->value('SERIAL_CHASIS');
-        $this->lectorFalso($this->textoRacda(['A00CT9K', 'A06EA3G', 'A11AT9F']));
-        $this->assertSame(VerificacionDocumento::DIFIERE, $this->verificar($equipo, VerificacionDocumento::RACDA)->ESTADO,
-            'Sin nada que una la placa vieja con el vehiculo, sigue fuera de la lista.');
-
-        [$conRotc] = $this->equipoConDocumentos();
-        DB::table('verificacion_documento_registro')->insert([
-            'ID_EQUIPO' => $conRotc, 'TIPO' => VerificacionDocumento::ROTC, 'DRIVE_ID' => 'driveROTCDEFLOTA',
-            'ESTADO' => VerificacionDocumento::COINCIDE, 'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE,
-            'LEIDO' => json_encode(['nro' => '49199', 'filas' => [
-                ['placa' => 'A06EA3G', 'vence' => '2027-07-03', 'serial' => $serial],
-                ['placa' => 'A11AT9F', 'vence' => '2027-07-03', 'serial' => 'LZZPCMSC2SJ402362'],
-            ]]),
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        $reg = $this->verificar($equipo, VerificacionDocumento::RACDA);
-        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
-        $this->assertSame('A06EA3G', $reg->LEIDO['placa_anterior']);
-        $this->assertArrayNotHasKey('fuera_de_lista', $reg->LEIDO);
-    }
-
     public function test_una_poliza_con_los_rotulos_aparte_de_los_valores_se_reconoce(): void
     {
         // Asi salen las polizas de Pirámide: primero el bloque de rótulos ("Marca: Modelo:

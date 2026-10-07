@@ -677,15 +677,7 @@ class VerificarDocumentos extends Command
                 'Se leyo la providencia pero no la lista de unidades autorizadas',
                 [], $leido];
         }
-        // La providencia puede nombrar al vehiculo con una placa ANTERIOR (el INTT le cambio la
-        // placa despues): la ficha 1105 sale en el RACDA 1120 como A06EA3G y hoy es A46AF0Y. La
-        // placa vieja y el serial juntos los dan las tablas de flota de los ROTC ya leidos; si
-        // una de esas placas esta en la lista, el vehiculo esta autorizado.
-        $placaDelRacda = $lector->placaEnLista($f->PLACA, $leido['placas']) ? $f->PLACA
-            : collect($this->placasPorRotc($f->SERIAL_CHASIS ?? null, $lector))
-                ->first(fn ($p) => $lector->placaEnLista($p, $leido['placas']));
-        if ($placaDelRacda && $placaDelRacda !== $f->PLACA) $leido['placa_anterior'] = $placaDelRacda;
-        if (!$placaDelRacda) {
+        if (!$lector->placaEnLista($f->PLACA, $leido['placas'])) {
             $leido['fuera_de_lista'] = true;
             return [
                 VerificacionDocumento::DIFIERE,
@@ -702,29 +694,6 @@ class VerificarDocumentos extends Command
         return $dif
             ? [VerificacionDocumento::DIFIERE, $this->motivoDe($dif), $dif, $leido]
             : [VerificacionDocumento::COINCIDE, null, [], $leido];
-    }
-
-    /**
-     * Las placas con las que las tablas de flota de los ROTC ya leidos nombran a este vehiculo,
-     * buscado por su serial (con la misma tolerancia de siempre, ver LectorDocumentoPdf::codigo).
-     * Un serial de menos de 8 caracteres no se busca: casaria con el de otro vehiculo.
-     */
-    private function placasPorRotc(?string $serial, LectorDocumentoPdf $lector): array
-    {
-        $buscado = $lector->codigo((string) $serial);
-        if (strlen($buscado) < 8) return [];
-        $placas = [];
-        VerificacionDocumento::where('TIPO', VerificacionDocumento::ROTC)
-            ->where('LEIDO', 'like', '%' . trim((string) $serial) . '%')
-            ->pluck('LEIDO')
-            ->each(function ($leido) use (&$placas, $buscado, $lector) {
-                foreach ($leido['filas'] ?? [] as $fila) {
-                    if (!empty($fila['placa']) && $lector->codigo((string) ($fila['serial'] ?? '')) === $buscado) {
-                        $placas[] = (string) $fila['placa'];
-                    }
-                }
-            });
-        return array_values(array_unique($placas));
     }
 
     /**
