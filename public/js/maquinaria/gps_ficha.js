@@ -137,8 +137,8 @@
          *                     de motor, código o etiqueta) e `identPor` su rótulo ("Placa",
          *                     "Chasis"…, vacío para "Equipo N"). Los dos llegan resueltos
          *                     del servidor (MapaController::identificar). `chasis` es el
-         *                     serial de chasis, que va en su propio renglón aunque el
-         *                     equipo se identifique por la placa.
+         *                     serial de chasis, que va al lado de la placa aunque el
+         *                     equipo se identifique por ella (ver identificadores).
          *                     `gps` es lo que devuelve Gps51Service.
          * @param {object} op  Opcional:
          *                     · dudosa   true si el GPS la reporta fuera del país: pinta el
