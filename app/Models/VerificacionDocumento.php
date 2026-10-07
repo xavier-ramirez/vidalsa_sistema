@@ -230,8 +230,8 @@ class VerificacionDocumento extends Model
     {
         $idEnlace = self::idEnlace($columna);
         $inicio   = self::inicioDeLaNoche();
-        $pedido   = \App\Console\Commands\VerificarDocumentos::pedidaAhoraTipo();
-        $releerDistintos = $pedido === null || $pedido === $tipo;
+        $pedidos  = \App\Console\Commands\VerificarDocumentos::pedidaAhoraTipos();
+        $releerDistintos = $pedidos === null || in_array($tipo, $pedidos, true);
 
         return $q->from('verificacion_documento_registro as v')
             ->whereColumn('v.ID_EQUIPO', 'd.ID_EQUIPO')
@@ -249,7 +249,7 @@ class VerificacionDocumento extends Model
             // Y, si se pulso "Revisar ahora", se vuelven a leer UNA vez por pulsacion los "Datos
             // distintos" (los "No se pudo leer" ya van por la regla de arriba). Lo que ya COINCIDE
             // no se relee nunca con el boton, le falte o no una fecha (lo pidio el cliente,
-            // 21-09-2026). Solo con el boton, no cada noche, y solo el documento de ese boton.
+            // 21-09-2026). Solo con el boton, no cada noche, y solo los documentos pedidos.
             ->when($releerDistintos ? \App\Console\Commands\VerificarDocumentos::pedidaAhora() : null, fn ($c, $pedida) => $c
                 ->where(fn ($w) => $w->where('v.ESTADO', '<>', self::DIFIERE)
                     ->orWhere('v.updated_at', '>=', $pedida)));
@@ -297,7 +297,7 @@ class VerificacionDocumento extends Model
      */
     public static function hayTrabajo(): bool
     {
-        // Solo de los documentos que toca leer ahora: fuera de la franja, el del boton de
+        // Solo de los documentos que toca leer ahora: fuera de la franja, los de los botones de
         // "Revisar ahora" (ver VerificarDocumentos::tiposDeAhora).
         $tipos = \App\Console\Commands\VerificarDocumentos::tiposDeAhora();
         if (self::corregibles()->whereIn('TIPO', $tipos)->exists()) return true;

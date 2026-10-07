@@ -359,13 +359,13 @@
                         {{-- A cualquier hora: arranca ya y relee tambien los "No se pudo leer". Un boton por
                              documento (fuera de la franja solo lee ese) y otro para todos. --}}
                         @if ($lecturaPedida)
-                            <span class="cpdf-ahora-pedida">Pedida: {{ $lecturaPedidaTipo ? \App\Models\VerificacionDocumento::NOMBRES[$lecturaPedidaTipo] : 'todos' }} · {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }} (en curso).</span>
+                            <span class="cpdf-ahora-pedida">Pedida: {{ $lecturaPedidaTipos ? implode(', ', array_intersect_key(\App\Models\VerificacionDocumento::NOMBRES, array_flip($lecturaPedidaTipos))) : 'todos' }} · {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }} (en curso).</span>
                         @endif
                         <span class="cpdf-ahora-rotulo">Revisar ahora:</span>
                         <div class="cpdf-ahora-botones">
-                            @foreach (['propiedad' => 'Título', 'poliza' => 'Póliza', 'rotc' => 'ROTC', 'racda' => 'RACDA', '' => 'Todos'] as $tipoAhora => $rotuloAhora)
-                                <button type="button" class="btn-primary-maquinaria cpdf-ahora" onclick="window.cpdfLeerAhora(this, @js($tipoAhora))">
-                                    <i class="material-icons">play_arrow</i> {{ $rotuloAhora }}
+                            @foreach (\App\Models\VerificacionDocumento::NOMBRES + ['' => 'Todos'] as $tipoAhora => $nombreAhora)
+                                <button type="button" class="btn-primary-maquinaria cpdf-ahora" data-nombre="{{ $nombreAhora }}" onclick="window.cpdfLeerAhora(this, @js($tipoAhora))">
+                                    <i class="material-icons">play_arrow</i> {{ $nombreAhora }}
                                 </button>
                             @endforeach
                         </div>
@@ -548,7 +548,7 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (!data || !data.success) throw new Error('sin exito');
-                window.toast('La revisión de ' + (tipo ? btn.textContent.replace('play_arrow', '').trim() : 'todos los documentos')
+                window.toast('La revisión de ' + (tipo ? btn.dataset.nombre : 'todos los documentos')
                     + ' arranca en un minuto y sigue hasta que no quede nada', 'success');
                 window.cpdfFiltrar();
             })

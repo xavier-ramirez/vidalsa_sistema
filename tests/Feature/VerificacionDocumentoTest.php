@@ -2038,7 +2038,7 @@ class VerificacionDocumentoTest extends MySqlTestCase
     public function test_revisar_ahora_de_un_documento_solo_lee_ese(): void
     {
         // Un boton por documento (titulo, poliza, ROTC, RACDA) y otro para todos. Fuera de la
-        // franja solo se lee el del boton: con solo un titulo por leer, pedir polizas no da
+        // franja solo se leen los pedidos: con solo un titulo por leer, pedir polizas no da
         // trabajo y el programador no lanza nada; pedir titulos si.
         $ahora = fn () => \App\Console\Commands\VerificarDocumentos::tiposDeAhora();
         $limpiar = function () {
@@ -2054,22 +2054,39 @@ class VerificacionDocumentoTest extends MySqlTestCase
         DB::table('documentacion')->where('ID_EQUIPO', $equipo)->update(['LINK_POLIZA_SEGURO' => null, 'LINK_ROTC' => null, 'LINK_RACDA' => null]);
 
         $admin = $this->actingAs($this->superAdmin());
-        $admin->postJson(route('compresion-pdf.documentos.leer-ahora'), ['tipo' => 'poliza'])->assertOk();
+        $pedir = fn (?string $tipo) => $admin->postJson(route('compresion-pdf.documentos.leer-ahora'), $tipo ? ['tipo' => $tipo] : [])->assertOk();
+        $pedir('poliza');
         $this->assertSame([VerificacionDocumento::POLIZA], $ahora());
-        $this->assertSame(VerificacionDocumento::POLIZA, \App\Console\Commands\VerificarDocumentos::pedidaAhoraTipo());
         $this->assertFalse(VerificacionDocumento::hayTrabajo(), 'Pedidas las polizas, el titulo pendiente no cuenta.');
 
-        $admin->postJson(route('compresion-pdf.documentos.leer-ahora'), ['tipo' => 'propiedad'])->assertOk();
-        $this->assertSame([VerificacionDocumento::PROPIEDAD], $ahora());
+        // Los pedidos se suman: Poliza y luego Titulo lee los dos, en el orden de la revision.
+        $pedir('propiedad');
+        $this->assertSame([VerificacionDocumento::PROPIEDAD, VerificacionDocumento::POLIZA], $ahora());
         $this->assertTrue(VerificacionDocumento::hayTrabajo(), 'Pedidos los titulos: hay uno por leer.');
 
-        // "Todos" (sin tipo), y un tipo que no existe no se acepta.
-        $admin->postJson(route('compresion-pdf.documentos.leer-ahora'))->assertOk();
+        // "Todos" (sin tipo) gana, y un documento pedido despues no lo recorta.
+        $pedir(null);
         $this->assertSame(array_keys(VerificacionDocumento::ENLACES), $ahora());
+        $pedir('racda');
+        $this->assertSame(array_keys(VerificacionDocumento::ENLACES), $ahora());
+        $this->assertNull(\App\Console\Commands\VerificarDocumentos::pedidaAhoraTipos());
         $admin->postJson(route('compresion-pdf.documentos.leer-ahora'), ['tipo' => 'factura'])->assertStatus(422);
 
+        // La pantalla: un boton por documento mas "Todos", y el aviso dice que se pidio.
+        $limpiar();
+        $pedir('poliza');
+        $pedir('rotc');
+        config(['services.drive.es_servidor' => true]);
+        $html = $admin->get(route('historial-documentos.index', ['pestana' => 'documentos']))->assertOk()->getContent();
+        foreach (VerificacionDocumento::NOMBRES + ['' => 'Todos'] as $tipo => $nombre) {
+            $this->assertStringContainsString('data-nombre="' . e($nombre) . '"', $html);
+        }
+        $this->assertStringContainsString('Pedida: Póliza, ROTC', $html);
+        config(['services.drive.es_servidor' => null]);
+
         // En la franja de la noche se lee todo, haya o no un pedido de un solo documento.
-        $admin->postJson(route('compresion-pdf.documentos.leer-ahora'), ['tipo' => 'racda'])->assertOk();
+        $limpiar();
+        $pedir('racda');
         \Carbon\Carbon::setTestNow(\Carbon\Carbon::parse('2026-10-08 21:00', config('app.timezone')));
         $this->assertSame(array_keys(VerificacionDocumento::ENLACES), $ahora());
 
