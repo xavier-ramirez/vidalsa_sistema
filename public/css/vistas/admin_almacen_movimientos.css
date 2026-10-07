@@ -479,8 +479,9 @@
         .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-ref-empty {
             display: none !important;
         }
-        /* Botón redondo con el icono de documento. 32px = objetivo táctil cómodo sin robar
-           ancho al nombre del producto. El icono, del mismo color que en escritorio. */
+        /* El icono de documento solo, como en escritorio: sin el círculo azul de fondo
+           (pedido del cliente, 07-10-2026). 32px = objetivo táctil cómodo sin robar ancho al
+           nombre del producto. */
         .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link {
             display: inline-flex !important;
             align-items: center !important;
@@ -488,9 +489,6 @@
             width: 32px !important;
             height: 32px !important;
             padding: 0 !important;
-            border-radius: 50% !important;
-            background: #e0f2fe !important;
-            border: 1px solid #bae6fd !important;
             color: #0f172a !important;
             text-decoration: none !important;
         }
