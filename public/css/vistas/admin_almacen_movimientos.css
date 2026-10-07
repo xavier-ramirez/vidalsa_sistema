@@ -260,13 +260,15 @@
            al tocarla (la misma selección .mv-row-selected de siempre, una a la
            vez) se despliega el resto:
              ┌──────────────────────────────────────────────┐
-             │ 000124 BOTA DE SEGURIDAD…           −2 PAR   │
-             │                                  📅 05/10/26 │
+             │ 000124 BOTA DE SEGURIDAD…   −2 PAR    📄 ✎   │
+             │                          📋 Corregida        │
+             │                          📅 05/10/26         │
+             │                             — Salida         │
              │ 📍 TUBERÍA DE 30" VELADERO TRAMO I         ▾ │
              └──────────────────────────────────────────────┘
                (desplegada, además)
-             │ 👤 Registrado por …   · tipo bajo la fecha   │
-             │ Stock: 8              · Corregida / Devuelto │
+             │ 👤 Registrado por … (y la observación)       │
+             │ Stock: 8                                     │
              │ 📄 NE-2026-0746  ✎ Modificar  OC / proveedor │
            ══════════════════════════════════════════════ */
         .alm-mov-table thead { display: none !important; }
@@ -296,14 +298,17 @@
             width: 100% !important;
         }
 
-        /* Tarjeta. overflow:hidden: la banda del destino usa margins negativos. */
+        /* Tarjeta. overflow:hidden: la banda del destino usa margins negativos.
+           3ª columna = los iconos de la nota y de Modificar, como en escritorio (pedido del
+           cliente, 07-10-2026: en el teléfono faltaban). Es `auto`: sin nota ni Modificar la
+           celda va vacía y la columna colapsa a 0. */
         .alm-mov-table tr.alm-mov-row {
             display: grid !important;
-            grid-template-columns: 1fr auto !important;
+            grid-template-columns: 1fr auto auto !important;
             grid-template-areas:
-                "producto cantidad"
-                "producto fecha"
-                "destino  destino" !important;
+                "producto cantidad pdf"
+                "producto fecha    pdf"
+                "destino  destino  destino" !important;
             column-gap: 10px !important;
             row-gap: 3px !important;
             background: #fff !important;
@@ -322,6 +327,7 @@
         }
         /* Desplegada (seleccionada): azul, y abre su renglón de detalle y el de la nota. */
         .alm-mov-table tr.alm-mov-row.mv-row-selected {
+            grid-template-columns: 1fr auto !important;
             grid-template-areas:
                 "producto cantidad"
                 "producto fecha"
@@ -356,15 +362,34 @@
             min-width: 0;
         }
 
-        /* RECOGIDA: fuera todo lo que no es producto, cantidad, fecha y destino. El tipo (la
-           cantidad ya lleva color y signo), el stock, la burbuja de quién lo registró, las marcas
-           Corregida / Devuelto y la celda de la nota salen al desplegar (más abajo). */
-        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .mv-tipo-inline,
+        /* RECOGIDA: lo de un vistazo, con los MISMOS iconos que escritorio (pedido del cliente,
+           07-10-2026): el tipo con su icono bajo la fecha, Corregida / Devuelto bajo la cantidad
+           y, a la derecha, el icono de la nota y el de Modificar (ver "Celda de la nota", abajo).
+           Solo el stock y la burbuja de quién lo registró esperan a que se despliegue. */
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-stock,
-        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .tooltip-bubble,
-        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .mv-devuelto,
-        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .mv-corregida,
-        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref { display: none !important; }
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .tooltip-bubble { display: none !important; }
+
+        /* Celda de la nota en la tarjeta RECOGIDA: solo los iconos, en su columna a la derecha
+           ("pdf"), del mismo negro que en escritorio y sin círculo de fondo. El número, la
+           referencia / OC, el proveedor y el deshacer salen al desplegarla. */
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref {
+            grid-area: pdf !important; position: static !important;
+            justify-content: center !important; align-items: center !important; gap: 2px !important;
+        }
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref::after { content: none !important; }
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref > div,
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref .mv-ref-empty,
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref .mv-nota-num,
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref .mv-modificar span,
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref .alm-mov-undo,
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref .alm-mov-purge { display: none !important; }
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref a.mv-nota-link,
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref .mv-modificar {
+            display: inline-flex !important; align-items: center !important; justify-content: center !important;
+            width: 30px !important; height: 30px !important; margin: 0 !important; padding: 0 !important;
+        }
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref a.mv-nota-link .mv-nota-ico { font-size: 19px !important; }
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref .mv-modificar .material-icons { font-size: 18px !important; }
 
         /* Producto: titulo principal — bold, MULTILINE (wrap, no truncate)
            para que se vea el nombre COMPLETO. El cliente lo pidio explicito:
@@ -407,7 +432,7 @@
             font-size: 10px !important;
             font-weight: 600 !important;
         }
-        /* "Devuelto" y "Corregida" (solo en la tarjeta desplegada): en su propio renglón DEBAJO
+        /* "Devuelto" y "Corregida": en su propio renglón DEBAJO
            de la cantidad (flex-wrap + flex-basis 100 %), a la derecha y al tamaño de la fecha, para que la tarjeta no se
            ensanche (pedido del cliente, 07-10-2026: al lado de la cantidad descuadraban la
            tarjeta). Los dos del mismo tamaño: la regla de arriba alcanzaba al span de Devuelto
@@ -446,6 +471,11 @@
         .alm-mov-table tr.alm-mov-row td.mv-td-fecha .mv-hora {
             display: none !important;
         }
+        /* El tipo (Entrada / Salida…) con su icono, bajo la fecha, como en escritorio. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-fecha { flex-wrap: wrap !important; }
+        .alm-mov-table tr.alm-mov-row .mv-tipo-inline {
+            flex-basis: 100%; justify-content: flex-end; margin-top: 1px !important;
+        }
 
         /* DESPLEGADA ─────────────────────────────────────────────────────────────
            · Quién lo registró (y la observación): la burbuja de hover de escritorio, aquí
@@ -459,11 +489,7 @@
         }
         .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tip-notas { border-top: 0 !important; padding-top: 0 !important; margin-top: 2px !important; }
         .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tip-flecha { display: none !important; }
-        /* · El tipo (Entrada / Salida…) bajo la fecha. */
-        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-fecha { flex-wrap: wrap !important; }
-        .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tipo-inline {
-            flex-basis: 100%; justify-content: flex-end; margin-top: 1px !important;
-        }
+
         /* · Stock resultante, en su renglón. */
         .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-stock {
             grid-area: detalle !important; justify-content: flex-start !important;
