@@ -565,23 +565,26 @@
         meses.forEach(function (m) { enGrafico[m] = true; });
         var porProy = (data.por_mes_frente || []).filter(function (x) { return enGrafico[x.mes]; });
         // COLORES de la pila (07-10-2026). Salen TODOS los proyectos con consumo, cada uno con
-        // su color (pedido del cliente: nada de juntar los pequeños en "Otros proyectos"), y
-        // todos de la FAMILIA DEL AZUL DE LA APP (pedido del cliente: que cuadren con el azul
-        // de la aplicación): arranca en el azul corporativo (--maquinaria-blue, #0067b1) para
-        // el que más consumió y sigue con marinos, azules, acero y celestes, sin rojos ni
-        // otros tonos. Saturación contenida a propósito: sobrios, no chillones.
+        // su color (pedido del cliente: nada de juntar los pequeños en "Otros proyectos").
         //
-        // Van ALTERNADOS oscuro / claro: dos tramos PEGADOS en la pila siempre se separan.
-        // Cada color lo eligió, en ese orden, scripts/validate_palette.js (skill dataviz) como
-        // el más distinto de todos los anteriores: vecinos dE 15,2 daltonismo (mínimo 8) y
-        // 17,3 a ojo normal (mínimo 15). Siendo todos azules, NO pueden ser todos distintos
-        // entre sí: para saber cuál es cuál están la leyenda y el tooltip, que nombra el
-        // proyecto del tramo. Si se tocan estos hex o su orden, hay que volver a validarlos.
-        // Los celestes quedan por debajo de 3:1 sobre blanco: los cubre que cada barra lleve
-        // su total escrito, la leyenda y el tooltip.
-        var CD_PALETA = ['#0067b1', '#63bfee', '#1540c1', '#6386ee', '#0f578a', '#7da1e8', '#2c5be8',
-            '#2091b6', '#1d4aa5', '#43add0', '#2f52bc', '#2cb9e8', '#1746d3', '#5ac0e2', '#2046b6',
-            '#75b3f0', '#3659a1', '#3ebfea', '#305191', '#54b4d4', '#194de6', '#49b9df'];
+        // Paleta de TABLERO PROFESIONAL (pedido del cliente: ni arcoíris ni "mucho azul"): los
+        // tonos de Tableau 10, la paleta estándar de los tableros de BI (azul, naranja, verde
+        // azulado, rojo, verde, mostaza, ciruela, rosa viejo, marrón), cada uno en versión
+        // media y oscura. Arranca en el azul de la app (--maquinaria-blue, #0067b1) para el que
+        // más consumió. Los de Tableau, tal cual, son tan apagados que se leían casi grises: se
+        // mantuvo cada TONO y se ajustó lo justo su luz y su intensidad (OKLCH) para que pasen.
+        //
+        // El ORDEN lo eligió scripts/validate_palette.js (skill dataviz), color por color, como
+        // el más distinto de todos los anteriores: dos tramos PEGADOS en la pila siempre se
+        // separan (vecinos dE 13,6 daltonismo, mínimo 8; 18,9 a ojo normal, mínimo 15). Con
+        // 18 o más proyectos no pueden ser todos distintos entre sí: para saber cuál es cuál
+        // están la leyenda y el tooltip, que nombra el proyecto del tramo. Si se tocan estos
+        // hex o su orden, hay que volver a validarlos. Los tonos claros quedan por debajo de
+        // 3:1 sobre blanco: los cubre que cada barra lleve su total escrito, la leyenda y el
+        // tooltip.
+        var CD_PALETA = ['#0067b1', '#ec8822', '#39bab3', '#b72f37', '#5790cd', '#e25859', '#6fa9e7',
+            '#904e80', '#71ba67', '#b771a4', '#ab8800', '#336ca6', '#e4858f', '#866400', '#d189bd',
+            '#337b2a', '#dc9063', '#a14955', '#c4a100', '#c96c77'];
 
         // En la leyenda solo los proyectos que CONSUMIERON en los meses dibujados: el servidor
         // ya descarta cada mes que queda en cero o en negativo (devoluciones que se comen las
@@ -605,7 +608,7 @@
                 // Color PLANO. Se probo con degradado dentro de cada tramo y el cliente lo
                 // quito (17-09-2026): el degradado aclaraba la parte de arriba de cada tramo y
                 // se confundia con el color del tramo de encima. Plano se lee mejor.
-                // Más de 22 proyectos (hoy el que más tiene llega a 18): vuelve a empezar la
+                // Más de 20 proyectos (hoy el que más tiene llega a 18): vuelve a empezar la
                 // paleta, y el tooltip sigue diciendo de quién es cada tramo.
                 backgroundColor: CD_PALETA[i % CD_PALETA.length],
                 // Sin raya blanca entre tramos: la quito el cliente (17-09-2026). La paleta
