@@ -27,6 +27,13 @@
           reparte el saldo), nota de entrega, proveedor y fecha— y su Registrar hace el POST
           de TODAS las lineas como un lote ENTRADA. El almacén es el del usuario (pill del
           encabezado).
+       3) DESPACHO DIRECTO (opcional): cada línea tiene un DESTINO —"Stock" (se queda en el
+          almacén, lo de siempre) o un proyecto—. El selector "Destino" de la barra de
+          captura fija el de las líneas que se agregan, y cada fila se puede cambiar en la
+          tabla. Si alguna línea va a un proyecto, Registrar llama a
+          almacen.recepcion.despacho: la entrada y una Nota de Entrega por proyecto (en el
+          formato del almacén), todo en una transacción. Sin destinos, sigue siendo la
+          entrada de siempre.
 
      "Reposición del general" (la bandeja de los almacenes de proyecto, donde se ve lo que el
      general despachó y va llegando) se abre desde Acciones → "Despachos" del
@@ -88,6 +95,18 @@
             <i class="material-icons">check_circle</i>
         </button>
         </div>{{-- /.ent-capt-row --}}
+        {{-- Destino de lo que se agrega: "Stock" o un proyecto (despacho directo). Se queda
+             elegido para las siguientes líneas — la quincena llega por bloques del mismo
+             proyecto —; cada fila se puede cambiar después en la tabla. --}}
+        <div class="ent-dest-capt">
+            <label class="ent-dest-lbl" for="entDestino"><i class="material-icons">local_shipping</i>Destino</label>
+            <select id="entDestino" class="ent-dest-sel" onchange="window.entDestinoCambio()">
+                <option value="">Stock del almacén</option>
+                @foreach($frentesDespacho as $f)
+                    <option value="{{ $f['id'] }}">{{ $f['nombre'] }}</option>
+                @endforeach
+            </select>
+        </div>
     </div>{{-- /.ent-capt --}}
     <div id="entError" class="ent-error"></div>
 </div>{{-- /.ent-capt-card --}}
@@ -100,6 +119,7 @@
                 <th class="col-num">Nº</th>
                 <th class="col-codigo">Código</th>
                 <th class="col-desc">Descripción</th>
+                <th class="col-dest">Destino</th>
                 <th class="col-cant">Cantidad</th>
                 <th class="col-del"></th>
             </tr>
@@ -131,6 +151,11 @@
             <span class="ent-res-lbl">Productos distintos</span>
             <span id="entResLineas">0</span>
         </div>
+        {{-- Solo cuando alguna línea va a un proyecto: cuántas notas de entrega saldrán. --}}
+        <div class="ent-res-row" id="entResDespachoRow" hidden>
+            <span class="ent-res-lbl">Despacho directo</span>
+            <span id="entResDespacho"></span>
+        </div>
     </div>
 
     {{-- Botones uno debajo del otro, en el panel y no junto a la fila de cantidad: mientras
@@ -139,7 +164,7 @@
          confirmación si hay líneas). Ninguno sale de la página. --}}
     <div class="ent-foot">
         <button type="button" class="ent-btn ent-btn-ok" onclick="window.entAbrirDocumento()">
-            <i class="material-icons">check_circle</i><span>Registrar entrada</span>
+            <i class="material-icons">check_circle</i><span id="entBtnRegistrarTxt">Registrar entrada</span>
         </button>
         <button type="button" class="ent-btn ent-btn-cancel" onclick="window.entCancelar()">Cancelar</button>
     </div>
@@ -194,6 +219,9 @@
                     <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13px;font-family:inherit;outline:none;color:#0f172a;cursor:default;">
                 </div>
             </div>
+            {{-- Qué notas de entrega se van a generar (una por proyecto). Lo llena
+                 entAbrirDocumento; oculto si todo va a stock. --}}
+            <div id="entDespachoInfo" class="ent-despacho-info" hidden></div>
             <div id="entDocError" class="ent-error"></div>
         </div>
         <div class="ent-doc-foot">
@@ -205,11 +233,31 @@
     </form>
 </div>
 
+{{-- Notas de entrega generadas por el despacho directo: una fila por proyecto, cada una abre
+     su PDF en el visor de siempre. La llena entMostrarNotas. --}}
+<div class="ent-doc-overlay" id="entNotasOverlay" hidden>
+    <div class="ent-doc-box" role="dialog" aria-modal="true" aria-labelledby="entNotasTitulo">
+        <div class="ent-doc-bar">
+            <i class="material-icons">description</i>
+            <span class="ent-doc-title" id="entNotasTitulo">Notas de entrega generadas</span>
+            <button type="button" class="ent-doc-close" onclick="window.entCerrarNotas()" title="Cerrar"><i class="material-icons">close</i></button>
+        </div>
+        <div class="ent-doc-body">
+            <div id="entNotasLista" class="ent-notas-lista"></div>
+        </div>
+        <div class="ent-doc-foot">
+            <button type="button" class="ent-btn ent-btn-ok" onclick="window.entCerrarNotas()">Listo</button>
+        </div>
+    </div>
+</div>
+
 @php
     // Lo que el JavaScript del modulo necesita de ESTA apertura. El codigo esta en
     // public/js/maquinaria/recepcion_entrada.js, que el navegador cachea.
     $rece_cfg = [
         'rutaAlmacenMovimientosLote' => route('almacen.movimientos.lote'),
+        'rutaRecepcionDespacho' => route('almacen.recepcion.despacho'),
+        'frentesDespacho' => $frentesDespacho ?? [],
         'rutaAlmacenProductosStore' => route('almacen.productos.store'),
         'rutaAlmacenProductosAutocomplete' => route('almacen.productos-autocomplete'),
         'unidadesMedida' => $unidadesMedida ?? [],

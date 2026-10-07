@@ -17,6 +17,9 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     if (!document.getElementById('entLineasTbody')) return;
 
     var ROUTE_ENTRADA = RECE_CFG.rutaAlmacenMovimientosLote;
+    // Despacho directo: entrada + una Nota de Entrega por proyecto (ver nueva.blade.php, paso 3).
+    var ROUTE_DESPACHO = RECE_CFG.rutaRecepcionDespacho;
+    var FRENTES_DESPACHO = RECE_CFG.frentesDespacho || [];
     var ROUTE_PROD    = RECE_CFG.rutaAlmacenProductosStore;
     // Catálogo de productos: antes se embebía inline (los 1155 productos) y la recepción abría
     // pesada. Ahora arranca vacío y se carga por AJAX (endpoint compartido, misma fuente
@@ -314,7 +317,10 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     // Si el producto ya estaba, suma la cantidad en vez de duplicar la fila
     // — UX clasica de capturas tipo POS.
     function entInsertarLinea(prod, cant) {
-        var existing = entLineas.find(function (l) { return l.id_producto === prod.id_producto; });
+        // Mismo producto y mismo destino → se suma a su línea. Con otro destino va en una
+        // línea aparte: una parte puede quedarse en stock y otra irse a un proyecto.
+        var destino = entDestinoCaptura();
+        var existing = entLineas.find(function (l) { return l.id_producto === prod.id_producto && l.destino === destino; });
         if (existing) {
             existing.cantidad = +(existing.cantidad + cant).toFixed(3);
         } else {
@@ -324,6 +330,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
                 nombre:      prod.nombre,
                 um:          prod.um,
                 cantidad:    cant,
+                destino:     destino,   // ID_FRENTE del proyecto, o null = se queda en stock
             });
         }
         entRender();
@@ -495,6 +502,44 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         entLineas.splice(idx, 1);
         entRender();
     };
+    // ── Destino (despacho directo) ───────────────────────────────────────
+    function entDestinoCaptura() {
+        var n = parseInt(v('entDestino'), 10);
+        return (isFinite(n) && n > 0) ? n : null;
+    }
+    function entNombreFrente(id) {
+        var f = FRENTES_DESPACHO.find(function (x) { return x.id === id; });
+        return f ? f.nombre : '';
+    }
+    // Líneas con proyecto destino agrupadas por proyecto, en el orden de la tabla:
+    // [{ id, nombre, lineas }]. Una nota de entrega por grupo.
+    function entGruposDespacho() {
+        var grupos = [], porId = {};
+        entLineas.forEach(function (l) {
+            if (!l.destino) return;
+            if (!porId[l.destino]) { porId[l.destino] = { id: l.destino, nombre: entNombreFrente(l.destino), lineas: 0 }; grupos.push(porId[l.destino]); }
+            porId[l.destino].lineas++;
+        });
+        return grupos;
+    }
+    function entOpcionesDestino(sel) {
+        return '<option value=""' + (sel ? '' : ' selected') + '>Stock del almacén</option>'
+            + FRENTES_DESPACHO.map(function (f) {
+                return '<option value="' + f.id + '"' + (f.id === sel ? ' selected' : '') + '>' + escHtml(f.nombre) + '</option>';
+            }).join('');
+    }
+    // Selector de la barra de captura: solo fija el destino de las líneas que se agreguen.
+    window.entDestinoCambio = function () {
+        var s = el('entDestino'); if (s) s.classList.toggle('activo', !!s.value);
+    };
+    // Selector de una fila de la tabla.
+    window.entCambiarDestino = function (idx, valor) {
+        var l = entLineas[idx]; if (!l) return;
+        var n = parseInt(valor, 10);
+        l.destino = (isFinite(n) && n > 0) ? n : null;
+        entRender();
+    };
+
     function fmtCant(n) {
         // 3 decimales max, sin ceros redundantes. Formato latino: miles con punto, decimal con coma.
         var v = parseFloat(Number(n).toFixed(3));
@@ -506,6 +551,12 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     // redibuja la tabla, así que nunca se desfasa de ella.
     function entResumen() {
         var n = el('entResLineas'); if (n) n.textContent = entLineas.length;
+        var grupos = entGruposDespacho();
+        var fila = el('entResDespachoRow'); if (fila) fila.hidden = grupos.length === 0;
+        var des = el('entResDespacho');
+        if (des) des.textContent = grupos.length + ' nota' + (grupos.length === 1 ? '' : 's') + ' de entrega';
+        var btnTxt = el('entBtnRegistrarTxt');
+        if (btnTxt) btnTxt.textContent = grupos.length ? 'Registrar y despachar' : 'Registrar entrada';
         var box = el('entResUm'); if (!box) return;
         var porUm = {}, orden = [];
         entLineas.forEach(function (l) {
@@ -539,6 +590,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
                 +   '<td class="col-num">' + num + '</td>'
                 +   '<td class="col-codigo">' + escHtml(l.codigo) + '</td>'
                 +   '<td class="col-desc" data-num="' + numPad + '" data-codigo="' + escHtml(l.codigo) + '"><span class="ent-list-nom">' + escHtml(l.nombre) + '</span></td>'
+                +   '<td class="col-dest"><select class="ent-row-dest' + (l.destino ? ' activo' : '') + '" aria-label="Destino" onchange="window.entCambiarDestino(' + idx + ', this.value)">' + entOpcionesDestino(l.destino) + '</select></td>'
                 +   '<td class="col-cant">' + escHtml(fmtCant(l.cantidad)) + ' <span class="ent-list-meta">' + escHtml(l.um) + '</span></td>'
                 +   '<td class="col-del"><button type="button" class="ent-row-del-btn" onclick="window.entRemoverLinea(' + idx + ')" title="Quitar"><i class="material-icons" style="font-size:20px;">delete</i></button></td>'
                 + '</tr>';
@@ -562,6 +614,19 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         }
         var o = el('entDocOverlay'); if (!o) return;
         entSuggestHide(); entUmHide();
+        // Qué notas se generan: una por proyecto destino.
+        var info = el('entDespachoInfo'), grupos = entGruposDespacho();
+        if (info) {
+            info.hidden = grupos.length === 0;
+            info.innerHTML = grupos.length
+                ? '<div class="ent-despacho-tit"><i class="material-icons">local_shipping</i>Despacho directo</div>'
+                  + '<div class="ent-despacho-txt">Se registra la entrada y sale una nota de entrega por proyecto:</div>'
+                  + '<ul>' + grupos.map(function (g) {
+                        return '<li><strong>' + escHtml(g.nombre) + '</strong> — ' + g.lineas + ' producto' + (g.lineas === 1 ? '' : 's') + '</li>';
+                    }).join('') + '</ul>'
+                : '';
+        }
+        var tit = el('entDocTitulo'); if (tit) tit.textContent = grupos.length ? 'Registrar y despachar' : 'Registrar entrada';
         o.hidden = false;
         var sp = el('entProyecto');
         var foco = (sp && !sp.value) ? sp : el('entNotaEntrega');
@@ -603,10 +668,19 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
                 return { id_producto: l.id_producto, cantidad: l.cantidad };
             }),
         };
+        // Con alguna línea a un proyecto: despacho directo (otra ruta, cada línea con su
+        // destino). Sin ninguna, la entrada de siempre.
+        var despacha = entGruposDespacho().length > 0;
+        if (despacha) {
+            delete payload.tipo;
+            payload.lineas = entLineas.map(function (l) {
+                return { id_producto: l.id_producto, cantidad: l.cantidad, id_frente_destino: l.destino };
+            });
+        }
 
         if (window.showPreloader) window.showPreloader();
         var btn = el('entSubmit'); if (btn) btn.disabled = true;
-        window.apiFetch(ROUTE_ENTRADA, {
+        window.apiFetch(despacha ? ROUTE_DESPACHO : ROUTE_ENTRADA, {
             method: 'POST',
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
@@ -625,6 +699,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
                 window.entCerrarDocumento();
                 entLimpiarTodo();
                 toast((res.b && res.b.message) || 'Entrada registrada correctamente.', 'success');
+                if (res.b && Array.isArray(res.b.notas) && res.b.notas.length) entMostrarNotas(res.b.notas);
                 return;
             }
 
@@ -652,6 +727,28 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         });
     };
 
+    // ── Notas de entrega del despacho directo ──
+    // Una fila por proyecto; "Ver" abre el PDF en el visor de siempre (#pdfPreviewModal), el
+    // mismo que usa el enlace de la nota en el Historial. Sin visor, se abre en otra pestaña.
+    function entMostrarNotas(notas) {
+        var o = el('entNotasOverlay'), lista = el('entNotasLista');
+        if (!o || !lista) return;
+        lista.innerHTML = notas.map(function (n) {
+            return '<div class="ent-nota-fila">'
+                +   '<div class="ent-nota-datos"><span class="ent-nota-num">' + escHtml(n.numero_nota) + '</span>'
+                +   '<span class="ent-nota-proy">' + escHtml(n.proyecto) + (n.numero_traspaso ? ' · enviado (' + escHtml(n.numero_traspaso) + ')' : '') + '</span></div>'
+                +   '<a class="ent-btn ent-btn-ok ent-nota-ver" href="' + escHtml(n.nota_url) + '" target="_blank" rel="noopener"'
+                +     ' data-pdf-url="' + escHtml(n.nota_url) + '" data-pdf-title="Nota ' + escHtml(n.numero_nota) + '"'
+                +     ' onclick="if (typeof window.openPdfPreview === \'function\') { event.preventDefault(); window.openPdfPreview(this.dataset.pdfUrl, \'nota_entrega\', this.dataset.pdfTitle, 0, \'\', true, \'almacen\'); }">'
+                +     '<i class="material-icons">description</i><span>Ver</span></a>'
+                + '</div>';
+        }).join('');
+        o.hidden = false;
+    }
+    window.entCerrarNotas = function () {
+        var o = el('entNotasOverlay'); if (o) o.hidden = true;
+    };
+
     // ── Limpiar el borrador completo (sin navegar ni notificar) ──
     //
     // Vacia la tabla de lineas, el panel de captura (buscador/UM/cantidad) y los
@@ -673,6 +770,9 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             var e = el(id); if (e) e.value = '';
         });
         var pro = el('entProyecto'); if (pro) { pro.value = ''; pro.classList.add('falta'); }
+        // El destino vuelve a "Stock": la siguiente recepción no tiene por qué ir al mismo
+        // proyecto, y despachar sin querer es peor que olvidarse de elegirlo.
+        var des = el('entDestino'); if (des) { des.value = ''; des.classList.remove('activo'); }
         var fch = el('entFecha'); if (fch) fch.value = new Date().toISOString().slice(0, 10);
         showErr('');
     }
@@ -718,6 +818,8 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     if (window.__entDocKeydown) document.removeEventListener('keydown', window.__entDocKeydown);
     window.__entDocKeydown = function (e) {
         if (e.key === 'Escape') {
+            var no = el('entNotasOverlay');
+            if (no && !no.hidden) { window.entCerrarNotas(); return; }
             if (entDocAbierto()) { window.entCerrarDocumento(); return; }
             var box = el('entSuggest');
             if (box && box.classList.contains('open')) { entSuggestHide(); return; }

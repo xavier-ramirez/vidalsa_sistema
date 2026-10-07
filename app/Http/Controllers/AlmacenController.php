@@ -1382,7 +1382,8 @@ class AlmacenController extends Controller
      * queda como "del almacén" sin proyecto específico, que es lo correcto:
      * no podemos adivinar a cuál de los frentes pertenece).
      *
-     * Único llamador: registrarMovimientoLote (ENTRADA/AJUSTE). storeProducto NO lo
+     * Llamadores: registrarMovimientoLote (ENTRADA/AJUSTE) y registrarRecepcionConDespacho
+     * (la entrada de la recepción con despacho directo). storeProducto NO lo
      * usa: aplica su propio criterio para el stock inicial (ver el comentario de
      * contraste allí). Los dos coinciden en lo esencial — cuando el almacén reparte
      * entre varios proyectos, ninguno adivina.
@@ -3393,12 +3394,8 @@ class AlmacenController extends Controller
         // "Registrar entrada" de recepcion/nueva consume este endpoint via fetch y
         // muestra res.b.message como toast; misma forma de respuesta que el handler
         // global de AuthorizationException (success/forbidden/message).
-        if (! $request->user()?->can('almacen.movimiento')) {
-            return response()->json([
-                'success'   => false,
-                'forbidden' => true,
-                'message'   => 'No tienes la clave de permiso «almacen.movimiento», necesaria para registrar movimientos de inventario. Solicítala a un administrador.',
-            ], 403);
+        if ($error = $this->errorSinPermisoMovimiento($request)) {
+            return $error;
         }
 
         $tipos = ['ENTRADA', 'SALIDA', 'AJUSTE'];
@@ -3473,12 +3470,7 @@ class AlmacenController extends Controller
         if ($data['tipo'] === 'SALIDA') {
             $idFrenteDest = $data['id_frente_destino'] ?? $data['id_frente'] ?? null;
             if ($idFrenteDest) {
-                $almacenesDelFrente = Almacen::query()
-                    ->where('TIPO', Almacen::TIPO_PROYECTO)
-                    ->where('ESTATUS', 'ACTIVO')
-                    ->where('ID_ALMACEN', '!=', (int) $data['id_almacen'])
-                    ->whereHas('frentes', fn ($q) => $q->where('frentes_trabajo.ID_FRENTE', (int) $idFrenteDest))
-                    ->pluck('ID_ALMACEN');
+                $almacenesDelFrente = $this->almacenesProyectoDelFrente((int) $idFrenteDest, (int) $data['id_almacen']);
 
                 // Almacén destino: el que EL USUARIO eligió si mandó uno, y si no el único
                 // que tiene el frente. Un frente puede quedar asignado a varios almacenes
@@ -3549,19 +3541,8 @@ class AlmacenController extends Controller
         // el que pasan TODAS las vías de entrada (compra directa, Entrada por ODC y
         // cualquier cliente externo). Se valida además que el frente sea REALMENTE de este
         // almacén, para que un id inventado no meta stock en un proyecto que no le toca.
-        if ($data['tipo'] === 'ENTRADA' && $almacenLote && $almacenLote->separaPorProyecto()) {
-            if (!$idFrente) {
-                return response()->json([
-                    'message' => 'Indica el proyecto que recibe el material: «' . $almacenLote->NOMBRE . '» maneja el inventario separado por proyecto.',
-                    'errors'  => ['id_frente' => ['El proyecto que recibe el material es obligatorio en este almacén.']],
-                ], 422);
-            }
-            if (!$almacenLote->frentes->contains('ID_FRENTE', (int) $idFrente)) {
-                return response()->json([
-                    'message' => 'El proyecto indicado no pertenece al almacén «' . $almacenLote->NOMBRE . '».',
-                    'errors'  => ['id_frente' => ['El proyecto no pertenece a este almacén.']],
-                ], 422);
-            }
+        if ($data['tipo'] === 'ENTRADA' && ($error = $this->errorProyectoEntrada($almacenLote, $idFrente))) {
+            return $error;
         }
 
         // Los campos de la Nota de Entrega solo se preservan en SALIDA. Para ENTRADA/AJUSTE se ignoran
@@ -3703,42 +3684,7 @@ class AlmacenController extends Controller
         usort($lineas, fn ($a, $b) => $a['id_producto'] <=> $b['id_producto']);
 
         try {
-            $resultado = DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $request, $bolsaPorProducto, $transporte) {
-                $numeroNota = MovimientoInventario::generarNumeroNota();
-
-                $traspaso = $this->traspasos->crearBorrador(
-                    datos: [
-                        'id_almacen_origen'  => (int) $data['id_almacen'],
-                        'id_almacen_destino' => $idAlmacenDestino,
-                        'id_frente_destino'  => $idFrenteDestino,
-                        // El número de nota se usa también como REFERENCIA del traspaso
-                        // — así el kardex y el documento comparten el mismo identificador
-                        // visible al usuario (TR-... para auditoría, NE-... para el PDF).
-                        'referencia'         => $numeroNota,
-                        'motivo'             => $data['motivo'] ?? null,
-                        'id_usuario'         => $idUsuario,
-                    ],
-                    lineas: $lineas,
-                );
-
-                $this->traspasos->enviar($traspaso, [
-                    // De qué bolsa del almacén ORIGEN se descuenta cada producto. Los que no
-                    // estén en el mapa van en automático: la del frente destino, como siempre.
-                    'bolsa_por_producto' => $bolsaPorProducto,
-                    'id_usuario_envio'  => $idUsuario,
-                    'fecha_envio'       => $data['fecha'] ?? null,
-                    // Un envío a otro almacén también es una SALIDA física: no se puede enviar
-                    // material que no existe. No permitimos negativo, ni a super.admin.
-                    'permitir_negativo' => false,
-                    'numero_nota'       => $numeroNota,
-                    'numero_contrato'   => $data['numero_contrato'] ?? null,
-                    'numero_rq'         => $data['numero_rq']       ?? null,
-                    'solicitante'       => $data['solicitante']     ?? null,
-                    'departamento'      => $data['departamento']    ?? null,
-                ] + $transporte);
-
-                return ['numero_nota' => $numeroNota, 'numero_traspaso' => $traspaso->NUMERO];
-            });
+            $resultado = $this->crearYEnviarTraspaso($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $bolsaPorProducto, $transporte);
         } catch (Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -3754,6 +3700,297 @@ class AlmacenController extends Controller
             'numero_nota'     => $resultado['numero_nota'],
             'numero_traspaso' => $resultado['numero_traspaso'],
         ], 201);
+    }
+
+    /**
+     * Recepción de compra con DESPACHO DIRECTO (pantalla "Recepción de materiales").
+     *
+     * En el almacén general, mucho de lo que llega en la quincena no se queda: llega de la
+     * compra y sale de una vez al proyecto. Antes eso eran dos pasos a mano —la entrada y
+     * después una salida por proyecto—, o un Excel aparte. Aquí cada línea de la recepción
+     * dice su DESTINO: el stock del almacén (sin destino) o un proyecto. En UNA transacción:
+     *
+     *   1. ENTRADA de TODAS las líneas, igual que la entrada normal (mismo proyecto que
+     *      recibe si el almacén separa, misma nota del proveedor y proveedor).
+     *   2. Por cada proyecto destino, su salida con su propia NOTA DE ENTREGA (NE-AAAA-NNNN),
+     *      por el mismo camino que la salida normal: consumo si el proyecto es de este
+     *      almacén, o traspaso enviado si tiene almacén propio. La nota sale en el formato
+     *      del almacén (vertical u horizontal), porque es la misma nota de siempre.
+     *
+     * Si cualquier paso falla no queda nada a medias: ni la entrada ni ninguna nota.
+     *
+     * Lo despachado sale de la MISMA bolsa a la que acaba de entrar (_frente_saldo /
+     * bolsa_por_producto): material que se compró para un proyecto no puede descontarse
+     * del saldo de otro.
+     *
+     * Las líneas sin destino se quedan en stock. Una recepción SIN ningún destino sigue
+     * yendo por registrarMovimientoLote (el JS solo llama aquí cuando hay algo que despachar).
+     */
+    public function registrarRecepcionConDespacho(Request $request)
+    {
+        // Mismo permiso y misma forma de respuesta que registrarMovimientoLote.
+        if ($error = $this->errorSinPermisoMovimiento($request)) {
+            return $error;
+        }
+
+        $data = $request->validate([
+            'id_almacen'                => 'required|integer|exists:almacenes,ID_ALMACEN',
+            'fecha'                     => 'nullable|date',
+            // Proyecto que RECIBE la entrada (solo en almacenes que separan por proyecto).
+            'id_frente'                 => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            'referencia'                => 'nullable|string|max:100',   // nota de entrega del proveedor
+            'motivo'                    => 'nullable|string|max:200',   // proveedor
+            'lineas'                    => 'required|array|min:1',
+            'lineas.*.id_producto'      => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
+            'lineas.*.cantidad'         => 'required|numeric|gt:0',
+            'lineas.*.id_frente_destino' => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+        ]);
+
+        $idAlmacen = (int) $data['id_almacen'];
+        $this->assertPuedeVerAlmacen($request, $idAlmacen);
+
+        $almacen  = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
+        $idFrente = $data['id_frente'] ?? $this->frenteImplicitoDelAlmacen($idAlmacen);
+        if ($error = $this->errorProyectoEntrada($almacen, $idFrente)) {
+            return $error;
+        }
+
+        // Entrada: una línea por producto (sumando repetidos). Despacho: por proyecto, y
+        // dentro de cada uno una línea por producto. Todo ordenado por ID_PRODUCTO, que es
+        // el orden de bloqueo de almacen_stock (ver registrarMovimientoLote).
+        $entrada  = [];
+        $despacho = [];
+        foreach ($data['lineas'] as $l) {
+            $idp  = (int) $l['id_producto'];
+            $cant = (float) $l['cantidad'];
+            $entrada[$idp] = ($entrada[$idp] ?? 0) + $cant;
+            if (!empty($l['id_frente_destino'])) {
+                $idf = (int) $l['id_frente_destino'];
+                $despacho[$idf][$idp] = ($despacho[$idf][$idp] ?? 0) + $cant;
+            }
+        }
+        if (!$despacho) {
+            return response()->json(['message' => 'Ninguna línea tiene proyecto destino: regístrala como entrada normal.'], 422);
+        }
+        ksort($entrada);
+        ksort($despacho);
+        foreach ($despacho as &$porProducto) {
+            ksort($porProducto);
+        }
+        unset($porProducto);
+
+        // Todo lo que se puede rechazar se rechaza ANTES de escribir nada.
+        //  · Nº de parte: un filtro con varias equivalencias necesita que se diga cuál se
+        //    entrega, y esta pantalla no lo pregunta → ese producto se despacha desde Salida.
+        //  · Almacén del proyecto: si lo manejan varios almacenes no se puede deducir a cuál va.
+        $todasDespacho = [];
+        foreach ($despacho as $porProducto) {
+            foreach (array_keys($porProducto) as $idp) {
+                $todasDespacho[] = ['id_producto' => $idp];
+            }
+        }
+        if ($this->errorNumeroParte($todasDespacho)) {
+            $conVarias = ProductoEquivalencia::whereIn('ID_PRODUCTO', array_column($todasDespacho, 'id_producto'))
+                ->select('ID_PRODUCTO')->groupBy('ID_PRODUCTO')->havingRaw('COUNT(*) > 1')->pluck('ID_PRODUCTO');
+            $nombres = ProductoInventario::whereIn('ID_PRODUCTO', $conVarias)->pluck('NOMBRE')->implode('», «');
+            $msg = "«{$nombres}» tiene varios números de parte: déjalo en Stock y despáchalo desde Salida, donde se elige cuál se entrega.";
+            return response()->json(['message' => $msg, 'errors' => ['lineas' => [$msg]]], 422);
+        }
+
+        $almacenDestino = [];   // ID_FRENTE => ID_ALMACEN destino, o null si es consumo aquí
+        foreach (array_keys($despacho) as $idf) {
+            $alms = $this->almacenesProyectoDelFrente($idf, $idAlmacen);
+            if ($alms->count() > 1) {
+                $nombre = \App\Models\FrenteTrabajo::whereKey($idf)->value('NOMBRE_FRENTE');
+                $msg = "El proyecto «{$nombre}» se maneja en varios almacenes: despáchalo desde Salida, donde se elige a cuál va.";
+                return response()->json(['message' => $msg, 'errors' => ['lineas' => [$msg]]], 422);
+            }
+            $almacenDestino[$idf] = $alms->isEmpty() ? null : (int) $alms->first();
+        }
+
+        $idUsuario = optional($request->user())->ID_USUARIO;
+        // Bolsa a la que entra el material y de la que sale lo despachado: la del proyecto que
+        // recibe si el almacén separa, la común (0) si no.
+        $bolsa = ($almacen && $almacen->separaPorProyecto()) ? (int) $idFrente : 0;
+
+        $optsEntrada = [
+            'fecha'             => $data['fecha'] ?? null,
+            'id_frente'         => $idFrente,
+            'referencia'        => $data['referencia'] ?? null,
+            'motivo'            => $data['motivo'] ?? null,
+            'id_usuario'        => $idUsuario,
+            'permitir_negativo' => false,
+        ];
+
+        try {
+            $notas = DB::transaction(function () use ($idAlmacen, $data, $entrada, $despacho, $almacenDestino, $optsEntrada, $bolsa, $idUsuario) {
+                foreach ($entrada as $idp => $cant) {
+                    $this->inventario->registrarEntrada($idAlmacen, $idp, $cant, $optsEntrada);
+                }
+
+                $notas = [];
+                foreach ($despacho as $idf => $porProducto) {
+                    $lineas = [];
+                    foreach ($porProducto as $idp => $cant) {
+                        $lineas[] = ['id_producto' => $idp, 'cantidad' => $cant];
+                    }
+
+                    if ($almacenDestino[$idf] !== null) {
+                        // El proyecto tiene almacén propio: traspaso enviado, como la salida normal.
+                        $r = $this->crearYEnviarTraspaso(
+                            ['id_almacen' => $idAlmacen, 'fecha' => $data['fecha'] ?? null, 'motivo' => $data['motivo'] ?? null],
+                            $idf, $almacenDestino[$idf], $idUsuario, $lineas,
+                            array_fill_keys(array_keys($porProducto), $bolsa), [],
+                        );
+                        $notas[] = ['id_frente' => $idf, 'numero_nota' => $r['numero_nota'], 'numero_traspaso' => $r['numero_traspaso']];
+                        continue;
+                    }
+
+                    // El proyecto se atiende desde este almacén: salida (consumo) con su nota.
+                    $optsSalida = [
+                        'fecha'         => $data['fecha'] ?? null,
+                        'id_frente'     => $idf,
+                        'referencia'    => $data['referencia'] ?? null,
+                        'motivo'        => $data['motivo'] ?? null,
+                        'id_usuario'    => $idUsuario,
+                        'numero_nota'   => MovimientoInventario::generarNumeroNota(),
+                        '_frente_saldo' => $bolsa,
+                        'permitir_negativo' => false,
+                    ];
+                    foreach ($lineas as $l) {
+                        $this->inventario->registrarSalida($idAlmacen, $l['id_producto'], $l['cantidad'], $optsSalida);
+                    }
+                    $notas[] = ['id_frente' => $idf, 'numero_nota' => $optsSalida['numero_nota'], 'numero_traspaso' => null];
+                }
+                return $notas;
+            });
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $nombres = \App\Models\FrenteTrabajo::whereIn('ID_FRENTE', array_column($notas, 'id_frente'))->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+        $notas = array_map(fn ($n) => [
+            'proyecto'        => $nombres[$n['id_frente']] ?? '',
+            'numero_nota'     => $n['numero_nota'],
+            'numero_traspaso' => $n['numero_traspaso'],
+            'nota_url'        => route('almacen.nota-entrega', ['numero' => $n['numero_nota']]),
+        ], $notas);
+
+        $nProd  = count($entrada);
+        $nNotas = count($notas);
+        return response()->json([
+            'message' => "Entrada registrada ({$nProd} producto" . ($nProd === 1 ? '' : 's') . ") y despachada en {$nNotas} nota" . ($nNotas === 1 ? '' : 's') . ' de entrega.',
+            'notas'   => $notas,
+        ], 201);
+    }
+
+    /**
+     * Crea el traspaso de una salida hacia el almacén de otro proyecto y lo envía, con su
+     * Nota de Entrega (NUMERO_NOTA), en UNA transacción. Lo usan la salida normal
+     * (registrarSalidaViaTraspaso) y el despacho directo de la recepción
+     * (registrarRecepcionConDespacho), que corre dentro de su propia transacción: ahí esta
+     * queda anidada (savepoint) y, si algo falla después, se deshace con todo lo demás.
+     *
+     * $lineas ya vienen ordenadas por ID_PRODUCTO (orden de bloqueo).
+     *
+     * @return array{numero_nota: string, numero_traspaso: string}
+     */
+    private function crearYEnviarTraspaso(array $data, int $idFrenteDestino, int $idAlmacenDestino, ?int $idUsuario, array $lineas, array $bolsaPorProducto, array $transporte): array
+    {
+        return DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $bolsaPorProducto, $transporte) {
+            $numeroNota = MovimientoInventario::generarNumeroNota();
+
+            $traspaso = $this->traspasos->crearBorrador(
+                datos: [
+                    'id_almacen_origen'  => (int) $data['id_almacen'],
+                    'id_almacen_destino' => $idAlmacenDestino,
+                    'id_frente_destino'  => $idFrenteDestino,
+                    // El número de nota se usa también como REFERENCIA del traspaso
+                    // — así el kardex y el documento comparten el mismo identificador
+                    // visible al usuario (TR-... para auditoría, NE-... para el PDF).
+                    'referencia'         => $numeroNota,
+                    'motivo'             => $data['motivo'] ?? null,
+                    'id_usuario'         => $idUsuario,
+                ],
+                lineas: $lineas,
+            );
+
+            $this->traspasos->enviar($traspaso, [
+                // De qué bolsa del almacén ORIGEN se descuenta cada producto. Los que no
+                // estén en el mapa van en automático: la del frente destino, como siempre.
+                'bolsa_por_producto' => $bolsaPorProducto,
+                'id_usuario_envio'  => $idUsuario,
+                'fecha_envio'       => $data['fecha'] ?? null,
+                // Un envío a otro almacén también es una SALIDA física: no se puede enviar
+                // material que no existe. No permitimos negativo, ni a super.admin.
+                'permitir_negativo' => false,
+                'numero_nota'       => $numeroNota,
+                'numero_contrato'   => $data['numero_contrato'] ?? null,
+                'numero_rq'         => $data['numero_rq']       ?? null,
+                'solicitante'       => $data['solicitante']     ?? null,
+                'departamento'      => $data['departamento']    ?? null,
+            ] + $transporte);
+
+            return ['numero_nota' => $numeroNota, 'numero_traspaso' => $traspaso->NUMERO];
+        });
+    }
+
+    /**
+     * 403 con el aviso de la clave 'almacen.movimiento' que le falta al usuario, o null si la
+     * tiene. Misma forma (success/forbidden/message) que el handler global de
+     * AuthorizationException; la pantalla de recepción la muestra como toast.
+     */
+    private function errorSinPermisoMovimiento(Request $request): ?\Illuminate\Http\JsonResponse
+    {
+        if ($request->user()?->can('almacen.movimiento')) {
+            return null;
+        }
+        return response()->json([
+            'success'   => false,
+            'forbidden' => true,
+            'message'   => 'No tienes la clave de permiso «almacen.movimiento», necesaria para registrar movimientos de inventario. Solicítala a un administrador.',
+        ], 403);
+    }
+
+    /**
+     * Almacenes PROYECTO activos que manejan el frente, sin contar el de origen. Uno solo:
+     * la salida a ese frente va vía traspaso a él; ninguno: es consumo en el propio almacén;
+     * varios: hay que preguntar a cuál va.
+     */
+    private function almacenesProyectoDelFrente(int $idFrente, int $idAlmacenOrigen): \Illuminate\Support\Collection
+    {
+        return Almacen::query()
+            ->where('TIPO', Almacen::TIPO_PROYECTO)
+            ->where('ESTATUS', 'ACTIVO')
+            ->where('ID_ALMACEN', '!=', $idAlmacenOrigen)
+            ->whereHas('frentes', fn ($q) => $q->where('frentes_trabajo.ID_FRENTE', $idFrente))
+            ->pluck('ID_ALMACEN');
+    }
+
+    /**
+     * ENTRADA en un almacén que separa por proyecto: el proyecto que recibe es OBLIGATORIO y
+     * tiene que ser de ese almacén (ver el comentario en registrarMovimientoLote). Devuelve la
+     * respuesta 422 lista, o null si todo está bien. La comparten la entrada normal y la
+     * recepción con despacho directo.
+     */
+    private function errorProyectoEntrada(?Almacen $almacen, $idFrente): ?\Illuminate\Http\JsonResponse
+    {
+        if (!$almacen || !$almacen->separaPorProyecto()) {
+            return null;
+        }
+        if (!$idFrente) {
+            return response()->json([
+                'message' => 'Indica el proyecto que recibe el material: «' . $almacen->NOMBRE . '» maneja el inventario separado por proyecto.',
+                'errors'  => ['id_frente' => ['El proyecto que recibe el material es obligatorio en este almacén.']],
+            ], 422);
+        }
+        if (!$almacen->frentes->contains('ID_FRENTE', (int) $idFrente)) {
+            return response()->json([
+                'message' => 'El proyecto indicado no pertenece al almacén «' . $almacen->NOMBRE . '».',
+                'errors'  => ['id_frente' => ['El proyecto no pertenece a este almacén.']],
+            ], 422);
+        }
+        return null;
     }
 
     // ─────────────────────────────────────────────────────────────

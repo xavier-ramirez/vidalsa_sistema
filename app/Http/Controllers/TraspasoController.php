@@ -469,8 +469,17 @@ class TraspasoController extends Controller
                 ->map(fn ($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])->values()
             : collect();
 
+        // Proyectos a los que se puede DESPACHAR DIRECTO lo que llega (columna "Destino" de la
+        // tabla; ver AlmacenController::registrarRecepcionConDespacho). Los mismos que ofrece
+        // el modal "Registrar salida" de /admin/almacen: los frentes activos.
+        $frentesDespacho = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
+            ->orderBy('NOMBRE_FRENTE')
+            ->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
+            ->map(fn ($f) => ['id' => (int) $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])->values();
+
         return view('admin.almacen.recepcion.nueva', [
             'almacenDestino'  => $almacenDestino,
+            'frentesDespacho' => $frentesDespacho,
             'unidadesMedida'  => $unidadesMedida,
             'idFrenteDestino' => $idFrenteDestino,
             'separaProyectos' => $separaProyectos,
