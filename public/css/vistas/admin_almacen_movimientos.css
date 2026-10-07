@@ -366,33 +366,6 @@
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .mv-corregida,
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref { display: none !important; }
 
-        /* DESPLEGADA ─────────────────────────────────────────────────────────────
-           · Quién lo registró (y la observación): la burbuja de hover de escritorio, aquí
-             fija bajo el nombre del producto, en gris, sin flecha. */
-        .alm-mov-table tr.alm-mov-row.mv-row-selected .tooltip-bubble {
-            position: static !important; display: block !important; opacity: 1 !important;
-            visibility: visible !important; transform: none !important; pointer-events: auto !important;
-            width: auto !important; max-width: none !important; margin: 4px 0 0 !important; padding: 0 !important;
-            background: none !important; box-shadow: none !important; color: #64748b !important;
-            font-size: 10.5px !important; font-weight: 500 !important; text-align: left !important;
-        }
-        .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tip-notas { border-top: 0 !important; padding-top: 0 !important; margin-top: 2px !important; }
-        .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tip-flecha { display: none !important; }
-        /* · El tipo (Entrada / Salida…) bajo la fecha. */
-        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-fecha { flex-wrap: wrap !important; }
-        .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tipo-inline {
-            flex-basis: 100%; justify-content: flex-end; margin-top: 1px !important;
-        }
-        /* · Stock resultante, en su renglón. */
-        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-stock {
-            grid-area: detalle !important; justify-content: flex-start !important;
-            margin-top: 6px !important; padding-top: 6px !important; border-top: 1px solid #e2e8f0 !important;
-            font-size: 11px !important; font-weight: 700 !important; color: #0f172a !important;
-        }
-        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-stock::before {
-            content: "Stock:"; margin-right: 4px; font-weight: 600; color: #64748b;
-        }
-
         /* Producto: titulo principal — bold, MULTILINE (wrap, no truncate)
            para que se vea el nombre COMPLETO. El cliente lo pidio explicito:
            "la descripcion del producto debe salir completa". */
@@ -428,17 +401,17 @@
             text-align: right !important;
             gap: 3px !important;
             white-space: nowrap !important;
+            flex-wrap: wrap !important;   /* para Devuelto / Corregida, abajo */
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad span {
             font-size: 10px !important;
             font-weight: 600 !important;
         }
-        /* "Devuelto" y "Corregida": en su propio renglón DEBAJO de la cantidad (flex-wrap +
-           flex-basis 100 %), a la derecha y al tamaño de la fecha, para que la tarjeta no se
+        /* "Devuelto" y "Corregida" (solo en la tarjeta desplegada): en su propio renglón DEBAJO
+           de la cantidad (flex-wrap + flex-basis 100 %), a la derecha y al tamaño de la fecha, para que la tarjeta no se
            ensanche (pedido del cliente, 07-10-2026: al lado de la cantidad descuadraban la
            tarjeta). Los dos del mismo tamaño: la regla de arriba alcanzaba al span de Devuelto
            pero no al botón de Corregida. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad { flex-wrap: wrap !important; }
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-devuelto,
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-corregida {
             flex-basis: 100%; justify-content: flex-end; gap: 3px; margin: 1px 0 0;
@@ -447,10 +420,9 @@
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-devuelto .material-icons,
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-corregida .material-icons { font-size: 13px; }
 
-        /* Fecha: AHORA va DEBAJO de la cantidad (col 2 fila 2), alineada a la
-           derecha. Cliente la sacó de la meta-row para que cantidad y fecha
-           formen un bloque visual a la derecha (cuando + dónde), y dejar el
-           bottom row solo para ref + destino. */
+        /* Fecha: DEBAJO de la cantidad (col 2 fila 2), alineada a la derecha: cantidad y
+           fecha forman un bloque visual a la derecha, y la banda de abajo queda para el
+           destino. */
         .alm-mov-table tr.alm-mov-row td.mv-td-fecha {
             grid-area: fecha !important;
             font-size: 10.5px !important;
@@ -475,6 +447,33 @@
             display: none !important;
         }
 
+        /* DESPLEGADA ─────────────────────────────────────────────────────────────
+           · Quién lo registró (y la observación): la burbuja de hover de escritorio, aquí
+             fija bajo el nombre del producto, en gris, sin flecha. */
+        .alm-mov-table tr.alm-mov-row.mv-row-selected .tooltip-bubble {
+            position: static !important; display: block !important; opacity: 1 !important;
+            visibility: visible !important; transform: none !important; pointer-events: auto !important;
+            width: auto !important; max-width: none !important; margin: 4px 0 0 !important; padding: 0 !important;
+            background: none !important; box-shadow: none !important; color: #64748b !important;
+            font-size: 10.5px !important; font-weight: 500 !important; text-align: left !important;
+        }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tip-notas { border-top: 0 !important; padding-top: 0 !important; margin-top: 2px !important; }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tip-flecha { display: none !important; }
+        /* · El tipo (Entrada / Salida…) bajo la fecha. */
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-fecha { flex-wrap: wrap !important; }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tipo-inline {
+            flex-basis: 100%; justify-content: flex-end; margin-top: 1px !important;
+        }
+        /* · Stock resultante, en su renglón. */
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-stock {
+            grid-area: detalle !important; justify-content: flex-start !important;
+            margin-top: 6px !important; padding-top: 6px !important; border-top: 1px solid #e2e8f0 !important;
+            font-size: 11px !important; font-weight: 700 !important; color: #0f172a !important;
+        }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-stock::before {
+            content: "Stock:"; margin-right: 4px; font-weight: 600; color: #64748b;
+        }
+
         /* · La celda de la nota, en su renglón y entera: el N° de Nota (icono + número, como en
              escritorio) que abre el PDF, "Modificar" con su texto, la referencia / OC y el
              proveedor, y el "deshacer" de super.admin al final, siempre visible (aquí no hay
@@ -484,7 +483,6 @@
             flex-wrap: wrap !important; justify-content: flex-start !important; align-items: center !important;
             gap: 4px 14px !important; margin-top: 4px !important; text-align: left !important;
         }
-        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref::after { content: none !important; }
         .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref .mv-modificar { margin: 0 !important; }
         .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref > div { flex-basis: 100%; margin: 0 !important; }
         .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref .mv-ref-empty,
@@ -530,7 +528,7 @@
             flex-shrink: 0;
         }
 
-        /* Empty state: el <tr><td colspan="7"> del partial — sin tarjeta */
+        /* Empty state: el <tr><td colspan="6"> del partial — sin tarjeta */
         .alm-mov-table tbody tr:not(.alm-mov-row) {
             display: block !important;
             background: transparent !important;
