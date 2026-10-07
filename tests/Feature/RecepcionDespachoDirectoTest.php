@@ -150,6 +150,21 @@ class RecepcionDespachoDirectoTest extends MySqlTestCase
         $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->general)->count(), 'Ni la entrada.');
     }
 
+    public function test_si_falla_despues_de_la_entrada_no_queda_nada(): void
+    {
+        // El envío del traspaso revienta cuando las entradas ya se escribieron: la
+        // transacción tiene que deshacerlas también.
+        $this->mock(\App\Services\TraspasoService::class, function ($m) {
+            $m->shouldReceive('crearBorrador')->andThrow(new \RuntimeException('Falla simulada al enviar.'));
+        });
+
+        $this->despachar($this->general, $this->frenteConAlmacen)
+            ->assertStatus(422)->assertJsonPath('message', 'Falla simulada al enviar.');
+
+        $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->general)->count(), 'Ni la entrada.');
+        $this->assertSame(0.0, $this->saldo($this->general, $this->p1));
+    }
+
     public function test_sin_proyecto_destino_se_rechaza(): void
     {
         $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho'), [

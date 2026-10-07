@@ -799,7 +799,16 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     window.__entDocKeydown = function (e) {
         if (e.key === 'Escape') {
             if (entDocAbierto()) { window.entCerrarDocumento(); return; }
-            if (entDespAbierto()) { window.entCerrarDespacho(); return; }
+            if (entDespAbierto()) {
+                // Con una lista abierta (proyecto, contrato, vehículo o chofer), Escape cierra
+                // esa lista y no la ventana entera. Las de vehículo/chofer (campos [data-log]) las
+                // cierra almacen_salida_nota.js, que escucha antes; los desplegables, aquí.
+                var dd = document.querySelector('#almSalidaModal .custom-dropdown.active');
+                if (dd) { dd.classList.remove('active'); return; }
+                if (e.target && e.target.closest && e.target.closest('#almSalidaModal [data-log]')) return;
+                window.entCerrarDespacho();
+                return;
+            }
             var box = el('entSuggest');
             if (box && box.classList.contains('open')) { entSuggestHide(); return; }
         }

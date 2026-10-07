@@ -3392,8 +3392,8 @@ class AlmacenController extends Controller
             // tanto no se puede deducir; el formulario lo pregunta en ese caso.
             'id_almacen_destino'   => 'nullable|integer|exists:almacenes,ID_ALMACEN',
             'referencia'           => 'nullable|string|max:100',
-            // Campos de la Nota de Entrega de Materiales (se usan en SALIDA y en su
-            // variante "salida hacia otro proyecto" que internamente crea un Traspaso).
+            // Los campos de la Nota de Entrega de Materiales (SALIDA y su variante "salida hacia
+            // otro proyecto", que internamente crea un Traspaso) van en reglasNotaSalida().
             'notas'                => 'nullable|string',
             'permitir_negativo'    => 'nullable|boolean',
             'lineas'               => 'required|array|min:1',
@@ -3486,9 +3486,11 @@ class AlmacenController extends Controller
         // entrada sin proyecto tendría que caer en algún lado: antes caía en el PRIMER
         // frente asociado al almacén, que es una suposición —en un almacén de 6 proyectos
         // acertaba 1 de cada 6— y ensuciaba el saldo de un proyecto ajeno sin avisar.
-        // Se exige aquí, en el backend, y no solo en el formulario: es el único punto por
-        // el que pasan TODAS las vías de entrada (compra directa, Entrada por ODC y
-        // cualquier cliente externo). Se valida además que el frente sea REALMENTE de este
+        // Se exige aquí, en el backend, y no solo en el formulario: es el punto por el que
+        // pasan las vías de entrada (compra directa, Entrada por ODC y cualquier cliente
+        // externo). La única excepción es "Registrar y despachar" de la recepción
+        // (registrarRecepcionConDespacho): ese material no se queda, así que si el proyecto
+        // destino no es de este almacén entra y sale por la bolsa común. Se valida además que el frente sea REALMENTE de este
         // almacén, para que un id inventado no meta stock en un proyecto que no le toca.
         if ($data['tipo'] === 'ENTRADA' && $almacenLote && $almacenLote->separaPorProyecto()) {
             if (!$idFrente) {
@@ -3751,6 +3753,23 @@ class AlmacenController extends Controller
 
         try {
             $resultado = DB::transaction(function () use ($idAlmacen, $idFrente, $idAlmDestino, $data, $lineas, $optsEntrada, $bolsa, $idUsuario, $transporte) {
+                // ORDEN DE BLOQUEO. La entrada bloquea la fila de su bolsa y la salida, después,
+                // TODAS las bolsas del producto de menor a mayor (salida en cascada). En un almacén
+                // que separa por proyecto eso es (p, proyecto) y luego (p, 0): al revés que una
+                // salida normal simultánea del mismo producto, que toma (p, 0) primero — y las dos
+                // se trabarían (InnoDB 1213). Se toman aquí, de una vez y en el orden de todos
+                // (ID_PRODUCTO y luego ID_FRENTE), las filas que se van a tocar: lo que sigue ya
+                // las tiene. La fila de la bolsa se crea antes si no existía (insertOrIgnore, como
+                // InventarioService::aplicarMovimiento).
+                foreach ($lineas as $l) {
+                    DB::table((new AlmacenStock())->getTable())->insertOrIgnore([
+                        'ID_ALMACEN' => $idAlmacen, 'ID_PRODUCTO' => $l['id_producto'], 'ID_FRENTE' => $bolsa,
+                        'CANTIDAD' => 0, 'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                    AlmacenStock::where('ID_ALMACEN', $idAlmacen)->where('ID_PRODUCTO', $l['id_producto'])
+                        ->orderBy('ID_FRENTE')->lockForUpdate()->get(['ID_STOCK']);
+                }
+
                 foreach ($lineas as $l) {
                     $this->inventario->registrarEntrada($idAlmacen, $l['id_producto'], $l['cantidad'], $optsEntrada);
                 }
@@ -4423,11 +4442,6 @@ class AlmacenController extends Controller
             'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
             'fecha'                => 'nullable|date',
             'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
-            'numero_contrato'      => 'nullable|string|max:100',
-            'numero_rq'            => 'nullable|string|max:100',
-            'solicitante'          => 'nullable|string|max:200',
-            'departamento'         => 'nullable|string|max:150',
-            'motivo'               => 'nullable|string|max:200',
             'lineas'               => 'required|array|min:1',
             'lineas.*.id_producto'  => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
             // La vista previa NUNCA debe dejar pasar una salida que deje el saldo en negativo:
@@ -4440,7 +4454,7 @@ class AlmacenController extends Controller
             // 0 es la común y la pertenencia la valida bolsaOrigenElegida(), para que el aviso
             // se calcule sobre exactamente lo que va a pasar al registrar.
             'lineas.*.id_frente_saldo' => 'nullable|integer|min:0',
-        ] + $this->reglasTransporte());
+        ] + $this->reglasNotaSalida());   // los mismos datos de la Nota que al registrar
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
         if ($error = $this->errorNumeroParte($data['lineas'])) {

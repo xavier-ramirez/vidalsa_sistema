@@ -248,7 +248,7 @@
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.entCerrarDespacho()">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" id="entDespSubmit" onclick="window.entDespachar()">Registrar y despachar</button>
+            <button type="button" class="btn-primary-maquinaria" id="entDespSubmit" onclick="window.entDespachar()">Despachar</button>
         </div>
     </div>
 </div>
