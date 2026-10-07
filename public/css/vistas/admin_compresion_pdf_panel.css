@@ -42,7 +42,9 @@
     .cpdf-aviso.ok { background: #eff6ff; border-color: #bfdbfe; color: #1e3a5f; }
     .cpdf-aviso.ok strong, .cpdf-aviso.ok span { color: #1e3a5f; }
     .cpdf-aviso.apagada { background: #f8fafc; color: #475569; }
-    .cpdf-aviso .cpdf-ahora { margin-top: 8px; height: 32px; padding: 0 12px; border-radius: 8px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }
+    .cpdf-aviso .cpdf-ahora-rotulo { margin-top: 8px; font-weight: 700; }
+    .cpdf-aviso .cpdf-ahora-botones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .cpdf-aviso .cpdf-ahora { height: 32px; padding: 0 12px; border-radius: 8px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }
     .cpdf-aviso .cpdf-ahora .material-icons { font-size: 18px; margin: 0; }
     .cpdf-aviso .cpdf-ahora-pedida { margin-top: 6px; font-weight: 700; }
     /* Tarjetas que filtran la lista: son enlaces, pero se ven igual que las demas cajas. */

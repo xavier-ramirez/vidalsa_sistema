@@ -61,6 +61,7 @@ class PanelDocumentos
             'horarioLectura'    => self::horario(\App\Console\Commands\VerificarDocumentos::HORARIO),
             'horarioCompresion' => self::horario(\App\Console\Commands\ComprimirDocumentos::HORARIO),
             'lecturaPedida'     => \App\Console\Commands\VerificarDocumentos::pedidaAhora(),
+            'lecturaPedidaTipo' => \App\Console\Commands\VerificarDocumentos::pedidaAhoraTipo(),
         ];
     }
 

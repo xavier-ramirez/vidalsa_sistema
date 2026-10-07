@@ -2034,4 +2034,62 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertNotNull($log, 'El número puesto tiene que quedar en el historial.');
         $this->assertSame(['NRO_DE_DOCUMENTO' => ['antes' => null, 'despues' => '180105275159']], $log->CAMBIOS);
     }
+
+    public function test_revisar_ahora_de_un_documento_solo_lee_ese(): void
+    {
+        // Un boton por documento (titulo, poliza, ROTC, RACDA) y otro para todos. Fuera de la
+        // franja solo se lee el del boton: con solo un titulo por leer, pedir polizas no da
+        // trabajo y el programador no lanza nada; pedir titulos si.
+        $ahora = fn () => \App\Console\Commands\VerificarDocumentos::tiposDeAhora();
+        $limpiar = function () {
+            \Illuminate\Support\Facades\Cache::forget('docs_verificar_ahora');
+            \Illuminate\Support\Facades\Cache::forget('docs_verificar_ahora_tipo');
+        };
+        $limpiar();
+        \Carbon\Carbon::setTestNow(\Carbon\Carbon::parse('2026-10-08 12:00', config('app.timezone')));
+
+        DB::table('documentacion')->update(['LINK_DOC_PROPIEDAD' => null, 'LINK_POLIZA_SEGURO' => null, 'LINK_ROTC' => null, 'LINK_RACDA' => null]);
+        VerificacionDocumento::query()->update(['A_MANO' => true]);
+        [$equipo] = $this->equipoConDocumentos();
+        DB::table('documentacion')->where('ID_EQUIPO', $equipo)->update(['LINK_POLIZA_SEGURO' => null, 'LINK_ROTC' => null, 'LINK_RACDA' => null]);
+
+        $admin = $this->actingAs($this->superAdmin());
+        $admin->postJson(route('compresion-pdf.documentos.leer-ahora'), ['tipo' => 'poliza'])->assertOk();
+        $this->assertSame([VerificacionDocumento::POLIZA], $ahora());
+        $this->assertSame(VerificacionDocumento::POLIZA, \App\Console\Commands\VerificarDocumentos::pedidaAhoraTipo());
+        $this->assertFalse(VerificacionDocumento::hayTrabajo(), 'Pedidas las polizas, el titulo pendiente no cuenta.');
+
+        $admin->postJson(route('compresion-pdf.documentos.leer-ahora'), ['tipo' => 'propiedad'])->assertOk();
+        $this->assertSame([VerificacionDocumento::PROPIEDAD], $ahora());
+        $this->assertTrue(VerificacionDocumento::hayTrabajo(), 'Pedidos los titulos: hay uno por leer.');
+
+        // "Todos" (sin tipo), y un tipo que no existe no se acepta.
+        $admin->postJson(route('compresion-pdf.documentos.leer-ahora'))->assertOk();
+        $this->assertSame(array_keys(VerificacionDocumento::ENLACES), $ahora());
+        $admin->postJson(route('compresion-pdf.documentos.leer-ahora'), ['tipo' => 'factura'])->assertStatus(422);
+
+        // En la franja de la noche se lee todo, haya o no un pedido de un solo documento.
+        $admin->postJson(route('compresion-pdf.documentos.leer-ahora'), ['tipo' => 'racda'])->assertOk();
+        \Carbon\Carbon::setTestNow(\Carbon\Carbon::parse('2026-10-08 21:00', config('app.timezone')));
+        $this->assertSame(array_keys(VerificacionDocumento::ENLACES), $ahora());
+
+        // Un "Datos distintos" se relee solo con el boton de SU documento.
+        \Carbon\Carbon::setTestNow(\Carbon\Carbon::parse('2026-10-08 12:00', config('app.timezone')));
+        $limpiar();
+        $driveId = preg_replace('~^/storage/google/([^?]+).*$~', '$1', $this->ficha($equipo)->LINK_DOC_PROPIEDAD);
+        DB::table('verificacion_documento_registro')->insert([
+            'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::PROPIEDAD, 'DRIVE_ID' => $driveId,
+            'ESTADO' => VerificacionDocumento::DIFIERE, 'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE, 'A_MANO' => true,
+            'LEIDO' => json_encode(['titular' => 'X']), 'created_at' => now()->subHour(), 'updated_at' => now()->subHour(),
+        ]);
+        $this->assertFalse($this->enLaCola($equipo, VerificacionDocumento::PROPIEDAD));
+        \Carbon\Carbon::setTestNow(now()->addMinute());
+        \App\Console\Commands\VerificarDocumentos::pedirAhora(VerificacionDocumento::POLIZA);
+        $this->assertFalse($this->enLaCola($equipo, VerificacionDocumento::PROPIEDAD), 'El boton de polizas no relee titulos.');
+        \App\Console\Commands\VerificarDocumentos::pedirAhora(VerificacionDocumento::PROPIEDAD);
+        $this->assertTrue($this->enLaCola($equipo, VerificacionDocumento::PROPIEDAD), 'El de titulos si.');
+
+        $limpiar();
+        \Carbon\Carbon::setTestNow();
+    }
 }

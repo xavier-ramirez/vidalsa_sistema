@@ -356,13 +356,19 @@
                         <strong>Lectura automática activa</strong>
                         {{-- Corto a proposito. La zona solo se nombra si el servidor NO esta en la de Venezuela. --}}
                         <span>{{ ucfirst($horarioLectura) }}{{ $zona !== 'America/Caracas' ? ' (' . $zona . ')' : '' }} · no toca placa ni serial.</span>
-                        {{-- A cualquier hora: arranca ya y relee tambien los "No se pudo leer". --}}
+                        {{-- A cualquier hora: arranca ya y relee tambien los "No se pudo leer". Un boton por
+                             documento (fuera de la franja solo lee ese) y otro para todos. --}}
                         @if ($lecturaPedida)
-                            <span class="cpdf-ahora-pedida">Pedida: {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }} (en curso).</span>
+                            <span class="cpdf-ahora-pedida">Pedida: {{ $lecturaPedidaTipo ? \App\Models\VerificacionDocumento::NOMBRES[$lecturaPedidaTipo] : 'todos' }} · {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }} (en curso).</span>
                         @endif
-                        <button type="button" class="btn-primary-maquinaria cpdf-ahora" onclick="window.cpdfLeerAhora(this)">
-                            <i class="material-icons">play_arrow</i> Revisar ahora
-                        </button>
+                        <span class="cpdf-ahora-rotulo">Revisar ahora:</span>
+                        <div class="cpdf-ahora-botones">
+                            @foreach (['propiedad' => 'Título', 'poliza' => 'Póliza', 'rotc' => 'ROTC', 'racda' => 'RACDA', '' => 'Todos'] as $tipoAhora => $rotuloAhora)
+                                <button type="button" class="btn-primary-maquinaria cpdf-ahora" onclick="window.cpdfLeerAhora(this, @js($tipoAhora))">
+                                    <i class="material-icons">play_arrow</i> {{ $rotuloAhora }}
+                                </button>
+                            @endforeach
+                        </div>
                     @else
                         <strong>Lectura automática apagada</strong>
                         <span>{{ ucfirst($motivoActiva) }}.</span>
@@ -531,13 +537,19 @@
     };
 
     // "Revisar ahora": pide la lectura a cualquier hora (ver VerificarDocumentos::pedirAhora).
-    window.cpdfLeerAhora = function (btn) {
+    // Con tipo ('propiedad', 'poliza', 'rotc' o 'racda') solo ese documento; '' = todos.
+    window.cpdfLeerAhora = function (btn, tipo) {
         btn.disabled = true;
-        window.apiFetch(@json(route('compresion-pdf.documentos.leer-ahora')), { method: 'POST', headers: { 'Accept': 'application/json' } })
+        window.apiFetch(@json(route('compresion-pdf.documentos.leer-ahora')), {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo: tipo || null })
+        })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (!data || !data.success) throw new Error('sin exito');
-                window.toast('La revisión arranca en un minuto y sigue hasta que no quede nada', 'success');
+                window.toast('La revisión de ' + (tipo ? btn.textContent.replace('play_arrow', '').trim() : 'todos los documentos')
+                    + ' arranca en un minuto y sigue hasta que no quede nada', 'success');
                 window.cpdfFiltrar();
             })
             .catch(function () {

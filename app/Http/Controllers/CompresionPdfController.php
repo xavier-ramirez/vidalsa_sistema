@@ -72,10 +72,16 @@ class CompresionPdfController extends Controller
         return response()->json(['success' => true, 'puestos' => $resultado['puestos'], 'motivo' => $reg->refresh()->MOTIVO]);
     }
 
-    /** "Revisar ahora": la lectura arranca en el minuto siguiente (ver VerificarDocumentos::pedirAhora). */
-    public function leerAhora()
+    /**
+     * "Revisar ahora": la lectura arranca en el minuto siguiente (ver VerificarDocumentos::pedirAhora).
+     * Con `tipo` (propiedad, poliza, rotc o racda), solo ese documento; sin él, todos.
+     */
+    public function leerAhora(Request $request)
     {
-        \App\Console\Commands\VerificarDocumentos::pedirAhora();
+        $datos = $request->validate([
+            'tipo' => ['nullable', 'string', \Illuminate\Validation\Rule::in(array_keys(VerificacionDocumento::ENLACES))],
+        ]);
+        \App\Console\Commands\VerificarDocumentos::pedirAhora($datos['tipo'] ?? null);
         return response()->json(['success' => true]);
     }
 
