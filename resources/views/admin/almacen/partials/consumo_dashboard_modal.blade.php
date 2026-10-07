@@ -543,8 +543,8 @@
 
         // ── 1) Comparacion volumetrica de despacho de stock por proyecto (apiladas) ──
         // Una barra por mes; cada tramo, lo que consumió un proyecto (solo proyectos: lo que
-        // salió sin frente no entra, ver consumoPorMesFrente). Los 7 que más consumieron con su
-        // color y el resto en "Otros proyectos" (ver COLORES, abajo). La leyenda va a la
+        // salió sin frente no entra, ver consumoPorMesFrente). Salen TODOS los proyectos con
+        // consumo, cada uno con su color (ver COLORES, abajo). La leyenda va a la
         // IZQUIERDA, un proyecto debajo de otro, y no come ancho de barra.
         var cdEstrecho = window.innerWidth < 640;   // telefono: la leyenda va abajo y mas chica
         var mes = data.por_mes || [];
@@ -564,26 +564,26 @@
         var enGrafico = {};
         meses.forEach(function (m) { enGrafico[m] = true; });
         var porProy = (data.por_mes_frente || []).filter(function (x) { return enGrafico[x.mes]; });
-        // COLORES de la pila (07-10-2026, pedido del cliente: que peguen con el gráfico de
-        // consumo del módulo de COMBUSTIBLE, "Total de Consumo por Frente" en
-        // consumibles/graficos.blade.php). Misma idea que allá: los DOS primeros puestos en
-        // rojo (vino y rojo, los de su #1 y #2) y los siguientes en AZULES.
+        // COLORES de la pila (07-10-2026). Salen TODOS los proyectos con consumo, cada uno con
+        // su color (pedido del cliente: nada de juntar los pequeños en "Otros proyectos").
+        // Al estilo del gráfico de consumo de COMBUSTIBLE ("Total de Consumo por Frente",
+        // consumibles/graficos.blade.php): los DOS primeros puestos en rojo (vino y rojo) y
+        // del tercero al séptimo cinco azules que se distinguen TODOS entre sí (celeste,
+        // eléctrico, acero, petróleo, lavanda; pedido del cliente: "esos azules se parecen").
+        // Del octavo en adelante, tonos de la misma gama fría: verdes azulados, esmeraldas,
+        // índigos y violetas. El rojo queda solo para los dos primeros.
         //
-        // Son CINCO azules y no más (pedido del cliente: "esos azules se parecen mucho"). Con
-        // una escala de seis o más del mismo tono, dos de ellos salían casi iguales; se
-        // midió con scripts/validate_palette.js (skill dataviz) y seis azules no se pueden
-        // separar bien. Estos cinco (celeste, azul eléctrico, azul acero, azul petróleo y
-        // lavanda) se distinguen TODOS entre sí, no solo los vecinos: dE 15,3 a ojo normal
-        // (mínimo 15) y 10,7 para daltonismo (mínimo 8). En la pila, el orden de abajo es el
-        // que mejor separa los tramos pegados: vecinos dE 14,0 / 16,2. Si se tocan estos hex
-        // o su orden, hay que volver a validarlos.
-        //
-        // Del octavo para abajo NO se inventan más colores: se juntan en un solo tramo gris,
-        // "Otros proyectos", y el tooltip de ese tramo dice cuáles son y cuánto puso cada uno
-        // en el mes. El celeste y el gris quedan por debajo de 3:1 sobre blanco: los cubre que
+        // Con 18 o más proyectos NO se pueden tener colores todos distintos entre sí (medido
+        // con scripts/validate_palette.js, skill dataviz): lo que SÍ se garantiza es que dos
+        // tramos PEGADOS en la pila se separen (vecinos dE 14,0 daltonismo, mínimo 8; 16,2 a
+        // ojo normal, mínimo 15). Cada color se eligió, en ese orden, como el más distinto de
+        // todos los anteriores. Para saber cuál es cuál están la leyenda y el tooltip, que
+        // nombra el proyecto del tramo. Si se tocan estos hex o su orden, hay que volver a
+        // validarlos. Varios tonos claros quedan por debajo de 3:1 sobre blanco: los cubre que
         // cada barra lleve su total escrito, la leyenda y el tooltip.
-        var CD_PALETA = ['#9f1d1d', '#e53e3e', '#54c3e8', '#1730d3', '#2f91b1', '#0f5b8a', '#5569ec'];
-        var CD_OTROS = 'Otros proyectos', CD_COLOR_OTROS = '#94a3b8';
+        var CD_PALETA = ['#9f1d1d', '#e53e3e', '#54c3e8', '#1730d3', '#2f91b1', '#0f5b8a', '#5569ec',
+            '#10b981', '#5b21b6', '#a78bfa', '#059669', '#4f46e5', '#14b8a6', '#6d28d9', '#047857',
+            '#a855f7', '#0d9488', '#7c3aed', '#06b6d4', '#4338ca', '#38bdf8', '#0369a1'];
 
         // En la leyenda solo los proyectos que CONSUMIERON en los meses dibujados. El servidor
         // ya descarta cada mes que queda en cero o en negativo (devoluciones que se comen las
@@ -591,25 +591,16 @@
         // filtro de > 0 es solo de resguardo.
         var totalPorProy = {};
         porProy.forEach(function (x) { totalPorProy[x.proyecto] = (totalPorProy[x.proyecto] || 0) + x.total; });
-        var orden = Object.keys(totalPorProy)
+        var series = Object.keys(totalPorProy)
             .filter(function (p) { return totalPorProy[p] > 0; })
             .sort(function (a, b) { return totalPorProy[b] - totalPorProy[a]; });
-        var conColor = orden.slice(0, CD_PALETA.length);
-        var otros = orden.slice(CD_PALETA.length);
-        var esOtro = {};
-        otros.forEach(function (p) { esOtro[p] = true; });
 
-        var valor = {};    // proyecto|mes → total (los de "Otros", sumados bajo CD_OTROS)
-        var detalleOtros = {};   // mes → [[proyecto, total]…], para el tooltip del tramo gris
+        var valor = {};    // proyecto|mes → total
         porProy.forEach(function (x) {
-            var nombre = esOtro[x.proyecto] ? CD_OTROS : x.proyecto;
-            var clave = nombre + '|' + x.mes;
+            var clave = x.proyecto + '|' + x.mes;
             valor[clave] = (valor[clave] || 0) + x.total;
-            if (esOtro[x.proyecto]) (detalleOtros[x.mes] = detalleOtros[x.mes] || []).push([x.proyecto, x.total]);
         });
-        Object.keys(detalleOtros).forEach(function (m) { detalleOtros[m].sort(function (a, b) { return b[1] - a[1]; }); });
 
-        var series = conColor.concat(otros.length ? [CD_OTROS] : []);
         var datasets = series.map(function (p, i) {
             return {
                 label: p,
@@ -617,7 +608,9 @@
                 // Color PLANO. Se probo con degradado dentro de cada tramo y el cliente lo
                 // quito (17-09-2026): el degradado aclaraba la parte de arriba de cada tramo y
                 // se confundia con el color del tramo de encima. Plano se lee mejor.
-                backgroundColor: p === CD_OTROS ? CD_COLOR_OTROS : CD_PALETA[i],
+                // Más de 22 proyectos (hoy el que más tiene llega a 18): vuelve a empezar la
+                // paleta, y el tooltip sigue diciendo de quién es cada tramo.
+                backgroundColor: CD_PALETA[i % CD_PALETA.length],
                 // Sin raya blanca entre tramos: la quito el cliente (17-09-2026). La paleta
                 // ya separa los colores sola, y el borde picaba la pila en trocitos.
                 //
@@ -657,11 +650,6 @@
                     datalabels: CD_SIN_DATALABELS,
                     tooltip: Object.assign({}, cdTooltip, { callbacks: {
                         label: function (c) { return c.dataset.label + ': ' + fmt(c.parsed.y); },
-                        // El tramo gris dice quiénes lo forman y cuánto puso cada uno ese mes.
-                        afterLabel: function (c) {
-                            if (c.dataset.label !== CD_OTROS) return '';
-                            return (detalleOtros[meses[c.dataIndex]] || []).map(function (x) { return '   · ' + x[0] + ': ' + fmt(x[1]); });
-                        },
                         footer: function (items) {
                             var t = items.reduce(function (s, i) { return s + (Number(i.parsed.y) || 0); }, 0);
                             return items.length > 1 ? 'Total del mes: ' + fmt(t) : '';
