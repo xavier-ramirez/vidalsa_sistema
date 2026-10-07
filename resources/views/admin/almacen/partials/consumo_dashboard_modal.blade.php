@@ -543,7 +543,7 @@
 
         // ── 1) Comparacion volumetrica de despacho de stock por proyecto (apiladas) ──
         // Una barra por mes; cada tramo, lo que consumió un proyecto (solo proyectos: lo que
-        // salió sin frente no entra, ver consumoPorMesFrente). Los 8 que más consumieron con su
+        // salió sin frente no entra, ver consumoPorMesFrente). Los 7 que más consumieron con su
         // color y el resto en "Otros proyectos" (ver COLORES, abajo). La leyenda va a la
         // IZQUIERDA, un proyecto debajo de otro, y no come ancho de barra.
         var cdEstrecho = window.innerWidth < 640;   // telefono: la leyenda va abajo y mas chica
@@ -567,24 +567,22 @@
         // COLORES de la pila (07-10-2026, pedido del cliente: que peguen con el gráfico de
         // consumo del módulo de COMBUSTIBLE, "Total de Consumo por Frente" en
         // consumibles/graficos.blade.php). Misma idea que allá: los DOS primeros puestos en
-        // rojo (vino y rojo, los de su #1 y #2) y del tercero al octavo una escala de AZUL del
-        // mismo tono (213°) que va de marino a claro.
+        // rojo (vino y rojo, los de su #1 y #2) y los siguientes en AZULES.
         //
-        // Diferencia a propósito con Combustible: allá las barras van sueltas, una por fila, y
-        // la escala puede ir de corrido; aquí los tramos se APILAN y se tocan, y de corrido
-        // dos vecinos salían dos azules casi iguales. Por eso los azules van INTERCALADOS
-        // (medio, marino, medio claro, oscuro, claro, intenso): dos tramos pegados quedan
-        // siempre a distinta luz. Los hex (un punto más claros que los de Combustible, para que
-        // ninguno se vaya a negro en la pila) y su orden los eligió scripts/validate_palette.js
-        // (skill dataviz): vecinos dE 14,0 para daltonismo (mínimo 8) y 16,2 a ojo normal
-        // (mínimo 15). Si se tocan estos hex o su orden, hay que volver a validarlos.
+        // Son CINCO azules y no más (pedido del cliente: "esos azules se parecen mucho"). Con
+        // una escala de seis o más del mismo tono, dos de ellos salían casi iguales; se
+        // midió con scripts/validate_palette.js (skill dataviz) y seis azules no se pueden
+        // separar bien. Estos cinco (celeste, azul eléctrico, azul acero, azul petróleo y
+        // lavanda) se distinguen TODOS entre sí, no solo los vecinos: dE 15,3 a ojo normal
+        // (mínimo 15) y 10,7 para daltonismo (mínimo 8). En la pila, el orden de abajo es el
+        // que mejor separa los tramos pegados: vecinos dE 14,0 / 16,2. Si se tocan estos hex
+        // o su orden, hay que volver a validarlos.
         //
-        // Del noveno para abajo NO se inventan más colores: con 18 proyectos los tonos salían
-        // parecidos y no se distinguían. Se juntan en un solo tramo gris, "Otros proyectos",
-        // y el tooltip de ese tramo dice cuáles son y cuánto puso cada uno en el mes. Los dos
-        // azules más claros y el gris quedan por debajo de 3:1 sobre blanco: los cubre que
+        // Del octavo para abajo NO se inventan más colores: se juntan en un solo tramo gris,
+        // "Otros proyectos", y el tooltip de ese tramo dice cuáles son y cuánto puso cada uno
+        // en el mes. El celeste y el gris quedan por debajo de 3:1 sobre blanco: los cubre que
         // cada barra lleve su total escrito, la leyenda y el tooltip.
-        var CD_PALETA = ['#9f1d1d', '#e53e3e', '#4083d5', '#1a5193', '#5f96d9', '#2161af', '#70a7eb', '#2971c9'];
+        var CD_PALETA = ['#9f1d1d', '#e53e3e', '#54c3e8', '#1730d3', '#2f91b1', '#0f5b8a', '#5569ec'];
         var CD_OTROS = 'Otros proyectos', CD_COLOR_OTROS = '#94a3b8';
 
         // En la leyenda solo los proyectos que CONSUMIERON en los meses dibujados. El servidor
