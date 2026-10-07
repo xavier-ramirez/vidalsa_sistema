@@ -538,14 +538,14 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
     #gpsTrackerModal .mapa-eq-dudosa { padding-right: 12px; }
     .gps-vence { margin: 0; font-size: 11px; font-weight: 600; color: #475569; text-align: center; }
 
-    /* Los seis datos van en TRES filas de dos, como en /mapa (pedido del cliente, 01-10-2026;
-       antes dos filas de tres): es la rejilla de la propia ficha, sin regla aquí. */
+    /* Los seis datos van como en /mapa: dos filas de dos y, a todo el ancho, Combustible y Última
+       señal (pedido del cliente, 06-10-2026). Es la rejilla de la propia ficha, sin regla aquí. */
     /* Letra más grande en el modal (pedido del cliente, 01-10-2026): los rótulos y los datos
        chicos de la ficha (9,5-11,5 px) costaban de leer. Solo aquí, que hay sitio; la tarjeta
        de /mapa es más angosta y se queda como está. */
     #gpsTrackerModal .mapa-eq-frente,
-    #gpsTrackerModal .mapa-eq-tit b { font-size: 13px; }
-    #gpsTrackerModal .mapa-eq-desc { font-size: 12px; }   /* Placa y Chasis, más chicos que el tipo */
+    #gpsTrackerModal .mapa-eq-tit b { font-size: 12px; }   /* el encabezado, un punto menos: se veía muy grande (pedido del cliente, 06-10-2026) */
+    #gpsTrackerModal .mapa-eq-desc { font-size: 11px; }   /* Placa y Chasis, más chicos que el tipo */
     #gpsTrackerModal .mapa-eq-cel span { font-size: 11px; }
     #gpsTrackerModal .mapa-eq-cel b { font-size: 14px; }
     #gpsTrackerModal .mapa-eq-cel small { font-size: 12px; }

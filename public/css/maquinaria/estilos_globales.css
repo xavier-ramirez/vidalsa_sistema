@@ -4735,9 +4735,9 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .mapa-eq-frente, .mapa-eq-tit b { font-size: 11.5px; font-weight: 700; }
 .mapa-eq-desc { font-size: 10.5px; font-weight: 500; }
 /* Todo texto de la ficha que no cabe baja de renglón, pero como MÁXIMO a dos (pedido del cliente,
-   01-10-2026); lo que sobra se corta con "…" y entero queda en el title. La dirección no entra:
-   va en línea con su coordenada detrás y ya llega acortada (ver direccionCorta en gps_ficha.js). */
-.mapa-eq-tit b, .mapa-eq-desc, .mapa-eq-frente, .mapa-eq-cel b, .mapa-eq-cel small {
+   01-10-2026); lo que sobra se corta con "…" y entero queda en el title. Las celdas de datos y la
+   ubicación tienen su propia regla (.mapa-eq-val y .mapa-eq-ubic, más abajo). */
+.mapa-eq-tit b, .mapa-eq-desc, .mapa-eq-frente {
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
     overflow: hidden; overflow-wrap: anywhere;
 }
@@ -4756,10 +4756,15 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 /* Dos columnas: a tres, "Encendido", el kilometraje o la fecha de la última señal no cabían. */
 .mapa-eq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: #e2e8f0; }
 .mapa-eq-cel { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 7px 8px; background: #fff; }
+.mapa-eq-cel.ancha { grid-column: 1 / -1; }   /* Combustible y Última señal: toda la fila (ver gps_ficha.js) */
 .mapa-eq-cel span { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #64748b; }
+/* El valor y su detalle en UN renglón ("hace 1 min  6/10/2026 20:15"; pedido del cliente,
+   06-10-2026). Si no caben juntos, el detalle baja ENTERO (flex-wrap); uno que no cabe ni solo se
+   corta con "…" (entero queda en el title). */
+.mapa-eq-val { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; min-width: 0; }
+.mapa-eq-val > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mapa-eq-cel b { font-size: 13px; font-weight: 800; }
-/* pre-line: el combustible manda "Principal…" y "Auxiliar…" separados por un salto de renglón. */
-.mapa-eq-cel small { font-size: 10px; color: #64748b; white-space: pre-line; }
+.mapa-eq-cel small { font-size: 10px; color: #64748b; }
 /* Aviso de posición NO fiable, arriba del todo en la ficha del equipo: el GPS la reporta fuera
    del país. En ámbar y no en rojo: no es un fallo de la app ni del equipo, es el aparato de GPS
    el que hay que revisar. */
@@ -4769,10 +4774,14 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .mapa-eq-vieja { padding: 5px 12px; font-size: 10.5px; font-weight: 700; color: #475569; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
 .mapa-eq-ubic { display: flex; align-items: flex-start; gap: 6px; padding: 8px 12px 10px; }
 .mapa-eq-ubic > .material-icons { flex: none; font-size: 16px; color: #64748b; margin-top: 1px; }
-.mapa-eq-ubic > div { min-width: 0; }
-.mapa-eq-dir { font-size: 11.5px; font-weight: 600; color: #1e293b; overflow-wrap: anywhere; }
-/* La coordenada va detrás de la dirección, como parte entera: si no cabe, baja entera. */
-.mapa-eq-coord { font-size: 10.5px; color: #64748b; font-variant-numeric: tabular-nums; }
+.mapa-eq-ubic > div { display: flex; flex-wrap: wrap; align-items: baseline; min-width: 0; }
+/* Como MÁXIMO dos renglones (pedido del cliente, 06-10-2026): la dirección no se parte; si no cabe
+   con la coordenada, se queda sola en el primero (cortada con "…", entera en el title) y la
+   coordenada baja entera al segundo. */
+.mapa-eq-dir { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 600; color: #1e293b; }
+/* La coordenada va detrás de la dirección, como parte entera: si no cabe, baja entera. Con el
+   mismo color de letra que la dirección (pedido del cliente, 06-10-2026; antes en gris). */
+.mapa-eq-coord { font-size: 10.5px; color: #1e293b; font-variant-numeric: tabular-nums; }
 /* Teléfono ACOSTADO (poco alto): el mapa mide ~300-340 px y la ficha, ~336; no cabía y se salía por
    abajo. Aquí va más ancha y más baja —los seis datos en tres columnas— y, si aun así no cabe en lo
    que queda bajo el margen de arriba (los 160 px de autoPanPaddingTopLeft en mapa_index.js), sobre
@@ -4780,6 +4789,7 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 @media (max-height: 500px) {
     .mapa-eq-pop .leaflet-popup-content { width: 400px !important; max-height: calc(100dvh - 240px); overflow-y: auto; }
     .mapa-eq-pop .mapa-eq-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .mapa-eq-pop .mapa-eq-cel.ancha { grid-column: auto; }   /* a tres columnas caben: 3 + 3 */
 }
 /* ── Marca de un GRUPO de equipos (Leaflet.markercluster) ──
    De lejos, los equipos que caen en el mismo sitio se juntan en una sola marca con su número; al

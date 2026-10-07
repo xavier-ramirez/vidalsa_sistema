@@ -61,10 +61,16 @@
         return corta || String(t || '');
     }
 
-    function celda(rotulo, valor, detalle) {
-        return '<div class="mapa-eq-cel"><span>' + esc(rotulo) + '</span>' +
+    // El rótulo arriba y, en UN renglón debajo, el valor con su detalle al lado ("hace 1 min
+    // 6/10/2026 20:15"): pedido del cliente, 06-10-2026; antes el detalle iba en otro renglón y la
+    // celda llegaba a cuatro. `detalle` es un texto o una lista (un trozo por tanque); el que no
+    // cabe al lado baja entero (ver .mapa-eq-val). `ancha`: ocupa toda la fila de la rejilla.
+    function celda(rotulo, valor, detalle, ancha) {
+        var trozos = [].concat(detalle || []).filter(Boolean);
+        return '<div class="mapa-eq-cel' + (ancha ? ' ancha' : '') + '"><span>' + esc(rotulo) + '</span><div class="mapa-eq-val">' +
                '<b title="' + esc(valor) + '">' + esc(valor) + '</b>' +
-               (detalle ? '<small title="' + esc(detalle) + '">' + esc(detalle) + '</small>' : '') + '</div>';
+               trozos.map(function (t) { return '<small title="' + esc(t) + '">' + esc(t) + '</small>'; }).join('') +
+               '</div></div>';
     }
 
     // En marcha = más de 3 km/h, y solo con la posición al día: con la última conocida (`vieja`,
@@ -205,27 +211,33 @@
                     // "Apagado / desde hace 1 día 11 h": antes salía "1d11h42m" suelto, sin decir qué era.
                     celda('Motor', hay(g.acc) ? (g.acc ? 'Encendido' : 'Apagado') : '—',
                           hay(g.acc) && motorDesde ? 'desde hace ' + motorDesde : '') +
+                    celda('Voltaje', hay(g.voltaje) ? num(g.voltaje, 1) + ' V' : '—') +
+                    celda('Kilometraje', num(g.km_total) + ' km') +
+                    // Combustible y Última señal a TODO el ancho y al final (pedido del cliente,
+                    // 06-10-2026): así el valor y su detalle caben en un renglón y la celda queda
+                    // en dos (rótulo y dato); en media fila llegaban a tres o cuatro.
                     // El reparto por tanques solo si HAY auxiliar, y cada tanque con su propio
                     // dato: los dos vienen sueltos de GPS51 y uno puede faltar. Poniendo 0 donde
                     // no hay medida se leería como un tanque vacío. Con el nombre entero del
                     // tanque: "P 603 · A 205" no se entendía (pedido del cliente, 01-10-2026).
                     celda('Combustible', hay(comb.total) ? num(comb.total) + ' L' : '—',
                           hay(comb.auxiliar)
-                              ? 'Principal ' + (hay(comb.principal) ? num(comb.principal) + ' L' : '—') +
-                                '\nAuxiliar ' + num(comb.auxiliar) + ' L'   // un tanque por renglón (ver .mapa-eq-cel small)
-                              : '') +
-                    celda('Voltaje', hay(g.voltaje) ? num(g.voltaje, 1) + ' V' : '—') +
-                    celda('Kilometraje', num(g.km_total) + ' km') +
-                    celda('Última señal', window.tiempoHace(g.ultima_senal), window.fechaHoraLocal(g.ultima_senal)) +
+                              ? ['Principal ' + (hay(comb.principal) ? num(comb.principal) + ' L' : '—'),
+                                 'Auxiliar ' + num(comb.auxiliar) + ' L']   // un trozo por tanque
+                              : '', true) +
+                    celda('Última señal', window.tiempoHace(g.ultima_senal), window.fechaHoraLocal(g.ultima_senal), true) +
                 '</div>' +
                 // Dónde está: la dirección corta y, en el MISMO renglón justo detrás, la coordenada
-                // (pedido del cliente, 01-10-2026; antes iba debajo). Son dos trozos aparte porque
+                // (pedido del cliente, 01-10-2026; antes iba debajo), con la misma letra. Como
+                // MÁXIMO dos renglones (pedido del cliente, 06-10-2026): si no caben juntas, la
+                // dirección se queda con el primero (cortada con "…", entera en el title) y la
+                // coordenada baja al segundo (ver .mapa-eq-ubic). Son dos trozos aparte porque
                 // ponerDireccion reescribe solo el de la dirección cuando llega.
                 '<div class="mapa-eq-ubic"><i class="material-icons">place</i><div>' +
                     (op.sinDireccion ? '' :
                         '<span class="mapa-eq-dir mapa-eq-parte"' + (op.dirAttr ? ' data-eqdir="' + esc(op.dirAttr) + '"' : '') +
                         (op.direccion ? ' title="' + esc(op.direccion) + '"' : '') + '>' +
-                        esc(op.direccion ? direccionCorta(op.direccion) : 'Buscando dirección…') + '</span> ') +
+                        esc(op.direccion ? direccionCorta(op.direccion) : 'Buscando dirección…') + '</span>') +
                     parte('<span class="mapa-eq-coord">' + g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</span>', true) +
                 '</div></div>' +
             '</div>';
