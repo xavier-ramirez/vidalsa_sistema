@@ -191,10 +191,6 @@
             var motorDesde = g.vieja ? '' : duracion(g.acc_tiempo);
 
             return '<div class="mapa-eq">' +
-                // Lo primero: esta posición no es la real. El equipo se pinta igual (el cliente
-                // quiere ver lo que el GPS dice), pero nadie debe salir a buscarlo ahí.
-                (op.dudosa ? '<div class="mapa-eq-dudosa"><i class="material-icons">location_off</i>' +
-                    '<span>El GPS la reporta FUERA de Venezuela: no es donde está el equipo. Hay que revisar ese GPS.</span></div>' : '') +
                 '<div class="mapa-eq-head" style="border-left-color:' + color + '">' +
                     '<div class="mapa-eq-frente" title="' + esc(frente) + '">' + esc(frente) + '</div>' +
                     '<div class="mapa-eq-tit"><b title="' + esc(segundaTxt) + '">' + segunda + '</b></div>' +
@@ -207,15 +203,16 @@
                 (g.vieja ? '<div class="mapa-eq-vieja">Últimos datos conocidos: ' +
                     (op.sinRespuesta ? 'GPS51 no respondió' : 'actualizando…') + '</div>' : '') +
                 '<div class="mapa-eq-grid">' +
+                    // Arriba, los tres datos cortos en una fila; debajo, a TODO el ancho, los que
+                    // llevan detalle (Motor, Combustible, Última señal): así el valor y su detalle
+                    // caben en un renglón y cada celda queda en dos, rótulo y dato (pedido del
+                    // cliente, 06-10-2026; en media fila llegaban a tres o cuatro).
                     celda('Velocidad', num(g.velocidad) + ' km/h') +
-                    // "Apagado / desde hace 1 día 11 h": antes salía "1d11h42m" suelto, sin decir qué era.
-                    celda('Motor', hay(g.acc) ? (g.acc ? 'Encendido' : 'Apagado') : '—',
-                          hay(g.acc) && motorDesde ? 'desde hace ' + motorDesde : '') +
                     celda('Voltaje', hay(g.voltaje) ? num(g.voltaje, 1) + ' V' : '—') +
                     celda('Kilometraje', num(g.km_total) + ' km') +
-                    // Combustible y Última señal a TODO el ancho y al final (pedido del cliente,
-                    // 06-10-2026): así el valor y su detalle caben en un renglón y la celda queda
-                    // en dos (rótulo y dato); en media fila llegaban a tres o cuatro.
+                    // "Apagado  desde hace 1 día 11 h": antes salía "1d11h42m" suelto, sin decir qué era.
+                    celda('Motor', hay(g.acc) ? (g.acc ? 'Encendido' : 'Apagado') : '—',
+                          hay(g.acc) && motorDesde ? 'desde hace ' + motorDesde : '', true) +
                     // El reparto por tanques solo si HAY auxiliar, y cada tanque con su propio
                     // dato: los dos vienen sueltos de GPS51 y uno puede faltar. Poniendo 0 donde
                     // no hay medida se leería como un tanque vacío. Con el nombre entero del
@@ -240,6 +237,11 @@
                         esc(op.direccion ? direccionCorta(op.direccion) : 'Buscando dirección…') + '</span>') +
                     parte('<span class="mapa-eq-coord">' + g.lat.toFixed(6) + ', ' + g.lng.toFixed(6) + '</span>', true) +
                 '</div></div>' +
+                // Al final, debajo de la ubicación (pedido del cliente, 06-10-2026; antes iba arriba
+                // del todo): esta posición no es la real. El equipo se pinta igual (el cliente
+                // quiere ver lo que el GPS dice), pero nadie debe salir a buscarlo ahí.
+                (op.dudosa ? '<div class="mapa-eq-dudosa"><i class="material-icons">location_off</i>' +
+                    '<span>El GPS la reporta FUERA de Venezuela: no es donde está el equipo. Hay que revisar ese GPS.</span></div>' : '') +
             '</div>';
         },
 

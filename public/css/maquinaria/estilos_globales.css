@@ -4753,10 +4753,11 @@ body:has(.mapa-page) { --mapa-col: 380px; }
    raya fina que lo separa de qué equipo es. padding-right: deja libre la "×" de cerrar de Leaflet,
    arriba a la derecha. */
 .mapa-eq-frente { padding: 0 18px 6px 0; margin-bottom: 6px; border-bottom: 1px solid #cfe0f3; }
-/* Dos columnas: a tres, "Encendido", el kilometraje o la fecha de la última señal no cabían. */
-.mapa-eq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: #e2e8f0; }
+/* Tres columnas para los datos cortos (Velocidad, Voltaje, Kilometraje); los que llevan detalle
+   (Motor, Combustible, Última señal) van en .ancha, a toda la fila: ahí sí caben (ver gps_ficha.js). */
+.mapa-eq-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: #e2e8f0; }
 .mapa-eq-cel { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 7px 8px; background: #fff; }
-.mapa-eq-cel.ancha { grid-column: 1 / -1; }   /* Combustible y Última señal: toda la fila (ver gps_ficha.js) */
+.mapa-eq-cel.ancha { grid-column: 1 / -1; }
 .mapa-eq-cel span { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #64748b; }
 /* El valor y su detalle en UN renglón ("hace 1 min  6/10/2026 20:15"; pedido del cliente,
    06-10-2026). Si no caben juntos, el detalle baja ENTERO (flex-wrap); uno que no cabe ni solo se
@@ -4765,11 +4766,11 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .mapa-eq-val > * { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mapa-eq-cel b { font-size: 13px; font-weight: 800; }
 .mapa-eq-cel small { font-size: 10px; color: #64748b; }
-/* Aviso de posición NO fiable, arriba del todo en la ficha del equipo: el GPS la reporta fuera
-   del país. En letra roja sobre el blanco de la ficha (pedido del cliente, 06-10-2026: el fondo
-   amarillo de antes no se veía elegante), con una raya fina que lo separa del encabezado. */
-.mapa-eq-dudosa { display: flex; align-items: flex-start; gap: 6px; padding: 8px 30px 8px 12px;   /* 30: la × de Leaflet */
-    background: #fff; color: #b91c1c; border-bottom: 1px solid #fecaca;
+/* Aviso de posición NO fiable, al final de la ficha del equipo, debajo de la ubicación: el GPS la
+   reporta fuera del país. En letra roja sobre el blanco de la ficha (pedido del cliente, 06-10-2026:
+   el fondo amarillo de antes no se veía elegante), con una raya fina que lo separa de lo de arriba. */
+.mapa-eq-dudosa { display: flex; align-items: flex-start; gap: 6px; padding: 8px 12px;
+    background: #fff; color: #b91c1c; border-top: 1px solid #fecaca;
     font-size: 11.5px; font-weight: 700; line-height: 1.35; }
 .mapa-eq-dudosa .material-icons { font-size: 16px; flex: 0 0 auto; margin-top: 1px; }
 .mapa-eq-vieja { padding: 5px 12px; font-size: 10.5px; font-weight: 700; color: #475569; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
@@ -4789,8 +4790,7 @@ body:has(.mapa-page) { --mapa-col: 380px; }
    la barra del panel (54) y la punta de la ficha (~20), se desplaza por dentro. */
 @media (max-height: 500px) {
     .mapa-eq-pop .leaflet-popup-content { width: 400px !important; max-height: calc(100dvh - 240px); overflow-y: auto; }
-    .mapa-eq-pop .mapa-eq-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .mapa-eq-pop .mapa-eq-cel.ancha { grid-column: auto; }   /* a tres columnas caben: 3 + 3 */
+    .mapa-eq-pop .mapa-eq-cel.ancha { grid-column: auto; }   /* los seis en dos filas de tres */
 }
 /* ── Marca de un GRUPO de equipos (Leaflet.markercluster) ──
    De lejos, los equipos que caen en el mismo sitio se juntan en una sola marca con su número; al

@@ -535,11 +535,11 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
        la × del modal va en el encabezado del modal. */
     #gpsTrackerModal .mapa-eq-head { background: #ecfdf5; border-bottom-color: #bbf7d0; }
     #gpsTrackerModal .mapa-eq-frente { padding-right: 0; border-bottom-color: #bbf7d0; }
-    #gpsTrackerModal .mapa-eq-dudosa { padding-right: 12px; }
     .gps-vence { margin: 0; font-size: 11px; font-weight: 600; color: #475569; text-align: center; }
 
-    /* Los seis datos van como en /mapa: dos filas de dos y, a todo el ancho, Combustible y Última
-       señal (pedido del cliente, 06-10-2026). Es la rejilla de la propia ficha, sin regla aquí. */
+    /* Los seis datos van como en /mapa: Velocidad, Voltaje y Kilometraje en una fila y, a todo el
+       ancho, Motor, Combustible y Última señal (pedido del cliente, 06-10-2026). Es la rejilla de
+       la propia ficha, sin regla aquí. */
     /* Letra más grande en el modal (pedido del cliente, 01-10-2026): los rótulos y los datos
        chicos de la ficha (9,5-11,5 px) costaban de leer. Solo aquí, que hay sitio; la tarjeta
        de /mapa es más angosta y se queda como está. */
