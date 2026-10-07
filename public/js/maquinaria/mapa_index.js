@@ -3940,12 +3940,11 @@
             _panEq._total = orden.length;
             _panEq.lista.innerHTML = (!_panEq._lista.length ? '<div class="mapa-eqp-vacio">Ningún equipo con estos filtros</div>' : '') + _panEq._lista.map(function (e, i) {
                 var linea = eqTienePosicion(e) && e.gps.en_linea;
-                // Un dato por renglón, sin "·" entre ellos (pedido del cliente, 06-10-2026):
+                // Dos renglones, sin "·" entre los datos (pedido del cliente, 06-10-2026):
                 //   1) el TIPO y, al lado, la MARCA y el MODELO
-                //   2) "Chasis: …"
-                //   3) "Placa: …" — o, sin placa, lo que haya (eqIdent baja a serial de motor,
-                //      código o etiqueta), con su rótulo. Si el equipo se identifica por el
-                //      chasis, ya salió en el 2 y no se repite.
+                //   2) "Placa: …" y, al lado, "Chasis: …". Sin placa va primero lo que haya
+                //      (eqIdent baja a serial de motor, código o etiqueta), con su rótulo; si el
+                //      equipo se identifica por el chasis, este va solo y no se repite.
                 // El frente no va aquí: se comía el renglón entero. Para eso está el filtro de
                 // frente, arriba.
                 // eqIdent ya es "placa, si no el serial de chasis, si no…": repetir aquí sus
@@ -3956,10 +3955,11 @@
                 var chasis = porChasis ? identifica
                     : window.GpsFicha.chasisAparte({ chasis: e.serial_chasis, identPor: e.ident_por });
                 var otroIdent = porChasis ? '' : (e.ident_por ? e.ident_por + ': ' : '') + identifica;   // "Equipo N" va sin rótulo
-                // Cada dato en su renglón; el que no cabe se corta con "…" y entero queda en el title.
-                var renglon = function (txt) {
-                    return txt ? '<small><span class="mapa-eqp-dato" title="' + esc(txt) + '">' + esc(txt) + '</span></small>' : '';
+                // Cada dato en su trozo: si no caben los dos, el segundo baja entero (ver CSS).
+                var dato = function (txt) {
+                    return txt ? '<span class="mapa-eqp-dato" title="' + esc(txt) + '">' + esc(txt) + '</span>' : '';
                 };
+                var ids = dato(otroIdent) + dato(chasis ? 'Chasis: ' + chasis : '');
                 return '<div class="mapa-eqp-eq' + (eqTienePosicion(e) ? '' : ' sin-pos') + '" data-i="' + i + '">' +
                     '<span class="mapa-eqp-eq-txt">' +
                         // Sin tipo va el rótulo, NO el identificador: ponerlo ahí lo repetiría en
@@ -3967,8 +3967,7 @@
                         '<b><span class="mapa-eqp-tipo">' + esc(eqTipoTexto(e)) + '</span>' +
                             (e.marca ? '<span class="mapa-eqp-marca">' + esc(e.marca) + '</span>' : '') +
                             (e.modelo ? '<span class="mapa-eqp-modelo" title="' + esc(e.modelo) + '">' + esc(e.modelo) + '</span>' : '') + '</b>' +
-                        renglon(chasis ? 'Chasis: ' + chasis : '') +
-                        renglon(otroIdent) + '</span>' +
+                        (ids ? '<small>' + ids + '</small>' : '') + '</span>' +
                     '<span class="mapa-eqp-estado' + (linea ? ' en-linea' : '') + '">' + esc(eqEstadoTexto(e)) + '</span></div>';
             }).join('') + (orden.length > _panEq._lista.length
                 ? '<div class="mapa-eqp-mas">' + (orden.length - _panEq._lista.length) + ' más abajo</div>'

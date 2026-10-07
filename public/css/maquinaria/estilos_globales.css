@@ -4893,23 +4893,22 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     white-space: nowrap;
     color: #000;   /* letra y tamaño: los pone cada trozo (.mapa-eqp-tipo / .mapa-eqp-marca / .mapa-eqp-modelo) */
 }
-/* El tipo en su propio span y no como texto suelto: dentro de un contenedor flex el texto suelto
-   queda en una caja anónima, que CSS no puede alcanzar para recortarlo con puntos suspensivos. */
-.mapa-eqp-tipo { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* El tipo con la MISMA letra y tamaño que la marca, pero en negro (pedido del cliente, 06-10-2026). */
+/* Los tres con la MISMA letra y tamaño; el tipo en el negro del renglón, la marca y el modelo en
+   gris (pedido del cliente, 06-10-2026). Cada uno en su propio span y no como texto suelto: dentro
+   de un contenedor flex el texto suelto queda en una caja anónima, que CSS no puede recortar. */
 .mapa-eqp-tipo, .mapa-eqp-marca, .mapa-eqp-modelo { font-size: 11px; font-weight: 700; letter-spacing: 0.2px; }
-.mapa-eqp-tipo { color: #000; }
-.mapa-eqp-marca { flex: none; color: #475569; }
-/* El modelo al lado de la marca (pedido del cliente, 06-10-2026), con su letra. */
-.mapa-eqp-modelo { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #475569; }
-/* Debajo, un dato por renglón: chasis y placa (pedido del cliente, 06-10-2026). El que no
-   cabe se corta con "…" y entero queda en el title. El text-overflow va en el span y no en el
-   small: siendo un contenedor flex, el small no tiene texto propio que recortar. */
+.mapa-eqp-tipo, .mapa-eqp-modelo { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mapa-eqp-marca, .mapa-eqp-modelo { color: #475569; }
+.mapa-eqp-marca { flex: none; }
+/* Debajo, la placa y al lado el chasis (pedido del cliente, 06-10-2026). Igual que el renglón de
+   arriba: si no caben los dos, el chasis BAJA entero (flex-wrap); solo uno que no cabe ni solo se
+   corta con "…" (entero queda en el title). El text-overflow va en el span y no en el small:
+   siendo un contenedor flex, el small no tiene texto propio que recortar. */
 .mapa-eqp-eq-txt small {
-    display: flex; overflow: hidden; white-space: nowrap;
+    display: flex; flex-wrap: wrap; column-gap: 8px; white-space: nowrap;
     font-size: 11px; color: #000;
 }
-.mapa-eqp-dato { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mapa-eqp-dato { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .mapa-eqp-estado { flex: none; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 700; color: #000; }
 .mapa-eqp-estado.en-linea { color: #15803d; }
 /* Sin posicion: se marca con el cursor y un punto de transparencia, pero NO tanta como para
