@@ -11,9 +11,10 @@ use Illuminate\Support\Facades\DB;
 use Tests\MySqlTestCase;
 
 /**
- * Recepción con DESPACHO DIRECTO (AlmacenController::registrarRecepcionConDespacho): lo que
- * llega al almacén general entra y, en la misma operación, sale a cada proyecto con su Nota
- * de Entrega. Las líneas sin destino se quedan en stock.
+ * "Registrar y despachar" de la recepción de materiales
+ * (AlmacenController::registrarRecepcionConDespacho): lo que llega entra y, en la misma
+ * operación, sale al proyecto con su Nota de Entrega — con los mismos datos de la nota que la
+ * salida de /admin/almacen.
  */
 class RecepcionDespachoDirectoTest extends MySqlTestCase
 {
@@ -54,114 +55,108 @@ class RecepcionDespachoDirectoTest extends MySqlTestCase
         [$this->p1, $this->p2] = $ids;
     }
 
-    private function recepcion(array $lineas)
+    private function despachar(int $almacen, int $frente, array $extra = [])
     {
         return $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho'), [
-            'id_almacen' => $this->general,
-            'referencia' => 'NE-PROV-123',
-            'motivo'     => 'PROVEEDOR DE PRUEBA',
-            'lineas'     => $lineas,
-        ]);
+            'id_almacen'        => $almacen,
+            'referencia'        => 'NE-PROV-123',
+            'proveedor'         => 'PROVEEDOR DE PRUEBA',
+            'id_frente_destino' => $frente,
+            'lineas'            => [
+                ['id_producto' => $this->p1, 'cantidad' => 4],
+                ['id_producto' => $this->p2, 'cantidad' => 5],
+                ['id_producto' => $this->p1, 'cantidad' => 1],   // repetido: se suma
+            ],
+        ] + $extra);
     }
 
-    private function saldo(int $almacen, int $producto): float
+    private function saldo(int $almacen, int $producto, ?int $frente = null): float
     {
-        return (float) AlmacenStock::where('ID_ALMACEN', $almacen)->where('ID_PRODUCTO', $producto)->sum('CANTIDAD');
+        return (float) AlmacenStock::where('ID_ALMACEN', $almacen)->where('ID_PRODUCTO', $producto)
+            ->when($frente !== null, fn ($q) => $q->where('ID_FRENTE', $frente))->sum('CANTIDAD');
     }
 
-    public function test_entra_todo_y_sale_una_nota_por_proyecto(): void
+    public function test_entra_y_sale_al_proyecto_con_su_nota_de_entrega(): void
     {
-        $res = $this->recepcion([
-            ['id_producto' => $this->p1, 'cantidad' => 10],                                               // se queda
-            ['id_producto' => $this->p1, 'cantidad' => 4, 'id_frente_destino' => $this->frenteConsumo],
-            ['id_producto' => $this->p2, 'cantidad' => 5, 'id_frente_destino' => $this->frenteConsumo],
-            ['id_producto' => $this->p2, 'cantidad' => 3, 'id_frente_destino' => $this->frenteConAlmacen],
-        ])->assertCreated();
+        $nota = $this->despachar($this->general, $this->frenteConsumo, [
+            'numero_contrato'     => 'CTR-9',
+            'numero_rq'           => 'RQ-77',
+            'solicitante'         => 'ING. PEREZ',
+            'departamento'        => 'MANTENIMIENTO',
+            'motivo'              => 'DESPACHO DE QUINCENA',
+            'transporte_chofer'   => 'JOSE PEREZ',
+            'transporte_cedula'   => '12.345.678',
+        ])->assertCreated()->assertJsonPath('numero_traspaso', null)->json('numero_nota');
 
-        $notas = collect($res->json('notas'));
-        $this->assertCount(2, $notas, 'Una nota por proyecto destino.');
-
-        // La entrada es de TODO lo recibido, una línea por producto.
+        // La entrada lleva la nota y el proveedor de la compra, una línea por producto.
         $entradas = MovimientoInventario::where('ID_ALMACEN', $this->general)->where('TIPO', 'ENTRADA')->get();
         $this->assertCount(2, $entradas);
-        $this->assertSame(14.0, (float) $entradas->firstWhere('ID_PRODUCTO', $this->p1)->CANTIDAD);
-        $this->assertSame(8.0, (float) $entradas->firstWhere('ID_PRODUCTO', $this->p2)->CANTIDAD);
+        $this->assertSame(5.0, (float) $entradas->firstWhere('ID_PRODUCTO', $this->p1)->CANTIDAD);
         $this->assertSame('NE-PROV-123', $entradas->first()->REFERENCIA);
+        $this->assertSame('PROVEEDOR DE PRUEBA', $entradas->first()->MOTIVO);
 
-        // En el general solo queda lo que no tenía destino.
-        $this->assertSame(10.0, $this->saldo($this->general, $this->p1));
+        // La salida es la nota de entrega, con todos los datos que pide la de /admin/almacen.
+        $salidas = MovimientoInventario::where('NUMERO_NOTA', $nota)->get();
+        $this->assertCount(2, $salidas);
+        $s = $salidas->first();
+        $this->assertSame('SALIDA', $s->TIPO);
+        $this->assertSame($this->frenteConsumo, (int) $s->ID_FRENTE);
+        $this->assertSame(['CTR-9', 'RQ-77', 'ING. PEREZ', 'MANTENIMIENTO', 'DESPACHO DE QUINCENA', 'JOSE PEREZ'],
+            [$s->NUMERO_CONTRATO, $s->NUMERO_RQ, $s->SOLICITANTE, $s->DEPARTAMENTO, $s->MOTIVO, $s->TRANSPORTE_CHOFER]);
+        $this->assertSame(Almacen::find($this->general)->formatoNota(), $s->FORMATO_NOTA, 'En el formato del almacén.');
+
+        // No queda nada en el almacén: todo salió.
+        $this->assertSame(0.0, $this->saldo($this->general, $this->p1));
         $this->assertSame(0.0, $this->saldo($this->general, $this->p2));
 
-        // Proyecto sin almacén propio: SALIDA (consumo) con las dos líneas en la misma nota.
-        $notaConsumo = $notas->firstWhere('numero_traspaso', null)['numero_nota'];
-        $salidas = MovimientoInventario::where('NUMERO_NOTA', $notaConsumo)->get();
-        $this->assertCount(2, $salidas);
-        $this->assertTrue($salidas->every(fn ($m) => $m->TIPO === 'SALIDA' && (int) $m->ID_FRENTE === $this->frenteConsumo));
-
-        // Proyecto con almacén propio: traspaso ENVIADO, pendiente de recibir allá.
-        $conTraspaso = $notas->first(fn ($n) => $n['numero_traspaso'] !== null);
-        $this->assertSame(Traspaso::ESTADO_ENVIADO, Traspaso::where('NUMERO', $conTraspaso['numero_traspaso'])->value('ESTADO'));
-        $this->assertSame(1, MovimientoInventario::where('NUMERO_NOTA', $conTraspaso['numero_nota'])->where('TIPO', 'TRASPASO_SALIDA')->count());
-
-        // Cada nota abre su PDF, como cualquier nota de entrega.
-        $this->actingAs($this->superAdminGlobal())->get($notas->first()['nota_url'])->assertOk()
-            ->assertHeader('Content-Type', 'application/pdf');
+        // La nota abre su PDF, como cualquier nota de entrega.
+        $this->actingAs($this->superAdminGlobal())->get(route('almacen.nota-entrega', ['numero' => $nota]))
+            ->assertOk()->assertHeader('Content-Type', 'application/pdf');
     }
 
-    public function test_si_un_proyecto_no_se_puede_despachar_no_se_registra_nada(): void
+    public function test_a_un_proyecto_con_almacen_propio_sale_como_traspaso_enviado(): void
     {
-        // El frente queda en DOS almacenes: no se puede deducir a cuál va.
+        $res = $this->despachar($this->general, $this->frenteConAlmacen)->assertCreated();
+
+        $this->assertSame(Traspaso::ESTADO_ENVIADO, Traspaso::where('NUMERO', $res->json('numero_traspaso'))->value('ESTADO'));
+        $this->assertSame(2, MovimientoInventario::where('NUMERO_NOTA', $res->json('numero_nota'))->where('TIPO', 'TRASPASO_SALIDA')->count());
+        $this->assertSame(0.0, $this->saldo($this->general, $this->p1));
+    }
+
+    public function test_en_almacen_que_separa_sale_de_la_bolsa_a_la_que_entro(): void
+    {
+        // El almacén de proyecto pasa a manejar DOS proyectos: separa el saldo.
+        DB::table('almacen_frentes')->insert(['ID_ALMACEN' => $this->almProyecto, 'ID_FRENTE' => $this->frenteConsumo]);
+        $this->assertTrue(Almacen::find($this->almProyecto)->separaPorProyecto());
+        // 2 que ya tenía el otro proyecto: no se pueden tocar.
+        app(\App\Services\InventarioService::class)->registrarEntrada($this->almProyecto, $this->p1, 2, ['id_frente' => $this->frenteConAlmacen]);
+
+        $this->despachar($this->almProyecto, $this->frenteConsumo)->assertCreated();
+
+        $this->assertSame(0.0, $this->saldo($this->almProyecto, $this->p1, $this->frenteConsumo), 'Entraron 5 al proyecto destino y salieron 5.');
+        $this->assertSame(2.0, $this->saldo($this->almProyecto, $this->p1, $this->frenteConAlmacen), 'El saldo del otro proyecto queda igual.');
+    }
+
+    public function test_si_no_se_puede_despachar_no_se_registra_nada(): void
+    {
+        // El frente queda en DOS almacenes y no se dijo a cuál va.
         $otro = (int) Almacen::forceCreate([
             'NOMBRE' => 'PRUEBA PROYECTO DESPACHO 2 ' . uniqid(), 'TIPO' => Almacen::TIPO_PROYECTO, 'ESTATUS' => 'ACTIVO',
         ])->ID_ALMACEN;
         DB::table('almacen_frentes')->insert(['ID_ALMACEN' => $otro, 'ID_FRENTE' => $this->frenteConAlmacen]);
 
-        $this->recepcion([
-            ['id_producto' => $this->p1, 'cantidad' => 2, 'id_frente_destino' => $this->frenteConsumo],
-            ['id_producto' => $this->p2, 'cantidad' => 3, 'id_frente_destino' => $this->frenteConAlmacen],
-        ])->assertStatus(422)->assertJsonPath('message', fn ($m) => str_contains($m, 'varios almacenes'));
+        $this->despachar($this->general, $this->frenteConAlmacen)->assertStatus(422)->assertJsonStructure(['almacenes_destino']);
 
-        $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->general)->count(), 'Ni la entrada ni la otra nota.');
+        $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->general)->count(), 'Ni la entrada.');
     }
 
-    public function test_en_almacen_que_separa_sale_del_proyecto_que_recibio(): void
+    public function test_sin_proyecto_destino_se_rechaza(): void
     {
-        // El almacén de proyecto del test pasa a manejar DOS proyectos: separa el saldo.
-        DB::table('almacen_frentes')->insert(['ID_ALMACEN' => $this->almProyecto, 'ID_FRENTE' => $this->frenteConsumo]);
-        $this->assertTrue(Almacen::find($this->almProyecto)->separaPorProyecto());
-        // 2 que ya tenía el otro proyecto: no se pueden tocar.
-        app(\App\Services\InventarioService::class)->registrarEntrada($this->almProyecto, $this->p1, 2, ['id_frente' => $this->frenteConsumo]);
-
         $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho'), [
-            'id_almacen' => $this->almProyecto,
-            'id_frente'  => $this->frenteConAlmacen,   // proyecto que recibe
-            'lineas'     => [
-                ['id_producto' => $this->p1, 'cantidad' => 5, 'id_frente_destino' => $this->frenteConsumo],
-                ['id_producto' => $this->p1, 'cantidad' => 1],
-            ],
-        ])->assertCreated();
+            'id_almacen' => $this->general,
+            'lineas'     => [['id_producto' => $this->p1, 'cantidad' => 2]],
+        ])->assertStatus(422)->assertJsonValidationErrors('id_frente_destino');
 
-        $bolsa = fn (int $frente) => (float) AlmacenStock::where('ID_ALMACEN', $this->almProyecto)
-            ->where('ID_PRODUCTO', $this->p1)->where('ID_FRENTE', $frente)->value('CANTIDAD');
-        $this->assertSame(1.0, $bolsa($this->frenteConAlmacen), 'Entraron 6 y salieron 5 del proyecto que recibió.');
-        $this->assertSame(2.0, $bolsa($this->frenteConsumo), 'El saldo del otro proyecto queda igual.');
-    }
-
-    public function test_entrada_sin_proyecto_en_almacen_que_separa_se_rechaza(): void
-    {
-        DB::table('almacen_frentes')->insert(['ID_ALMACEN' => $this->almProyecto, 'ID_FRENTE' => $this->frenteConsumo]);
-
-        $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho'), [
-            'id_almacen' => $this->almProyecto,
-            'lineas'     => [['id_producto' => $this->p1, 'cantidad' => 5, 'id_frente_destino' => $this->frenteConsumo]],
-        ])->assertStatus(422)->assertJsonValidationErrors('id_frente');
-
-        $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->almProyecto)->count());
-    }
-
-    public function test_sin_ningun_destino_se_rechaza(): void
-    {
-        $this->recepcion([['id_producto' => $this->p1, 'cantidad' => 2]])->assertStatus(422);
         $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->general)->count());
     }
 }

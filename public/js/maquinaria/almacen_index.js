@@ -656,45 +656,17 @@
         if (forceAll || term === '') return (lista || []).slice(0);
         return (lista || []).filter(function (it) { return almNorm(getKey(it)).indexOf(term) > -1; });
     }
+    // Pinta, abre y ancla la lista: el mismo código que las sugerencias de vehículo y chofer de
+    // la Nota de Entrega (almacen_salida_nota.js). El cierre del menú Acciones antes de abrirla
+    // va en su antesDeSugerir (ver almAbrirSalidaModal y el arranque del módulo).
     function almSuggestApply(box, html, emptyHtml) {
-        if (!box) return;
-        // Mutex con el menu Acciones: si las sugerencias se abren mientras Acciones
-        // estaba desplegado, cerramos Acciones (no deben coexistir dos overlays).
+        window.AlmSalidaNota.mostrarSugerencias(box, html, emptyHtml);
+    }
+    // Mutex con el menu Acciones: si unas sugerencias se abren mientras Acciones estaba
+    // desplegado, se cierra Acciones (no deben coexistir dos overlays).
+    function almCerrarAccionesMenu() {
         var accMenu = document.getElementById('almAccionesMenu');
         if (accMenu && accMenu.style.display === 'block') accMenu.style.display = 'none';
-        box.innerHTML = html || (emptyHtml || '<div class="alm-suggest-empty">Sin coincidencias.</div>');
-        box.classList.add('open');
-        almSuggestAnclar(box);
-    }
-    // Coloca una lista .alm-suggest-float (position:fixed) justo debajo de su campo: el input que
-    // diga data-ancla (cuando dos campos comparten la lista, el que se está escribiendo) o, si no,
-    // su contenedor. data-ancho-min: ancho mínimo en px, si el modal tiene sitio. Solo actúa sobre
-    // esas: las sugerencias de la barra de filtros son absolute normales y no necesitan anclaje.
-    // Si no cabe debajo, se abre hacia arriba.
-    function almSuggestAnclar(box) {
-        if (!box || !box.classList.contains('alm-suggest-float') || !box.classList.contains('open')) return;
-        var campo = (box.dataset.ancla && el(box.dataset.ancla)) || box.parentElement; if (!campo) return;
-        almAnclarFlotante(box, campo, parseInt(box.dataset.anchoMin, 10) || 0);
-    }
-    // La matemática del anclaje, en UN solo sitio: la usan los suggest de UM/categoría y la
-    // lista de frentes del modal de almacén, que flota por el mismo motivo (ver su CSS).
-    // anchoMin: la caja puede ser más ancha que su campo (cédula, placa o vehículo en PC) si el
-    // modal tiene sitio; si así se sale por la derecha, se alinea con el borde derecho del campo.
-    // En el teléfono el campo ya ocupa casi todo el modal: ahí manda su ancho, o quedaría descuadrada.
-    function almAnclarFlotante(caja, ancla, anchoMin) {
-        var r = ancla.getBoundingClientRect(), ancho = r.width, izq = r.left;
-        if (anchoMin > r.width) {
-            var cont = (ancla.closest('.alm-modal') || document.documentElement).getBoundingClientRect();
-            if (cont.width - 24 - r.width >= 48) {
-                ancho = Math.min(anchoMin, cont.width - 24);
-                if (izq + ancho > cont.right - 12) izq = Math.max(cont.left + 12, r.right - ancho);
-            }
-        }
-        caja.style.left  = izq + 'px';
-        caja.style.width = ancho + 'px';   // el ancho se fija ANTES de medir el alto
-        var alto = caja.offsetHeight;
-        var cabeAbajo = (window.innerHeight - r.bottom - 8) >= alto;
-        caja.style.top = (!cabeAbajo && r.top > alto ? (r.top - alto - 4) : (r.bottom + 4)) + 'px';
     }
     // Ancla la lista de frentes contra su propia caja. El multiselect lo abre/cierra el
     // componente global (uicomponents.js) poniendo .active en el contenedor, así que aquí
@@ -703,13 +675,13 @@
         var caja = document.getElementById('almNvFrentesSelect');
         if (!caja || !caja.classList.contains('active')) return;
         var lista = caja.querySelector('.multiselect-content');
-        if (lista) almAnclarFlotante(lista, caja);
+        if (lista) window.AlmSalidaNota.anclarFlotante(lista, caja);
     }
     // Al ser fixed, la lista no sigue sola a su campo: se reancla si la ventana cambia de
     // tamaño o si algo se desplaza (el cuerpo del modal, con scroll en captura porque el
-    // evento scroll de un elemento no burbujea).
+    // evento scroll de un elemento no burbujea). Las sugerencias (.alm-suggest-float) las
+    // reancla almacen_salida_nota.js, que es quien las pinta; aquí, la lista de frentes.
     function almSuggestReanclar() {
-        document.querySelectorAll('.alm-suggest-float.open').forEach(almSuggestAnclar);
         almFrentesAnclar();
     }
     window.addEventListener('resize', almSuggestReanclar);
@@ -1063,12 +1035,7 @@
             if (typeof window.almSelClear === 'function') window.almSelClear();
             almCargar();
         }
-        // Modal "Registrar salida": al elegir proyecto destino se rellena la lista del
-        // dropdown "Contrato N°" con los contratos de ese proyecto (o mensaje "sin
-        // contratos") y se decide el almacén destino. El panel NO se abre solo.
-        if (id === 'almSalidaProyectoDropdown' && typeof window.almSalidaOnProyectoChange === 'function') {
-            window.almSalidaOnProyectoChange();
-        }
+        // (El proyecto del modal "Registrar salida" lo escucha almacen_salida_nota.js.)
         // Unidad de medida del panel "Filtros avanzados".
         if (id === 'almFiltroUmDropdown' && !window.__almUmSilencio) window.almAvanzadoUm();
     });
@@ -3002,8 +2969,8 @@
     // que una lista aparte en JS solo podría desincronizarse.
     var ALM_FORMATO_NOTA_DEF = CFG.formatoNotaDef;
     // El valor HORIZONTAL sale del modelo (Almacen::FORMATO_NOTA_HORIZONTAL) y no escrito a
-    // mano: lo lee almSalidaAplicarFormatoNota() para decidir qué campos pide el modal de
-    // salida. Es el ÚNICO formato que el JS necesita nombrar (el resto se comporta como el
+    // mano: se le pasa al formulario compartido de la Nota (AlmSalidaNota), que con él decide
+    // qué campos pide el modal de salida. Es el ÚNICO formato que el JS necesita nombrar (el resto se comporta como el
     // vertical de siempre), por eso va este solo y no una copia de FORMATOS_NOTA.
     var ALM_FORMATO_NOTA_HORIZONTAL = CFG.formatoNotaHorizontal;
 
@@ -3803,281 +3770,37 @@
     //  salida hacia otro proyecto (TRASPASO). El backend decide qué hacer según el
     //  frente destino — ambos generan Nota de Entrega NE-YYYY-NNNN.
     //  ALM_SAL.idAlmacen = almacén de origen (el que muestra la tabla).
+    //  Los CAMPOS de la Nota (proyecto, contrato, almacén destino, fecha, RQ, solicitante,
+    //  departamento, transporte, observaciones) son el formulario compartido con la recepción
+    //  de materiales: partials/salida_nota_campos + almacen_salida_nota.js (AlmSalidaNota).
     var ALM_SAL = { idAlmacen: '' };
-    // El formulario pide SOLO lo que imprime la hoja del almacén de origen. La nota
-    // HORIZONTAL (admin.almacen.nota_entrega_horizontal_pdf) no imprime CONTRATO N° ni
-    // RQ N° —son datos de la contratación y del pedido, no del despacho físico que esa
-    // hoja controla—, así que esos dos campos se ocultan y las filas se reacomodan para
-    // no dejar el hueco. Todo lo demás lo llevan los DOS formatos: Proyecto, Solicitante,
-    // Departamento y Observaciones en el cuerpo, y la Fecha —que el horizontal estampa en
-    // el sello del cabezote en vez del cuerpo, ver renderNotaEntregaPdfBinary—.
-    //
-    // El formato se lee de window.almAlmacenesData, que ya viene normalizado por
-    // Almacen::formatoNota() (nunca null ni basura). Si el almacén no estuviera en el mapa
-    // se cae al formulario completo: pedir de más no rompe ninguna nota, ocultar de menos sí.
-    function almSalidaAplicarFormatoNota(idAlmacen) {
-        var data = (window.almAlmacenesData || {})[String(idAlmacen || '')];
-        var horizontal = !!data && data.FORMATO_NOTA === ALM_FORMATO_NOTA_HORIZONTAL;
-        var wrapC = el('almSalidaContratoWrap'); if (wrapC) wrapC.style.display = horizontal ? 'none' : '';
-        var wrapR = el('almSalidaRqWrap');       if (wrapR) wrapR.style.display = horizontal ? 'none' : '';
-        // Reflow de las dos filas del grid. En mobile el CSS las fuerza a 1fr con
-        // !important, así que estos anchos solo mandan en escritorio.
-        var g1 = el('almSalidaGridProyecto'); if (g1) g1.style.gridTemplateColumns = horizontal ? '1fr' : '2fr 1fr';
-        var g2 = el('almSalidaGridDatos');    if (g2) g2.style.gridTemplateColumns = horizontal ? '1fr 1.4fr' : '1fr 1fr 1.4fr';
-    }
-    // ── Transporte de la salida: vehículo + placa y chofer + cédula ──
-    // Campo del modal → campo que manda el payload (MovimientoInventario::CAMPOS_TRANSPORTE) y
-    // lista a la que pertenece. ÚNICO sitio que los empareja: lo usan el reset, el payload y
-    // las sugerencias.
-    var ALM_LOG_CAMPOS = [
-        { id: 'almSalidaVehiculo', campo: 'transporte_vehiculo', lista: 'vehiculos', parte: 'nombre' },
-        { id: 'almSalidaPlaca',    campo: 'transporte_placa',    lista: 'vehiculos', parte: 'documento' },
-        { id: 'almSalidaChofer',   campo: 'transporte_chofer',   lista: 'choferes',  parte: 'nombre' },
-        { id: 'almSalidaCedula',   campo: 'transporte_cedula',   lista: 'choferes',  parte: 'documento' }
-    ];
-    // Sugerencias del almacén que despacha (las pide cada vez que se abre la salida: una nota
-    // registrada recién pudo agregar un chofer). Si llegan tarde de otro almacén, se descartan.
-    var ALM_LOG = { idAlmacen: '', choferes: [], vehiculos: [] };
-    function almLogCargar(idAlmacen) {
-        ALM_LOG = { idAlmacen: String(idAlmacen || ''), choferes: [], vehiculos: [] };
-        if (!idAlmacen) return;
-        window.apiFetch(ROUTE_ALM_LOGISTICA(idAlmacen), { headers: { 'Accept': 'application/json' } })
-            .then(function (r) { return r.ok ? r.json() : null; })
-            .then(function (d) {
-                if (!d || ALM_LOG.idAlmacen !== String(idAlmacen)) return;
-                ALM_LOG.choferes = d.choferes || []; ALM_LOG.vehiculos = d.vehiculos || [];
-            })
-            .catch(function () { /* sin sugerencias el transporte se escribe a mano */ });
-    }
-    function almLogOcultar() {
-        ['almSalidaVehiculosSug', 'almSalidaChoferesSug'].forEach(function (id) { var b = el(id); if (b) b.classList.remove('open'); });
-    }
-    // Lista de su fila, filtrada por lo escrito. Vehículos: se busca ESCRIBIENDO la placa, el
-    // serial de chasis o el nombre, y la lista no se abre entera al entrar (eran decenas para
-    // elegir a ojo); cada renglón va con placa, serial de chasis y tipo (almLogRenglonVehiculo). Choferes: al entrar
-    // a un campo vacío se ve la lista entera (son pocos). Sin nada que sugerir no se abre: el
-    // campo sigue siendo libre.
-    // Renglón de un vehículo: placa, serial de chasis y tipo, sin marca ni modelo (pedido del
-    // cliente). El que no tiene placa de verdad trae el serial como documento, así que no se repite.
-    // Los de la lista del almacén traen serial y tipo si también están en la flota; si no, se ven
-    // con el nombre con que se guardaron (no hay tipo del que tirar).
-    function almLogRenglonVehiculo(it) {
-        var serial = it.serial || '', placa = serial && it.documento === serial ? '' : (it.documento || '');
-        return '<span class="alm-log-doc' + (placa ? '' : ' sin-placa') + '">' + escHtml(placa || 'SIN PLACA') + '</span>'
-            + (serial ? '<span class="alm-log-serial">S/C ' + escHtml(serial) + '</span>' : '')
-            + '<span class="alm-log-tipo">' + escHtml(it.tipo || (it.origen === 'flota' ? '' : (it.nombre || ''))) + '</span>';
-    }
-    window.almLogSugerir = function (inp, alEntrar) {
-        var tipo = inp.getAttribute('data-log'), lista = ALM_LOG[tipo] || [];
-        var box = el(tipo === 'choferes' ? 'almSalidaChoferesSug' : 'almSalidaVehiculosSug');
-        if (!box) return;
-        almLogOcultar();
-        var veh = tipo === 'vehiculos';
-        var term = almNorm(inp.value.trim());
-        if (!lista.length || (veh && !term)) return;
-        var html = '', grupo = '', n = 0;
-        lista.forEach(function (it, i) {
-            var serial = it.serial || '';
-            if (n >= 80 || !(alEntrar && !term || almNorm(it.nombre + ' ' + it.documento + ' ' + serial).indexOf(term) > -1)) return;
-            var g = it.origen === 'flota' ? 'Flota de los frentes' : 'Logística del almacén';
-            if (g !== grupo) { html += '<div class="alm-log-grupo">' + g + '</div>'; grupo = g; }
-            html += '<div class="si-item alm-log-item' + (veh ? ' veh' : '') + '" data-log="' + tipo + '" data-i="' + i + '">'
-                + (veh ? almLogRenglonVehiculo(it)
-                       : '<span class="alm-log-nom">' + escHtml(it.nombre) + '</span><span class="alm-log-doc">' + escHtml(it.documento) + '</span>')
-                + '</div>';
-            n++;
+    // Datos del formulario de la Nota. Se pasan al abrir el modal —y no una sola vez— porque
+    // el formulario es compartido: la recepción pudo dejar los suyos si se pasó por ella.
+    function almSalidaNotaConfigurar() {
+        var formatos = {};
+        Object.keys(window.almAlmacenesData || {}).forEach(function (id) { formatos[id] = window.almAlmacenesData[id].FORMATO_NOTA; });
+        window.AlmSalidaNota.configurar({
+            frenteContratos:       window.almFrenteContratos || {},
+            almacenesPorFrente:    CFG.almacenesPorFrente || {},
+            formatoPorAlmacen:     formatos,
+            formatoNotaHorizontal: ALM_FORMATO_NOTA_HORIZONTAL,
+            rutaLogistica:         ROUTE_ALM_LOGISTICA('__ID__'),
+            idUsuario:             CFG.idUsuario,
+            antesDeSugerir:        almCerrarAccionesMenu,
         });
-        // Debajo del campo que se escribe y con su ancho: colgada de la fila cruzaba el modal
-        // entero y en el teléfono la del chofer salía debajo de la cédula. Si el modal tiene sitio,
-        // la lista no baja de un ancho legible (chofer y cédula; el vehículo en una sola línea).
-        box.dataset.ancla = inp.id;
-        box.dataset.anchoMin = veh ? '420' : '260';
-        almSuggestApply(box, html, '<div class="alm-suggest-empty">Sin coincidencias: se imprime lo que escribas.</div>');
-    };
-    // Elegir uno llena los dos campos de su fila (nombre y documento).
-    document.addEventListener('click', function (e) {
-        var item = e.target.closest('.alm-log-item');
-        if (item) {
-            e.preventDefault();
-            var tipo = item.getAttribute('data-log'), it = (ALM_LOG[tipo] || [])[parseInt(item.getAttribute('data-i'), 10)];
-            if (it) ALM_LOG_CAMPOS.forEach(function (c) { if (c.lista === tipo) el(c.id).value = it[c.parte] || ''; });
-            almLogOcultar();
-            return;
-        }
-        if (!e.target.closest('[data-log]') && !e.target.closest('#almSalidaVehiculosSug, #almSalidaChoferesSug')) almLogOcultar();
-    });
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && e.target.closest && e.target.closest('[data-log]')) almLogOcultar();
-    });
+    }
+    almSalidaNotaConfigurar();
 
     window.almAbrirSalidaModal = function (idAlmacen) {
         ALM_SAL = { idAlmacen: String(idAlmacen || '') };
-        // Antes de mostrar nada: el almacén de origen decide qué campos se piden. Va aquí
-        // (y no una sola vez al cargar la página) porque el usuario puede cambiar de almacén
-        // sin recargar — el modal es el mismo nodo para todos.
-        almSalidaAplicarFormatoNota(ALM_SAL.idAlmacen);
-        // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
-        ['almSalidaContrato','almSalidaRq','almSalidaSolicitante','almSalidaDepartamento','almSalidaMotivo'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+        almSalidaNotaConfigurar();
         // La salida viene de un kit: su nombre, cuántos y el equipo quedan en Observaciones
         // (el campo que imprime la Nota), para que conste de dónde salió el material.
-        if (almKitMotivo) { var mo = el('almSalidaMotivo'); if (mo) mo.value = almKitMotivo; }
-        ALM_LOG_CAMPOS.forEach(function (c) { var e = el(c.id); if (e) e.value = ''; });
-        almLogCargar(ALM_SAL.idAlmacen);
-        // El campo Proyecto es un custom-dropdown: lo reseteamos con su helper para que
-        // el placeholder vuelva al default y el hidden #almSalidaProyecto quede vacío.
-        if (typeof window.clearDropdownFilter === 'function') {
-            window.clearDropdownFilter('almSalidaProyectoDropdown');
-        }
-        var fe = el('almSalidaFecha'); if (fe) fe.value = new Date().toISOString().slice(0, 10);
-        // Reset del dropdown de contratos: vaciar items, cerrar el panel, ocultar el clear-btn.
-        // La lista se rellena cuando el usuario elige proyecto destino.
-        var citems = el('almSalidaContratoItems'); if (citems) citems.innerHTML = '';
-        var cdd    = el('almSalidaContratoDropdown'); if (cdd) cdd.classList.remove('active');
-        var cbtn   = el('almSalidaContratoClearBtn'); if (cbtn) cbtn.style.display = 'none';
+        window.AlmSalidaNota.abrir(ALM_SAL.idAlmacen, { motivo: almKitMotivo });
         showErr('almSalidaError', '');
-        // Asegurar que el dropdown de Proyecto NO quede abierto si una sesion previa lo
-        // dejo con .active (el helper global focusin auto-abre cuando el input del trigger
-        // recibe foco — por eso evitamos hacer .focus() automatico al abrir el modal).
-        var ddProy = el('almSalidaProyectoDropdown');
-        if (ddProy) ddProy.classList.remove('active');
-        // "Almacén destino" arranca oculto y vacío: se decide al elegir proyecto. Sin este
-        // reset, reabrir el modal desde OTRO almacén conservaría el destino del anterior.
-        if (typeof window.almSalidaSyncAlmacenDestino === 'function') {
-            window.almSalidaSyncAlmacenDestino();
-        }
-        var ddDest = el('almSalidaAlmacenDestinoDropdown');
-        if (ddDest) ddDest.classList.remove('active');
         almOpen('almSalidaModal');
     };
-    // Campo "Contrato N°" del modal Registrar salida — es un custom-dropdown (mismo
-    // componente que Proyecto) con UNA particularidad: el input es libre. El usuario
-    // puede (a) elegir un contrato de la lista, (b) escribir uno nuevo que no este en
-    // la lista, o (c) dejarlo en blanco (es opcional). La fuente de la verdad para el
-    // payload es SIEMPRE el .value del input visible #almSalidaContrato — no hay hidden.
-    //
-    // Lista de items: se rebuilds desde window.almFrenteContratos[idFrente] cada vez que
-    // cambia el Proyecto destino. La apertura/cierre del panel la maneja el sistema global
-    // de custom-dropdown (uicomponents.js) — no duplicamos esa logica aqui.
-    function almSalidaContratoSync() {
-        // Mostrar/ocultar el boton "x" de limpiar segun haya texto en el input.
-        var inp = el('almSalidaContrato');
-        var btn = el('almSalidaContratoClearBtn');
-        if (!inp || !btn) return;
-        btn.style.display = (inp.value || '').trim() ? 'block' : 'none';
-    }
-    function almSalidaContratoBuildList(idFrente) {
-        var box = el('almSalidaContratoItems');
-        if (!box) return;
-        var list = ((window.almFrenteContratos || {})[idFrente] || []);
-        if (!list.length) {
-            // Mensaje informativo dentro del propio panel del dropdown — no rompe layout
-            // (el panel flota absolutamente, no empuja el modal hacia abajo).
-            box.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:#94a3b8;font-style:italic;">Sin contratos previos — puedes escribirlo.</div>';
-            return;
-        }
-        // dropdown-item es la misma clase que usa Proyecto — hereda el hover/selected del
-        // sistema global. El click llama almSalidaContratoPick (no selectOption, porque NO
-        // queremos que el sistema toque hidden/placeholder/clear-btn — eso lo manejamos aqui).
-        box.innerHTML = list.map(function (c) {
-            var safe = escHtml(c);
-            // El argumento del onclick va por escapeAttrJs (helper central). Antes se
-            // escapaban las comillas simples SOBRE el texto ya pasado por escHtml, que las
-            // había convertido en &#39;: el replace no encontraba ninguna, el navegador las
-            // decodificaba a ' al evaluar el atributo, y un contrato con apóstrofo reventaba
-            // con SyntaxError — dejaba de ser clickeable.
-            var jsArg = window.escapeAttrJs(String(c));
-            return '<div class="dropdown-item" data-value="' + safe + '" onclick="window.almSalidaContratoPick(\'' + jsArg + '\')">' + safe + '</div>';
-        }).join('');
-    }
-    window.almSalidaContratoFilter = function (input) {
-        // Filtro local de items por lo que el usuario teclea — mismo comportamiento que
-        // filterDropdownOptions del sistema global, pero contenido al item-list de contrato.
-        // Reimplementamos en lugar de delegar para evitar acoplarse a data-filter-type/value
-        // (este dropdown no usa hidden + label, es input libre).
-        var box = el('almSalidaContratoItems');
-        if (!box) return;
-        var norm = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
-        var term = norm(input.value);
-        box.querySelectorAll('.dropdown-item').forEach(function (item) {
-            var show = !term || norm(item.textContent).indexOf(term) !== -1;
-            item.style.setProperty('display', show ? 'block' : 'none', 'important');
-        });
-        almSalidaContratoSync();
-    };
-    window.almSalidaContratoPick = function (c) {
-        var inp = el('almSalidaContrato');
-        if (inp) inp.value = c || '';
-        // Re-mostrar TODOS los items para la proxima apertura (el filtro previo pudo ocultar varios).
-        var box = el('almSalidaContratoItems');
-        if (box) box.querySelectorAll('.dropdown-item').forEach(function (item) { item.style.removeProperty('display'); });
-        var dd = el('almSalidaContratoDropdown');
-        if (dd) dd.classList.remove('active');
-        almSalidaContratoSync();
-    };
-    window.almSalidaContratoClear = function () {
-        var inp = el('almSalidaContrato'); if (inp) inp.value = '';
-        var box = el('almSalidaContratoItems');
-        if (box) box.querySelectorAll('.dropdown-item').forEach(function (item) { item.style.removeProperty('display'); });
-        almSalidaContratoSync();
-        if (inp) inp.focus();
-    };
 
-    // Mapa frente → almacenes PROYECTO, del backend (ver AlmacenController::index).
-    var ALM_POR_FRENTE = CFG.almacenesPorFrente;
-
-    // Almacenes a los que PUEDE ir el material del proyecto elegido: los del frente
-    // menos el de origen (mandarse material a uno mismo no es un traspaso).
-    function almSalidaDestinosDe(idFrente) {
-        var lista = ALM_POR_FRENTE[idFrente] || [];
-        // ALM_SAL.idAlmacen es TEXTO y a.id viene numérico del JSON: sin igualar el tipo,
-        // el almacén de origen nunca se descartaría y saldría ofrecido como destino.
-        var origen = parseInt(ALM_SAL.idAlmacen, 10);
-        return lista.filter(function (a) { return a.id !== origen; });
-    }
-
-    // Enseña u oculta "Almacén destino" según el proyecto elegido. Con 0 o 1 destino no
-    // hay nada que preguntar (0 = consumo en el propio almacén, 1 = lo deduce el backend).
-    window.almSalidaSyncAlmacenDestino = function () {
-        var wrap = el('almSalidaDestinoWrap');
-        var caja = el('almSalidaAlmacenDestinoItems');
-        var sel  = el('almSalidaProyecto');
-        if (!wrap || !caja || !sel) return;
-
-        var destinos = almSalidaDestinosDe(sel.value);
-
-        // Se limpia SIEMPRE al cambiar de proyecto: si no, una elección del proyecto
-        // anterior viajaría en el payload del siguiente y el backend la rechazaría por
-        // no pertenecer al frente.
-        window.clearDropdownFilter('almSalidaAlmacenDestinoDropdown');
-
-        if (destinos.length < 2) {
-            wrap.style.display = 'none';
-            caja.innerHTML = '';
-            return;
-        }
-
-        caja.innerHTML = destinos.map(function (a) {
-            // Los dos por los helpers centrales: el nombre del almacén es texto libre que se
-            // escribe en este mismo módulo. Escapando solo la comilla simple, un almacén con
-            // comilla DOBLE cerraba el atributo onclick y rompía el desplegable entero.
-            var nombre = escHtml(String(a.nombre));
-            var jsArg  = window.escapeAttrJs(String(a.nombre));
-            return '<div class="dropdown-item" data-value="' + a.id + '"' +
-                   ' onclick="selectOption(\'almSalidaAlmacenDestinoDropdown\',\'' + a.id + '\',\'' +
-                   jsArg + '\');">' + nombre + '</div>';
-        }).join('');
-        wrap.style.display = '';
-    };
-
-    window.almSalidaOnProyectoChange = function () {
-        var sel  = el('almSalidaProyecto');
-        if (!sel) return;
-        almSalidaContratoBuildList(sel.value);
-        window.almSalidaSyncAlmacenDestino();
-        // NO auto-abrimos el panel: el campo Contrato N° es opcional y abrirlo
-        // automaticamente al elegir proyecto resultaba intrusivo. El usuario decide
-        // cuando ver la lista haciendo clic en el trigger o en el input.
-    };
     // Payload de la salida congelado al apretar "Vista previa". Lo reusamos en
     // "Registrar" del preview para que el PDF final corresponda EXACTAMENTE al que
     // el usuario revisó (si edita despues, se regenera al apretar "Vista previa"
@@ -4095,9 +3818,10 @@
     // a lote real) — separado para garantizar consistencia: el PDF preview y el
     // registro final se generan a partir del MISMO payload.
     function almSalidaConstruirPayload() {
-        var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
-        var idFrenteDest = v('almSalidaProyecto');
-        if (!idFrenteDest) { showErr('almSalidaError', 'Elige el proyecto / frente destino.'); return null; }
+        // Los datos de la Nota (formulario compartido): proyecto, almacén destino si hay que
+        // elegirlo, fecha, contrato, RQ, solicitante, departamento, transporte y observaciones.
+        var nota = window.AlmSalidaNota.datos();
+        if (nota.error) { showErr('almSalidaError', nota.error); return null; }
         // Mismo criterio que la validación previa a abrir el modal (ver almSelAccion):
         // "sin cantidad + sin saldo" se reporta como stock insuficiente, no como un olvido.
         var lineas = [], faltan = [], sinSaldo = [];
@@ -4127,30 +3851,12 @@
         //   - Si el frente destino comparte el almacén origen → SALIDA pura (consumo).
         //   - Si el frente destino tiene OTRO almacén → crea un Traspaso + envía + asigna
         //     NUMERO_NOTA. En ambos casos se devuelve nota_url con el PDF.
-        var payload = {
-            tipo:               'SALIDA',
-            id_almacen:         ALM_SAL.idAlmacen,
-            id_frente_destino:  parseInt(idFrenteDest, 10),
-            id_frente:          parseInt(idFrenteDest, 10), // back-compat: SALIDA mismo-almacén usa id_frente
-            lineas:             lineas,
-        };
-
-        // Almacén destino: solo viaja cuando el campo está visible, o sea cuando el
-        // proyecto se maneja en varios almacenes y hay que decir a cuál va. Con uno solo
-        // lo deduce el backend y mandarlo sería ruido.
-        var wrapDest = el('almSalidaDestinoWrap');
-        if (wrapDest && wrapDest.style.display !== 'none') {
-            var idDest = v('almSalidaAlmacenDestino');
-            if (!idDest) { showErr('almSalidaError', 'Este proyecto se maneja en varios almacenes: elige el almacén destino.'); return null; }
-            payload.id_almacen_destino = parseInt(idDest, 10);
-        }
-        var fecha  = v('almSalidaFecha');         if (fecha)  payload.fecha = fecha;
-        var contr  = v('almSalidaContrato');      if (contr)  payload.numero_contrato = contr;
-        var rqN    = v('almSalidaRq');            if (rqN)    payload.numero_rq = rqN;
-        var solic  = v('almSalidaSolicitante');   if (solic)  payload.solicitante = solic;
-        var depto  = v('almSalidaDepartamento');  if (depto)  payload.departamento = depto;
-        var motivo = v('almSalidaMotivo');        if (motivo) payload.motivo = motivo;
-        ALM_LOG_CAMPOS.forEach(function (c) { var t = v(c.id); if (t) payload[c.campo] = t; });
+        var payload = Object.assign({
+            tipo:       'SALIDA',
+            id_almacen: ALM_SAL.idAlmacen,
+            id_frente:  nota.datos.id_frente_destino, // back-compat: SALIDA mismo-almacén usa id_frente
+            lineas:     lineas,
+        }, nota.datos);
         return payload;
     }
 
@@ -4273,60 +3979,6 @@
     // dejamos al usuario en el modulo de inventario — NO abrimos visor in-page
     // (el flujo ya pidio aprobacion en el modal #almPreviewModal). El payload
     // viene del draft sin reconstruir, asi el PDF final = exactamente lo aprobado.
-    // ── Departamento: lo que cada quien usa ───────────────────────────────────
-    // Vive en el NAVEGADOR de cada usuario (localStorage), no en la base: es la costumbre de
-    // quien despacha, no un catálogo de la empresa. Por eso la clave lleva su id — si dos
-    // personas comparten el equipo, cada una ve lo suyo.
-    //
-    // Solo se recuerda lo que llegó a una nota REGISTRADA: escribir algo y arrepentirse no
-    // deja rastro. Y un valor usado UNA sola vez se descarta a los DEPTO_OLVIDO_DIAS: así un
-    // dedazo ("Mantenimeinto") deja de sugerirse solo, mientras que el que se repite se queda.
-    var DEPTO_CLAVE        = 'alm_deptos_u' + CFG.idUsuario;
-    var DEPTO_TOPE         = 8;     // cuántos se ofrecen, de más usado a menos
-    var DEPTO_OLVIDO_DIAS  = 60;
-
-    function almDeptoLeer() {
-        try { return JSON.parse(localStorage.getItem(DEPTO_CLAVE)) || {}; } catch (e) { return {}; }
-    }
-
-    /** Ordenados por uso (y, a igualdad, por el más reciente), ya sin los olvidados. */
-    function almDeptoLista() {
-        var datos = almDeptoLeer();
-        var corte = Date.now() - DEPTO_OLVIDO_DIAS * 86400000;
-        return Object.keys(datos)
-            .filter(function (k) { return datos[k].n > 1 || datos[k].t > corte; })
-            .sort(function (a, b) { return (datos[b].n - datos[a].n) || (datos[b].t - datos[a].t); })
-            .slice(0, DEPTO_TOPE);
-    }
-
-    function almDeptoPintar() {
-        var lista = el('almSalidaDeptoLista');
-        if (!lista) return;
-        var esc = window.escapeHtml || function (x) { return String(x); };
-        lista.innerHTML = almDeptoLista().map(function (d) {
-            return '<option value="' + esc(d) + '"></option>';
-        }).join('');
-    }
-
-    /** Lo llama SOLO el registro de la salida, nunca el tecleo. */
-    function almDeptoRecordar(valor) {
-        var v = String(valor || '').replace(/\s+/g, ' ').trim();
-        if (v.length < 3) return;                     // ni vacío ni dos letras sueltas
-        try {
-            var datos = almDeptoLeer();
-            var corte = Date.now() - DEPTO_OLVIDO_DIAS * 86400000;
-            // Se limpia al escribir, no en un barrido aparte: así no crece sin fin.
-            Object.keys(datos).forEach(function (k) {
-                if (datos[k].n <= 1 && datos[k].t <= corte) delete datos[k];
-            });
-            datos[v] = { n: ((datos[v] && datos[v].n) || 0) + 1, t: Date.now() };
-            localStorage.setItem(DEPTO_CLAVE, JSON.stringify(datos));
-        } catch (e) { /* sin localStorage (modo privado): el campo sigue funcionando igual */ }
-        almDeptoPintar();
-    }
-
-    almDeptoPintar();
-
     window.almPreviewConfirmar = function () {
         if (!almSalidaDraft) { toast('Sin datos para registrar — vuelve a "Editar" y aprieta "Vista previa".', 'error'); return; }
         // Anti doble-submit: si ya hay un registro en curso, no dispares otro (evita movimiento
@@ -4355,7 +4007,7 @@
                 var frame0 = el('almPreviewFrame'); if (frame0) frame0.src = 'about:blank';
                 // El departamento se recuerda AQUI: la nota quedó registrada, así que ese
                 // texto es un departamento de verdad y no un borrador a medias.
-                almDeptoRecordar(almSalidaDraft && almSalidaDraft.departamento);
+                window.AlmSalidaNota.recordarDepto(almSalidaDraft && almSalidaDraft.departamento);
                 almSalidaDraft = null;
                 if (window.almSelClear) window.almSelClear();
                 toast(res.b.message || 'Movimiento registrado.');

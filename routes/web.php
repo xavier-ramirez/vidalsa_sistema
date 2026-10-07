@@ -515,7 +515,7 @@ Route::middleware(['auth'])->group(function () {
             // Pagina dedicada "Registrar entrada directa" (compras / devoluciones / conteo inicial).
             // Reemplaza al viejo modal #entModal — misma funcionalidad pero como pantalla propia
             // con autocomplete de producto por codigo o descripcion. POSTea al endpoint existente
-            // almacen.movimientos.lote (tipo=ENTRADA); solo el despacho directo usa la ruta
+            // almacen.movimientos.lote (tipo=ENTRADA); "Registrar y despachar" usa la ruta
             // almacen.recepcion.despacho (abajo).
             // Recepcion ODC (Registrar entrada directa): la PANTALLA es accesible sin
             // permiso especial — abrir el formulario no expulsa a nadie. El gate
@@ -523,8 +523,8 @@ Route::middleware(['auth'])->group(function () {
             // almacen.movimientos-lote, ver AlmacenController@registrarMovimientoLote),
             // que responde con un toast claro nombrando la clave si el usuario no la tiene.
             Route::get   ('almacen/recepcion/nueva',                 [App\Http\Controllers\TraspasoController::class, 'nuevaEntrada'])->name('almacen.recepcion.nueva');
-            // Recepción con DESPACHO DIRECTO: la misma pantalla, cuando alguna línea lleva un
-            // proyecto destino. Entrada + una nota de entrega por proyecto en una transacción
+            // "Registrar y despachar" de esa misma pantalla: la entrada de lo capturado y su
+            // salida al proyecto con Nota de Entrega, en una transacción
             // (AlmacenController::registrarRecepcionConDespacho). El permiso
             // 'almacen.movimiento' se valida dentro, igual que en movimientos-lote.
             Route::post  ('almacen/recepcion/despacho',              [App\Http\Controllers\AlmacenController::class, 'registrarRecepcionConDespacho'])->name('almacen.recepcion.despacho');

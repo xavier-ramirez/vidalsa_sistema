@@ -1,0 +1,126 @@
+/* Formulario de la NOTA DE ENTREGA de una salida y los modales que lo contienen (.alm-modal):
+   capa, caja, encabezado, cuerpo, pie, campos y sugerencias de vehículo/chofer. Lo cargan las
+   dos pantallas que despachan con nota (ver partials/salida_nota_campos.blade.php):
+     · /admin/almacen (va ANTES de admin_almacen_index.css, que sigue pudiendo afinarlo)
+     · Recepción de materiales ("Registrar y despachar")
+   Estas reglas vivían en admin_almacen_index.css; se movieron tal cual (mismo orden). */
+    /* Modales */
+    /* z-index 10000: por ENCIMA de la barra flotante de seleccion
+       (.selection-floating-bar = 9999) para que "Limpiar / Salida" no se
+       transparente sobre el modal (ej: Vista previa de la Nota de Entrega).
+       Sigue por debajo de los toasts globales (1000002). */
+    .alm-modal-overlay {
+        display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+        z-index: 10000; align-items: center; justify-content: center; padding: 16px;
+    }
+    .alm-modal-overlay.open { display: flex; }
+    .alm-modal {
+        background: #fff; border-radius: 14px; width: 100%; max-width: 440px; box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+        overflow: hidden; animation: almIn 0.16s ease-out; display: flex; flex-direction: column; max-height: 90vh;
+    }
+    .alm-modal-wide { max-width: 980px; }
+    .alm-modal .alm-modal-body { overflow-y: auto; min-height: 0; }
+    /* Transporte de la salida: en la lista de sugerencias, el nombre a la izquierda y la
+       cédula o placa a la derecha, agrupados por de dónde salen (lista del almacén / flota). */
+    .alm-log-grupo { padding:6px 12px 3px; font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
+    .alm-suggest-inline .alm-log-item { justify-content:space-between; padding:8px 12px; }
+    .alm-log-nom { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:#0f172a; }
+    .alm-log-doc { flex:0 0 auto; font-size:12px; font-weight:700; color:#475569; font-variant-numeric:tabular-nums; }
+    /* Vehículos: placa, serial de chasis y tipo, sin marca ni modelo. Si no caben en una línea
+       (teléfono, campo angosto) el tipo baja al renglón siguiente, alineado a la derecha. */
+    .alm-suggest-inline .alm-log-item.veh { justify-content:flex-start; flex-wrap:wrap; column-gap:12px; row-gap:1px; }
+    .alm-log-item.veh .alm-log-doc { min-width:66px; font-size:13px; color:#0f172a; }
+    .alm-log-item.veh .alm-log-doc.sin-placa { font-size:10.5px; color:#94a3b8; letter-spacing:.3px; }
+    .alm-log-serial { flex:0 0 auto; font-size:11px; font-weight:600; color:#475569; font-variant-numeric:tabular-nums; }
+    .alm-log-tipo { margin-left:auto; min-width:0; max-width:100%; font-size:12px; font-weight:700; color:#0067b1;
+        text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Se guardan en mayúsculas (LogisticaAlmacenService): se ven así mientras se escriben. El
+       ejemplo del campo no: "EJ: CAMIONETA TOYOTA HILUX" parecía un valor ya escrito. */
+    #almSalidaVehiculo, #almSalidaPlaca, #almSalidaChofer, .alm-log-fila input { text-transform:uppercase; }
+    #almSalidaVehiculo::placeholder, #almSalidaPlaca::placeholder, #almSalidaChofer::placeholder, .alm-log-fila input::placeholder { text-transform:none; }
+    /* Renglón de ayuda bajo un campo del modal de almacén. Era el mismo style="" repetido
+       campo por campo; como clase, cambiarlo una vez los cambia todos. */
+    .alm-hint { font-size:11.5px; color:#94a3b8; margin-top:5px; }
+    @keyframes almIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+    @keyframes slideDown { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    /* Todos los modales del módulo, con el encabezado de los de Equipos y Recepción: barra
+       pizarra #1e293b, título blanco con su ícono azul, centrado, y la X fija en la esquina. */
+    .alm-modal-head { padding: 14px 48px; background: #1e293b; display: flex; align-items: center; justify-content: center; position: relative; }
+    .alm-modal-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; text-align: center; }
+    .alm-modal-head h3 .material-icons { color: #fff; }
+    .alm-modal-head .alm-x { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #fff; opacity: .75; }
+    .alm-modal-head .alm-x:hover { color: #fff; opacity: 1; }
+    .alm-modal-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+    /* Pie en gris claro, como el de Recepción: separa los botones del contenido. */
+    .alm-modal-foot { padding: 12px 18px; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: center; gap: 8px; }
+    /* Botones del pie de TODOS los modales del módulo, más bajos que el 12px de padding
+       general de .btn-primary-maquinaria (en un modal se veían muy grandes). */
+    .alm-modal-foot .btn-primary-maquinaria { padding: 8px 20px; border-radius: 10px; }
+    /* Rótulo de campo. El :not() NO es adorno: .multiselect-item también es un <label>, y
+       este selector (0,1,1) le ganaba al del componente (0,1,0) — le imponía display:block
+       (matando su flex), gris 700 en vez del azul 600 propio, MAYÚSCULAS y un
+       margin-bottom:4px que descuadraba verticalmente las casillas dentro de su caja. */
+    .alm-modal label:not(.multiselect-item) { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }
+    .alm-modal input, .alm-modal select, .alm-modal textarea {
+        width: 100%; border: 1px solid #cbd5e0; border-radius: 8px; padding: 9px 10px; font-size: 14px; outline: none; box-sizing: border-box;
+    }
+    .alm-modal input:focus, .alm-modal select:focus, .alm-modal textarea:focus { border-color: var(--maquinaria-blue, #0067b1); }
+    /* Campos de la Nota de Entrega (modal SALIDA) — input y label estilo VID-FO-GEN-019.
+       Los selectores usan ".alm-modal input.alm-nota-input" (especificidad 0,2,1) para
+       ganarle al ".alm-modal input" (0,1,1) declarado arriba: si no, sus padding/radius/
+       font-size sobrescribirían a los compactos de la Nota. */
+    .alm-modal .alm-nota-label { display:block; font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin-bottom:3px; }
+    .alm-modal input.alm-nota-input,
+    .alm-modal select.alm-nota-input { width:100%; height:38px; border:1px solid #cbd5e0; border-radius:7px; padding:0 10px; font-size:13.5px; background:#fff; outline:none; color:#0f172a; box-sizing:border-box; }
+    .alm-modal input.alm-nota-input:focus,
+    .alm-modal select.alm-nota-input:focus { border-color: var(--maquinaria-blue, #0067b1); }
+    /* Modal "Nota de Entrega": los dropdowns de Proyecto/Contrato muestran el
+       valor seleccionado como PLACEHOLDER del input (selectOption del componente
+       limpia el .value y mete el label en placeholder para que el filtrado
+       arranque desde vacio al teclear). Algunos navegadores renderizan
+       placeholders en italic/opacidad baja — el valor seleccionado se veia "en
+       cursiva como inclinado". Normalizamos el placeholder de estos inputs como
+       texto normal (sin italic, color slate-900, opacidad 1) para que se lea
+       identico a un value tipico. NOTA: usamos solo `::placeholder` (estandar
+       desde 2017, soportado por todos los navegadores actuales). Mezclar el
+       prefix `::-webkit-input-placeholder` en un selector agrupado por coma
+       invalida toda la regla en browsers que no conocen el prefix. */
+    #almSalidaModal .dropdown-trigger input::placeholder { font-style: normal; color: #0f172a; opacity: 1; }
+    /* "(opcional)" al lado de la etiqueta del campo (Ubicación, Cantidad): más claro y sin negrita. */
+    .alm-modal label .alm-opc { font-weight: 400; color: #94a3b8; }
+    /* Ayuda en la misma línea del rótulo (Nombre del almacén): sin las mayúsculas del label. */
+    .alm-modal label .alm-label-ayuda { font-size: 11.5px; font-weight: 400; color: #94a3b8; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+    .alm-suggest-empty { padding:10px 15px; font-size:13px; color:#94a3b8; }
+    /* Variante "en línea" para los modales (no flota: empuja el contenido — así no la recorta el overflow del modal) */
+    .alm-suggest-inline { margin-top:6px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; box-shadow:0 6px 16px rgba(0,0,0,0.06); max-height:200px; overflow-y:auto; padding:5px; display:none; }
+    /* Sugerencias que viven DENTRO de un modal (Categoría y Unidad de Medida del modal de
+       producto). Van en position:fixed —no absolute— porque .alm-modal-body tiene
+       overflow-y:auto: una lista absolute estiraba el contenido y le sacaba al modal una
+       barra de desplazamiento vertical. Fixed la saca del flujo y del recorte, así que se
+       despliega por encima del modal. left/top/width los calcula almSuggestAnclar(). */
+    .alm-suggest-float { position:fixed; margin-top:0; z-index:10001; box-sizing:border-box; }
+    .alm-suggest-inline.open { display:block; animation:slideDown 0.18s ease-out; }
+    .alm-suggest-inline .si-item { display:flex; align-items:center; gap:10px; padding:10px 15px; border-radius:8px; cursor:default; font-size:14px; font-weight:600; color:var(--maquinaria-dark-blue,#1e3a5f); transition:background 0.2s; }
+    .alm-suggest-inline .si-item:hover { background:#f0f4f8; }
+    .alm-suggest-inline .si-item.si-sel { background:#ebf4ff; color:var(--maquinaria-blue,#0067b1); }
+
+    @media (max-width: 768px) {
+        /* Modal "Registrar salida" en mobile: los grids inline (Proyecto+Contrato a
+           2 cols, Fecha+RQ+Solicitante a 3 cols) comprimian demasiado cada campo a
+           ~100px y los inputs quedaban con casi nada de ancho util. Forzamos 1 col:
+           cada campo full-width, apilados verticalmente. Mismo patron que el modal
+           ya respira mejor en pantallas chicas. */
+        #almSalidaModal .alm-modal-grid-2,
+        #almSalidaModal .alm-modal-grid-3 { grid-template-columns: 1fr !important; }
+        /* Tambien comprimimos el padding del wrapper de la "Nota de Entrega" para
+           ganar unos px de ancho en mobile. */
+        #almSalidaModal #almSalidaNotaWrap { padding: 12px !important; }
+        /* Y soltamos el max-width del modal en mobile para que pegue al viewport
+           sin margenes laterales gigantes (alm-modal default era 600px en desktop).
+           SIN 100vw: `.alm-modal` ya es width:100% dentro del overlay, que es flex con
+           padding:16px, así que 100% = exactamente el hueco disponible. Con
+           `calc(100vw - 16px)` el modal salía 16px MÁS ANCHO que ese hueco (100vw
+           incluye la barra de desplazamiento) y se comía el respiro lateral — el mismo
+           motivo por el que estilos_globales.css prohíbe 100vw en estos anchos. */
+        #almSalidaModal .alm-modal { max-width: none !important; }
+    }

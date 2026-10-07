@@ -469,17 +469,22 @@ class TraspasoController extends Controller
                 ->map(fn ($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])->values()
             : collect();
 
-        // Proyectos a los que se puede DESPACHAR DIRECTO lo que llega (columna "Destino" de la
-        // tabla; ver AlmacenController::registrarRecepcionConDespacho). Los mismos que ofrece
-        // el modal "Registrar salida" de /admin/almacen: los frentes activos.
-        $frentesDespacho = \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
-            ->orderBy('NOMBRE_FRENTE')
-            ->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
-            ->map(fn ($f) => ['id' => (int) $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])->values();
+        // "Registrar y despachar": el formulario de la Nota de Entrega es el MISMO de la salida
+        // de /admin/almacen (partials/salida_nota_campos), con los mismos datos.
+        $frentesLista = \App\Support\DatosNotaSalida::frentes();
+        $notaSalida   = [
+            'frenteContratos'       => \App\Support\DatosNotaSalida::contratosPorFrente($frentesLista),
+            'almacenesPorFrente'    => \App\Support\DatosNotaSalida::almacenesPorFrente(),
+            'formatoPorAlmacen'     => [$almacenDestino->ID_ALMACEN => $almForFrente?->formatoNota()],
+            'formatoNotaHorizontal' => \App\Models\Almacen::FORMATO_NOTA_HORIZONTAL,
+            'rutaLogistica'         => route('almacen.almacenes.logistica', ['id' => '__ID__']),
+            'idUsuario'             => $user?->ID_USUARIO ?? 0,
+        ];
 
         return view('admin.almacen.recepcion.nueva', [
             'almacenDestino'  => $almacenDestino,
-            'frentesDespacho' => $frentesDespacho,
+            'frentesLista'    => $frentesLista,
+            'notaSalida'      => $notaSalida,
             'unidadesMedida'  => $unidadesMedida,
             'idFrenteDestino' => $idFrenteDestino,
             'separaProyectos' => $separaProyectos,

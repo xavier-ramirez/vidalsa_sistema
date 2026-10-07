@@ -3972,7 +3972,7 @@ body:has(.mobile-menu.active) .selection-floating-bar {
     body:has(.ent-layout) .ent-list-table tbody tr {
         display: grid !important;
         grid-template-columns: 1fr auto !important;
-        grid-template-areas: "desc desc" "dest dest" "cant del" !important;
+        grid-template-areas: "desc desc" "cant del" !important;
         gap: 0 !important;
         background: #fff !important;
         border: 1px solid #cbd5e1 !important;
@@ -4038,11 +4038,6 @@ body:has(.mobile-menu.active) .selection-floating-bar {
         font-weight: 700 !important;
         color: #475569 !important;
         text-transform: uppercase !important;
-    }
-    /* Destino (despacho directo): renglón propio, el selector a lo ancho. */
-    body:has(.ent-layout) .ent-list-table tbody tr td.col-dest {
-        grid-area: dest !important;
-        padding: 6px 12px 0 !important;
     }
     body:has(.ent-layout) .ent-list-table tbody tr td.col-del {
         grid-area: del !important;

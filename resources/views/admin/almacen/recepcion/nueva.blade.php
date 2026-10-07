@@ -27,13 +27,11 @@
           reparte el saldo), nota de entrega, proveedor y fecha— y su Registrar hace el POST
           de TODAS las lineas como un lote ENTRADA. El almacén es el del usuario (pill del
           encabezado).
-       3) DESPACHO DIRECTO (opcional): cada línea tiene un DESTINO —"Stock" (se queda en el
-          almacén, lo de siempre) o un proyecto—. El selector "Destino" de la barra de
-          captura fija el de las líneas que se agregan, y cada fila se puede cambiar en la
-          tabla. Si alguna línea va a un proyecto, Registrar llama a
-          almacen.recepcion.despacho: la entrada y una Nota de Entrega por proyecto (en el
-          formato del almacén), todo en una transacción. Sin destinos, sigue siendo la
-          entrada de siempre.
+       3) Registrar y despachar: para lo que llega de la compra y sale de una vez al proyecto.
+          Abre el modal #almSalidaModal: los datos de la compra (nota y proveedor) y la NOTA DE
+          ENTREGA con el MISMO formulario de la salida de /admin/almacen
+          (partials/salida_nota_campos + almacen_salida_nota.js). Su botón hace la entrada y
+          la salida con nota en una transacción (almacen.recepcion.despacho).
 
      "Reposición del general" (la bandeja de los almacenes de proyecto, donde se ve lo que el
      general despachó y va llegando) se abre desde Acciones → "Despachos" del
@@ -59,6 +57,8 @@
     </div>
 </section>
 
+{{-- Modal y formulario de la Nota de Entrega de "Registrar y despachar": los de /admin/almacen. --}}
+<link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_salida_nota.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_salida_nota.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_recepcion_nueva.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_recepcion_nueva.css')) }}">
 
 <div class="ent-layout">
@@ -95,18 +95,6 @@
             <i class="material-icons">check_circle</i>
         </button>
         </div>{{-- /.ent-capt-row --}}
-        {{-- Destino de lo que se agrega: "Stock" o un proyecto (despacho directo). Se queda
-             elegido para las siguientes líneas — la quincena llega por bloques del mismo
-             proyecto —; cada fila se puede cambiar después en la tabla. --}}
-        <div class="ent-dest-capt">
-            <label class="ent-dest-lbl" for="entDestino"><i class="material-icons">local_shipping</i>Destino</label>
-            <select id="entDestino" class="ent-dest-sel" onchange="window.entDestinoCambio()">
-                <option value="">Stock del almacén</option>
-                @foreach($frentesDespacho as $f)
-                    <option value="{{ $f['id'] }}">{{ $f['nombre'] }}</option>
-                @endforeach
-            </select>
-        </div>
     </div>{{-- /.ent-capt --}}
     <div id="entError" class="ent-error"></div>
 </div>{{-- /.ent-capt-card --}}
@@ -119,7 +107,6 @@
                 <th class="col-num">Nº</th>
                 <th class="col-codigo">Código</th>
                 <th class="col-desc">Descripción</th>
-                <th class="col-dest">Destino</th>
                 <th class="col-cant">Cantidad</th>
                 <th class="col-del"></th>
             </tr>
@@ -151,11 +138,6 @@
             <span class="ent-res-lbl">Productos distintos</span>
             <span id="entResLineas">0</span>
         </div>
-        {{-- Solo cuando alguna línea va a un proyecto: cuántas notas de entrega saldrán. --}}
-        <div class="ent-res-row" id="entResDespachoRow" hidden>
-            <span class="ent-res-lbl">Despacho directo</span>
-            <span id="entResDespacho"></span>
-        </div>
     </div>
 
     {{-- Botones uno debajo del otro, en el panel y no junto a la fila de cantidad: mientras
@@ -164,7 +146,11 @@
          confirmación si hay líneas). Ninguno sale de la página. --}}
     <div class="ent-foot">
         <button type="button" class="ent-btn ent-btn-ok" onclick="window.entAbrirDocumento()">
-            <i class="material-icons">check_circle</i><span id="entBtnRegistrarTxt">Registrar entrada</span>
+            <i class="material-icons">check_circle</i><span>Registrar entrada</span>
+        </button>
+        {{-- Lo que llega y sale de una vez al proyecto: entrada + Nota de Entrega en un paso. --}}
+        <button type="button" class="ent-btn ent-btn-desp" onclick="window.entAbrirDespacho()">
+            <i class="material-icons">local_shipping</i><span>Registrar y despachar</span>
         </button>
         <button type="button" class="ent-btn ent-btn-cancel" onclick="window.entCancelar()">Cancelar</button>
     </div>
@@ -219,9 +205,6 @@
                     <input type="date" id="entFecha" style="flex:1;min-width:0;height:100%;border:none;background:transparent;padding:0;font-size:13px;font-family:inherit;outline:none;color:#0f172a;cursor:default;">
                 </div>
             </div>
-            {{-- Qué notas de entrega se van a generar (una por proyecto). Lo llena
-                 entAbrirDocumento; oculto si todo va a stock. --}}
-            <div id="entDespachoInfo" class="ent-despacho-info" hidden></div>
             <div id="entDocError" class="ent-error"></div>
         </div>
         <div class="ent-doc-foot">
@@ -233,20 +216,39 @@
     </form>
 </div>
 
-{{-- Notas de entrega generadas por el despacho directo: una fila por proyecto, cada una abre
-     su PDF en el visor de siempre. La llena entMostrarNotas. --}}
-<div class="ent-doc-overlay" id="entNotasOverlay" hidden>
-    <div class="ent-doc-box" role="dialog" aria-modal="true" aria-labelledby="entNotasTitulo">
-        <div class="ent-doc-bar">
-            <i class="material-icons">description</i>
-            <span class="ent-doc-title" id="entNotasTitulo">Notas de entrega generadas</span>
-            <button type="button" class="ent-doc-close" onclick="window.entCerrarNotas()" title="Cerrar"><i class="material-icons">close</i></button>
+{{-- Modal "Registrar y despachar". Mismo modal y mismos campos que "Registrar salida" de
+     /admin/almacen (por eso el id #almSalidaModal: le aplican los mismos estilos, también en
+     el teléfono), con los datos de la COMPRA arriba: la entrada los lleva igual que en
+     "Registrar entrada". --}}
+<div id="almSalidaModal" class="alm-modal-overlay">
+    <div class="alm-modal alm-modal-wide" style="max-width:660px;" role="dialog" aria-modal="true" aria-labelledby="entDespTitulo">
+        <div class="alm-modal-head">
+            <h3><i class="material-icons" style="font-size:20px;">local_shipping</i> <span id="entDespTitulo">Registrar y despachar</span></h3>
+            <i class="material-icons alm-x" onclick="window.entCerrarDespacho()">close</i>
         </div>
-        <div class="ent-doc-body">
-            <div id="entNotasLista" class="ent-notas-lista"></div>
+        <div class="alm-modal-body">
+            <div class="ent-desp-compra">
+                <div class="ent-desp-sub">Datos de la compra</div>
+                <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div>
+                        <label class="alm-nota-label" for="entDespNotaProv">Nota del proveedor <span class="alm-opc">(Opcional)</span></label>
+                        <input type="text" id="entDespNotaProv" class="alm-nota-input" maxlength="100" placeholder="Número de la nota" autocomplete="off">
+                    </div>
+                    <div>
+                        <label class="alm-nota-label" for="entDespProveedor">Proveedor <span class="alm-opc">(Opcional)</span></label>
+                        <input type="text" id="entDespProveedor" class="alm-nota-input" maxlength="200" placeholder="Razón social o nombre" autocomplete="off">
+                    </div>
+                </div>
+            </div>
+
+            <div class="ent-desp-sub">Nota de entrega al proyecto</div>
+            @include('admin.almacen.partials.salida_nota_campos')
+
+            <div id="entDespError" class="ent-error"></div>
         </div>
-        <div class="ent-doc-foot">
-            <button type="button" class="ent-btn ent-btn-ok" onclick="window.entCerrarNotas()">Listo</button>
+        <div class="alm-modal-foot">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.entCerrarDespacho()">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" id="entDespSubmit" onclick="window.entDespachar()">Registrar y despachar</button>
         </div>
     </div>
 </div>
@@ -257,7 +259,7 @@
     $rece_cfg = [
         'rutaAlmacenMovimientosLote' => route('almacen.movimientos.lote'),
         'rutaRecepcionDespacho' => route('almacen.recepcion.despacho'),
-        'frentesDespacho' => $frentesDespacho ?? [],
+        'notaSalida' => $notaSalida ?? [],
         'rutaAlmacenProductosStore' => route('almacen.productos.store'),
         'rutaAlmacenProductosAutocomplete' => route('almacen.productos-autocomplete'),
         'unidadesMedida' => $unidadesMedida ?? [],
@@ -268,6 +270,7 @@
 <script>
     window.RECE_CFG = @json($rece_cfg);
 </script>
+<script src="{{ asset('js/maquinaria/almacen_salida_nota.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen_salida_nota.js')) }}"></script>
 <script src="{{ asset('js/maquinaria/recepcion_entrada.js') }}?v={{ @filemtime(public_path('js/maquinaria/recepcion_entrada.js')) }}"></script>
 <script>
     // El archivo de arriba se carga UNA vez en toda la sesion; esta llamada es la que
