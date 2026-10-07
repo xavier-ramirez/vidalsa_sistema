@@ -400,15 +400,19 @@
             font-size: 10px !important;
             font-weight: 600 !important;
         }
-        /* "Devuelto" y "Corregida": a la derecha, como la cantidad, y del mismo tamaño los dos
-           (la regla de arriba alcanzaba al span de Devuelto pero no al botón de Corregida). */
+        /* "Devuelto" y "Corregida": en su propio renglón DEBAJO de la cantidad (flex-wrap +
+           flex-basis 100 %), a la derecha y al tamaño de la fecha, para que la tarjeta no se
+           ensanche (pedido del cliente, 07-10-2026: al lado de la cantidad descuadraban la
+           tarjeta). Los dos del mismo tamaño: la regla de arriba alcanzaba al span de Devuelto
+           pero no al botón de Corregida. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad { flex-wrap: wrap !important; }
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-devuelto,
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-corregida {
-            justify-content: flex-end; margin-right: 0;
-            font-size: 11px !important; font-weight: 800 !important;
+            flex-basis: 100%; justify-content: flex-end; gap: 3px; margin: 1px 0 0;
+            font-size: 10.5px !important; font-weight: 700 !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-devuelto .material-icons,
-        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-corregida .material-icons { font-size: 14px; }
+        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-corregida .material-icons { font-size: 13px; }
 
         /* Fecha: AHORA va DEBAJO de la cantidad (col 2 fila 2), alineada a la
            derecha. Cliente la sacó de la meta-row para que cantidad y fecha
