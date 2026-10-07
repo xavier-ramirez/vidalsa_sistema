@@ -564,24 +564,27 @@
         var enGrafico = {};
         meses.forEach(function (m) { enGrafico[m] = true; });
         var porProy = (data.por_mes_frente || []).filter(function (x) { return enGrafico[x.mes]; });
-        // COLORES de la pila (07-10-2026, pedido del cliente: tonos profesionales, con el estilo
-        // de la app y que no sean "tan diferentes" entre sí). Los OCHO proyectos que más
-        // consumieron llevan tonos de UNA MISMA FAMILIA FRÍA alrededor del azul corporativo
-        // (--maquinaria-blue, el del que más sacó): cian, azul rey, celeste, índigo, celeste
-        // claro, verde azulado y violeta. Se leen como un conjunto, sin el arcoíris de antes.
+        // COLORES de la pila (07-10-2026, pedido del cliente: que peguen con el gráfico de
+        // consumo del módulo de COMBUSTIBLE, "Total de Consumo por Frente" en
+        // consumibles/graficos.blade.php). Misma idea que allá: los DOS primeros puestos en
+        // rojo (vino y rojo, los de su #1 y #2) y del tercero al octavo una escala de AZUL del
+        // mismo tono (213°) que va de marino a claro.
         //
-        // El ORDEN no es de gusto: alterna oscuro / claro para que dos tramos pegados en la
-        // pila se separen, y lo eligió scripts/validate_palette.js (skill dataviz) buscando
-        // entre los tonos fríos de la interfaz: vecinos dE 19,5 para daltonismo (mínimo 8) y
-        // 21,9 a ojo normal (mínimo 15). Si se tocan estos hex o su orden, hay que volver a
-        // validarlos.
+        // Diferencia a propósito con Combustible: allá las barras van sueltas, una por fila, y
+        // la escala puede ir de corrido; aquí los tramos se APILAN y se tocan, y de corrido
+        // dos vecinos salían dos azules casi iguales. Por eso los azules van INTERCALADOS
+        // (medio, marino, medio claro, oscuro, claro, intenso): dos tramos pegados quedan
+        // siempre a distinta luz. Los hex (un punto más claros que los de Combustible, para que
+        // ninguno se vaya a negro en la pila) y su orden los eligió scripts/validate_palette.js
+        // (skill dataviz): vecinos dE 14,0 para daltonismo (mínimo 8) y 16,2 a ojo normal
+        // (mínimo 15). Si se tocan estos hex o su orden, hay que volver a validarlos.
         //
         // Del noveno para abajo NO se inventan más colores: con 18 proyectos los tonos salían
         // parecidos y no se distinguían. Se juntan en un solo tramo gris, "Otros proyectos",
-        // y el tooltip de ese tramo dice cuáles son y cuánto puso cada uno en el mes. El cian y
-        // los celestes, y el gris, quedan por debajo de 3:1 sobre blanco: los cubre que cada
-        // barra lleve su total escrito, la leyenda y el tooltip.
-        var CD_PALETA = ['#0067b1', '#06b6d4', '#1d4ed8', '#0ea5e9', '#4338ca', '#38bdf8', '#059669', '#7c3aed'];
+        // y el tooltip de ese tramo dice cuáles son y cuánto puso cada uno en el mes. Los dos
+        // azules más claros y el gris quedan por debajo de 3:1 sobre blanco: los cubre que
+        // cada barra lleve su total escrito, la leyenda y el tooltip.
+        var CD_PALETA = ['#9f1d1d', '#e53e3e', '#4083d5', '#1a5193', '#5f96d9', '#2161af', '#70a7eb', '#2971c9'];
         var CD_OTROS = 'Otros proyectos', CD_COLOR_OTROS = '#94a3b8';
 
         // En la leyenda solo los proyectos que CONSUMIERON en los meses dibujados. El servidor
