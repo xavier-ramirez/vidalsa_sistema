@@ -550,35 +550,45 @@
         var mes = data.por_mes || [];
         // La grafica ARRANCA EN JUNIO (pedido del cliente, 17-09-2026). Abril y mayo son la
         // carga historica con la que se cuadraron los saldos de arranque: 1.007 salidas sin
-        // proyecto (que ya no se pintan) y que dejarian dos meses casi vacios al principio. Solo se saltan si el usuario NO pidio un rango propio:
-        // si escribe un "Desde" en el filtro, manda el suyo.
+        // proyecto (que ya no se pintan), que dejarian dos meses casi vacios al principio.
+        // Solo se saltan si el usuario NO pidio un rango propio: si escribe un "Desde" en el
+        // filtro, manda el suyo.
         var CD_PRIMER_MES = '2026-06';
         if (!((document.getElementById('cdashDesde') || {}).value || '')) {
             mes = mes.filter(function (x) { return String(x.mes) >= CD_PRIMER_MES; });
         }
         var meses = mes.map(function (x) { return x.mes; });
-        var porProy = data.por_mes_frente || [];
-        // COLORES de la pila (07-10-2026, pedido del cliente: "unos colores más elegantes").
-        // Los OCHO proyectos que más consumieron llevan cada uno un color de la paleta
-        // categórica de referencia (skill dataviz, references/palette.md), en ESE orden: el
-        // orden es el que la hace segura para daltonismo entre tramos vecinos. Comprobado con
-        // scripts/validate_palette.js: vecinos dE 9,1 (daltonismo, mínimo 8) y 19,6 (ojo
-        // normal, mínimo 15). Si se tocan estos hex o su orden, hay que volver a validarlos.
+        // Solo los meses que se DIBUJAN: el servidor manda tambien abril y mayo (los recorta el
+        // corte de junio de arriba), y un proyecto que solo consumio esos meses salia en la
+        // leyenda sin ningun tramo en el grafico, y ademas movia el orden de los colores.
+        var enGrafico = {};
+        meses.forEach(function (m) { enGrafico[m] = true; });
+        var porProy = (data.por_mes_frente || []).filter(function (x) { return enGrafico[x.mes]; });
+        // COLORES de la pila (07-10-2026, pedido del cliente: colores profesionales, con el
+        // estilo de la app). Los OCHO proyectos que más consumieron llevan cada uno un tono de
+        // la propia interfaz: el azul corporativo (--maquinaria-blue) para el que más sacó, el
+        // rojo corporativo (--maquinaria-red), y el celeste, esmeralda, ámbar, naranja, índigo
+        // y violeta que ya usan los botones, avisos y degradados del sistema.
+        //
+        // El ORDEN no es de gusto: es el que separa mejor dos tramos pegados en la pila, y lo
+        // eligió scripts/validate_palette.js (skill dataviz) entre todas las combinaciones de
+        // esos tonos: vecinos dE 21,0 para daltonismo (mínimo 8) y 34,9 a ojo normal (mínimo
+        // 15). Si se tocan estos hex o su orden, hay que volver a validarlos.
         //
         // Del noveno para abajo NO se inventan más colores: con 18 proyectos los tonos salían
         // parecidos y no se distinguían. Se juntan en un solo tramo gris, "Otros proyectos",
-        // y el tooltip de ese tramo dice cuáles son y cuánto puso cada uno en el mes. (Esto
-        // reemplaza al "salen TODOS" del 16-09-2026: con todos, el color ya no identificaba a
-        // nadie.) Cuatro tonos (verde agua, ámbar, rosa y el gris) quedan por debajo de 3:1
-        // sobre blanco: los cubre que cada barra lleve su total escrito, la leyenda y el tooltip.
-        var CD_PALETA = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+        // y el tooltip de ese tramo dice cuáles son y cuánto puso cada uno en el mes. Celeste,
+        // esmeralda, ámbar y el gris quedan por debajo de 3:1 sobre blanco: los cubre que cada
+        // barra lleve su total escrito, la leyenda y el tooltip.
+        var CD_PALETA = ['#0067b1', '#ea580c', '#38bdf8', '#a91d28', '#10b981', '#4f46e5', '#f59e0b', '#8b5cf6'];
         var CD_OTROS = 'Otros proyectos', CD_COLOR_OTROS = '#94a3b8';
 
+        // En la leyenda solo los proyectos que CONSUMIERON en los meses dibujados. El servidor
+        // ya descarta cada mes que queda en cero o en negativo (devoluciones que se comen las
+        // salidas: consumoPorMesFrente), asi que todo lo que llega aqui pinta un tramo; el
+        // filtro de > 0 es solo de resguardo.
         var totalPorProy = {};
         porProy.forEach(function (x) { totalPorProy[x.proyecto] = (totalPorProy[x.proyecto] || 0) + x.total; });
-        // Solo los que CONSUMIERON: un proyecto cuyas devoluciones se comen sus salidas queda
-        // en cero o en negativo y no pinta ningun tramo; sin este filtro se colaba igual en
-        // la leyenda, con su color, sin nada que mostrar.
         var orden = Object.keys(totalPorProy)
             .filter(function (p) { return totalPorProy[p] > 0; })
             .sort(function (a, b) { return totalPorProy[b] - totalPorProy[a]; });
@@ -590,11 +600,10 @@
         var valor = {};    // proyecto|mes → total (los de "Otros", sumados bajo CD_OTROS)
         var detalleOtros = {};   // mes → [[proyecto, total]…], para el tooltip del tramo gris
         porProy.forEach(function (x) {
-            if (!(totalPorProy[x.proyecto] > 0)) return;
             var nombre = esOtro[x.proyecto] ? CD_OTROS : x.proyecto;
             var clave = nombre + '|' + x.mes;
             valor[clave] = (valor[clave] || 0) + x.total;
-            if (esOtro[x.proyecto] && x.total > 0) (detalleOtros[x.mes] = detalleOtros[x.mes] || []).push([x.proyecto, x.total]);
+            if (esOtro[x.proyecto]) (detalleOtros[x.mes] = detalleOtros[x.mes] || []).push([x.proyecto, x.total]);
         });
         Object.keys(detalleOtros).forEach(function (m) { detalleOtros[m].sort(function (a, b) { return b[1] - a[1]; }); });
 
