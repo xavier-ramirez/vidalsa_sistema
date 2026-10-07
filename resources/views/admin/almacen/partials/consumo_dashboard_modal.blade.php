@@ -564,23 +564,24 @@
         var enGrafico = {};
         meses.forEach(function (m) { enGrafico[m] = true; });
         var porProy = (data.por_mes_frente || []).filter(function (x) { return enGrafico[x.mes]; });
-        // COLORES de la pila (07-10-2026, pedido del cliente: colores profesionales, con el
-        // estilo de la app). Los OCHO proyectos que más consumieron llevan cada uno un tono de
-        // la propia interfaz: el azul corporativo (--maquinaria-blue) para el que más sacó, el
-        // rojo corporativo (--maquinaria-red), y el celeste, esmeralda, ámbar, naranja, índigo
-        // y violeta que ya usan los botones, avisos y degradados del sistema.
+        // COLORES de la pila (07-10-2026, pedido del cliente: tonos profesionales, con el estilo
+        // de la app y que no sean "tan diferentes" entre sí). Los OCHO proyectos que más
+        // consumieron llevan tonos de UNA MISMA FAMILIA FRÍA alrededor del azul corporativo
+        // (--maquinaria-blue, el del que más sacó): cian, azul rey, celeste, índigo, celeste
+        // claro, verde azulado y violeta. Se leen como un conjunto, sin el arcoíris de antes.
         //
-        // El ORDEN no es de gusto: es el que separa mejor dos tramos pegados en la pila, y lo
-        // eligió scripts/validate_palette.js (skill dataviz) entre todas las combinaciones de
-        // esos tonos: vecinos dE 21,0 para daltonismo (mínimo 8) y 34,9 a ojo normal (mínimo
-        // 15). Si se tocan estos hex o su orden, hay que volver a validarlos.
+        // El ORDEN no es de gusto: alterna oscuro / claro para que dos tramos pegados en la
+        // pila se separen, y lo eligió scripts/validate_palette.js (skill dataviz) buscando
+        // entre los tonos fríos de la interfaz: vecinos dE 19,5 para daltonismo (mínimo 8) y
+        // 21,9 a ojo normal (mínimo 15). Si se tocan estos hex o su orden, hay que volver a
+        // validarlos.
         //
         // Del noveno para abajo NO se inventan más colores: con 18 proyectos los tonos salían
         // parecidos y no se distinguían. Se juntan en un solo tramo gris, "Otros proyectos",
-        // y el tooltip de ese tramo dice cuáles son y cuánto puso cada uno en el mes. Celeste,
-        // esmeralda, ámbar y el gris quedan por debajo de 3:1 sobre blanco: los cubre que cada
+        // y el tooltip de ese tramo dice cuáles son y cuánto puso cada uno en el mes. El cian y
+        // los celestes, y el gris, quedan por debajo de 3:1 sobre blanco: los cubre que cada
         // barra lleve su total escrito, la leyenda y el tooltip.
-        var CD_PALETA = ['#0067b1', '#ea580c', '#38bdf8', '#a91d28', '#10b981', '#4f46e5', '#f59e0b', '#8b5cf6'];
+        var CD_PALETA = ['#0067b1', '#06b6d4', '#1d4ed8', '#0ea5e9', '#4338ca', '#38bdf8', '#059669', '#7c3aed'];
         var CD_OTROS = 'Otros proyectos', CD_COLOR_OTROS = '#94a3b8';
 
         // En la leyenda solo los proyectos que CONSUMIERON en los meses dibujados. El servidor
