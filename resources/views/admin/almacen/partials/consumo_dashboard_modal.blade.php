@@ -565,34 +565,31 @@
         meses.forEach(function (m) { enGrafico[m] = true; });
         var porProy = (data.por_mes_frente || []).filter(function (x) { return enGrafico[x.mes]; });
         // COLORES de la pila (07-10-2026). Salen TODOS los proyectos con consumo, cada uno con
-        // su color (pedido del cliente: nada de juntar los pequeños en "Otros proyectos").
-        // Al estilo del gráfico de consumo de COMBUSTIBLE ("Total de Consumo por Frente",
-        // consumibles/graficos.blade.php): los DOS primeros puestos en rojo (vino y rojo) y
-        // del tercero al séptimo cinco azules que se distinguen TODOS entre sí (celeste,
-        // eléctrico, acero, petróleo, lavanda; pedido del cliente: "esos azules se parecen").
-        // Del octavo en adelante, tonos de la misma gama fría: verdes azulados, esmeraldas,
-        // índigos y violetas. El rojo queda solo para los dos primeros.
+        // su color (pedido del cliente: nada de juntar los pequeños en "Otros proyectos"), y
+        // todos de la FAMILIA DEL AZUL DE LA APP (pedido del cliente: que cuadren con el azul
+        // de la aplicación): arranca en el azul corporativo (--maquinaria-blue, #0067b1) para
+        // el que más consumió y sigue con marinos, azules, acero y celestes, sin rojos ni
+        // otros tonos. Saturación contenida a propósito: sobrios, no chillones.
         //
-        // Con 18 o más proyectos NO se pueden tener colores todos distintos entre sí (medido
-        // con scripts/validate_palette.js, skill dataviz): lo que SÍ se garantiza es que dos
-        // tramos PEGADOS en la pila se separen (vecinos dE 14,0 daltonismo, mínimo 8; 16,2 a
-        // ojo normal, mínimo 15). Cada color se eligió, en ese orden, como el más distinto de
-        // todos los anteriores. Para saber cuál es cuál están la leyenda y el tooltip, que
-        // nombra el proyecto del tramo. Si se tocan estos hex o su orden, hay que volver a
-        // validarlos. Varios tonos claros quedan por debajo de 3:1 sobre blanco: los cubre que
-        // cada barra lleve su total escrito, la leyenda y el tooltip.
-        var CD_PALETA = ['#9f1d1d', '#e53e3e', '#54c3e8', '#1730d3', '#2f91b1', '#0f5b8a', '#5569ec',
-            '#10b981', '#5b21b6', '#a78bfa', '#059669', '#4f46e5', '#14b8a6', '#6d28d9', '#047857',
-            '#a855f7', '#0d9488', '#7c3aed', '#06b6d4', '#4338ca', '#38bdf8', '#0369a1'];
+        // Van ALTERNADOS oscuro / claro: dos tramos PEGADOS en la pila siempre se separan.
+        // Cada color lo eligió, en ese orden, scripts/validate_palette.js (skill dataviz) como
+        // el más distinto de todos los anteriores: vecinos dE 15,2 daltonismo (mínimo 8) y
+        // 17,3 a ojo normal (mínimo 15). Siendo todos azules, NO pueden ser todos distintos
+        // entre sí: para saber cuál es cuál están la leyenda y el tooltip, que nombra el
+        // proyecto del tramo. Si se tocan estos hex o su orden, hay que volver a validarlos.
+        // Los celestes quedan por debajo de 3:1 sobre blanco: los cubre que cada barra lleve
+        // su total escrito, la leyenda y el tooltip.
+        var CD_PALETA = ['#0067b1', '#63bfee', '#1540c1', '#6386ee', '#0f578a', '#7da1e8', '#2c5be8',
+            '#2091b6', '#1d4aa5', '#43add0', '#2f52bc', '#2cb9e8', '#1746d3', '#5ac0e2', '#2046b6',
+            '#75b3f0', '#3659a1', '#3ebfea', '#305191', '#54b4d4', '#194de6', '#49b9df'];
 
-        // En la leyenda solo los proyectos que CONSUMIERON en los meses dibujados. El servidor
+        // En la leyenda solo los proyectos que CONSUMIERON en los meses dibujados: el servidor
         // ya descarta cada mes que queda en cero o en negativo (devoluciones que se comen las
-        // salidas: consumoPorMesFrente), asi que todo lo que llega aqui pinta un tramo; el
-        // filtro de > 0 es solo de resguardo.
+        // salidas: consumoPorMesFrente), asi que todo lo que llega aqui pinta un tramo.
+        // Ordenados de mayor a menor consumo: el orden decide el color.
         var totalPorProy = {};
         porProy.forEach(function (x) { totalPorProy[x.proyecto] = (totalPorProy[x.proyecto] || 0) + x.total; });
         var series = Object.keys(totalPorProy)
-            .filter(function (p) { return totalPorProy[p] > 0; })
             .sort(function (a, b) { return totalPorProy[b] - totalPorProy[a]; });
 
         var valor = {};    // proyecto|mes → total
@@ -626,8 +623,8 @@
         // Se le da a la caja el alto que pide la leyenda, con 320 de piso.
         //
         // 26 px por renglon, MEDIDO en pantalla (fuente 11,5 + los 14 de padding que lleva
-        // la leyenda): con los 21 de antes la cuenta se quedaba corta y en Barcelona -22
-        // proyectos- se perdian los dos ultimos por debajo del borde.
+        // la leyenda): con los 21 de antes la cuenta se quedaba corta y, con una veintena de
+        // proyectos, se perdian los ultimos por debajo del borde.
         var cdCaja = document.getElementById('cdashChartMes').parentElement;
         if (cdCaja && !cdEstrecho) {
             cdCaja.style.height = Math.max(320, datasets.length * 26 + 70) + 'px';
