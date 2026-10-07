@@ -263,7 +263,7 @@
              │ 000124 BOTA DE SEGURIDAD…   −2 PAR    📄 ✎   │
              │                          📋 Corregida        │
              │                          📅 05/10/26         │
-             │                             — Salida         │
+             │                             —   (tipo)       │
              │ 📍 TUBERÍA DE 30" VELADERO TRAMO I         ▾ │
              └──────────────────────────────────────────────┘
                (desplegada, además)
@@ -471,11 +471,15 @@
         .alm-mov-table tr.alm-mov-row td.mv-td-fecha .mv-hora {
             display: none !important;
         }
-        /* El tipo (Entrada / Salida…) con su icono, bajo la fecha, como en escritorio. */
+        /* El tipo, bajo la fecha: SOLO su icono, con su color (pedido del cliente, 07-10-2026:
+           sin la palabra "Salida" / "Entrada" en el teléfono). El texto va en el mismo span que
+           el icono, así que se esconde con font-size 0 y el icono recupera su tamaño. */
         .alm-mov-table tr.alm-mov-row td.mv-td-fecha { flex-wrap: wrap !important; }
         .alm-mov-table tr.alm-mov-row .mv-tipo-inline {
             flex-basis: 100%; justify-content: flex-end; margin-top: 1px !important;
+            font-size: 0 !important;
         }
+        .alm-mov-table tr.alm-mov-row .mv-tipo-inline .material-icons { font-size: 16px !important; }
 
         /* DESPLEGADA ─────────────────────────────────────────────────────────────
            · Quién lo registró (y la observación): la burbuja de hover de escritorio, aquí
