@@ -71,8 +71,7 @@
        iba en gris y con el mismo peso que la REFERENCIA de al lado, así que no se
        distinguía de un texto muerto; lo que lo resalta ahora son el icono y la negrita,
        no el color — el cliente lo quiere negro, no azul de enlace.
-       En la tarjeta móvil el @media de abajo lo reduce a un botón redondo con solo el
-       icono (ahí no cabe el número). */
+       En la tarjeta del teléfono sale igual, al desplegarla (ver el @media de abajo). */
     .alm-mov-table td.mv-td-ref a.mv-nota-link {
         display:inline-flex; align-items:center; gap:4px;
         color:#0f172a; font-weight:800; font-size:12.5px; text-decoration:none;
@@ -127,11 +126,6 @@
     .alm-mov-purge:focus-visible { opacity:1; background:#fef3c7; color:#d97706; }
     .alm-mov-purge:focus { opacity:.7; outline:none; }
     .alm-mov-purge:disabled { cursor:default; opacity:.5; }
-    /* Observación del lote (NOTAS): en desktop NO va inline en la columna Ref —
-       aparece en la burbuja de hover de la fila (junto al usuario que registró).
-       En móvil (sin hover) se re-muestra dentro de la tarjeta Ref (media query). */
-    .mv-notas-inline { display:none; }
-
     /* ── Presentación de las filas del kardex ──────────────────────────────────
        Estas reglas estaban escritas como style="" DENTRO de partials/kardex_rows.blade.php,
        repetidas idénticas en cada fila del lote (794 atributos por página de 50). Como el
@@ -186,10 +180,6 @@
     /* Separación del dato cuando NO es el primero de la celda (antes: un margin-top
        inline puesto con un ternario en cada fila). */
     .alm-mov-table .mv-ref-apilado    { margin-top:2px; }
-    .alm-mov-table .mv-notas-inline { font-size:10.5px; color:#94a3b8; align-items:center; gap:3px; margin-top:2px; }
-    .alm-mov-table .mv-notas-inline .material-icons { font-size:12px; }
-    .alm-mov-table .mv-notas-texto   { overflow:hidden; text-overflow:ellipsis;
-                                       white-space:nowrap; max-width:130px; }
     .alm-mov-table .alm-mov-undo .material-icons,
     .alm-mov-table .alm-mov-purge .material-icons { font-size:14px; }
 
@@ -264,18 +254,20 @@
            Cada <tr> es una TARJETA INDEPENDIENTE (como /admin/equipos):
            rounded, con sombra propia, separadas por gap. NO es una lista densa
            con divisores — el cliente lo pidio explicitamente como cards.
-             ┌────────────────────────────────────────────────────────┐
-             │ Nombre completo del producto (wrap, no truncate)       │
-             │                                            +5 UND      │
-             │ 📅 18/05/26   [NE-2026-0010]      📍 ASIGNACION UPATA  │
-             └────────────────────────────────────────────────────────┘
-             gap 10px
-             ┌────────────────────────────────────────────────────────┐
-             │ Otro producto ...                                      │
-             ...
 
-           Stock + Tipo OCULTOS en mobile (cantidad lleva color/signo que ya
-           comunica entrada/salida; stock resultante se ve en desktop).
+           RECOGIDA / DESPLEGADA (pedido del cliente, 07-10-2026: "es mucha
+           información"). Recogida enseña solo lo que se busca de un vistazo;
+           al tocarla (la misma selección .mv-row-selected de siempre, una a la
+           vez) se despliega el resto:
+             ┌──────────────────────────────────────────────┐
+             │ 000124 BOTA DE SEGURIDAD…           −2 PAR   │
+             │                                  📅 05/10/26 │
+             │ 📍 TUBERÍA DE 30" VELADERO TRAMO I         ▾ │
+             └──────────────────────────────────────────────┘
+               (desplegada, además)
+             │ 👤 Registrado por …   · tipo bajo la fecha   │
+             │ Stock: 8              · Corregida / Devuelto │
+             │ 📄 NE-2026-0746  ✎ Modificar  OC / proveedor │
            ══════════════════════════════════════════════ */
         .alm-mov-table thead { display: none !important; }
         /* Wrapper de la tabla: en desktop tiene border+radius para encerrar el
@@ -304,18 +296,14 @@
             width: 100% !important;
         }
 
-        /* Tarjeta: borde izquierdo coloreado por tipo (--mov-color).
-           overflow:hidden: la banda del destino usa margins negativos. */
+        /* Tarjeta. overflow:hidden: la banda del destino usa margins negativos. */
         .alm-mov-table tr.alm-mov-row {
             display: grid !important;
-            /* 3ª columna = el botón del PDF (grid-area "pdf"). Es `auto`: cuando el
-               movimiento no tiene nota, la celda va vacía y la columna colapsa a 0. */
-            grid-template-columns: 1fr auto auto !important;
-            grid-template-rows: auto auto auto !important;
+            grid-template-columns: 1fr auto !important;
             grid-template-areas:
-                "producto cantidad pdf"
-                "producto fecha    pdf"
-                "destino  destino  destino" !important;
+                "producto cantidad"
+                "producto fecha"
+                "destino  destino" !important;
             column-gap: 10px !important;
             row-gap: 3px !important;
             background: #fff !important;
@@ -332,12 +320,28 @@
         .alm-mov-table tr.alm-mov-row:active {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
         }
-        /* Seleccionada: azul + muestra burbuja ref */
+        /* Desplegada (seleccionada): azul, y abre su renglón de detalle y el de la nota. */
         .alm-mov-table tr.alm-mov-row.mv-row-selected {
+            grid-template-areas:
+                "producto cantidad"
+                "producto fecha"
+                "detalle  detalle"
+                "ref      ref"
+                "destino  destino" !important;
             border: 2px solid var(--maquinaria-blue, #0067b1) !important;
             background: #f0f9ff !important;
             box-shadow: 0 4px 12px rgba(0,103,177,0.15) !important;
         }
+        /* Flechita abajo a la derecha (sobre la banda del destino, en el hueco que esta deja):
+           avisa que la tarjeta se despliega; desplegada, apunta hacia arriba. */
+        .alm-mov-table tr.alm-mov-row::after {
+            content: "expand_more";
+            font-family: 'Material Icons';
+            position: absolute; right: 8px; bottom: 3px; z-index: 2;
+            font-size: 20px; line-height: 1; color: #64748b; pointer-events: none;
+            transition: transform 0.2s;
+        }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected::after { transform: rotate(180deg); }
 
         /* Cada td: reset desktop, queda como grid cell */
         .alm-mov-table tr.alm-mov-row td {
@@ -352,13 +356,42 @@
             min-width: 0;
         }
 
-        /* OCULTOS en mobile — el tipo (cantidad ya lleva color/signo) + stock.
-           Tipo ahora vive DENTRO de la celda de fecha como .mv-tipo-inline. */
-        .alm-mov-table tr.alm-mov-row .mv-tipo-inline,
-        .alm-mov-table tr.alm-mov-row td.mv-td-stock { display: none !important; }
+        /* RECOGIDA: fuera todo lo que no es producto, cantidad, fecha y destino. El tipo (la
+           cantidad ya lleva color y signo), el stock, la burbuja de quién lo registró, las marcas
+           Corregida / Devuelto y la celda de la nota salen al desplegar (más abajo). */
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .mv-tipo-inline,
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-stock,
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .tooltip-bubble,
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .mv-devuelto,
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .mv-corregida,
+        .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref { display: none !important; }
 
-        /* Tooltip del usuario tampoco aporta en mobile (no hay hover). */
-        .alm-mov-table tr.alm-mov-row td .tooltip-bubble { display: none !important; }
+        /* DESPLEGADA ─────────────────────────────────────────────────────────────
+           · Quién lo registró (y la observación): la burbuja de hover de escritorio, aquí
+             fija bajo el nombre del producto, en gris, sin flecha. */
+        .alm-mov-table tr.alm-mov-row.mv-row-selected .tooltip-bubble {
+            position: static !important; display: block !important; opacity: 1 !important;
+            visibility: visible !important; transform: none !important; pointer-events: auto !important;
+            width: auto !important; max-width: none !important; margin: 4px 0 0 !important; padding: 0 !important;
+            background: none !important; box-shadow: none !important; color: #64748b !important;
+            font-size: 10.5px !important; font-weight: 500 !important; text-align: left !important;
+        }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tip-notas { border-top: 0 !important; padding-top: 0 !important; margin-top: 2px !important; }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tip-flecha { display: none !important; }
+        /* · El tipo (Entrada / Salida…) bajo la fecha. */
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-fecha { flex-wrap: wrap !important; }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tipo-inline {
+            flex-basis: 100%; justify-content: flex-end; margin-top: 1px !important;
+        }
+        /* · Stock resultante, en su renglón. */
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-stock {
+            grid-area: detalle !important; justify-content: flex-start !important;
+            margin-top: 6px !important; padding-top: 6px !important; border-top: 1px solid #e2e8f0 !important;
+            font-size: 11px !important; font-weight: 700 !important; color: #0f172a !important;
+        }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-stock::before {
+            content: "Stock:"; margin-right: 4px; font-weight: 600; color: #64748b;
+        }
 
         /* Producto: titulo principal — bold, MULTILINE (wrap, no truncate)
            para que se vea el nombre COMPLETO. El cliente lo pidio explicito:
@@ -442,119 +475,28 @@
             display: none !important;
         }
 
-        /* Celda "Ref" en la TARJETA móvil = solo el botón del PDF, arriba a la derecha.
-           Antes era una burbuja tipo tooltip que nunca llegaba a verse (display:none en los
-           dos estados) y, en su lugar, tocar la tarjeta abría el PDF de golpe — sin que nada
-           anunciara que ese toque iba a abrir un documento. Ahora el único disparador es
-           este botón; el resto de la tarjeta solo selecciona (ver JS).
-           Si el movimiento no tiene nota (ajustes, entradas sin NE) no hay <a> y la celda
-           queda vacía: sin borde ni fondo propios, no se ve nada. */
-        /* Ocupa su propia columna de la grid ("pdf"), NO position:absolute: la esquina
-           superior derecha ya la usa mv-td-cantidad (justify-self:end), y un botón flotante
-           ahí se le montaba encima. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            grid-area: pdf !important;
-            position: static !important;
-            transform: none !important;
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            min-width: 0 !important;
-            max-width: none !important;
+        /* · La celda de la nota, en su renglón y entera: el N° de Nota (icono + número, como en
+             escritorio) que abre el PDF, "Modificar" con su texto, la referencia / OC y el
+             proveedor, y el "deshacer" de super.admin al final, siempre visible (aquí no hay
+             hover). El "eliminar del historial" sigue fuera: es acción de escritorio. */
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref {
+            grid-area: ref !important; position: static !important;
+            flex-wrap: wrap !important; justify-content: flex-start !important; align-items: center !important;
+            gap: 4px 14px !important; margin-top: 4px !important; text-align: left !important;
         }
-        /* La celda sin nota de entrega (ajustes, entradas sin NE) se trata más abajo, junto
-           al botón de deshacer que vive dentro de ella. */
-        /* La flecha del antiguo tooltip. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref::after { content: none !important; }
-        /* Todo lo que NO es el enlace del PDF (referencia/OC, proveedor, observaciones y el
-           "—" de las filas sin datos) se queda fuera de la tarjeta: el detalle se consulta
-           en escritorio o abriendo el propio PDF. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref > div,
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-notas-inline,
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-ref-empty {
-            display: none !important;
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref::after { content: none !important; }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref .mv-modificar { margin: 0 !important; }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref > div { flex-basis: 100%; margin: 0 !important; }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref .mv-ref-empty,
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref .alm-mov-purge { display: none !important; }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref .alm-mov-undo {
+            position: static !important; opacity: 1 !important; margin-left: auto !important;
+            width: 28px !important; height: 26px !important; color: #dc2626 !important;
         }
-        /* El icono de documento solo, como en escritorio: sin el círculo azul de fondo
-           (pedido del cliente, 07-10-2026). 32px = objetivo táctil cómodo sin robar ancho al
-           nombre del producto. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link {
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            width: 32px !important;
-            height: 32px !important;
-            padding: 0 !important;
-            color: #0f172a !important;
-            text-decoration: none !important;
-        }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link .mv-nota-ico {
-            display: inline-block !important;
-            font-size: 18px !important;
-            line-height: 1 !important;
-        }
-        /* "Modificar", al lado del PDF y del mismo tamaño: solo el icono (el texto va en el title). */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-modificar {
-            width: 26px !important; height: 26px !important; margin: 0 0 0 6px !important; padding: 0 !important;
-        }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-modificar .material-icons { font-size: 16px !important; }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .mv-modificar span { display: none !important; }
-        /* En la tarjeta manda el icono: el N° de nota se lee al abrir el PDF (va en su título). */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref a.mv-nota-link .mv-nota-num {
-            display: none !important;
-        }
-        /* "Eliminar del historial" sigue siendo acción de escritorio: vive encima del icono
-           del PDF, con opacity .08 y dependiendo de :hover, que en teléfono no existe. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-purge {
-            display: none !important;
-        }
-
-        /* ── DESHACER en teléfono: al lado del frente (pedido del cliente) ──────────
-           El botón vive en el HTML dentro de la celda de la Referencia, que en la
-           tarjeta cae arriba a la derecha (sobre el icono del PDF) y encima se ocultaba
-           entera cuando el movimiento no trae nota — se habría perdido justo en los
-           ajustes y las entradas. Por eso, en teléfono:
-             · cuando no hay nota, esa celda ya NO se esconde con display:none: se deja
-               sin tamaño, así su columna sigue colapsando igual pero el botón, que va
-               absolute y no ocupa sitio en el flujo, se sigue pintando;
-             · el botón se ancla a la TARJETA (el tr ya es position:relative, y la celda
-               es position:static aquí arriba), abajo a la derecha, que es exactamente
-               donde queda la banda gris del destino con el nombre del frente.
-           Se le quita el disfraz de escritorio (opacity .08 + :hover) porque al tocar
-           no hay hover: aquí se ve siempre, en rojo y con un área de toque cómoda. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref:not(:has(a.mv-nota-link)) {
-            display: block !important;
-            width: 0 !important;
-            min-width: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            overflow: visible !important;
-        }
-
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-undo {
-            display: inline-flex !important;
-            position: absolute !important;
-            top: auto !important;
-            bottom: 3px !important;
-            right: 6px !important;
-            z-index: 3 !important;
-            width: 26px !important;
-            height: 22px !important;
-            opacity: 1 !important;
-            color: #dc2626 !important;
-            background: transparent !important;
-        }
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-undo .material-icons {
-            font-size: 17px !important;
-        }
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref .alm-mov-undo .material-icons { font-size: 17px !important; }
         /* Al pulsarlo, un destello: en teléfono no hay hover que confirme el toque. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-ref .alm-mov-undo:active {
-            background: #fee2e2 !important;
-            border-radius: 5px !important;
+        .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-ref .alm-mov-undo:active {
+            background: #fee2e2 !important; border-radius: 5px !important;
         }
 
         /* Destino: banda gris inferior full-width */
@@ -567,9 +509,9 @@
             color: #3730a3 !important;
             background: #f8fafc !important;
             border-radius: 0 0 8px 8px !important;
-            /* 38px a la derecha: el hueco del botón de deshacer, que se monta sobre esta
-               misma banda. Sin reserva, un destino largo ("FRENTE 72 - VELADERO / CRUCE LA
-               GUAIRA") llegaba hasta el borde y sus últimas letras quedaban DEBAJO del
+            /* 38px a la derecha: el hueco de la flechita de desplegar, que se monta sobre
+               esta misma banda. Sin reserva, un destino largo ("FRENTE 72 - VELADERO / CRUCE
+               LA GUAIRA") llegaba hasta el borde y sus últimas letras quedaban DEBAJO del
                icono. Con el hueco, el texto se recorta antes con sus puntos suspensivos. */
             padding: 5px 38px 5px 12px !important;
             margin: 4px -12px 0 -10px !important;

@@ -89,9 +89,8 @@
                     👤 {{ $usuarioTip }}
                     {{-- Observación del lote (NOTAS): se muestra aquí, en la burbuja al hacer
                          foco/hover de la fila — igual que el usuario — en vez de inline en la
-                         columna Ref (pedido del cliente). Esta burbuja es HOY el único sitio
-                         donde la observación llega a verse: la copia inline de la celda Ref
-                         (.mv-notas-inline) quedó oculta en los dos tamaños (ver más abajo). --}}
+                         columna Ref (pedido del cliente). En el teléfono la burbuja se ve fija al
+                         desplegar la tarjeta. --}}
                     @if($m->NOTAS)
                         <div class="mv-tip-notas">📝 {{ $m->NOTAS }}</div>
                     @endif
@@ -203,9 +202,8 @@
                          (#pdfPreviewModal vía window.openPdfPreview). Conserva fallback a abrir
                          en pestaña nueva si el layout no provee la función. --}}
                     {{-- El icono `description` (mismo del menú Acciones → "Historial de Notas de Entrega")
-                         marca que el enlace abre un DOCUMENTO. Acompaña al número en escritorio;
-                         en la tarjeta móvil el CSS oculta el número y deja solo el icono, que es
-                         ahí el único punto que abre el PDF.
+                         marca que el enlace abre un DOCUMENTO. Acompaña al número, en escritorio
+                         y en la tarjeta del teléfono desplegada.
                          El título del visor sale de data-pdf-title, NO de this.textContent: con el
                          <i> dentro, textContent valdría "descriptionNE-2026-0041". --}}
                     <a href="{{ route('almacen.nota-entrega', ['numero' => $numNota]) }}"
@@ -244,20 +242,12 @@
                         <span>{{ $m->MOTIVO }}</span>
                     </div>
                 @endif
-                @if($m->NOTAS)
-                    {{-- Observación inline. HOY NO SE VE EN NINGÚN TAMAÑO: .mv-notas-inline está
-                         en display:none en escritorio (donde la observación vive en la burbuja de
-                         hover) y el @media de la tarjeta móvil la vuelve a ocultar con !important
-                         junto al resto de la celda Ref, desde que la tarjeta dejó solo el botón
-                         del PDF. Se conserva el marcado tal cual estaba; si se confirma que no
-                         hace falta, el bloque entero se puede borrar. --}}
-                    <div class="mv-notas-inline" title="{{ $m->NOTAS }}">
-                        <i class="material-icons">sticky_note_2</i><span class="mv-notas-texto">{{ $m->NOTAS }}</span>
-                    </div>
-                @endif
-                {{-- Envuelto en un span para poder ocultarlo en la tarjeta móvil: ahí la celda
-                     solo muestra el icono del PDF, y un "—" suelto quedaría flotando. --}}
-                @if(!$m->NUMERO_NOTA && !$m->REFERENCIA && !($esEntradaDirecta && $m->MOTIVO) && !$m->NOTAS)<span class="mv-ref-empty">—</span>@endif
+                {{-- La observación (NOTAS) no va aquí: sale en la burbuja del usuario (arriba, en la
+                     celda Producto), en escritorio al pasar el mouse y en la tarjeta del teléfono al
+                     desplegarla. Por eso no cuenta para el "—": una fila con solo observación
+                     dejaba esta celda en blanco.
+                     Envuelto en un span para poder ocultarlo en la tarjeta del teléfono. --}}
+                @if(!$m->NUMERO_NOTA && !$m->REFERENCIA && !($esEntradaDirecta && $m->MOTIVO))<span class="mv-ref-empty">—</span>@endif
                 @can('super.admin')
                     {{-- Botón "eliminar SOLO del historial" CASI INVISIBLE — SOLO super.admin
                          (gateado también en la ruta DELETE almacen.movimientos.destroyHistorial).

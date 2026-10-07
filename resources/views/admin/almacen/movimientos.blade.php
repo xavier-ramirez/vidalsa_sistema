@@ -709,14 +709,14 @@
         if (a) { e.preventDefault(); e.stopImmediatePropagation(); window.loadMovimientos(a.href); }
     }, true);
 
-    // ── Seleccion de tarjeta en mobile (toggle azul) ──
-    // Mismo patron de UX que /admin/equipos: tocar la tarjeta la resalta en azul. Nada mas:
-    // la tarjeta ya NO abre el PDF (lo hace su boton con el icono de documento) ni revela
-    // burbuja alguna — la de referencia estaba declarada display:none en sus dos estados y
-    // nunca llegaba a verse.
+    // ── Tarjeta en mobile: tocar la DESPLIEGA (y la resalta en azul) ──
+    // Recogida enseña producto, cantidad, fecha y destino; desplegada, además quién la registró,
+    // el tipo, el stock, Corregida / Devuelto y la celda de la nota (PDF, Modificar, deshacer):
+    // todo eso lo decide el CSS con .mv-row-selected (admin_almacen_movimientos.css). Una a la
+    // vez: abrir otra recoge la anterior. En escritorio la clase no tiene estilo: no cambia nada.
     //
-    // Early return: un click dentro de .mv-td-ref (la celda que en movil ES el boton del PDF)
-    // deja correr el onclick del enlace y no toca la seleccion.
+    // Early return: un click dentro de .mv-td-ref (el N° de Nota, Modificar, deshacer) deja
+    // correr su propio onclick sin recoger la tarjeta.
     docOn('click', function (e) {
         if (e.target.closest('#almMovTableBody .mv-td-ref')) return;
         var tr = e.target.closest('#almMovTableBody tr.alm-mov-row');
@@ -725,12 +725,8 @@
             if (other !== tr) other.classList.remove('mv-row-selected');
         });
         tr.classList.toggle('mv-row-selected');
-        // Antes, en teléfono, seleccionar la tarjeta ABRÍA el PDF de la nota. Tocar en
-        // cualquier sitio para ver la fila resaltada te lanzaba el visor encima, sin aviso
-        // previo y sin poder seleccionar sin abrirlo. Ahora el PDF lo abre SOLO el botón con
-        // el icono de documento (.mv-nota-link, arriba a la derecha de la tarjeta), que además
-        // solo existe cuando el movimiento tiene nota. Ese botón entra por el early-return de
-        // .mv-td-ref de arriba, así que su onclick corre sin togglear la selección.
+        // El PDF lo abre SOLO el N° de Nota (.mv-nota-link), nunca el toque en la tarjeta: antes
+        // tocarla lanzaba el visor encima, sin aviso y sin poder verla sin abrirlo.
     });
 
     // Panel de fechas
