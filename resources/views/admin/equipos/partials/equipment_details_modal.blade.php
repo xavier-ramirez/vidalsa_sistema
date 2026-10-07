@@ -545,7 +545,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
        de /mapa es más angosta y se queda como está. */
     #gpsTrackerModal .mapa-eq-frente,
     #gpsTrackerModal .mapa-eq-tit b { font-size: 13px; }
-    #gpsTrackerModal .mapa-eq-desc { font-size: 12px; }   /* Modelo / Placa y Chasis, más chicos que el tipo */
+    #gpsTrackerModal .mapa-eq-desc { font-size: 12px; }   /* Placa y Chasis, más chicos que el tipo */
     #gpsTrackerModal .mapa-eq-cel span { font-size: 11px; }
     #gpsTrackerModal .mapa-eq-cel b { font-size: 14px; }
     #gpsTrackerModal .mapa-eq-cel small { font-size: 12px; }

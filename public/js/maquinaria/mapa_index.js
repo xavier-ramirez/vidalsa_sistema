@@ -3942,24 +3942,16 @@
                 var linea = eqTienePosicion(e) && e.gps.en_linea;
                 // Dos renglones, sin "·" entre los datos (pedido del cliente, 06-10-2026):
                 //   1) el TIPO y, al lado, la MARCA y el MODELO
-                //   2) "Placa: …" y, al lado, "Chasis: …". Sin placa va primero lo que haya
-                //      (eqIdent baja a serial de motor, código o etiqueta), con su rótulo; si el
-                //      equipo se identifica por el chasis, este va solo y no se repite.
+                //   2) "Placa: …" y, al lado, "Chasis: …" (GpsFicha.identificadores: la MISMA
+                //      regla que la ficha; "Placa: Sin placa" si no tiene).
                 // El frente no va aquí: se comía el renglón entero. Para eso está el filtro de
                 // frente, arriba.
-                // eqIdent ya es "placa, si no el serial de chasis, si no…": repetir aquí sus
-                // escalones haría que la fila dijera un identificador y la ficha otro.
-                var identifica = eqIdent(e);
-                var porChasis = e.ident_por === 'Chasis';
-                // La MISMA regla que la ficha (GpsFicha.chasisAparte) para el chasis aparte.
-                var chasis = porChasis ? identifica
-                    : window.GpsFicha.chasisAparte({ chasis: e.serial_chasis, identPor: e.ident_por });
-                var otroIdent = porChasis ? '' : (e.ident_por ? e.ident_por + ': ' : '') + identifica;   // "Equipo N" va sin rótulo
                 // Cada dato en su trozo: si no caben los dos, el segundo baja entero (ver CSS).
                 var dato = function (txt) {
-                    return txt ? '<span class="mapa-eqp-dato" title="' + esc(txt) + '">' + esc(txt) + '</span>' : '';
+                    return '<span class="mapa-eqp-dato" title="' + esc(txt) + '">' + esc(txt) + '</span>';
                 };
-                var ids = dato(otroIdent) + dato(chasis ? 'Chasis: ' + chasis : '');
+                var ids = window.GpsFicha.identificadores({ ident: eqIdent(e), identPor: e.ident_por, chasis: e.serial_chasis })
+                    .map(dato).join('');
                 return '<div class="mapa-eqp-eq' + (eqTienePosicion(e) ? '' : ' sin-pos') + '" data-i="' + i + '">' +
                     '<span class="mapa-eqp-eq-txt">' +
                         // Sin tipo va el rótulo, NO el identificador: ponerlo ahí lo repetiría en
@@ -3967,7 +3959,7 @@
                         '<b><span class="mapa-eqp-tipo">' + esc(eqTipoTexto(e)) + '</span>' +
                             (e.marca ? '<span class="mapa-eqp-marca">' + esc(e.marca) + '</span>' : '') +
                             (e.modelo ? '<span class="mapa-eqp-modelo" title="' + esc(e.modelo) + '">' + esc(e.modelo) + '</span>' : '') + '</b>' +
-                        (ids ? '<small>' + ids + '</small>' : '') + '</span>' +
+                        '<small>' + ids + '</small></span>' +
                     '<span class="mapa-eqp-estado' + (linea ? ' en-linea' : '') + '">' + esc(eqEstadoTexto(e)) + '</span></div>';
             }).join('') + (orden.length > _panEq._lista.length
                 ? '<div class="mapa-eqp-mas">' + (orden.length - _panEq._lista.length) + ' más abajo</div>'

@@ -26,6 +26,7 @@
     var esc = function (s) { return window.escapeHtml(s == null ? '' : s); };
     var num = function (n, dec) { return Number(n).toLocaleString('es-VE', { maximumFractionDigits: dec || 0 }); };
     var hay = function (v) { return v !== null && v !== undefined; };
+    var limpio = function (v) { return (v == null ? '' : String(v)).trim(); };   // trim() quita también el espacio duro
 
     // "1d11h42m" (lo que manda GPS51 tras "ACC Off") → "1 día 11 h". Con días no van los
     // minutos, y los segundos solo cuando no hay nada más grande: "50m45s" se lee "50 min" y
@@ -70,14 +71,20 @@
     // de hasta un día) la flecha diría que va en marcha AHORA.
     function enMarcha(g) { return !g.vieja && g.velocidad > 3; }
 
-    // El serial de chasis va en su propio renglón SIEMPRE que lo haya (pedido del cliente,
-    // 06-10-2026): en campo es lo que se coteja contra la chapa del equipo, y antes solo salía
-    // cuando el equipo no tenía placa. Si ya ES el identificador (sin placa: identificar() bajó
-    // al serial y el rótulo es "Chasis"), sale arriba y no se repite. Una sola regla para la
-    // ficha y la lista del panel de /mapa, que tienen que decir lo mismo.
-    function chasisAparte(eq) {
-        var chasis = (eq.chasis == null ? '' : String(eq.chasis)).trim();   // trim() quita también el espacio duro
-        return String(eq.identPor || '').trim() === 'Chasis' ? '' : chasis;
+    // Cómo se reconoce el equipo, en este orden y uno al lado del otro (pedido del cliente,
+    // 06-10-2026): "Placa: X" SIEMPRE, con "Sin placa" si no tiene —así se ve que falta—, y
+    // "Chasis: X", que en campo es lo que se coteja contra la chapa. Si identificar() tuvo que
+    // bajar más (sin placa ni chasis: serial de motor, código o etiqueta), ese va detrás con su
+    // rótulo. Una sola regla para la ficha (mapa y modal) y la lista del panel de /mapa.
+    // eq: { ident, identPor, chasis } tal como llegan del servidor (MapaController).
+    function identificadores(eq) {
+        var ident = limpio(eq.ident), por = limpio(eq.identPor);
+        var chasis = limpio(eq.chasis) || (por === 'Chasis' ? ident : '');
+        return [
+            'Placa: ' + (por === 'Placa' ? ident : 'Sin placa'),
+            chasis ? 'Chasis: ' + chasis : '',
+            por && por !== 'Placa' && por !== 'Chasis' ? por + ': ' + ident : ''   // "Equipo N" (sin rótulo) no
+        ].filter(Boolean);
     }
 
     window.GpsFicha = {
@@ -111,9 +118,9 @@
             return (g.en_linea ? 1 : 0) + '|' + (enMarcha(g) ? (+g.rumbo || 0) : '-');
         },
 
-        /** El serial de chasis que va en su propio renglón, o '' (ver chasisAparte). Lo usa
-            también la lista del panel de /mapa. */
-        chasisAparte: chasisAparte,
+        /** ["Placa: …", "Chasis: …"…] para enseñar uno al lado del otro (ver identificadores).
+            Lo usa también la lista del panel de /mapa. */
+        identificadores: identificadores,
 
         /**
          * El HTML de la ficha, o cadena vacía si el equipo no tiene posición que pintar
@@ -151,36 +158,28 @@
             // El color va DENTRO de un atributo style, donde escapeHtml no protege: se acepta solo
             // si es un color de los que arma el sistema (#rgb / #rrggbb). Cualquier otra cosa, al gris.
             var color = /^#[0-9a-fA-F]{3,8}$/.test(String(eq.color || '')) ? eq.color : '#94a3b8';
-            // Encabezado en cuatro renglones, todo en negro (pedido del cliente, 01-10-2026):
+            // Encabezado en tres renglones, todo en negro (pedido del cliente, 01-10-2026):
             //   1. el frente (proyecto), separado de lo de abajo por una raya fina; sin el rótulo
             //      "Asignado a" delante (pedido del cliente, 06-10-2026);
-            //   2. QUÉ es: el tipo y, al lado, la marca ("CHUTO  SINOTRUK");
-            //   3. el modelo y CUÁL es: la placa o, si no tiene, el serial
-            //      ("Modelo: ZZ4257V324JB1  Placa: A93BE7R"). Ese escalón (placa → serial…) llega
-            //      resuelto del servidor en ident / identPor;
-            //   4. el serial de chasis, si no es ya el de arriba (ver chasisAparte).
+            //   2. QUÉ es: el tipo y, al lado, la marca y el modelo ("CHUTO  SINOTRUK  ZZ4257V324JB1");
+            //   3. CUÁL es: "Placa: …  Chasis: …" (ver identificadores), en letra más chica.
             // Sin "·" entre los datos (pedido del cliente, 01-10-2026): los separa un hueco.
-            var limpio = function (v) { return (v == null ? '' : String(v)).trim(); };
-            var ident = limpio(eq.ident), identPor = limpio(eq.identPor);
-            var rotulo = identPor ? identPor + ': ' : '';
             var tipo = limpio(eq.tipo) || 'Sin tipo';
             var modelo = limpio(eq.modelo), marca = limpio(eq.marca);
             var frente = limpio(eq.frente) || 'Sin frente';
-            // En su renglón y no detrás de la placa: el 3 ya llega a dos líneas con un modelo largo
-            // y un VIN de 17 caracteres lo cortaría con "…".
-            var chasis = chasisAparte(eq);
+            var ids = identificadores(eq);
             // Cada dato es una .mapa-eq-parte y entre dos va un espacio (ahí puede partirse el
-            // renglón) más el hueco del CSS. Los de "entero" (la marca, "Modelo: X", "Placa: X", la
-            // coordenada) no se parten por dentro: si no caben, bajan enteros. El title sale de los
-            // MISMOS datos que lo que se ve.
+            // renglón) más el hueco del CSS. Los de "entero" (la marca, el modelo, "Placa: X",
+            // "Chasis: X", la coordenada) no se parten por dentro: si no caben, bajan enteros. El
+            // title sale de los MISMOS datos que lo que se ve.
             var parte = function (html, entero) {
                 return '<span class="mapa-eq-parte' + (entero ? ' mapa-eq-entero' : '') + '">' + html + '</span>';
             };
-            var segundaTxt = [tipo, marca].filter(Boolean).join('  ');
-            var segunda = [parte(esc(tipo)), marca ? parte(esc(marca), true) : ''].filter(Boolean).join(' ');
-            var terceraTxt = [modelo ? 'Modelo: ' + modelo : '', ident ? rotulo + ident : ''].filter(Boolean).join('  ');
-            var tercera = [modelo ? parte('Modelo: ' + esc(modelo), true) : '',
-                           ident ? parte(esc(rotulo) + esc(ident), true) : ''].filter(Boolean).join(' ');
+            var segundaTxt = [tipo, marca, modelo].filter(Boolean).join('  ');
+            var segunda = [parte(esc(tipo)), marca ? parte(esc(marca), true) : '',
+                           modelo ? parte(esc(modelo), true) : ''].filter(Boolean).join(' ');
+            var terceraTxt = ids.join('  ');
+            var tercera = ids.map(function (t) { return parte(esc(t), true); }).join(' ');
             // "desde hace" es lo que GPS51 dijo AL CONSULTAR: con la última posición conocida
             // (`vieja`, de hasta un día) ya no es verdad, así que no se pone.
             var motorDesde = g.vieja ? '' : duracion(g.acc_tiempo);
@@ -195,9 +194,7 @@
                     '<div class="mapa-eq-tit"><b title="' + esc(segundaTxt) + '">' + segunda + '</b></div>' +
                     // Sin "En línea / Sin conexión" (pedido del cliente, 01-10-2026): lo dice ya
                     // "Última señal", y el icono del mapa sale apagado si no está en línea.
-                    (tercera ? '<div class="mapa-eq-desc" title="' + esc(terceraTxt) + '">' + tercera + '</div>' : '') +
-                    (chasis ? '<div class="mapa-eq-desc" title="Chasis: ' + esc(chasis) + '">' +
-                        parte('Chasis: ' + esc(chasis), true) + '</div>' : '') +
+                    '<div class="mapa-eq-desc" title="' + esc(terceraTxt) + '">' + tercera + '</div>' +
                 '</div>' +
                 // Con la última posición conocida (`vieja`) los datos de abajo son de cuando se
                 // consultó, no de ahora: se dice, hasta que llegue la lectura nueva.
