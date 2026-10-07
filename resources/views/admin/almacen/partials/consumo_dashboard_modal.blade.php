@@ -458,8 +458,6 @@
             var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
             return (0.299 * r + 0.587 * g + 0.114 * b) > 135;
         }
-        // Degradado horizontal (marca izq → claro der) para barras horizontales.
-        function cdHGrad(c, a, b) { var ar = c.chart.chartArea; if (!ar) return a; var g = c.chart.ctx.createLinearGradient(ar.left, 0, ar.right, 0); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
 
         // Plugin: dibuja la CANTIDAD sobre cada barra/segmento (visible SIN pasar el mouse).
         // Soporta barras verticales (encima), horizontales (al final; dentro si la barra es
@@ -523,7 +521,7 @@
                         } else if (horizontal) {
                             var dentro = area && el.x > area.left + (area.right - area.left) * 0.82;
                             ctx.textBaseline = 'middle';
-                            if (dentro) { ctx.fillStyle = '#fff'; ctx.textAlign = 'right'; ctx.fillText(txt, el.x - 6, el.y); }
+                            if (dentro) { var fondoH = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor; ctx.fillStyle = cdEsClaro(fondoH) ? '#0f172a' : '#fff'; ctx.textAlign = 'right'; ctx.fillText(txt, el.x - 6, el.y); }
                             else { ctx.fillStyle = '#334155'; ctx.textAlign = 'left'; ctx.fillText(txt, el.x + 6, el.y); }
                         } else {
                             // Barras verticales: el valor va ENCIMA de la barra, pero la barra
@@ -674,10 +672,26 @@
             }
         });
 
-        // ── 2) Top productos (barras horizontales, escala secuencial azul) ───
-        // Azul corporativo un tono más oscuro que "Consumo por mes" (#005a9e en vez de
-        // #0067b1): distingue los dos gráficos sin salirse de la paleta de la app.
+        // ── 2) Top productos (barras horizontales) ───────────────────────────
+        // COLORES a juego con la pila por proyecto (pedido del cliente, 07-10-2026): los
+        // TRES productos más consumidos llevan el mismo podio (rojo, naranja, ámbar:
+        // CD_PALETA[0..2]) y del cuarto para abajo una escala de MARINO a CELESTE
+        // (#10335b → #60c7fb, los dos azules de esa paleta) que se aclara según baja el
+        // puesto. Aquí sí vale una escala de un solo tono: las barras no se tocan y cada una
+        // lleva su rótulo, así que no hace falta que los vecinos se distingan por color.
         var top = data.top_productos || [];
+        function cdMezcla(a, b, t) {
+            var c = function (h, i) { return parseInt(h.slice(i, i + 2), 16); };
+            return '#' + [1, 3, 5].map(function (i) {
+                var v = Math.round(c(a, i) + (c(b, i) - c(a, i)) * t).toString(16);
+                return v.length < 2 ? '0' + v : v;
+            }).join('');
+        }
+        var cdTopColores = top.map(function (_, i) {
+            if (i < 3) return CD_PALETA[i];
+            var resto = top.length - 3;
+            return cdMezcla('#10335b', '#60c7fb', resto > 1 ? (i - 3) / (resto - 1) : 0);
+        });
 
         // Rótulo del eje = Nº DE PARTE principal (identifica el filtro exacto). Muchos
         // filtros comparten descripción, así que rotular por descripción se veía
@@ -727,11 +741,10 @@
             data: {
                 labels: cdTopLabels,
                 datasets: [{ label: 'Consumo', data: top.map(function (x) { return x.total; }),
-                    backgroundColor: function (c) { return cdHGrad(c, '#005a9e', '#38bdf8'); },
-                    {{-- El hover OSCURECE la barra (#0ea5e9 es más oscuro que el #38bdf8 del
-                         degradado normal). Con el hover más CLARO que la barra el gesto se lee
-                         al revés: parece que se apaga en vez de resaltarse. --}}
-                    hoverBackgroundColor: function (c) { return cdHGrad(c, '#005a9e', '#0ea5e9'); },
+                    backgroundColor: cdTopColores,
+                    {{-- Color PLANO por barra: el color ya dice el puesto. Al pasar el mouse
+                         se OSCURECE un poco (mezcla con marino), que se lee como resaltado. --}}
+                    hoverBackgroundColor: cdTopColores.map(function (h) { return cdMezcla(h, '#0f172a', 0.18); }),
                     borderRadius: 5, borderSkipped: false }]
             },
             options: {
