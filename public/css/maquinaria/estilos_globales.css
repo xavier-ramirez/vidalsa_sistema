@@ -4891,7 +4891,12 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .mapa-eqp-exportar:hover { border-color: var(--maquinaria-blue); background: #fff; }
 .mapa-eqp-exportar:disabled { opacity: 0.6; cursor: wait; }
 .mapa-eqp-sec { margin: 12px 0 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: var(--maquinaria-gray-text); }
-.mapa-eqp-eq { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+/* Cada equipo, un bloque aparte: una raya fina entre uno y otro y más aire arriba y abajo
+   (pedido del cliente, 07-10-2026: en la lista no se distinguía dónde terminaba un equipo y
+   empezaba el siguiente). Sin esquinas redondeadas: con la raya, el fondo del hover redondeado
+   se despegaba de ella. */
+.mapa-eqp-eq { display: flex; align-items: center; gap: 8px; padding: 9px 8px; cursor: pointer; }
+.mapa-eqp-eq + .mapa-eqp-eq { border-top: 1px solid #e2e8f0; }
 .mapa-eqp-eq:hover { background: #f0f4f8; }
 .mapa-eqp-eq-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 /* Primer renglón: el TIPO y, al lado, la marca y el modelo. Cuando no caben, el que no cabe BAJA
@@ -4953,7 +4958,7 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     .mapa-eqp .mapa-eqp-trigger { height: 36px; }
     .mapa-eqp-trigger input { font-size: 13px; }
     .mapa-eqp-sec { margin: 8px 0 2px; }
-    .mapa-eqp-eq { padding: 5px 6px; }
+    .mapa-eqp-eq { padding: 7px 6px; }
     .mapa-eqp-pie { margin-top: 8px; padding-top: 6px; }
 }
 /* ── TELÉFONO: el panel se PLIEGA (pedido del cliente, 01-10-2026) ──
