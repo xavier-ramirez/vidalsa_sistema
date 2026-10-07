@@ -440,7 +440,7 @@
         // eso los TRES gráficos de aquí lo apagan uno por uno.
         var CD_SIN_DATALABELS = { display: false };
 
-        // Estilo COMÚN de los gráficos (tooltip, rejilla y rótulos de los ejes).
+        // Estilo COMÚN, formal y coherente (paleta corporativa azul, sin arcoíris).
         var cdTooltip = {
             backgroundColor: 'rgba(15,23,42,0.92)', titleColor: '#fff', bodyColor: '#e2e8f0',
             padding: 10, cornerRadius: 8, displayColors: false,
@@ -451,30 +451,13 @@
         var cdTick  = { color: '#334155', font: { size: 11, weight: 600 } };
         // ¿Ese color de relleno es claro? (luminancia de un #rrggbb). Sirve para escribir encima
         // en blanco o en tinta: cuando el total del mes no cabe ARRIBA de la barra hay que
-        // pintarlo DENTRO del tramo de mas arriba (y en la dona la cifra va dentro del segmento):
-        // sobre los tonos claros de CD_PALETA el blanco no se lee. Corte en 135 de luminancia.
+        // pintarlo DENTRO del tramo de mas arriba, y sobre un celeste de la parte clara de la
+        // rampa el blanco no se lee. Corte en 135 de luminancia.
         function cdEsClaro(hex) {
             if (typeof hex !== 'string' || !/^#[0-9a-f]{6}$/i.test(hex)) return false;
             var r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
             return (0.299 * r + 0.587 * g + 0.114 * b) > 135;
         }
-        // PALETA COMPARTIDA de la pila por proyecto y de la dona por almacén (07-10-2026).
-        // Pedido del cliente: colores profesionales que peguen con el azul de la app, sin
-        // "mucho azul" ni azules que se confundan. Arranca en el azul de la app
-        // (--maquinaria-blue, #0067b1) y sigue con tonos de la MISMA intensidad (OKLCH):
-        // dorado, verde azulado, bronce, rosa viejo, ciruela, verde salvia, coral... Solo hay
-        // otros dos azules, lejos en la lista y bien distintos (celeste y lavanda).
-        //
-        // Validada con scripts/validate_palette.js (skill dataviz). En la pila, dos tramos
-        // PEGADOS siempre se separan (vecinos dE >= 8,4 con daltonismo, mínimo 8; >= 20,3 a
-        // ojo normal, mínimo 15). En la dona, los 4 primeros se distinguen todos entre sí.
-        // Con 18 o más proyectos no pueden ser todos distintos: para eso están la leyenda y
-        // el tooltip. Si se tocan estos hex o su orden, hay que volver a validarlos. Los
-        // tonos claros no llevan texto blanco encima: ver cdEsClaro.
-        var CD_PALETA = ['#0067b1', '#cd8d1f', '#009583', '#8f5800', '#ec94a2', '#91507c', '#7eaf6e',
-            '#c95d5c', '#67abe4', '#9a4447', '#2dbbb4', '#9175c1', '#978726', '#6e529a', '#b5a649',
-            '#5c70b4', '#e08c66', '#4d701f', '#cd8ac7', '#00774c'];
-        function cdColor(i) { return CD_PALETA[i % CD_PALETA.length]; }
         // Degradado horizontal (marca izq → claro der) para barras horizontales.
         function cdHGrad(c, a, b) { var ar = c.chart.chartArea; if (!ar) return a; var g = c.chart.ctx.createLinearGradient(ar.left, 0, ar.right, 0); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
 
@@ -530,8 +513,7 @@
                         ctx.font = "700 11px 'Inter','Segoe UI',sans-serif";
                         if (isDoughnut) {
                             var p = el.tooltipPosition ? el.tooltipPosition() : { x: el.x, y: el.y };
-                            var fondo = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[i] : ds.backgroundColor;
-                            ctx.fillStyle = cdEsClaro(fondo) ? '#0f172a' : '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                            ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                             ctx.fillText(txt, p.x, p.y);
                         } else if (horizontal) {
                             var dentro = area && el.x > area.left + (area.right - area.left) * 0.82;
@@ -582,9 +564,80 @@
         var enGrafico = {};
         meses.forEach(function (m) { enGrafico[m] = true; });
         var porProy = (data.por_mes_frente || []).filter(function (x) { return enGrafico[x.mes]; });
-        // COLORES de la pila: salen TODOS los proyectos con consumo, cada uno con su color
-        // (pedido del cliente: nada de juntar los pequeños en "Otros proyectos"). La paleta
-        // es CD_PALETA, la misma de la dona de almacenes.
+        // COLORES de la pila (17-09-2026). El cliente pidio LOS MISMOS del ranking "Total
+        // de Consumo por Frente" del modulo de combustible (consumibles/graficos.blade.php,
+        // renderTotalFrente): los primeros puestos en tonos calidos y del siguiente para
+        // abajo una escala de AZUL que se va aclarando. Aqui se copia esa idea, no los hex
+        // sueltos: alla las barras son horizontales y llevan su rotulo al lado, asi que la
+        // rampa puede ir de corrido; en una pila los tramos se TOCAN, y de corrido dos vecinos
+        // salen dos azules casi iguales (ya paso y el cliente lo canto).
+        //
+        // Por eso la rampa se parte por la mitad y se INTERCALA: oscuro, claro, oscuro,
+        // claro... Dos tramos pegados quedan siempre a media rampa de distancia, que es la
+        // mayor separacion que se puede sacar de un solo tono, y aun asi la leyenda se lee
+        // como una escala de azules de oscuro a claro.
+        //
+        // La escala se calcula con el numero de proyectos que HAY, no de una lista fija: con
+        // 5 proyectos los azules se reparten los 5, con 22 se reparten los 22. Asi nunca
+        // sobran tonos ni se repiten.
+        //
+        // LOS TONOS salen de la lamina de UNIDADES INOPERATIVAS DE FLOTA PESADA, que es la
+        // que el cliente puso de ejemplo: azul marino de cabecera, azules medios de los
+        // bloques, celeste de las tarjetas, y el rojo / naranja / ambar de los acentos. La
+        // rampa recorre esa escala de azules de punta a punta, ganando saturacion segun
+        // aclara (70% -> 95%), que es lo que evita el lila desvaido del intento anterior.
+        //
+        // Son los colores ORIGINALES: el cliente probo otras paletas el 07-10-2026 y pidio
+        // volver a estos.
+        //
+        // COMPROBADO con scripts/validate_palette.js para los 22 proyectos de Barcelona:
+        //   - Separacion para daltonismo entre vecinos: dE 14,2 (deuteranopia) - minimo 8.
+        //   - Separacion a ojo normal entre vecinos:    dE 19,1                - minimo 15.
+        //   - Saturacion: el marino mas oscuro queda por debajo del minimo. Es el color de
+        //     la cabecera de la lamina; aclararlo seria salirse de lo que se pidio.
+        //   - Contraste sobre blanco: el ambar y los celestes mas claros quedan por debajo
+        //     de 3:1. Se acepta porque el color no es el unico dato: cada barra lleva su
+        //     total escrito encima y la leyenda dice quien es quien.
+        //
+        // Aviso para que no se pierda: el rojo tambien significa "mal" en el resto del
+        // sistema (stock bajo, inoperativo). Aqui NO significa eso: marca al que MAS saco.
+        // Los tres primeros puestos llevan los acentos calidos de la lamina de UNIDADES
+        // INOPERATIVAS DE FLOTA PESADA, que es de donde el cliente saco los tonos: rojo,
+        // naranja y ambar. El rojo se lo queda el proyecto que MAS saco.
+        //
+        // Van en este orden por una razon medida, no por gusto: con el rojo y el naranja
+        // pegados uno al otro la pareja daba dE 9,0 a ojo normal -se leian como el mismo
+        // color-. Bajando el rojo a #8f1410 y subiendo el naranja a #ef5f24 la pareja sube
+        // a 19,1. Si se tocan estos tres hex, hay que volver a pasar el validador.
+        var CD_ACENTOS = ['#8f1410', '#ef5f24', '#f2b53c'];
+        function cdHsl(h, s, l) {
+            s /= 100; l /= 100;
+            var a = s * Math.min(l, 1 - l);
+            var f = function (n) {
+                var k = (n + h / 30) % 12;
+                var v = l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+                var t = Math.round(v * 255).toString(16);
+                return (t.length < 2 ? '0' : '') + t;
+            };
+            return '#' + f(0) + f(8) + f(4);
+        }
+        // n = cuantos PROYECTOS hay.
+        function cdEscalaProyectos(n) {
+            var out = CD_ACENTOS.slice(0, Math.min(CD_ACENTOS.length, n));
+            var m = Math.max(n - CD_ACENTOS.length, 0);
+            if (!m) return out;
+            var rampa = [];
+            for (var i = 0; i < m; i++) {
+                var t = m > 1 ? i / (m - 1) : 0;
+                rampa.push(cdHsl(212 - 12 * t, 70 + 25 * t, 21 + 47 * t));
+            }
+            var mitad = Math.ceil(m / 2);
+            for (var j = 0; j < mitad; j++) {
+                out.push(rampa[j]);
+                if (mitad + j < m) out.push(rampa[mitad + j]);
+            }
+            return out;
+        }
 
         // En la leyenda solo los proyectos que CONSUMIERON en los meses dibujados: el servidor
         // ya descarta cada mes que queda en cero o en negativo (devoluciones que se comen las
@@ -601,6 +654,8 @@
             valor[clave] = (valor[clave] || 0) + x.total;
         });
 
+        // La escala se dimensiona con los proyectos que realmente pintan.
+        var cdPaleta = cdEscalaProyectos(series.length);
         var datasets = series.map(function (p, i) {
             return {
                 label: p,
@@ -608,9 +663,7 @@
                 // Color PLANO. Se probo con degradado dentro de cada tramo y el cliente lo
                 // quito (17-09-2026): el degradado aclaraba la parte de arriba de cada tramo y
                 // se confundia con el color del tramo de encima. Plano se lee mejor.
-                // Más de 20 proyectos (hoy el que más tiene llega a 18): vuelve a empezar la
-                // paleta, y el tooltip sigue diciendo de quién es cada tramo.
-                backgroundColor: cdColor(i),
+                backgroundColor: cdPaleta[i],
                 // Sin raya blanca entre tramos: la quito el cliente (17-09-2026). La paleta
                 // ya separa los colores sola, y el borde picaba la pila en trocitos.
                 //
@@ -763,15 +816,18 @@
 
         // ── 3) Consumo por almacén (dona con total al centro) ────────────────
         var alm = data.por_almacen || [];
-        // Un color por almacén, de la paleta compartida (CD_PALETA). La cantidad dentro de
-        // cada segmento va en blanco o en tinta según lo claro del color (cdValLabels).
+        // Paleta CATEGÓRICA (un color por almacén, sin relación de orden). Arranca en el
+        // azul corporativo. Todos en versión OSCURA (700/600) a propósito: cdValLabels
+        // escribe la cantidad en BLANCO dentro del segmento, y sobre un ámbar o un verde
+        // claro esa cifra no se leía. Con estos tonos el texto blanco contrasta en los ocho.
+        var paleta = ['#0067b1', '#0f766e', '#4f46e5', '#b45309', '#db2777', '#15803d', '#c2410c', '#475569'];
         var almTotal = alm.reduce(function (s, x) { return s + (Number(x.total) || 0); }, 0);
         window._cdashCharts.alm = new Chart(document.getElementById('cdashChartAlm'), {
             type: 'doughnut',
             data: {
                 labels: alm.map(function (x) { return x.nombre; }),
                 datasets: [{ data: alm.map(function (x) { return x.total; }),
-                    backgroundColor: alm.map(function (_, i) { return cdColor(i); }),
+                    backgroundColor: alm.map(function (_, i) { return paleta[i % paleta.length]; }),
                     borderColor: '#fff', borderWidth: 2, hoverOffset: 6 }]
             },
             options: {
