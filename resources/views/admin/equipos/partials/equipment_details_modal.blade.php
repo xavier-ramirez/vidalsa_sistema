@@ -444,8 +444,14 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
                 </div>
             </div>
 
-            <aside class="gps-info">
-                <div class="gps-info-cuerpo">
+            <aside class="gps-info" id="gps_info">
+                {{-- Solo en el teléfono de pie: los datos se recogen para dejarle la pantalla al
+                     mapa y se despliegan con este botón (pedido del cliente, 07-10-2026). --}}
+                <button type="button" class="gps-plegar" id="gps_plegar" aria-controls="gps_info_cuerpo"
+                        aria-expanded="false" onclick="toggleGpsInfo()">
+                    <span>Datos del equipo</span><i class="material-icons">expand_less</i>
+                </button>
+                <div class="gps-info-cuerpo" id="gps_info_cuerpo">
                     {{-- Qué equipo es mientras la ficha no está (cargando o con un problema del
                          enlace): sin el encabezado, si no, no habría forma de saber de cuál se habla. --}}
                     <p id="gps_ident" class="gps-ident"></p>
@@ -473,7 +479,7 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
 
     /* ── Modal Rastreo Satelital: mapa satelital + ficha blanca con letra negra ──
        PC: mapa a la izquierda y ficha a la derecha. Tablet: igual, ficha más angosta.
-       Teléfono de pie: pantalla completa, mapa arriba y ficha debajo (un solo scroll).
+       Teléfono de pie: pantalla completa, el mapa ocupa todo y los datos van en una hoja de abajo que se recoge.
        Teléfono acostado: pantalla completa, mapa y ficha lado a lado. */
     #gpsTrackerModal {
         position: fixed; inset: 0; z-index: 99999; padding: 20px;
@@ -564,16 +570,30 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         .gps-info-cuerpo { gap: 8px; padding-top: 14px; padding-bottom: 14px; }
     }
 
-    /* Teléfono de pie: pantalla completa; mapa arriba y ficha debajo, con un solo scroll. */
+    /* El botón de recoger / desplegar los datos: solo existe en el teléfono de pie (abajo). */
+    .gps-plegar { display: none; }
+
+    /* Teléfono de pie: pantalla completa y el MAPA ocupa todo lo que queda (pedido del cliente,
+       07-10-2026: con la ficha debajo casi no se veía). Los datos van abajo como una hoja que se
+       recoge: cerrada solo asoma su botón; abierta sube hasta el 65 % de la pantalla y se
+       desplaza por dentro. Arranca recogida en cada apertura (openGpsModal). */
     @media (max-width: 768px) {
         #gpsTrackerModal { padding: 0; }
         .gps-modal-container { max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
-        .gps-body { flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-        /* El mapa es lo principal en el teléfono (pedido del cliente, 01-10-2026): más de la
-           mitad de la pantalla; la ficha queda debajo, con un solo scroll. */
-        .gps-panel-map { flex: none; height: 55vh; height: 55dvh; min-height: 260px; }
-        .gps-info { border-left: 0; border-top: 1px solid #e2e8f0; }
-        .gps-info-cuerpo { width: auto; overflow: visible; padding: 14px 16px 20px; }
+        .gps-body { flex-direction: column; overflow: hidden; }
+        .gps-panel-map { flex: 1; min-height: 0; }
+        .gps-info { max-height: 65vh; max-height: 65dvh; border-left: 0; border-top: 1px solid #e2e8f0;
+                    box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.12); }
+        .gps-plegar {
+            display: flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0;
+            width: 100%; padding: 10px 16px; border: 0; background: #f8fafc; cursor: pointer;
+            font: inherit; font-size: 13px; font-weight: 800; color: #0f172a;
+        }
+        .gps-plegar .material-icons { font-size: 20px; color: #10b981; transition: transform 0.2s; }
+        .gps-info.abierta .gps-plegar { border-bottom: 1px solid #e2e8f0; }
+        .gps-info.abierta .gps-plegar .material-icons { transform: rotate(180deg); }
+        .gps-info:not(.abierta) .gps-info-cuerpo { display: none; }
+        .gps-info-cuerpo { width: auto; padding: 14px 16px 20px; -webkit-overflow-scrolling: touch; }
     }
 
     /* Teléfono acostado: poca altura, así que mapa y ficha van lado a lado a pantalla completa. */
@@ -585,8 +605,11 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
         .gps-header-icono { display: none; }
         .gps-body { flex-direction: row; overflow: hidden; }
         .gps-panel-map { flex: 1; height: auto; min-height: 0; }
-        .gps-info { border-top: 0; border-left: 1px solid #e2e8f0; }
+        .gps-info { max-height: none; border-top: 0; border-left: 1px solid #e2e8f0; box-shadow: none; }
         .gps-info-cuerpo { width: 290px; overflow-y: auto; padding: 10px 14px; gap: 8px; }
+        /* Acostado hay ancho para los dos: los datos siempre a la vista, sin el botón de recoger. */
+        .gps-plegar { display: none; }
+        .gps-info:not(.abierta) .gps-info-cuerpo { display: flex; }
     }
 
 </style>
@@ -644,9 +667,10 @@ if (!window._gpsModalScriptLoaded) {
                     M.mapa = L.map(cont, {
                         zoomControl: true,
                         attributionControl: false,   // sin el texto de créditos, igual que /mapa
-                        // En el teléfono el mapa ocupa media pantalla: con un dedo se desplaza la
-                        // página hasta la ficha, en vez de arrastrar el mapa (se acerca con dos).
-                        dragging: !L.Browser.mobile
+                        // Con un dedo se arrastra el mapa también en el teléfono: ahí ya no hay que
+                        // desplazar la página hasta la ficha, que va en su hoja de abajo (ver
+                        // toggleGpsInfo).
+                        dragging: true
                     });
                     // Satélite de Google con los nombres de calles y lugares ya puestos: sin las
                     // nubes que trae el de Esri en algunas zonas (pedido del cliente, 01-10-2026).
@@ -688,6 +712,23 @@ if (!window._gpsModalScriptLoaded) {
         // <head>), el MISMO que usa la ficha del mapa — un solo sitio para un solo criterio.
 
         function pararRefresco() { clearInterval(S.timer); S.timer = null; }
+
+        // Recoge o despliega los datos (solo se ve el botón en el teléfono de pie). Leaflet tiene
+        // que volver a medir el mapa, que crece o se achica, y el equipo vuelve al centro.
+        function plegarInfo(abrir) {
+            var info = $('gps_info'), btn = $('gps_plegar');
+            if (!info || !btn) return;
+            info.classList.toggle('abierta', abrir);
+            btn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+            if (M.mapa) {
+                M.mapa.invalidateSize();
+                if (S.lat !== null) M.mapa.panTo([S.lat, S.lng], { animate: false });
+            }
+        }
+        window.toggleGpsInfo = function () {
+            var info = $('gps_info');
+            if (info) plegarInfo(!info.classList.contains('abierta'));
+        };
 
         // Qué equipo es, en una línea ("CAMION DE SERVICIO  Placa: A51EX9P"), para cuando la
         // ficha no está. También es el nombre del diálogo para los lectores de pantalla.
@@ -819,7 +860,8 @@ if (!window._gpsModalScriptLoaded) {
             var serial = limpio(ds.equipoSerial, ['N/A', 'Sin Chasis']);
             ponerIdent({ tipo: ds.equipoTipo, ident: placa || serial, ident_por: placa ? 'Placa' : 'Chasis' });
 
-            // Estado inicial: todo vacío y el mapa cargando.
+            // Estado inicial: todo vacío, el mapa cargando y, en el teléfono, los datos recogidos.
+            plegarInfo(false);
             $('gps_ficha').innerHTML = '';
             ['gps_mensaje', 'gps_vence'].forEach(function (id) { $(id).hidden = true; });
             avisoMapa('<div class="spinner-circle"></div><span>Consultando el GPS…</span>');
