@@ -4766,10 +4766,11 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .mapa-eq-cel b { font-size: 13px; font-weight: 800; }
 .mapa-eq-cel small { font-size: 10px; color: #64748b; }
 /* Aviso de posición NO fiable, arriba del todo en la ficha del equipo: el GPS la reporta fuera
-   del país. En ámbar y no en rojo: no es un fallo de la app ni del equipo, es el aparato de GPS
-   el que hay que revisar. */
+   del país. En letra roja sobre el blanco de la ficha (pedido del cliente, 06-10-2026: el fondo
+   amarillo de antes no se veía elegante), con una raya fina que lo separa del encabezado. */
 .mapa-eq-dudosa { display: flex; align-items: flex-start; gap: 6px; padding: 8px 30px 8px 12px;   /* 30: la × de Leaflet */
-    background: #fef3c7; color: #92400e; font-size: 11.5px; font-weight: 700; line-height: 1.35; }
+    background: #fff; color: #b91c1c; border-bottom: 1px solid #fecaca;
+    font-size: 11.5px; font-weight: 700; line-height: 1.35; }
 .mapa-eq-dudosa .material-icons { font-size: 16px; flex: 0 0 auto; margin-top: 1px; }
 .mapa-eq-vieja { padding: 5px 12px; font-size: 10.5px; font-weight: 700; color: #475569; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
 .mapa-eq-ubic { display: flex; align-items: flex-start; gap: 6px; padding: 8px 12px 10px; }
