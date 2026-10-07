@@ -82,16 +82,20 @@
     /* "Modificar" (.mv-undo-btn, el mismo enlace de "Deshacer" en Movilizaciones) en su
        propio renglón, bajo el N° de nota. */
     .alm-mov-table td.mv-td-ref .mv-modificar { display:flex; margin:4px auto 0; }
-    /* "Devuelto N" y "Corregida" bajo la cantidad: solo la letra en su color, sin pastilla de
-       fondo (pedido del cliente, 07-10-2026), igual que el tipo Entrada / Salida.
+    /* "Devuelto N" y "Corregida" bajo la cantidad, en su propio renglón y con el MISMO estilo que
+       el N° de Nota (icono + texto en negro y negrita, ver .mv-nota-link): pedido del cliente,
+       07-10-2026; antes eran pastillas de color.
        · Devuelto: una salida que ya regresó, entera o en parte.
-       · Corregida: la nota se corrigió en este producto, en rojo (el color de la corrección en
-         la nota original). Es un botón: abre la original y la corregida lado a lado. */
+       · Corregida: la nota se corrigió en este producto. Es un botón: abre la original y la
+         corregida lado a lado. */
     .alm-mov-table .mv-devuelto,
-    .alm-mov-table .mv-corregida { display:block; margin-top:2px; padding:0; font:inherit; font-size:10.5px;
-        font-weight:700; white-space:nowrap; }
-    .alm-mov-table .mv-devuelto { color:#0f766e; }
-    .alm-mov-table .mv-corregida { color:#b91c1c; background:none; border:none; cursor:pointer; }
+    .alm-mov-table .mv-corregida {
+        display:flex; align-items:center; justify-content:center; gap:4px; margin:3px auto 0; padding:0;
+        font:inherit; font-size:12.5px; font-weight:800; color:#0f172a; white-space:nowrap;
+    }
+    .alm-mov-table .mv-devuelto .material-icons,
+    .alm-mov-table .mv-corregida .material-icons { font-size:16px; line-height:1; }
+    .alm-mov-table .mv-corregida { background:none; border:none; cursor:pointer; }
     .alm-mov-table .mv-corregida:hover { text-decoration:underline; }
     .alm-mov-undo {
         position:absolute; top:3px; right:3px;
@@ -396,6 +400,15 @@
             font-size: 10px !important;
             font-weight: 600 !important;
         }
+        /* "Devuelto" y "Corregida": a la derecha, como la cantidad, y del mismo tamaño los dos
+           (la regla de arriba alcanzaba al span de Devuelto pero no al botón de Corregida). */
+        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-devuelto,
+        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-corregida {
+            justify-content: flex-end; margin-right: 0;
+            font-size: 11px !important; font-weight: 800 !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-devuelto .material-icons,
+        .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-corregida .material-icons { font-size: 14px; }
 
         /* Fecha: AHORA va DEBAJO de la cantidad (col 2 fila 2), alineada a la
            derecha. Cliente la sacó de la meta-row para que cantidad y fecha

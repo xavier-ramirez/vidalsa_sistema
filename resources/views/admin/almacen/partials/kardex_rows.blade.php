@@ -107,14 +107,14 @@
             @endphp
             <td class="mv-td-cantidad {{ $entra || ($m->TIPO === 'AJUSTE' && $signo === '+') ? 'mv-suma' : 'mv-resta' }}" data-label="Cantidad">{{ $signo }}{{ $fmt($mag) }} <span class="mv-um">{{ $m->producto?->UM }}</span>
                 @if($devuelto > \App\Services\InventarioService::EPS)
-                    <span class="mv-devuelto" title="De lo entregado en esta línea ya volvieron {{ $fmt($devuelto) }} {{ $m->producto?->UM }}">Devuelto {{ $fmt($devuelto) }}</span>
+                    <span class="mv-devuelto" title="De lo entregado en esta línea ya volvieron {{ $fmt($devuelto) }} {{ $m->producto?->UM }}"><i class="material-icons">assignment_return</i>Devuelto {{ $fmt($devuelto) }}</span>
                 @endif
                 @if($m->NUMERO_NOTA && isset($corregidos[$m->NUMERO_NOTA . '|' . $m->ID_PRODUCTO]))
                     {{-- La nota se corrigió en este producto: abre la original (corrección en rojo)
                          y la corregida, lado a lado. Lo ve quien ve la nota. --}}
                     <button type="button" class="mv-corregida"
                             onclick="event.stopPropagation(); window.almVerCorreccion('{{ $m->NUMERO_NOTA }}');"
-                            title="Cantidad corregida: ver la nota original y la corregida">Corregida</button>
+                            title="Cantidad corregida: ver la nota original y la corregida"><i class="material-icons">difference</i>Corregida</button>
                 @endif
             </td>
             {{-- Stock: solo el saldo RESULTANTE (cómo quedó tras el movimiento). El "antes → después"
