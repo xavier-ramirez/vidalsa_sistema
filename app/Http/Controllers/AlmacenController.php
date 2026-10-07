@@ -3753,22 +3753,9 @@ class AlmacenController extends Controller
 
         try {
             $resultado = DB::transaction(function () use ($idAlmacen, $idFrente, $idAlmDestino, $data, $lineas, $optsEntrada, $bolsa, $idUsuario, $transporte) {
-                // ORDEN DE BLOQUEO. La entrada bloquea la fila de su bolsa y la salida, después,
-                // TODAS las bolsas del producto de menor a mayor (salida en cascada). En un almacén
-                // que separa por proyecto eso es (p, proyecto) y luego (p, 0): al revés que una
-                // salida normal simultánea del mismo producto, que toma (p, 0) primero — y las dos
-                // se trabarían (InnoDB 1213). Se toman aquí, de una vez y en el orden de todos
-                // (ID_PRODUCTO y luego ID_FRENTE), las filas que se van a tocar: lo que sigue ya
-                // las tiene. La fila de la bolsa se crea antes si no existía (insertOrIgnore, como
-                // InventarioService::aplicarMovimiento).
-                foreach ($lineas as $l) {
-                    DB::table((new AlmacenStock())->getTable())->insertOrIgnore([
-                        'ID_ALMACEN' => $idAlmacen, 'ID_PRODUCTO' => $l['id_producto'], 'ID_FRENTE' => $bolsa,
-                        'CANTIDAD' => 0, 'created_at' => now(), 'updated_at' => now(),
-                    ]);
-                    AlmacenStock::where('ID_ALMACEN', $idAlmacen)->where('ID_PRODUCTO', $l['id_producto'])
-                        ->orderBy('ID_FRENTE')->lockForUpdate()->get(['ID_STOCK']);
-                }
+                // Las filas de saldo, todas de una vez y en el orden de siempre: la entrada y la
+                // salida en cascada de abajo las tocan en otro orden (ver bloquearSaldos).
+                $this->inventario->bloquearSaldos($idAlmacen, array_column($lineas, 'id_producto'), $bolsa);
 
                 foreach ($lineas as $l) {
                     $this->inventario->registrarEntrada($idAlmacen, $l['id_producto'], $l['cantidad'], $optsEntrada);
@@ -3856,23 +3843,6 @@ class AlmacenController extends Controller
 
             return ['numero_nota' => $numeroNota, 'numero_traspaso' => $traspaso->NUMERO];
         });
-    }
-
-    /**
-     * 403 con el aviso de la clave 'almacen.movimiento' que le falta al usuario, o null si la
-     * tiene. Misma forma (success/forbidden/message) que el handler global de
-     * AuthorizationException; la pantalla de recepción la muestra como toast.
-     */
-    private function errorSinPermisoMovimiento(Request $request): ?\Illuminate\Http\JsonResponse
-    {
-        if ($request->user()?->can('almacen.movimiento')) {
-            return null;
-        }
-        return response()->json([
-            'success'   => false,
-            'forbidden' => true,
-            'message'   => 'No tienes la clave de permiso «almacen.movimiento», necesaria para registrar movimientos de inventario. Solicítala a un administrador.',
-        ], 403);
     }
 
     /**
@@ -4013,8 +3983,12 @@ class AlmacenController extends Controller
         // (CorreccionNotaService). Sin correcciones no hay "original" distinto: sale la de siempre.
         $correcciones = collect();
         if ($request->query('version') === 'original' && $hd->NUMERO_NOTA) {
+            // Solo de los productos que SIGUEN en la nota: si una línea corregida se deshizo
+            // después («Deshacer» de super.admin), su corrección queda en el rastro pero no se
+            // imprime al pie de una nota en la que ese producto ya no está.
             $correcciones = \App\Models\CorreccionNota::with(['producto:ID_PRODUCTO,NOMBRE,UM', 'usuario:ID_USUARIO,NOMBRE_COMPLETO'])
                 ->where('NUMERO_NOTA', $hd->NUMERO_NOTA)
+                ->whereIn('ID_PRODUCTO', $movs->pluck('ID_PRODUCTO')->unique()->values())
                 ->orderBy('ID_CORRECCION')
                 ->get();
         }

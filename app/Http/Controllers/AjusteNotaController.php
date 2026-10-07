@@ -94,12 +94,8 @@ class AjusteNotaController extends Controller
     {
         // Mueve stock, así que exige la misma clave que cualquier movimiento — con el mismo
         // mensaje que registrarMovimientoLote, que nombra la clave que falta.
-        if (! $request->user()?->can('almacen.movimiento')) {
-            return response()->json([
-                'success'   => false,
-                'forbidden' => true,
-                'message'   => 'No tienes la clave de permiso «almacen.movimiento», necesaria para registrar movimientos de inventario. Solicítala a un administrador.',
-            ], 403);
+        if ($error = $this->errorSinPermisoMovimiento($request)) {
+            return $error;
         }
 
         $data = $request->validate([

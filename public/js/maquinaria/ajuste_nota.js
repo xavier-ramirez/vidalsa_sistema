@@ -68,8 +68,13 @@
     }
 
     // ── Abrir / cerrar ───────────────────────────────────────────────────────
+    // Cada apertura lleva su número: si el modal se cierra y se abre con OTRO producto antes de
+    // que llegue la respuesta del primero, esa respuesta tardía se descarta en vez de pintar
+    // el producto equivocado (y que la corrección se mande para él).
+    var aperturas = 0;
     function abrir(numero, idProducto) {
         var m = modal(); if (!m) return;
+        var esta = ++aperturas;
         estado.nota = null;
         estado.op = null;
         $('ajNotaContenido').hidden = true;
@@ -81,15 +86,17 @@
 
         pedir(m.dataset.urlShow + '?numero=' + encodeURIComponent(numero) + '&id_producto=' + encodeURIComponent(idProducto))
             .then(function (res) {
+                if (esta !== aperturas) return;
                 if (!res.ok) { mensaje(esc(res.d.message || 'No se pudo cargar la nota.')); return; }
                 mensaje('');
                 pintar(res.d);
             })
-            .catch(function () { mensaje('No se pudo contactar al servidor. Modificar una nota necesita conexión.'); });
+            .catch(function () { if (esta === aperturas) mensaje('No se pudo contactar al servidor. Modificar una nota necesita conexión.'); });
     }
 
     function cerrar() {
         var m = modal(); if (!m) return;
+        aperturas++;   // lo que llegue tarde de esta apertura ya no se pinta
         m.classList.remove('open');
         w.restaurarScrollFondo();
     }
@@ -237,19 +244,40 @@
         btn.innerHTML = '<i class="material-icons" style="font-size:17px;vertical-align:-3px;animation:spin 1s linear infinite;">sync</i> Guardando…';
         mensaje('');
 
+        // Si mientras se guarda el modal se cierra (o se abre con otro producto), la respuesta
+        // ya no le habla a ESE modal: el resultado sale como toast y no se toca lo que hay abierto.
+        var esta = aperturas;
+        var vigente = function () { return esta === aperturas; };
         pedir(url, { method: 'POST', body: JSON.stringify(cuerpo) })
             .then(function (res) {
-                if (!res.ok) { mensaje(esc(errorDe(res))); return; }
+                if (!res.ok) {
+                    if (vigente()) mensaje(esc(errorDe(res))); else w.toast(errorDe(res), 'error');
+                    return;
+                }
                 w.toast(res.d.message || 'Listo.', 'success');
+                if (typeof w.loadMovimientos === 'function') w.loadMovimientos();   // la fila cambia de cantidad o de marca
+                if (!vigente()) {
+                    // Se reabrió con la MISMA línea mientras se guardaba: lo que muestra es de
+                    // antes de guardar. Se vuelve a pedir para que no se modifique sobre cifras viejas.
+                    var abierta = estado.nota;
+                    if (modal().classList.contains('open') && abierta && abierta.numero === nota.numero
+                        && abierta.linea.id_producto === nota.linea.id_producto) {
+                        abrir(nota.numero, nota.linea.id_producto);
+                    }
+                    return;
+                }
+                btn.innerHTML = html;
                 cerrar();
                 // Original | corregida, con el mismo envoltorio que la marca «corregida».
                 if (op === 'correccion') w.almVerCorreccion(nota.numero);
-                if (typeof w.loadMovimientos === 'function') w.loadMovimientos();   // la fila cambia de cantidad o de marca
             })
-            .catch(function () { mensaje('No se pudo contactar al servidor. Modificar una nota necesita conexión.'); })
+            .catch(function () {
+                var txt = 'No se pudo contactar al servidor. Modificar una nota necesita conexión.';
+                if (vigente()) mensaje(txt); else w.toast(txt, 'error');
+            })
             .finally(function () {
                 estado.guardando = false;
-                btn.innerHTML = html;
+                if (vigente()) btn.innerHTML = html;
                 actualizarBoton();
             });
     }

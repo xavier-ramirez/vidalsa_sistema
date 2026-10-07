@@ -660,6 +660,10 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     // /admin/almacen (AlmSalidaNota, almacen_salida_nota.js). Registrar hace en el servidor la
     // entrada de todas las líneas y su salida con la nota, en una transacción.
     function entDespAbierto() { var o = el('almSalidaModal'); return !!o && o.classList.contains('open'); }
+    // La nota se deja en blanco (AlmSalidaNota.abrir) solo la PRIMERA vez y después de
+    // despachar o vaciar la captura: cerrar la ventana para corregir una línea y volver a
+    // abrirla conserva lo escrito, como en "Registrar entrada".
+    var entDespPorLimpiar = true;
     function entDespErr(msg) { var e = el('entDespError'); if (e) { e.textContent = msg || ''; e.style.display = msg ? 'block' : 'none'; } }
 
     window.entAbrirDespacho = function () {
@@ -674,7 +678,10 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         }
         entSuggestHide(); entUmHide();
         window.AlmSalidaNota.configurar(RECE_CFG.notaSalida || {});
-        window.AlmSalidaNota.abrir(v('entAlmacen'));
+        if (entDespPorLimpiar) {
+            window.AlmSalidaNota.abrir(v('entAlmacen'));
+            entDespPorLimpiar = false;
+        }
         entDespErr('');
         var o = el('almSalidaModal'); if (o) o.classList.add('open');
     };
@@ -749,6 +756,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         // Reset de los datos del documento. El proyecto tambien vuelve a vacio: la siguiente
         // entrada puede ser de otro frente y dejarlo pegado del anterior es justo el error
         // que este campo vino a evitar.
+        entDespPorLimpiar = true;   // la próxima "Registrar y despachar" arranca con la nota en blanco
         ['entNotaEntrega', 'entProveedor', 'entDespNotaProv', 'entDespProveedor'].forEach(function (id) {
             var e = el(id); if (e) e.value = '';
         });

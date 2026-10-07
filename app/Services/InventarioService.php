@@ -201,15 +201,7 @@ class InventarioService
             // base del producto. Si se buscara sin filtrar por frente, en un almacén que
             // separa por proyecto `firstOrFail()` devolvería una fila cualquiera de las
             // que haya y el mínimo acabaría en el proyecto que tocara primero.
-            $stockTable = (new AlmacenStock())->getTable();
-            DB::table($stockTable)->insertOrIgnore([
-                'ID_ALMACEN'  => $idAlmacen,
-                'ID_PRODUCTO' => $idProducto,
-                'ID_FRENTE'   => self::FRENTE_BOLSA_COMUN,
-                'CANTIDAD'    => 0,
-                'created_at'  => now(),
-                'updated_at'  => now(),
-            ]);
+            $this->crearFilaSaldoSiFalta($idAlmacen, $idProducto, self::FRENTE_BOLSA_COMUN);
 
             $stock = AlmacenStock::where('ID_ALMACEN', $idAlmacen)
                 ->where('ID_PRODUCTO', $idProducto)
@@ -290,6 +282,79 @@ class InventarioService
     }
 
     /**
+     * Corre $fn en una transacción que, en cada lectura, ve lo último CONFIRMADO (READ
+     * COMMITTED). Para las operaciones que REESCRIBEN el kardex a partir de lo que leen (la
+     * corrección de una nota): con el aislamiento por defecto de MySQL (REPEATABLE READ) las
+     * lecturas normales ven la "foto" de la primera lectura de la transacción, y una salida
+     * del mismo producto confirmada entre esa foto y el bloqueo de su saldo quedaría fuera
+     * del recálculo — el saldo se reescribiría sin ella. Con esto, una vez tomados los saldos
+     * (bloquearSaldos), lo leído es lo real, sin tener que bloquear el historial entero.
+     *
+     * Solo se puede fijar al ABRIR la transacción: dentro de otra ya abierta (p. ej. las
+     * pruebas, que envuelven cada una en la suya) se usa la de afuera tal cual.
+     */
+    public function transaccionAlDia(\Closure $fn)
+    {
+        if (DB::transactionLevel() === 0 && DB::getDriverName() === 'mysql') {
+            DB::statement('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+        }
+        return DB::transaction($fn);
+    }
+
+    /**
+     * Bloquea, para la transacción en curso, TODAS las filas de saldo de $idsProducto en el
+     * almacén, en el orden en que las toma cualquier salida: ID_PRODUCTO y luego ID_FRENTE (la
+     * cascada de aplicarSalidaConCascada). Con $bolsa, esa fila se crea antes si no existía,
+     * como en aplicarMovimiento. Lo usan también la corrección de una nota (antes de leer y
+     * recalcular el kardex).
+     *
+     * Para quien encadena una ENTRADA y una SALIDA del mismo producto en una transacción (el
+     * "Registrar y despachar" de la recepción): la entrada bloquearía primero (p, proyecto) y la
+     * cascada después (p, 0), al revés que una salida normal simultánea del mismo producto, que
+     * toma (p, 0) primero — y las dos se trabarían (InnoDB 1213). Tomándolas aquí en el orden
+     * de todos, lo que viene después ya las tiene. Debe llamarse dentro de una transacción.
+     *
+     * @param  int[]  $idsProducto
+     */
+    public function bloquearSaldos(int $idAlmacen, array $idsProducto, ?int $bolsa = null): void
+    {
+        $idsProducto = array_values(array_unique(array_map('intval', $idsProducto)));
+        sort($idsProducto);
+        foreach ($idsProducto as $idProducto) {
+            // La fila de la bolsa se crea ANTES del bloqueo, y solo si falta (se mira sin
+            // bloquear). Así el bloqueo de abajo la incluye en su orden, sin un INSERT IGNORE
+            // sobre una fila existente (que tomaría un candado compartido fuera de orden) y
+            // sin dos transacciones peleando por el mismo hueco vacío.
+            if ($bolsa !== null && !AlmacenStock::where('ID_ALMACEN', $idAlmacen)
+                    ->where('ID_PRODUCTO', $idProducto)->where('ID_FRENTE', $bolsa)->exists()) {
+                $this->crearFilaSaldoSiFalta($idAlmacen, $idProducto, $bolsa);
+            }
+            AlmacenStock::where('ID_ALMACEN', $idAlmacen)
+                ->where('ID_PRODUCTO', $idProducto)
+                ->orderBy('ID_FRENTE')
+                ->lockForUpdate()
+                ->get(['ID_STOCK']);
+        }
+    }
+
+    /**
+     * Crea la fila de saldo (almacén, producto, bolsa) en 0 si no existe, SIN romper en
+     * carreras: insertOrIgnore no lanza excepción si otra transacción ya la creó (choca con el
+     * índice único). Un solo sitio para todos los que la necesitan.
+     */
+    private function crearFilaSaldoSiFalta(int $idAlmacen, int $idProducto, int $idFrente): void
+    {
+        DB::table((new AlmacenStock())->getTable())->insertOrIgnore([
+            'ID_ALMACEN'  => $idAlmacen,
+            'ID_PRODUCTO' => $idProducto,
+            'ID_FRENTE'   => $idFrente,
+            'CANTIDAD'    => 0,
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+    }
+
+    /**
      * Cambia la cantidad de filas SALIDA ya registradas y deja el kardex y el stock como si
      * hubieran salido así desde el principio: la corrección de una Nota de Entrega mal
      * cargada (salieron 100 y se tecleó 180). Lo usa CorreccionNotaService, que es quien
@@ -298,8 +363,11 @@ class InventarioService
      * $nuevas = [ID_MOVIMIENTO => cantidad nueva]. Una fila que queda en 0 se BORRA: una
      * salida de cero no es una salida (quien llama ya comprobó que no tenía devoluciones).
      *
-     * Si una fila SUBE y su bolsa termina en negativo, se aborta: es material que no hay, y
-     * una salida corregida no puede permitir lo que una salida nueva no permite.
+     * Si una fila SUBE y su bolsa queda en negativo —al final o en CUALQUIER punto del kardex
+     * desde esa salida, porque la corrección es retroactiva: subir la salida del día 1 exige
+     * que el día 1 hubiera ese material—, se aborta: es material que no había, y una salida
+     * corregida no puede permitir lo que una salida nueva no permite. Un negativo que el
+     * kardex YA traía (saldos viejos importados) no bloquea, mientras no empeore.
      *
      * Debe llamarse dentro de una transacción (la de quien llama, que bloquea la nota).
      *
@@ -315,7 +383,31 @@ class InventarioService
             throw new InvalidArgumentException('Solo se puede corregir la cantidad de una salida.');
         }
 
+        // Todas las filas de saldo de los productos, YA y en el orden de siempre (ver
+        // bloquearSaldos): desde aquí ningún movimiento de estos productos entra a medias, y
+        // los recálculos de abajo no las toman en otro orden.
+        foreach ($movs->groupBy('ID_ALMACEN')->sortKeys() as $idAlmacen => $delAlmacen) {
+            $this->bloquearSaldos((int) $idAlmacen, $delAlmacen->pluck('ID_PRODUCTO')->all());
+        }
+
         [$pares, $bolsasPorPar, $aperturas] = $this->aperturasDeBolsas($movs);
+
+        // El kardex de las bolsas de las filas que SUBEN, ANTES de tocarlo, recalculado (y no
+        // leído de las columnas guardadas, que pueden traer saltos de un borrado "solo del
+        // historial"): con él se distingue un negativo que ya estaba de uno que crea la
+        // corrección.
+        $antes = [];
+        foreach ($movs as $m) {
+            if (round((float) $nuevas[$m->ID_MOVIMIENTO], 3) > (float) $m->CANTIDAD + self::EPS) {
+                [$clave, $bolsa] = $this->bolsaDeFila($m);
+                if (!isset($antes[$clave . '|' . $bolsa])) {
+                    $foto = [];
+                    $this->recalcularSaldoProducto((int) $m->ID_ALMACEN, (int) $m->ID_PRODUCTO,
+                        $aperturas[$clave][$bolsa] ?? 0.0, $bolsa, true, $foto);
+                    $antes[$clave . '|' . $bolsa] = $foto;
+                }
+            }
+        }
 
         $suben  = [];
         $borrar = [];
@@ -342,24 +434,57 @@ class InventarioService
             \App\Support\OfflineVersion::resetear('almacen');
         }
 
-        $this->recalcularBolsas($pares, $bolsasPorPar, $aperturas);
+        $despues = [];
+        $this->recalcularBolsas($pares, $bolsasPorPar, $aperturas, $despues);
 
+        // Fila por fila, desde cada salida que subió: ningún saldo puede quedar por debajo de
+        // lo que ya tenía (y nunca por debajo de 0 si no lo estaba).
         foreach ($suben as $m) {
-            $bolsa = $this->almacenSepara((int) $m->ID_ALMACEN)
-                ? (int) ($m->ID_FRENTE_SALDO ?? self::FRENTE_BOLSA_COMUN)
-                : self::FRENTE_BOLSA_COMUN;
-            $saldo = (float) AlmacenStock::where('ID_ALMACEN', $m->ID_ALMACEN)
-                ->where('ID_PRODUCTO', $m->ID_PRODUCTO)
-                ->where('ID_FRENTE', $bolsa)
-                ->value('CANTIDAD');
-            if ($saldo < -self::EPS) {
+            [$clave, $bolsa] = $this->bolsaDeFila($m);
+            $foto   = $antes[$clave . '|' . $bolsa] ?? [];
+            $faltan = 0.0;
+            foreach ($despues[$clave . '|' . $bolsa] ?? [] as $id => $resultante) {
+                if ($id < (int) $m->ID_MOVIMIENTO) {
+                    continue;
+                }
+                $piso   = min(0.0, (float) ($foto[$id] ?? 0.0));
+                $faltan = max($faltan, round($piso - $resultante, 3));
+            }
+            if ($faltan > self::EPS) {
                 throw new RuntimeException(sprintf(
                     'No hay stock suficiente para subir la cantidad: faltan %s %s.',
-                    self::num(-$saldo),
+                    self::num($faltan),
                     $m->producto?->UM ?? ''
                 ));
             }
         }
+    }
+
+    /**
+     * Las filas del kardex que pertenecen a una BOLSA (saldo de un proyecto o común): si el
+     * almacén separa por proyecto, las de ese ID_FRENTE_SALDO; si no, TODO el kardex del
+     * producto es de su única bolsa, aunque las filas lleven el frente del destino (ahí es
+     * solo el dato de a quién se le entregó). Un solo sitio para esa regla: la usan las
+     * aperturas, el recálculo y la corrección.
+     *
+     * Sin COALESCE sobre la columna: las filas viejas ya la tienen rellenada (migración
+     * backfill_id_frente_saldo_movimientos), y envolverla en una función anulaba el índice
+     * mov_inv_alm_prod_frsaldo_idx y MySQL se iba a un index_merge.
+     */
+    private function kardexDeBolsa(int $idAlmacen, int $idProducto, int $bolsa): \Illuminate\Database\Eloquent\Builder
+    {
+        return MovimientoInventario::where('ID_ALMACEN', $idAlmacen)
+            ->where('ID_PRODUCTO', $idProducto)
+            ->when($this->almacenSepara($idAlmacen), fn ($q) => $q->where('ID_FRENTE_SALDO', $bolsa));
+    }
+
+    /** [clave "almacén-producto", bolsa] de una fila del kardex, como las agrupa aperturasDeBolsas. */
+    private function bolsaDeFila(MovimientoInventario $m): array
+    {
+        $bolsa = $this->almacenSepara((int) $m->ID_ALMACEN)
+            ? (int) ($m->ID_FRENTE_SALDO ?? self::FRENTE_BOLSA_COMUN)
+            : self::FRENTE_BOLSA_COMUN;
+        return [$m->ID_ALMACEN . '-' . $m->ID_PRODUCTO, $bolsa];
     }
 
     /**
@@ -390,7 +515,6 @@ class InventarioService
         $aperturas    = [];
         foreach ($pares as $par) {
             $clave  = $par['a'] . '-' . $par['p'];
-            $separa = $this->almacenSepara($par['a']);
 
             $bolsas = AlmacenStock::where('ID_ALMACEN', $par['a'])
                 ->where('ID_PRODUCTO', $par['p'])
@@ -403,15 +527,8 @@ class InventarioService
             $bolsasPorPar[$clave] = $bolsas;
 
             foreach ($bolsas as $bolsa) {
-                // MISMO criterio de pertenencia que usa el recálculo (ver
-                // recalcularSaldoProducto): sin separación por proyecto todo el kardex es
-                // de la única bolsa, y con ella la bolsa la dice ID_FRENTE_SALDO sola.
-                $anterior = MovimientoInventario::where('ID_ALMACEN', $par['a'])
-                    ->where('ID_PRODUCTO', $par['p'])
-                    ->when(
-                        $separa,
-                        fn ($q) => $q->where('ID_FRENTE_SALDO', $bolsa)
-                    )
+                // MISMO criterio de pertenencia que usa el recálculo (kardexDeBolsa).
+                $anterior = $this->kardexDeBolsa($par['a'], $par['p'], $bolsa)
                     ->orderBy('ID_MOVIMIENTO')
                     ->value('CANTIDAD_ANTERIOR');
 
@@ -435,19 +552,27 @@ class InventarioService
      *
      * @return array<int,array{id_almacen:int,id_producto:int,saldo:float}>
      */
-    private function recalcularBolsas(\Illuminate\Support\Collection $pares, array $bolsasPorPar, array $aperturas): array
+    private function recalcularBolsas(\Illuminate\Support\Collection $pares, array $bolsasPorPar, array $aperturas, ?array &$resultantes = null): array
     {
+        // $resultantes, si se pasa, recibe el saldo resultante de cada fila recalculada,
+        // por bolsa: ["almacén-producto|bolsa" => [ID_MOVIMIENTO => resultante]].
         $afectados = [];
         foreach ($pares as $par) {
             $clave = $par['a'] . '-' . $par['p'];
             $total = 0.0;
             foreach ($bolsasPorPar[$clave] as $idFrente) {
+                $filas = $resultantes !== null ? [] : null;
                 $total += $this->recalcularSaldoProducto(
                     $par['a'],
                     $par['p'],
                     $aperturas[$clave][$idFrente] ?? 0.0,
-                    $idFrente
+                    $idFrente,
+                    false,
+                    $filas
                 );
+                if ($resultantes !== null) {
+                    $resultantes[$clave . '|' . $idFrente] = $filas;
+                }
             }
             $afectados[] = ['id_almacen' => $par['a'], 'id_producto' => $par['p'], 'saldo' => $total];
         }
@@ -525,8 +650,11 @@ class InventarioService
      *  - AJUSTE  : CANTIDAD_RESULTANTE es un saldo OBJETIVO absoluto (conteo físico) y se
      *              conserva tal cual; se recalcula anterior y la magnitud = |resultante − anterior|.
      */
-    private function recalcularSaldoProducto(int $idAlmacen, int $idProducto, float $apertura = 0.0, int $idFrente = self::FRENTE_BOLSA_COMUN): float
+    private function recalcularSaldoProducto(int $idAlmacen, int $idProducto, float $apertura = 0.0, int $idFrente = self::FRENTE_BOLSA_COMUN, bool $simular = false, ?array &$resultantes = null): float
     {
+        // $simular: calcula sin escribir nada (ni el kardex ni el saldo) — lo usa la corrección
+        // para ver el kardex ANTES de tocarlo. $resultantes, si se pasa, recibe el saldo
+        // resultante de cada fila: [ID_MOVIMIENTO => resultante].
         // Bloquear la fila de stock PRIMERO: es el mismo cerrojo que toma aplicarMovimiento,
         // así el recálculo se serializa contra una entrada/salida simultánea del producto.
         //
@@ -549,12 +677,7 @@ class InventarioService
         // El filtro solo aplica si el almacén separa por proyecto: en el resto TODO su
         // kardex pertenece a la única bolsa (la común) aunque las filas lleven el frente
         // del destino, que ahí es solo el dato de a quién se le entregó.
-        $movs = MovimientoInventario::where('ID_ALMACEN', $idAlmacen)
-            ->where('ID_PRODUCTO', $idProducto)
-            ->when(
-                $this->almacenSepara($idAlmacen),
-                fn ($q) => $q->where('ID_FRENTE_SALDO', $idFrente)
-            )
+        $movs = $this->kardexDeBolsa($idAlmacen, $idProducto, $idFrente)
             ->orderBy('ID_MOVIMIENTO')
             ->get();
 
@@ -583,14 +706,19 @@ class InventarioService
             $m->CANTIDAD_ANTERIOR   = $anterior;
             $m->CANTIDAD_RESULTANTE = $resultante;
             $m->CANTIDAD            = $magnitud;
-            $m->save();
+            if (!$simular) {
+                $m->save();
+            }
+            if ($resultantes !== null) {
+                $resultantes[(int) $m->ID_MOVIMIENTO] = $resultante;
+            }
 
             $saldo = $resultante;
         }
 
         // Persistir el acumulador (la fila ya quedó bloqueada arriba). Si ya no quedan
         // movimientos, el saldo vuelve a la APERTURA ($apertura), no a 0 (ver docblock arriba).
-        if ($stock) {
+        if ($stock && !$simular) {
             $stock->CANTIDAD             = $saldo;
             $stock->FECHA_ULT_MOVIMIENTO = now();
             $stock->ULTIMA_ENTRADA       = $ultEntrada;
@@ -851,17 +979,8 @@ class InventarioService
         $producto = $this->cargarProducto($idProducto);
         $idFrente = $this->frenteDelSaldo($almacen, $opts);
 
-        // Garantizar que exista la fila de stock SIN romper en carreras: insertOrIgnore
-        // no lanza excepción si otra transacción ya la creó (choca con el índice único).
-        $stockTable = (new AlmacenStock())->getTable();
-        DB::table($stockTable)->insertOrIgnore([
-            'ID_ALMACEN'  => $idAlmacen,
-            'ID_PRODUCTO' => $idProducto,
-            'ID_FRENTE'   => $idFrente,
-            'CANTIDAD'    => 0,
-            'created_at'  => now(),
-            'updated_at'  => now(),
-        ]);
+        // Garantizar que exista la fila de stock SIN romper en carreras.
+        $this->crearFilaSaldoSiFalta($idAlmacen, $idProducto, $idFrente);
 
         // Ahora sí: bloquear la fila (FOR UPDATE) para serializar los movimientos.
         $stock = AlmacenStock::where('ID_ALMACEN', $idAlmacen)

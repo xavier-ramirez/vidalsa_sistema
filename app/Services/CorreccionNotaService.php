@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\CorreccionNota;
 use App\Models\MovimientoInventario;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -78,7 +77,8 @@ class CorreccionNotaService
             throw new InvalidArgumentException('La cantidad corregida debe ser mayor que cero. Si no salió nada de este producto, usa «Deshacer».');
         }
 
-        DB::transaction(function () use ($numero, $idProducto, $nueva, $datos) {
+        // transaccionAlDia: el recálculo del kardex tiene que ver lo último confirmado (ver ahí).
+        $this->inventario->transaccionAlDia(function () use ($numero, $idProducto, $nueva, $datos) {
             // La nota entera bloqueada, con el MISMO candado que la devolución y el borrado de
             // la nota: una corrección y una devolución a la vez quedan en fila, y la segunda
             // ve lo que dejó la primera.

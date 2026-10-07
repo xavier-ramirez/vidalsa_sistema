@@ -152,6 +152,27 @@ class CorreccionNotaTest extends MySqlTestCase
         $this->assertSame(1, CorreccionNota::where('NUMERO_NOTA', $nota)->count(), 'La que falló no deja rastro.');
     }
 
+    public function test_subir_una_nota_vieja_no_deja_negativo_un_dia_intermedio(): void
+    {
+        // Día 1: salen 100 de 100 (queda 0). Después entran 50, salen 50 (0) y entran 40.
+        $alm = $this->almacen();
+        $p = $this->producto('ELECTRODO');
+        $this->inv->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 100);
+        $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p->ID_PRODUCTO => 100], null);
+        $this->inv->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 50);
+        $this->salidaConNota($alm->ID_ALMACEN, [$p->ID_PRODUCTO => 50], null);
+        $this->inv->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 40);
+
+        // Subir la del día 1 a 130: al final quedarían 10, pero ese día no había 130 — el
+        // kardex pasaría por -30. Se rechaza y nada cambia.
+        $this->corregir($nota, $p->ID_PRODUCTO, 130)->assertStatus(422)
+            ->assertJsonPath('message', 'No hay stock suficiente para subir la cantidad: faltan 30 UND.');
+        $this->assertSame(100.0, $this->enNota($nota, $p->ID_PRODUCTO));
+        $this->assertSame(40.0, $this->saldo($alm->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertGreaterThanOrEqual(0.0, (float) MovimientoInventario::where('ID_ALMACEN', $alm->ID_ALMACEN)
+            ->where('ID_PRODUCTO', $p->ID_PRODUCTO)->min('CANTIDAD_RESULTANTE'));
+    }
+
     public function test_en_un_almacen_por_proyecto_bajar_devuelve_primero_lo_prestado(): void
     {
         [$fA, $fB] = $this->frentes(2);

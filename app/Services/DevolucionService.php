@@ -86,7 +86,7 @@ class DevolucionService
     /** Devoluciones anteriores de estas salidas, para el modal. */
     public function historial(Collection $salidas): array
     {
-        return MovimientoInventario::with(['producto:ID_PRODUCTO,NOMBRE,UM', 'usuario:ID_USUARIO,NOMBRE_COMPLETO'])
+        return MovimientoInventario::with('usuario:ID_USUARIO,NOMBRE_COMPLETO')
             ->where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
             ->whereIn('ID_MOVIMIENTO_RELACIONADO', $salidas->pluck('ID_MOVIMIENTO'))
             ->orderBy('ID_MOVIMIENTO')

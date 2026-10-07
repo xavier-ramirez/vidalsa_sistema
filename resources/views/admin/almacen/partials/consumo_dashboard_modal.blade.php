@@ -629,6 +629,13 @@
                 borderWidth: 0, borderRadius: 0, borderSkipped: false, maxBarThickness: 48,
             };
         });
+        // Sin desglose por proyecto (lo filtrado es todo de salidas SIN proyecto, p. ej. la
+        // carga histórica de abril y mayo con un "Desde" propio): una sola barra con el
+        // consumo del mes, en vez de un gráfico vacío habiendo consumo.
+        if (!datasets.length && mes.some(function (x) { return Number(x.total) > 0; })) {
+            datasets = [{ label: 'Consumo', data: mes.map(function (x) { return x.total; }),
+                backgroundColor: '#0067b1', borderWidth: 0, borderRadius: 0, borderSkipped: false, maxBarThickness: 48 }];
+        }
 
         // La leyenda de la izquierda crece hacia abajo con cada proyecto. Con los 320 px
         // fijos de .conleyenda, a partir de ~14 proyectos los ultimos quedaban cortados.
