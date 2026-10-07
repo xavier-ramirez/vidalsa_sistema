@@ -34,8 +34,11 @@
     #ajNotaModal .ajn-foto { width:52px; height:52px; flex-shrink:0; border-radius:8px; background:#eff6ff; display:flex; align-items:center; justify-content:center; }
     #ajNotaModal .ajn-foto .material-icons { font-size:26px; color:#0067b1; }
     #ajNotaModal .ajn-info { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
-    #ajNotaModal .ajn-titulo { font-size:14px; font-weight:700; line-height:1.3; overflow-wrap:anywhere; }
-    #ajNotaModal .ajn-datos { font-size:12.5px; font-weight:500; }
+    /* Código y descripción más chicos (pedido del cliente, 07-10-2026: se veían muy grandes);
+       el código un punto más apagado que la descripción. */
+    #ajNotaModal .ajn-titulo { font-size:12.5px; font-weight:600; line-height:1.35; overflow-wrap:anywhere; }
+    #ajNotaModal .ajn-codigo { font-weight:500; color:#475569; }
+    #ajNotaModal .ajn-datos { font-size:12px; font-weight:500; }
     #ajNotaModal .ajn-datos b { font-weight:700; }
 
     /* Campos: la misma caja para la cantidad y el motivo. */

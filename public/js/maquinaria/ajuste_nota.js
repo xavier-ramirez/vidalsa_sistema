@@ -110,7 +110,7 @@
         $('ajNotaProducto').innerHTML = '<div class="ajn-prod-cab">'
             +   '<div class="ajn-foto"><i class="material-icons">inventory_2</i></div>'
             +   '<div class="ajn-info">'
-            +     '<span class="ajn-titulo">' + (l.codigo ? esc(l.codigo) + sep : '') + esc(l.nombre) + '</span>'
+            +     '<span class="ajn-titulo">' + (l.codigo ? '<span class="ajn-codigo">' + esc(l.codigo) + '</span>' + sep : '') + esc(l.nombre) + '</span>'
             +     '<span class="ajn-datos">Entregado <b>' + num(l.entregado) + ' ' + um + '</b>'
             +       (l.devuelto > EPS ? sep + 'Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b>' : '') + '</span>'
             +   '</div>'
