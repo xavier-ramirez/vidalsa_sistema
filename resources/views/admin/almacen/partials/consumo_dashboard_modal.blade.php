@@ -673,12 +673,12 @@
         });
 
         // ── 2) Top productos (barras horizontales) ───────────────────────────
-        // COLORES a juego con la pila por proyecto (pedido del cliente, 07-10-2026): los
-        // TRES productos más consumidos llevan el mismo podio (rojo, naranja, ámbar:
-        // CD_PALETA[0..2]) y del cuarto para abajo una escala de MARINO a CELESTE
-        // (#10335b → #60c7fb, los dos azules de esa paleta) que se aclara según baja el
-        // puesto. Aquí sí vale una escala de un solo tono: las barras no se tocan y cada una
-        // lleva su rótulo, así que no hace falta que los vecinos se distingan por color.
+        // COLORES de las diapositivas de la empresa (pedido del cliente, 07-10-2026): fondo
+        // blanco, encabezado AZUL MARINO y el rojo como acento. El producto MAS consumido va
+        // en rojo (#c0392b) y del segundo para abajo una escala del azul del encabezado
+        // (#1f4e79) a celeste (#9dc3e6) que se aclara según baja el puesto. Aquí sí vale
+        // una escala de un solo tono: las barras no se tocan y cada una lleva su rótulo, así
+        // que no hace falta que los vecinos se distingan por color.
         var top = data.top_productos || [];
         function cdMezcla(a, b, t) {
             var c = function (h, i) { return parseInt(h.slice(i, i + 2), 16); };
@@ -688,9 +688,9 @@
             }).join('');
         }
         var cdTopColores = top.map(function (_, i) {
-            if (i < 3) return CD_PALETA[i];
-            var resto = top.length - 3;
-            return cdMezcla('#10335b', '#60c7fb', resto > 1 ? (i - 3) / (resto - 1) : 0);
+            if (i === 0) return '#c0392b';
+            var resto = top.length - 1;
+            return cdMezcla('#1f4e79', '#9dc3e6', resto > 1 ? (i - 1) / (resto - 1) : 0);
         });
 
         // Rótulo del eje = Nº DE PARTE principal (identifica el filtro exacto). Muchos
