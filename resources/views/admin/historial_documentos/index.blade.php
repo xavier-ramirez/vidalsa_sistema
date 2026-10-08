@@ -257,7 +257,7 @@
     </div>
 
     <!-- Right Sidebar -->
-    <div class="counter-sidebar historial-sidebar" id="historialSidebar" style="position: sticky; top: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 10;">
+    <div class="counter-sidebar historial-sidebar" id="historialSidebar" style="position: sticky; top: 90px; align-self: start; display: flex; flex-direction: column; gap: 10px; z-index: 10;">
 
         <!-- Total Card -->
         <div class="hd-total-card" style="background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%); border-radius: 12px; padding: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">

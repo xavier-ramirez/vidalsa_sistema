@@ -7,7 +7,11 @@
         background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
         padding: 16px; box-shadow: 0 4px 6px -1px rgba(15,23,42,0.06);
     }
-    .cpdf-side { width: 280px; flex: 0 0 280px; display: flex; flex-direction: column; gap: 10px; }
+    /* El resumen acompaña al bajar por la tabla (sticky): sin esto se quedaba arriba y el
+       resto de la columna salía en blanco. top 90px = debajo del menú fijo (.dashboard-header,
+       75px). Si no cabe en la pantalla, se desplaza solo. */
+    .cpdf-side { width: 280px; flex: 0 0 280px; display: flex; flex-direction: column; gap: 10px;
+                 position: sticky; top: 90px; max-height: calc(100vh - 110px); overflow-y: auto; }
 
     .cpdf-filtros { display: flex; flex-wrap: nowrap; gap: 10px; align-items: stretch; margin-bottom: 14px; }
     .cpdf-filtros > .filter-item.responsive-filter-item { flex: 1 1 0 !important; max-width: none !important; min-width: 0; }
@@ -164,7 +168,8 @@
        resumen va ARRIBA (order): debajo quedaba después de 50 filas. */
     @media (max-width: 1024px) {
         .cpdf-layout { flex-direction: column; align-items: stretch; }
-        .cpdf-side { order: -1; width: 100%; flex-basis: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+        .cpdf-side { order: -1; width: 100%; flex-basis: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                     position: static; max-height: none; overflow: visible; }
         .cpdf-side .cpdf-aviso { grid-column: 1 / -1; }
         .cpdf-filtros { flex-wrap: wrap; }
     }
