@@ -361,13 +361,18 @@
                         @if ($lecturaPedida)
                             <span class="cpdf-ahora-pedida">Pedida: {{ $lecturaPedidaTipos ? implode(', ', array_intersect_key(\App\Models\VerificacionDocumento::NOMBRES, array_flip($lecturaPedidaTipos))) : 'todos' }} · {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }} (en curso).</span>
                         @endif
-                        <span class="cpdf-ahora-rotulo">Revisar ahora:</span>
-                        <div class="cpdf-ahora-botones">
-                            @foreach (\App\Models\VerificacionDocumento::NOMBRES + ['' => 'Todos'] as $tipoAhora => $nombreAhora)
-                                <button type="button" class="btn-primary-maquinaria cpdf-ahora" data-nombre="{{ $nombreAhora }}" onclick="window.cpdfLeerAhora(this, @js($tipoAhora))">
-                                    <i class="material-icons">play_arrow</i> {{ $nombreAhora }}
-                                </button>
-                            @endforeach
+                        {{-- Una fila compacta: rotulo + grupo de botones pegados. El titulo sale corto
+                             ("Titulo"); el nombre entero va en el tooltip y en data-nombre (el aviso). --}}
+                        <div class="cpdf-ahora-fila">
+                            <span class="cpdf-ahora-rotulo">Revisar ahora</span>
+                            <div class="cpdf-ahora-botones" role="group" aria-label="Revisar ahora">
+                                @foreach (\App\Models\VerificacionDocumento::NOMBRES + ['' => 'Todos'] as $tipoAhora => $nombreAhora)
+                                    <button type="button" class="cpdf-ahora {{ $tipoAhora === '' ? 'cpdf-ahora-todos' : '' }}" data-nombre="{{ $nombreAhora }}"
+                                            title="Revisar ahora: {{ $nombreAhora }}" onclick="window.cpdfLeerAhora(this, @js($tipoAhora))">
+                                        {{ $tipoAhora === \App\Models\VerificacionDocumento::PROPIEDAD ? 'Título' : $nombreAhora }}
+                                    </button>
+                                @endforeach
+                            </div>
                         </div>
                     @else
                         <strong>Lectura automática apagada</strong>

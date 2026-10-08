@@ -46,10 +46,20 @@
     .cpdf-aviso.ok { background: #eff6ff; border-color: #bfdbfe; color: #1e3a5f; }
     .cpdf-aviso.ok strong, .cpdf-aviso.ok span { color: #1e3a5f; }
     .cpdf-aviso.apagada { background: #f8fafc; color: #475569; }
-    .cpdf-aviso .cpdf-ahora-rotulo { margin-top: 8px; font-weight: 700; }
-    .cpdf-aviso .cpdf-ahora-botones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-    .cpdf-aviso .cpdf-ahora { height: 32px; padding: 0 12px; border-radius: 8px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }
-    .cpdf-aviso .cpdf-ahora .material-icons { font-size: 18px; margin: 0; }
+    /* "Revisar ahora": rotulo y botones en UNA fila; los botones, un grupo pegado y chico. */
+    .cpdf-aviso .cpdf-ahora-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 8px; }
+    .cpdf-aviso .cpdf-ahora-rotulo { font-weight: 700; font-size: 11.5px; }
+    .cpdf-aviso .cpdf-ahora-botones { display: inline-flex; flex-wrap: wrap; border: 1px solid #93c5fd;
+                                      border-radius: 7px; overflow: hidden; background: #fff; }
+    .cpdf-aviso .cpdf-ahora { height: 24px; padding: 0 9px; border: 0; border-left: 1px solid #bfdbfe;
+                              background: #fff; color: #1e3a5f; font-family: inherit; font-size: 11.5px;
+                              font-weight: 600; line-height: 24px; cursor: pointer;
+                              white-space: nowrap; transition: background .15s; }
+    .cpdf-aviso .cpdf-ahora:first-child { border-left: 0; }
+    .cpdf-aviso .cpdf-ahora:hover:not(:disabled) { background: #dbeafe; }
+    .cpdf-aviso .cpdf-ahora.cpdf-ahora-todos { background: #0067b1; color: #fff; }
+    .cpdf-aviso .cpdf-ahora.cpdf-ahora-todos:hover:not(:disabled) { background: #00548f; }
+    .cpdf-aviso .cpdf-ahora:disabled { opacity: .5; cursor: default; }
     .cpdf-aviso .cpdf-ahora-pedida { margin-top: 6px; font-weight: 700; }
     /* Tarjetas que filtran la lista: son enlaces, pero se ven igual que las demas cajas. */
     a.cpdf-filtra { text-decoration: none; transition: border-color .15s, transform .15s; }
