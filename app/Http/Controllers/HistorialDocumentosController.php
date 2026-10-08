@@ -153,6 +153,113 @@ class HistorialDocumentosController extends Controller
      */
     public const DATA_VER_KEY = 'historial_docs_ver';
 
+    /**
+     * Las acciones del filtro "Tipo de Acción", por grupo: [grupo => [valor => etiqueta]]. Los
+     * documentos van por accion (valores 'cat_*', ver esDeTipo); lo demas casa por el texto del
+     * tipo. UNICA lista: la pinta el desplegable y la cuenta el resumen de la barra lateral.
+     */
+    public const TIPOS_ACCION = [
+        'Sobre el equipo' => [
+            'Registro de Vehículo'  => 'Registro de Vehículo',
+            'Edición de Datos'      => 'Edición de Datos',
+            // Los cambios de ESTATUS se separan a partir del diff; antes caian en "Edicion de
+            // Datos" y no habia forma de pedirle al historial que equipos se pararon.
+            'Cambio de Estado'      => 'Cambio de Estado',
+            'Desincorporación'      => 'Desincorporación',
+            'Reincorporación'       => 'Reincorporación',
+            'Detalle Masivo'        => 'Detalle Masivo',
+            'Eliminación de Equipo' => 'Eliminación de Equipo',
+        ],
+        'Documentos' => [
+            'cat_uploads'   => 'Subida de documento',
+            'cat_borrados'  => 'Borrado de documento',
+            'cat_metadatos' => 'Edición de datos del documento',
+            'cat_anexos'    => 'Corrección anexa',
+        ],
+        'Catálogo de modelos' => [
+            'Registro de Modelo'    => 'Registro de Modelo',
+            'Edición de Modelo'     => 'Edición de Modelo',
+            'Foto de Modelo'        => 'Foto de Modelo',
+            'Registro de Auxiliar'  => 'Registro de Auxiliar',
+            'Foto de Auxiliar'      => 'Foto de Auxiliar',
+            'Eliminación de Modelo' => 'Eliminación de Modelo',
+        ],
+    ];
+
+    /** doc_key de las subidas del flujo viejo (una por documento): cuentan como 'cat_uploads'. */
+    private const SUBIDAS_LEGACY = ['propiedad', 'poliza', 'rotc', 'racda', 'adicional', 'adicional_2'];
+
+    /** Texto comparable: minusculas y sin acentos. */
+    private static function normal(?string $s): string
+    {
+        return mb_strtolower(\Illuminate\Support\Str::ascii((string) $s));
+    }
+
+    /**
+     * ¿El evento es de esa accion del filtro? Los 'cat_*' agrupan los doc_key de cada accion de
+     * documentos; cualquier otro valor (acciones del equipo o enlaces viejos con la etiqueta
+     * exacta) casa por el texto del tipo. La usan el filtro y el resumen lateral; este pasa los
+     * dos textos ya normalizados (quitar acentos es lo caro: 17 acciones x miles de eventos).
+     */
+    private static function esDeTipo(object $event, string $tipo, ?string $textoTipo = null, ?string $buscado = null): bool
+    {
+        $key = (string) ($event->doc_key ?? '');
+        $empieza = fn (string ...$p) => \Illuminate\Support\Str::startsWith($key, $p);
+        return match ($tipo) {
+            'cat_uploads'   => in_array($key, self::SUBIDAS_LEGACY, true) || $empieza('upload_', 'aux_upload_'),
+            'cat_borrados'  => $empieza('delete_', 'aux_delete_'),
+            // con_metadata: subida que absorbio los datos guardados con ella.
+            'cat_metadatos' => $empieza('metadata_') || !empty($event->con_metadata),
+            // Correcciones anexas: aparte y NO dentro de cat_uploads. Anexar solo añade; sustituir
+            // pisa el archivo de Drive, que es lo que busca quien filtra "Subida de documento".
+            'cat_anexos'    => $empieza('anexo_'),
+            default         => strpos($textoTipo ?? self::normal($event->tipo ?? ''), $buscado ?? self::normal($tipo)) !== false,
+        };
+    }
+
+    /**
+     * Lo que resume la barra lateral, sobre la MISMA lista que muestra la tabla (con sus filtros):
+     * cuantos hoy y en 7 dias, las acciones que mas se repiten y quien hizo mas cambios.
+     */
+    private static function resumen(\Illuminate\Support\Collection $events): array
+    {
+        $hoy = now()->startOfDay();
+        $semana = now()->subDays(6)->startOfDay();
+        $acciones = array_merge(...array_values(self::TIPOS_ACCION));
+        $buscados = array_map(fn ($valor) => self::normal($valor), array_combine(array_keys($acciones), array_keys($acciones)));
+        $cuenta = array_fill_keys(array_keys($acciones), 0);
+        $autores = [];
+        $nHoy = $nSemana = 0;
+        // UNA pasada, con el texto de cada evento normalizado una sola vez.
+        foreach ($events as $e) {
+            $texto = self::normal($e->tipo ?? '');
+            foreach ($buscados as $valor => $buscado) {
+                if (self::esDeTipo($e, $valor, $texto, $buscado)) $cuenta[$valor]++;
+            }
+            $a = (string) $e->autor;
+            $autores[$a] ??= ['correo' => $a, 'nombre' => (string) ($e->autor_nombre ?? ''), 'n' => 0];
+            $autores[$a]['n']++;
+            if ($e->fecha && $e->fecha->gte($semana)) {
+                $nSemana++;
+                if ($e->fecha->gte($hoy)) $nHoy++;
+            }
+        }
+        $tipos = [];
+        foreach (array_filter($cuenta) as $valor => $n) {
+            $tipos[] = ['valor' => $valor, 'etiqueta' => $acciones[$valor], 'n' => $n];
+        }
+        usort($tipos, fn ($x, $y) => $y['n'] <=> $x['n']);
+        usort($autores, fn ($x, $y) => $y['n'] <=> $x['n']);
+
+        return [
+            'hoy'     => $nHoy,
+            'semana'  => $nSemana,
+            'desde'   => ['hoy' => $hoy->toDateString(), 'semana' => $semana->toDateString()],
+            'tipos'   => array_slice($tipos, 0, 6),
+            'autores' => array_slice($autores, 0, 5),
+        ];
+    }
+
     public static function bumpDataVersion(): void
     {
         \App\Support\CacheVersion::bump(self::DATA_VER_KEY);
@@ -286,16 +393,21 @@ class HistorialDocumentosController extends Controller
         $almacen = \Illuminate\Support\Facades\Cache::store('file');
 
         $cached = $almacen->get($cacheKey);
-        if (is_array($cached) && ($cached['ver'] ?? null) === $ver) {
+        // Con la lista va su resumen de la barra lateral: contarlo cuesta ~1/3 de la pantalla, asi
+        // que se cuenta UNA vez por version de la lista, no en cada carga ni cambio de pagina. El
+        // dia va en el valor: "Hoy" y "Ultimos 7 dias" no pueden servirse de ayer.
+        if (is_array($cached) && ($cached['ver'] ?? null) === $ver && ($cached['dia'] ?? null) === now()->toDateString()) {
             $events = collect($cached['events']);
+            $resumen = $cached['resumen'];
         } else {
             $events = collect($this->construirEventos(
                 $request, $frentesVisibles, $frentesBloqueados,
                 $fechaDesdeSql, $fechaHastaSql, $searchEquipoSql
             ));
+            $resumen = self::resumen($events);
             $almacen->put(
                 $cacheKey,
-                ['ver' => $ver, 'events' => $events->all()],
+                ['ver' => $ver, 'dia' => now()->toDateString(), 'events' => $events->all(), 'resumen' => $resumen],
                 // 6 horas, no 10 minutos: la version va DENTRO del valor, asi que una lista
                 // pasada de fecha NUNCA se sirve (se compara y se rehace). Con 10 minutos se
                 // enfriaba sola en cada pausa y habia que pagar los 2 s otra vez sin que
@@ -325,7 +437,10 @@ class HistorialDocumentosController extends Controller
             return response()->json([
                 'html' => view('admin.historial_documentos.partials.table_rows', ['events' => $paginatedEvents])->render(),
                 'pagination' => $paginatedEvents->links('vendor.pagination.custom-sliding')->toHtml(),
-                'total' => $total
+                'total' => $total,
+                // Cambiar de pagina no cambia el resumen: solo va cuando cambian los filtros.
+                'resumen_html' => $request->filled('page') ? null
+                    : view('admin.historial_documentos.partials.resumen_lateral', ['resumen' => $resumen])->render(),
             ]);
         }
 
@@ -347,6 +462,7 @@ class HistorialDocumentosController extends Controller
             'docsParaRevisar'  => \App\Models\VerificacionDocumento::paraRevisar()->count(),
             'events'           => $paginatedEvents,
             'total'            => $total,
+            'resumen'          => $resumen,
             'autoresSugeridos' => $autoresSugeridos,
         ]);
     }
@@ -969,51 +1085,18 @@ class HistorialDocumentosController extends Controller
                           || $request->filled('search_tipo')
                           || $fechaDesdeSql || $fechaHastaSql;
         if ($hasInMemoryFilter) {
-            $normalize = fn ($s) => mb_strtolower(\Illuminate\Support\Str::ascii((string) $s));
+            $search_correo = self::normal($request->search_correo);
+            $search_tipo   = trim((string) $request->search_tipo);
 
-            $search_correo = $normalize($request->search_correo);
-            $search_tipo   = $normalize($request->search_tipo);
-
-            // doc_key de las subidas legacy (loop docs). El dropdown agrupa las 6
-            // subidas / 6 borrados / 6 ediciones de metadata en UNA opcion por accion
-            // (valores 'cat_*'), reduciendo la lista de ~24 a ~9. Aqui se mapea cada
-            // 'cat_*' al doc_key del evento. Cualquier OTRO valor (acciones del equipo
-            // o deep-links antiguos con el label exacto) cae al match por substring.
-            $catUploadKeys = ['propiedad', 'poliza', 'rotc', 'racda', 'adicional', 'adicional_2'];
-
-            $events = $events->filter(function ($event) use ($normalize, $search_correo, $search_tipo, $fechaDesdeSql, $fechaHastaSql, $catUploadKeys) {
+            $events = $events->filter(function ($event) use ($search_correo, $search_tipo, $fechaDesdeSql, $fechaHastaSql) {
                 // Ubicar por NOMBRE o CORREO del autor: el término casa si está en
                 // cualquiera de los dos (autor = correo, autor_nombre = nombre completo).
                 if ($search_correo
-                    && strpos($normalize($event->autor), $search_correo) === false
-                    && strpos($normalize($event->autor_nombre ?? ''), $search_correo) === false) {
+                    && strpos(self::normal($event->autor), $search_correo) === false
+                    && strpos(self::normal($event->autor_nombre ?? ''), $search_correo) === false) {
                     return false;
                 }
-                if ($search_tipo && $search_tipo !== 'all') {
-                    if ($search_tipo === 'cat_uploads') {
-                        $okTipo = in_array($event->doc_key, $catUploadKeys, true)
-                               || \Illuminate\Support\Str::startsWith($event->doc_key, 'upload_')
-                               || \Illuminate\Support\Str::startsWith($event->doc_key, 'aux_upload_');
-                    } elseif ($search_tipo === 'cat_borrados') {
-                        $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'delete_')
-                               || \Illuminate\Support\Str::startsWith($event->doc_key, 'aux_delete_');
-                    } elseif ($search_tipo === 'cat_metadatos') {
-                        // con_metadata: subida que absorbio los datos guardados con ella.
-                        $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'metadata_')
-                               || !empty($event->con_metadata);
-                    } elseif ($search_tipo === 'cat_anexos') {
-                        // Correcciones anexas. Categoria aparte y NO dentro de cat_uploads:
-                        // anexar y sustituir son operaciones distintas —la primera solo
-                        // añade, la segunda pisa el archivo de Drive— y quien filtra por
-                        // "Subida de documento" busca lo segundo.
-                        $okTipo = \Illuminate\Support\Str::startsWith($event->doc_key, 'anexo_');
-                    } else {
-                        // Acciones del equipo (Registro / Edición de Datos / Detalle
-                        // Masivo / Eliminación) o label exacto legacy → substring.
-                        $okTipo = strpos($normalize($event->tipo), $search_tipo) !== false;
-                    }
-                    if (!$okTipo) return false;
-                }
+                if ($search_tipo !== '' && $search_tipo !== 'all' && !self::esDeTipo($event, $search_tipo)) return false;
                 if ($fechaDesdeSql && $event->fecha->lt($fechaDesdeSql)) return false;
                 if ($fechaHastaSql && $event->fecha->gt($fechaHastaSql)) return false;
                 return true;

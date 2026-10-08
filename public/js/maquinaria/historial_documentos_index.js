@@ -84,6 +84,9 @@ window.loadHistorialDocumentos = async function (pageUrl = null) {
         // Actualizar contador
         const contador = document.getElementById('historial-count-text');
         if (contador && data.total !== undefined) contador.innerText = data.total;
+        // Y el resumen de la barra lateral, que cuenta la misma lista.
+        const resumen = document.getElementById('hdResumen');
+        if (resumen && data.resumen_html) resumen.innerHTML = data.resumen_html;
 
         // Actualizar URL sin recargar
         if (window.history && window.history.pushState) {
@@ -125,6 +128,25 @@ if (!window._hdPaginationRegistered) {
 // Lo comprobado esta en tests/Feature/HistorialDocumentosSinRecargaTest.
 // Los filtros de la pantalla siguen llamando a loadHistorialDocumentos() cuando el usuario
 // los cambia; lo que se quito es la llamada automatica al abrir.
+
+// Una fila del resumen lateral (partials/resumen_lateral) pone SU filtro en la pantalla y filtra:
+// el tipo por el desplegable (que ya filtra solo al elegir), el autor y la fecha desde en sus
+// campos. Lo demas que hubiera puesto se respeta.
+window.hdFiltrarResumen = function (f) {
+    if (f.correo !== undefined) {
+        const c = document.getElementById('searchCorreo');
+        if (c) { c.value = f.correo; window.checkHistorialClearBtn('searchCorreo', 'btn_clear_searchCorreo'); }
+    }
+    if (f.desde !== undefined) {
+        const d = document.getElementById('hdFechaDesde');
+        if (d) d.value = f.desde;
+    }
+    if (f.tipo !== undefined && typeof window.selectOption === 'function') {
+        window.selectOption('tipoDocFilterSelect', f.tipo, f.etiqueta || f.tipo);
+        return;
+    }
+    window.loadHistorialDocumentos();
+};
 
 window.clearHistorialFilter = function(filterId, inputId) {
     const input = document.getElementById(inputId);

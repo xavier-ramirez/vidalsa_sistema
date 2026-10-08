@@ -95,37 +95,9 @@
                 </div>
 
                 @php
-                    // Opciones del filtro de acción: valor => etiqueta. Los 'cat_*' agrupan
-                    // documentos por acción (1 opción por acción; el backend los mapea a sus
-                    // doc_key, ver HistorialDocumentosController).
-                    $tipoGrupos = [
-                        'Sobre el equipo' => [
-                            'Registro de Vehículo'  => 'Registro de Vehículo',
-                            'Edición de Datos'      => 'Edición de Datos',
-                            // Los cambios de ESTATUS los separa el controller a partir del
-                            // diff; antes caían en "Edición de Datos" y no había forma de
-                            // pedirle al historial "muéstrame qué equipos se pararon".
-                            'Cambio de Estado'      => 'Cambio de Estado',
-                            'Desincorporación'      => 'Desincorporación',
-                            'Reincorporación'       => 'Reincorporación',
-                            'Detalle Masivo'        => 'Detalle Masivo',
-                            'Eliminación de Equipo' => 'Eliminación de Equipo',
-                        ],
-                        'Documentos' => [
-                            'cat_uploads'   => 'Subida de documento',
-                            'cat_borrados'  => 'Borrado de documento',
-                            'cat_metadatos' => 'Edición de datos del documento',
-                            'cat_anexos'    => 'Corrección anexa',
-                        ],
-                        'Catálogo de modelos' => [
-                            'Registro de Modelo'    => 'Registro de Modelo',
-                            'Edición de Modelo'     => 'Edición de Modelo',
-                            'Foto de Modelo'        => 'Foto de Modelo',
-                            'Registro de Auxiliar'  => 'Registro de Auxiliar',
-                            'Foto de Auxiliar'      => 'Foto de Auxiliar',
-                            'Eliminación de Modelo' => 'Eliminación de Modelo',
-                        ],
-                    ];
+                    // Opciones del filtro de acción: viven en HistorialDocumentosController (la
+                    // misma lista la cuenta el resumen de la barra lateral).
+                    $tipoGrupos = \App\Http\Controllers\HistorialDocumentosController::TIPOS_ACCION;
                     $reqTipo = request('search_tipo');
                     $tipoActivo = $reqTipo && $reqTipo !== 'all';
                     // Etiqueta del valor pedido, para que el placeholder no muestre el
@@ -272,6 +244,10 @@
                 </div>
             </div>
         </div>
+
+        {{-- Resumen de la lista (con sus filtros): cada fila filtra la tabla al pulsarla. Se
+             repinta con cada filtrado (resumen_html, ver historial_documentos_index.js). --}}
+        <div id="hdResumen">@include('admin.historial_documentos.partials.resumen_lateral', ['resumen' => $resumen])</div>
 
     </div>
 </div>

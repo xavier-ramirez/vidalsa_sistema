@@ -73,6 +73,28 @@ class HistorialDocumentosTest extends MySqlTestCase
         $this->assertStringContainsString('Edición Metadata RACDA', $html);
     }
 
+    /** La barra lateral resume la MISMA lista de la tabla y se repinta al filtrar (08-10-2026). */
+    public function test_el_resumen_lateral_cuenta_la_lista_de_la_tabla(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        [, $placa] = $this->equipoConRacda($yo, now()->subMinutes(5));
+
+        $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['search_equipo' => $placa]))->getContent();
+        $this->assertStringContainsString('id="hdResumen"', $html);
+        $this->assertMatchesRegularExpression('~<small>Hoy</small>\s*<strong>1</strong>~', $html);
+        $this->assertStringContainsString('Subida de documento</span><b>1</b>', $html, 'La subida cuenta en su accion.');
+
+        // El filtrado por AJAX trae el resumen repintado; filtrar por la accion sigue igual.
+        $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['search_equipo' => $placa, 'search_tipo' => 'cat_uploads']))->json();
+        $this->assertSame(1, $json['total']);
+        $this->assertStringContainsString('Subida de documento</span><b>1</b>', $json['resumen_html']);
+        $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['search_equipo' => $placa, 'search_tipo' => 'cat_borrados']))->json();
+        $this->assertSame(0, $json['total']);
+        // Cambiar de pagina no cambia el resumen: no se vuelve a mandar.
+        $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['search_equipo' => $placa, 'page' => 2]))->json();
+        $this->assertNull($json['resumen_html']);
+    }
+
     /**
      * Las tres pestañas abren y cada una trae el botón Acciones UNA vez: vive en la fila de
      * filtros, que el Historial pinta en su vista y las otras dos en compresion_pdf/panel.
