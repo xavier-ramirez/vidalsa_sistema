@@ -32,11 +32,9 @@
        y la fila se lee pareja. Crecen juntos al ensanchar el modal. */
     .cdash-filtros .f-group-desc,
     .cdash-filtros .f-group-cat { flex:1 1 220px; }
-    .cdash-filtros input[type="month"] { box-sizing:border-box; height:36px; width:130px; max-width:100%; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; cursor:pointer; }
-    /* El navegador dibuja el <input type="month"> en español como "septiembre de 2026"
-       (vacío: "---------- de ----"). Esta pseudo oculta ESE separador "de" nativo; los
-       campos de mes y año siguen visibles. Solo WebKit/Blink (Chrome/Edge/Safari). */
-    .cdash-filtros input[type="month"]::-webkit-datetime-edit-text { color:transparent; }
+    /* Desde/Hasta son <input type="date"> (por DÍA, pedido 08-10-2026; antes eran de mes y
+       una regla ocultaba su separador "de": con fechas no se toca, las "/" hacen falta). */
+    .cdash-filtros input[type="date"] { box-sizing:border-box; height:36px; width:140px; max-width:100%; border:1px solid #cbd5e0; border-radius:8px; padding:0 10px; font-size:13px; color:#0f172a; background:#fff; outline:none; cursor:pointer; }
     /* Caja de texto compartida por Descripción y Categoría (mismo look). */
     .cdash-inp-box { display:flex; align-items:center; height:36px; border:1px solid #cbd5e0; border-radius:8px; background:#fff; overflow:hidden; }
     .cdash-inp-box.active { border-color:var(--maquinaria-blue,#0067b1); background:#e1effa; }
@@ -98,8 +96,11 @@
        respeta el calculo. Ya NO hay que recalcularlo a mano si cambia el numero de barras
        (AlmacenController::TOP_PRODUCTOS_GRAFICO): se ajusta solo. */
     .cdash-canvas-wrap.tall { height:650px; }
-    .cdash-empty { color:#94a3b8; font-size:13px; text-align:center; padding:40px 0; }
-    .cdash-loading { text-align:center; color:#64748b; font-size:14px; padding:50px 0; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:10px; }
+    /* Cargando y "sin datos" guardan un alto mínimo: sin él, al no haber gráficos el modal
+       se recogía a una franja de ~100 px y saltaba de tamaño al cambiar un filtro. El
+       mensaje va centrado en ese hueco (por eso el JS los muestra con display:flex). */
+    .cdash-empty { color:#94a3b8; font-size:13px; text-align:center; padding:40px 0; min-height:min(60vh, 520px); box-sizing:border-box; flex-direction:column; align-items:center; justify-content:center; }
+    .cdash-loading { text-align:center; color:#64748b; font-size:14px; padding:50px 0; font-weight:600; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; min-height:min(60vh, 520px); box-sizing:border-box; }
     .cdash-loading .cdash-spin { animation:cdashSpin .8s linear infinite; font-size:28px; color:#0067b1; }
     @keyframes cdashSpin { 100% { transform:rotate(360deg); } }
     .cdash-adv-wrap { position:relative; flex-shrink:0; }
@@ -151,7 +152,7 @@
         text-decoration:underline;
     }
     /* Dentro del panel cada filtro ocupa su propia linea: hay sitio de sobra y
-       asi el rango de meses se lee como un rango y no como dos casillas sueltas. */
+       asi el rango de fechas se lee como un rango y no como dos casillas sueltas. */
     /* Hijo DIRECTO (>) y no cualquier descendiente: los campos sueltos del panel se
        llevan el ancho entero, pero los que van dentro de .cdash-adv-fila deben
        repartirselo. Sin el >, este !important los aplastaba a 100% cada uno y la
@@ -165,8 +166,8 @@
        312px utiles del panel. Sin cualquiera de los dos, la fila se sale por la derecha. */
     .cdash-adv-fila { display:flex; gap:10px; }
     .cdash-adv-fila .cdash-adv-field { flex:1 1 0; min-width:0; }
-    .cdash-adv-fila input[type="month"] { min-width:0; }
-    .cdash-adv-panel input[type="month"] { width:100%; }
+    .cdash-adv-fila input[type="date"] { min-width:0; }
+    .cdash-adv-panel input[type="date"] { width:100%; }
 
     /* 768px, el mismo corte que usa el resto de la aplicacion (46 reglas). Estaba en
        760 y eso dejaba una franja de 8px —entre 761 y 768— donde la pagina ya habia
@@ -191,6 +192,6 @@
            el ancho util del modal. Los 56px son los rellenos horizontales que lo separan
            del borde de la pantalla: 14 del overlay + 14 del cuerpo, a cada lado. */
         .cdash-adv-panel { left:auto; right:0; width:calc(100vw - 56px); max-width:340px; }
-        .cdash-filtros input[type="month"] { width:100%; min-width:0; font-size:12px; padding:0 6px; }
-        .cdash-filtros input[type="month"]::-webkit-calendar-picker-indicator { display:none; }
+        .cdash-filtros input[type="date"] { width:100%; min-width:0; font-size:12px; padding:0 6px; }
+        .cdash-filtros input[type="date"]::-webkit-calendar-picker-indicator { display:none; }
     }

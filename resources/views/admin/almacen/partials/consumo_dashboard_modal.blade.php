@@ -4,7 +4,7 @@
      Acciones con window.abrirConsumoDashboard()).
 
      INDEPENDIENTE de los filtros generales del módulo: tiene sus PROPIOS filtros
-     (categoría + rango de meses Desde/Hasta). Datos: GET almacen.consumoDashboard
+     (categoría + rango de fechas Desde/Hasta, por día). Datos: GET almacen.consumoDashboard
      (JSON) — consumo real (SALIDA) de todos los almacenes visibles.
 
      Chart.js lo pide este modal al abrirse, con window.ensureChartJS() — ya no viene
@@ -75,7 +75,7 @@
 
             {{-- Filtros avanzados. Mismo patrón que /admin/equipos: botón cuadrado con
                  filter_list y un panel que cuelga debajo. Aquí viven los filtros que NO
-                 son de uso corriente —frente de destino y el rango de meses—, que antes
+                 son de uso corriente —frente de destino y el rango de fechas—, que antes
                  ocupaban una fila entera siempre visible.
 
                  VA DENTRO de .cdash-filtros, justo detrás de Categoría, y no como hermano
@@ -88,7 +88,7 @@
                  dashboard esta acotado. Lo aplica _cdashMarcarAvanzados(). --}}
             <div class="cdash-adv-wrap">
                 <button type="button" id="cdashAdvBtn" class="btn-primary-maquinaria"
-                        title="Filtros avanzados: frente de destino y rango de meses"
+                        title="Filtros avanzados: frente de destino y rango de fechas"
                         onclick="window._cdashAdvToggle(event)">
                     <i class="material-icons">filter_list</i>
                 </button>
@@ -128,11 +128,12 @@
                      periodo. Cada uno se lleva la mitad (flex:1 1 0 + min-width:0), asi
                      que encogen juntos y caben tambien en el panel estrecho del telefono. --}}
                 <div class="cdash-adv-fila">
-                <label class="cdash-adv-field"><span>Desde (mes)</span>
-                    <input type="month" id="cdashDesde" title="Desde (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
+                {{-- Por DÍA (pedido 08-10-2026): antes eran <input type="month">. --}}
+                <label class="cdash-adv-field"><span>Desde</span>
+                    <input type="date" id="cdashDesde" title="Desde (día)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
                 </label>
-                <label class="cdash-adv-field"><span>Hasta (mes)</span>
-                    <input type="month" id="cdashHasta" title="Hasta (mes)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
+                <label class="cdash-adv-field"><span>Hasta</span>
+                    <input type="date" id="cdashHasta" title="Hasta (día)" onchange="window._cdashFetch()" onclick="try{ this.showPicker(); }catch(e){}">
                 </label>
                 </div>
                 </div>
@@ -267,17 +268,8 @@
         var desc   = ((document.getElementById('cdashDescripcion') || {}).value || '').trim();
         var frente = (document.getElementById('cdashFrente') || {}).value || '';
 
-        // Los <input type="month"> dan "YYYY-MM", pero el backend filtra por FECHA (dia)
-        // con whereDate. Si se manda el mes crudo, "<= YYYY-MM" se toma como YYYY-MM-00
-        // y EXCLUYE todo el mes (el dashboard quedaba en 0 al elegir "Hasta"). Por eso
-        // AMBOS se expanden igual: Desde -> primer dia del mes; Hasta -> ultimo dia.
-        if (desde && desde.length === 7) desde = desde + '-01';
-        if (hasta && hasta.length === 7) {
-            var hp = hasta.split('-');
-            var ultimoDia = new Date(parseInt(hp[0], 10), parseInt(hp[1], 10), 0).getDate();
-            hasta = hasta + '-' + String(ultimoDia).padStart(2, '0');
-        }
-
+        // Desde/Hasta son <input type="date">: ya dan el día ("YYYY-MM-DD") y viajan tal
+        // cual; el backend filtra con whereDate, ambos extremos incluidos.
         var p = new URLSearchParams();
         if (desde)  p.set('desde', desde);
         if (hasta)  p.set('hasta', hasta);
@@ -419,7 +411,7 @@
         document.getElementById('cdashLoading').style.display = 'none';
         if (sinDatos) {
             document.getElementById('cdashContent').style.display = 'none';
-            document.getElementById('cdashEmpty').style.display = 'block';
+            document.getElementById('cdashEmpty').style.display = 'flex';   // flex: centra el mensaje en su alto mínimo
             return;
         }
         document.getElementById('cdashEmpty').style.display = 'none';
@@ -1030,7 +1022,7 @@
         }
         window._cdashFrenteOpen();
     };
-    // ── Filtros avanzados (frente + rango de meses) ──────────────────────────
+    // ── Filtros avanzados (frente + rango de fechas) ──────────────────────────
     // Mismo gesto que en /admin/equipos: el botón abre un panel colgante y un clic
     // fuera lo cierra. El listener del documento se registra UNA vez —el <script>
     // del modal se re-ejecuta en cada navegación SPA— o se acumularía uno por visita.

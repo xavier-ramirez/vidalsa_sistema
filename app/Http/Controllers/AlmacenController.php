@@ -2300,7 +2300,7 @@ class AlmacenController extends Controller
      * (cambio pedido por el cliente el 16-09-2026). Sin id_almacen vuelve a ser global.
      *
      * Del resto de filtros del módulo (frente, producto, búsqueda) sigue siendo
-     * INDEPENDIENTE: usa los suyos — rango de meses (desde/hasta en YYYY-MM) y categoría.
+     * INDEPENDIENTE: usa los suyos — rango de fechas (desde/hasta en YYYY-MM-DD; YYYY-MM también sirve) y categoría.
      * Los nombres se pasan por MojibakeFix porque las queries crudas (con JOIN) NO aplican
      * el cast del modelo.
      */
@@ -2421,7 +2421,7 @@ class AlmacenController extends Controller
 
     /**
      * Query base del Dashboard de Consumo: SALIDAS de los almacenes visibles, con los
-     * filtros propios del modal (descripcion, categoria, frente y rango de meses).
+     * filtros propios del modal (descripcion, categoria, frente y rango de fechas).
      *
      * FUENTE UNICA del filtro — la usan consumoDashboard() y consumoDashboardExport().
      * Si cada uno armara el suyo, el Excel podria traer un universo distinto al que el
@@ -2793,14 +2793,14 @@ class AlmacenController extends Controller
     public function consumoDashboard(Request $request)
     {
         // El dashboard es INDEPENDIENTE de los filtros generales del módulo
-        // (búsqueda, frente, producto). Usa sus propios filtros: rango de meses
-        // (desde/hasta en formato YYYY-MM) y categoría. Del almacén SÍ depende: el modal
+        // (búsqueda, frente, producto). Usa sus propios filtros: rango de fechas
+        // (desde/hasta por día, YYYY-MM-DD) y categoría. Del almacén SÍ depende: el modal
         // manda id_almacen y consumoDashboardQuery acota a ese, para que cuadre con el
         // Historial de ese almacén (ver la nota alli).
         // Mide consumo REAL = movimientos TIPO 'SALIDA' menos lo devuelto (los
         // TRASPASO_SALIDA son movimientos internos entre almacenes, no consumo).
 
-        // Rango de meses → límites de fecha. Idiom centralizado (FUENTE ÚNICA) en
+        // Rango Desde/Hasta → límites de fecha. Idiom centralizado (FUENTE ÚNICA) en
         // MovimientoInventario::expandirRangoMes, el mismo que usa scopePeriodo.
         [$desde, $hasta] = MovimientoInventario::expandirRangoMes(
             $request->input('desde'),
