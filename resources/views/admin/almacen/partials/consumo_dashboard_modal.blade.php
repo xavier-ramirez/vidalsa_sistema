@@ -376,7 +376,7 @@
             // el fallo. Se corta aquí y el aviso dice el código que devolvió el servidor.
             window.apiFetch(window.CONSUMO_DASH_URL + (qs ? ('?' + qs) : ''), { headers: { 'Accept': 'application/json' } })
                 .then(function (r) {
-                    if (!r.ok) throw new Error('El servidor respondió ' + r.status + '.');
+                    if (!r.ok) { var e = new Error('El servidor respondió ' + r.status + '.'); e.http = r.status; throw e; }
                     return r.json();
                 }),
             chartListo
@@ -385,7 +385,7 @@
             .catch(function (err) {
                 var ldErr = document.getElementById('cdashLoading');
                 ldErr.innerHTML = '<i class="material-icons" style="font-size:28px;color:#ef4444;">error_outline</i><span>No se pudo cargar el dashboard.</span>';
-                if (err && /^El servidor/.test(err.message)) {
+                if (err && err.http) {   // solo el error HTTP de arriba; uno de red o de Chart.js no trae código
                     var det = document.createElement('small');
                     det.textContent = err.message;
                     ldErr.appendChild(det);
