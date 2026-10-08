@@ -142,7 +142,7 @@
             <div id="cdashLoading" class="cdash-loading"><i class="material-icons cdash-spin">refresh</i><span>Cargando datos de consumo…</span></div>
             <div id="cdashContent" style="display:none;">
                 <div class="cdash-grid">
-                    <div class="cdash-card full"><h4>Top {{ \App\Http\Controllers\AlmacenController::TOP_PRODUCTOS_GRAFICO }} productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'top-20-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
+                    <div class="cdash-card full"><h4>Top {{ \App\Http\Controllers\AlmacenController::TOP_PRODUCTOS_GRAFICO }} productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'top-productos-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
                         <div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
                     {{-- Una barra por mes, apilada por PROYECTO (lo dice el título y lo enseña la
                          leyenda). Sin nota debajo: alargaba el modal y el cliente lo quiere corto.
@@ -730,18 +730,20 @@
         }
         var cdTopLabels = top.map(function (x) { return cdDosLineas(x.parte || x.nombre || '', cdTopMax); });
 
-        // El alto del panel NO puede seguir siendo fijo: con etiquetas de dos líneas, 25
-        // barras en los 650px de .tall se pisaban unas con otras. Se reserva el alto real
+        // El alto del panel NO puede seguir siendo fijo: con etiquetas de dos líneas, las
+        // barras del top en los 650px de .tall se pisaban unas con otras. Se reserva el alto real
         // de cada etiqueta (sus líneas) MÁS un hueco por barra, igual que hace el Dashboard
         // de Flota, y se aplica al contenedor —que es quien manda, porque el gráfico va con
         // maintainAspectRatio:false—. El mínimo conserva los 650 de antes para que con
-        // pocos productos el panel no encoja y descoloque el modal.
+        // pocos productos el panel no encoja y descoloque el modal. El tope (3200) deja
+        // entrar las 60 barras del top con dos líneas cada una (~2.600 px); con el de antes
+        // (1500) se apretaban.
         (function () {
             var cont = document.getElementById('cdashChartTop');
             cont = cont && cont.parentElement;
             if (!cont) return;
             var lineas = cdTopLabels.reduce(function (s, l) { return s + (Array.isArray(l) ? l.length : 1); }, 0);
-            var alto = Math.min(1500, Math.max(650, lineas * 15 + cdTopLabels.length * 12 + 60));
+            var alto = Math.min(3200, Math.max(650, lineas * 15 + cdTopLabels.length * 12 + 60));
             cont.style.height = alto + 'px';
         })();
 
