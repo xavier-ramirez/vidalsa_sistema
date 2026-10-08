@@ -21,6 +21,8 @@
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
+        <!-- Sin IA en las pruebas: la que la necesite pone su clave falsa con config(). -->
+        <env name="GEMINI_API_KEY" value=""/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
         <!-- Las pruebas IGNORAN la configuracion cacheada.

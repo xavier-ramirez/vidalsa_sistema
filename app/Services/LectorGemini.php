@@ -67,6 +67,10 @@ Reglas:
 - Si un dato no está o no se lee con certeza, déjalo vacío. Vacío es mejor que inventado.
 - "seguro": false si el escaneo no permite leer con certeza la placa o el serial.
 - Los seriales confunden O con 0, I con 1, S con 5 y B con 8: míralos con lupa.
+- En un título del INTT, "serial_carroceria" es el N.I.V. (el serial de 17). La casilla
+  "Serial Carrocería" suele decir N/A: eso NO es el serial; usa el N.I.V.
+- En un título del INTT, "numero_documento" es el número de 12 cifras de arriba (el mismo que
+  va en la línea "AAAAMMDD/../../1/1/<número>/..." del pie), no el "N° de Autorización".
 - "vehiculos": si el documento ampara VARIOS (póliza de flota, ROTC de flota, providencia
   RACDA, BL), pon todos los que nombra con su placa y su serial (en un BL, el VIN).
 - En un RACDA, "numero_documento" es el N° de la PROVIDENCIA ADMINISTRATIVA (no el registro RACDA

@@ -7,8 +7,8 @@ use Tests\TestCase;
 
 /**
  * Lectura de las providencias RACDA del MINEC con textos como los reales (05-10-2026): la lista
- * de placas sale SOLO del bloque de unidades autorizadas y a una providencia que amplía otra
- * (sin "validez por N años") no se le inventa el vencimiento.
+ * de placas sale SOLO del bloque de unidades autorizadas; un RACDA dura dos años desde su emisión
+ * y el de una providencia que amplía otra, dos años desde la emisión de la principal (07-10-2026).
  */
 class LectorRacdaTest extends TestCase
 {
@@ -58,7 +58,7 @@ A15BK2R
         }
     }
 
-    public function test_una_providencia_que_amplia_otra_no_inventa_su_vencimiento(): void
+    public function test_una_providencia_que_amplia_otra_vence_con_la_principal(): void
     {
         $datos = app(LectorDocumentoPdf::class)->extraer('racda', $this->texto(
             'TERCERO: Reconocer la validez de la Providencia Administrativa Nº 1120 de fecha 14-07-2025, contentiva de la autorización'
@@ -67,7 +67,17 @@ A15BK2R
         $this->assertSame('304', $datos['nro']);
         $this->assertSame('2026-03-02', $datos['emision']);
         $this->assertSame(['A05BE3R', 'A15BK2R'], $datos['placas']);
-        $this->assertNull($datos['vence'], 'No dice cuánto vale: se deja vacío en vez de adivinarlo.');
+        $this->assertSame('1120', $datos['ampliacion_de']);
+        // Dos años desde la emision de la PRINCIPAL (14-07-2025), no desde la suya (02-03-2026).
+        $this->assertSame('2027-07-14', $datos['vence']);
+    }
+
+    public function test_una_providencia_sin_plazo_escrito_dura_dos_anios_desde_su_emision(): void
+    {
+        $datos = app(LectorDocumentoPdf::class)->extraer('racda', $this->texto('TERCERO: Notifíquese.'));
+
+        $this->assertNull($datos['ampliacion_de']);
+        $this->assertSame('2028-03-02', $datos['vence']);
     }
 
     public function test_sin_el_bloque_de_la_lista_se_busca_en_toda_la_hoja(): void

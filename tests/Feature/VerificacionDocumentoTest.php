@@ -74,6 +74,11 @@ class VerificacionDocumentoTest extends MySqlTestCase
                     if ($this->falla) throw $this->falla;
                     return $this->textoFalso;
                 }
+
+                public function pdf(string $driveId): string
+                {
+                    return '%PDF-falso';
+                }
             };
         });
     }
@@ -485,9 +490,9 @@ class VerificacionDocumentoTest extends MySqlTestCase
     public function test_un_documento_sin_fecha_que_no_la_trae_queda_para_revisar(): void
     {
         [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A']);
-        $this->lectorFalso("PROVIDENCIA ADMINISTRATIVA N° 304\nCARACAS, 02 DE MARZO DE 2026.\n"
+        $this->lectorFalso("PROVIDENCIA ADMINISTRATIVA N° 304\n"
             . "SEGUNDO: Las unidades autorizadas para tal fin poseen las siguientes placas:\n$placa\n"
-            . "TERCERO: Reconocer la validez de la Providencia Administrativa Nº 1120 de fecha 14-07-2025\n");
+            . "TERCERO: Notifíquese.\n");
 
         $reg = $this->verificar($equipo, VerificacionDocumento::RACDA);
 
@@ -1877,6 +1882,78 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertTrue($reg->A_MANO, 'El titular sigue para revisar.');
         $this->assertArrayHasKey('NOMBRE_DEL_TITULAR', $reg->DIFERENCIAS);
         $this->assertArrayNotHasKey('FECHA_EMISION_PROPIEDAD', $reg->DIFERENCIAS, 'La fecha ya está puesta.');
+    }
+
+    /** Una IA de mentira que siempre puede leer y dice lo que se le pase. */
+    private function iaFalsa(array $visto): void
+    {
+        $this->app->instance(\App\Services\LectorGemini::class, new class ($visto) extends \App\Services\LectorGemini {
+            public function __construct(private array $visto) {}
+            public function disponible(): bool { return true; }
+            public function restantesHoy(): int { return 99; }
+            public function leer(string $pdf, int $intentos = 3, ?string $esperado = null): ?array { return $this->visto; }
+        });
+    }
+
+    public function test_la_ia_pasa_por_el_titulo_ya_leido_sin_releerlo_ni_tocar_la_ficha(): void
+    {
+        // La IA entra SIEMPRE en los titulos (07-10-2026), pero un titulo que ya coincide NO se
+        // vuelve a leer: releerlo con el OCR escribia en la ficha lo que el escaneo leyera mal.
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A',
+            'FECHA_EMISION_PROPIEDAD' => '2018-10-03', 'NRO_DE_DOCUMENTO' => '240109177454']);
+        // Leido y "coincide" de antes de que la IA entrara siempre (sin la clave 'ia').
+        $enlace = DB::table('documentacion')->where('ID_EQUIPO', $equipo)->value('LINK_DOC_PROPIEDAD');
+        VerificacionDocumento::create([
+            'ID_EQUIPO' => $equipo, 'TIPO' => VerificacionDocumento::PROPIEDAD, 'ESTADO' => VerificacionDocumento::COINCIDE,
+            'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE, 'INTENTOS' => 0, 'LEIDO' => ['placa' => $placa],
+            'DRIVE_ID' => explode('?', substr($enlace, strlen('/storage/google/')))[0],
+        ]);
+        // Ahora el "escaneo" lee otra fecha y la IA lee otro numero.
+        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa, '3 días del mes de: OCTUBRE de: 2019'));
+        $this->iaFalsa(['placa' => $placa, 'nro' => '240109177111', 'titular' => 'CONSTRUCTORA VIDALSA 27, C.A']);
+        $this->assertFalse($this->enLaCola($equipo, VerificacionDocumento::PROPIEDAD), 'Ya leido: no vuelve a la cola.');
+
+        // La pasada de la noche, sin --equipo (que obliga a releer).
+        $this->artisan('docs:verificar-documentos', ['--tipo' => VerificacionDocumento::PROPIEDAD, '--lote' => 1000])->assertSuccessful();
+        $reg = VerificacionDocumento::where('ID_EQUIPO', $equipo)->where('TIPO', VerificacionDocumento::PROPIEDAD)->first();
+
+        $this->assertSame('240109177111', $reg->LEIDO['ia']['nro'], 'La IA paso y quedo anotado.');
+        $this->assertSame('2018-10-03', substr((string) $this->ficha($equipo)->FECHA_EMISION_PROPIEDAD, 0, 10), 'No se releyo: la fecha no cambio.');
+        // El numero de la ficha SI esta en el texto: la errata es de la IA y no se marca.
+        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->ESTADO);
+        $this->assertSame('240109177454', $this->ficha($equipo)->NRO_DE_DOCUMENTO);
+        $this->assertTrue(VerificacionDocumento::titulosSinIa()->where('verificacion_documento_registro.ID_EQUIPO', $equipo)->doesntExist());
+    }
+
+    public function test_un_anio_imposible_o_basura_del_escaneo_no_se_escriben_en_la_ficha(): void
+    {
+        $lector = app(LectorDocumentoPdf::class);
+        // "3021" por "2021" (titulo de la ficha 210): no es una fecha.
+        $this->assertNull($lector->extraer('propiedad', "Certificado de Registro de Vehículo a:\nX\nDado a los: 29 días del mes de: ENERO de: 3021\n")['emision']);
+        // Letras pegadas delante del nombre: no se aplican solas (sirve = false).
+        $this->assertFalse($lector->compararNombre('CONSTRUCTORA VIDALSA 27, C.A', 'ROSS CONSTRUCTORA VIDALSA 27, C.A')[2]);
+        // Un nombre de verdad distinto sigue siendo "otro nombre" (manda el documento).
+        $this->assertTrue(array_pad($lector->compararNombre('CONSTRUCTORA VIDALSA 27, C.A', 'CORPO NAC DE LOGISTICA S.A'), 3, true)[2]);
+    }
+
+    public function test_lo_que_la_ia_lee_distinto_en_un_titulo_queda_para_revisar_sin_tocar_la_ficha(): void
+    {
+        // El numero de la ficha no esta en el texto y la IA lee otro: se marca para una persona.
+        // La placa que la IA lee igual que la ficha no se marca. Y la ficha NO cambia sola.
+        [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27, C.A',
+            'FECHA_EMISION_PROPIEDAD' => '2018-10-03', 'NRO_DE_DOCUMENTO' => '240109177999']);
+        $this->lectorFalso($this->textoTitulo('CONSTRUCTORA VIDALSA 27, C.A', $placa));
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+        // Lo que la IA ya leyo de ese archivo: se reutiliza, no se vuelve a preguntar.
+        $reg->update(['LEIDO' => ['ia' => ['placa' => $placa, 'nro' => '240109177111']] + ($reg->LEIDO ?? [])]);
+        config(['services.gemini.key' => 'clave-de-prueba']);
+
+        $reg = $this->verificar($equipo, VerificacionDocumento::PROPIEDAD);
+        $this->assertSame(VerificacionDocumento::DIFIERE, $reg->ESTADO);
+        $this->assertArrayHasKey('IA_NRO_DE_DOCUMENTO', $reg->DIFERENCIAS);
+        $this->assertArrayNotHasKey('IA_PLACA', $reg->DIFERENCIAS);
+        $this->assertTrue((bool) $reg->A_MANO, 'Lo decide una persona.');
+        $this->assertSame('240109177999', DB::table('documentacion')->where('ID_EQUIPO', $equipo)->value('NRO_DE_DOCUMENTO'));
     }
 
     public function test_revisar_ahora_relee_solo_lo_que_tiene_un_problema(): void

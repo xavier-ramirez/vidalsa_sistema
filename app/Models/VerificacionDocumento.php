@@ -276,6 +276,33 @@ class VerificacionDocumento extends Model
     }
 
     /**
+     * Titulos ya leidos (los que su ficha tiene enlazados hoy) que aun no paso la IA. No se
+     * releen: los recorre VerificarDocumentos::iaEnTitulosYaLeidos, que solo anota lo que ve.
+     */
+    public static function titulosSinIa()
+    {
+        return static::query()
+            ->join('documentacion as d', 'd.ID_EQUIPO', '=', 'verificacion_documento_registro.ID_EQUIPO')
+            ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
+            ->whereNull('e.deleted_at')
+            ->where('verificacion_documento_registro.TIPO', self::PROPIEDAD)
+            ->where('verificacion_documento_registro.ORIGEN', self::DE_LA_NOCHE)
+            ->whereIn('verificacion_documento_registro.ESTADO', [self::COINCIDE, self::DIFIERE])
+            ->whereRaw("d.LINK_DOC_PROPIEDAD LIKE CONCAT('%/', verificacion_documento_registro.DRIVE_ID, '%')")
+            ->whereRaw("NOT JSON_CONTAINS_PATH(IFNULL(verificacion_documento_registro.LEIDO, '{}'), 'one', '$.ia')")
+            ->whereRaw("NOT JSON_CONTAINS_PATH(IFNULL(verificacion_documento_registro.LEIDO, '{}'), 'one', '$.otra_placa')")
+            ->select('verificacion_documento_registro.*')
+            ->orderBy('verificacion_documento_registro.ID_EQUIPO');
+    }
+
+    /** ¿Puede leer hoy la IA? (hay clave y queda cupo). */
+    private static function iaConCupo(): bool
+    {
+        $ia = app(\App\Services\LectorGemini::class);
+        return $ia->disponible() && $ia->restantesHoy() > 0;
+    }
+
+    /**
      * Cuantos documentos de $tipo hay cargados y cuantos faltan por leer, en UNA consulta.
      *
      * Antes eran dos (conEnlace()->count() y pendientes()->count()) y cada una repetia el
@@ -327,7 +354,9 @@ class VerificacionDocumento extends Model
         foreach ($tipos as $tipo) {
             if (self::pendientes($tipo, self::ENLACES[$tipo])->exists()) return true;
         }
-        return false;
+        // Titulos que aun no paso la IA (solo si hoy puede leer): sin esto, con todo leido la
+        // tarea no arrancaria y la IA no los veria nunca.
+        return in_array(self::PROPIEDAD, $tipos, true) && self::iaConCupo() && self::titulosSinIa()->exists();
     }
 
     /**
@@ -417,7 +446,7 @@ class VerificacionDocumento extends Model
      * del RACDA, el PDF anterior, otra placa en la tabla del ROTC). UNA lista: la usan
      * VerificarDocumentos (A_MANO) y fechaPuesta (no dar por resuelta una fila que sigue por esto).
      */
-    public const LEIDO_PARA_REVISAR = ['otra_placa', 'lectura_parcial', 'sin_confirmar', 'fuera_de_lista', 'doc_anterior', 'placa_en_tabla'];
+    public const LEIDO_PARA_REVISAR = ['otra_placa', 'lectura_parcial', 'sin_confirmar', 'fuera_de_lista', 'doc_anterior', 'placa_en_tabla', 'revisar_ia'];
 
     /** ¿La lectura trae alguna de LEIDO_PARA_REVISAR? */
     public static function leidoParaRevisar(?array $leido): bool

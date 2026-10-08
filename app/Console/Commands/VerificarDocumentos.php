@@ -205,8 +205,61 @@ class VerificarDocumentos extends Command
             }
         }
 
+        // Lo que sobre de la tanda: la IA por los titulos ya leidos que aun no paso.
+        if (in_array(VerificacionDocumento::PROPIEDAD, $tipos, true) && !$this->option('sin-ia')) {
+            $hechos += $this->iaEnTitulosYaLeidos($lector, $lote - $hechos);
+        }
+
         if ($hechos === 0) $this->info('No queda ningun documento por revisar.');
         return self::SUCCESS;
+    }
+
+    /**
+     * Los TITULOS ya leidos que aun no paso la IA (entra siempre en los titulos, pedido del
+     * cliente 07-10-2026): se le da el PDF y lo que vea distinto queda para una persona. SIN volver
+     * a leerlos ni tocar la ficha: releerlos con el OCR volvia a escribir en las fichas lo que el
+     * escaneo leyera mal (simulado el 07-10-2026 con los 774: "3021" por "2021", "ROSS
+     * CONSTRUCTORA..." por "CONSTRUCTORA..."). El texto se pide solo para contrastar (contrasteIa).
+     */
+    private function iaEnTitulosYaLeidos(LectorDocumentoPdf $lector, int $cuantos): int
+    {
+        if ($cuantos < 1) return 0;
+        [$parte, $de] = $this->reparto();
+        $hechos = 0;
+        $regs = VerificacionDocumento::titulosSinIa()
+            ->when($this->option('equipo'), fn ($q, $e) => $q->where('verificacion_documento_registro.ID_EQUIPO', (int) $e))
+            ->when($de > 1, fn ($q) => $q->whereRaw('verificacion_documento_registro.ID_EQUIPO % ? = ?', [$de, $parte]))
+            ->limit($cuantos)->get();
+        foreach ($regs as $reg) {
+            if (!$this->ia->disponible() || $this->ia->restantesHoy() < 1) break;
+            $f = DB::table('documentacion as d')->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
+                ->where('d.ID_EQUIPO', $reg->ID_EQUIPO)
+                ->first(['d.ID_EQUIPO', 'd.PLACA', 'd.NOMBRE_DEL_TITULAR', 'd.FECHA_EMISION_PROPIEDAD', 'd.NRO_DE_DOCUMENTO', 'e.SERIAL_CHASIS']);
+            if (!$f) continue;
+            try {
+                $texto = $lector->texto($reg->DRIVE_ID);
+            } catch (\Throwable $e) {
+                continue;   // sin el texto no se puede contrastar: otra noche
+            }
+            if (!($visto = $this->leerConIa($reg->DRIVE_ID, $lector))) continue;
+            $leido = ['ia' => $visto] + ($reg->LEIDO ?? []);
+            $cambios = ['LEIDO' => $leido];
+            if ($contra = $this->contrasteIa($f, $visto, $texto, $reg->LEIDO ?? [], $lector)) {
+                $cambios = [
+                    'LEIDO'       => $leido + ['revisar_ia' => true],
+                    'DIFERENCIAS' => ($reg->DIFERENCIAS ?? []) + $contra,
+                    'ESTADO'      => VerificacionDocumento::DIFIERE,
+                    'A_MANO'      => true,
+                    'MOTIVO'      => mb_substr(trim(($reg->MOTIVO ? $reg->MOTIVO . '. ' : '') . 'La IA lee distinto: '
+                        . implode(', ', array_column($contra, 'etiqueta'))), 0, 255),
+                ];
+            }
+            $reg->update($cambios);
+            $this->line(sprintf('%-9s %-10s %-11s %s', $reg->ID_EQUIPO, 'ia-titulo', $f->PLACA ?: '—',
+                $contra ? 'para revisar: ' . implode(', ', array_column($contra, 'etiqueta')) : 'la IA lee lo mismo'));
+            $hechos++;
+        }
+        return $hechos;
     }
 
     /**
@@ -385,7 +438,7 @@ class VerificarDocumentos extends Command
             }
         }
 
-        // ── Apoyo de la IA, SOLO en lo duro ───────────────────────────────────────
+        // ── Apoyo de la IA: en lo duro y, en los TITULOS, siempre ─────────────────
         // Lo que quedo "No se pudo leer" es justo lo que nadie va a resolver solo: escaneos
         // torcidos y formatos que las reglas no conocen. Ahi (y solo ahi) se le da el PDF
         // entero a Gemini. Lo que devuelve NO se aplica: se guarda aparte y la fila queda
@@ -395,9 +448,29 @@ class VerificarDocumentos extends Command
         // noche. Sin esta puerta, los mismos documentos se comerian el cupo diario entero
         // todas las noches y el resto no llegaria nunca a pasar por la IA. Lo ya preguntado
         // se reconoce porque su lectura guardada trae la clave 'ia' (aunque venga vacia).
-        if ($estado === VerificacionDocumento::ILEGIBLE && !$this->option('sin-ia') && $driveId
+        //
+        // TITULOS: la IA entra SIEMPRE (pedido del cliente 07-10-2026), no solo en lo ilegible:
+        // el OCR los daba todos por "coincide" sin mirar bien serial, placa ni numero. Lo que vea
+        // distinto se contrasta con el texto (ver contrasteIa) y queda para una persona. Lo ya
+        // preguntado de ese mismo archivo se reutiliza: el cupo diario no da para preguntar dos veces.
+        $esTitulo = $tipo === VerificacionDocumento::PROPIEDAD
+            && in_array($estado, [VerificacionDocumento::COINCIDE, VerificacionDocumento::DIFIERE], true)
+            && empty($leido['otra_placa']);
+        if ($esTitulo && !$this->option('sin-ia') && $driveId) {
+            $visto = $this->iaYaLeida($f->ID_EQUIPO, $tipo, $driveId) ?? $this->leerConIa($driveId, $lector);
+            if ($visto) {
+                $leido['ia'] = $visto;
+                if ($contra = $this->contrasteIa($f, $visto, $texto, $leido, $lector)) {
+                    $diferencias += $contra;
+                    $leido['revisar_ia'] = true;
+                    $estado = VerificacionDocumento::DIFIERE;
+                    $motivo = mb_substr(trim(($motivo ? $motivo . '. ' : '') . 'La IA lee distinto: '
+                        . implode(', ', array_column($contra, 'etiqueta'))), 0, 255);
+                }
+            }
+        } elseif ($estado === VerificacionDocumento::ILEGIBLE && !$this->option('sin-ia') && $driveId
             && !$this->yaPasoPorLaIa($f->ID_EQUIPO, $tipo, $driveId)) {
-            if ($visto = $this->leerConIa($driveId)) {
+            if ($visto = $this->leerConIa($driveId, $lector)) {
                 $leido['ia'] = $visto;
                 // El resumen solo si saco ALGO: si tampoco pudo, la fila se queda con su
                 // motivo de siempre y la marca sirve para no volver a preguntarle.
@@ -739,13 +812,13 @@ class VerificarDocumentos extends Command
      * LectorGemini). Devuelve lo que vio, o null si no hay clave, no queda cupo o fallo algo:
      * en ese caso la revision sigue exactamente como antes de que existiera esto.
      */
-    private function leerConIa(string $driveId): ?array
+    private function leerConIa(string $driveId, LectorDocumentoPdf $lector): ?array
     {
         if (!$this->ia->disponible() || $this->ia->restantesHoy() < 1) {
             return null;
         }
         try {
-            $pdf = (string) GoogleDriveService::getInstance()->getStreamById($driveId);
+            $pdf = $lector->pdf($driveId);
         } catch (\Throwable $e) {
             Log::warning('docs:verificar-documentos: no se pudo bajar el PDF para la IA ' . $driveId . ': ' . $e->getMessage());
             return null;
@@ -779,6 +852,50 @@ class VerificarDocumentos extends Command
             ->where('DRIVE_ID', $driveId)->value('LEIDO');
 
         return is_array($leido) && array_key_exists('ia', $leido);
+    }
+
+    /** Lo que la IA ya leyo de ESE archivo en una pasada anterior (null si nunca se le pregunto). */
+    private function iaYaLeida(int $idEquipo, string $tipo, string $driveId): ?array
+    {
+        $leido = VerificacionDocumento::where('ID_EQUIPO', $idEquipo)->where('TIPO', $tipo)
+            ->where('DRIVE_ID', $driveId)->value('LEIDO');
+
+        return is_array($leido) && is_array($leido['ia'] ?? null) ? $leido['ia'] : null;
+    }
+
+    /**
+     * Lo que la IA lee en un TITULO distinto de la ficha: placa, serial, numero, emision y
+     * propietario. Solo cuenta si el OCR tampoco respalda a la ficha (su valor no esta en el
+     * texto, o la fecha leida no es la suya): si el texto lo trae tal cual, la errata es de la IA.
+     * Claves IA_*: no estan en CorrectorFichaDocumento::CAMPOS, asi que NUNCA se aplican solas.
+     */
+    private function contrasteIa(object $f, array $ia, string $texto, array $leido, LectorDocumentoPdf $lector): array
+    {
+        $plano = $lector->codigo($texto);
+        $enTexto = fn (?string $v) => $v !== null && $v !== '' && str_contains($plano, $lector->codigo($v));
+        $digitos = fn (?string $v) => preg_replace('/\D/', '', (string) $v);
+        $fechaFicha = $f->FECHA_EMISION_PROPIEDAD ? substr((string) $f->FECHA_EMISION_PROPIEDAD, 0, 10) : null;
+
+        $campos = [
+            'PLACA'              => ['Placa', $f->PLACA, $ia['placa'] ?? null,
+                fn ($a, $b) => $lector->codigo($a) === $lector->codigo($b) || $enTexto($a)],
+            'SERIAL_CHASIS'      => ['Serial de chasis', $f->SERIAL_CHASIS, $ia['serial'] ?? null,
+                fn ($a, $b) => $lector->codigo($a) === $lector->codigo($b) || $enTexto($a)],
+            'NRO_DE_DOCUMENTO'   => ['Nro. de documento', $f->NRO_DE_DOCUMENTO, $ia['nro'] ?? null,
+                fn ($a, $b) => $digitos($a) === $digitos($b) || str_contains($digitos($texto), $digitos($a))],
+            'FECHA_EMISION_PROPIEDAD' => ['Fecha de emisión', $fechaFicha, $ia['emision'] ?? null,
+                fn ($a, $b) => $a === $b || $a === ($leido['emision'] ?? null)],
+            'NOMBRE_DEL_TITULAR' => ['Propietario', $f->NOMBRE_DEL_TITULAR, $ia['titular'] ?? null,
+                fn ($a, $b) => $lector->compararNombre($a, $b)[0] || $enTexto($a)],
+        ];
+        $dif = [];
+        foreach ($campos as $campo => [$etiqueta, $enFicha, $dice, $iguales]) {
+            // "N/A" no es una lectura: es la casilla vacia del formulario (Serial Carroceria: N/A).
+            $vacio = fn ($v) => in_array($lector->normalizar($v), ['', 'N A', 'NA', 'NO APLICA'], true);
+            if ($vacio($enFicha) || $vacio($dice) || $iguales((string) $enFicha, (string) $dice)) continue;
+            $dif['IA_' . $campo] = ['etiqueta' => $etiqueta . ' (según la IA)', 'ficha' => $enFicha, 'documento' => $dice];
+        }
+        return $dif;
     }
 
     /**

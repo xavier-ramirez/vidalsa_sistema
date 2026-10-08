@@ -750,6 +750,9 @@
                     && !(inicio && fe && fe.value && inicio >= fe.value));
             Object.keys(dif).forEach(function (campo) {
                 var d = dif[campo] || {}, valor = d.documento == null ? '' : String(d.documento);
+                // Lo que lee distinto la IA (IA_*, ver VerificarDocumentos::contrasteIa) solo se
+                // MUESTRA en la lista: ni "Usar" ni campo relleno. Lo decide quien mira el PDF.
+                if (/^IA_/.test(campo)) return;
                 var input = CAMPO[campo] && cont.querySelector('[name="' + CAMPO[campo] + '"]');
                 if (!input) { otras.push([campo, d, valor]); return; }
                 // textContent, nunca innerHTML: el valor sale de un PDF.

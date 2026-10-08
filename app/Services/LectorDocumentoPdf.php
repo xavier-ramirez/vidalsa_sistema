@@ -26,6 +26,8 @@ class LectorDocumentoPdf
 {
     /** Los cuatro documentos que se verifican. */
     public const PROPIEDAD = 'propiedad';
+    /** Lo que dura un RACDA desde su emision cuando la providencia no dice otro plazo. */
+    public const ANIOS_RACDA = 2;
     public const POLIZA    = 'poliza';
     public const ROTC      = 'rotc';
     public const RACDA     = 'racda';
@@ -157,6 +159,12 @@ class LectorDocumentoPdf
                 Log::warning('verificar-documentos: no se borro la copia OCR ' . $copia->id . ': ' . $e->getMessage());
             }
         }
+    }
+
+    /** El PDF tal cual, para darselo entero a la IA (ver VerificarDocumentos::leerConIa). */
+    public function pdf(string $driveId): string
+    {
+        return (string) GoogleDriveService::getInstance()->getStreamById($driveId);
     }
 
     /** Lo ya leido en esta pasada, por id de Drive (ver texto()). */
@@ -324,11 +332,12 @@ class LectorDocumentoPdf
      *   · las placas autorizadas.
      * Hay providencias que AMPLIAN otra (la 304 y la 1582 agregan unidades a la 1120): no dicen
      * cuanto valen, sino "Reconocer la validez de la Providencia Administrativa Nº 1120 de fecha
-     * 14-07-2025". En esas no hay "validez por N años" y el vencimiento queda vacio: no se adivina.
+     * 14-07-2025". Esas vencen CON la principal: dos años desde la emision de la principal.
      */
     private function extraerRacda(string $plano): array
     {
-        $datos = ['emision' => null, 'vence' => null, 'nro' => null, 'anios' => null, 'placas' => []];
+        $datos = ['emision' => null, 'vence' => null, 'nro' => null, 'anios' => null, 'placas' => [],
+            'ampliacion_de' => null, 'base_emision' => null];
 
         if (preg_match('/CARACAS,?\s*(\d{1,2})\s*DE\s*([A-ZÁÉÍÓÚa-záéíóú]{4,12})\s*DE\s*(\d{4})/ui', $plano, $m)) {
             $datos['emision'] = $this->fechaDeMes($m[1], $m[2], $m[3]);
@@ -336,11 +345,23 @@ class LectorDocumentoPdf
         if (preg_match('/validez\s*por\s*[A-ZÁÉÍÓÚa-záéíóú]+\s*\((\d{1,2})\)\s*a[ñn]os/ui', $plano, $m)) {
             $datos['anios'] = (int) $m[1];
         }
-        if ($datos['emision'] && $datos['anios']) {
-            $datos['vence'] = date('Y-m-d', strtotime($datos['emision'] . ' +' . $datos['anios'] . ' years'));
-        }
         if (preg_match('/PROVIDENCIA\s*ADMINISTRATIVA\s*N[°ºo.]*\s*(\d{2,8})/ui', $plano, $m)) {
             $datos['nro'] = $m[1];
+        }
+        // Una AMPLIACION (la 304 y la 1582 de la 1120) no trae vigencia propia: "Reconocer la
+        // validez de la Providencia Administrativa Nº 1120 de fecha 14-07-2025". Sus vehiculos
+        // vencen CON la principal (decidido por el cliente el 07-10-2026).
+        if (preg_match('/Reconocer\s+la\s+validez\s+de\s+la\s+Providencia\s+Administrativa\s+N[°ºo.]*\s*(\d{2,8})\s+de\s+fecha\s+(\d{1,2}-\d{1,2}-\d{4})/ui', $plano, $m)) {
+            $datos['ampliacion_de'] = $m[1];
+            $datos['base_emision'] = $this->fecha($m[2]);
+        }
+        // Vencimiento: un RACDA dura SIEMPRE DOS años desde su emision (regla del cliente,
+        // 07-10-2026), salvo que la providencia diga otro plazo ("validez por N años"). La
+        // ampliacion, desde la emision de SU principal.
+        $desde = $datos['ampliacion_de'] ? $datos['base_emision'] : $datos['emision'];
+        if ($desde) {
+            $anios = !$datos['ampliacion_de'] && $datos['anios'] ? $datos['anios'] : self::ANIOS_RACDA;
+            $datos['vence'] = date('Y-m-d', strtotime($desde . ' +' . $anios . ' years'));
         }
         // Las placas, SOLO de la lista de unidades ("... poseen las siguientes placas: ... TERCERO"):
         // el resto de la hoja trae codigos que tambien parecen placa, como el "codigo de
@@ -397,7 +418,10 @@ class LectorDocumentoPdf
             $datos['titular'] = $this->limpiarNombre($m[1]);
         }
         $datos['placa'] = $this->placaEnTexto($plano);
-        if (preg_match('/\b(\d{12})\b/', $plano, $m)) {
+        // El numero, primero de la linea de control ("20181003/EL/ELS/1/1/180105165155/..."), que
+        // es la que lo nombra; si no, el primer numero de 12 cifras de la hoja (el del membrete).
+        if (preg_match('/(?<!\d)\d{8}\/[A-Z]{1,3}\/[A-Z0-9]{2,4}\/\d+\/\d+\/(\d{12})\//', $plano, $m)
+            || preg_match('/\b(\d{12})\b/', $plano, $m)) {
             $datos['nro'] = $m[1];
         }
         $datos['serial'] = $this->serialEnTexto($plano);
@@ -412,8 +436,9 @@ class LectorDocumentoPdf
             $datos['emision'] = $this->fechaDeMes($m[1], $m[2], $m[3]);
         }
         // Respaldo del mismo formato: la linea de control del pie empieza por esa fecha
-        // ("20260212/EL/PRS/1/1/<numero>/...").
-        if (!$datos['emision'] && preg_match('/(?<!\d)(20\d{2})(\d{2})(\d{2})\/[A-Z]{2}\/[A-Z]{3}\//', $plano, $m)
+        // ("20260212/EL/PRS/1/1/<numero>/..."; en los viejos "20240904/IN/200/", "20180917/N/249/":
+        // la oficina puede ser de cifras y el tramo de una a tres letras).
+        if (!$datos['emision'] && preg_match('/(?<!\d)(20\d{2})(\d{2})(\d{2})\/[A-Z]{1,3}\/[A-Z0-9]{2,4}\/\d+\/\d+\//', $plano, $m)
             && checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
             $datos['emision'] = sprintf('%s-%s-%s', $m[1], $m[2], $m[3]);
         }
@@ -634,6 +659,12 @@ class LectorDocumentoPdf
         // Uno contiene al otro. Importa CUAL es el corto: si el corto es el del documento, lo
         // que se leyo a medias es el PDF (el reconocimiento corta el nombre al topar con el
         // siguiente rotulo), y aplicarlo dejaria la ficha PEOR. Eso no se ofrece corregir.
+        // El documento dice lo de la ficha con 1-5 caracteres pegados DELANTE: es la mancha del
+        // escaneo ("ROSS CONSTRUCTORA...", "MOB/CONSTRUCTORA...", visto el 07-10-2026 en 5 titulos),
+        // no otro nombre. Aplicarlo meteria esa basura en la ficha: la ficha no se toca.
+        if (str_ends_with($doc, $ficha) && strlen($doc) - strlen($ficha) <= 5) {
+            return [false, 'El escaneo pego letras delante del nombre: la ficha no se toca', false];
+        }
         if (str_contains($doc, $ficha)) {
             return [false, 'El nombre de la ficha esta recortado o abreviado'];
         }
@@ -798,7 +829,9 @@ class LectorDocumentoPdf
     private function fechaDeMes(string $dia, string $mes, string $anio): ?string
     {
         $m = self::MESES[$this->normalizar($mes)] ?? null;
-        if (!$m) return null;
+        // Un año fuera de 1950-2099 es el escaneo leyendo mal una cifra ("3021" por "2021", visto
+        // el 07-10-2026 en el titulo de la ficha 210): no es una fecha y no se escribe en la ficha.
+        if (!$m || (int) $anio < 1950 || (int) $anio > 2099) return null;
         return checkdate($m, (int) $dia, (int) $anio) ? sprintf('%04d-%02d-%02d', (int) $anio, $m, (int) $dia) : null;
     }
 
