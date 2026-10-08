@@ -193,26 +193,32 @@
 
     .ent-error { display:none; margin-top:12px; padding:10px 14px; background:#fee2e2; border:1px solid #fecaca; border-radius:10px; color:#b91c1c; font-size:13px; font-weight:600; }
 
-    /* Botonera del panel: Registrar entrada y, debajo, Cancelar, a todo el ancho (como el
-       "Ir a pagar" de una tienda en línea). */
+    /* Botonera del panel: Registrar entrada, Registrar y despachar y Cancelar, uno debajo del
+       otro y a todo el ancho (como el "Ir a pagar" de una tienda en línea). */
     .ent-foot { display:flex; flex-direction:column; gap:8px; padding:14px 20px 18px; border-top:1px solid #e2e8f0; }
-    /* Los dos del MISMO alto: lo que distingue a Registrar es el color, no el tamaño. Letra
+    /* Todos del MISMO alto: lo que distingue a Registrar es el color, no el tamaño. Letra
        algo más grande que la de la barra de captura: son los botones que cierran la entrada. */
     .ent-foot .ent-btn { min-width:0; height:46px; font-size:16px; }
     .ent-foot .ent-btn .material-icons { font-size:20px; }
-    .ent-foot .ent-btn-ok { box-shadow:0 4px 10px rgba(0,103,177,0.25); }
+    .ent-foot .ent-btn-ok { box-shadow:0 4px 10px rgba(0,0,77,0.25); }
+    /* Cancelar del panel VACIA lo capturado: al pasar, en el rojo de la casa. El del modal solo
+       lo cierra y se queda neutro. */
+    .ent-foot .ent-btn-cancel:hover { background:#fdf2f3; border-color:#e8b4b9; color:#a91d28; }
     .ent-btn { height:38px; min-width:130px; padding:0 16px; display:flex; align-items:center; justify-content:center; gap:6px;
         border-radius:10px; font-family:inherit; font-size:13px; font-weight:800; cursor:default; white-space:nowrap; }
     .ent-btn .material-icons { font-size:17px; }
     .ent-btn-cancel { background:#fff; border:1px solid #cbd5e0; color:#475569; }
     .ent-btn-cancel:hover { background:#f1f5f9; }
-    .ent-btn-ok { background:#0067b1; border:1px solid #0067b1; color:#fff; }
-    .ent-btn-ok:hover { background:#005596; }
+    /* Colores de la casa (08-10-2026: los tres botones no cuadraban entre si). Registrar, con el
+       degradado marino -> azul de los encabezados del sistema. */
+    .ent-btn-ok { background:linear-gradient(135deg,#00004d 0%,#0067b1 100%); border:1px solid #00004d; color:#fff; }
+    .ent-btn-ok:hover { background:linear-gradient(135deg,#00003a 0%,#005596 100%); }
     .ent-btn-ok:disabled { opacity:.6; }
     /* "Registrar y despachar": la otra forma de registrar (entrada + nota al proyecto), en el
-       mismo azul pero de contorno, para que "Registrar entrada" siga siendo el principal. */
-    .ent-btn-desp { background:#fff; border:1px solid #0067b1; color:#0067b1; }
-    .ent-btn-desp:hover { background:#e1effa; }
+       mismo azul pero claro, para que "Registrar entrada" siga siendo el principal. */
+    .ent-btn-desp { background:#e1effa; border:1px solid #b9d6ef; color:#00004d; }
+    .ent-btn-desp .material-icons { color:#0067b1; }
+    .ent-btn-desp:hover { background:#d2e6f7; border-color:#0067b1; }
 
     /* Modal "Registrar y despachar" (#almSalidaModal, estilos de admin_almacen_salida_nota.css):
        los subtítulos que separan los datos de la compra de la Nota de Entrega. */
