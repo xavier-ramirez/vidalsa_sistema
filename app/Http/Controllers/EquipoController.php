@@ -2413,7 +2413,7 @@ class EquipoController extends Controller
         $items = Equipo::onlyTrashed()
             ->with([
                 'tipo:id,nombre',
-                'documentacion:ID_EQUIPO,PLACA',
+                'documentacion:ID_EQUIPO,PLACA,' . implode(',', self::DOC_FILTER_COLS),
                 'frenteActual:ID_FRENTE,NOMBRE_FRENTE',
                 ...Equipo::conFoto(),
             ])
@@ -2443,6 +2443,8 @@ class EquipoController extends Controller
                 'modelo'         => $e->MODELO,
                 'frente'         => optional($e->frenteActual)->NOMBRE_FRENTE,
                 'foto_drive_id'  => $fotoDriveId,
+                // Los documentos cargados, para verlos desde la papelera sin restaurar.
+                'documentos'     => $this->documentosDePapelera($e->documentacion),
                 'eliminado_por'  => $e->deleted_by ? ($usuarios[$e->deleted_by] ?? ('Usuario #' . $e->deleted_by)) : 'Desconocido',
                 'eliminado_en'   => optional($e->deleted_at)->format('d/m/Y H:i'),
             ];
@@ -2453,6 +2455,25 @@ class EquipoController extends Controller
             'count'   => $rows->count(),
             'items'   => $rows,
         ]);
+    }
+
+    /**
+     * Los documentos CARGADOS de un equipo de la papelera, en el orden y con el nombre corto
+     * de los filtros (DOC_FILTER_COLS / DOC_FILTER_LABELS): [{tipo, nombre, link}].
+     */
+    private function documentosDePapelera(?Documentacion $doc): array
+    {
+        $docs = [];
+        foreach (self::DOC_FILTER_COLS as $filtro => $col) {
+            $link = trim((string) ($doc?->{$col} ?? ''));
+            if ($link === '') continue;
+            $docs[] = [
+                'tipo'   => substr($filtro, strlen('filter_')),
+                'nombre' => self::DOC_FILTER_LABELS[$filtro],
+                'link'   => $link,
+            ];
+        }
+        return $docs;
     }
 
     /**

@@ -131,6 +131,26 @@ class RotcDeFlotaTest extends MySqlTestCase
     }
 
     /**
+     * La emision va con el vencimiento de la FILA (el de la renovacion). Un certificado viejo
+     * (de una renovacion anterior, vence otro dia) no le presta su emision: la ficha quedaria
+     * con la emision de un documento y el vencimiento de otro. Uno del mismo periodo si.
+     */
+    public function test_la_emision_es_la_de_la_renovacion_si_el_certificado_es_viejo(): void
+    {
+        @unlink($this->pdf);
+        $this->pdf = $this->fabricarRotc([0 => '02/07/2026 03/07/2027', 1 => '30/05/2025 30/05/2026']);
+        $mismoPeriodo = $this->equipo($this->flota[0]);
+        $viejo = $this->equipo($this->flota[1]);
+
+        $p = $this->soltar($this->pdf);
+        $porId = array_combine(array_column($p['equipos'], 'id'), array_column($p['equipos'], 'rotc'));
+
+        $this->assertSame(['2027-07-03', '2026-07-02'], [$porId[$mismoPeriodo->ID_EQUIPO]['vence'], $porId[$mismoPeriodo->ID_EQUIPO]['emision']]);
+        $this->assertSame(['2027-07-03', '2026-07-03'], [$porId[$viejo->ID_EQUIPO]['vence'], $porId[$viejo->ID_EQUIPO]['emision']],
+            'certificado de mayo 2025: la emision es la de la tabla renovada');
+    }
+
+    /**
      * Se ata SOLO por el serial de chasis. Un equipo con la placa de una fila pero OTRO serial
      * (la placa paso a otro vehiculo) no se lleva la parte de ese camion.
      */
@@ -240,8 +260,11 @@ class RotcDeFlotaTest extends MySqlTestCase
      * El ROTC de mentira: portada (un recuadro, sin texto), dos hojas de la tabla apaisadas
      * (3 y 2 filas) y una hoja con los certificados de los tres primeros, a 190 puntos uno de
      * otro y separados por una linea de guiones, como el del INTT.
+     *
+     * $fechasCert cambia la linea de fechas del certificado de un vehiculo ([indice => 'emision
+     * vence']): el INTT renueva la lista pero deja el certificado viejo de los que ya estaban.
      */
-    private function fabricarRotc(): string
+    private function fabricarRotc(array $fechasCert = []): string
     {
         $pdf = new \TCPDF('P', 'pt', 'A4', true, 'UTF-8');
         $pdf->setPrintHeader(false);
@@ -275,7 +298,7 @@ class RotcDeFlotaTest extends MySqlTestCase
             foreach (['CERTIFICADO DE CIRCULACIÓN DE VEHICULO DE CARGA', 'Razón Social RIF Nro de ROTC',
                       'CONSTRUCTORA VIDALSA 27, C.A J-29387719-9 49199', 'Placa Serial de Carrocería Marca - Modelo Año',
                       "{$v['placa']} {$v['serial']} SINOTRUK - ZZ4257V344JB1 2025", 'Fecha de Emisión Fecha de Vencimiento',
-                      '03/07/2026 03/07/2027', 'CERTIFICADO PARA PRESTAR EL SERVICIO DE TRANSPORTE DE CARGA EN TODO EL TERRITORIO NACIONAL',
+                      $fechasCert[$k] ?? '03/07/2026 03/07/2027', 'CERTIFICADO PARA PRESTAR EL SERVICIO DE TRANSPORTE DE CARGA EN TODO EL TERRITORIO NACIONAL',
                       'VIGENTES (NORMAS, LEYES Y SUS REGLAMENTOS)'] as $j => $l) {
                 $pdf->Text(60, $y + $j * 18, $l);
             }

@@ -14,7 +14,9 @@
     .hd-pap-buscar input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font-size: 13px; height: 100%; color: #1e293b; }
     .hd-pap-limpiar { font-size: 16px !important; color: #94a3b8; cursor: pointer; }
     .hd-pap-cuentas { display: flex; gap: 6px; }
-    .hd-pap-cuenta { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 30px; padding: 0 6px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; color: #475569; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .hd-pap-cuenta { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 30px; padding: 0 6px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; color: #475569; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; font-family: inherit; }
+    .hd-pap-cuenta:hover { border-color: #94a3b8; }
+    .hd-pap-cuenta[aria-pressed="true"] { border-color: #0067b1; background: #e0f2fe; color: #0067b1; }
     .hd-pap-cuenta .material-icons { font-size: 15px; }
     .hd-pap-cuenta[data-kind="eq"] .material-icons { color: #1e40af; }
     .hd-pap-cuenta[data-kind="aux"] .material-icons { color: #c2410c; }
@@ -28,15 +30,26 @@
     .hd-pap-row[data-kind="aux"] .hd-pap-ico { background: #fff7ed; color: #c2410c; }
     .hd-pap-info { flex: 1; min-width: 0; }
     .hd-pap-tit { font-weight: 700; color: #1e293b; font-size: 12px; text-transform: uppercase; line-height: 1.2; }
-    .hd-pap-tit span { color: #64748b; font-weight: 500; }
+    .hd-pap-tit span { font-weight: 500; }
     .hd-pap-sub { font-size: 11px; color: #64748b; margin-top: 2px; word-break: break-word; }
     .hd-pap-sub span { color: #f97316; }
     .hd-pap-autor { font-size: 10px; color: #94a3b8; margin-top: 2px; }
     .hd-pap-btns { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
-    .hd-pap-btns button { padding: 5px 8px; color: #fff; border: none; border-radius: 6px; display: inline-flex; align-items: center; cursor: pointer; }
+    /* Sobrios: gris claro con borde gris; el color (verde / rojo) solo al pasar por encima. */
+    .hd-pap-btns button { padding: 5px 8px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e0; border-radius: 6px; display: inline-flex; align-items: center; cursor: pointer; }
     .hd-pap-btns .material-icons { font-size: 13px; }
-    .hd-pap-restaurar { background: #10b981; }
-    .hd-pap-borrar { background: #ef4444; }
+    .hd-pap-restaurar:hover { color: #059669; border-color: #a7f3d0; background: #ecfdf5; }
+    .hd-pap-borrar:hover { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
+    /* La tarjeta con documentos se despliega al pulsarla y los enseña debajo. */
+    .hd-pap-row[data-docs] { cursor: pointer; }
+    .hd-pap-row[data-docs]:hover, .hd-pap-row[aria-expanded="true"] { border-color: #cbd5e0; }
+    .hd-pap-ndocs { display: inline-flex; align-items: center; gap: 2px; }
+    .hd-pap-ndocs .material-icons { font-size: 11px; }
+    .hd-pap-docs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .hd-pap-doc { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border: 1px solid #cbd5e0; border-radius: 6px; background: #f8fafc; color: #334155; font-size: 11px; font-weight: 600; font-family: inherit; cursor: pointer; }
+    .hd-pap-doc .material-icons { font-size: 13px; color: #64748b; }
+    .hd-pap-doc:hover { border-color: #0067b1; color: #0067b1; }
+    .hd-pap-doc:hover .material-icons { color: #0067b1; }
     .hd-pap-vacio { padding: 24px; text-align: center; color: #94a3b8; font-size: 12px; }
     .hd-pap-vacio .material-icons { font-size: 24px; display: block; margin: 0 auto 6px; }
     .hd-pap-aviso { padding: 8px 10px; margin-bottom: 8px; border-radius: 8px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: 12px; }
@@ -56,7 +69,9 @@
     };
 
     // turno: descarta la respuesta de una carga vieja si ya se pidió otra.
-    var estado = { items: [], fallidas: [], term: '', cargado: false, turno: 0 };
+    // tipo: '' = todo; 'eq' / 'aux' = solo vehículos / solo auxiliares (los botones de arriba).
+    // abierta: la tarjeta desplegada con sus documentos ('eq1183'), o '' si ninguna.
+    var estado = { items: [], fallidas: [], term: '', tipo: '', abierta: '', cargado: false, turno: 0 };
 
     // "dd/mm/aaaa hh:mm" → "aaaammddhhmm", para ordenar las dos listas juntas.
     function claveFecha(s) {
@@ -77,8 +92,13 @@
             tipo:   it.tipo || (aux ? 'AUXILIAR' : 'EQUIPO'),
             meta:   [it.marca, it.modelo].filter(Boolean).join(' '),
             ident:  (aux ? it.serial : (it.placa || it.serial_chasis || it.codigo)) || ('#' + it.id),
+            // Lo que sale bajo el título. Del vehículo, la placa (si la tiene) Y el chasis: con
+            // la placa sola no se veía el serial, y sin rótulos no se sabía cuál era cuál.
+            datos:  aux ? '' : [it.placa && 'Placa: ' + it.placa, it.serial_chasis && 'Chasis: ' + it.serial_chasis]
+                        .filter(Boolean).join(' · '),
             frente: it.frente || '',
             foto:   it.foto_drive_id || '',
+            docs:   it.documentos || [],
             // El endpoint de auxiliares manda null si no se sabe quién lo borró;
             // el de vehículos ya manda 'Desconocido'. Mismo texto para los dos.
             autor:  (aux ? it.deleted_by : it.eliminado_por) || 'Desconocido',
@@ -117,11 +137,22 @@
             ? '<img class="hd-pap-media" alt="" src="https://drive.google.com/thumbnail?id=' + encodeURIComponent(it.foto) + '&sz=w120">'
             : icono(it.kind);
         var ref = ' data-kind="' + it.kind + '" data-id="' + esc(String(it.id)) + '"';
-        return '<div class="hd-pap-row" data-kind="' + it.kind + '">' + media +
+        var n = it.docs.length, abierta = n > 0 && estado.abierta === it.kind + it.id;
+        // Lo borrado conserva sus PDF: con documentos, la tarjeta se despliega al pulsarla y los
+        // enseña para verlos sin restaurar. Sin documentos, pulsarla no hace nada.
+        var docs = abierta
+            ? '<div class="hd-pap-docs">' + it.docs.map(function (d, i) {
+                return '<button type="button" class="hd-pap-doc" data-accion="doc" data-doc="' + i + '"' + ref + ' title="Ver ' + esc(d.nombre) + '">' +
+                    '<i class="material-icons">picture_as_pdf</i>' + esc(d.nombre) + '</button>';
+            }).join('') + '</div>'
+            : '';
+        return '<div class="hd-pap-row"' + ref + (n ? ' data-docs aria-expanded="' + abierta + '"' : '') + '>' + media +
             '<div class="hd-pap-info">' +
                 '<div class="hd-pap-tit">' + esc(it.tipo) + (it.meta ? ' · <span>' + esc(it.meta) + '</span>' : '') + '</div>' +
-                '<div class="hd-pap-sub">' + esc(it.ident) + (it.frente ? ' · <span>' + esc(it.frente) + '</span>' : '') + '</div>' +
-                '<div class="hd-pap-autor">' + esc(it.autor) + (it.fecha ? ' · ' + esc(it.fecha) : '') + '</div>' +
+                '<div class="hd-pap-sub">' + esc(it.datos || it.ident) + (it.frente ? ' · <span>' + esc(it.frente) + '</span>' : '') + '</div>' +
+                '<div class="hd-pap-autor">' + esc(it.autor) + (it.fecha ? ' · ' + esc(it.fecha) : '') +
+                    (n ? ' · <span class="hd-pap-ndocs"><i class="material-icons">description</i>' + n + (n === 1 ? ' documento' : ' documentos') + '</span>' : '') + '</div>' +
+                docs +
             '</div>' +
             '<div class="hd-pap-btns">' +
                 '<button type="button" class="hd-pap-restaurar" data-accion="restaurar"' + ref + ' title="Restaurar"><i class="material-icons">restore</i></button>' +
@@ -139,12 +170,16 @@
             ? estado.items.filter(function (it) { return coincide(it, tokens); })
             : estado.items;
 
-        // Contadores (solo informan, no filtran): respetan la búsqueda.
+        // Los botones de arriba cuentan lo que deja la búsqueda (los dos, aunque uno esté
+        // elegido: así se ve cuántos hay del otro lado) y filtran por tipo al pulsarlos.
         var n = { eq: 0, aux: 0 };
         halladas.forEach(function (it) { n[it.kind]++; });
         document.querySelectorAll('#hdPapeleraOverlay .hd-pap-cuenta').forEach(function (c) {
-            c.querySelector('.n').textContent = n[c.getAttribute('data-kind')];
+            var kind = c.getAttribute('data-kind');
+            c.querySelector('.n').textContent = n[kind];
+            c.setAttribute('aria-pressed', estado.tipo === kind ? 'true' : 'false');
         });
+        if (estado.tipo) halladas = halladas.filter(function (it) { return it.kind === estado.tipo; });
 
         var aviso = estado.fallidas.length
             ? '<div class="hd-pap-aviso">No se pudo cargar: ' + estado.fallidas.join(' y ') + '.</div>'
@@ -152,6 +187,7 @@
         var cuerpo;
         if (halladas.length) cuerpo = halladas.map(fila).join('');
         else if (tokens.length) cuerpo = vacio('search_off', 'Sin coincidencias.');
+        else if (estado.tipo) cuerpo = estado.fallidas.length ? '' : vacio('inbox', 'No hay ' + FUENTES[estado.tipo].plural.toLowerCase() + ' en la papelera.');
         else if (estado.fallidas.length) cuerpo = '';   // no decir "vacía" si no se pudo leer
         else cuerpo = vacio('inbox', 'Papelera vacía');
         list.innerHTML = aviso + cuerpo;
@@ -202,6 +238,15 @@
             .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
     }
 
+    // Visor en SOLO LECTURA: sin equipo (0) y con un módulo sin tabla detrás, no ofrece
+    // reemplazar, borrar, anexar ni panel de datos. El registro está en la papelera: lo que
+    // haya que cambiarle se hace después de restaurarlo. El visor va por encima de este modal.
+    // El rótulo es también el nombre del archivo al descargar (downloadPdfDirect quita acentos
+    // y signos): el nombre corto del documento, como en los filtros, y la placa o el serial.
+    function verDocumento(it, d) {
+        window.openPdfPreview(d.link, d.tipo, d.nombre + ' ' + it.ident, 0, '', true, 'papelera');
+    }
+
     function confirmar(it, restaurar) {
         var cual = 'el ' + FUENTES[it.kind].nombre + ' "' + esc(it.ident) + '"';
         window.showModal(restaurar ? {
@@ -222,8 +267,8 @@
     }
 
     function contador(kind) {
-        return '<span class="hd-pap-cuenta" data-kind="' + kind + '"><i class="material-icons">' + FUENTES[kind].icono + '</i>' +
-            FUENTES[kind].plural + ' <span class="n">0</span></span>';
+        return '<button type="button" class="hd-pap-cuenta" data-kind="' + kind + '" data-filtro aria-pressed="false" title="Ver solo ' + FUENTES[kind].plural.toLowerCase() + '"><i class="material-icons">' + FUENTES[kind].icono + '</i>' +
+            FUENTES[kind].plural + ' <span class="n">0</span></button>';
     }
 
     function construir() {
@@ -233,7 +278,7 @@
         ov.innerHTML =
             '<div class="hd-pap-modal" role="dialog" aria-modal="true" aria-label="Papelera">' +
                 '<div class="hd-pap-head">' +
-                    '<i class="material-icons" style="color:#f59e0b;font-size:18px;">delete_sweep</i><h2>Papelera</h2>' +
+                    '<i class="material-icons" style="color:#fff;font-size:18px;">delete_sweep</i><h2>Papelera</h2>' +
                     '<button type="button" class="hd-pap-cerrar" data-cerrar title="Cerrar"><i class="material-icons" style="font-size:18px;">close</i></button>' +
                 '</div>' +
                 '<div class="hd-pap-tools">' +
@@ -267,10 +312,29 @@
                 pintar(); input.focus();
                 return;
             }
+            // Pulsar el elegido otra vez vuelve a mostrar todo.
+            var filtro = e.target.closest('[data-filtro]');
+            if (filtro) {
+                var kind = filtro.getAttribute('data-kind');
+                estado.tipo = estado.tipo === kind ? '' : kind;
+                pintar();
+                return;
+            }
             var btn = e.target.closest('[data-accion]');
-            if (!btn) return;
-            var it = estado.items.find(function (x) { return x.kind === btn.dataset.kind && String(x.id) === btn.dataset.id; });
-            if (it) confirmar(it, btn.dataset.accion === 'restaurar');
+            if (btn) {
+                var it = estado.items.find(function (x) { return x.kind === btn.dataset.kind && String(x.id) === btn.dataset.id; });
+                if (!it) return;
+                if (btn.dataset.accion === 'doc') verDocumento(it, it.docs[+btn.dataset.doc]);
+                else confirmar(it, btn.dataset.accion === 'restaurar');
+                return;
+            }
+            // El resto de la tarjeta la despliega o la recoge (solo si tiene documentos).
+            var row = e.target.closest('.hd-pap-row[data-docs]');
+            if (row) {
+                var clave = row.dataset.kind + row.dataset.id;
+                estado.abierta = estado.abierta === clave ? '' : clave;
+                pintar();
+            }
         });
         // Foto de Drive rota → ícono del tipo. 'error' no burbujea: va en captura.
         ov.addEventListener('error', function (e) {
@@ -297,6 +361,8 @@
         estado.items = [];
         estado.fallidas = [];
         estado.term = '';
+        estado.tipo = '';
+        estado.abierta = '';
         estado.cargado = false;
         construir();
         cargar();

@@ -19,35 +19,27 @@
      ni siquiera existe. --}}
 @can('docs.carga.masiva')
 <style>
-    /* Mismo lenguaje que el aviso de cierre de sesión (partials/session_timeout): tarjeta
-       blanca de 16 px de radio, borde suave y sombra larga. El encabezado lleva el degradado
-       del botón principal (ver .hd-cm-head). */
+    /* Tarjeta blanca con el MISMO encabezado que la Papelera (partials/papelera, .hd-pap-head):
+       los dos modales salen del mismo menú Acciones y se veían de dos familias distintas. */
     #hdCmOverlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 2500; display: flex; justify-content: center; align-items: center; }
     /* SIN overflow:hidden: la lista del desplegable del tipo se sale de la tarjeta y con él
        quedaba cortada por el borde de abajo (solo se veían 3 de las 7 opciones). Las esquinas
        redondas del encabezado las pone él mismo. */
-    .hd-cm-modal { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; width: 94%; max-width: 520px;
+    .hd-cm-modal { background: #fff; border-radius: 14px; width: 94%; max-width: 520px;
                    display: flex; flex-direction: column;
-                   box-shadow: 0 20px 45px -12px rgba(15,23,42,0.30); }
-    /* Encabezado CON COLOR (el mismo degradado del botón principal y del aviso de cierre de
-       sesión): el modal era todo blanco y no se distinguía del fondo de la página. */
-    .hd-cm-head { position: relative; padding: 11px 44px; display: flex; align-items: center;
-                  justify-content: center; gap: 10px; border-radius: 15px 15px 0 0;
-                  background: linear-gradient(135deg,#00004d 0%,#0067b1 100%); color: #fff; }
-    .hd-cm-head-ic { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9px;
-                     background: rgba(255,255,255,.18); color: #fff;
-                     display: flex; align-items: center; justify-content: center; }
-    .hd-cm-head-ic .material-icons { font-size: 18px; }
+                   box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
     /* Ícono y título van CENTRADOS juntos, como una sola pieza: los centra el
        justify-content del padre. La X se saca del flujo (position:absolute) para que no
-       desplace ese centro: si contara como un hijo más del flex, el par quedaría corrido
-       hacia la izquierda. El padding lateral de 44 px deja sitio para la X sin que el
+       desplace ese centro. El padding lateral de 44 px deja sitio para la X sin que el
        título se le monte encima en pantallas estrechas. */
-    .hd-cm-head h2 { margin: 0; font-size: 14px; font-weight: 800; color: #fff; line-height: 1.25; }
-    .hd-cm-cerrar { position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-                    background: transparent; border: none; color: rgba(255,255,255,.75);
-                    cursor: pointer; display: flex; padding: 4px; border-radius: 8px; }
-    .hd-cm-cerrar:hover { color: #fff; background: rgba(255,255,255,.16); }
+    .hd-cm-head { position: relative; padding: 12px 44px; display: flex; align-items: center;
+                  justify-content: center; gap: 8px; border-radius: 14px 14px 0 0;
+                  background: #1e293b; color: #fff; }
+    .hd-cm-head .material-icons { font-size: 18px; color: #fff; }
+    .hd-cm-head h2 { margin: 0; font-size: 14px; font-weight: 700; color: #fff; }
+    .hd-cm-cerrar { position: absolute; right: 12px; background: transparent; border: none; color: #fff;
+                    cursor: pointer; opacity: 0.7; display: flex; padding: 2px; }
+    .hd-cm-cerrar:hover { opacity: 1; }
 
     /* El cuerpo entero: tipo, zona de soltar y lo que no se subió, uno debajo del otro. */
     .hd-cm-tools { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -160,7 +152,7 @@
         o.innerHTML =
             '<div class="hd-cm-modal" role="dialog" aria-modal="true" aria-label="Carga masiva de documentos">' +
                 '<div class="hd-cm-head">' +
-                    '<div class="hd-cm-head-ic"><i class="material-icons">cloud_upload</i></div>' +
+                    '<i class="material-icons">cloud_upload</i>' +
                     '<h2>Carga masiva de documentos</h2>' +
                     '<button type="button" class="hd-cm-cerrar" id="hdCmCerrar" title="Cerrar"><i class="material-icons">close</i></button>' +
                 '</div>' +

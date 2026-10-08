@@ -512,7 +512,13 @@ class CargaMasivaDocumentos
                 'tabla'   => $fila['pagina'],
                 'cert'    => $cert,
                 'vence'   => $fila['vence'],
-                'emision' => $cert['emision'] ?? $flota['emision'],
+                // La emision va con el vencimiento de la FILA, que es el de la renovacion: la de la
+                // cabecera de la tabla. La del certificado solo si es de ese mismo periodo (vence
+                // igual que la fila). El INTT renueva la lista pero no reemite el certificado de
+                // los camiones que ya estaban: el de mayo 2025 sigue diciendo 30/05/2025 y, junto
+                // al vencimiento de la renovacion (03/07/2027), dejaba la ficha con dos fechas de
+                // documentos distintos (219 fichas, 07-10-2026).
+                'emision' => ($cert && ($cert['vence'] ?? null) === $fila['vence']) ? $cert['emision'] : $flota['emision'],
             ]];
         }
 

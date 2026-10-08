@@ -1656,6 +1656,11 @@ class EquipoAuxiliarController extends Controller
                 'serial'         => $a->SERIAL,
                 'frente'         => optional($a->frente)->NOMBRE_FRENTE,
                 'foto_drive_id'  => $fotoDriveId,
+                // Los documentos cargados, para verlos desde la papelera sin restaurar.
+                'documentos'     => collect(['propiedad' => ['Propiedad', $a->LINK_DOC_PROPIEDAD], 'certificado' => ['Certificado', $a->LINK_CERTIFICADO]])
+                    ->filter(fn ($d) => trim((string) $d[1]) !== '')
+                    ->map(fn ($d, $tipo) => ['tipo' => $tipo, 'nombre' => $d[0], 'link' => trim($d[1])])
+                    ->values()->all(),
                 'deleted_at'     => optional($a->deleted_at)->format('d/m/Y H:i'),
                 'deleted_by'     => $a->deleted_by ? ($usuarios[$a->deleted_by] ?? '#' . $a->deleted_by) : null,
             ];

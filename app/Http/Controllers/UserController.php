@@ -225,7 +225,7 @@ class UserController extends Controller
             // Solo el literal en PERMISOS otorga acceso. No hay alias ni atajos.
             'almacen.productos'  => 'Registrar y editar productos del catálogo',
             'almacen.movimiento' => 'Registrar entradas, salidas, ajustes, traspasos y confirmar recepciones',
-            'almacen.nota.eliminar' => 'Eliminar Notas de Entrega y productos del catálogo',
+            'almacen.nota.eliminar' => 'Eliminar notas y productos',
             'almacen.nota.corregir' => 'Corregir cantidades de una Nota de Entrega',
             // Visibilidad del panel "Alertas de Documentos" (menú), POR USUARIO. Regla en
             // DashboardController@generateAlertsList: si el usuario tiene AL MENOS una clave
