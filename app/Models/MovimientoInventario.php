@@ -260,7 +260,7 @@ class MovimientoInventario extends Model
      * Normaliza un rango Desde/Hasta. Acepta 'YYYY-MM-DD' (día) o 'YYYY-MM' (filtro por
      * MES): si llega solo el mes lo expande (Desde → primer día; Hasta → último día).
      * Sin esto, '<= YYYY-MM' se interpreta como 'YYYY-MM-00' y EXCLUYE todo el mes.
-     * Es idempotente (una fecha completa de 10 chars pasa tal cual) y FUENTE ÚNICA del
+     * Endereza un rango al revés. Es idempotente (una fecha completa pasa tal cual) y FUENTE ÚNICA del
      * idiom — la usan scopePeriodo y AlmacenController::consumoDashboard.
      * @return array{0:?string,1:?string} [desde, hasta] ya expandidos (o null).
      */
@@ -268,6 +268,13 @@ class MovimientoInventario extends Model
     {
         $desde = $desde ? trim($desde) : null;
         $hasta = $hasta ? trim($hasta) : null;
+        // Rango al revés (Desde después de Hasta): se toma al derecho. Antes no traía nada y
+        // el Dashboard de Consumo decía "No hay consumo" como si el filtro no funcionara.
+        // Se cambian ANTES de expandir los meses, para que el mes que queda de Hasta llegue a
+        // su último día. Comparar como texto vale: 'YYYY-MM' y 'YYYY-MM-DD' ordenan bien.
+        if ($desde && $hasta && $desde > $hasta) {
+            [$desde, $hasta] = [$hasta, $desde];
+        }
         if ($desde && strlen($desde) === 7) {
             $desde .= '-01';
         }
