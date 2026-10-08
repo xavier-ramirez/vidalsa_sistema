@@ -389,7 +389,7 @@
 
             {{-- Por donde va cada documento. Cuando los cuatro digan "listo", termino. --}}
             <div class="cpdf-caja cpdf-avance">
-                <small>Por dónde va la revisión</small>
+                <small><i class="material-icons">fact_check</i> Por dónde va la revisión</small>
                 @foreach ($avanceDocs as $tipo => $a)
                     <a class="cpdf-avance-fila" href="{{ request()->fullUrlWithQuery(['tipo_doc' => $tipo, 'estado_doc' => null, 'page' => null]) }}">
                         <span class="cpdf-avance-nombre">{{ $a['nombre'] }}</span>
