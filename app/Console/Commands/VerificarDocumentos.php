@@ -83,35 +83,79 @@ class VerificarDocumentos extends Command
     /** Cache: cuando se pulso "Revisar ahora" en el panel. */
     private const AHORA = 'docs_verificar_ahora';
 
+    /** Cache: de que documentos es ese "Revisar ahora", separados por comas ('' = todos). */
+    private const AHORA_TIPO = 'docs_verificar_ahora_tipo';
+
     /** Cuanto vale un "Revisar ahora": de sobra para leerlo todo (~30 documentos/minuto). */
     private const AHORA_HORAS = 12;
 
     /** ¿Le toca leer al programador? En su franja, o si alguien pidio "Revisar ahora". */
     public static function tocaLeer(): bool
     {
+        return self::enFranja() || self::pedidaAhora() !== null;
+    }
+
+    /** ¿Estamos dentro de HORARIO? */
+    private static function enFranja(): bool
+    {
         [$desde, $hasta] = self::HORARIO;
         $hora = now()->format('H:i');
         // La franja termina a medianoche (20:00-00:00) o la cruza: vale de las 20:00 en adelante o antes del final.
-        $enFranja = $desde <= $hasta ? ($hora >= $desde && $hora < $hasta) : ($hora >= $desde || $hora < $hasta);
-        return $enFranja || self::pedidaAhora() !== null;
+        return $desde <= $hasta ? ($hora >= $desde && $hora < $hasta) : ($hora >= $desde || $hora < $hasta);
     }
 
     /**
-     * "Revisar ahora" (boton del panel): la lectura arranca en el minuto siguiente, SIN
+     * "Revisar ahora" (botones del panel): la lectura arranca en el minuto siguiente, SIN
      * IMPORTAR LA HORA, y en esa pasada se vuelve a leer tambien lo que salio "No se pudo
      * leer" (VerificacionDocumento::inicioDeLaNoche cuenta desde aqui). Sigue hasta leerlo
      * todo: en cuanto no queda nada, el programador ya no lanza ningun proceso
      * (VerificacionDocumento::hayTrabajo). Se puede volver a pulsar cuando se quiera.
+     *
+     * Hay un boton por documento ($tipo: propiedad, poliza, rotc o racda) y otro para todos
+     * (null). Los pedidos SE SUMAN mientras siga en curso el anterior: pulsar Titulo y luego
+     * Poliza lee los dos, no solo el ultimo; y si ya estaban pedidos todos, siguen todos.
      */
-    public static function pedirAhora(): void
+    public static function pedirAhora(?string $tipo = null): void
     {
-        Cache::put(self::AHORA, now()->toDateTimeString(), now()->addHours(self::AHORA_HORAS));
+        $antes = self::pedidaAhoraTipos();
+        $tipos = ($tipo === null || (self::pedidaAhora() !== null && $antes === null))
+            ? null
+            : array_values(array_unique(array_merge($antes ?? [], [$tipo])));
+
+        $hasta = now()->addHours(self::AHORA_HORAS);
+        Cache::put(self::AHORA, now()->toDateTimeString(), $hasta);
+        Cache::put(self::AHORA_TIPO, $tipos === null ? '' : implode(',', $tipos), $hasta);
     }
 
     /** Cuando se pidio "Revisar ahora" (si sigue vigente), o null. */
     public static function pedidaAhora(): ?string
     {
         return Cache::get(self::AHORA);
+    }
+
+    /**
+     * Los documentos pedidos con "Revisar ahora", en el orden de la revision, o null si se
+     * pidieron todos o no hay pedido en curso. Un pedido de antes de que hubiera un boton por
+     * documento no guardo ninguno: cuenta como todos.
+     */
+    public static function pedidaAhoraTipos(): ?array
+    {
+        if (self::pedidaAhora() === null) return null;
+        $pedidos = explode(',', (string) Cache::get(self::AHORA_TIPO, ''));
+        $tipos = array_values(array_filter(array_keys(self::ENLACES), fn ($t) => in_array($t, $pedidos, true)));
+        return $tipos ?: null;
+    }
+
+    /**
+     * Los documentos que toca leer AHORA. En la franja, todos, como siempre. Fuera de ella solo
+     * corre por "Revisar ahora", y entonces solo los documentos de los botones pulsados: un
+     * pedido de polizas no se pone a leer titulos. Lo usan el comando y
+     * VerificacionDocumento::hayTrabajo, asi el programador no lanza procesos por lo que no se pidio.
+     */
+    public static function tiposDeAhora(): array
+    {
+        if (self::enFranja()) return array_keys(self::ENLACES);
+        return self::pedidaAhoraTipos() ?? array_keys(self::ENLACES);
     }
 
     /** [tipo => columna del enlace]. El ORDEN es el de la revision (ver VerificacionDocumento). */
@@ -124,7 +168,7 @@ class VerificarDocumentos extends Command
 
     public function handle(LectorDocumentoPdf $lector): int
     {
-        $tipos = $this->option('tipo') ? [$this->option('tipo')] : array_keys(self::ENLACES);
+        $tipos = $this->option('tipo') ? [$this->option('tipo')] : self::tiposDeAhora();
         foreach ($tipos as $t) {
             if (!isset(self::ENLACES[$t])) {
                 $this->error("Tipo desconocido: $t. Usa " . implode(', ', array_keys(self::ENLACES)) . '.');

@@ -7,7 +7,11 @@
         background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
         padding: 16px; box-shadow: 0 4px 6px -1px rgba(15,23,42,0.06);
     }
-    .cpdf-side { width: 280px; flex: 0 0 280px; display: flex; flex-direction: column; gap: 10px; }
+    /* El resumen acompaña al bajar por la tabla (sticky): sin esto se quedaba arriba y el
+       resto de la columna salía en blanco. top 90px = debajo del menú fijo (.dashboard-header,
+       75px). Si no cabe en la pantalla, se desplaza solo. */
+    .cpdf-side { width: 280px; flex: 0 0 280px; display: flex; flex-direction: column; gap: 10px;
+                 position: sticky; top: 90px; max-height: calc(100vh - 110px); overflow-y: auto; }
 
     .cpdf-filtros { display: flex; flex-wrap: nowrap; gap: 10px; align-items: stretch; margin-bottom: 14px; }
     .cpdf-filtros > .filter-item.responsive-filter-item { flex: 1 1 0 !important; max-width: none !important; min-width: 0; }
@@ -42,23 +46,35 @@
     .cpdf-aviso.ok { background: #eff6ff; border-color: #bfdbfe; color: #1e3a5f; }
     .cpdf-aviso.ok strong, .cpdf-aviso.ok span { color: #1e3a5f; }
     .cpdf-aviso.apagada { background: #f8fafc; color: #475569; }
-    .cpdf-aviso .cpdf-ahora { margin-top: 8px; height: 32px; padding: 0 12px; border-radius: 8px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }
+    .cpdf-aviso .cpdf-ahora-rotulo { margin-top: 8px; font-weight: 700; }
+    .cpdf-aviso .cpdf-ahora-botones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .cpdf-aviso .cpdf-ahora { height: 32px; padding: 0 12px; border-radius: 8px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; }
     .cpdf-aviso .cpdf-ahora .material-icons { font-size: 18px; margin: 0; }
     .cpdf-aviso .cpdf-ahora-pedida { margin-top: 6px; font-weight: 700; }
     /* Tarjetas que filtran la lista: son enlaces, pero se ven igual que las demas cajas. */
     a.cpdf-filtra { text-decoration: none; transition: border-color .15s, transform .15s; }
     a.cpdf-filtra:hover { border-color: #0067b1; transform: translateY(-1px); }
-    .cpdf-avance small { margin-bottom: 8px; }
+    /* Misma letra que la tarjeta de distribución de Equipos ("Ubicación por Frente",
+       admin/equipos/partials/distribution_stats): titulo de 13 px con raya debajo, nombre
+       de 12,5 px y la cifra en su pastilla gris. */
+    .cpdf-avance small { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding-bottom: 8px;
+                         border-bottom: 2px solid #f1f5f9; font-size: 13px; font-weight: 700; letter-spacing: 0; }
+    .cpdf-avance small .material-icons { font-size: 18px; color: #3b82f6; }
     /* Dos lineas por documento: el nombre entero con su cifra, y debajo la barra. En la
        columna lateral (280 px) el nombre no cabe al lado de la barra sin recortarse. */
-    .cpdf-avance-fila { display: grid; grid-template-columns: 1fr auto; align-items: center;
-                        column-gap: 8px; text-decoration: none; padding: 4px 0; }
-    .cpdf-avance-nombre { font-size: 12px; font-weight: 700; color: #334155; }
-    .cpdf-avance-barra { grid-column: 1 / -1; margin-top: 3px; height: 7px; border-radius: 99px;
-                         background: #e2e8f0; overflow: hidden; }
+    .cpdf-avance-fila { display: grid; grid-template-columns: 1fr auto; align-items: flex-start;
+                        column-gap: 4px; text-decoration: none; padding: 0 0 4px; margin-bottom: 4px;
+                        border-bottom: 1px dashed #f1f5f9; transition: opacity .2s; }
+    .cpdf-avance-fila:last-child { margin-bottom: 0; }
+    .cpdf-avance-fila:hover { opacity: .7; }
+    /* .cpdf-caja span pone 12 px gris a todo span: aqui manda la letra de Equipos. */
+    .cpdf-avance .cpdf-avance-nombre { grid-area: 1 / 1; margin: 0; font-size: 12.5px; font-weight: 600; color: #334155; line-height: 1.25; word-break: break-word; }
+    .cpdf-avance .cpdf-avance-barra { grid-area: 2 / 1 / 3 / -1; margin-top: 2px; height: 4px; border-radius: 2px;
+                                      background: #e2e8f0; overflow: hidden; }
     /* Mismo azul que las barras de distribución de Equipos. */
-    .cpdf-avance-barra i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); }
-    .cpdf-avance-cifra { font-size: 11px; font-weight: 700; color: #64748b; font-variant-numeric: tabular-nums; }
+    .cpdf-avance-barra i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); }
+    .cpdf-avance .cpdf-avance-cifra { grid-area: 1 / 2; justify-self: end; margin: 0 0 2px; font-size: 12.5px; font-weight: 700; color: #1e293b; background: #f1f5f9;
+                                      padding: 2px 8px; border-radius: 4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .cpdf-avance-listo { color: #15803d; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
     /* Revisar a mano en el visor (panel oscuro del visor). Arriba, la tarjeta de la revisión
        (.cpdf-pista-aviso): estado, motivo y, dato a dato, "ficha → documento"; debajo de cada
@@ -162,7 +178,8 @@
        resumen va ARRIBA (order): debajo quedaba después de 50 filas. */
     @media (max-width: 1024px) {
         .cpdf-layout { flex-direction: column; align-items: stretch; }
-        .cpdf-side { order: -1; width: 100%; flex-basis: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+        .cpdf-side { order: -1; width: 100%; flex-basis: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                     position: static; max-height: none; overflow: visible; }
         .cpdf-side .cpdf-aviso { grid-column: 1 / -1; }
         .cpdf-filtros { flex-wrap: wrap; }
     }
@@ -174,10 +191,7 @@
         .cpdf-side { gap: 0; }
         .cpdf-side > *:not(.cpdf-avance) { display: none !important; }
         .cpdf-avance { grid-column: 1 / -1; padding: 10px 12px; }
-        .cpdf-avance small { margin-bottom: 6px; }
-        .cpdf-avance-fila { padding: 3px 0; }
-        .cpdf-avance-nombre { font-size: 11.5px; }
-        .cpdf-avance-barra { height: 6px; }
+        .cpdf-avance small { margin-bottom: 8px; }
 
         /* ── Teléfono: cada fila es una TARJETA ──
            Las dos tablas tienen 6 y 8 columnas: en 390 px no caben y había que arrastrar la
