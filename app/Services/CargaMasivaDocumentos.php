@@ -1916,9 +1916,12 @@ class CargaMasivaDocumentos
                     'mensaje' => 'Este equipo ya tiene ese documento, y el nuevo no vence despues: se quedo el suyo.'];
         }
 
-        // 2) Ni con permiso se retrocede un vencimiento: misma regla que la revision nocturna.
+        // 2) Ni con permiso se retrocede un vencimiento: misma regla que la revision nocturna
+        //    (tambien su excepcion: el que empieza cuando la ficha o despues es el vigente).
         if ($colVence && $vence) {
-            $motivo = VerificacionDocumento::documentoAnterior($this->soloFecha($doc?->$colVence), $vence);
+            $colEmision = DocumentacionDeEquipo::EMISION[$tipo] ?? null;
+            $motivo = VerificacionDocumento::documentoAnterior($this->soloFecha($doc?->$colVence), $vence,
+                $colEmision ? $this->soloFecha($doc?->$colEmision) : null, $emision);
             if ($motivo) return ['ok' => false, 'mensaje' => $motivo];
         }
 

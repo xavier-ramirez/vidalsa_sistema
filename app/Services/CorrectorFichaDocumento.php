@@ -97,7 +97,7 @@ class CorrectorFichaDocumento
             // El verificador ya no las produce, pero las guardadas antes si, y la tarea las
             // aplicaria al rellenar: pondria la fecha vieja encima de la buena. (Si la ficha
             // cambio DESPUES de leer, eso lo resuelve la comprobacion de mas abajo.)
-            if ($anterior = $this->anteriorPorSuVencimiento($reg)) {
+            if ($anterior = $this->anteriorPorSuVencimiento($reg, $doc)) {
                 $reg->update([
                     'A_MANO'      => true,
                     'MOTIVO'      => mb_substr($anterior, 0, 255),
@@ -299,9 +299,9 @@ class CorrectorFichaDocumento
         if ($this->porQueNoSePuede($reg) && !$this->admiteFechasVacias($reg)) return [];
         // Una lectura guardada antes de la regla del PDF anterior no lleva su marca: se mira
         // por el vencimiento, como en aplicar().
-        if ($this->anteriorPorSuVencimiento($reg)) return [];
         $doc = Documentacion::where('ID_EQUIPO', $reg->ID_EQUIPO)->first();
         if (!$doc) return [];
+        if ($this->anteriorPorSuVencimiento($reg, $doc)) return [];
 
         $fechas = [];
         foreach (VerificacionDocumento::camposDeFecha($reg->TIPO) as $campo) {
@@ -343,13 +343,18 @@ class CorrectorFichaDocumento
 
     /**
      * ¿Es el PDF ANTERIOR, visto por el vencimiento que se leyo? Vale tambien para lecturas
-     * guardadas antes de la regla (no llevan la marca doc_anterior). Devuelve el motivo o null.
+     * guardadas antes de la regla (no llevan la marca doc_anterior). Con la emision de la
+     * ficha y el inicio del PDF: el que empieza cuando la ficha o despues no es el anterior
+     * (ver documentoAnterior). Devuelve el motivo o null.
      */
-    private function anteriorPorSuVencimiento(VerificacionDocumento $reg): ?string
+    private function anteriorPorSuVencimiento(VerificacionDocumento $reg, Documentacion $doc): ?string
     {
         $campoVence = VerificacionDocumento::CAMPO_VENCE[$reg->TIPO] ?? null;
         $vence = $campoVence ? ($reg->DIFERENCIAS[$campoVence] ?? null) : null;
-        return $vence ? VerificacionDocumento::documentoAnterior($vence['ficha'] ?? null, $vence['documento'] ?? null) : null;
+        if (!$vence) return null;
+        $campoEmision = VerificacionDocumento::CAMPO_EMISION[$reg->TIPO] ?? null;
+        return VerificacionDocumento::documentoAnterior($vence['ficha'] ?? null, $vence['documento'] ?? null,
+            $campoEmision ? $doc->$campoEmision?->format('Y-m-d') : null, VerificacionDocumento::inicioDelDocumento($reg->LEIDO));
     }
 
     /**

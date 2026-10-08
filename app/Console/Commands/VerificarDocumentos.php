@@ -571,7 +571,7 @@ class VerificarDocumentos extends Command
                 default                           => 'No se encontro la aseguradora ni la vigencia en el documento',
             }, [], $leido];
         }
-        if ($anterior = $this->documentoAnterior($f->FECHA_VENC_POLIZA, $leido)) return $anterior;
+        if ($anterior = $this->documentoAnterior($f->FECHA_VENC_POLIZA, $f->FECHA_EMISION_POLIZA, $leido)) return $anterior;
         if ($idSeguro && (int) $f->ID_SEGURO !== $idSeguro) {
             $dif['ID_SEGURO'] = [
                 'etiqueta' => 'Aseguradora',
@@ -634,7 +634,7 @@ class VerificarDocumentos extends Command
                 'La tabla del ROTC trae este serial con la placa ' . $leido['placa_en_tabla']
                     . ' y la ficha dice ' . $f->PLACA . ': revisar cuál es la buena', [], $leido];
         }
-        if ($anterior = $this->documentoAnterior($f->FECHA_ROTC, $leido)) return $anterior;
+        if ($anterior = $this->documentoAnterior($f->FECHA_ROTC, $f->FECHA_EMISION_ROTC, $leido)) return $anterior;
         // El nombre del ROTC ("Razon Social") es la OPERADORA —siempre la empresa—, no el
         // PROPIETARIO del vehiculo, que es lo que guarda NOMBRE_DEL_TITULAR (sale del titulo). No
         // se comparan: en un vehiculo de otro dueño operado por la empresa salia "otro nombre" y
@@ -686,7 +686,7 @@ class VerificarDocumentos extends Command
                 [], $leido,
             ];
         }
-        if ($anterior = $this->documentoAnterior($f->FECHA_RACDA, $leido)) return $anterior;
+        if ($anterior = $this->documentoAnterior($f->FECHA_RACDA, $f->FECHA_EMISION_RACDA, $leido)) return $anterior;
         $dif = [];
         $this->compararFecha($dif, 'FECHA_RACDA', 'Vencimiento', $f->FECHA_RACDA, $leido['vence'] ?? null);
         $this->compararFecha($dif, 'FECHA_EMISION_RACDA', 'Fecha de emisión', $f->FECHA_EMISION_RACDA, $leido['emision'] ?? null);
@@ -698,13 +698,14 @@ class VerificarDocumentos extends Command
 
     /**
      * El resultado de un PDF que vence bastante ANTES de lo que dice la ficha (el anterior, ver
-     * VerificacionDocumento::documentoAnterior), o null si es el vigente. Sin diferencias: lo
-     * que dice ese PDF ya no vale y no se propone ni se pone; queda para que alguien enlace
-     * el vigente.
+     * VerificacionDocumento::documentoAnterior, que tambien mira cuando empieza), o null si es
+     * el vigente. Sin diferencias: lo que dice ese PDF ya no vale y no se propone ni se pone;
+     * queda para que alguien enlace el vigente.
      */
-    private function documentoAnterior(?string $venceFicha, array $leido): ?array
+    private function documentoAnterior(?string $venceFicha, ?string $emisionFicha, array $leido): ?array
     {
-        $motivo = VerificacionDocumento::documentoAnterior($venceFicha, $leido['vence'] ?? null);
+        $motivo = VerificacionDocumento::documentoAnterior($venceFicha, $leido['vence'] ?? null,
+            $emisionFicha, VerificacionDocumento::inicioDelDocumento($leido));
         if (!$motivo) return null;
         $leido['doc_anterior'] = true;
         return [VerificacionDocumento::DIFIERE, $motivo, [], $leido];

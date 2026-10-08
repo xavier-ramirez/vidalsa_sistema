@@ -89,16 +89,36 @@ class VerificacionDocumento extends Model
      * viejo. Nada de ese PDF sirve para corregir la ficha (ni su vencimiento, ni su emision, ni
      * su aseguradora): "el documento manda" vale para el documento VIGENTE. Devuelve el motivo
      * que se muestra, o null si el PDF no es anterior. Lo usan el verificador, el corrector,
-     * la migracion del 18-09-2026 y (en JS, con el mismo umbral) el visor.
+     * la carga masiva, la migracion del 18-09-2026 y (en JS, con el mismo umbral) el visor.
+     *
+     * Excepcion: el PDF que EMPIEZA el mismo dia que la ficha (o despues) no es el anterior,
+     * aunque venza antes: es el vigente, solo que mas corto. Pasa con las polizas de flota
+     * prorrateadas (Piramide AUTF-001001-1601: el equipo entra el 04/08/2026 y vence con
+     * toda la flota el 09/06/2027); sin esto se ignoraban y la ficha se quedaba con
+     * "emision + 1 año" (45 fichas, auditoria del 07-10-2026). El inicio del documento es
+     * el comienzo de su vigencia o, si no la trae, su emision (inicioDelDocumento). Sin una
+     * de las dos fechas se decide como siempre, solo por el vencimiento.
      */
-    public static function documentoAnterior(?string $venceFicha, ?string $venceDocumento): ?string
+    public static function documentoAnterior(?string $venceFicha, ?string $venceDocumento,
+                                              ?string $emisionFicha = null, ?string $inicioDocumento = null): ?string
     {
         $ficha = $venceFicha ? substr($venceFicha, 0, 10) : null;
         if (!$ficha || !$venceDocumento
             || strtotime($ficha) - strtotime($venceDocumento) <= self::DIAS_ANTERIOR * 86400) return null;
+        $emisionFicha = $emisionFicha ? substr($emisionFicha, 0, 10) : null;
+        if ($emisionFicha && $inicioDocumento && $inicioDocumento >= $emisionFicha) return null;
         $fecha = fn (string $f) => implode('/', array_reverse(explode('-', $f)));
         return 'El PDF enlazado es el ANTERIOR: vence el ' . $fecha($venceDocumento) . ' y la ficha ya dice '
             . $fecha($ficha) . '. No se toma nada de él: enlaza el vigente.';
+    }
+
+    /**
+     * Cuando empieza lo que se leyo de un documento: el comienzo de su vigencia ('desde', las
+     * polizas) o, si no la trae, su emision. Es el "inicio" de documentoAnterior.
+     */
+    public static function inicioDelDocumento(?array $leido): ?string
+    {
+        return ($leido['desde'] ?? null) ?: (($leido['emision'] ?? null) ?: null);
     }
 
     /** El PDF enlazado es uno anterior al que ya refleja la ficha (ver documentoAnterior). */

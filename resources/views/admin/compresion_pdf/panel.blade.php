@@ -245,7 +245,7 @@
                                 @elseif ($d->DRIVE_ID)
                                     {{-- Abre el PDF con los campos de la ficha para revisarla (ver cpdfRevisar). --}}
                                     <button type="button" class="pdf-doc-btn" title="Ver el documento y revisar la ficha"
-                                        onclick="window.cpdfRevisar(@js(['id' => $d->ID_REGISTRO, 'equipoId' => (int) $d->ID_EQUIPO, 'tipo' => $d->TIPO, 'dif' => (object) ($d->DIFERENCIAS ?? []), 'estado' => $estadosDoc[$d->ESTADO] ?? $d->ESTADO, 'motivo' => $d->MOTIVO, 'fiable' => !($d->esLecturaParcial() || $d->sinConfirmar() || $d->esDeOtroVehiculo() || $d->esDocumentoAnterior())]), '/storage/google/{{ $d->DRIVE_ID }}', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')))">
+                                        onclick="window.cpdfRevisar(@js(['id' => $d->ID_REGISTRO, 'equipoId' => (int) $d->ID_EQUIPO, 'tipo' => $d->TIPO, 'dif' => (object) ($d->DIFERENCIAS ?? []), 'estado' => $estadosDoc[$d->ESTADO] ?? $d->ESTADO, 'motivo' => $d->MOTIVO, 'inicio' => \App\Models\VerificacionDocumento::inicioDelDocumento($d->LEIDO), 'fiable' => !($d->esLecturaParcial() || $d->sinConfirmar() || $d->esDeOtroVehiculo() || $d->esDocumentoAnterior())]), '/storage/google/{{ $d->DRIVE_ID }}', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')))">
                                         <i class="material-icons">description</i>
                                     </button>
                                 @endif
@@ -739,10 +739,15 @@
             // Lecturas guardadas antes de la regla del PDF ANTERIOR (VerificacionDocumento::
             // documentoAnterior): si el documento vence antes de lo que ya dice la ficha, es el
             // viejo y nada suyo se ofrece para poner (ni con "Usar" ni en los campos de abajo).
+            // Salvo que EMPIECE cuando la ficha o despues: es el vigente, mas corto (poliza de
+            // flota prorrateada). Las fechas van aaaa-mm-dd, asi que se comparan como texto.
             var dv = VENCE[window._pdfVerif.tipo] && dif[VENCE[window._pdfVerif.tipo]],
                 fv = cont.querySelector('[name="fecha_vencimiento"]'),
+                fe = cont.querySelector('[name="fecha_emision"]'),
+                inicio = window._pdfVerif.inicio,
                 anterior = !!(dv && dv.documento && fv && fv.value
-                    && (Date.parse(fv.value) - Date.parse(dv.documento)) / 86400000 > DIAS_ANTERIOR);
+                    && (Date.parse(fv.value) - Date.parse(dv.documento)) / 86400000 > DIAS_ANTERIOR
+                    && !(inicio && fe && fe.value && inicio >= fe.value));
             Object.keys(dif).forEach(function (campo) {
                 var d = dif[campo] || {}, valor = d.documento == null ? '' : String(d.documento);
                 var input = CAMPO[campo] && cont.querySelector('[name="' + CAMPO[campo] + '"]');
