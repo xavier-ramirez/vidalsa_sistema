@@ -74,7 +74,7 @@
     }
 
     // En marcha = más de 3 km/h, y solo con la posición al día: con la última conocida (`vieja`,
-    // de hasta un día) la flecha diría que va en marcha AHORA.
+    // de hasta 7 días) la flecha diría que va en marcha AHORA.
     function enMarcha(g) { return !g.vieja && g.velocidad > 3; }
 
     // Cómo se reconoce el equipo, en este orden y uno al lado del otro (pedido del cliente,
@@ -187,7 +187,7 @@
             var terceraTxt = ids.join('  ');
             var tercera = ids.map(function (t) { return parte(esc(t), true); }).join(' ');
             // "desde hace" es lo que GPS51 dijo AL CONSULTAR: con la última posición conocida
-            // (`vieja`, de hasta un día) ya no es verdad, así que no se pone.
+            // (`vieja`, de hasta 7 días) ya no es verdad, así que no se pone.
             var motorDesde = g.vieja ? '' : duracion(g.acc_tiempo);
 
             return '<div class="mapa-eq">' +

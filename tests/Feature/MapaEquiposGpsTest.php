@@ -326,4 +326,32 @@ class MapaEquiposGpsTest extends MySqlTestCase
         $this->assertArrayNotHasKey('vieja', $fila['gps']);
         $this->assertNotContains($equipo->ID_EQUIPO, $lista->json('pendientes'));
     }
+
+    /**
+     * La última posición conocida dura una semana (Gps51Service::TTL_ULTIMA): quien abre el mapa
+     * tras días sin uso ve los equipos al instante, sin esperar a GPS51. Pasada la semana ya no.
+     */
+    public function test_la_ultima_posicion_conocida_se_guarda_una_semana(): void
+    {
+        $equipo = Equipo::where('LINK_GPS', 'like', '%gps51%')->get(['ID_EQUIPO', 'LINK_GPS'])
+            ->first(fn ($e) => Gps51Service::authcode($e->LINK_GPS) !== null);
+        $this->assertNotNull($equipo, 'Hace falta un equipo con enlace de GPS51 válido.');
+        $ac = Gps51Service::authcode($equipo->LINK_GPS);
+        Http::fake(['gps51.com/*' => Http::response($this->respuestaGps51())]);
+        Gps51Service::posiciones([$ac]);
+
+        // Tres días después (antes duraba uno): la fresca caducó, la última conocida sigue.
+        $this->travel(3)->days();
+        [$pos, $faltan] = Gps51Service::frescasOUltimas([$ac]);
+        $this->assertTrue($pos[$ac]['ok']);
+        $this->assertTrue($pos[$ac]['vieja']);
+        $this->assertSame([$ac], $faltan, 'Sigue pidiéndose a GPS51 para ponerla al día.');
+
+        // Pasada la semana ya no hay nada que enseñar: se espera a GPS51.
+        $this->travel(5)->days();
+        [$pos, $faltan] = Gps51Service::frescasOUltimas([$ac]);
+        $this->assertArrayNotHasKey($ac, $pos);
+        $this->assertSame([$ac], $faltan);
+        $this->travelBack();
+    }
 }

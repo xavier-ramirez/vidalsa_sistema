@@ -44,8 +44,11 @@ class Gps51Service
     /** Segundos que se reutiliza una dirección (una coordenada no cambia de dirección). */
     private const TTL_DIRECCION = 86400;
 
-    /** Segundos que se guarda la ÚLTIMA posición conocida (ver frescasOUltimas). */
-    private const TTL_ULTIMA = 86400;
+    /** Segundos que se guarda la ÚLTIMA posición conocida (ver frescasOUltimas): 7 días. Con
+        uno solo, el primero que abría el mapa tras un día sin uso lo encontraba sin nada que
+        enseñar y esperaba a GPS51 con el spinner puesto; con una semana casi siempre hay una
+        que pintar al instante (marcada `vieja`, con su fecha) mientras llega la de ahora. */
+    private const TTL_ULTIMA = 7 * 86400;
 
     /** Coordenadas por consulta de direcciones (ver direcciones(); 120 se probaron sin problema). */
     private const DIRECCIONES_POR_CONSULTA = 100;

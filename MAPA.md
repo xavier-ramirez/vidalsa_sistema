@@ -282,10 +282,10 @@ antes de que una navegación pusiera el contador a cero — restarla destapaba l
      vieja.
   2. **La capa se monta de una vez.** Mientras `capaEquipos.montando`, NADIE llama a `eqPintar`:
      el mapa sale entero, ya agrupado. La lista (`equiposGps`) trae para cada equipo su posición
-     fresca (2 min) o, si caducó, la ÚLTIMA conocida (1 día, marcada `vieja`) y la deja en
+     fresca (2 min) o, si caducó, la ÚLTIMA conocida (7 días, `TTL_ULTIMA`, marcada `vieja`) y la deja en
      `pendientes`: si a lo sumo una tanda no trae ninguna, el mapa sale AL INSTANTE y las tandas lo
      ponen al día en caliente (los marcadores solo se mueven). Si faltan más, espera a las tandas o
-     a `EQ_MONTAJE_TOPE_MS` (8 s). Antes se veían aparecer los equipos a goteo y juntarse en grupos
+     a `EQ_MONTAJE_TOPE_MS` (2,5 s; eran 8 y el spinner se hacía eterno con la caché vacía). Antes se veían aparecer los equipos a goteo y juntarse en grupos
      una y otra vez con cada tanda.
   3. **`vieja` no es "al día":** no cuenta como respondida (`_sinRespuesta`, el pie lo avisa), no
      dibuja la flecha de marcha ni el "desde hace" del motor, la ficha dice "Últimos datos
@@ -295,7 +295,7 @@ antes de que una navegación pusiera el contador a cero — restarla destapaba l
   al bajar y vuelve al primer bloque al cambiar de filtro o al apagar la capa.
 - **Excel del panel** (`mapa.equiposGps.exportar`): recibe los `ids` de lo filtrado (el servidor
   igual recorta a los frentes del usuario). Posición: la fresca (2 min), si no la ÚLTIMA
-  conocida (`Gps51Service::frescasOUltimas`, 1 día) y solo lo que no tiene ninguna se pide a
+  conocida (`Gps51Service::frescasOUltimas`, 7 días; su fecha va en ÚLTIMA SEÑAL) y solo lo que no tiene ninguna se pide a
   GPS51 con tope de 20 s. Direcciones en UNA consulta (`Gps51Service::direcciones`: GPS51
   devuelve los puntos desordenados, se emparejan por coordenada). Identificación: placa → serial
   de chasis → serial de motor → código de patio → etiqueta: SOLO `MapaController::identificar`

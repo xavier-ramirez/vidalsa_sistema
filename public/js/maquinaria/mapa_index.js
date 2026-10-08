@@ -3346,7 +3346,9 @@
         var miniEquiposUrl = el.getAttribute('data-mini-equipos');
         var EQ_REFRESCO = 120000;
         var EQ_TANDAS_A_LA_VEZ = 2;
-        var EQ_MONTAJE_TOPE_MS = 8000;   // con la caché vacía, lo que se espera a tenerlo todo antes de enseñar lo que haya
+        // Con la caché vacía, lo que se espera a tenerlo todo antes de enseñar lo que haya: lo
+        // demás entra en caliente. Eran 8 s de spinner; con 2,5 el mapa aparece casi enseguida.
+        var EQ_MONTAJE_TOPE_MS = 2500;
         var EQ_GRUPO_RADIO_PX = 55;    // a menos de esto en pantalla, dos equipos se juntan en uno
         var EQ_GRUPO_HASTA_ZOOM = 16;  // desde aquí ya no se agrupa: se ven todos sueltos
 
