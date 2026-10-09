@@ -26,8 +26,11 @@ class AlertaCertificadoAuxiliarTest extends MySqlTestCase
     /** Auxiliar de usar y tirar; la transacción del caso lo revierte al terminar. */
     private function auxiliarConCertificado(string $vence, string $estado = 'OPERATIVO'): EquipoAuxiliar
     {
-        // Frente normal: los ESPECIAL quedan fuera del panel por decisión del propio panel.
-        $frente = FrenteTrabajo::where('TIPO_FRENTE', '!=', 'ESPECIAL')->first();
+        // Frente normal: los ESPECIAL y los FRENTES_FUERA_DE_ALERTAS quedan fuera del panel
+        // por decisión del propio panel.
+        $frente = FrenteTrabajo::where('TIPO_FRENTE', '!=', 'ESPECIAL')
+            ->whereNotIn('ID_FRENTE', DashboardController::FRENTES_FUERA_DE_ALERTAS)
+            ->first();
 
         return EquipoAuxiliar::create([
             'TIPO'                   => 'CISTERNA',
@@ -103,6 +106,18 @@ class AlertaCertificadoAuxiliarTest extends MySqlTestCase
             ->first(fn ($a) => ($a->origen ?? null) === 'auxiliar' && $a->equipo->ID_AUXILIAR === $aux->ID_AUXILIAR);
 
         $this->assertNull($alerta, 'un auxiliar fuera de servicio no debe generar alertas');
+    }
+
+    public function test_un_auxiliar_inoperativo_si_alerta(): void
+    {
+        // Inoperativo sigue siendo flota: su documento vencido cuenta (pedido 09-10-2026).
+        $aux = $this->auxiliarConCertificado(now()->subDays(30)->toDateString(), 'INOPERATIVO');
+
+        $alerta = $this->alertasDe($this->usuarioQueVeTodo())
+            ->first(fn ($a) => ($a->origen ?? null) === 'auxiliar' && $a->equipo->ID_AUXILIAR === $aux->ID_AUXILIAR);
+
+        $this->assertNotNull($alerta, 'un auxiliar inoperativo con el certificado vencido tiene que avisar');
+        $this->assertSame('expired', $alerta->status);
     }
 
     public function test_la_casilla_de_certificado_gobierna_equipos_y_auxiliares(): void

@@ -277,7 +277,14 @@ class DashboardController extends Controller
      * 2 POR DEFINIR · 39 FINCA MAPIRITO · 44 CVG PUERTO ORDAZ · 45 MINISTERIO DE OBRAS PÚBLICAS ·
      * 78 EQUIPOS DESINCORPORADOS. Se suman a los TIPO_FRENTE=ESPECIAL en generateAlertsList().
      */
-    private const FRENTES_FUERA_DE_ALERTAS = [2, 39, 44, 45, 78];
+    public const FRENTES_FUERA_DE_ALERTAS = [2, 39, 44, 45, 78];
+
+    /**
+     * Estados que no entran en Alertas de Documentos (equipos y auxiliares). Solo lo
+     * DESINCORPORADO: los INOPERATIVOS sí cuentan (pedido del usuario, 09-10-2026), porque
+     * siguen siendo flota y algunos están en la lista de renovación de pólizas.
+     */
+    private const ESTADOS_FUERA_DE_ALERTAS = ['DESINCORPORADO'];
 
     /**
      * Generate alerts list for expired and expiring documents.
@@ -297,7 +304,7 @@ class DashboardController extends Controller
               ->orWhere('FECHA_RACDA', '<', $in30Days)
               ->orWhere('FECHA_ADICIONAL', '<', $in30Days); // Certificado (= documento adicional)
         })
-        ->whereNotIn('ESTADO_OPERATIVO', ['DESINCORPORADO', 'INOPERATIVO'])
+        ->whereNotIn('ESTADO_OPERATIVO', self::ESTADOS_FUERA_DE_ALERTAS)
         // Relaciones del listado de alertas + las que necesita Equipo::toDetailsPayload()
         // (especificaciones, documentacion.seguro, cadena ancladoA) para sembrar
         // window.equiposData sin N+1, y withCount para el badge de auxiliares del modal.
@@ -425,12 +432,12 @@ class DashboardController extends Controller
         // 'filter_adicional' es 'Certificado'), y asi la casilla alertas.ver.certificado
         // gobierna LOS DOS sin necesidad de inventar una clave nueva.
         // Mismas barreras que los equipos: frentes permitidos, frentes bloqueados, fuera
-        // los ESPECIAL y los FRENTES_FUERA_DE_ALERTAS, y fuera lo desincorporado/inoperativo.
+        // los ESPECIAL y los FRENTES_FUERA_DE_ALERTAS, y fuera lo desincorporado.
         $auxQuery = \App\Models\EquipoAuxiliar::query()
             ->whereNotNull('LINK_CERTIFICADO')
             ->whereNotNull('FECHA_VENCIMIENTO_CERT')
             ->where('FECHA_VENCIMIENTO_CERT', '<', $in30Days)
-            ->whereNotIn('ESTADO_OPERATIVO', ['DESINCORPORADO', 'INOPERATIVO'])
+            ->whereNotIn('ESTADO_OPERATIVO', self::ESTADOS_FUERA_DE_ALERTAS)
             ->with('frente');   // en EquipoAuxiliar la relacion se llama 'frente', no 'frenteActual'
 
         $auxQuery->where(function ($q) use ($idsFuera) {
