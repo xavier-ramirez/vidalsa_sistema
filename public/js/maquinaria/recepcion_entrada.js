@@ -728,12 +728,16 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             body: JSON.stringify(payload)
         })
         .then(function (r) {
-            // PDF en éxito; JSON con {message, errors} en error.
+            // PDF en éxito; JSON con {message, errors} en error (o algo que no es JSON: un 500
+            // o la sesión vencida → el mensaje genérico, no el error del parser).
             if (!r.ok) {
-                return r.json().then(function (b) {
+                return r.json().catch(function () { return {}; }).then(function (b) {
                     var msg = (b && b.message) || 'No se pudo generar la vista previa.';
                     if (b && b.errors) msg = Object.values(b.errors).map(function (a) { return a.join(' '); }).join(' ');
-                    throw new Error(msg);
+                    var err = new Error(msg);
+                    // 403 = falta la clave 'almacen.movimiento': solo el toast, como al registrar.
+                    err.soloToast = r.status === 403 || !!(b && b.forbidden);
+                    throw err;
                 });
             }
             if ((r.headers.get('Content-Type') || '').indexOf('application/pdf') === -1) {
@@ -750,41 +754,15 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             // ANTES de pintar, para que el canvas del teléfono mida bien el ancho.
             window.entCerrarDespacho();
             var m = el('entDespPreviewModal'); if (m) m.classList.add('open');
-            var frame = el('entDespPreviewFrame');
-            var cont  = el('entDespPreviewCanvas');
-            if (window.pdfEsMovil()) {
-                // TELÉFONO: el iframe no muestra PDF → PDF.js en canvas (dom_helpers.js).
-                if (frame) frame.style.display = 'none';
-                if (cont)  cont.style.display = 'block';
-                window.pintarPdfEnCanvas(cont, blob);
-            } else if (frame) {
-                frame.style.display = '';
-                frame.src = entDespBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
-            }
+            window.mostrarPdfPrevia(el('entDespPreviewFrame'), el('entDespPreviewCanvas'), blob, entDespBlobUrl);   // dom_helpers.js
         })
         .catch(function (err) {
             if (window.hidePreloader) window.hidePreloader();
             var msg = (err && err.message) || 'Error generando la vista previa.';
-            entDespErr(msg); toast(msg, 'error');
+            if (!(err && err.soloToast)) entDespErr(msg);
+            toast(msg, 'error');
         });
     };
-
-    // Descarga el PDF de la nota recién registrada como archivo (fetch → blob → <a download>),
-    // igual que la salida de /admin/almacen: sin salir de la página aunque el servidor lo
-    // mande 'inline'.
-    function entDescargarNota(url, numero) {
-        window.apiFetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/pdf' } })
-            .then(function (r) { return r.ok ? r.blob() : null; })
-            .then(function (blob) {
-                if (!blob) return;
-                var burl = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = burl; a.download = numero ? ('Nota_' + numero + '.pdf') : 'nota_entrega.pdf'; a.style.display = 'none';
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
-            })
-            .catch(function () { /* la nota ya quedó registrada; la descarga es secundaria */ });
-    }
 
     // Registrar (de la vista previa): la entrada y la salida con la nota previsualizada.
     window.entDespachar = function () {
@@ -811,7 +789,8 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
                 entDespPreviewCerrar();
                 entLimpiarTodo();
                 toast((res.b && res.b.message) || 'Entrada registrada y despachada.', 'success');
-                if (res.b && res.b.nota_url) entDescargarNota(res.b.nota_url, res.b.numero_nota);
+                // La nota, descargada como archivo (dom_helpers.js), igual que la salida de /admin/almacen.
+                if (res.b && res.b.nota_url) window.descargarPdf(res.b.nota_url, res.b.numero_nota ? ('Nota_' + res.b.numero_nota + '.pdf') : 'nota_entrega.pdf');
                 return;
             }
             // No se registró (algo cambió desde la vista previa): de vuelta al modal con el motivo.

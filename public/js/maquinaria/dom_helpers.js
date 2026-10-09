@@ -373,4 +373,62 @@
                     + window.escapeHtml(e && e.message ? e.message : '') + '</div>';
             });
     };
+
+    /**
+     * Pinta la vista previa de la Nota de Entrega en su modal (ya abierto, para que el canvas
+     * mida bien el ancho). La usan la salida de /admin/almacen y "Registrar y despachar" de la
+     * recepción.
+     *   · TELÉFONO: el <iframe> no muestra PDF → PDF.js en `cont` (pintarPdfEnCanvas).
+     *   · ESCRITORIO: el visor del navegador en `frame`. Mientras carga, "Cargando…" en `cont`
+     *     (oculto en escritorio): sin eso el iframe queda en blanco unos instantes. Respaldo a
+     *     los 8 s por si onload no dispara.
+     */
+    window.mostrarPdfPrevia = function (frame, cont, blob, blobUrl) {
+        if (window.pdfEsMovil()) {
+            if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
+            if (cont)  { cont.style.display = 'block'; }
+            window.pintarPdfEnCanvas(cont, blob);
+            return;
+        }
+        if (cont) {
+            cont.style.display = 'flex';
+            cont.style.alignItems = 'center';
+            cont.style.justifyContent = 'center';
+            cont.style.color = '#cbd5e0';
+            cont.innerHTML = '<div style="text-align:center;font-size:13px;"><i class="material-icons" style="font-size:34px;animation:spin 1s linear infinite;display:block;margin:0 auto 8px;">sync</i>Cargando vista previa…</div>';
+        }
+        if (!frame) return;
+        var listo = function () {
+            if (cont) { cont.style.display = 'none'; cont.innerHTML = ''; }
+            frame.style.display = '';
+        };
+        frame.style.display = 'none';
+        frame.onload = function () {
+            if ((frame.src || '').indexOf('about:blank') !== -1) return;
+            listo();
+        };
+        frame.src = blobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
+        setTimeout(function () { if (cont && cont.style.display !== 'none') listo(); }, 8000);
+    };
+
+    /**
+     * Descarga un PDF del sistema como ARCHIVO (fetch → blob → <a download>), sin importar que
+     * el servidor lo mande 'inline': con solo <a href download> algunos navegadores abren la
+     * URL en la misma pestaña y se pierde la pantalla. La usan la salida de /admin/almacen y
+     * "Registrar y despachar" de la recepción para la nota recién registrada. Silenciosa si
+     * falla: lo registrado ya quedó; la descarga es secundaria.
+     */
+    window.descargarPdf = function (url, nombre) {
+        return window.apiFetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/pdf' } })
+            .then(function (r) { return r.ok ? r.blob() : null; })
+            .then(function (blob) {
+                if (!blob) return;
+                var burl = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = burl; a.download = nombre; a.style.display = 'none';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
+            })
+            .catch(function () {});
+    };
 })();

@@ -3897,8 +3897,6 @@
             // para no filtrar memoria si el usuario reabre el preview varias veces.
             if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} }
             almPreviewBlobUrl = URL.createObjectURL(blob);
-            var frame = el('almPreviewFrame');
-            var cont  = el('almPreviewCanvas');
             // Ocultar el modal de salida (sin destruir sus inputs — almCerrar solo
             // quita .open, los valores quedan listos para "Editar") y abrir el preview
             // ANTES de renderizar, para que el canvas mida bien el ancho disponible.
@@ -3912,38 +3910,7 @@
                 avisoBox.style.display = almPreviewAvisoTexto ? 'flex' : 'none';
             }
             almOpen('almPreviewModal');
-            if (window.pdfEsMovil()) {
-                // TELÉFONO: el iframe no muestra PDF → lo dibujamos con PDF.js en canvas.
-                if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
-                if (cont)  { cont.style.display = 'block'; }
-                window.pintarPdfEnCanvas(el('almPreviewCanvas'), blob);   // dom_helpers.js
-            } else {
-                // ESCRITORIO: visor nativo del navegador en el iframe. Mostramos "Cargando…"
-                // en el contenedor del canvas (oculto en escritorio) HASTA que el iframe dispare
-                // load — antes el spinner global se apagaba al llegar el blob y el iframe quedaba
-                // en blanco unos instantes mientras el navegador renderiza el PDF (mismo criterio
-                // que el visor del acta). Fallback a 8s por si onload no dispara.
-                if (cont) {
-                    cont.style.display = 'flex';
-                    cont.style.alignItems = 'center';
-                    cont.style.justifyContent = 'center';
-                    cont.style.color = '#cbd5e0';
-                    cont.innerHTML = '<div style="text-align:center;font-size:13px;"><i class="material-icons" style="font-size:34px;animation:spin 1s linear infinite;display:block;margin:0 auto 8px;">sync</i>Cargando vista previa…</div>';
-                }
-                if (frame) {
-                    frame.style.display = 'none';
-                    frame.onload = function () {
-                        if ((frame.src || '').indexOf('about:blank') !== -1) return;
-                        if (cont) { cont.style.display = 'none'; cont.innerHTML = ''; }
-                        frame.style.display = '';
-                    };
-                    frame.src = almPreviewBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
-                    setTimeout(function () {
-                        if (cont && cont.style.display !== 'none') { cont.style.display = 'none'; cont.innerHTML = ''; }
-                        frame.style.display = '';
-                    }, 8000);
-                }
-            }
+            window.mostrarPdfPrevia(el('almPreviewFrame'), el('almPreviewCanvas'), blob, almPreviewBlobUrl);   // dom_helpers.js
         })
         .catch(function (err) {
             unpre();
@@ -4013,23 +3980,8 @@
                 toast(res.b.message || 'Movimiento registrado.');
                 almCargar();
                 if (res.b && res.b.nota_url) {
-                    // fetch → blob → anchor con download: garantiza que el navegador SIEMPRE
-                    // guarde como archivo, sin importar Content-Disposition (el endpoint manda
-                    // 'inline'). Si usaramos solo `<a href download>`, algunos navegadores
-                    // navegan a la URL en la misma pestaña y el usuario "pierde" la pagina
-                    // del inventario — con blob URL eso no ocurre nunca.
-                    var dlName = res.b.numero_nota ? ('Nota_' + res.b.numero_nota + '.pdf') : 'nota_entrega.pdf';
-                    window.apiFetch(res.b.nota_url, { headers: { 'X-Requested-With': 'XMLHttpRequest',  'Accept': 'application/pdf'}})
-                        .then(function (rr) { return rr.ok ? rr.blob() : null; })
-                        .then(function (blob) {
-                            if (!blob) return;
-                            var burl = URL.createObjectURL(blob);
-                            var a = document.createElement('a');
-                            a.href = burl; a.download = dlName; a.style.display = 'none';
-                            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                            setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
-                        })
-                        .catch(function () { /* silencioso: el movimiento ya se registro, la descarga es secundaria */ });
+                    // Como archivo, sin abrir otro visor (dom_helpers.js).
+                    window.descargarPdf(res.b.nota_url, res.b.numero_nota ? ('Nota_' + res.b.numero_nota + '.pdf') : 'nota_entrega.pdf');
                 }
             } else {
                 // Error tardio (algo cambio entre el preview y el confirm: stock se
