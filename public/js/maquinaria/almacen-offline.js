@@ -151,7 +151,15 @@
         }
 
         let filas = filtrar(stock, f);
-        filas.sort(function (a, b) { return String(a.nombre).localeCompare(String(b.nombre), 'es'); });
+        // Al buscar, lo que tiene existencia primero y lo que está en cero al final, igual
+        // que online (AlmacenController::index); dentro de cada grupo, alfabético.
+        filas.sort(function (a, b) {
+            if (f.q) {
+                const sinA = (Number(a.cantidad) || 0) <= 0, sinB = (Number(b.cantidad) || 0) <= 0;
+                if (sinA !== sinB) return sinA ? 1 : -1;
+            }
+            return String(a.nombre).localeCompare(String(b.nombre), 'es');
+        });
 
         if (!filas.length) {
             tbody.innerHTML = filaMensaje(

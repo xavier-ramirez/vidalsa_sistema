@@ -460,6 +460,50 @@ class AlmacenOrdenBusquedaTest extends MySqlTestCase
      * MySQL no garantiza devolverlas siempre igual — y el scroll infinito, que pide las
      * páginas con skip/take en peticiones distintas, puede repetir una fila o saltársela.
      */
+    /**
+     * Al buscar, lo que tiene existencia sale ANTES que lo que está en cero, aunque el de cero
+     * sea igual de parecido y vaya antes alfabéticamente ("electrodo": los de 0 salían
+     * mezclados con los que hay).
+     */
+    public function test_al_buscar_lo_que_tiene_stock_sale_antes_que_lo_que_esta_en_cero(): void
+    {
+        $caso = null;
+        foreach (['ELECTRODO', 'FILTRO', 'MANGUERA', 'TUBO', 'VALVULA', 'CABLE', 'BOTA'] as $term) {
+            // Saldo por producto en cada almacén (un producto tiene una fila por proyecto).
+            $saldos = DB::table('almacen_stock as s')
+                ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 's.ID_PRODUCTO')
+                ->whereNull('p.deleted_at')
+                ->where('p.NOMBRE', 'like', "{$term}%")
+                ->groupBy('s.ID_ALMACEN', 'p.ID_PRODUCTO', 'p.NOMBRE')
+                ->selectRaw('s.ID_ALMACEN, p.NOMBRE, SUM(s.CANTIDAD) AS saldo');
+            // Un almacén donde el primero en cero va, por nombre, antes que el último con stock.
+            $fila = DB::query()->fromSub($saldos, 't')
+                ->groupBy('t.ID_ALMACEN')
+                ->selectRaw('t.ID_ALMACEN')
+                ->selectRaw('MIN(CASE WHEN t.saldo <= 0 THEN t.NOMBRE END) AS cero')
+                ->selectRaw('MAX(CASE WHEN t.saldo > 0 THEN t.NOMBRE END) AS con_stock')
+                ->havingRaw('cero IS NOT NULL AND con_stock IS NOT NULL AND cero < con_stock')
+                ->first();
+            if ($fila) { $caso = [(int) $fila->ID_ALMACEN, $term, $fila->con_stock, $fila->cero]; break; }
+        }
+        if (!$caso) {
+            $this->markTestSkipped('No hay un almacén con productos en cero y con stock para la misma búsqueda.');
+        }
+        [$idAlmacen, $term, $conStock, $cero] = $caso;
+
+        $html = (string) $this->actingAs($this->superAdminGlobal())
+            ->getJson('/admin/almacen?' . http_build_query([
+                'id_almacen' => $idAlmacen,
+                'search'     => $term,
+            ]))->assertOk()->json('html');
+
+        $pConStock = $this->posicion($html, $conStock);
+        $pCero     = $this->posicion($html, $cero);
+        $this->assertGreaterThan(-1, $pConStock, "«{$conStock}» tiene que salir al buscar «{$term}».");
+        $this->assertGreaterThan(-1, $pCero, "«{$cero}» también sale: el filtro no esconde los de cero.");
+        $this->assertLessThan($pCero, $pConStock, "«{$conStock}» (con stock) va antes que «{$cero}» (en cero).");
+    }
+
     public function test_las_paginas_del_scroll_no_repiten_ni_se_saltan_filas(): void
     {
         // Hace falta una búsqueda que pase de una página (el módulo las trae de 120 en 120).

@@ -210,6 +210,12 @@ class AlmacenController extends Controller
                 // palabra; se usa solo en el reintento de abajo.
                 $traer = function (bool $tolerante) use ($idAlmacenSel, $request, $offset, $PAGE_SIZE) {
                     return $this->productosConSaldoQuery($idAlmacenSel, $request, $tolerante)
+                        // Al BUSCAR (escribiendo o eligiendo una sugerencia), primero lo que
+                        // tiene existencia y al final lo que está en cero o menos; dentro de
+                        // cada grupo manda la cercanía de abajo. Es lo que se busca para
+                        // despachar: "electrodo" traía los de 0 mezclados con los que hay.
+                        // Va en SQL, antes de partir en páginas, por lo mismo que la cercanía.
+                        ->when($request->filled('search'), fn ($q) => $q->orderByRaw('COALESCE(almacen_stock.CANTIDAD, 0) <= 0'))
                         ->tap(fn ($q) => $this->ordenarInventarioPorRelevancia(
                             // Se ordena por cercanía siempre que haya TEXTO escrito, y el
                             // front lo manda incluso al elegir una sugerencia (para que el
