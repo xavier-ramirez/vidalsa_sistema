@@ -71,7 +71,7 @@ class AlmacenController extends Controller
      * No afecta al Excel: consumoDashboardExport() llama a consumoPorProducto() SIN
      * limite, porque ahi se descarga el consumo completo, no un top.
      */
-    public const TOP_PRODUCTOS_GRAFICO = 60;   // 60 desde el 08-10-2026 (antes 25), pedido del usuario
+    public const TOP_PRODUCTOS_GRAFICO = 40;   // 40 desde el 08-10-2026 (antes 25 y luego 60), pedido del usuario
 
     public function __construct(
         private InventarioService $inventario,

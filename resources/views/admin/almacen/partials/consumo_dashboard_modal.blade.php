@@ -736,7 +736,7 @@
         // de Flota, y se aplica al contenedor —que es quien manda, porque el gráfico va con
         // maintainAspectRatio:false—. El mínimo conserva los 650 de antes para que con
         // pocos productos el panel no encoja y descoloque el modal. El tope (3200) deja
-        // entrar las 60 barras del top con dos líneas cada una (~2.600 px); con el de antes
+        // entrar las 40 barras del top con dos líneas cada una (~1.700 px); con el de antes
         // (1500) se apretaban.
         (function () {
             var cont = document.getElementById('cdashChartTop');
