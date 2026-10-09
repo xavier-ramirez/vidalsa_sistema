@@ -272,6 +272,14 @@ class DashboardController extends Controller
     }
 
     /**
+     * Frentes que NUNCA entran en Alertas de Documentos (panel, PDF y Excel), para nadie
+     * (pedido del usuario, 08-10-2026): sus equipos no se renuevan desde aquí.
+     * 39 FINCA MAPIRITO · 44 CVG PUERTO ORDAZ · 45 MINISTERIO DE OBRAS PÚBLICAS ·
+     * 78 EQUIPOS DESINCORPORADOS. Los TIPO_FRENTE=ESPECIAL ya salían aparte (excludeEspecial).
+     */
+    private const FRENTES_FUERA_DE_ALERTAS = [39, 44, 45, 78];
+
+    /**
      * Generate alerts list for expired and expiring documents.
      * Shared by getAlertsHtml() (panel del menú) and alertasParaReporte() (PDF y Excel).
      *
@@ -310,6 +318,12 @@ class DashboardController extends Controller
 
         // Excluir equipos en frentes TIPO_FRENTE=ESPECIAL (asignaciones especiales no son flota propia).
         $query->excludeEspecial();
+        // Y los frentes que nunca entran aquí. Los equipos SIN frente siguen saliendo
+        // (whereNotIn solo dejaría fuera también los NULL).
+        $query->where(function ($q) {
+            $q->whereNull('equipos.ID_FRENTE_ACTUAL')
+              ->orWhereNotIn('equipos.ID_FRENTE_ACTUAL', self::FRENTES_FUERA_DE_ALERTAS);
+        });
 
         // Barrera por frente: lista blanca (null = ve todo / [] = local sin frentes →
         // nada / [ids] = whereIn) + lista negra de bloqueados (whereNotIn, también GLOBAL).
@@ -411,7 +425,7 @@ class DashboardController extends Controller
         // 'filter_adicional' es 'Certificado'), y asi la casilla alertas.ver.certificado
         // gobierna LOS DOS sin necesidad de inventar una clave nueva.
         // Mismas barreras que los equipos: frentes permitidos, frentes bloqueados, fuera
-        // los ESPECIAL y fuera lo desincorporado/inoperativo.
+        // los ESPECIAL y los FRENTES_FUERA_DE_ALERTAS, y fuera lo desincorporado/inoperativo.
         $auxQuery = \App\Models\EquipoAuxiliar::query()
             ->whereNotNull('LINK_CERTIFICADO')
             ->whereNotNull('FECHA_VENCIMIENTO_CERT')
@@ -419,13 +433,11 @@ class DashboardController extends Controller
             ->whereNotIn('ESTADO_OPERATIVO', ['DESINCORPORADO', 'INOPERATIVO'])
             ->with('frente');   // en EquipoAuxiliar la relacion se llama 'frente', no 'frenteActual'
 
-        $idsEspecial = \App\Models\FrenteTrabajo::especialIds();
-        if (!empty($idsEspecial)) {
-            $auxQuery->where(function ($q) use ($idsEspecial) {
-                $q->whereNull('equipos_auxiliares.ID_FRENTE_ACTUAL')
-                  ->orWhereNotIn('equipos_auxiliares.ID_FRENTE_ACTUAL', $idsEspecial);
-            });
-        }
+        $idsFuera = array_merge(\App\Models\FrenteTrabajo::especialIds(), self::FRENTES_FUERA_DE_ALERTAS);
+        $auxQuery->where(function ($q) use ($idsFuera) {
+            $q->whereNull('equipos_auxiliares.ID_FRENTE_ACTUAL')
+              ->orWhereNotIn('equipos_auxiliares.ID_FRENTE_ACTUAL', $idsFuera);
+        });
 
         \App\Models\Usuario::aplicarScopeIds($auxQuery, $frenteIds, 'ID_FRENTE_ACTUAL');
         \App\Models\Usuario::aplicarBloqueoIds($auxQuery, $bloqueados, 'ID_FRENTE_ACTUAL');
