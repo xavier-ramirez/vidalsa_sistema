@@ -273,11 +273,11 @@ class DashboardController extends Controller
 
     /**
      * Frentes que NUNCA entran en Alertas de Documentos (panel, PDF y Excel), para nadie
-     * (pedido del usuario, 08-10-2026): sus equipos no se renuevan desde aquí.
-     * 39 FINCA MAPIRITO · 44 CVG PUERTO ORDAZ · 45 MINISTERIO DE OBRAS PÚBLICAS ·
+     * (pedido del usuario, 08/09-10-2026): sus equipos no se renuevan desde aquí.
+     * 2 POR DEFINIR · 39 FINCA MAPIRITO · 44 CVG PUERTO ORDAZ · 45 MINISTERIO DE OBRAS PÚBLICAS ·
      * 78 EQUIPOS DESINCORPORADOS. Se suman a los TIPO_FRENTE=ESPECIAL en generateAlertsList().
      */
-    private const FRENTES_FUERA_DE_ALERTAS = [39, 44, 45, 78];
+    private const FRENTES_FUERA_DE_ALERTAS = [2, 39, 44, 45, 78];
 
     /**
      * Generate alerts list for expired and expiring documents.
