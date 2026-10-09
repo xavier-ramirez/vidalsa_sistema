@@ -584,6 +584,12 @@ class DashboardController extends Controller
             $a->frente_texto  = $a->frente_texto  ?? ($a->equipo->frenteActual?->NOMBRE_FRENTE ?? null);
             $a->tipo_texto    = $a->tipo_texto    ?? ($a->equipo->tipo->nombre ?? null);
             $a->identificador = $a->identificador ?? (($a->equipo->SERIAL_CHASIS ?: $a->equipo->documentacion?->PLACA) ?: null);
+            // A nombre de quién está el título (pedido 08-10-2026). Igual que la exportación
+            // de equipos: solo si el título está cargado. Los auxiliares no tienen título.
+            $doc = $a->equipo instanceof Equipo ? $a->equipo->documentacion : null;
+            $a->titular_texto = ($doc && trim((string) $doc->LINK_DOC_PROPIEDAD) !== '')
+                ? (mb_strtoupper(trim((string) $doc->NOMBRE_DEL_TITULAR), 'UTF-8') ?: null)
+                : null;
         });
 
         // Los que no tienen frente van al final ('ZZZ') y, dentro de cada frente, por tipo.
@@ -717,14 +723,14 @@ class DashboardController extends Controller
                 ->setTitle('Alertas de Documentos')
                 ->setCompany('Constructora Vidalsa 27, C.A.');
 
-            $ULTIMA    = 'H';   // 8 columnas
-            $FIN_TITULO = 'F';   // título: C..F (la parte ancha del membrete)
-            $EDICION    = 'G';   // EDICION / REVISION / FECHA: G..H (bloque angosto)
+            $ULTIMA    = 'I';   // 9 columnas
+            $FIN_TITULO = 'G';   // título: C..G (la parte ancha del membrete)
+            $EDICION    = 'H';   // EDICION / REVISION / FECHA: H..I (bloque angosto)
 
             // Anchos ANTES del logo: el trait centra la imagen midiendo el ancho de A y B,
             // y con los anchos por defecto la calcula sobre una celda más chica que el logo.
             $anchos = ['A' => 10, 'B' => 20, 'C' => 30, 'D' => 26,
-                       'E' => 22, 'F' => 28, 'G' => 13, 'H' => 26];
+                       'E' => 22, 'F' => 18, 'G' => 34, 'H' => 28, 'I' => 13];
             foreach ($anchos as $col => $ancho) {
                 $hoja->getColumnDimension($col)->setWidth($ancho);
             }
@@ -755,7 +761,12 @@ class DashboardController extends Controller
             $bordeFino = self::bordeFinoCorporativo();   // también enmarca la tabla, más abajo
 
             // Fila 5: encabezado de columnas, con el azul de la exportación de equipos.
-            $cols = ['N°', 'ESTADO', 'FRENTE', 'TIPO', 'SERIAL / PLACA', 'DOCUMENTO', 'VENCE', 'GESTIONADO POR'];
+            // Sin GESTIONADO POR (quitada el 08-10-2026, pedido del usuario): sigue en la
+            // vista de alertas, pero no en el Excel.
+            // ESTADO OPERATIVO (pedido 09-10-2026): los inoperativos entran en las alertas y
+            // hay que poder distinguirlos. Lleva el apellido para no confundirse con ESTADO
+            // (vencido / por vencer).
+            $cols = ['N°', 'ESTADO', 'FRENTE', 'TIPO', 'SERIAL / PLACA', 'ESTADO OPERATIVO', 'TITULAR', 'DOCUMENTO', 'VENCE'];
             $this->cabeceraTablaCorporativa($hoja, $cols);
 
             // Vencidas primero y luego las próximas, el mismo orden de lectura del PDF.
@@ -774,9 +785,11 @@ class DashboardController extends Controller
                         $alerta->frente_texto ?: 'N/A',
                         $alerta->tipo_texto   ?: 'N/A',
                         $alerta->identificador ?: '---',
+                        // Equipos y auxiliares tienen la misma columna ESTADO_OPERATIVO.
+                        $alerta->equipo->ESTADO_OPERATIVO ?: '—',
+                        $alerta->titular_texto ?: '—',
                         mb_strtoupper($alerta->label, 'UTF-8'),
                         \Carbon\Carbon::parse($alerta->fecha)->format('d/m/Y'),
-                        $alerta->gestionado_por ?? '',
                     ];
                 }
             }
