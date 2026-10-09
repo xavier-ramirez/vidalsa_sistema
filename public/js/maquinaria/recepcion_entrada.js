@@ -17,8 +17,9 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     if (!document.getElementById('entLineasTbody')) return;
 
     var ROUTE_ENTRADA = RECE_CFG.rutaAlmacenMovimientosLote;
-    // "Registrar y despachar": entrada + salida con Nota de Entrega en un paso.
+    // "Registrar y despachar": entrada + salida con Nota de Entrega en un paso, y su vista previa.
     var ROUTE_DESPACHO = RECE_CFG.rutaRecepcionDespacho;
+    var ROUTE_DESPACHO_PREVIEW = RECE_CFG.rutaRecepcionDespachoPreview;
     var ROUTE_PROD    = RECE_CFG.rutaAlmacenProductosStore;
     // Catálogo de productos: antes se embebía inline (los 1155 productos) y la recepción abría
     // pesada. Ahora arranca vacío y se carga por AJAX (endpoint compartido, misma fuente
@@ -655,15 +656,22 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     };
 
     // ── Registrar y despachar ──────────────────────────────────────────────
-    // Lo que llega de la compra y sale de una vez al proyecto. El modal #almSalidaModal lleva
-    // los datos de la compra y la Nota de Entrega con el MISMO formulario de la salida de
-    // /admin/almacen (AlmSalidaNota, almacen_salida_nota.js). Registrar hace en el servidor la
-    // entrada de todas las líneas y su salida con la nota, en una transacción.
+    // Lo que llega de la compra y sale de una vez al proyecto. Mismo camino que "Registrar
+    // salida" de /admin/almacen (almacen_index.js): el modal #almSalidaModal lleva la Nota de
+    // Entrega con el MISMO formulario (AlmSalidaNota, almacen_salida_nota.js) → Previsualizar
+    // abre el PDF en #entDespPreviewModal → Editar vuelve al modal con lo escrito; Registrar
+    // hace en el servidor la entrada de todas las líneas y su salida con la nota, en una
+    // transacción, y descarga el PDF de la nota.
     function entDespAbierto() { var o = el('almSalidaModal'); return !!o && o.classList.contains('open'); }
+    function entDespPreviewAbierta() { var o = el('entDespPreviewModal'); return !!o && o.classList.contains('open'); }
     // La nota se deja en blanco (AlmSalidaNota.abrir) solo la PRIMERA vez y después de
     // despachar o vaciar la captura: cerrar la ventana para corregir una línea y volver a
     // abrirla conserva lo escrito, como en "Registrar entrada".
     var entDespPorLimpiar = true;
+    // Lo que se previsualizó: Registrar manda EXACTAMENTE eso, así lo registrado es lo que se
+    // vio. Se arma de nuevo en cada Previsualizar.
+    var entDespDraft = null;
+    var entDespBlobUrl = null;
     function entDespErr(msg) { var e = el('entDespError'); if (e) { e.textContent = msg || ''; e.style.display = msg ? 'block' : 'none'; } }
 
     window.entAbrirDespacho = function () {
@@ -690,19 +698,103 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         var o = el('almSalidaModal'); if (o) o.classList.remove('open');
     };
 
-    window.entDespachar = function () {
+    // Cierra la vista previa y suelta su PDF (blob) para no acumular memoria.
+    function entDespPreviewCerrar() {
+        var m = el('entDespPreviewModal'); if (m) m.classList.remove('open');
+        if (entDespBlobUrl) { try { URL.revokeObjectURL(entDespBlobUrl); } catch (e) {} entDespBlobUrl = null; }
+        var frame = el('entDespPreviewFrame'); if (frame) frame.src = 'about:blank';
+        var cont = el('entDespPreviewCanvas'); if (cont) { cont.innerHTML = ''; cont.style.display = 'none'; }
+    }
+    // Editar / ✕ / Escape de la vista previa: vuelve al modal con todo lo escrito.
+    window.entDespPreviewEditar = function () {
+        entDespPreviewCerrar();
+        var o = el('almSalidaModal'); if (o) o.classList.add('open');
+    };
+
+    // Previsualizar: el PDF de la nota tal como va a salir, sin registrar nada.
+    window.entDespVistaPrevia = function () {
         entDespErr('');
         var nota = window.AlmSalidaNota.datos();
         if (nota.error) { entDespErr(nota.error); toast(nota.error, 'error'); return; }
         var payload = Object.assign({
             id_almacen: parseInt(v('entAlmacen'), 10),
-            referencia: v('entDespNotaProv')  || null,   // nota de entrega del proveedor
-            proveedor:  v('entDespProveedor') || null,
             lineas:     entLineas.map(function (l) { return { id_producto: l.id_producto, cantidad: l.cantidad }; }),
         }, nota.datos);
 
         if (window.showPreloader) window.showPreloader();
-        var btn = el('entDespSubmit'); if (btn) btn.disabled = true;
+        window.apiFetch(ROUTE_DESPACHO_PREVIEW, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', 'Accept': 'application/pdf, application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(function (r) {
+            // PDF en éxito; JSON con {message, errors} en error.
+            if (!r.ok) {
+                return r.json().then(function (b) {
+                    var msg = (b && b.message) || 'No se pudo generar la vista previa.';
+                    if (b && b.errors) msg = Object.values(b.errors).map(function (a) { return a.join(' '); }).join(' ');
+                    throw new Error(msg);
+                });
+            }
+            if ((r.headers.get('Content-Type') || '').indexOf('application/pdf') === -1) {
+                throw new Error('Respuesta inesperada del servidor (no es PDF).');
+            }
+            return r.blob();
+        })
+        .then(function (blob) {
+            if (window.hidePreloader) window.hidePreloader();
+            entDespDraft = payload;
+            entDespPreviewCerrar();   // suelta el PDF de una vista previa anterior
+            entDespBlobUrl = URL.createObjectURL(blob);
+            // El modal de la nota se oculta (sin perder lo escrito) y la vista previa se abre
+            // ANTES de pintar, para que el canvas del teléfono mida bien el ancho.
+            window.entCerrarDespacho();
+            var m = el('entDespPreviewModal'); if (m) m.classList.add('open');
+            var frame = el('entDespPreviewFrame');
+            var cont  = el('entDespPreviewCanvas');
+            if (window.pdfEsMovil()) {
+                // TELÉFONO: el iframe no muestra PDF → PDF.js en canvas (dom_helpers.js).
+                if (frame) frame.style.display = 'none';
+                if (cont)  cont.style.display = 'block';
+                window.pintarPdfEnCanvas(cont, blob);
+            } else if (frame) {
+                frame.style.display = '';
+                frame.src = entDespBlobUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
+            }
+        })
+        .catch(function (err) {
+            if (window.hidePreloader) window.hidePreloader();
+            var msg = (err && err.message) || 'Error generando la vista previa.';
+            entDespErr(msg); toast(msg, 'error');
+        });
+    };
+
+    // Descarga el PDF de la nota recién registrada como archivo (fetch → blob → <a download>),
+    // igual que la salida de /admin/almacen: sin salir de la página aunque el servidor lo
+    // mande 'inline'.
+    function entDescargarNota(url, numero) {
+        window.apiFetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/pdf' } })
+            .then(function (r) { return r.ok ? r.blob() : null; })
+            .then(function (blob) {
+                if (!blob) return;
+                var burl = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = burl; a.download = numero ? ('Nota_' + numero + '.pdf') : 'nota_entrega.pdf'; a.style.display = 'none';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
+            })
+            .catch(function () { /* la nota ya quedó registrada; la descarga es secundaria */ });
+    }
+
+    // Registrar (de la vista previa): la entrada y la salida con la nota previsualizada.
+    window.entDespachar = function () {
+        if (!entDespDraft) { window.entDespPreviewEditar(); return; }
+        var btn = el('entDespSubmit');
+        if (btn && btn.disabled) return;   // anti doble envío: duplicaría la entrada y la nota
+        var payload = entDespDraft;
+
+        if (window.showPreloader) window.showPreloader();
+        if (btn) btn.disabled = true;
         window.apiFetch(ROUTE_DESPACHO, {
             method: 'POST',
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
@@ -716,17 +808,16 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
                 // El departamento se recuerda AQUÍ, con la nota ya registrada (igual que en la
                 // salida de /admin/almacen).
                 window.AlmSalidaNota.recordarDepto(payload.departamento);
-                window.entCerrarDespacho();
+                entDespPreviewCerrar();
                 entLimpiarTodo();
                 toast((res.b && res.b.message) || 'Entrada registrada y despachada.', 'success');
-                // La nota recién registrada, en el visor de siempre (imprimir / descargar).
-                if (res.b && res.b.nota_url && typeof window.openPdfPreview === 'function') {
-                    window.openPdfPreview(res.b.nota_url, 'nota_entrega', 'Nota ' + (res.b.numero_nota || ''), 0, '', true, 'almacen');
-                }
+                if (res.b && res.b.nota_url) entDescargarNota(res.b.nota_url, res.b.numero_nota);
                 return;
             }
+            // No se registró (algo cambió desde la vista previa): de vuelta al modal con el motivo.
             var msg = (res.b && res.b.message) || 'No se pudo registrar y despachar.';
             if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
+            window.entDespPreviewEditar();
             // 403 = falta la clave 'almacen.movimiento': solo el toast, como en la entrada.
             if (!(res.status === 403 || (res.b && res.b.forbidden))) entDespErr(msg);
             toast(msg, 'error');
@@ -735,6 +826,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             if (window.hidePreloader) window.hidePreloader();
             if (btn) btn.disabled = false;
             var m = 'Error de red al registrar y despachar.';
+            window.entDespPreviewEditar();
             entDespErr(m); toast(m, 'error');
         });
     };
@@ -757,7 +849,8 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         // entrada puede ser de otro frente y dejarlo pegado del anterior es justo el error
         // que este campo vino a evitar.
         entDespPorLimpiar = true;   // la próxima "Registrar y despachar" arranca con la nota en blanco
-        ['entNotaEntrega', 'entProveedor', 'entDespNotaProv', 'entDespProveedor'].forEach(function (id) {
+        entDespDraft = null;
+        ['entNotaEntrega', 'entProveedor'].forEach(function (id) {
             var e = el(id); if (e) e.value = '';
         });
         var pro = el('entProyecto'); if (pro) { pro.value = ''; pro.classList.add('falta'); }
@@ -800,28 +893,32 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     // sugerencias apareciera desplegada al entrar al modulo. El usuario hace
     // click cuando quiere empezar a buscar.
 
-    // Esc global: cierra el modal de los datos del documento o, si no está abierto, las
-    // sugerencias. Mismo motivo que el listener de click: se reemplaza en cada montaje SPA
-    // (llama a entSuggestHide, que es local de esta corrida).
-    if (window.__entDocKeydown) document.removeEventListener('keydown', window.__entDocKeydown);
+    // Esc global: cierra el modal de los datos del documento, la vista previa (de vuelta a la
+    // nota), el modal de despacho o, si nada está abierto, las sugerencias. Mismo motivo que el
+    // listener de click: se reemplaza en cada montaje SPA (llama a entSuggestHide, que es local
+    // de esta corrida). Va en fase de CAPTURA y corta el evento cuando lo atiende: el Escape de
+    // /admin/almacen (almacen_index.js) sigue escuchando tras pasar por ese módulo y cerraría
+    // TODOS los .alm-modal-overlay de esta pantalla de golpe, sin volver a la nota.
+    if (window.__entDocKeydown) document.removeEventListener('keydown', window.__entDocKeydown, true);
     window.__entDocKeydown = function (e) {
-        if (e.key === 'Escape') {
-            if (entDocAbierto()) { window.entCerrarDocumento(); return; }
-            if (entDespAbierto()) {
-                // Con una lista abierta (proyecto, contrato, vehículo o chofer), Escape cierra
-                // esa lista y no la ventana entera. Las de vehículo/chofer (campos [data-log]) las
-                // cierra almacen_salida_nota.js, que escucha antes; los desplegables, aquí.
-                var dd = document.querySelector('#almSalidaModal .custom-dropdown.active');
-                if (dd) { dd.classList.remove('active'); return; }
-                if (e.target && e.target.closest && e.target.closest('#almSalidaModal [data-log]')) return;
-                window.entCerrarDespacho();
-                return;
-            }
-            var box = el('entSuggest');
-            if (box && box.classList.contains('open')) { entSuggestHide(); return; }
+        if (e.key !== 'Escape') return;
+        if (entDocAbierto()) { e.stopPropagation(); window.entCerrarDocumento(); return; }
+        if (entDespPreviewAbierta()) { e.stopPropagation(); window.entDespPreviewEditar(); return; }
+        if (entDespAbierto()) {
+            // Con una lista abierta (proyecto, contrato, vehículo o chofer), Escape cierra esa
+            // lista y no la ventana entera. Las de vehículo/chofer (campos [data-log]) las cierra
+            // almacen_salida_nota.js: a esas se las deja pasar; los desplegables, aquí.
+            var dd = document.querySelector('#almSalidaModal .custom-dropdown.active');
+            if (dd) { e.stopPropagation(); dd.classList.remove('active'); return; }
+            if (e.target && e.target.closest && e.target.closest('#almSalidaModal [data-log]')) return;
+            e.stopPropagation();
+            window.entCerrarDespacho();
+            return;
         }
+        var box = el('entSuggest');
+        if (box && box.classList.contains('open')) { entSuggestHide(); return; }
     };
-    document.addEventListener('keydown', window.__entDocKeydown);
+    document.addEventListener('keydown', window.__entDocKeydown, true);
 })();
 
 // Móvil: el tamaño del teclado lo decide el teléfono (no se achica por web sin perder

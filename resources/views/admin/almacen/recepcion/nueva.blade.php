@@ -28,10 +28,11 @@
           de TODAS las lineas como un lote ENTRADA. El almacén es el del usuario (pill del
           encabezado).
        3) Registrar y despachar: para lo que llega de la compra y sale de una vez al proyecto.
-          Abre el modal #almSalidaModal: los datos de la compra (nota y proveedor) y la NOTA DE
-          ENTREGA con el MISMO formulario de la salida de /admin/almacen
-          (partials/salida_nota_campos + almacen_salida_nota.js). Su botón hace la entrada y
-          la salida con nota en una transacción (almacen.recepcion.despacho).
+          Abre el modal #almSalidaModal con la NOTA DE ENTREGA: el MISMO formulario de la
+          salida de /admin/almacen (partials/salida_nota_campos + almacen_salida_nota.js) y el
+          mismo camino: Previsualizar → vista previa del PDF (Editar / Registrar) → Registrar
+          hace la entrada y la salida con nota en una transacción (almacen.recepcion.despacho)
+          y descarga el PDF de la nota.
 
      "Reposición del general" (la bandeja de los almacenes de proyecto, donde se ve lo que el
      general despachó y va llegando) se abre desde Acciones → "Despachos" del
@@ -218,8 +219,7 @@
 
 {{-- Modal "Registrar y despachar". Mismo modal y mismos campos que "Registrar salida" de
      /admin/almacen (por eso el id #almSalidaModal: le aplican los mismos estilos, también en
-     el teléfono), con los datos de la COMPRA arriba: la entrada los lleva igual que en
-     "Registrar entrada". --}}
+     el teléfono). --}}
 <div id="almSalidaModal" class="alm-modal-overlay">
     <div class="alm-modal alm-modal-wide" style="max-width:660px;" role="dialog" aria-modal="true" aria-labelledby="entDespTitulo">
         <div class="alm-modal-head">
@@ -227,28 +227,35 @@
             <i class="material-icons alm-x" onclick="window.entCerrarDespacho()">close</i>
         </div>
         <div class="alm-modal-body">
-            <div class="ent-desp-compra">
-                <div class="ent-desp-sub">Datos de la compra</div>
-                <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                    <div>
-                        <label class="alm-nota-label" for="entDespNotaProv">Nota del proveedor <span class="alm-opc">(Opcional)</span></label>
-                        <input type="text" id="entDespNotaProv" class="alm-nota-input" maxlength="100" placeholder="Número de la nota" autocomplete="off">
-                    </div>
-                    <div>
-                        <label class="alm-nota-label" for="entDespProveedor">Proveedor <span class="alm-opc">(Opcional)</span></label>
-                        <input type="text" id="entDespProveedor" class="alm-nota-input" maxlength="200" placeholder="Razón social o nombre" autocomplete="off">
-                    </div>
-                </div>
-            </div>
-
-            <div class="ent-desp-sub">Nota de entrega al proyecto</div>
             @include('admin.almacen.partials.salida_nota_campos')
 
             <div id="entDespError" class="ent-error"></div>
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.entCerrarDespacho()">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" id="entDespSubmit" onclick="window.entDespachar()">Despachar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.entDespVistaPrevia()">Previsualizar</button>
+        </div>
+    </div>
+</div>
+
+{{-- Vista previa de la Nota de Entrega de "Registrar y despachar": la misma de "Registrar
+     salida" de /admin/almacen (#almPreviewModal). Editar (o la ✕ / Escape) vuelve al modal
+     con lo escrito; Registrar hace la entrada y la salida y descarga el PDF de la nota. Ids
+     propios: el Escape de /admin/almacen busca #almPreviewModal por id. --}}
+<div id="entDespPreviewModal" class="alm-modal-overlay">
+    <div class="alm-modal alm-modal-wide" style="max-width:1180px;max-height:98vh;" role="dialog" aria-modal="true">
+        <div class="alm-modal-head" style="padding:8px 40px;">
+            <h3><i class="material-icons" style="font-size:20px;">visibility</i> <span>Vista previa de la Nota de Entrega</span></h3>
+            <i class="material-icons alm-x" onclick="window.entDespPreviewEditar()">close</i>
+        </div>
+        <div class="alm-modal-body" style="padding:0;gap:0;background:#475569;">
+            {{-- ESCRITORIO: el visor de PDF del navegador. TELÉFONO: PDF.js en canvas. --}}
+            <iframe id="entDespPreviewFrame" src="about:blank" style="width:100%;height:82vh;min-height:560px;border:none;background:#fff;" title="Vista previa Nota de Entrega"></iframe>
+            <div id="entDespPreviewCanvas" style="display:none;width:100%;height:82vh;min-height:560px;overflow:auto;background:#475569;padding:10px;box-sizing:border-box;"></div>
+        </div>
+        <div class="alm-modal-foot">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.entDespPreviewEditar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">edit</i>Editar</button>
+            <button type="button" class="btn-primary-maquinaria" id="entDespSubmit" onclick="window.entDespachar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">check_circle</i>Registrar</button>
         </div>
     </div>
 </div>
@@ -259,6 +266,7 @@
     $rece_cfg = [
         'rutaAlmacenMovimientosLote' => route('almacen.movimientos.lote'),
         'rutaRecepcionDespacho' => route('almacen.recepcion.despacho'),
+        'rutaRecepcionDespachoPreview' => route('almacen.recepcion.despacho.preview'),
         'notaSalida' => $notaSalida ?? [],
         'rutaAlmacenProductosStore' => route('almacen.productos.store'),
         'rutaAlmacenProductosAutocomplete' => route('almacen.productos-autocomplete'),

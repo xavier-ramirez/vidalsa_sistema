@@ -220,10 +220,7 @@
     .ent-btn-desp .material-icons { color:#0067b1; }
     .ent-btn-desp:hover { background:#d2e6f7; border-color:#0067b1; }
 
-    /* Modal "Registrar y despachar" (#almSalidaModal, estilos de admin_almacen_salida_nota.css):
-       los subtítulos que separan los datos de la compra de la Nota de Entrega. */
-    .ent-desp-sub { font-size:12px; font-weight:800; color:#1e293b; text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
-    .ent-desp-compra { margin-bottom:4px; }
+    /* Modal "Registrar y despachar" (#almSalidaModal, estilos de admin_almacen_salida_nota.css). */
     #almSalidaModal .ent-error { margin-top:0; }
 
     /* ── Modal "Datos del documento": se abre con Registrar entrada. Mismo aspecto que el

@@ -59,8 +59,6 @@ class RecepcionDespachoDirectoTest extends MySqlTestCase
     {
         return $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho'), [
             'id_almacen'        => $almacen,
-            'referencia'        => 'NE-PROV-123',
-            'proveedor'         => 'PROVEEDOR DE PRUEBA',
             'id_frente_destino' => $frente,
             'lineas'            => [
                 ['id_producto' => $this->p1, 'cantidad' => 4],
@@ -88,12 +86,10 @@ class RecepcionDespachoDirectoTest extends MySqlTestCase
             'transporte_cedula'   => '12.345.678',
         ])->assertCreated()->assertJsonPath('numero_traspaso', null)->json('numero_nota');
 
-        // La entrada lleva la nota y el proveedor de la compra, una línea por producto.
+        // La entrada, una línea por producto (sin nota ni proveedor: el modal no los pide).
         $entradas = MovimientoInventario::where('ID_ALMACEN', $this->general)->where('TIPO', 'ENTRADA')->get();
         $this->assertCount(2, $entradas);
         $this->assertSame(5.0, (float) $entradas->firstWhere('ID_PRODUCTO', $this->p1)->CANTIDAD);
-        $this->assertSame('NE-PROV-123', $entradas->first()->REFERENCIA);
-        $this->assertSame('PROVEEDOR DE PRUEBA', $entradas->first()->MOTIVO);
 
         // La salida es la nota de entrega, con todos los datos que pide la de /admin/almacen.
         $salidas = MovimientoInventario::where('NUMERO_NOTA', $nota)->get();
@@ -163,6 +159,25 @@ class RecepcionDespachoDirectoTest extends MySqlTestCase
 
         $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->general)->count(), 'Ni la entrada.');
         $this->assertSame(0.0, $this->saldo($this->general, $this->p1));
+    }
+
+    public function test_la_vista_previa_da_el_pdf_sin_registrar_nada(): void
+    {
+        // Sin saldo previo en el general: la vista previa no lo exige, porque el material
+        // entra y sale en el mismo registro.
+        $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho.preview'), [
+            'id_almacen'        => $this->general,
+            'id_frente_destino' => $this->frenteConsumo,
+            'lineas'            => [['id_producto' => $this->p1, 'cantidad' => 3]],
+        ])->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+        $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->general)->count(), 'No escribe nada.');
+
+        // Rechaza lo mismo que el registro.
+        $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho.preview'), [
+            'id_almacen' => $this->general,
+            'lineas'     => [['id_producto' => $this->p1, 'cantidad' => 3]],
+        ])->assertStatus(422)->assertJsonValidationErrors('id_frente_destino');
     }
 
     public function test_sin_proyecto_destino_se_rechaza(): void

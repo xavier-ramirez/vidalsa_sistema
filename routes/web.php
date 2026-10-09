@@ -528,6 +528,9 @@ Route::middleware(['auth'])->group(function () {
             // (AlmacenController::registrarRecepcionConDespacho). El permiso
             // 'almacen.movimiento' se valida dentro, igual que en movimientos-lote.
             Route::post  ('almacen/recepcion/despacho',              [App\Http\Controllers\AlmacenController::class, 'registrarRecepcionConDespacho'])->name('almacen.recepcion.despacho');
+            // Su vista previa: el PDF de la Nota de Entrega sin tocar BD, como la de la salida
+            // (almacen.salida.preview). Mismo permiso, validado dentro.
+            Route::post  ('almacen/recepcion/despacho/preview-pdf',  [App\Http\Controllers\AlmacenController::class, 'previewRecepcionDespacho'])->name('almacen.recepcion.despacho.preview');
             Route::get   ('almacen/recepcion/{id}',                  [App\Http\Controllers\TraspasoController::class, 'show'])    ->whereNumber('id')->name('almacen.recepcion.show');
             // update/destroy: CRUD de traspasos en BORRADOR, hermanos del store de arriba.
             // Hoy NINGUNA pantalla los llama (la bandeja crea y envía de una), pero completan

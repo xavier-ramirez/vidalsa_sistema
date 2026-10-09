@@ -3670,7 +3670,7 @@ class AlmacenController extends Controller
      * después la salida—, o un Excel aparte. Este botón hace las dos cosas con lo capturado,
      * en UNA transacción:
      *
-     *   1. La ENTRADA de todas las líneas, con la nota y el proveedor de la compra.
+     *   1. La ENTRADA de todas las líneas.
      *   2. La SALIDA de todo al proyecto elegido, con su NOTA DE ENTREGA (NE-AAAA-NNNN): los
      *      mismos datos que pide la salida del módulo de Stock (formulario compartido
      *      partials/salida_nota_campos), el mismo formato del almacén (vertical u
@@ -3689,47 +3689,13 @@ class AlmacenController extends Controller
             return $error;
         }
 
-        $data = $request->validate([
-            'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
-            'fecha'                => 'nullable|date',
-            'referencia'           => 'nullable|string|max:100',   // nota de entrega del proveedor
-            'proveedor'            => 'nullable|string|max:200',
-            'id_frente_destino'    => 'required|integer|exists:frentes_trabajo,ID_FRENTE',
-            'id_almacen_destino'   => 'nullable|integer|exists:almacenes,ID_ALMACEN',
-            'lineas'               => 'required|array|min:1',
-            'lineas.*.id_producto' => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
-            'lineas.*.cantidad'    => 'required|numeric|gt:0',
-        ] + $this->reglasNotaSalida());
-
+        $valido = $this->validarRecepcionConDespacho($request);
+        if ($valido instanceof \Illuminate\Http\JsonResponse) {
+            return $valido;
+        }
+        [$data, $lineas, $idAlmDestino] = $valido;
         $idAlmacen = (int) $data['id_almacen'];
         $idFrente  = (int) $data['id_frente_destino'];
-        $this->assertPuedeVerAlmacen($request, $idAlmacen);
-
-        // Todo lo que se puede rechazar se rechaza ANTES de escribir nada.
-        $idAlmDestino = $this->almacenDestinoDeSalida($data, $idFrente);
-        if ($idAlmDestino instanceof \Illuminate\Http\JsonResponse) {
-            return $idAlmDestino;
-        }
-
-        // Una línea por producto (sumando repetidos), en el orden de bloqueo de
-        // almacen_stock: por ID_PRODUCTO (ver registrarMovimientoLote).
-        $porProducto = [];
-        foreach ($data['lineas'] as $l) {
-            $idp = (int) $l['id_producto'];
-            $porProducto[$idp] = ($porProducto[$idp] ?? 0) + (float) $l['cantidad'];
-        }
-        ksort($porProducto);
-        $lineas = [];
-        foreach ($porProducto as $idp => $cant) {
-            $lineas[] = ['id_producto' => $idp, 'cantidad' => $cant];
-        }
-
-        // Un filtro con varias equivalencias necesita que se diga qué número de parte se
-        // entrega, y esta pantalla no lo pregunta: ese producto se despacha desde Salida.
-        if ($idAlmDestino === null && ($error = $this->errorNumeroParte($lineas))) {
-            $error .= ' Regístralo con «Registrar entrada» y despáchalo desde Salida, donde se elige.';
-            return response()->json(['message' => $error, 'errors' => ['lineas' => [$error]]], 422);
-        }
 
         // Bolsa a la que entra el material y de la que sale. En un almacén que separa por
         // proyecto, la del proyecto destino si es de este almacén; si no (o si el almacén no
@@ -3740,13 +3706,11 @@ class AlmacenController extends Controller
 
         $idUsuario  = optional($request->user())->ID_USUARIO;
         $transporte = $this->logistica->transporteDe($data);
-        // La entrada lleva la nota y el proveedor de la COMPRA (REFERENCIA y MOTIVO, como la
-        // entrada normal); la salida, las observaciones de la Nota de Entrega (motivo).
+        // La entrada va sin nota ni proveedor de la compra (el modal ya no los pide); las
+        // observaciones de la Nota de Entrega (motivo) son de la salida.
         $optsEntrada = [
             'fecha'             => $data['fecha'] ?? null,
             'id_frente'         => $separa ? ($bolsa ?: null) : $this->frenteImplicitoDelAlmacen($idAlmacen),
-            'referencia'        => $data['referencia'] ?? null,
-            'motivo'            => $data['proveedor'] ?? null,
             'id_usuario'        => $idUsuario,
             'permitir_negativo' => false,
         ];
@@ -3796,6 +3760,79 @@ class AlmacenController extends Controller
             'numero_nota'     => $resultado['numero_nota'],
             'numero_traspaso' => $resultado['numero_traspaso'],
         ], 201);
+    }
+
+    /**
+     * Vista previa de la Nota de Entrega de "Registrar y despachar" (recepción), antes de
+     * registrar — el mismo paso que la salida de /admin/almacen (previewSalidaPdf). No toca
+     * BD. No revisa el saldo: el material todavía no ha entrado; entra y sale en la misma
+     * transacción de registrarRecepcionConDespacho, que es quien lo valida todo al registrar.
+     */
+    public function previewRecepcionDespacho(Request $request)
+    {
+        if ($error = $this->errorSinPermisoMovimiento($request)) {
+            return $error;
+        }
+        $valido = $this->validarRecepcionConDespacho($request);
+        if ($valido instanceof \Illuminate\Http\JsonResponse) {
+            return $valido;
+        }
+        [$data, $lineas] = $valido;
+        // El PDF imprime las líneas ya sumadas por producto y en el orden en que se registran.
+        $data['lineas'] = $lineas;
+
+        $productos = ProductoInventario::whereIn('ID_PRODUCTO', array_column($lineas, 'id_producto'))
+            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM'])->keyBy('ID_PRODUCTO');
+
+        return $this->respuestaVistaPreviaNota($data, $productos, Almacen::find((int) $data['id_almacen']));
+    }
+
+    /**
+     * Validación de "Registrar y despachar", la MISMA para la vista previa y el registro:
+     * todo lo que se puede rechazar se rechaza antes de escribir nada. Devuelve
+     * [$data, $lineas, $idAlmDestino] o la respuesta de error.
+     *   · $lineas: una por producto (sumando repetidos), en el orden de bloqueo de
+     *     almacen_stock: por ID_PRODUCTO (ver registrarMovimientoLote).
+     *   · $idAlmDestino: almacén propio del proyecto (traspaso) o null (consumo).
+     */
+    private function validarRecepcionConDespacho(Request $request)
+    {
+        $data = $request->validate([
+            'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
+            'fecha'                => 'nullable|date',
+            'id_frente_destino'    => 'required|integer|exists:frentes_trabajo,ID_FRENTE',
+            'id_almacen_destino'   => 'nullable|integer|exists:almacenes,ID_ALMACEN',
+            'lineas'               => 'required|array|min:1',
+            'lineas.*.id_producto' => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
+            'lineas.*.cantidad'    => 'required|numeric|gt:0',
+        ] + $this->reglasNotaSalida());
+
+        $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
+
+        $idAlmDestino = $this->almacenDestinoDeSalida($data, (int) $data['id_frente_destino']);
+        if ($idAlmDestino instanceof \Illuminate\Http\JsonResponse) {
+            return $idAlmDestino;
+        }
+
+        $porProducto = [];
+        foreach ($data['lineas'] as $l) {
+            $idp = (int) $l['id_producto'];
+            $porProducto[$idp] = ($porProducto[$idp] ?? 0) + (float) $l['cantidad'];
+        }
+        ksort($porProducto);
+        $lineas = [];
+        foreach ($porProducto as $idp => $cant) {
+            $lineas[] = ['id_producto' => $idp, 'cantidad' => $cant];
+        }
+
+        // Un filtro con varias equivalencias necesita que se diga qué número de parte se
+        // entrega, y esta pantalla no lo pregunta: ese producto se despacha desde Salida.
+        if ($idAlmDestino === null && ($error = $this->errorNumeroParte($lineas))) {
+            $error .= ' Regístralo con «Registrar entrada» y despáchalo desde Salida, donde se elige.';
+            return response()->json(['message' => $error, 'errors' => ['lineas' => [$error]]], 422);
+        }
+
+        return [$data, $lineas, $idAlmDestino];
     }
 
     /**
@@ -4529,14 +4566,25 @@ class AlmacenController extends Controller
             ], 422);
         }
 
+        // $almacenOrigen ya se cargó arriba para decidir las bolsas de saldo: no se vuelve a consultar.
+        return $this->respuestaVistaPreviaNota($data, $productos, $almacenOrigen, $avisos);
+    }
+
+    /**
+     * El PDF de la VISTA PREVIA de una Nota de Entrega (NE-VISTA-PREVIA), sin tocar BD. Lo
+     * usan las dos pantallas que despachan con nota, cada una después de sus propias
+     * validaciones: la salida de /admin/almacen (previewSalidaPdf) y "Registrar y despachar"
+     * de la recepción (previewRecepcionDespacho). $avisos = lo que sale del saldo de otros
+     * proyectos; viaja en la cabecera X-Salida-Aviso.
+     */
+    private function respuestaVistaPreviaNota(array $data, $productos, ?Almacen $almacen, array $avisos = [])
+    {
         // ── Armar $datos y $movs en MEMORIA (mismas claves que notaEntregaPdf) ──
         // Los atributos de modelos (frente, almacen, productos) pasan por el cast
         // App\Casts\MojibakeFix automaticamente. Para los campos que vienen del
         // request directamente (numero_contrato, numero_rq, solicitante, etc.) NO
         // hay cast, asi que llamamos MojibakeFix::fix() de defensa por si el usuario
         // pega texto con mojibake en el formulario (caso raro pero posible).
-        // Ya cargado arriba para decidir las bolsas de saldo — no se vuelve a consultar.
-        $almacen = $almacenOrigen;
         $frente  = !empty($data['id_frente_destino'])
             ? \App\Models\FrenteTrabajo::find((int) $data['id_frente_destino'])
             : null;
