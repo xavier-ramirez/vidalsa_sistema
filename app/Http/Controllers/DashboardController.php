@@ -275,7 +275,7 @@ class DashboardController extends Controller
      * Frentes que NUNCA entran en Alertas de Documentos (panel, PDF y Excel), para nadie
      * (pedido del usuario, 08-10-2026): sus equipos no se renuevan desde aquí.
      * 39 FINCA MAPIRITO · 44 CVG PUERTO ORDAZ · 45 MINISTERIO DE OBRAS PÚBLICAS ·
-     * 78 EQUIPOS DESINCORPORADOS. Los TIPO_FRENTE=ESPECIAL ya salían aparte (excludeEspecial).
+     * 78 EQUIPOS DESINCORPORADOS. Se suman a los TIPO_FRENTE=ESPECIAL en generateAlertsList().
      */
     private const FRENTES_FUERA_DE_ALERTAS = [39, 44, 45, 78];
 
@@ -316,13 +316,13 @@ class DashboardController extends Controller
         ])
         ->withCount('equiposAuxiliares');
 
-        // Excluir equipos en frentes TIPO_FRENTE=ESPECIAL (asignaciones especiales no son flota propia).
-        $query->excludeEspecial();
-        // Y los frentes que nunca entran aquí. Los equipos SIN frente siguen saliendo
-        // (whereNotIn solo dejaría fuera también los NULL).
-        $query->where(function ($q) {
+        // Fuera los frentes TIPO_FRENTE=ESPECIAL (asignaciones especiales, no flota propia) y los
+        // FRENTES_FUERA_DE_ALERTAS. Una sola lista para equipos y auxiliares. Los que no tienen
+        // frente siguen saliendo (whereNotIn solo dejaría fuera también los NULL).
+        $idsFuera = array_merge(\App\Models\FrenteTrabajo::especialIds(), self::FRENTES_FUERA_DE_ALERTAS);
+        $query->where(function ($q) use ($idsFuera) {
             $q->whereNull('equipos.ID_FRENTE_ACTUAL')
-              ->orWhereNotIn('equipos.ID_FRENTE_ACTUAL', self::FRENTES_FUERA_DE_ALERTAS);
+              ->orWhereNotIn('equipos.ID_FRENTE_ACTUAL', $idsFuera);
         });
 
         // Barrera por frente: lista blanca (null = ve todo / [] = local sin frentes →
@@ -433,7 +433,6 @@ class DashboardController extends Controller
             ->whereNotIn('ESTADO_OPERATIVO', ['DESINCORPORADO', 'INOPERATIVO'])
             ->with('frente');   // en EquipoAuxiliar la relacion se llama 'frente', no 'frenteActual'
 
-        $idsFuera = array_merge(\App\Models\FrenteTrabajo::especialIds(), self::FRENTES_FUERA_DE_ALERTAS);
         $auxQuery->where(function ($q) use ($idsFuera) {
             $q->whereNull('equipos_auxiliares.ID_FRENTE_ACTUAL')
               ->orWhereNotIn('equipos_auxiliares.ID_FRENTE_ACTUAL', $idsFuera);
