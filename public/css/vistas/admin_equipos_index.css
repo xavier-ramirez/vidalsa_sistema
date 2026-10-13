@@ -9,11 +9,11 @@
     body.aux-table-active .eq-hide-in-aux { display: none !important; }
 
     /* ── Panel de Filtros Avanzados: piezas que se repetían como style="" en cada filtro ──
+       (la etiqueta usa la clase común .panel-filtro-avanzado-label de estilos_globales.css)
        Scope #advancedFilterPanel: gana a .dropdown-trigger / .dropdown-content globales,
        igual que antes el style en línea. El trigger ACTIVO lo pinta .filter-active
        (estilos_globales.css), lo ponga el Blade al cargar o selectOption por AJAX; sin
        filtro queda con los mismos colores que deja selectOption al limpiar. */
-    #advancedFilterPanel .adv-label { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px; }
     #advancedFilterPanel .adv-trigger { padding: 0; display: flex; align-items: center; background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 6px; height: 32px; }
     #advancedFilterPanel .dropdown-content { padding: 5px; max-height: none; overflow: visible; z-index: 1000; }
     #advancedFilterPanel .adv-check { display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer; }

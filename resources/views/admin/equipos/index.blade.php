@@ -281,9 +281,11 @@
             <!-- Advanced Filter Trigger -->
             <div style="position: relative; flex-shrink: 0;">
                 @php
-                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado') || request('filter_propiedad') || request('filter_poliza') || request('filter_rotc') || request('filter_racda') || request('filter_adicional') || request('filter_adicional_2');
+                    // Mismo criterio que eqPintarBotonFiltros (JS): los documentos cuentan solo si vienen como 'true'.
+                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado')
+                        || collect(['filter_propiedad', 'filter_poliza', 'filter_rotc', 'filter_racda', 'filter_adicional', 'filter_adicional_2'])->contains(fn ($d) => request($d) === 'true');
                 @endphp
-                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria" style="height: 45px; width: 45px; flex-shrink: 0; min-width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ $hasAnyAdv ? '#fee2e2' : 'white' }}; border: 1px solid {{ $hasAnyAdv ? '#ef4444' : '#cbd5e0' }}; color: {{ $hasAnyAdv ? '#ef4444' : '#64748b' }}; box-shadow: none;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; if (window.closeSharedStatusMenu) window.closeSharedStatusMenu(); document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
+                <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria btn-filtro-avanzado {{ $hasAnyAdv ? 'activo' : '' }}" style="flex-shrink: 0;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; if (window.closeSharedStatusMenu) window.closeSharedStatusMenu(); document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
                     <i class="material-icons">filter_list</i>
                 </button>
                 
@@ -308,7 +310,7 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">
                         <!-- Modelo -->
                         <div>
-                            <span class="adv-label">Modelo</span>
+                            <span class="panel-filtro-avanzado-label">Modelo</span>
                             <div class="custom-dropdown" id="modeloAdvFilter" data-filter-type="modelo" data-default-label="Seleccionar Modelo..." style="font-size: 12px;">
                                 <input type="hidden" name="modelo" data-filter-value value="{{ request('modelo') }}">
 
@@ -351,7 +353,7 @@
 
                         <!-- Marca -->
                         <div>
-                            <span class="adv-label">Marca</span>
+                            <span class="panel-filtro-avanzado-label">Marca</span>
                             <div class="custom-dropdown" id="marcaAdvFilter" data-filter-type="marca" data-default-label="Seleccionar Marca..." style="font-size: 12px;">
                                 <input type="hidden" name="marca" data-filter-value value="{{ request('marca') }}">
 
@@ -403,7 +405,7 @@
                     <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                         <!-- Categoría Flota (FLOTA LIVIANA / FLOTA PESADA): en modo aux no aplica (el backend no la reenvía) -->
                         <div class="adv-filter-eq-only">
-                            <span class="adv-label">Categoría Flota</span>
+                            <span class="panel-filtro-avanzado-label">Categoría Flota</span>
                             <div class="custom-dropdown" id="categoriaAdvFilter" data-filter-type="categoria" data-default-label="Seleccionar Categoría..." style="font-size: 12px;">
                                 <input type="hidden" name="categoria" data-filter-value value="{{ request('categoria') }}">
 
@@ -431,7 +433,7 @@
 
                         <!-- Estado Operativo -->
                         <div>
-                            <span class="adv-label">Estado Operativo</span>
+                            <span class="panel-filtro-avanzado-label">Estado Operativo</span>
                             <div class="custom-dropdown" id="estadoAdvFilter" data-filter-type="estado" data-default-label="Seleccionar Estado..." style="font-size: 12px;">
                                 <input type="hidden" name="estado" data-filter-value value="{{ request('estado') }}">
 
@@ -464,7 +466,7 @@
                     <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <!-- Año Filter -->
                         <div>
-                            <span class="adv-label">Año</span>
+                            <span class="panel-filtro-avanzado-label">Año</span>
                             <div class="custom-dropdown" id="anioAdvFilter" data-filter-type="anio" data-default-label="Seleccionar Año..." style="font-size: 12px;">
                                 <input type="hidden" name="anio" data-filter-value value="{{ request('anio') }}">
 
@@ -497,7 +499,7 @@
 
                         <!-- Confirmación en sitio (fijo SI/NO — visible en eq y aux mode) -->
                         <div>
-                            <span class="adv-label">Confirmación</span>
+                            <span class="panel-filtro-avanzado-label">Confirmación</span>
                             <div class="custom-dropdown" id="confirmadoAdvFilter" data-filter-type="confirmado" data-default-label="Seleccionar..." style="font-size: 12px;">
                                 <input type="hidden" name="confirmado" data-filter-value value="{{ request('confirmado') }}">
                                 <div class="dropdown-trigger adv-trigger {{ request('confirmado') ? 'filter-active' : '' }}">
@@ -526,7 +528,7 @@
                     <div class="adv-filter-eq-only" style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <!-- GPS Filter -->
                         <div>
-                            <span class="adv-label">GPS</span>
+                            <span class="panel-filtro-avanzado-label">GPS</span>
                             <div class="custom-dropdown" id="gpsAdvFilter" data-filter-type="gps" data-default-label="Seleccionar Estatus..." style="font-size: 12px;">
                                 <input type="hidden" name="gps" data-filter-value value="{{ request('gps') }}">
 
@@ -553,7 +555,7 @@
 
                         <!-- Color Filter -->
                         <div>
-                            <span class="adv-label">Color</span>
+                            <span class="panel-filtro-avanzado-label">Color</span>
                             <div class="custom-dropdown" id="colorAdvFilter" data-filter-type="color" data-default-label="Seleccionar Color..." style="font-size: 12px;">
                                 <input type="hidden" name="color" data-filter-value value="{{ request('color') }}">
                                 <div class="dropdown-trigger adv-trigger {{ request('color') ? 'filter-active' : '' }}">

@@ -352,8 +352,9 @@ class AlmacenController extends Controller
      * misma recibe un 304 vacío en vez de bajarla entera (~30 KB comprimida). Es solo catálogo
      * (sin stock) y se valida SIEMPRE (no-cache), así que nunca se muestra uno viejo.
      * El servidor web reescribe el ETag al comprimir: nginx lo vuelve débil (W/"…"), que
-     * Symfony ya acepta, y Apache (mod_deflate) le añade "-gzip" al final, que se quita aquí
-     * antes de comparar — si no, en Apache la lista se volvía a bajar siempre.
+     * Symfony ya acepta, y Apache le añade el códec al final ("-gzip", "-br"…), que se quita
+     * aquí antes de comparar — si no, en Apache la lista se volvía a bajar siempre. Nuestro
+     * ETag es un hash hexadecimal, así que nunca lleva guion propio.
      */
     public function productosAutocomplete(Request $request)
     {
@@ -361,7 +362,7 @@ class AlmacenController extends Controller
         $respuesta->setEtag(hash('xxh128', $respuesta->getContent()))->setPrivate();
         $respuesta->headers->addCacheControlDirective('no-cache');
 
-        $pedidos = array_map(fn ($e) => preg_replace('/-gzip"$/', '"', $e), $request->getETags());
+        $pedidos = array_map(fn ($e) => preg_replace('/-[a-z]+"$/', '"', $e), $request->getETags());
         if ($pedidos) {
             $request->headers->set('If-None-Match', implode(', ', $pedidos));
         }

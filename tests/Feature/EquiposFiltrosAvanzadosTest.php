@@ -34,6 +34,7 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
 
         $r = $this->actingAs($user)->get(route('equipos.index', ['filter_propiedad' => 'false']))->assertOk();
         $this->assertCount(0, $r->viewData('equipos'), 'Sin filtro real el listado abre vacío, igual que la exportación.');
+        $this->assertStringNotContainsString('btn-filtro-avanzado activo', (string) $r->getContent(), 'Y el botón de filtros no se pinta rojo.');
     }
 
     public function test_un_documento_en_true_si_cuenta_como_filtro(): void
@@ -42,6 +43,7 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
             ->get(route('equipos.index', ['filter_propiedad' => 'true']))->assertOk();
 
         $this->assertGreaterThan(0, count($r->viewData('equipos')));
+        $r->assertSee('btn-filtro-avanzado activo', false);
     }
 
     public function test_el_filtro_activo_se_marca_con_la_misma_clase_que_usa_el_js(): void
@@ -62,10 +64,10 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
         $html = (string) $this->actingAs($this->superAdminGlobal())->get(route('equipos.index'))->assertOk()->getContent();
         $panel = $this->panel($html);
 
-        $this->assertMatchesRegularExpression('/<div class="adv-filter-eq-only">\s*<span class="adv-label">Categoría Flota<\/span>/', $panel);
+        $this->assertMatchesRegularExpression('/<div class="adv-filter-eq-only">\s*<span class="panel-filtro-avanzado-label">Categoría Flota<\/span>/', $panel);
         $this->assertStringNotContainsString('filter_display_', $panel);
         $this->assertStringNotContainsString("classList.toggle('active')", $panel);
-        $this->assertSame(8, substr_count($panel, 'class="adv-label"'));
+        $this->assertSame(8, substr_count($panel, 'class="panel-filtro-avanzado-label"'));
         $this->assertSame(6, substr_count($panel, 'adv-check'));
     }
 

@@ -1263,19 +1263,6 @@ window.eqRegisterNuevoFrente = function (frente) {
 // lo mismo. Cuando el export releía los inputs por su cuenta se le quedaron fuera ejes
 // enteros —GPS, doc_presence— y el Excel salía con más equipos de los que se veían.
 // Valor null = ese filtro no está puesto.
-// Botón de Filtros Avanzados en ROJO si hay algún filtro del panel activo; si no, blanco.
-// Lo llaman loadEquipos y el pintado offline (equipos-offline.js), que no pasa por loadEquipos.
-// Mismo criterio que $hasAnyAdv del Blade, que lo pinta al cargar la página.
-window.eqPintarBotonFiltros = function (filters) {
-    const btnAdv = document.getElementById('btnAdvancedFilter');
-    if (!btnAdv) return;
-    const f = filters || window.eqFiltrosActivos();
-    const hasAdv = !!(f.modelo || f.marca || f.anio || f.categoria || f.estado || f.gps || f.color || f.confirmado || f.filter_propiedad || f.filter_poliza || f.filter_rotc || f.filter_racda || f.filter_adicional || f.filter_adicional_2);
-    btnAdv.style.background = hasAdv ? '#fee2e2' : 'white';
-    btnAdv.style.borderColor = hasAdv ? '#ef4444' : '#cbd5e0';
-    btnAdv.style.color = hasAdv ? '#ef4444' : '#64748b';
-};
-
 window.eqFiltrosActivos = function () {
     const advancedPanel = document.getElementById("advancedFilterPanel");
 
@@ -1323,6 +1310,17 @@ window.eqFiltrosActivos = function () {
             ? window.__equiposDocPresence
             : null,
     };
+};
+
+// Botón de Filtros Avanzados en ROJO (.activo, el componente .btn-filtro-avanzado de
+// estilos_globales.css) si hay algún filtro del panel activo. Lo llaman loadEquipos y el pintado
+// offline (equipos-offline.js), que no pasa por loadEquipos. Mismo criterio que $hasAnyAdv del
+// Blade, que pone la clase al cargar la página.
+window.eqPintarBotonFiltros = function (filters) {
+    const btnAdv = document.getElementById('btnAdvancedFilter');
+    if (!btnAdv) return;
+    const f = filters || window.eqFiltrosActivos();
+    btnAdv.classList.toggle('activo', !!(f.modelo || f.marca || f.anio || f.categoria || f.estado || f.gps || f.color || f.confirmado || f.filter_propiedad || f.filter_poliza || f.filter_rotc || f.filter_racda || f.filter_adicional || f.filter_adicional_2));
 };
 
 window.loadEquipos = function (url = null, silent = false, opts = {}) {
@@ -1384,6 +1382,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 const chk = document.getElementById(id);
                 if (chk) chk.checked = false;
             });
+            // Sin esos documentos el lado Con/Sin del Consolidado vuelve al de siempre (igual que
+            // clearAdvancedFilters y toggleDocFilter).
+            window.__equiposDocPresence = 'con';
         }
         window._skipModoClear = false;
     }

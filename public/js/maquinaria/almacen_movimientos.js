@@ -413,10 +413,6 @@ window.almMovArrancar = function (CFG) {
         if (p && p.style.display === 'block' && !e.target.closest('#almMovFechasPanel') && !e.target.closest('#btnAdvancedFilterMov')) p.style.display = 'none';
     });
 
-    // ── Dropdown "Acciones" (toggle + cierre al click fuera) ────────────────
-    // Mismo patrón del dropdown de /admin/movilizaciones (toggleAccionesMov):
-    // sufijo "Inv" para no colisionar con el del módulo de movilizaciones si
-    // ambos cargan en una SPA.
     // Descarga la bitácora en XLSX con los filtros que se están viendo. Reutiliza
     // buildParams() —el mismo que arma la petición de la tabla— para que el archivo no pueda
     // traer un recorte distinto del que hay en pantalla. Va por window.location y no por
@@ -428,6 +424,10 @@ window.almMovArrancar = function (CFG) {
         window.location.href = CFG.rutas.exportar + (qs ? ('?' + qs) : '');
     };
 
+    // ── Dropdown "Acciones" (toggle + cierre al click fuera) ────────────────
+    // Mismo patrón del dropdown de /admin/movilizaciones (toggleAccionesMov):
+    // sufijo "Inv" para no colisionar con el del módulo de movilizaciones si
+    // ambos cargan en una SPA.
     window.toggleAccionesMovInv = function (ev) {
         if (ev) ev.stopPropagation();
         var m = el('splitDropdownMenuMovInv'); if (!m) return;
@@ -495,7 +495,6 @@ window.almMovArrancar = function (CFG) {
     window._almNotaModalsReady = true;
     var CFG = window.ALM_MOV_CFG;
 
-    var CSRF = window.getCsrf();
     var URL_DESTROY  = CFG.rutas.notaDestroy;
 
     function fb(id, type, msg) {
@@ -515,7 +514,6 @@ window.almMovArrancar = function (CFG) {
     if (document.getElementById('eliminarNotaOverlay')) {
         // Lista de N° de Nota (SALIDA, almacenes visibles) para el autocomplete.
         // La provee el controller SOLO si el usuario tiene almacen.nota.eliminar.
-        var NOTAS_LISTA = CFG.numerosNotas;
 
         window.openEliminarNotaModal = function () {
             var ov = document.getElementById('eliminarNotaOverlay'); if (!ov) return;
@@ -541,7 +539,9 @@ window.almMovArrancar = function (CFG) {
             if (!input || !box) return;
             var q = String(input.value || '').trim().toUpperCase();
             if (q === '') { box.classList.remove('open'); return; }
-            var matches = NOTAS_LISTA
+            // Se lee aquí y no al montar: este bloque corre una vez por pestaña y el Blade
+            // renueva window.ALM_MOV_CFG en cada apertura (notas emitidas mientras tanto).
+            var matches = (window.ALM_MOV_CFG.numerosNotas || [])
                 .filter(function (n) { return String(n).toUpperCase().indexOf(q) !== -1; })
                 .slice(0, 4);
             if (matches.length === 0) {
@@ -616,19 +616,15 @@ window.almMovArrancar = function (CFG) {
 //   · .alm-mov-undo  (deshacer)            → revierte el stock y recalcula los saldos.
 //   · .alm-mov-purge (eliminar historial)  → borra el rastro SIN tocar el stock.
 // Confirmación con el modal estilizado de la app (window.showModal), NO el confirm()
-// nativo del navegador (que muestra la IP 127.0.0.1 y rompe el diseño).
-    // Borrado de una fila del kardex (super.admin). Las dos variantes comparten TODA la
-    // mecánica (DELETE + toast + recarga); solo cambian la URL (atributo data-*) y los
-    // textos de confirmación:
-    //   · almDeshacerMovimiento    → revierte el stock y recalcula (data-undo-url).
-    //   · almEliminarSoloHistorial → borra el rastro SIN tocar el stock (data-purge-url).
+// nativo del navegador (que muestra la IP 127.0.0.1 y rompe el diseño). Las dos variantes
+// comparten TODA la mecánica (DELETE + toast + recarga) en almBorrarFilaKardex; solo cambian
+// la URL (data-undo-url / data-purge-url) y los textos de confirmación.
     function almBorrarFilaKardex(btn, opts) {
         if (!btn || btn.disabled) return;
         var url = btn.getAttribute(opts.urlAttr);
         if (!url) return;
 
         var ejecutar = function () {
-            var CSRF = window.getCsrf();
             btn.disabled = true;
             if (window.showPreloader) window.showPreloader();
             window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },

@@ -626,8 +626,10 @@
         almVerTodoActivo = false;
         almUltimaVista = null;
         if (typeof window.almSelClear === 'function') window.almSelClear();
-        // El pick que trae la URL nueva (?id_producto=): almResetPick lo acaba de borrar.
+        // El pick que trae la URL nueva (?id_producto=): almResetPick lo acaba de borrar. Con
+        // pick, la fila se vuelve a seleccionar sola al cargar, igual que en la primera apertura.
         almBuscarPickedId = almPickDeUrl();
+        _almPendingAutoSelect = (almBuscarPickedId != null);
         // Recolocar Consolidado y "En otros almacenes" en el DOM NUEVO: el cuerpo del IIFE
         // (que los coloca al montar) no vuelve a correr en una re-entrada por SPA.
         if (typeof window.almColocarSidebarMovil === 'function') window.almColocarSidebarMovil();

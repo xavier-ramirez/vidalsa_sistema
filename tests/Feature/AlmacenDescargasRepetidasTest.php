@@ -32,9 +32,10 @@ class AlmacenDescargasRepetidasTest extends MySqlTestCase
         $this->assertSame('', $r2->getContent(), 'El 304 no repite la lista.');
 
         // El servidor web reescribe el ETag al comprimir: nginx lo vuelve débil (W/"…") y Apache
-        // le añade "-gzip". Con los dos tiene que seguir dando 304.
+        // le añade el códec ("-gzip", "-br"). Con todos tiene que seguir dando 304.
         $this->actingAs($user)->getJson(self::URL_CATALOGO, ['If-None-Match' => 'W/' . $etag])->assertStatus(304);
         $this->actingAs($user)->getJson(self::URL_CATALOGO, ['If-None-Match' => substr($etag, 0, -1) . '-gzip"'])->assertStatus(304);
+        $this->actingAs($user)->getJson(self::URL_CATALOGO, ['If-None-Match' => substr($etag, 0, -1) . '-br"'])->assertStatus(304);
     }
 
     public function test_si_el_catalogo_cambia_llega_la_lista_nueva(): void
