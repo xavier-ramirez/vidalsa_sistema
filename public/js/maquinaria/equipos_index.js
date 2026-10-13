@@ -3612,8 +3612,8 @@ window.handleCreateCheck = function (event) {
 // [End of dashboard cleanup]
 
 // NOTA: NO registramos 'equipos' con ModuleManager.
-// El módulo tiene su PROPIO listener 'spa:contentLoaded' (bloque
-// _equiposWindowListenersReady, más arriba) protegido con esa bandera. Si además se registrara en
+// El módulo tiene su PROPIO listener 'spa:contentLoaded', protegido con
+// _equiposWindowListenersReady (más arriba). Si además se registrara en
 // ModuleManager (que también escucha spa:contentLoaded), initEquipos() se
 // llamaría DOBLE en cada navegación SPA → doble fetch + doble updateSelectionUI.
 
