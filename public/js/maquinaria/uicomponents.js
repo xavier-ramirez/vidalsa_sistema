@@ -563,7 +563,7 @@ window.clearAdvancedFilters = function () {
     // Detalle (Patio/Subdivisión) es un input oculto controlado por el panel lateral, no un dropdown.
     const detalleUbic = document.getElementById('detalleUbicacionFilter');
     if (detalleUbic) detalleUbic.value = '';
-    // «Detalle» de texto libre (sin recargar: la recarga va al final).
+    // «Detalle» (sin recargar: la recarga va al final).
     if (window.eqDetalleLimpiar) window.eqDetalleLimpiar(false);
 
     // Clear Doc Filters (Equipos + Auxiliares). 'chk_adicional' (Certificado) es compartido.

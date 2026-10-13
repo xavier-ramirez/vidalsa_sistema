@@ -187,7 +187,7 @@
         if (!igual(e.estado, f.estado)) return false;
         if (!igual(e.color, f.color)) return false;
         if (!igual(e.combustible, f.combustible)) return false;
-        // Detalle de texto libre: contiene lo escrito (el LIKE %…% del servidor).
+        // Detalle elegido de la lista: contiene ese texto (el LIKE %…% del servidor).
         if (f.detalle && up(e.ubicacion).indexOf(up(f.detalle).trim()) < 0) return false;
 
         const conf = up(f.confirmado);

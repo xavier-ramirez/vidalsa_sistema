@@ -616,7 +616,7 @@
                             </div>
                         </div>
 
-                        <!-- Detalle: texto libre con sugerencias (los detalles ya escritos). No lleva
+                        <!-- Detalle: se elige de la lista de detalles ya escritos (lo escrito solo busca en ella). No lleva
                              .dropdown-trigger a propósito: uicomponents borra el texto de esos al abrirlos. -->
                         <div>
                             <span class="panel-filtro-avanzado-label">Detalle</span>
