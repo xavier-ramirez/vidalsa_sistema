@@ -347,10 +347,27 @@ class AlmacenController extends Controller
      * Ahora la página arranca vacía y pide esta lista por AJAX tras renderizar. FUENTE ÚNICA:
      * ProductoInventario::listaAutocomplete() (la misma que usa el índice y la recepción).
      * Read-only (solo lectura del catálogo activo), sin permiso extra — igual que el índice.
+     *
+     * Con ETag: el navegador guarda la lista y en cada apertura pregunta si cambió; si es la
+     * misma recibe un 304 vacío en vez de bajarla entera (~30 KB comprimida). Es solo catálogo
+     * (sin stock) y se valida SIEMPRE (no-cache), así que nunca se muestra uno viejo.
+     * El servidor web reescribe el ETag al comprimir: nginx lo vuelve débil (W/"…"), que
+     * Symfony ya acepta, y Apache (mod_deflate) le añade "-gzip" al final, que se quita aquí
+     * antes de comparar — si no, en Apache la lista se volvía a bajar siempre.
      */
     public function productosAutocomplete(Request $request)
     {
-        return response()->json(ProductoInventario::listaAutocomplete());
+        $respuesta = response()->json(ProductoInventario::listaAutocomplete());
+        $respuesta->setEtag(hash('xxh128', $respuesta->getContent()))->setPrivate();
+        $respuesta->headers->addCacheControlDirective('no-cache');
+
+        $pedidos = array_map(fn ($e) => preg_replace('/-gzip"$/', '"', $e), $request->getETags());
+        if ($pedidos) {
+            $request->headers->set('If-None-Match', implode(', ', $pedidos));
+        }
+        $respuesta->isNotModified($request);
+
+        return $respuesta;
     }
 
     /**

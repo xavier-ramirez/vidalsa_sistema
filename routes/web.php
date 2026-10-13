@@ -396,11 +396,8 @@ Route::middleware(['auth'])->group(function () {
             // Catálogo de productos para el buscador FuzzySearch del cliente. Antes se embebía
             // inline en la página (~500 KB de 1155 productos) → abría lenta. Ahora se carga por
             // AJAX tras renderizar, así el módulo abre de una. Read-only, mismo criterio que el índice.
-            // cache.headers con etag: el navegador guarda la lista y en cada apertura pregunta si
-            // cambió; si es la misma recibe un 304 vacío en vez de volver a bajarla entera. Es
-            // solo catálogo (sin stock), y como se valida siempre nunca se muestra uno viejo.
-            Route::get   ('almacen/productos-autocomplete',       [App\Http\Controllers\AlmacenController::class, 'productosAutocomplete'])->name('almacen.productos-autocomplete')
-                ->middleware('cache.headers:private;no_cache;etag');
+            // Lleva ETag: si el navegador ya tiene la misma lista recibe un 304 vacío (ver el método).
+            Route::get   ('almacen/productos-autocomplete',       [App\Http\Controllers\AlmacenController::class, 'productosAutocomplete'])->name('almacen.productos-autocomplete');
 
             // Datos (JSON) — el kardex de movimientos lo consume el modal "Movimientos".
             Route::get   ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'movimientos'])      ->name('almacen.movimientos');
