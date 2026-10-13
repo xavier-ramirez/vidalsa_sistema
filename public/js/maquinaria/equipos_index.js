@@ -1332,11 +1332,28 @@ window.eqDetalleCambio = function (inp, inmediato) {
     clearTimeout(_eqDetalleTimer);
     _eqDetalleTimer = setTimeout(window.loadEquipos, inmediato ? 0 : 400);
 };
+// Sugerencias (los detalles ya escritos): se abren al entrar en la casilla y se filtran con lo
+// que se escribe (filterDropdownOptions, el mismo filtro que la lista de Color).
+window.eqDetalleSugerir = function (inp) {
+    const lista = inp.closest('.custom-dropdown');
+    if (!lista) return;
+    window.closeAllDropdowns(lista);
+    window.filterDropdownOptions(inp);
+    lista.classList.add('active');
+};
+window.eqDetalleElegir = function (item) {
+    const inp = document.getElementById('detalleTextoFilter');
+    if (!inp) return;
+    inp.value = item.dataset.value;
+    item.closest('.custom-dropdown').classList.remove('active');
+    window.eqDetalleCambio(inp, true);
+};
 // recargar=false: quien llama ya recarga la tabla (Limpiar Todo, cambio a modo aux).
 window.eqDetalleLimpiar = function (recargar) {
     const inp = document.getElementById('detalleTextoFilter');
     if (!inp) return;
     inp.value = '';
+    inp.closest('.custom-dropdown').classList.remove('active');
     if (recargar) { window.eqDetalleCambio(inp, true); return; }
     clearTimeout(_eqDetalleTimer);
     const caja = inp.closest('.adv-trigger');

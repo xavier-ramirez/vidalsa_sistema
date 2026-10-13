@@ -102,6 +102,25 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
             'Los comodines % y _ se buscan como texto, no como comodines.');
     }
 
+    public function test_detalle_sugiere_los_textos_escritos_y_se_actualiza_al_guardar_uno(): void
+    {
+        $user = $this->superAdminGlobal();
+        $existente = (string) DB::table('equipos')->whereNull('deleted_at')->where('DETALLE_UBICACION_ACTUAL', '<>', '')->value('DETALLE_UBICACION_ACTUAL');
+        $this->assertNotSame('', $existente, 'Hace falta un equipo con detalle.');
+
+        $panel = $this->panel((string) $this->actingAs($user)->get(route('equipos.index'))->assertOk()->getContent());
+        $this->assertStringContainsString('onclick="window.eqDetalleElegir(this)">' . e($existente) . '</div>', $panel);
+
+        // Guardar un detalle nuevo con «Detalle a resaltar» lo pone en las sugerencias al momento
+        // (sin esperar los 20 min del caché).
+        $id = (int) DB::table('equipos')->whereNull('deleted_at')->value('ID_EQUIPO');
+        $this->actingAs($user)->postJson(route('equipos.bulkUbicacion'), ['ids' => [$id], 'detalle_ubicacion' => 'SUGERENCIA NUEVA ZQ7'])
+            ->assertOk()->assertJson(['success' => true]);
+        $panel = $this->panel((string) $this->actingAs($user)->get(route('equipos.index'))->assertOk()->getContent());
+        $this->assertStringContainsString('data-value="SUGERENCIA NUEVA ZQ7"', $panel);
+        \Illuminate\Support\Facades\Cache::forget('equipos_detalles_dropdown'); // no dejar la prueba en el caché real
+    }
+
     public function test_combustible_y_detalle_se_ocultan_en_modo_aux(): void
     {
         $panel = $this->panel((string) $this->actingAs($this->superAdminGlobal())->get(route('equipos.index'))->assertOk()->getContent());

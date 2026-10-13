@@ -421,6 +421,9 @@ class EquipoController extends Controller
      */
     private const SHARED_DOC_FILTERS = ['filter_propiedad', 'filter_adicional'];
 
+    /** Clave de caché de las sugerencias del filtro «Detalle» (index la llena, bulkUbicacion la borra). */
+    private const CACHE_DETALLES = 'equipos_detalles_dropdown';
+
     /**
      * ¿Hay algún EJE COMPARTIDO activo (frente, búsqueda o doc compartido) que los auxiliares
      * también puedan satisfacer? Gobierna por igual el merge de filas aux y la card en index(),
@@ -945,6 +948,13 @@ class EquipoController extends Controller
             return Equipo::distinct()->whereNotNull('COLOR')->where('COLOR', '!=', '')->orderBy('COLOR', 'asc')->pluck('COLOR');
         });
 
+        // Sugerencias del filtro «Detalle»: los textos ya escritos en «Detalle a resaltar».
+        // bulkUbicacion borra esta clave al guardar uno, así la lista no se queda atrás.
+        $availableDetalles = \Illuminate\Support\Facades\Cache::remember(self::CACHE_DETALLES, 1200, function () {
+            return Equipo::distinct()->whereNotNull('DETALLE_UBICACION_ACTUAL')->where('DETALLE_UBICACION_ACTUAL', '!=', '')
+                ->orderBy('DETALLE_UBICACION_ACTUAL', 'asc')->pluck('DETALLE_UBICACION_ACTUAL');
+        });
+
         $auxMarcas = \Illuminate\Support\Facades\Cache::remember('aux_marcas_dropdown', 1200, function () {
             return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('MARCA')->where('MARCA', '!=', '')->orderBy('MARCA', 'asc')->pluck('MARCA');
         });
@@ -961,7 +971,7 @@ class EquipoController extends Controller
         // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
         // return JSON), así están disponibles tanto para el AJAX como para esta vista.
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'marcasPorTipo', 'modelosPorTipo', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'marcasPorTipo', 'modelosPorTipo', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableDetalles', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
     }
 
     public function export(Request $request)
@@ -5493,6 +5503,8 @@ class EquipoController extends Controller
             $count = Equipo::whereIn('ID_EQUIPO', $request->ids)->update([
                 'DETALLE_UBICACION_ACTUAL' => $valor,
             ]);
+            // Las sugerencias del filtro «Detalle» incluyen este texto (o dejan de hacerlo).
+            \Illuminate\Support\Facades\Cache::forget(self::CACHE_DETALLES);
 
             // IMPORTANTE: el ->update() masivo de QueryBuilder NO dispara
             // EquipoObserver::updated (no hidrata modelos), asi que este
