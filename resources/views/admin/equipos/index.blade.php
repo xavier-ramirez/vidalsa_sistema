@@ -625,14 +625,16 @@
                                     <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
                                         <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
-                                    <input type="text" name="detalle" id="detalleTextoFilter" value="{{ request('detalle') }}"
+                                    <input type="hidden" name="detalle" id="detalleAdvValor" value="{{ request('detalle') }}">
+                                    <input type="text" id="detalleTextoFilter" value="{{ request('detalle') }}"
                                         placeholder="Lo que tenga escrito..."
                                         aria-label="Filtrar por el detalle escrito"
                                         autocomplete="off"
                                         style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
                                         onfocus="window.eqDetalleSugerir(this)"
-                                        oninput="window.eqDetalleSugerir(this); window.eqDetalleCambio(this)"
-                                        onkeydown="if (event.key === 'Enter') { event.preventDefault(); this.closest('.custom-dropdown').classList.remove('active'); window.eqDetalleCambio(this, true); }">
+                                        oninput="window.eqDetalleSugerir(this)"
+                                        onblur="window.eqDetalleRestaurar()"
+                                        onkeydown="if (event.key === 'Enter') { event.preventDefault(); window.eqDetalleEnter(this); }">
                                     <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; cursor: pointer; display: {{ request('detalle') ? 'block' : 'none' }};"
                                        onclick="event.stopPropagation(); window.eqDetalleLimpiar(true);">close</i>
                                 </div>

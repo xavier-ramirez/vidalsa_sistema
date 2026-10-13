@@ -1314,24 +1314,25 @@ window.eqFiltrosActivos = function () {
     };
 };
 
-// Botón de Filtros Avanzados en ROJO (.activo, el componente .btn-filtro-avanzado de
-// estilos_globales.css) si hay algún filtro del panel activo. Lo llaman loadEquipos y el pintado
-// offline (equipos-offline.js), que no pasa por loadEquipos. Mismo criterio que $hasAnyAdv del
-// Blade, que pone la clase al cargar la página.
-// Filtro «Detalle» del panel: texto libre (busca lo que contenga). Recarga al dejar de escribir
-// (400 ms, igual que el buscador de seriales) o al pulsar Enter, y se marca activo como los demás.
-let _eqDetalleTimer = null;
-window.eqDetalleCambio = function (inp, inmediato) {
+// Filtro «Detalle» del panel: se escribe para buscar en la lista de detalles ya escritos y el
+// filtro se aplica SOLO al elegir uno de la lista (clic o Enter = el primero visible). El valor
+// aplicado vive en el oculto #detalleAdvValor (name="detalle", el que leen loadEquipos y el modo
+// offline); la casilla de texto es solo el buscador y, al salir de ella, vuelve a mostrar lo aplicado.
+function _eqDetalleMarcar(valor) {
+    const inp = document.getElementById('detalleTextoFilter');
+    const oculto = document.getElementById('detalleAdvValor');
+    if (!inp || !oculto) return null;
+    oculto.value = valor;
+    inp.value = valor;
+    inp.closest('.custom-dropdown').classList.remove('active');
     const caja = inp.closest('.adv-trigger');
-    const hay = inp.value.trim() !== '';
     if (caja) {
-        caja.classList.toggle('filter-active', hay);
+        caja.classList.toggle('filter-active', valor !== '');
         const x = caja.querySelector('[data-clear-btn]');
-        if (x) x.style.display = hay ? 'block' : 'none';
+        if (x) x.style.display = valor !== '' ? 'block' : 'none';
     }
-    clearTimeout(_eqDetalleTimer);
-    _eqDetalleTimer = setTimeout(window.loadEquipos, inmediato ? 0 : 400);
-};
+    return inp;
+}
 // Sugerencias (los detalles ya escritos): se abren al entrar en la casilla y se filtran con lo
 // que se escribe (filterDropdownOptions, el mismo filtro que la lista de Color).
 window.eqDetalleSugerir = function (inp) {
@@ -1342,28 +1343,31 @@ window.eqDetalleSugerir = function (inp) {
     lista.classList.add('active');
 };
 window.eqDetalleElegir = function (item) {
-    const inp = document.getElementById('detalleTextoFilter');
-    if (!inp) return;
-    inp.value = item.dataset.value;
-    item.closest('.custom-dropdown').classList.remove('active');
-    window.eqDetalleCambio(inp, true);
+    if (_eqDetalleMarcar(item.dataset.value)) window.loadEquipos();
+};
+window.eqDetalleEnter = function (inp) {
+    const primero = Array.from(inp.closest('.custom-dropdown').querySelectorAll('.dropdown-item'))
+        .find(it => it.style.display !== 'none');
+    if (primero) window.eqDetalleElegir(primero);
+};
+// Al salir sin elegir, lo escrito no filtra: la casilla vuelve a lo aplicado. Con espera para que
+// el clic en una sugerencia (que llega después del blur) se procese antes.
+window.eqDetalleRestaurar = function () {
+    setTimeout(function () {
+        const inp = document.getElementById('detalleTextoFilter');
+        const oculto = document.getElementById('detalleAdvValor');
+        if (inp && oculto && document.activeElement !== inp) inp.value = oculto.value;
+    }, 200);
 };
 // recargar=false: quien llama ya recarga la tabla (Limpiar Todo, cambio a modo aux).
 window.eqDetalleLimpiar = function (recargar) {
-    const inp = document.getElementById('detalleTextoFilter');
-    if (!inp) return;
-    inp.value = '';
-    inp.closest('.custom-dropdown').classList.remove('active');
-    if (recargar) { window.eqDetalleCambio(inp, true); return; }
-    clearTimeout(_eqDetalleTimer);
-    const caja = inp.closest('.adv-trigger');
-    if (caja) {
-        caja.classList.remove('filter-active');
-        const x = caja.querySelector('[data-clear-btn]');
-        if (x) x.style.display = 'none';
-    }
+    if (_eqDetalleMarcar('') && recargar) window.loadEquipos();
 };
 
+// Botón de Filtros Avanzados en ROJO (.activo, el componente .btn-filtro-avanzado de
+// estilos_globales.css) si hay algún filtro del panel activo. Lo llaman loadEquipos y el pintado
+// offline (equipos-offline.js), que no pasa por loadEquipos. Mismo criterio que $hasAnyAdv del
+// Blade, que pone la clase al cargar la página.
 window.eqPintarBotonFiltros = function (filters) {
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (!btnAdv) return;
