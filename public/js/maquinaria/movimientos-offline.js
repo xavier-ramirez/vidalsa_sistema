@@ -6,7 +6,7 @@
  * SOLO LECTURA — los PDFs de nota y los botones de deshacer/purgar no viajan offline.
  *
  * MOTOR DE FILTROS LOCAL: toda la UI de filtros online converge en window.loadMovimientos()
- * (inline de movimientos.blade.php). Con el modo offline activo se INTERCEPTA y se filtra
+ * (almacen_movimientos.js · almMovArrancar). Con el modo offline activo se INTERCEPTA y se filtra
  * la copia local leyendo el mismo estado del DOM que usa el online: los hidden de los
  * custom-dropdowns ([name=id_almacen|tipo|id_frente][data-filter-value]), #almMovSearch
  * (o window.almMovPickedIds si se clickeó una sugerencia = filtro por ID de producto),
@@ -170,7 +170,7 @@
 
         // Punto ÚNICO de intercepción: dropdowns, fechas, nota, buscador y paginación
         // terminan todos en loadMovimientos() — offline se filtra local en vez del fetch.
-        // El inline del blade REDEFINE loadMovimientos en cada montaje SPA → re-parchear.
+        // almMovArrancar REDEFINE loadMovimientos en cada montaje SPA → re-parchear.
         if (typeof window.loadMovimientos === 'function' && window.loadMovimientos !== window._movOffPatchedLoad) {
             window._origLoadMovimientos = window.loadMovimientos;
             window._movOffPatchedLoad = function () {

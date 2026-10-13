@@ -128,13 +128,15 @@
     // al comportamiento LIKE %term% (búsqueda por similitudes).
     // Init desde URL: si llegamos por link directo con ?id_producto=NNN, sincronizar el
     // estado JS para que la primera llamada AJAX SI mande id_producto (sin esto la
-    // pagina dropearia el parametro y el sidebar cruzado nunca apareceria).
-    var almBuscarPickedId = (function () {
-        var v = _almInitParams.get('id_producto');
+    // pagina dropearia el parametro y el sidebar cruzado nunca apareceria). Lee la URL
+    // ACTUAL, no _almInitParams: almResetOnRemount la vuelve a leer al reabrir el módulo.
+    function almPickDeUrl() {
+        var v = new URLSearchParams(window.location.search).get('id_producto');
         if (!v) return null;
         var n = parseInt(v, 10);
         return isFinite(n) && n > 0 ? n : null;
-    })();
+    }
+    var almBuscarPickedId = almPickDeUrl();
     // almBuscarPickedIds: CSV de IDs de presentaciones cuando se clickea una sugerencia
     // AGRUPADA (misma descripcion, varias UM). Manda id_producto_in → el backend devuelve
     // EXACTAMENTE esas presentaciones, no substrings (a diferencia del LIKE de `search`).
@@ -624,6 +626,8 @@
         almVerTodoActivo = false;
         almUltimaVista = null;
         if (typeof window.almSelClear === 'function') window.almSelClear();
+        // El pick que trae la URL nueva (?id_producto=): almResetPick lo acaba de borrar.
+        almBuscarPickedId = almPickDeUrl();
         // Recolocar Consolidado y "En otros almacenes" en el DOM NUEVO: el cuerpo del IIFE
         // (que los coloca al montar) no vuelve a correr en una re-entrada por SPA.
         if (typeof window.almColocarSidebarMovil === 'function') window.almColocarSidebarMovil();
@@ -639,6 +643,9 @@
         // finally no correría y el modal se quedaría mudo hasta recargar la página. Al
         // reabrir el módulo no hay ninguna alta en vuelo, así que soltarlo es seguro.
         window._almGuardandoProducto = false;
+        // Si la URL trae un filtro (?search=, ?categoria=…), aplicarlo: el arranque lo hace una
+        // sola vez, así que al llegar por el menú o un enlace interno la tabla quedaba vacía.
+        almCargarSiHayFiltro();
     };
     // Pintar al inicio para reflejar el estado leido de la URL.
     almPintarBadges();
@@ -4014,12 +4021,14 @@
     // pedir nada más. Con el patron placeholder-background, value="" siempre — leemos del
     // data-active. Incluir almBuscarPickedId garantiza que un link directo del tipo
     // ?id_producto=NNN dispare la carga y pinte el sidebar cruzado "En otros almacenes".
-    (function () {
+    // También lo llama almResetOnRemount: al reabrir el módulo por la SPA con ?search=.
+    function almCargarSiHayFiltro() {
         var b = el('almFiltroBuscar'), c = el('almFiltroCat'), u = el('almFiltroUm');
         var bActivo = b && ((b.value && b.value.trim()) || (b.dataset.active && b.dataset.active.trim()));
         var cActivo = c && ((c.value && c.value.trim()) || (c.dataset.active && c.dataset.active.trim()));
         if (bActivo || cActivo || (u && u.value) || almBuscarPickedId) window.almCargar();
-    })();
+    }
+    almCargarSiHayFiltro();
 
     // ── Posicion de Consolidado + "En otros almacenes" en mobile ─────────────
     // Default DOM (desktop): .counter-sidebar es sibling del .admin-card dentro

@@ -16,7 +16,7 @@ MySQL/MariaDB. Los archivos viven en **Google Drive** y se sirven por un proxy p
 | Cosa | Dónde |
 |---|---|
 | Local | Apache de XAMPP, vhost en `http://127.0.0.1:8000` (la BD local es una COPIA del servidor) |
-| Pruebas | `php artisan test` (403, PHPUnit, `tests/Feature`) — ver §7 |
+| Pruebas | `php artisan test` (576, PHPUnit, `tests/Feature`) — ver §7 |
 | Despliegue | `docker/start.sh`: `migrate --force` + `schedule:work` + php-fpm. Hosting: EasyPanel |
 | Tareas | `routes/console.php` (verificación de documentos, compresión de PDF, limpieza de caché) |
 
