@@ -91,6 +91,8 @@
             estado:     v('input[name="estado"]', panel),
             gps:        v('input[name="gps"]', panel),
             color:      v('input[name="color"]', panel),
+            combustible: v('input[name="combustible"]', panel),
+            detalle:    v('input[name="detalle"]', panel),
             confirmado: v('input[name="confirmado"]', panel),
             docs:       ['chk_propiedad', 'chk_poliza', 'chk_rotc', 'chk_racda', 'chk_adicional', 'chk_adicional_2'].filter(chk),
         };
@@ -101,13 +103,13 @@
     // el filled() de Laravel — es la forma de pedir el listado completo a propósito.
     function hayFiltro(f) {
         return !!(f.q || f.frente || f.tipo || f.modelo || f.marca || f.ubicacion || f.anio ||
-                  f.categoria || f.estado || f.gps || f.color || f.confirmado || f.docs.length);
+                  f.categoria || f.estado || f.gps || f.color || f.combustible || f.detalle || f.confirmado || f.docs.length);
     }
 
     // Réplica de tieneFiltroEspecifico(): decide si los frentes ESPECIAL se ocultan. Un TIPO
     // concreto cuenta (no 'all' ni uno de auxiliar), como en el servidor.
     function filtroEspecifico(f) {
-        if (f.q || f.modelo || f.marca || f.ubicacion || f.anio || f.categoria || f.estado || f.color) return true;
+        if (f.q || f.modelo || f.marca || f.ubicacion || f.detalle || f.combustible || f.anio || f.categoria || f.estado || f.color) return true;
         if (f.tipo && f.tipo !== 'all' && f.tipo.indexOf('tipo_aux:') !== 0) return true;
         if (['SI', 'NO'].indexOf(up(f.gps)) >= 0) return true;
         if (['SI', 'NO'].indexOf(up(f.confirmado)) >= 0) return true;
@@ -184,6 +186,9 @@
         if (!igual(e.categoria, f.categoria)) return false;
         if (!igual(e.estado, f.estado)) return false;
         if (!igual(e.color, f.color)) return false;
+        if (!igual(e.combustible, f.combustible)) return false;
+        // Detalle de texto libre: contiene lo escrito (el LIKE %…% del servidor).
+        if (f.detalle && up(e.ubicacion).indexOf(up(f.detalle).trim()) < 0) return false;
 
         const conf = up(f.confirmado);
         if (conf === 'SI' && Number(e.confirmado) !== 1) return false;

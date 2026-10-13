@@ -689,7 +689,7 @@ class OfflineController extends Controller
             'ID_EQUIPO', 'NUMERO_ETIQUETA', 'CATEGORIA_FLOTA', 'MARCA', 'MODELO', 'ANIO', 'COLOR',
             'ESTADO_OPERATIVO', 'DETALLE_UBICACION_ACTUAL', 'SERIAL_CHASIS', 'SERIAL_DE_MOTOR',
             'CODIGO_PATIO', 'ID_FRENTE_ACTUAL', 'id_tipo_equipo', 'ID_ESPEC',
-            'CONFIRMADO_EN_SITIO',
+            'CONFIRMADO_EN_SITIO', 'COMBUSTIBLE',
         ];
     }
 
@@ -711,6 +711,7 @@ class OfflineController extends Controller
             'codigo_patio' => $e->CODIGO_PATIO,
             'estado' => MojibakeFix::fix($e->ESTADO_OPERATIVO),
             'ubicacion' => MojibakeFix::fix($e->DETALLE_UBICACION_ACTUAL),
+            'combustible' => $e->COMBUSTIBLE,
             'frente' => MojibakeFix::fix($e->frenteActual?->NOMBRE_FRENTE),
             'frente_finalizado' => $e->frenteActual && $e->frenteActual->ESTATUS_FRENTE === 'FINALIZADO',
             'id_frente' => $e->ID_FRENTE_ACTUAL ? (int) $e->ID_FRENTE_ACTUAL : null,

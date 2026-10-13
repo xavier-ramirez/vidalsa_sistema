@@ -282,7 +282,7 @@
             <div style="position: relative; flex-shrink: 0;">
                 @php
                     // Mismo criterio que eqPintarBotonFiltros (JS): los documentos cuentan solo si vienen como 'true'.
-                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado')
+                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado') || request('combustible') || request('detalle')
                         || collect(['filter_propiedad', 'filter_poliza', 'filter_rotc', 'filter_racda', 'filter_adicional', 'filter_adicional_2'])->contains(fn ($d) => request($d) === 'true');
                 @endphp
                 <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria btn-filtro-avanzado {{ $hasAnyAdv ? 'activo' : '' }}" style="flex-shrink: 0;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; if (window.closeSharedStatusMenu) window.closeSharedStatusMenu(); document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
@@ -582,6 +582,56 @@
                                         @endif
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                    {{-- Combustible + Detalle (solo equipos, como GPS y Color). Detalle busca el TEXTO que
+                         contenga «Detalle a resaltar» (param detalle, LIKE); no es el detalle_ubicacion
+                         exacto que pone el panel lateral de ubicaciones de un frente especial. --}}
+                    <div class="adv-filter-eq-only" style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <!-- Combustible -->
+                        <div>
+                            <span class="panel-filtro-avanzado-label">Combustible</span>
+                            <div class="custom-dropdown" id="combustibleAdvFilter" data-filter-type="combustible" data-default-label="Seleccionar Combustible..." style="font-size: 12px;">
+                                <input type="hidden" name="combustible" data-filter-value value="{{ request('combustible') }}">
+                                <div class="dropdown-trigger adv-trigger {{ request('combustible') ? 'filter-active' : '' }}">
+                                    <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
+                                        <i class="material-icons" style="font-size: 16px;">search</i>
+                                    </div>
+                                    <input type="text" readonly
+                                        placeholder="{{ request('combustible') ?: 'Combustible...' }}"
+                                        aria-label="Filtrar Combustible"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;">
+                                    <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('combustible') ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); clearDropdownFilter('combustibleAdvFilter'); loadEquipos();">close</i>
+                                </div>
+                                <div class="dropdown-content">
+                                    <div class="dropdown-item-list">
+                                        {{-- Sin «NO APLICA» (remolques): no es un tipo de combustible por el que filtrar. --}}
+                                        @foreach(array_diff(\App\Models\Equipo::COMBUSTIBLES, ['NO APLICA']) as $comb)
+                                            <div class="dropdown-item {{ request('combustible') === $comb ? 'selected' : '' }}" data-value="{{ $comb }}" onclick="selectOption('combustibleAdvFilter', '{{ $comb }}', '{{ $comb }}'); loadEquipos();">{{ $comb }}</div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Detalle: texto libre -->
+                        <div>
+                            <span class="panel-filtro-avanzado-label">Detalle</span>
+                            <div class="adv-trigger {{ request('detalle') ? 'filter-active' : '' }}" style="font-size: 12px;">
+                                <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
+                                    <i class="material-icons" style="font-size: 16px;">search</i>
+                                </div>
+                                <input type="text" name="detalle" id="detalleTextoFilter" value="{{ request('detalle') }}"
+                                    placeholder="Lo que tenga escrito..."
+                                    aria-label="Filtrar por el detalle escrito"
+                                    autocomplete="off"
+                                    style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
+                                    oninput="window.eqDetalleCambio(this)"
+                                    onkeydown="if (event.key === 'Enter') { event.preventDefault(); window.eqDetalleCambio(this, true); }">
+                                <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; cursor: pointer; display: {{ request('detalle') ? 'block' : 'none' }};"
+                                   onclick="event.stopPropagation(); window.eqDetalleLimpiar(true);">close</i>
                             </div>
                         </div>
                     </div>

@@ -71,8 +71,9 @@ class OfflineVersion
      *   v4 → color de la unidad (equipos) y referencia de los movimientos (almacén)
      *   v5 → reporte de falla abierto de cada equipo (aviso sobre su estado)
      *   v6 → kits del almacén (tabla `kits`, dominio catalogos)
+     *   v7 → combustible de cada equipo (filtro Combustible sin conexión)
      */
-    public const ESQUEMA = 6;
+    public const ESQUEMA = 7;
 
     /** Dominios válidos. El orden no importa; valida el argumento de invalidar(). */
     public const DOMINIOS = ['equipos', 'almacen', 'catalogos'];

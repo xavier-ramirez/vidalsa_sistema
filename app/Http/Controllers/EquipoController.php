@@ -122,7 +122,7 @@ class EquipoController extends Controller
         if ($this->tipoEquipoPedido($request) !== null) {
             return true;
         }
-        foreach (['modelo', 'marca', 'detalle_ubicacion', 'anio', 'categoria', 'estado', 'color'] as $p) {
+        foreach (['modelo', 'marca', 'detalle_ubicacion', 'detalle', 'combustible', 'anio', 'categoria', 'estado', 'color'] as $p) {
             if ($request->filled($p)) {
                 return true;
             }
@@ -236,6 +236,18 @@ class EquipoController extends Controller
 
         if (!in_array('detalle_ubicacion', $exclude) && $request->filled('detalle_ubicacion') && trim($request->detalle_ubicacion) !== '') {
             $query->where('DETALLE_UBICACION_ACTUAL', $request->detalle_ubicacion);
+        }
+
+        // Combustible: valor exacto de equipos.COMBUSTIBLE (Equipo::COMBUSTIBLES).
+        if (!in_array('combustible', $exclude) && $request->filled('combustible') && trim($request->combustible) !== '') {
+            $query->where('COMBUSTIBLE', trim($request->combustible));
+        }
+
+        // Detalle: TEXTO LIBRE que contenga lo escrito en «Detalle a resaltar»
+        // (DETALLE_UBICACION_ACTUAL). Es otro filtro que detalle_ubicacion de arriba, que es la
+        // coincidencia EXACTA que pone el panel lateral de ubicaciones de un frente especial.
+        if (!in_array('detalle', $exclude) && $request->filled('detalle') && trim($request->detalle) !== '') {
+            $query->where('DETALLE_UBICACION_ACTUAL', 'like', '%' . addcslashes(trim($request->detalle), '%_\\') . '%');
         }
 
         if (!in_array('anio', $exclude) && $request->filled('anio') && trim($request->anio) !== '') {
@@ -365,8 +377,9 @@ class EquipoController extends Controller
     /**
      * True si los filtros apuntan SOLO a equipos → NO se muestran/exportan auxiliares ni su
      * card. El FRENTE no cuenta (agrupa equipos Y auxiliares). Dos motivos de enfoque:
-     *  (a) atributo de DISPOSITIVO: tipo, modelo, marca, color, GPS o categoría de flota
-     *      (el año NO: es eje compartido, los auxiliares también lo tienen).
+     *  (a) atributo de DISPOSITIVO: tipo, modelo, marca, color, GPS, combustible, detalle
+     *      escrito o categoría de flota (el año NO: es eje compartido, los auxiliares
+     *      también lo tienen).
      *  (b) documento que SOLO existe en equipos (póliza/ROTC/RACDA/compraventa): un auxiliar
      *      no puede cumplirlo. Se deriva de DOC_FILTER_COLS menos los DOCS COMPARTIDOS
      *      (filter_propiedad y filter_adicional/"Certificado", que los auxiliares también
@@ -385,6 +398,8 @@ class EquipoController extends Controller
             || $request->filled('marca')
             || $request->filled('color')
             || $request->filled('gps')
+            || $request->filled('combustible')
+            || $request->filled('detalle')
             || ($categoriaSel !== '' && $categoriaSel !== 'AUXILIARES');
         // Documentos solo-equipos activos = los doc filters activos (detector canónico
         // activeDocFilters, criterio === 'true') MENOS los DOCS COMPARTIDOS (propiedad y
@@ -790,7 +805,7 @@ class EquipoController extends Controller
         // ANTES del return JSON (el filtrado AJAX retorna aquí). Visibilidad de la card:
         //  - sin filtro o filtro por FRENTE         → las DOS cards (equipos + auxiliares)
         //  - enfoque solo-equipos ($focusEquiposOnly) → solo equipos (se oculta esta card):
-        //    atributo de vehículo (tipo, modelo, marca, color, GPS, categoría flota) o
+        //    atributo de vehículo (tipo, modelo, marca, color, GPS, combustible, detalle, categoría flota) o
         //    documento solo-equipos (póliza, ROTC, RACDA, compraventa) — ver esFocoSoloEquipos
         //  - modo aux (tipo/categoría auxiliar)     → la card principal de arriba ya es de
         //    auxiliares, así que esta se oculta para no duplicar el conteo.

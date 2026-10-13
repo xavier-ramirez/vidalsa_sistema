@@ -67,8 +67,47 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/<div class="adv-filter-eq-only">\s*<span class="panel-filtro-avanzado-label">Categoría Flota<\/span>/', $panel);
         $this->assertStringNotContainsString('filter_display_', $panel);
         $this->assertStringNotContainsString("classList.toggle('active')", $panel);
-        $this->assertSame(8, substr_count($panel, 'class="panel-filtro-avanzado-label"'));
+        $this->assertSame(10, substr_count($panel, 'class="panel-filtro-avanzado-label"'));
         $this->assertSame(6, substr_count($panel, 'adv-check'));
+    }
+
+    public function test_filtro_combustible_trae_solo_ese_combustible(): void
+    {
+        $r = $this->actingAs($this->superAdminGlobal())
+            ->get(route('equipos.index', ['combustible' => 'GASOLINA']))->assertOk();
+
+        $equipos = collect($r->viewData('equipos'));
+        $this->assertGreaterThan(0, $equipos->count(), 'Hace falta algún equipo a gasolina.');
+        $this->assertTrue($equipos->every(fn ($e) => $e->COMBUSTIBLE === 'GASOLINA'));
+        $r->assertSee('btn-filtro-avanzado activo', false);
+
+        $panel = $this->panel((string) $r->getContent());
+        foreach (array_diff(\App\Models\Equipo::COMBUSTIBLES, ['NO APLICA']) as $comb) {
+            $this->assertStringContainsString('data-value="' . $comb . '"', $panel, "Opción $comb en el desplegable.");
+        }
+        $this->assertStringNotContainsString('data-value="NO APLICA"', $panel, 'NO APLICA no se ofrece como combustible.');
+    }
+
+    public function test_filtro_detalle_busca_lo_que_contenga_el_texto(): void
+    {
+        $id = (int) DB::table('equipos')->whereNull('deleted_at')->whereNotNull('id_tipo_equipo')->value('ID_EQUIPO');
+        DB::table('equipos')->where('ID_EQUIPO', $id)->update(['DETALLE_UBICACION_ACTUAL' => 'GALPON NORTE PRUEBA-ZX9']);
+        // la transacción de la prueba lo revierte
+
+        $user = $this->superAdminGlobal();
+        $ids = collect($this->actingAs($user)->get(route('equipos.index', ['detalle' => 'prueba-zx']))->assertOk()->viewData('equipos'))->pluck('ID_EQUIPO')->all();
+        $this->assertSame([$id], array_map('intval', $ids), 'Encuentra por una parte del texto, sin distinguir mayúsculas.');
+
+        $this->assertCount(0, $this->actingAs($user)->get(route('equipos.index', ['detalle' => '100%_no_existe']))->assertOk()->viewData('equipos'),
+            'Los comodines % y _ se buscan como texto, no como comodines.');
+    }
+
+    public function test_combustible_y_detalle_se_ocultan_en_modo_aux(): void
+    {
+        $panel = $this->panel((string) $this->actingAs($this->superAdminGlobal())->get(route('equipos.index'))->assertOk()->getContent());
+
+        $this->assertMatchesRegularExpression('/<div class="adv-filter-eq-only"[^>]*>\s*<!-- Combustible -->/', $panel);
+        $this->assertStringContainsString('id="detalleTextoFilter"', $panel);
     }
 
     /** El HTML del panel, desde su contenedor hasta el último filtro de documentos. */

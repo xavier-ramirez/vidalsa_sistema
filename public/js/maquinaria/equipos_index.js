@@ -1285,6 +1285,8 @@ window.eqFiltrosActivos = function () {
         estado: getVal('input[name="estado"]', advancedPanel || document),
         gps: getVal('input[name="gps"]', advancedPanel || document),
         color: getVal('input[name="color"]', advancedPanel || document),
+        combustible: getVal('input[name="combustible"]', advancedPanel || document),
+        detalle: getVal('input[name="detalle"]', advancedPanel || document),
         confirmado: getVal('input[name="confirmado"]', advancedPanel || document),
         filter_propiedad: document.getElementById("chk_propiedad")?.checked
             ? "true"
@@ -1316,11 +1318,40 @@ window.eqFiltrosActivos = function () {
 // estilos_globales.css) si hay algún filtro del panel activo. Lo llaman loadEquipos y el pintado
 // offline (equipos-offline.js), que no pasa por loadEquipos. Mismo criterio que $hasAnyAdv del
 // Blade, que pone la clase al cargar la página.
+// Filtro «Detalle» del panel: texto libre (busca lo que contenga). Recarga al dejar de escribir
+// (400 ms, igual que el buscador de seriales) o al pulsar Enter, y se marca activo como los demás.
+let _eqDetalleTimer = null;
+window.eqDetalleCambio = function (inp, inmediato) {
+    const caja = inp.closest('.adv-trigger');
+    const hay = inp.value.trim() !== '';
+    if (caja) {
+        caja.classList.toggle('filter-active', hay);
+        const x = caja.querySelector('[data-clear-btn]');
+        if (x) x.style.display = hay ? 'block' : 'none';
+    }
+    clearTimeout(_eqDetalleTimer);
+    _eqDetalleTimer = setTimeout(window.loadEquipos, inmediato ? 0 : 400);
+};
+// recargar=false: quien llama ya recarga la tabla (Limpiar Todo, cambio a modo aux).
+window.eqDetalleLimpiar = function (recargar) {
+    const inp = document.getElementById('detalleTextoFilter');
+    if (!inp) return;
+    inp.value = '';
+    if (recargar) { window.eqDetalleCambio(inp, true); return; }
+    clearTimeout(_eqDetalleTimer);
+    const caja = inp.closest('.adv-trigger');
+    if (caja) {
+        caja.classList.remove('filter-active');
+        const x = caja.querySelector('[data-clear-btn]');
+        if (x) x.style.display = 'none';
+    }
+};
+
 window.eqPintarBotonFiltros = function (filters) {
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (!btnAdv) return;
     const f = filters || window.eqFiltrosActivos();
-    btnAdv.classList.toggle('activo', !!(f.modelo || f.marca || f.anio || f.categoria || f.estado || f.gps || f.color || f.confirmado || f.filter_propiedad || f.filter_poliza || f.filter_rotc || f.filter_racda || f.filter_adicional || f.filter_adicional_2));
+    btnAdv.classList.toggle('activo', !!(f.modelo || f.marca || f.anio || f.categoria || f.estado || f.gps || f.color || f.combustible || f.detalle || f.confirmado || f.filter_propiedad || f.filter_poliza || f.filter_rotc || f.filter_racda || f.filter_adicional || f.filter_adicional_2));
 };
 
 window.loadEquipos = function (url = null, silent = false, opts = {}) {
@@ -1375,9 +1406,10 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             // También los que el modo aux OCULTA (.adv-filter-eq-only): si quedaran con valor,
             // el botón seguiría rojo sin nada visible que limpiar y, al volver a equipos, se
             // aplicarían sin que el usuario los viera.
-            ['modeloAdvFilter', 'marcaAdvFilter', 'anioAdvFilter', 'categoriaAdvFilter', 'gpsAdvFilter', 'colorAdvFilter'].forEach(function(id) {
+            ['modeloAdvFilter', 'marcaAdvFilter', 'anioAdvFilter', 'categoriaAdvFilter', 'gpsAdvFilter', 'colorAdvFilter', 'combustibleAdvFilter'].forEach(function(id) {
                 window.clearDropdownFilter(id);
             });
+            window.eqDetalleLimpiar(false);
             ['chk_poliza', 'chk_rotc', 'chk_racda', 'chk_adicional_2'].forEach(function(id) {
                 const chk = document.getElementById(id);
                 if (chk) chk.checked = false;
