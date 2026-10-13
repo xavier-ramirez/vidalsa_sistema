@@ -150,40 +150,6 @@ window.closeAllDropdowns = function (exceptElement) {
         .forEach((el) => {
             if (el !== exceptElement) el.classList.remove("active");
         });
-
-    // Close special filters (Equipos Index) if they are not the exception
-    // We check if the exceptElement *contains* the special list to avoid closing it if we are interacting with it?
-    // Actually, 'exceptElement' is usually the container being opened.
-
-    // yearList
-    const yearList = document.getElementById("yearList");
-    if (
-        yearList &&
-        yearList !== exceptElement &&
-        !exceptElement?.contains(yearList)
-    ) {
-        yearList.style.display = "none";
-    }
-
-    // modelList
-    const modelList = document.getElementById("modelList");
-    if (
-        modelList &&
-        modelList !== exceptElement &&
-        !exceptElement?.contains(modelList)
-    ) {
-        modelList.style.display = "none";
-    }
-
-    // marcaList
-    const marcaList = document.getElementById("marcaList");
-    if (
-        marcaList &&
-        marcaList !== exceptElement &&
-        !exceptElement?.contains(marcaList)
-    ) {
-        marcaList.style.display = "none";
-    }
 };
 
 // Global click handler for dropdowns (event delegation) - ROBUST VERSION
@@ -193,13 +159,7 @@ document.addEventListener("click", function (e) {
 
     // If not clicking a trigger, check if clicking INSIDE an already open dropdown
     if (!trigger) {
-        const isClickInside =
-            e.target.closest(".custom-dropdown, .custom-multiselect") ||
-            e.target.closest("#yearList") ||
-            e.target.closest("#modelList") ||
-            e.target.closest("#marcaList") ||
-            e.target.id === "searchModelInput" ||
-            e.target.id === "searchMarcaInput";
+        const isClickInside = e.target.closest(".custom-dropdown, .custom-multiselect");
 
         if (!isClickInside) {
             closeAllDropdowns(null); // Close everything
@@ -584,99 +544,7 @@ window.filterDropdownOptions = function (input) {
     }
 };
 
-// Global input listener is REDUNDANT because we added inline oninput handlers explicitly.
-// Removing it to prevent double-execution and potential conflicts.
-
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * GLOBAL DROPDOWN FUNCTIONS - SINGLE SOURCE OF TRUTH
- * ═══════════════════════════════════════════════════════════════════════
- * These functions are called from inline handlers in Blade templates across
- * different modules (Equipos, Catálogo, Movilizaciones, etc.).
- *
- * ⚠️ DO NOT duplicate these in module files - this is the authoritative source!
- * ═══════════════════════════════════════════════════════════════════════
- */
-
-// EQUIPOS: Advanced filter selection (Modelo, Marca, Año, Frente, Tipo, Search)
-window.selectAdvancedFilter = function (key, value) {
-    if (window.searchTimeout) clearTimeout(window.searchTimeout);
-
-    // Modelo y marca comparten el mismo componente de filtro (contenedor data-advanced-filter).
-    if (key === "modelo" || key === "marca") {
-        const container = document.querySelector(
-            '[data-advanced-filter="' + key + '"]',
-        );
-        if (container) {
-            const hiddenInput = container.querySelector("[data-filter-value]");
-            const searchInput = container.querySelector("[data-filter-search]");
-            const list = container.querySelector(".filter-list");
-            const btn = container.querySelector("[data-clear-btn]");
-
-            if (hiddenInput) hiddenInput.value = value;
-            if (searchInput) searchInput.value = value;
-            if (list) list.style.display = "none";
-            if (btn) btn.style.display = value ? "block" : "none";
-        }
-    }
-
-    if (key === "anio") {
-        const input = document.querySelector('input[name="anio"]');
-        if (input) input.value = value;
-        const labelSpan = document
-            .querySelector("#yearList")
-            ?.previousElementSibling?.querySelector("span");
-        if (labelSpan) labelSpan.innerText = value || "Seleccionar Año";
-        const list = document.getElementById("yearList");
-        if (list) list.style.display = "none";
-        const btn = document.getElementById("btn_clear_anio");
-        if (btn) btn.style.display = value ? "block" : "none";
-    }
-
-    if (key === "frente" || key === "id_frente") {
-        const input = document.querySelector('input[name="id_frente"]');
-        if (input) input.value = value;
-        const dropdown = document.getElementById("frenteFilterSelect");
-        if (dropdown) {
-            const searchInput = dropdown.querySelector("[data-filter-search]");
-            const btn = dropdown.querySelector("[data-clear-btn]");
-            if (searchInput)
-                searchInput.placeholder = value ? value : "Filtrar Frente...";
-            if (btn) btn.style.display = value ? "block" : "none";
-            dropdown.classList.remove("active");
-        }
-    }
-
-    if (key === "tipo" || key === "id_tipo") {
-        const input = document.querySelector('input[name="id_tipo"]');
-        if (input) input.value = value;
-        const dropdown = document.getElementById("tipoFilterSelect");
-        if (dropdown) {
-            const searchInput = dropdown.querySelector("[data-filter-search]");
-            const btn = dropdown.querySelector("[data-clear-btn]");
-            if (searchInput)
-                searchInput.placeholder = value ? value : "Filtrar Tipo...";
-            if (btn) btn.style.display = value ? "block" : "none";
-            dropdown.classList.remove("active");
-        }
-    }
-
-    if (key === "search") {
-        const input = document.getElementById("searchInput");
-        if (input) input.value = value;
-        const btn = document.getElementById("btn_clear_search");
-        if (btn) btn.style.display = value ? "block" : "none";
-    }
-
-    // Dispatch al módulo activo según el DOM (no por typeof — ambas funciones siempre existen)
-    if (document.getElementById('equiposTableBody') && typeof window.loadEquipos === 'function') {
-        window.loadEquipos();
-    } else if (document.getElementById('movilizacionesTableBody') && typeof window.loadMovilizaciones === 'function') {
-        window.loadMovilizaciones();
-    }
-};
-
-// EQUIPOS: Clear all advanced filters
+// EQUIPOS: «Limpiar Todo» del panel Filtros Avanzados (onclick en admin/equipos/index.blade.php).
 window.clearAdvancedFilters = function () {
     if (window.searchTimeout) clearTimeout(window.searchTimeout);
 
@@ -701,12 +569,12 @@ window.clearAdvancedFilters = function () {
         const el = document.getElementById(id);
         if (el) el.checked = false;
     });
+    // Sin documentos tildados, el lado "Con / Sin / Todos" del Consolidado vuelve a su valor
+    // de siempre (si no, esta recarga todavía mandaba doc_presence=sin).
+    window.__equiposDocPresence = 'con';
 
-    // Dispatch al módulo activo según el DOM
     if (document.getElementById('equiposTableBody') && typeof window.loadEquipos === 'function') {
         window.loadEquipos();
-    } else if (document.getElementById('movilizacionesTableBody') && typeof window.loadMovilizaciones === 'function') {
-        window.loadMovilizaciones();
     }
 };
 

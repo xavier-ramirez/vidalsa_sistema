@@ -308,11 +308,11 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px;">
                         <!-- Modelo -->
                         <div>
-                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Modelo</span>
+                            <span class="adv-label">Modelo</span>
                             <div class="custom-dropdown" id="modeloAdvFilter" data-filter-type="modelo" data-default-label="Seleccionar Modelo..." style="font-size: 12px;">
                                 <input type="hidden" name="modelo" data-filter-value value="{{ request('modelo') }}">
 
-                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('modelo') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                <div class="dropdown-trigger adv-trigger {{ request('modelo') ? 'filter-active' : '' }}">
                                     <div style="padding: 0 6px; display: flex; align-items: center; color: #94a3b8;">
                                         <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
@@ -326,7 +326,7 @@
                                        onclick="event.stopPropagation(); clearDropdownFilter('modeloAdvFilter'); loadEquipos();">close</i>
                                 </div>
 
-                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                <div class="dropdown-content">
                                     <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
                                         @if(!empty($availableModelos) && count($availableModelos))
                                         <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Vehículos</div>
@@ -351,11 +351,11 @@
 
                         <!-- Marca -->
                         <div>
-                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Marca</span>
+                            <span class="adv-label">Marca</span>
                             <div class="custom-dropdown" id="marcaAdvFilter" data-filter-type="marca" data-default-label="Seleccionar Marca..." style="font-size: 12px;">
                                 <input type="hidden" name="marca" data-filter-value value="{{ request('marca') }}">
 
-                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('marca') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                <div class="dropdown-trigger adv-trigger {{ request('marca') ? 'filter-active' : '' }}">
                                     <div style="padding: 0 6px; display: flex; align-items: center; color: #94a3b8;">
                                         <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
@@ -369,7 +369,7 @@
                                        onclick="event.stopPropagation(); clearDropdownFilter('marcaAdvFilter'); loadEquipos();">close</i>
                                 </div>
 
-                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                <div class="dropdown-content">
                                     <div class="dropdown-item-list" style="max-height: 150px; overflow-y: auto;">
                                         @if(!empty($availableMarcas) && count($availableMarcas))
                                         <div style="padding:4px 8px 2px; font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Vehículos</div>
@@ -401,28 +401,25 @@
 
                     {{-- Categoría Flota + Estado Operativo (2 columnas, lado a lado igual que Marca/Modelo). --}}
                     <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <!-- Categoría Flota (FLOTA LIVIANA / FLOTA PESADA) -->
-                        <div>
-                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Categoría Flota</span>
+                        <!-- Categoría Flota (FLOTA LIVIANA / FLOTA PESADA): en modo aux no aplica (el backend no la reenvía) -->
+                        <div class="adv-filter-eq-only">
+                            <span class="adv-label">Categoría Flota</span>
                             <div class="custom-dropdown" id="categoriaAdvFilter" data-filter-type="categoria" data-default-label="Seleccionar Categoría..." style="font-size: 12px;">
                                 <input type="hidden" name="categoria" data-filter-value value="{{ request('categoria') }}">
 
-                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('categoria') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                <div class="dropdown-trigger adv-trigger {{ request('categoria') ? 'filter-active' : '' }}">
                                     <div style="padding: 0 6px; display: flex; align-items: center; color: #94a3b8;">
                                         <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
                                     <input type="text" readonly
-                                        id="filter_display_categoria"
-                                        name="filter_display_categoria"
                                         placeholder="{{ request('categoria') ?: 'Categoría...' }}"
                                         aria-label="Filtrar Categoría"
-                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 2px; font-size: 12px; outline: none;"
-                                        onclick="this.closest('.custom-dropdown').classList.toggle('active')">
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 2px; font-size: 12px; outline: none;">
                                     <i class="material-icons" data-clear-btn style="padding: 0 4px; color: #94a3b8; font-size: 16px; display: {{ request('categoria') ? 'block' : 'none' }};"
                                        onclick="event.stopPropagation(); clearDropdownFilter('categoriaAdvFilter'); loadEquipos();">close</i>
                                 </div>
 
-                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                <div class="dropdown-content">
                                     <div class="dropdown-item-list">
                                         <div class="dropdown-item {{ request('categoria') == 'FLOTA LIVIANA' ? 'selected' : '' }}" data-value="FLOTA LIVIANA" onclick="selectOption('categoriaAdvFilter', 'FLOTA LIVIANA', 'FLOTA LIVIANA'); loadEquipos();">FLOTA LIVIANA</div>
                                         <div class="dropdown-item {{ request('categoria') == 'FLOTA PESADA' ? 'selected' : '' }}" data-value="FLOTA PESADA" onclick="selectOption('categoriaAdvFilter', 'FLOTA PESADA', 'FLOTA PESADA'); loadEquipos();">FLOTA PESADA</div>
@@ -434,26 +431,23 @@
 
                         <!-- Estado Operativo -->
                         <div>
-                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Estado Operativo</span>
+                            <span class="adv-label">Estado Operativo</span>
                             <div class="custom-dropdown" id="estadoAdvFilter" data-filter-type="estado" data-default-label="Seleccionar Estado..." style="font-size: 12px;">
                                 <input type="hidden" name="estado" data-filter-value value="{{ request('estado') }}">
 
-                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('estado') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                <div class="dropdown-trigger adv-trigger {{ request('estado') ? 'filter-active' : '' }}">
                                     <div style="padding: 0 6px; display: flex; align-items: center; color: #94a3b8;">
                                         <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
                                     <input type="text" readonly
-                                        id="filter_display_estado"
-                                        name="filter_display_estado"
                                         placeholder="{{ request('estado') ?: 'Estado...' }}"
                                         aria-label="Filtrar Estado Operativo"
-                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 2px; font-size: 12px; outline: none;"
-                                        onclick="this.closest('.custom-dropdown').classList.toggle('active')">
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 2px; font-size: 12px; outline: none;">
                                     <i class="material-icons" data-clear-btn style="padding: 0 4px; color: #94a3b8; font-size: 16px; display: {{ request('estado') ? 'block' : 'none' }};"
                                        onclick="event.stopPropagation(); clearDropdownFilter('estadoAdvFilter'); loadEquipos();">close</i>
                                 </div>
 
-                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                <div class="dropdown-content">
                                     <div class="dropdown-item-list">
                                         <div class="dropdown-item {{ request('estado') == 'OPERATIVO' ? 'selected' : '' }}" data-value="OPERATIVO" onclick="selectOption('estadoAdvFilter', 'OPERATIVO', 'OPERATIVO'); loadEquipos();">OPERATIVO</div>
                                         <div class="dropdown-item {{ request('estado') == 'INOPERATIVO' ? 'selected' : '' }}" data-value="INOPERATIVO" onclick="selectOption('estadoAdvFilter', 'INOPERATIVO', 'INOPERATIVO'); loadEquipos();">INOPERATIVO</div>
@@ -470,11 +464,11 @@
                     <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <!-- Año Filter -->
                         <div>
-                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Año</span>
+                            <span class="adv-label">Año</span>
                             <div class="custom-dropdown" id="anioAdvFilter" data-filter-type="anio" data-default-label="Seleccionar Año..." style="font-size: 12px;">
                                 <input type="hidden" name="anio" data-filter-value value="{{ request('anio') }}">
 
-                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('anio') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                <div class="dropdown-trigger adv-trigger {{ request('anio') ? 'filter-active' : '' }}">
                                     <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
                                         <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
@@ -488,7 +482,7 @@
                                        onclick="event.stopPropagation(); clearDropdownFilter('anioAdvFilter'); loadEquipos();">close</i>
                                 </div>
 
-                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                <div class="dropdown-content">
                                     <div class="dropdown-item-list" style="max-height: 120px; overflow-y: auto;">
                                         @php
                                             $todosAnios = collect($availableAnios ?? [])->merge($auxAnios ?? [])->filter(fn($a) => trim($a) !== '')->unique()->sortDesc()->values();
@@ -503,24 +497,21 @@
 
                         <!-- Confirmación en sitio (fijo SI/NO — visible en eq y aux mode) -->
                         <div>
-                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Confirmación</span>
+                            <span class="adv-label">Confirmación</span>
                             <div class="custom-dropdown" id="confirmadoAdvFilter" data-filter-type="confirmado" data-default-label="Seleccionar..." style="font-size: 12px;">
                                 <input type="hidden" name="confirmado" data-filter-value value="{{ request('confirmado') }}">
-                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('confirmado') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                <div class="dropdown-trigger adv-trigger {{ request('confirmado') ? 'filter-active' : '' }}">
                                     <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
                                         <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
                                     <input type="text" readonly
-                                        id="filter_display_confirmado"
-                                        name="filter_display_confirmado"
                                         placeholder="{{ request('confirmado') === 'SI' ? 'CONFIRMADOS' : (request('confirmado') === 'NO' ? 'SIN CONFIRMAR' : 'Estatus...') }}"
                                         aria-label="Filtrar Confirmación"
-                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
-                                        onclick="this.closest('.custom-dropdown').classList.toggle('active')">
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;">
                                     <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('confirmado') ? 'block' : 'none' }};"
                                        onclick="event.stopPropagation(); clearDropdownFilter('confirmadoAdvFilter'); loadEquipos();">close</i>
                                 </div>
-                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                <div class="dropdown-content">
                                     <div class="dropdown-item-list">
                                         <div class="dropdown-item {{ request('confirmado') == 'SI' ? 'selected' : '' }}" data-value="SI" onclick="selectOption('confirmadoAdvFilter', 'SI', 'CONFIRMADOS'); loadEquipos();">CONFIRMADOS</div>
                                         <div class="dropdown-item {{ request('confirmado') == 'NO' ? 'selected' : '' }}" data-value="NO" onclick="selectOption('confirmadoAdvFilter', 'NO', 'SIN CONFIRMAR'); loadEquipos();">SIN CONFIRMAR</div>
@@ -535,26 +526,23 @@
                     <div class="adv-filter-eq-only" style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <!-- GPS Filter -->
                         <div>
-                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">GPS</span>
+                            <span class="adv-label">GPS</span>
                             <div class="custom-dropdown" id="gpsAdvFilter" data-filter-type="gps" data-default-label="Seleccionar Estatus..." style="font-size: 12px;">
                                 <input type="hidden" name="gps" data-filter-value value="{{ request('gps') }}">
 
-                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('gps') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                <div class="dropdown-trigger adv-trigger {{ request('gps') ? 'filter-active' : '' }}">
                                     <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
                                         <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
                                     <input type="text" readonly
-                                        id="filter_display_gps"
-                                        name="filter_display_gps"
                                         placeholder="{{ request('gps') === 'SI' ? 'TIENEN GPS' : (request('gps') === 'NO' ? 'NO TIENEN GPS' : 'Estatus...') }}"
                                         aria-label="Filtrar Estatus GPS"
-                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
-                                        onclick="this.closest('.custom-dropdown').classList.toggle('active')">
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;">
                                     <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('gps') ? 'block' : 'none' }};"
                                        onclick="event.stopPropagation(); clearDropdownFilter('gpsAdvFilter'); loadEquipos();">close</i>
                                 </div>
 
-                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                <div class="dropdown-content">
                                     <div class="dropdown-item-list">
                                         <div class="dropdown-item {{ request('gps') == 'SI' ? 'selected' : '' }}" data-value="SI" onclick="selectOption('gpsAdvFilter', 'SI', 'TIENEN GPS'); loadEquipos();">TIENEN GPS</div>
                                         <div class="dropdown-item {{ request('gps') == 'NO' ? 'selected' : '' }}" data-value="NO" onclick="selectOption('gpsAdvFilter', 'NO', 'NO TIENEN GPS'); loadEquipos();">NO TIENEN GPS</div>
@@ -565,10 +553,10 @@
 
                         <!-- Color Filter -->
                         <div>
-                            <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Color</span>
+                            <span class="adv-label">Color</span>
                             <div class="custom-dropdown" id="colorAdvFilter" data-filter-type="color" data-default-label="Seleccionar Color..." style="font-size: 12px;">
                                 <input type="hidden" name="color" data-filter-value value="{{ request('color') }}">
-                                <div class="dropdown-trigger" style="padding: 0; display: flex; align-items: center; background: {{ request('color') ? '#e1effa' : 'white' }}; border: 1px solid #e2e8f0; border-radius: 6px; height: 32px;">
+                                <div class="dropdown-trigger adv-trigger {{ request('color') ? 'filter-active' : '' }}">
                                     <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
                                         <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
@@ -581,7 +569,7 @@
                                     <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; display: {{ request('color') ? 'block' : 'none' }};"
                                        onclick="event.stopPropagation(); clearDropdownFilter('colorAdvFilter'); loadEquipos();">close</i>
                                 </div>
-                                <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible; z-index: 1000;">
+                                <div class="dropdown-content">
                                     <div class="dropdown-item-list" style="max-height: 120px; overflow-y: auto;">
                                         @if(isset($availableColores))
                                             @foreach($availableColores as $color)
@@ -595,40 +583,40 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Documentation Filters (New) -->
+                    <!-- Filtros de documentación -->
                     <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #cbd5e1;">
                         <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px;">Documentación Cargada</span>
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            <label for="chk_propiedad" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
-                                <input type="checkbox" id="chk_propiedad" onchange="toggleDocFilter('propiedad')" {{ request('filter_propiedad') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
+                            <label for="chk_propiedad" class="adv-check">
+                                <input type="checkbox" id="chk_propiedad" onchange="toggleDocFilter('propiedad')" {{ request('filter_propiedad') == 'true' ? 'checked' : '' }}>
                                 Propiedad
                             </label>
 
-                            <label for="chk_poliza" class="adv-filter-eq-only" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
-                                <input type="checkbox" id="chk_poliza" onchange="toggleDocFilter('poliza')" {{ request('filter_poliza') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
+                            <label for="chk_poliza" class="adv-check adv-filter-eq-only">
+                                <input type="checkbox" id="chk_poliza" onchange="toggleDocFilter('poliza')" {{ request('filter_poliza') == 'true' ? 'checked' : '' }}>
                                 Póliza
                             </label>
 
-                            <label for="chk_rotc" class="adv-filter-eq-only" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
-                                <input type="checkbox" id="chk_rotc" onchange="toggleDocFilter('rotc')" {{ request('filter_rotc') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
+                            <label for="chk_rotc" class="adv-check adv-filter-eq-only">
+                                <input type="checkbox" id="chk_rotc" onchange="toggleDocFilter('rotc')" {{ request('filter_rotc') == 'true' ? 'checked' : '' }}>
                                 ROTC
                             </label>
 
-                            <label for="chk_racda" class="adv-filter-eq-only" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
-                                <input type="checkbox" id="chk_racda" onchange="toggleDocFilter('racda')" {{ request('filter_racda') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
+                            <label for="chk_racda" class="adv-check adv-filter-eq-only">
+                                <input type="checkbox" id="chk_racda" onchange="toggleDocFilter('racda')" {{ request('filter_racda') == 'true' ? 'checked' : '' }}>
                                 RACDA
                             </label>
 
                             {{-- Certificado: doc COMPARTIDO (equipo: LINK_DOC_ADICIONAL / auxiliar:
                                  LINK_CERTIFICADO). Visible siempre, como Propiedad: filtra ambos. --}}
-                            <label for="chk_adicional" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
-                                <input type="checkbox" id="chk_adicional" onchange="toggleDocFilter('adicional')" {{ request('filter_adicional') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
+                            <label for="chk_adicional" class="adv-check">
+                                <input type="checkbox" id="chk_adicional" onchange="toggleDocFilter('adicional')" {{ request('filter_adicional') == 'true' ? 'checked' : '' }}>
                                 Certificado
                             </label>
 
-                            <label for="chk_adicional_2" class="adv-filter-eq-only" style="display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer;">
-                                <input type="checkbox" id="chk_adicional_2" onchange="toggleDocFilter('adicional_2')" {{ request('filter_adicional_2') == 'true' ? 'checked' : '' }} style="margin-right: 8px; accent-color: var(--maquinaria-blue);">
+                            <label for="chk_adicional_2" class="adv-check adv-filter-eq-only">
+                                <input type="checkbox" id="chk_adicional_2" onchange="toggleDocFilter('adicional_2')" {{ request('filter_adicional_2') == 'true' ? 'checked' : '' }}>
                                 Compraventa
                             </label>
                         </div>

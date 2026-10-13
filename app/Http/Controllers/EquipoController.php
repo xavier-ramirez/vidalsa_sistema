@@ -88,6 +88,22 @@ class EquipoController extends Controller
     }
 
     /**
+     * ¿Pidió el usuario ALGÚN filtro? Lo usan el listado (para decidir si pinta filas y
+     * stats) y la exportación (que sin filtros no deja bajar la base entera). Frente y tipo
+     * cuentan aunque valgan 'all' (es una elección explícita), y también GPS / Confirmación
+     * con cualquier valor; el resto, con el mismo criterio que tieneFiltroEspecifico
+     * (los documentos solo si llegan como 'true').
+     */
+    private function hayFiltroAplicado(Request $request): bool
+    {
+        return $request->filled('id_frente')
+            || $request->filled('id_tipo')
+            || $request->filled('confirmado')
+            || $request->filled('gps')
+            || $this->tieneFiltroEspecifico($request);
+    }
+
+    /**
      * True si el request trae un filtro de BÚSQUEDA o de ATRIBUTO concreto
      * (serial/placa/etiqueta, TIPO, modelo, marca, año, categoría, estado, ubicación,
      * GPS o documentación). NO cuenta `id_frente` (el frente decide aparte). Cuando esto
@@ -349,7 +365,8 @@ class EquipoController extends Controller
     /**
      * True si los filtros apuntan SOLO a equipos → NO se muestran/exportan auxiliares ni su
      * card. El FRENTE no cuenta (agrupa equipos Y auxiliares). Dos motivos de enfoque:
-     *  (a) atributo de DISPOSITIVO: tipo, modelo, marca, color, año, GPS o categoría de flota.
+     *  (a) atributo de DISPOSITIVO: tipo, modelo, marca, color, GPS o categoría de flota
+     *      (el año NO: es eje compartido, los auxiliares también lo tienen).
      *  (b) documento que SOLO existe en equipos (póliza/ROTC/RACDA/compraventa): un auxiliar
      *      no puede cumplirlo. Se deriva de DOC_FILTER_COLS menos los DOCS COMPARTIDOS
      *      (filter_propiedad y filter_adicional/"Certificado", que los auxiliares también
@@ -527,10 +544,7 @@ class EquipoController extends Controller
             $this->applyBusquedaTexto($equipos, $search);
         }
 
-
-
-
-        // Filtros de documentacion (filter_propiedad/poliza/rotc/racda) ya
+        // Filtros de documentacion (propiedad, póliza, ROTC, RACDA, certificado, compraventa) ya
         // estan unificados dentro de applyEquipoFilters() — se aplican via
         // whereHas a $equipos Y a todos los stats queries automaticamente.
 
@@ -561,7 +575,7 @@ class EquipoController extends Controller
             ->orderBy('equipos.ID_EQUIPO', 'asc');
 
         // Check if any filter is applied (with non-empty values)
-        $hasFilter = $request->filled('id_frente') || $request->filled('id_tipo') || $request->filled('search_query') || $request->filled('modelo') || $request->filled('marca') || $request->filled('color') || $request->filled('confirmado') || $request->filled('detalle_ubicacion') || $request->filled('anio') || $request->filled('categoria') || $request->filled('estado') || $request->filled('gps') || $request->filled('filter_propiedad') || $request->filled('filter_poliza') || $request->filled('filter_rotc') || $request->filled('filter_racda') || $request->filled('filter_adicional') || $request->filled('filter_adicional_2');
+        $hasFilter = $this->hayFiltroAplicado($request);
 
         // Paginación server-side con cap por página.
         // La tabla carga 150 filas por request; al final el frontend pide el siguiente lote
@@ -776,8 +790,8 @@ class EquipoController extends Controller
         // ANTES del return JSON (el filtrado AJAX retorna aquí). Visibilidad de la card:
         //  - sin filtro o filtro por FRENTE         → las DOS cards (equipos + auxiliares)
         //  - enfoque solo-equipos ($focusEquiposOnly) → solo equipos (se oculta esta card):
-        //    atributo de vehículo (tipo, modelo, marca, color, año, GPS, categoría flota) o
-        //    documento solo-equipos (póliza, ROTC, RACDA, certificado, compraventa)
+        //    atributo de vehículo (tipo, modelo, marca, color, GPS, categoría flota) o
+        //    documento solo-equipos (póliza, ROTC, RACDA, compraventa) — ver esFocoSoloEquipos
         //  - modo aux (tipo/categoría auxiliar)     → la card principal de arriba ya es de
         //    auxiliares, así que esta se oculta para no duplicar el conteo.
         // Mismo $auxSharedReq que el merge → el conteo de la card coincide EXACTAMENTE con
@@ -938,25 +952,7 @@ class EquipoController extends Controller
     public function export(Request $request)
     {
         // CRITICAL: Prevent exporting entire database without filters.
-        // 'id_frente=all' es un filtro explícito válido (el usuario seleccionó "Todos los Frentes").
-        $hasFilter = $request->filled('id_frente')   // incluye 'all' como filtro válido
-            || $request->filled('id_tipo')
-            || $request->filled('search_query')
-            || $request->filled('modelo')
-            || $request->filled('marca')
-            || $request->filled('color')
-            || $request->filled('confirmado')
-            || $request->filled('detalle_ubicacion')
-            || $request->filled('anio')
-            || $request->filled('categoria')
-            || $request->filled('estado')
-            || $request->filled('gps')
-            || $request->filled('filter_propiedad') && $request->filter_propiedad === 'true'
-            || $request->filled('filter_poliza') && $request->filter_poliza === 'true'
-            || $request->filled('filter_rotc') && $request->filter_rotc === 'true'
-            || $request->filled('filter_racda') && $request->filter_racda === 'true'
-            || $request->filled('filter_adicional') && $request->filter_adicional === 'true'
-            || $request->filled('filter_adicional_2') && $request->filter_adicional_2 === 'true';
+        $hasFilter = $this->hayFiltroAplicado($request);
 
         if (!$hasFilter) {
             return redirect()->back()->with('error', 'Debe aplicar al menos un filtro antes de exportar los datos.');

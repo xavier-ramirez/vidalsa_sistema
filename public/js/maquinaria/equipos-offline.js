@@ -346,6 +346,8 @@
         }
 
         const f = leerFiltros();
+        // El botón de Filtros Avanzados lo pinta loadEquipos, que aquí no corre.
+        if (window.eqPintarBotonFiltros) window.eqPintarBotonFiltros();
         if (!hayFiltro(f)) {
             pintarStats([], false, f);        // sin filtros el Consolidado va en '--', igual que online
             // La Distribución tampoco se pinta sin filtros, igual que online: el backend la

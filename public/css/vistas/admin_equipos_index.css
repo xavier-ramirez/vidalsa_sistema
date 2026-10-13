@@ -1,11 +1,23 @@
 /* Estilos de admin/equipos/index.blade.php (antes en un <style> dentro de la vista: viajaban en el HTML de cada visita y no se cacheaban). El <link> ocupa EXACTAMENTE el sitio del <style>, asi que la cascada no cambia. */
     /* eq-aux-mode: activado SOLO cuando el dropdown de Tipo tiene un tipo_aux:X seleccionado.
-       Oculta filtros de equipos que no aplican a auxiliares (GPS, Color, docs, etc.).
+       Oculta los filtros que no aplican a auxiliares: Categoría Flota, GPS, Color y los
+       documentos solo de equipos (Póliza, ROTC, RACDA, Compraventa).
        NO se activa cuando el usuario filtra por categoria=AUXILIARES (para no cambiar el panel). */
     body.eq-aux-mode .adv-filter-eq-only { display: none !important; }
     /* aux-table-active: activado cuando la tabla muestra datos de auxiliares (cualquier path).
        Oculta controles de equipos que no tienen sentido sobre la tabla de auxiliares. */
     body.aux-table-active .eq-hide-in-aux { display: none !important; }
+
+    /* ── Panel de Filtros Avanzados: piezas que se repetían como style="" en cada filtro ──
+       Scope #advancedFilterPanel: gana a .dropdown-trigger / .dropdown-content globales,
+       igual que antes el style en línea. El trigger ACTIVO lo pinta .filter-active
+       (estilos_globales.css), lo ponga el Blade al cargar o selectOption por AJAX; sin
+       filtro queda con los mismos colores que deja selectOption al limpiar. */
+    #advancedFilterPanel .adv-label { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px; }
+    #advancedFilterPanel .adv-trigger { padding: 0; display: flex; align-items: center; background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 6px; height: 32px; }
+    #advancedFilterPanel .dropdown-content { padding: 5px; max-height: none; overflow: visible; z-index: 1000; }
+    #advancedFilterPanel .adv-check { display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer; }
+    #advancedFilterPanel .adv-check input { margin-right: 8px; accent-color: var(--maquinaria-blue); }
 
     /* ── Panel de Filtros Avanzados en MOBILE: ancho comodo para ver estatus completo ── */
     @media (max-width: 768px) {

@@ -767,26 +767,6 @@ if (!window._equiposClickListenersReady) {
     window._equiposClickListenersReady = true;
 
     document.addEventListener("click", handleRowClick);
-
-    document.addEventListener("click", function (e) {
-        // Clear Advanced Filters Button
-        const clearBtn = e.target.closest('[data-action="clear-advanced-filters"]');
-        if (clearBtn) {
-            e.preventDefault();
-            e.stopPropagation();
-            window.clearAdvancedFilters();
-            return;
-        }
-
-        // Clear Specific Filter (Generic)
-        const clearSpecific = e.target.closest("[data-clear-target]");
-        if (clearSpecific) {
-            e.preventDefault();
-            e.stopPropagation();
-            const target = clearSpecific.dataset.clearTarget;
-            window.selectAdvancedFilter(target, "");
-        }
-    });
 }
 
 // ─── DESANCLAR EQUIPOS (NUEVA LÓGICA DESDE CERO) ──────────────────────────────
@@ -1283,6 +1263,19 @@ window.eqRegisterNuevoFrente = function (frente) {
 // lo mismo. Cuando el export releía los inputs por su cuenta se le quedaron fuera ejes
 // enteros —GPS, doc_presence— y el Excel salía con más equipos de los que se veían.
 // Valor null = ese filtro no está puesto.
+// Botón de Filtros Avanzados en ROJO si hay algún filtro del panel activo; si no, blanco.
+// Lo llaman loadEquipos y el pintado offline (equipos-offline.js), que no pasa por loadEquipos.
+// Mismo criterio que $hasAnyAdv del Blade, que lo pinta al cargar la página.
+window.eqPintarBotonFiltros = function (filters) {
+    const btnAdv = document.getElementById('btnAdvancedFilter');
+    if (!btnAdv) return;
+    const f = filters || window.eqFiltrosActivos();
+    const hasAdv = !!(f.modelo || f.marca || f.anio || f.categoria || f.estado || f.gps || f.color || f.confirmado || f.filter_propiedad || f.filter_poliza || f.filter_rotc || f.filter_racda || f.filter_adicional || f.filter_adicional_2);
+    btnAdv.style.background = hasAdv ? '#fee2e2' : 'white';
+    btnAdv.style.borderColor = hasAdv ? '#ef4444' : '#cbd5e0';
+    btnAdv.style.color = hasAdv ? '#ef4444' : '#64748b';
+};
+
 window.eqFiltrosActivos = function () {
     const advancedPanel = document.getElementById("advancedFilterPanel");
 
@@ -1381,8 +1374,15 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         const newIsAux = _tipoInputEl && (_tipoInputEl.value || '').startsWith('tipo_aux:');
         const wasAux = document.body.classList.contains('eq-aux-mode');
         if (newIsAux !== wasAux && !window._skipModoClear && typeof window.clearDropdownFilter === 'function') {
-            ['modeloAdvFilter', 'marcaAdvFilter', 'anioAdvFilter'].forEach(function(id) {
+            // También los que el modo aux OCULTA (.adv-filter-eq-only): si quedaran con valor,
+            // el botón seguiría rojo sin nada visible que limpiar y, al volver a equipos, se
+            // aplicarían sin que el usuario los viera.
+            ['modeloAdvFilter', 'marcaAdvFilter', 'anioAdvFilter', 'categoriaAdvFilter', 'gpsAdvFilter', 'colorAdvFilter'].forEach(function(id) {
                 window.clearDropdownFilter(id);
+            });
+            ['chk_poliza', 'chk_rotc', 'chk_racda', 'chk_adicional_2'].forEach(function(id) {
+                const chk = document.getElementById(id);
+                if (chk) chk.checked = false;
             });
         }
         window._skipModoClear = false;
@@ -1393,21 +1393,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
 
     const params = new URLSearchParams();
 
-    // Lógica dinámica para poner ROJO el botón de Filtros Avanzados si hay alguno activo
-    const btnAdv = document.getElementById('btnAdvancedFilter');
-    if (btnAdv) {
-        const hasAdv = !!(filters.modelo || filters.marca || filters.anio || filters.categoria || filters.estado || filters.gps || filters.color || filters.confirmado || filters.filter_propiedad || filters.filter_poliza || filters.filter_rotc || filters.filter_racda || filters.filter_adicional || filters.filter_adicional_2);
-        if (hasAdv) {
-            btnAdv.style.background = '#fee2e2';
-            btnAdv.style.borderColor = '#ef4444';
-            btnAdv.style.color = '#ef4444';
-        } else {
-            // Estado original
-            btnAdv.style.background = 'white';
-            btnAdv.style.borderColor = '#cbd5e0';
-            btnAdv.style.color = '#64748b';
-        }
-    }
+    window.eqPintarBotonFiltros(filters);
 
     // Cleanly append only valid filter values (non-null, non-empty)
     Object.entries(filters).forEach(([key, value]) => {
@@ -3553,17 +3539,6 @@ if (!window._equiposWindowListenersReady) {
         }
     });
 
-    // Destacar botón de filtros avanzados al seleccionar un valor de dropdown
-    window.addEventListener("dropdown-selection", function (e) {
-        if (!document.getElementById("equiposTableBody")) return;
-        const advBtn = document.getElementById("btnAdvancedFilter");
-        if (advBtn && e.detail.value) {
-            advBtn.style.background = "#e1effa";
-            advBtn.style.color = "#0067b1";
-            advBtn.style.border = "1px solid #0067b1";
-        }
-    });
-
     // Cerrar custom-dropdowns y el menú de Acciones al hacer clic fuera
     document.addEventListener("click", function(e) {
         // 1. Cerrar custom dropdowns (Filtros Avanzados)
@@ -3637,13 +3612,13 @@ window.handleCreateCheck = function (event) {
 // [End of dashboard cleanup]
 
 // NOTA: NO registramos 'equipos' con ModuleManager.
-// El módulo tiene su PROPIO listener 'spa:contentLoaded' (línea ~1579)
-// protegido con _equiposWindowListenersReady. Si además se registrara en
+// El módulo tiene su PROPIO listener 'spa:contentLoaded' (bloque
+// _equiposWindowListenersReady, más arriba) protegido con esa bandera. Si además se registrara en
 // ModuleManager (que también escucha spa:contentLoaded), initEquipos() se
 // llamaría DOBLE en cada navegación SPA → doble fetch + doble updateSelectionUI.
 
 // Direct init en carga inicial (hard-refresh).
-// En SPA nav, el listener spa:contentLoaded (línea ~1579) se encarga → no duplicar.
+// En SPA nav, el listener spa:contentLoaded (bloque _equiposWindowListenersReady) se encarga → no duplicar.
 // Usamos _equiposSpaReady para distinguir: si ya se registró el listener SPA,
 // significa que el script ya corrió una vez y esta re-ejecución es por SPA → omitir.
 if (!window._equiposSpaReady) {
