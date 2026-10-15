@@ -4,10 +4,21 @@ namespace App\Models;
 
 use App\Casts\MojibakeFix;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
 
 class FrenteTrabajo extends Model
 {
+    /*
+     * Borrado LÓGICO (deleted_at): "Eliminar" en /admin/frentes oculta el frente de todas las
+     * listas y selectores (Eloquent lo filtra solo), pero la fila se queda para que el historial
+     * (movilizaciones, movimientos de inventario, consumibles, traspasos) siga mostrando su
+     * nombre. Las consultas con join a frentes_trabajo son de historial y lo siguen viendo.
+     * NOMBRE_FRENTE es UNIQUE en la tabla: para volver a crear un frente con el nombre de uno
+     * eliminado se REVIVE el eliminado (revivirPorNombre), con su historial.
+     */
+    use SoftDeletes;
+
     protected $table = 'frentes_trabajo';
     protected $primaryKey = 'ID_FRENTE';
 
@@ -37,6 +48,23 @@ class FrenteTrabajo extends Model
         };
         static::saved($bust);
         static::deleted($bust);
+        static::restored($bust);
+    }
+
+    /**
+     * Si hay un frente ELIMINADO con ese nombre (sin distinguir mayúsculas), lo revive y lo
+     * devuelve; si no, null. Va antes de crear un frente por nombre: el índice UNIQUE de
+     * NOMBRE_FRENTE también cuenta a los eliminados, así que crear otro con el mismo nombre
+     * fallaría.
+     */
+    public static function revivirPorNombre(string $nombre): ?self
+    {
+        $frente = static::onlyTrashed()->whereRaw('UPPER(NOMBRE_FRENTE) = ?', [mb_strtoupper(trim($nombre))])->first();
+        if ($frente) {
+            $frente->restore();
+        }
+
+        return $frente;
     }
 
     protected $fillable = [

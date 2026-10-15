@@ -1760,7 +1760,7 @@ class EquipoAuxiliarController extends Controller
         $data = $request->validate([
             'ids'            => 'required|array|min:1',
             'ids.*'          => 'integer|exists:equipos_auxiliares,ID_AUXILIAR',
-            'id_frente'      => 'nullable|exists:frentes_trabajo,ID_FRENTE',
+            'id_frente'      => 'nullable|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             'destination'    => 'nullable|string|max:150',
             'nombre_frente'  => 'nullable|string|max:150', // legacy alias
             'ubicacion'      => 'nullable|string|max:150',
@@ -1779,7 +1779,8 @@ class EquipoAuxiliarController extends Controller
 
         if (!$frenteId && $destination !== '') {
             $nombre = mb_strtoupper($destination);
-            $frenteExistente = FrenteTrabajo::whereRaw('UPPER(NOMBRE_FRENTE) = ?', [$nombre])->first();
+            $frenteExistente = FrenteTrabajo::whereRaw('UPPER(NOMBRE_FRENTE) = ?', [$nombre])->first()
+                ?? FrenteTrabajo::revivirPorNombre($nombre);   // eliminado: se revive con su historial
             if ($frenteExistente) {
                 $frenteId = $frenteExistente->ID_FRENTE;
             } else {
@@ -2488,11 +2489,11 @@ class EquipoAuxiliarController extends Controller
             // MISMA lista que `equipos`: una sola fuente para las dos tablas.
             'COMBUSTIBLE'      => 'nullable|in:' . implode(',', \App\Models\Equipo::COMBUSTIBLES),
             'CONSUMO_PROMEDIO' => 'nullable|numeric|min:0|max:99999',
-            // FIX: exists:frentes_trabajo,ID_FRENTE without ESTATUS_FRENTE=ACTIVO filter:
+            // FIX: exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL without ESTATUS_FRENTE=ACTIVO filter:
             // a record may be assigned to a frente that was deactivated later. The FK
             // just needs to exist in the table — active-only filtering belongs in the UI,
             // not in the save validation (otherwise editing becomes impossible).
-            'ID_FRENTE_ACTUAL' => 'required|exists:frentes_trabajo,ID_FRENTE',
+            'ID_FRENTE_ACTUAL' => 'required|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             'ID_EQUIPO_HOST'   => 'nullable|exists:equipos,ID_EQUIPO',
             'OBSERVACIONES'    => 'nullable|string|max:500',
             // Documentacion (opcional). En UPDATE aceptamos fecha pasada para no
@@ -2526,7 +2527,7 @@ class EquipoAuxiliarController extends Controller
             }
             // El frente NO se edita por datos (va por Movilización; update() lo descarta).
             // Opcional en update para no exigirlo y poder editar auxiliares SIN ASIGNAR.
-            $rules['ID_FRENTE_ACTUAL'] = 'nullable|exists:frentes_trabajo,ID_FRENTE';
+            $rules['ID_FRENTE_ACTUAL'] = 'nullable|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL';
         }
 
         // Un CERTIFICADO NUEVO no se queda con la fecha del anterior.
@@ -2883,7 +2884,7 @@ class EquipoAuxiliarController extends Controller
             'rows.*.serial'              => 'required|string|max:100',
             'rows.*.capacidad'           => 'nullable|string|max:80',
             'rows.*.anio'                => 'nullable|integer|min:1950|max:2100',
-            'rows.*.id_frente_resuelto'  => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            'rows.*.id_frente_resuelto'  => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             'rows.*.estado'              => 'required|string|in:' . implode(',', array_keys(EquipoAuxiliar::estadosLabel())),
         ], [
             // Mensajes en español por fila (regla :input/:position se reemplaza por el numero de fila +2 = numero real en el Excel)

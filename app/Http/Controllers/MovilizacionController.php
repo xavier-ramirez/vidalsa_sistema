@@ -413,7 +413,9 @@ class MovilizacionController extends Controller
                 ], 403);
             }
 
-            // Crear el frente si no existe, o recuperar el existente.
+            // Crear el frente si no existe, o recuperar el existente (si estaba eliminado,
+            // se revive: su nombre sigue ocupando el índice UNIQUE).
+            FrenteTrabajo::revivirPorNombre($destNombre);
             $frente = FrenteTrabajo::firstOrCreate(
                 ['NOMBRE_FRENTE' => $destNombre],
                 [
@@ -1176,7 +1178,7 @@ class MovilizacionController extends Controller
 
         $request->validate([
             'ID_EQUIPO'         => 'required|exists:equipos,ID_EQUIPO',
-            'ID_FRENTE_DESTINO' => 'required|exists:frentes_trabajo,ID_FRENTE',
+            'ID_FRENTE_DESTINO' => 'required|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
         ]);
 
         DB::beginTransaction();

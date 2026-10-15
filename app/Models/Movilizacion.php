@@ -102,12 +102,13 @@ class Movilizacion extends Model
 
     public function frenteOrigen()
     {
-        return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE_ORIGEN', 'ID_FRENTE');
+        // withTrashed: es historial; un frente eliminado (borrado lógico) sigue dando su nombre.
+        return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE_ORIGEN', 'ID_FRENTE')->withTrashed();
     }
 
     public function frenteDestino()
     {
-        return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE_DESTINO', 'ID_FRENTE');
+        return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE_DESTINO', 'ID_FRENTE')->withTrashed();
     }
 
     public function usuario()

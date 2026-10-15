@@ -506,7 +506,8 @@
                         id="submitBtnText">{{ (isset($frente) && $frente->exists) ? 'Guardar Cambios' : 'Registrar' }}</span>
                 </button>
 
-                {{-- Boton Eliminar: borra fisicamente el frente de la BD.
+                {{-- Boton Eliminar: borrado LOGICO (deleted_at). El frente sale de listas y
+                     selectores, pero el historial conserva su nombre.
                      Bloquea server-side si tiene equipos/auxiliares asignados.
                      Para marcar el frente como FINALIZADO sin borrarlo, el
                      usuario debe usar el campo "Estatus del Proyecto" del form. --}}
@@ -541,7 +542,7 @@
                     window.showModal({
                         type: 'warning',
                         title: 'Eliminar Frente',
-                        message: '¿Eliminar el frente "' + nombre + '"?\n\nEsta acción no se puede deshacer. Si tiene equipos o auxiliares asignados, será rechazada.',
+                        message: '¿Eliminar el frente "' + nombre + '"?\n\nDejará de aparecer en las listas; el historial lo conserva. Si tiene equipos o auxiliares asignados, será rechazada.',
                         confirmText: 'Sí, eliminar',
                         cancelText: 'Cancelar',
                         onConfirm: proceed
@@ -699,7 +700,7 @@
             window._sinEquiposEliminar = function (id, nombre) {
                 var run = function () { _sinEquiposBorrar(id); };
                 if (typeof window.showModal === 'function') {
-                    window.showModal({ type: 'warning', title: 'Eliminar Frente', message: '¿Eliminar el frente "' + nombre + '"?\n\nEsta acción no se puede deshacer.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', onConfirm: run });
+                    window.showModal({ type: 'warning', title: 'Eliminar Frente', message: '¿Eliminar el frente "' + nombre + '"?\n\nDejará de aparecer en las listas; el historial lo conserva.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', onConfirm: run });
                 } else if (confirm('¿Eliminar el frente "' + nombre + '"?')) { run(); }
             };
 

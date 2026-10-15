@@ -75,7 +75,9 @@ class FrenteTrabajoController extends Controller
      */    public function store(\App\Http\Requests\FrenteRequest $request)
     {
         $validated = $request->validated();
-        $frente = FrenteTrabajo::create($validated);
+        // Un frente eliminado con el mismo nombre se revive con estos datos (y su historial).
+        $frente = FrenteTrabajo::revivirPorNombre($validated['NOMBRE_FRENTE']);
+        $frente ? $frente->update($validated) : $frente = FrenteTrabajo::create($validated);
 
         if ($request->wantsJson() || $request->has('json')) {
             return response()->json([
@@ -161,9 +163,11 @@ class FrenteTrabajoController extends Controller
 
 
     /**
-     * Elimina un frente fisicamente de la BD. Bloquea si tiene equipos o
-     * auxiliares asignados (preserva integridad referencial sin FK fisicas —
-     * el campo ID_FRENTE_ACTUAL es nullable).
+     * Elimina un frente con borrado LÓGICO (deleted_at): desaparece de listas y
+     * selectores, pero la fila se queda para que el historial (movilizaciones,
+     * movimientos de inventario, consumibles, traspasos) conserve el frente y su
+     * nombre. Antes se borraba la fila y el historial lo perdía. Bloquea si tiene
+     * equipos o auxiliares asignados.
      *
      * Para "archivar" un frente sin borrarlo el usuario tiene el campo
      * "Estatus del Proyecto" en el formulario, que permite marcarlo como
@@ -195,6 +199,9 @@ class FrenteTrabajoController extends Controller
         }
 
         $nombre = $frente->NOMBRE_FRENTE;
+        // Lo que hacía el ON DELETE CASCADE de almacen_frentes con el borrado físico: el
+        // frente deja de estar asociado a sus almacenes (es configuración, no historial).
+        \Illuminate\Support\Facades\DB::table('almacen_frentes')->where('ID_FRENTE', $frente->ID_FRENTE)->delete();
         $frente->delete();
 
         if ($request->wantsJson() || $request->has('json')) {

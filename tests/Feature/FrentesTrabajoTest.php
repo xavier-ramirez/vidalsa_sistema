@@ -147,6 +147,48 @@ class FrentesTrabajoTest extends MySqlTestCase
         $this->assertNull(FrenteTrabajo::find($f->ID_FRENTE));
     }
 
+    public function test_eliminar_no_borra_el_frente_del_historial(): void
+    {
+        $origen = $this->frente();
+        $f = $this->frente();
+        // Movilización vieja SIN nombre guardado: el nombre sale de la relación con el frente.
+        $idMov = DB::table('movilizacion_historial')->insertGetId([
+            'ID_FRENTE_ORIGEN' => $origen->ID_FRENTE, 'ID_FRENTE_DESTINO' => $f->ID_FRENTE,
+            'USUARIO_REGISTRO' => 'prueba', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $admin = $this->superAdmin();
+        $this->actingAs($admin)->deleteJson("/admin/frentes/{$f->ID_FRENTE}?json=true")->assertOk();
+
+        $this->assertNull(FrenteTrabajo::find($f->ID_FRENTE), 'Ya no sale en listas ni selectores.');
+        $this->assertNotNull(FrenteTrabajo::withTrashed()->find($f->ID_FRENTE), 'Pero la fila se queda (borrado lógico).');
+        $this->assertSame($f->NOMBRE_FRENTE, \App\Models\Movilizacion::find($idMov)->frenteDestino?->NOMBRE_FRENTE,
+            'El historial sigue mostrando el nombre del frente eliminado.');
+        $this->assertNotContains($f->ID_FRENTE, array_column($this->actingAs($admin)->getJson('/admin/frentes/sin-equipos')->json('frentes'), 'id'));
+    }
+
+    public function test_crear_un_frente_con_el_nombre_de_uno_eliminado_lo_revive(): void
+    {
+        $f = $this->frente();
+        $admin = $this->superAdmin();
+        $this->actingAs($admin)->deleteJson("/admin/frentes/{$f->ID_FRENTE}?json=true")->assertOk();
+
+        $this->actingAs($admin)->postJson('/admin/frentes?json=true', $this->payload($f, ['UBICACION' => 'MATURIN']))
+            ->assertOk()->assertJson(['success' => true]);
+
+        $vivo = FrenteTrabajo::find($f->ID_FRENTE);
+        $this->assertNotNull($vivo, 'Vuelve el MISMO frente (mismo ID), con su historial.');
+        $this->assertSame('MATURIN', $vivo->UBICACION);
+    }
+
+    public function test_un_frente_eliminado_no_se_acepta_como_destino(): void
+    {
+        $f = $this->frente();
+        $this->actingAs($this->superAdmin())->deleteJson("/admin/frentes/{$f->ID_FRENTE}?json=true")->assertOk();
+
+        $v = \Illuminate\Support\Facades\Validator::make(['x' => $f->ID_FRENTE], ['x' => 'exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL']);
+        $this->assertTrue($v->fails());
+    }
+
     public function test_no_admite_dos_frentes_con_el_mismo_nombre(): void
     {
         $f = $this->frente();

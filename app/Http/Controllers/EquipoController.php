@@ -4528,7 +4528,7 @@ class EquipoController extends Controller
         $request->validate([
             'terms'     => 'required|array|min:1|max:2000',
             'terms.*'   => 'nullable|string|max:100',
-            'frente_id' => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            'frente_id' => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
         ]);
 
         $frenteIdFiltro = $request->input('frente_id'); // null = sin filtro

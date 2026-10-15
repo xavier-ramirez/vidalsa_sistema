@@ -44,9 +44,9 @@ class UserRequest extends FormRequest
             'password' => $id ? 'nullable|string|min:6' : 'required|string|min:6',
             'ID_ROL' => 'required|string|max:150',
             'ID_FRENTE_ASIGNADO' => 'nullable|array',
-            'ID_FRENTE_ASIGNADO.*' => 'exists:frentes_trabajo,ID_FRENTE',
+            'ID_FRENTE_ASIGNADO.*' => 'exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             'ID_FRENTE_BLOQUEADO' => 'nullable|array',
-            'ID_FRENTE_BLOQUEADO.*' => 'exists:frentes_trabajo,ID_FRENTE',
+            'ID_FRENTE_BLOQUEADO.*' => 'exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             // Dos niveles INDEPENDIENTES (1 = GLOBAL, 2 = LOCAL): uno gobierna la
             // visibilidad por frente en Equipos y otro la de Almacén. Ambos obligatorios.
             'NIVEL_ACCESO_EQUIPOS' => 'required|integer|in:1,2',

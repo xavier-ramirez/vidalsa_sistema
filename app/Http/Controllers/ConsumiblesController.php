@@ -159,7 +159,7 @@ class ConsumiblesController extends Controller
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'tipo_consumible' => 'required|in:GASOIL,GASOLINA,ACEITE,CAUCHO,REFRIGERANTE,OTRO',
             'unidad' => 'required|in:LITROS,GALONES,UNIDADES,KG',
-            'id_frente' => 'required|exists:frentes_trabajo,ID_FRENTE',
+            'id_frente' => 'required|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             'filas' => 'required|array|min:1',
             'filas.*.fecha' => 'required|date',
             'filas.*.cantidad' => 'required|numeric|min:0.01',
@@ -290,7 +290,7 @@ class ConsumiblesController extends Controller
         $consumible = Consumible::findOrFail($id);
 
         $request->validate([
-            'id_frente' => 'required|exists:frentes_trabajo,ID_FRENTE',
+            'id_frente' => 'required|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
         ]);
 
         $consumible->update(['ID_FRENTE' => $request->id_frente]);

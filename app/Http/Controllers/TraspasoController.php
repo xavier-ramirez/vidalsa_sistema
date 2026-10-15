@@ -772,7 +772,7 @@ class TraspasoController extends Controller
         $reglas = [
             'id_almacen_origen'  => ['required','integer','exists:almacenes,ID_ALMACEN'],
             'id_almacen_destino' => ['nullable','required_without:id_frente_destino','integer','exists:almacenes,ID_ALMACEN','different:id_almacen_origen'],
-            'id_frente_destino'  => ['nullable','required_without:id_almacen_destino','integer','exists:frentes_trabajo,ID_FRENTE'],
+            'id_frente_destino'  => ['nullable','required_without:id_almacen_destino','integer','exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL'],
             'referencia'         => ['nullable','string','max:100'],
             'motivo'             => ['nullable','string','max:200'],
             'notas'              => ['nullable','string'],
@@ -781,7 +781,7 @@ class TraspasoController extends Controller
             // En update, la cabecera (origen) no puede cambiar — solo destino/frente/notas.
             $reglas['id_almacen_origen']  = 'sometimes';
             $reglas['id_almacen_destino'] = ['sometimes','nullable','integer','exists:almacenes,ID_ALMACEN'];
-            $reglas['id_frente_destino']  = ['sometimes','nullable','integer','exists:frentes_trabajo,ID_FRENTE'];
+            $reglas['id_frente_destino']  = ['sometimes','nullable','integer','exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL'];
         }
         return $request->validate($reglas);
     }

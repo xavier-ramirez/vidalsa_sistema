@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class FrenteRequest extends FormRequest
 {
@@ -88,7 +89,12 @@ class FrenteRequest extends FormRequest
         $id = $this->route('frente') ?? $this->route('id');
 
         return [
-            'NOMBRE_FRENTE' => 'required|string|max:150|unique:frentes_trabajo,NOMBRE_FRENTE,' . $id . ',ID_FRENTE',
+            // Al CREAR no cuentan los frentes eliminados (store revive el del mismo nombre);
+            // al EDITAR sí: renombrar a un nombre ocupado por uno eliminado chocaría con el
+            // índice UNIQUE de la tabla.
+            'NOMBRE_FRENTE' => ['required', 'string', 'max:150', $id
+                ? Rule::unique('frentes_trabajo', 'NOMBRE_FRENTE')->ignore($id, 'ID_FRENTE')
+                : Rule::unique('frentes_trabajo', 'NOMBRE_FRENTE')->whereNull('deleted_at')],
             'UBICACION'     => 'required|string|max:100',
             'ZONA'          => 'nullable|string|max:100',
             'CONTRATOS'     => 'nullable|array',

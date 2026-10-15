@@ -3407,10 +3407,10 @@ class AlmacenController extends Controller
             'tipo'                 => ['required', Rule::in($tipos)],
             'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
             'fecha'                => 'nullable|date',
-            'id_frente'            => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            'id_frente'            => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             // Alias del frente destino para el flujo unificado de SALIDA. El frontend lo
             // manda como `id_frente_destino`; si solo viene `id_frente` lo usamos también.
-            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             // Almacén destino EXPLÍCITO de la salida a otro proyecto. Solo hace falta
             // cuando el frente destino está asignado a más de un almacén PROYECTO y por
             // tanto no se puede deducir; el formulario lo pregunta en ese caso.
@@ -3824,7 +3824,7 @@ class AlmacenController extends Controller
         $data = $request->validate([
             'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
             'fecha'                => 'nullable|date',
-            'id_frente_destino'    => 'required|integer|exists:frentes_trabajo,ID_FRENTE',
+            'id_frente_destino'    => 'required|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             'id_almacen_destino'   => 'nullable|integer|exists:almacenes,ID_ALMACEN',
             'lineas'               => 'required|array|min:1',
             'lineas.*.id_producto' => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
@@ -4476,7 +4476,7 @@ class AlmacenController extends Controller
         $data = $request->validate([
             'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
             'fecha'                => 'nullable|date',
-            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE',
+            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             'lineas'               => 'required|array|min:1',
             'lineas.*.id_producto'  => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
             // La vista previa NUNCA debe dejar pasar una salida que deje el saldo en negativo:
@@ -5268,7 +5268,7 @@ class AlmacenController extends Controller
             // la asociacion a frentes es la que define que usuarios LOCAL ven el almacen
             // (ver Almacen::visiblesPara). Sin al menos 1 frente, ningun LOCAL lo veria.
             'frentes'           => ['required', 'array', 'min:1'],
-            'frentes.*'         => 'integer|exists:frentes_trabajo,ID_FRENTE',
+            'frentes.*'         => 'integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
         ]);
 
         // Normalizar.
