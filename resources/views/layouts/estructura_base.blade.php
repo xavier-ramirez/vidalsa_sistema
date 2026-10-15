@@ -1427,6 +1427,9 @@
                     btn.textContent = 'Registrando...';
                     VidalsaWebAuthn.registrar().then(function(ok) {
                         modal.style.display = 'none';
+                        // Canceló el lector (o falló): cuenta como "Ahora no", para no volver
+                        // a preguntar en la siguiente entrada.
+                        if (!ok) VidalsaWebAuthn.noPreguntarPorAhora(idUsuario);
                         if (ok) {
                             var toast = document.createElement('div');
                             toast.textContent = 'Huella registrada correctamente';
