@@ -1,69 +1,9 @@
 @extends('layouts.estructura_base')
 
-
-
 @section('title', 'Gestión de Frentes')
 
 @section('content')
-    {{-- Espaciado compacto SOLO para este formulario: reduce el desperdicio vertical
-         (gap del grid, márgenes de los separadores de Responsables, etc.) sin tocar
-         el resto del sitio. Mantiene los inputs y dropdowns con su altura habitual. --}}
-    <style>
-        #frenteForm .form-grid { gap: 10px; }
-        #frenteForm .resp-grid { gap: 10px; }
-        /* Separadores de cada bloque "Responsable N": menos espacio arriba/abajo. */
-        #frenteForm > .form-grid > div[style*="border-bottom"][style*="margin-top: 20px"] {
-            margin-top: 12px !important;
-            padding: 6px 0 4px 0 !important;
-        }
-        /* Inputs y labels más compactos. */
-        #frenteForm .form-input-custom { padding: 8px 12px; font-size: 13.5px; }
-        #frenteForm .form-label        { margin-bottom: 3px; font-size: 12.5px; }
-        /* Dropdowns (Tipo/Estatus/buscar) IGUALADOS a los inputs: misma fuente
-           13.5px y mismo alto (~36px). El icono expand_more por defecto mide
-           24px y agrandaba el cuadro — se reduce a 18px para que coincida. */
-        #frenteForm .dropdown-trigger  { padding: 8px 12px; font-size: 13.5px; min-height: 36px; box-sizing: border-box; }
-        #frenteForm .dropdown-trigger .material-icons { font-size: 18px; }
-        /* Barra de búsqueda superior: 30px era exagerado. */
-        .admin-card > div[style*="margin-bottom: 30px"] { margin-bottom: 14px !important; }
-        /* Footer de botones (Cancelar / Guardar / Eliminar): 40px → 18px. */
-        .frentes-btn-row { margin-top: 18px !important; }
-
-        /* Acordeón de responsables: cada bloque se "recoge". Click en el encabezado
-           expande/colapsa sus campos. Arrancan abiertos solo los que traen datos.
-           Pensado para móvil (5 bloques juntos eran demasiado). */
-        #frenteForm .resp-head { cursor: pointer; user-select: none; }
-        #frenteForm .resp-head:hover { background: #f8fafc; }
-        #frenteForm .resp-chevron { margin-left: auto; color: var(--maquinaria-blue); transition: transform .2s; font-size: 20px; }
-        #frenteForm .resp-collapsed { display: none !important; }
-
-        /* Teléfono: el botón "Sin equipos" queda al lado del buscador pero SOLO con
-           el icono (sin texto), cuadrado, para no robar ancho a la barra de búsqueda. */
-        @media (max-width: 600px) {
-            #btnSinEquipos span { display: none; }
-            #btnSinEquipos { padding: 0; width: 38px; gap: 0; justify-content: center; }
-
-            /* Tarjeta blanca MÁS ANCHA en móvil: por defecto el main-viewport mete
-               20px de padding lateral y la tarjeta carga un max-width:800px inline,
-               dejando franjas blancas a los lados en pantallas angostas. Aquí, SOLO
-               en esta página (body:has(#frenteForm)), bajamos ese padding a 8px y
-               soltamos el límite de la tarjeta para que ocupe casi todo el ancho. */
-            body:has(#frenteForm) .main-viewport {
-                width: 100% !important;
-                max-width: 100% !important;
-                padding-left: 8px !important;
-                padding-right: 8px !important;
-                box-sizing: border-box !important;
-            }
-            body:has(#frenteForm) .admin-card {
-                width: 100% !important;
-                max-width: 100% !important;
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-            }
-        }
-    </style>
-
+    {{-- El CSS de esta pantalla vive en estilos_globales.css, sección "Frentes de Trabajo". --}}
     @include('admin.partials.page_header', [
     'titulo'       => (isset($frente) && $frente->exists) ? 'Edición de Frente de Trabajo' : 'Registro de Frente de Trabajo',
     'tituloId'     => 'formTitle',
@@ -72,15 +12,12 @@
     'margin'       => '0 auto 8px auto',
 ])
 
+    <div class="admin-card frentes-card" style="max-width: 800px; margin: 0 auto;">
 
-
-    <!-- Form -->
-    <div class="admin-card" style="max-width: 800px; margin: 0 auto;">
-
-        <!-- Top Search Bar (Standardized Smart Dropdown) -->
-        <div style="margin-bottom: 30px; display: flex; justify-content: center; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <div style="flex: 1 1 auto; min-width: 0; max-width: 500px; position: relative;">
-
+        {{-- Buscador de frentes (para editar uno) + botón "Sin equipos". Ocupa el ancho del
+             formulario: sus bordes coinciden con los de los campos de abajo. --}}
+        <div class="frentes-buscar-fila">
+            <div class="frentes-buscar">
                 <div class="custom-dropdown" id="frenteSearchDropdown" style="width: 100%;">
                     <div class="dropdown-trigger"
                         style="background: #fff; border: 1px solid #cbd5e0; border-radius: 10px; height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
@@ -121,17 +58,16 @@
                         </div>
                     </div>
                 </div>
-
             </div>
             {{-- Botón "Sin equipos": abre un modal con los frentes que no tienen ningún
                  equipo ni auxiliar asignado —de cualquier estatus— para borrarlos. --}}
             <button type="button" id="btnSinEquipos" onclick="window.abrirModalSinEquipos()" title="Frentes sin equipos asignados"
-                class="btn-primary-maquinaria btn-secondary"
-                style="padding: 0 14px; height: 38px; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                class="btn-primary-maquinaria btn-secondary">
                 <i class="material-icons" style="font-size: 18px;">domain_disabled</i>
                 <span>Sin equipos</span>
             </button>
         </div>
+
         <form
             action="{{ (isset($frente) && $frente->exists) ? route('frentes.update', $frente->ID_FRENTE) : route('frentes.store') }}"
             {{-- SIN onsubmit que encienda el spinner. frentes_spa.js atrapa este submit,
@@ -152,7 +88,7 @@
                     <label for="NOMBRE_FRENTE" class="form-label">Nombre del Frente <span
                             style="color: red;">*</span></label>
                     <input type="text" id="NOMBRE_FRENTE" name="NOMBRE_FRENTE" class="form-input-custom"
-                        style="background: white;" placeholder="Ej: MINA 1"
+                        placeholder="Ej: MINA 1"
                         value="{{ old('NOMBRE_FRENTE', $frente->NOMBRE_FRENTE ?? '') }}" required autocomplete="off">
                 </div>
 
@@ -161,8 +97,7 @@
                     <div class="custom-dropdown" id="tipoSelect">
                         <input type="hidden" name="TIPO_FRENTE" id="input_tipo"
                             value="{{ old('TIPO_FRENTE', $frente->TIPO_FRENTE ?? '') }}">
-                        <div class="dropdown-trigger" onclick="toggleDropdown('tipoSelect', event)"
-                            style="background: white; cursor: default;">
+                        <div class="dropdown-trigger" onclick="toggleDropdown('tipoSelect', event)">
                             <span
                                 id="label_tipo">{{ old('TIPO_FRENTE', $frente->TIPO_FRENTE ?? 'Seleccione Tipo...') }}</span>
                             <i class="material-icons">expand_more</i>
@@ -182,7 +117,7 @@
                 <div>
                     <label for="UBICACION" class="form-label">Ubicación / Geografía <span
                             style="color: red;">*</span></label>
-                    <input type="text" id="UBICACION" name="UBICACION" class="form-input-custom" style="background: white;"
+                    <input type="text" id="UBICACION" name="UBICACION" class="form-input-custom"
                         placeholder="Ej: Sector 4" value="{{ old('UBICACION', $frente->UBICACION ?? '') }}" required
                         autocomplete="off">
                 </div>
@@ -192,7 +127,7 @@
                      Opcional: si se deja vacío, el acta usa el Nombre del Frente. --}}
                 <div>
                     <label for="ZONA" class="form-label">Zona / Ciudad <span style="font-weight:400; color:#94a3b8; font-size:12px;">(sale en el Acta de Traslado)</span></label>
-                    <input type="text" id="ZONA" name="ZONA" class="form-input-custom" style="background: white;"
+                    <input type="text" id="ZONA" name="ZONA" class="form-input-custom"
                         placeholder="Ej: MATURÍN" value="{{ old('ZONA', $frente->ZONA ?? '') }}" maxlength="100"
                         autocomplete="off">
                 </div>
@@ -202,8 +137,7 @@
                     <div class="custom-dropdown" id="statusSelect">
                         <input type="hidden" name="ESTATUS_FRENTE" id="input_estatus"
                             value="{{ old('ESTATUS_FRENTE', $frente->ESTATUS_FRENTE ?? '') }}">
-                        <div class="dropdown-trigger" onclick="toggleDropdown('statusSelect', event)"
-                            style="background: white; cursor: default;">
+                        <div class="dropdown-trigger" onclick="toggleDropdown('statusSelect', event)">
                             <span
                                 id="label_estatus">{{ old('ESTATUS_FRENTE', $frente->ESTATUS_FRENTE ?? 'Seleccione Estatus...') }}</span>
                             <i class="material-icons">expand_more</i>
@@ -242,468 +176,97 @@
                 </div>
 
                 @php
-                    // Un responsable arranca ABIERTO si trae nombre/cargo/cédula
-                    // (datos guardados o reenvíos con error). El resto, recogido.
-                    $respOpen = [];
-                    for ($i = 1; $i <= 5; $i++) {
-                        $respOpen[$i] = !empty(old("RESP_{$i}_NOM", $frente->{"RESP_{$i}_NOM"} ?? ''))
-                                     || !empty(old("RESP_{$i}_CAR", $frente->{"RESP_{$i}_CAR"} ?? ''))
-                                     || !empty(old("RESP_{$i}_CED", $frente->{"RESP_{$i}_CED"} ?? ''));
-                    }
+                    // Los cinco responsables que firman el Acta de Traslado (columnas RESP_n_*):
+                    // título, quién suele ser y un ejemplo de cargo. Un bloque arranca ABIERTO si
+                    // trae nombre/cargo/cédula (datos guardados o reenvío con error); el resto,
+                    // recogido. Al elegir un frente en el buscador lo mismo lo hace frentes_spa.js.
+                    $responsables = [
+                        1 => ['SOLICITADO',      'Coord. Mecánica Liviana', 'Ej: Gerente'],
+                        2 => ['SOLICITADO Alt.', 'Coord. Mecánica Pesada',  'Ej: Supervisor'],
+                        3 => ['ELABORADO',       'Transporte y Logística',  'Ej: Jefe de Taller'],
+                        4 => ['REVISADO',        'Sub-gerente',             'Ej: Residente'],
+                        5 => ['APROBADO',        'Gerente',                 'Ej: Gerente General'],
+                    ];
                 @endphp
 
-                <!-- Responsable 1 -->
-                <div id="respHead1" class="resp-head" onclick="window.toggleResp(1)" style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">SOLICITADO</span>
-                    <span style="color:#64748b; font-size:11px; font-style:italic;">Coord. Mec&aacute;nica Liviana</span>
-                    <i class="material-icons resp-chevron" style="{{ $respOpen[1] ? '' : 'transform:rotate(-90deg);' }}">expand_more</i>
-                </div>
-
-                <!-- Responsable 1 Inputs -->
-                <div class="resp-grid {{ $respOpen[1] ? '' : 'resp-collapsed' }}" id="respBody1" style="grid-column: span 2;">
-                    <div>
-                        <label for="RESP_1_NOM" class="form-label">Nombre Completo</label>
-                        <input type="text" id="RESP_1_NOM" name="RESP_1_NOM" class="form-input-custom"
-                            style="background: white;" placeholder="Nombre"
-                            value="{{ old('RESP_1_NOM', $frente->RESP_1_NOM ?? '') }}" autocomplete="off">
+                @foreach($responsables as $i => [$titulo, $quien, $ejemploCargo])
+                    @php
+                        $abierto = filled(old("RESP_{$i}_NOM", $frente->{"RESP_{$i}_NOM"} ?? ''))
+                                || filled(old("RESP_{$i}_CAR", $frente->{"RESP_{$i}_CAR"} ?? ''))
+                                || filled(old("RESP_{$i}_CED", $frente->{"RESP_{$i}_CED"} ?? ''));
+                        $equ = old("RESP_{$i}_EQU", $frente->{"RESP_{$i}_EQU"} ?? '');
+                    @endphp
+                    <div id="respHead{{ $i }}" class="resp-head {{ $abierto ? '' : 'cerrado' }}" onclick="window.toggleResp({{ $i }})">
+                        <span class="resp-titulo">{{ $titulo }}</span>
+                        <span class="resp-quien">{{ $quien }}</span>
+                        <i class="material-icons resp-chevron">expand_more</i>
                     </div>
 
-                    <div>
-                        <label for="RESP_1_CAR" class="form-label">Cargo</label>
-                        <input type="text" id="RESP_1_CAR" name="RESP_1_CAR" class="form-input-custom"
-                            style="background: white;" placeholder="Ej: Gerente"
-                            value="{{ old('RESP_1_CAR', $frente->RESP_1_CAR ?? '') }}" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <label for="RESP_1_CED" class="form-label">Cédula</label>
-                        <input type="text" id="RESP_1_CED" name="RESP_1_CED" class="form-input-custom"
-                            style="background: white; text-transform: uppercase;" placeholder="Ej: V-12345678"
-                            value="{{ old('RESP_1_CED', $frente->RESP_1_CED ?? '') }}" maxlength="20" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <span class="form-label">Filtro Firma <span style="font-weight: normal; font-size: 11px; color: #64748b;">(Opcional)</span></span>
-                        <div class="custom-dropdown" id="resp1EquSelect">
-                            <input type="hidden" name="RESP_1_EQU" id="input_resp1_equ" value="{{ old('RESP_1_EQU', $frente->RESP_1_EQU ?? '') }}">
-                            <div class="dropdown-trigger" onclick="toggleDropdown('resp1EquSelect', event)" style="background: white; cursor: default;">
-                                <span id="label_resp1_equ">{{ old('RESP_1_EQU', $frente->RESP_1_EQU ?? 'SIN FILTRO') }}</span>
-                                <i class="material-icons">expand_more</i>
-                            </div>
-                            <div class="dropdown-content">
-                                <div class="dropdown-item" onclick="selectOption('resp1EquSelect', '', 'SIN FILTRO', 'resp1_equ')">SIN FILTRO</div>
-                                @foreach($categorias as $cat)
-                                    <div class="dropdown-item" onclick="selectOption('resp1EquSelect', '{{ $cat }}', '{{ $cat }}', 'resp1_equ')">{{ $cat }}</div>
-                                @endforeach
+                    <div class="resp-grid {{ $abierto ? '' : 'resp-collapsed' }}" id="respBody{{ $i }}" style="grid-column: span 2;">
+                        <div>
+                            <label for="RESP_{{ $i }}_NOM" class="form-label">Nombre Completo</label>
+                            <input type="text" id="RESP_{{ $i }}_NOM" name="RESP_{{ $i }}_NOM" class="form-input-custom"
+                                placeholder="Nombre" value="{{ old("RESP_{$i}_NOM", $frente->{"RESP_{$i}_NOM"} ?? '') }}" autocomplete="off">
+                        </div>
+                        <div>
+                            <label for="RESP_{{ $i }}_CAR" class="form-label">Cargo</label>
+                            <input type="text" id="RESP_{{ $i }}_CAR" name="RESP_{{ $i }}_CAR" class="form-input-custom"
+                                placeholder="{{ $ejemploCargo }}" value="{{ old("RESP_{$i}_CAR", $frente->{"RESP_{$i}_CAR"} ?? '') }}" autocomplete="off">
+                        </div>
+                        <div>
+                            <label for="RESP_{{ $i }}_CED" class="form-label">Cédula</label>
+                            <input type="text" id="RESP_{{ $i }}_CED" name="RESP_{{ $i }}_CED" class="form-input-custom"
+                                placeholder="Ej: V-12345678" value="{{ old("RESP_{$i}_CED", $frente->{"RESP_{$i}_CED"} ?? '') }}" maxlength="20" autocomplete="off">
+                        </div>
+                        <div>
+                            <span class="form-label">Filtro Firma <span class="form-label-hint">(Opcional)</span></span>
+                            <div class="custom-dropdown" id="resp{{ $i }}EquSelect">
+                                <input type="hidden" name="RESP_{{ $i }}_EQU" id="input_resp{{ $i }}_equ" value="{{ $equ }}">
+                                <div class="dropdown-trigger" onclick="toggleDropdown('resp{{ $i }}EquSelect', event)">
+                                    <span id="label_resp{{ $i }}_equ">{{ $equ ?: 'SIN FILTRO' }}</span>
+                                    <i class="material-icons">expand_more</i>
+                                </div>
+                                <div class="dropdown-content">
+                                    <div class="dropdown-item" onclick="selectOption('resp{{ $i }}EquSelect', '', 'SIN FILTRO', 'resp{{ $i }}_equ')">SIN FILTRO</div>
+                                    @foreach($categorias as $cat)
+                                        <div class="dropdown-item" onclick="selectOption('resp{{ $i }}EquSelect', '{{ $cat }}', '{{ $cat }}', 'resp{{ $i }}_equ')">{{ $cat }}</div>
+                                    @endforeach
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Responsable 2 -->
-                <div id="respHead2" class="resp-head" onclick="window.toggleResp(2)" style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">SOLICITADO Alt.</span>
-                    <span style="color:#64748b; font-size:11px; font-style:italic;">Coord. Mec&aacute;nica Pesada</span>
-                    <i class="material-icons resp-chevron" style="{{ $respOpen[2] ? '' : 'transform:rotate(-90deg);' }}">expand_more</i>
-                </div>
-
-                <!-- Responsable 2 Inputs -->
-                <div class="resp-grid {{ $respOpen[2] ? '' : 'resp-collapsed' }}" id="respBody2" style="grid-column: span 2;">
-                    <div>
-                        <label for="RESP_2_NOM" class="form-label">Nombre Completo</label>
-                        <input type="text" id="RESP_2_NOM" name="RESP_2_NOM" class="form-input-custom"
-                            style="background: white;" placeholder="Nombre"
-                            value="{{ old('RESP_2_NOM', $frente->RESP_2_NOM ?? '') }}" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <label for="RESP_2_CAR" class="form-label">Cargo</label>
-                        <input type="text" id="RESP_2_CAR" name="RESP_2_CAR" class="form-input-custom"
-                            style="background: white;" placeholder="Ej: Supervisor"
-                            value="{{ old('RESP_2_CAR', $frente->RESP_2_CAR ?? '') }}" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <label for="RESP_2_CED" class="form-label">Cédula</label>
-                        <input type="text" id="RESP_2_CED" name="RESP_2_CED" class="form-input-custom"
-                            style="background: white; text-transform: uppercase;" placeholder="Ej: V-12345678"
-                            value="{{ old('RESP_2_CED', $frente->RESP_2_CED ?? '') }}" maxlength="20" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <span class="form-label">Filtro Firma</span>
-                        <div class="custom-dropdown" id="resp2EquSelect">
-                            <input type="hidden" name="RESP_2_EQU" id="input_resp2_equ" value="{{ old('RESP_2_EQU', $frente->RESP_2_EQU ?? '') }}">
-                            <div class="dropdown-trigger" onclick="toggleDropdown('resp2EquSelect', event)" style="background: white; cursor: default;">
-                                <span id="label_resp2_equ">{{ old('RESP_2_EQU', $frente->RESP_2_EQU ?? 'SIN FILTRO') }}</span>
-                                <i class="material-icons">expand_more</i>
-                            </div>
-                            <div class="dropdown-content">
-                                <div class="dropdown-item" onclick="selectOption('resp2EquSelect', '', 'SIN FILTRO', 'resp2_equ')">SIN FILTRO</div>
-                                @foreach($categorias as $cat)
-                                    <div class="dropdown-item" onclick="selectOption('resp2EquSelect', '{{ $cat }}', '{{ $cat }}', 'resp2_equ')">{{ $cat }}</div>
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Responsable 3 -->
-                <div id="respHead3" class="resp-head" onclick="window.toggleResp(3)" style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">ELABORADO</span>
-                    <span style="color:#64748b; font-size:11px; font-style:italic;">Transporte y Log&iacute;stica</span>
-                    <i class="material-icons resp-chevron" style="{{ $respOpen[3] ? '' : 'transform:rotate(-90deg);' }}">expand_more</i>
-                </div>
-
-                <!-- Responsable 3 Inputs -->
-                <div class="resp-grid {{ $respOpen[3] ? '' : 'resp-collapsed' }}" id="respBody3" style="grid-column: span 2;">
-                    <div>
-                        <label for="RESP_3_NOM" class="form-label">Nombre Completo</label>
-                        <input type="text" id="RESP_3_NOM" name="RESP_3_NOM" class="form-input-custom"
-                            style="background: white;" placeholder="Nombre"
-                            value="{{ old('RESP_3_NOM', $frente->RESP_3_NOM ?? '') }}" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <label for="RESP_3_CAR" class="form-label">Cargo</label>
-                        <input type="text" id="RESP_3_CAR" name="RESP_3_CAR" class="form-input-custom"
-                            style="background: white;" placeholder="Ej: Jefe de Taller"
-                            value="{{ old('RESP_3_CAR', $frente->RESP_3_CAR ?? '') }}" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <label for="RESP_3_CED" class="form-label">Cédula</label>
-                        <input type="text" id="RESP_3_CED" name="RESP_3_CED" class="form-input-custom"
-                            style="background: white; text-transform: uppercase;" placeholder="Ej: V-12345678"
-                            value="{{ old('RESP_3_CED', $frente->RESP_3_CED ?? '') }}" maxlength="20" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <span class="form-label">Filtro Firma</span>
-                        <div class="custom-dropdown" id="resp3EquSelect">
-                            <input type="hidden" name="RESP_3_EQU" id="input_resp3_equ" value="{{ old('RESP_3_EQU', $frente->RESP_3_EQU ?? '') }}">
-                            <div class="dropdown-trigger" onclick="toggleDropdown('resp3EquSelect', event)" style="background: white; cursor: default;">
-                                <span id="label_resp3_equ">{{ old('RESP_3_EQU', $frente->RESP_3_EQU ?? 'SIN FILTRO') }}</span>
-                                <i class="material-icons">expand_more</i>
-                            </div>
-                            <div class="dropdown-content">
-                                <div class="dropdown-item" onclick="selectOption('resp3EquSelect', '', 'SIN FILTRO', 'resp3_equ')">SIN FILTRO</div>
-                                @foreach($categorias as $cat)
-                                    <div class="dropdown-item" onclick="selectOption('resp3EquSelect', '{{ $cat }}', '{{ $cat }}', 'resp3_equ')">{{ $cat }}</div>
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Responsable 4 -->
-                <div id="respHead4" class="resp-head" onclick="window.toggleResp(4)" style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">REVISADO</span>
-                    <span style="color:#64748b; font-size:11px; font-style:italic;">Sub-gerente</span>
-                    <i class="material-icons resp-chevron" style="{{ $respOpen[4] ? '' : 'transform:rotate(-90deg);' }}">expand_more</i>
-                </div>
-
-                <!-- Responsable 4 Inputs -->
-                <div class="resp-grid {{ $respOpen[4] ? '' : 'resp-collapsed' }}" id="respBody4" style="grid-column: span 2;">
-                    <div>
-                        <label for="RESP_4_NOM" class="form-label">Nombre Completo</label>
-                        <input type="text" id="RESP_4_NOM" name="RESP_4_NOM" class="form-input-custom"
-                            style="background: white;" placeholder="Nombre"
-                            value="{{ old('RESP_4_NOM', $frente->RESP_4_NOM ?? '') }}" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <label for="RESP_4_CAR" class="form-label">Cargo</label>
-                        <input type="text" id="RESP_4_CAR" name="RESP_4_CAR" class="form-input-custom"
-                            style="background: white;" placeholder="Ej: Residente"
-                            value="{{ old('RESP_4_CAR', $frente->RESP_4_CAR ?? '') }}" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <label for="RESP_4_CED" class="form-label">Cédula</label>
-                        <input type="text" id="RESP_4_CED" name="RESP_4_CED" class="form-input-custom"
-                            style="background: white; text-transform: uppercase;" placeholder="Ej: V-12345678"
-                            value="{{ old('RESP_4_CED', $frente->RESP_4_CED ?? '') }}" maxlength="20" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <span class="form-label">Filtro Firma</span>
-                        <div class="custom-dropdown" id="resp4EquSelect">
-                            <input type="hidden" name="RESP_4_EQU" id="input_resp4_equ" value="{{ old('RESP_4_EQU', $frente->RESP_4_EQU ?? '') }}">
-                            <div class="dropdown-trigger" onclick="toggleDropdown('resp4EquSelect', event)" style="background: white; cursor: default;">
-                                <span id="label_resp4_equ">{{ old('RESP_4_EQU', $frente->RESP_4_EQU ?? 'SIN FILTRO') }}</span>
-                                <i class="material-icons">expand_more</i>
-                            </div>
-                            <div class="dropdown-content">
-                                <div class="dropdown-item" onclick="selectOption('resp4EquSelect', '', 'SIN FILTRO', 'resp4_equ')">SIN FILTRO</div>
-                                @foreach($categorias as $cat)
-                                    <div class="dropdown-item" onclick="selectOption('resp4EquSelect', '{{ $cat }}', '{{ $cat }}', 'resp4_equ')">{{ $cat }}</div>
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="respHead5" class="resp-head" onclick="window.toggleResp(5)" style="grid-column: span 2; border-bottom: 2px solid #dbeafe; padding: 12px 0 8px 0; margin-top: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="color: var(--maquinaria-blue); font-weight: 700; font-size: 14px; text-transform: uppercase;">APROBADO</span>
-                    <span style="color:#64748b; font-size:11px; font-style:italic;">Gerente</span>
-                    <i class="material-icons resp-chevron" style="{{ $respOpen[5] ? '' : 'transform:rotate(-90deg);' }}">expand_more</i>
-                </div>
-
-                <!-- Responsable 5 Inputs -->
-                <div class="resp-grid {{ $respOpen[5] ? '' : 'resp-collapsed' }}" id="respBody5" style="grid-column: span 2;">
-                    <div>
-                        <label for="RESP_5_NOM" class="form-label">Nombre Completo</label>
-                        <input type="text" id="RESP_5_NOM" name="RESP_5_NOM" class="form-input-custom"
-                            style="background: white;" placeholder="Nombre"
-                            value="{{ old('RESP_5_NOM', $frente->RESP_5_NOM ?? '') }}" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <label for="RESP_5_CAR" class="form-label">Cargo</label>
-                        <input type="text" id="RESP_5_CAR" name="RESP_5_CAR" class="form-input-custom"
-                            style="background: white;" placeholder="Ej: Gerente General"
-                            value="{{ old('RESP_5_CAR', $frente->RESP_5_CAR ?? '') }}" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <label for="RESP_5_CED" class="form-label">Cédula</label>
-                        <input type="text" id="RESP_5_CED" name="RESP_5_CED" class="form-input-custom"
-                            style="background: white; text-transform: uppercase;" placeholder="Ej: V-12345678"
-                            value="{{ old('RESP_5_CED', $frente->RESP_5_CED ?? '') }}" maxlength="20" autocomplete="off">
-                    </div>
-
-                    <div>
-                        <span class="form-label">Filtro Firma</span>
-                        <div class="custom-dropdown" id="resp5EquSelect">
-                            <input type="hidden" name="RESP_5_EQU" id="input_resp5_equ" value="{{ old('RESP_5_EQU', $frente->RESP_5_EQU ?? '') }}">
-                            <div class="dropdown-trigger" onclick="toggleDropdown('resp5EquSelect', event)" style="background: white; cursor: default;">
-                                <span id="label_resp5_equ">{{ old('RESP_5_EQU', $frente->RESP_5_EQU ?? 'SIN FILTRO') }}</span>
-                                <i class="material-icons">expand_more</i>
-                            </div>
-                            <div class="dropdown-content">
-                                <div class="dropdown-item" onclick="selectOption('resp5EquSelect', '', 'SIN FILTRO', 'resp5_equ')">SIN FILTRO</div>
-                                @foreach($categorias as $cat)
-                                    <div class="dropdown-item" onclick="selectOption('resp5EquSelect', '{{ $cat }}', '{{ $cat }}', 'resp5_equ')">{{ $cat }}</div>
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                @endforeach
             </div>
 
-            <div class="frentes-btn-row"
-                style="margin-top: 40px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; align-items: center;">
-                <a href="{{ route('menu') }}" class="btn-primary-maquinaria btn-secondary">
+            {{-- Los tres botones con el MISMO tamaño (el de .btn-primary-maquinaria). Cancelar:
+                 editando un frente vuelve a "Registrar nuevo"; si no, sale al menú. Eliminar
+                 (solo con un frente cargado) es borrado LÓGICO: el frente sale de listas y
+                 selectores pero el historial conserva su nombre; el servidor lo rechaza si
+                 tiene equipos, auxiliares o stock de almacén. --}}
+            <div class="frentes-btn-row">
+                <button type="button" class="btn-primary-maquinaria btn-secondary" onclick="window.cancelarFrente()">
                     Cancelar
-                </a>
-
-                <button type="submit" class="btn-primary-maquinaria"
-                    style="padding: 12px 30px; font-size: 14px; height: auto;">
-                    <i class="material-icons" style="font-size: 20px;"
-                        id="submitBtnIcon">{{ (isset($frente) && $frente->exists) ? 'save' : 'add_circle' }}</i>
-                    <span
-                        id="submitBtnText">{{ (isset($frente) && $frente->exists) ? 'Guardar Cambios' : 'Registrar' }}</span>
                 </button>
 
-                {{-- Boton Eliminar: borrado LOGICO (deleted_at). El frente sale de listas y
-                     selectores, pero el historial conserva su nombre.
-                     Bloquea server-side si tiene equipos/auxiliares asignados.
-                     Para marcar el frente como FINALIZADO sin borrarlo, el
-                     usuario debe usar el campo "Estatus del Proyecto" del form. --}}
-                <button type="button" id="btnEliminarFrente"
+                <button type="submit" class="btn-primary-maquinaria">
+                    <i class="material-icons" id="submitBtnIcon">{{ (isset($frente) && $frente->exists) ? 'save' : 'add_circle' }}</i>
+                    <span id="submitBtnText">{{ (isset($frente) && $frente->exists) ? 'Guardar Cambios' : 'Registrar' }}</span>
+                </button>
+
+                <button type="button" id="btnEliminarFrente" class="btn-primary-maquinaria btn-eliminar-frente"
                     data-frente-id="{{ $frente->ID_FRENTE ?? '' }}"
                     data-frente-nombre="{{ $frente->NOMBRE_FRENTE ?? '' }}"
                     onclick="window.eliminarFrenteSPA(this.dataset.frenteId, this.dataset.frenteNombre)"
-                    class="btn-primary-maquinaria"
-                    style="padding: 12px 30px; font-size: 14px; height: auto; background: #ef4444; border-color: #ef4444; display: {{ (isset($frente) && $frente->exists) ? 'inline-flex' : 'none' }};">
-                    <i class="material-icons" style="font-size: 20px;">delete_outline</i>
+                    @unless(isset($frente) && $frente->exists) hidden @endunless>
+                    <i class="material-icons">delete_outline</i>
                     <span>Eliminar</span>
                 </button>
             </div>
         </form>
 
-        {{-- Script siempre disponible: el boton se muestra/oculta segun haya
-             un frente cargado (modo edicion o seleccion SPA). --}}
+        {{-- Chips de contratos: van aquí (y no en frentes_spa.js) porque se arman sobre el
+             DOM de ESTA carga; la SPA vuelve a correr este <script> en cada visita. --}}
         <script>
-            window.eliminarFrenteSPA = function (id, nombre) {
-                if (!id) return;
-
-                // Modal corporativo (mismo que usa el resto de la app para
-                // confirmaciones destructivas — coherente con showModal API).
-                const proceed = function () {
-                    if (window.showPreloader) window.showPreloader();
-                    // El CSRF lo pone apiFetch (helper central, dom_helpers.js); aqui no hace falta.
-                    window.apiFetch('{{ url("admin/frentes") }}/' + id, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                        method: 'DELETE'}).then(handleDeleteResponse).catch(handleDeleteError);
-                };
-
-                if (typeof window.showModal === 'function') {
-                    window.showModal({
-                        type: 'warning',
-                        title: 'Eliminar Frente',
-                        message: '¿Eliminar el frente "' + nombre + '"?\n\nDejará de aparecer en las listas; el historial lo conserva. Si tiene equipos o auxiliares asignados, será rechazada.',
-                        confirmText: 'Sí, eliminar',
-                        cancelText: 'Cancelar',
-                        onConfirm: proceed
-                    });
-                } else if (confirm('¿Eliminar el frente "' + nombre + '"?')) {
-                    proceed();
-                }
-            };
-
-            function handleDeleteResponse(r) {
-                return r.json().catch(function () { return {}; }).then(function (data) {
-                    if (r.ok && data.success) {
-                        // Mantener preloader activo durante la transicion al
-                        // create (un solo spinner). Toast en destino via flash.
-                        try {
-                            sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({
-                                message: data.message || 'Frente eliminado.',
-                                type: 'success'
-                            }));
-                        } catch (_) {}
-                        var dest = data.redirect || '{{ route("frentes.create") }}';
-                        // HANDOFF del spinner (ver loadPage en navegacion.js): cedemos el
-                        // show() de este flujo, que aquí no se balancea. Sin el flag,
-                        // loadPage suma otro show() y su único hide() deja el contador en
-                        // 1 → el spinner se queda tapando el módulo destino ya cargado.
-                        window.__vidalsaRedirecting = true;
-                        if (window.navigateTo) window.navigateTo(dest);
-                        else window.location.href = dest;
-                    } else {
-                        if (window.hidePreloader) window.hidePreloader();
-                        var msg = data.message || 'No se pudo eliminar el frente.';
-                        // Toast efimero (auto-cierra) en vez de modal: el rechazo
-                        // por dependencias (equipos/auxiliares asignados) es un
-                        // resultado puntual, no requiere bloqueo modal.
-                        // window.toast (dom_helpers.js) avisa si aun no hay toasts.
-                        if (!window.toast(msg, 'error')) alert(msg);
-                    }
-                });
-            }
-
-            function handleDeleteError(err) {
-                if (window.hidePreloader) window.hidePreloader();
-                var msg = 'Error de red al eliminar el frente.';
-                if (typeof window.showModal === 'function') {
-                    window.showModal({ type: 'error', title: 'Error de red', message: msg, confirmText: 'Cerrar', hideCancel: true });
-                } else if (!window.toast(msg, 'error')) {
-                    alert(msg);
-                }
-            }
-
-            // Helpers centrales (dom_helpers.js). escapeAttr no escapaba \ ni & < >.
-            // var y no const: la SPA vuelve a correr este <script> cada vez que se entra a
-            // Frentes, y un const repetido tiraba el script ENTERO en la segunda visita.
-            var escapeHtml = window.escapeHtml;
-            var escapeAttr = window.escapeAttrJs;
-
-            // Acordeón de responsables: expande/colapsa el bloque de campos al
-            // hacer clic en su encabezado y gira el chevron.
-            window.toggleResp = function (n) {
-                var body = document.getElementById('respBody' + n);
-                var head = document.getElementById('respHead' + n);
-                if (!body) return;
-                var collapsed = body.classList.toggle('resp-collapsed');
-                var chev = head ? head.querySelector('.resp-chevron') : null;
-                if (chev) chev.style.transform = collapsed ? 'rotate(-90deg)' : '';
-            };
-
-            // ═══════════════════════════════════════════════════════════
-            // MODAL FRENTES SIN EQUIPOS (candidatos a eliminar)
-            // ═══════════════════════════════════════════════════════════
-            window.abrirModalSinEquipos = function () {
-                var existing = document.getElementById('sinEquiposOverlay');
-                if (existing) existing.remove();
-
-                var overlay = document.createElement('div');
-                overlay.id = 'sinEquiposOverlay';
-                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);z-index:2500;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(2px);';
-                overlay.innerHTML = '<div style="background:white;border-radius:14px;width:90%;max-width:460px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">' +
-                    '<div style="background:#1e293b;padding:12px 16px;color:white;display:flex;justify-content:center;align-items:center;position:relative;">' +
-                        '<div style="display:flex;align-items:center;gap:10px;">' +
-                            '<i class="material-icons" style="color:#0284c7;font-size:20px;">domain_disabled</i>' +
-                            '<h2 style="margin:0;font-size:16px;font-weight:700;">Frentes sin equipos</h2>' +
-                        '</div>' +
-                        '<button type="button" id="btnCloseSinEquipos" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">' +
-                            '<i class="material-icons">close</i>' +
-                        '</button>' +
-                    '</div>' +
-                    '<div style="padding:14px 16px;">' +
-                        '<div id="sinEquiposList" style="max-height:380px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:8px;">' +
-                            '<div style="padding:30px;text-align:center;color:#94a3b8;"><i class="material-icons" style="animation:spin 1s linear infinite;font-size:24px;">sync</i></div>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>';
-                document.body.appendChild(overlay);
-                overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
-                document.getElementById('btnCloseSinEquipos').onclick = function () { overlay.remove(); };
-
-                window.cargarFrentesSinEquipos();
-            };
-
-            window.cargarFrentesSinEquipos = function () {
-                var list = document.getElementById('sinEquiposList');
-                if (!list) return;
-                window.apiFetch('{{ route("frentes.sinEquipos") }}', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (!data.frentes || data.frentes.length === 0) {
-                        list.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#94a3b8;"><i class="material-icons" style="font-size:32px;display:block;margin:0 auto 10px;">check_circle</i>Todos los frentes tienen equipos asignados</div>';
-                        return;
-                    }
-                    list.innerHTML = data.frentes.map(function (f) {
-                        var ubic = f.ubicacion ? '<div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">place</i>' + escapeHtml(f.ubicacion) + '</div>' : '';
-                        // Estatus como TEXTO PLANO (sin pastilla), con la misma letra que el resto.
-                        var badge = '<span style="font-size:12px;font-weight:600;color:#64748b;">' + escapeHtml(f.estatus || '—') + '</span>';
-                        return '<div style="padding:10px;border-radius:8px;background:white;border:1px solid #e2e8f0;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
-                            '<div style="width:36px;height:36px;background:#e0f2fe;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="material-icons" style="color:#0284c7;font-size:18px;">domain_disabled</i></div>' +
-                            '<div style="flex:1;min-width:120px;">' +
-                                '<div style="font-weight:700;color:#1e293b;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' + escapeHtml(f.nombre) + badge + '</div>' +
-                                ubic +
-                            '</div>' +
-                            '<button type="button" onclick="window._sinEquiposEliminar(' + f.id + ', \'' + escapeAttr(f.nombre) + '\')" class="btn-primary-maquinaria" style="padding:6px 12px;font-size:12px;height:auto;border-radius:8px;background:#ef4444;display:inline-flex;align-items:center;gap:4px;">' +
-                                '<i class="material-icons" style="font-size:14px;">delete_outline</i>Eliminar</button>' +
-                        '</div>';
-                    }).join('');
-                })
-                .catch(function () {
-                    list.innerHTML = '<div style="padding:30px;text-align:center;color:#ef4444;font-size:13px;">Error al cargar los frentes.</div>';
-                });
-            };
-
-            // Borrado desde el modal: el servidor lo rechaza (422) si el frente tiene
-            // equipos o auxiliares asignados, y ese mensaje es el que se muestra.
-            function _sinEquiposBorrar(id) {
-                if (window.showPreloader) window.showPreloader();
-                // El CSRF lo pone apiFetch (helper central, dom_helpers.js); aqui no hace falta.
-                window.apiFetch('{{ url("admin/frentes") }}/' + id, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, method: 'DELETE'})
-                .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, body: d }; }); })
-                .then(function (res) {
-                    if (window.hidePreloader) window.hidePreloader();
-                    if (res.ok && res.body.success) {
-                        window.toast(res.body.message || 'Frente eliminado.', 'success');
-                        window.cargarFrentesSinEquipos();
-                        // Por ID: el desplegable identifica cada item por data-id.
-                        if (typeof window.removeFromSearchList === 'function') window.removeFromSearchList(id);
-                    } else {
-                        window.toast((res.body && res.body.message) || 'No se pudo eliminar.', 'error');
-                    }
-                })
-                .catch(function () {
-                    if (window.hidePreloader) window.hidePreloader();
-                    window.toast('Error de red.', 'error');
-                });
-            }
-
-            window._sinEquiposEliminar = function (id, nombre) {
-                var run = function () { _sinEquiposBorrar(id); };
-                if (typeof window.showModal === 'function') {
-                    window.showModal({ type: 'warning', title: 'Eliminar Frente', message: '¿Eliminar el frente "' + nombre + '"?\n\nDejará de aparecer en las listas; el historial lo conserva.', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', onConfirm: run });
-                } else if (confirm('¿Eliminar el frente "' + nombre + '"?')) { run(); }
-            };
-
             // ── Chips de "Contratos asociados" ──────────────────────────────────
             // El hidden #CONTRATOS_HIDDEN guarda los valores como CSV
             // ("CTR-2026-0042,CTR-2026-0099"). El backend (FrenteRequest::prepareForValidation)
@@ -734,7 +297,7 @@
                     parseList().forEach(function (val) {
                         var chip = document.createElement('span');
                         chip.style.cssText = 'background:#e0f2fe;color:#0369a1;padding:3px 4px 3px 10px;border-radius:99px;font-size:12.5px;font-weight:700;display:inline-flex;align-items:center;gap:3px;font-family:monospace;';
-                        chip.innerHTML = escapeHtml(val) +
+                        chip.innerHTML = window.escapeHtml(val) +
                             ' <i class="material-icons" style="font-size:15px;cursor:pointer;color:#0284c7;" title="Quitar">close</i>';
                         chip.querySelector('i').addEventListener('click', function () {
                             var current = parseList();

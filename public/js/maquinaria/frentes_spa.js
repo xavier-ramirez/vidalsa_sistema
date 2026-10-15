@@ -61,40 +61,11 @@ function populateFrenteForm(data) {
         window.frentesSetContratos(data.CONTRATOS);
     }
 
-    // Responsables
-    document.getElementById("RESP_1_NOM").value = data.RESP_1_NOM || "";
-    document.getElementById("RESP_1_CAR").value = data.RESP_1_CAR || "";
-    if (document.getElementById("RESP_1_CED")) document.getElementById("RESP_1_CED").value = data.RESP_1_CED || "";
-
-    document.getElementById("RESP_2_NOM").value = data.RESP_2_NOM || "";
-    document.getElementById("RESP_2_CAR").value = data.RESP_2_CAR || "";
-    if (document.getElementById("RESP_2_CED")) document.getElementById("RESP_2_CED").value = data.RESP_2_CED || "";
-
-    document.getElementById("RESP_3_NOM").value = data.RESP_3_NOM || "";
-    document.getElementById("RESP_3_CAR").value = data.RESP_3_CAR || "";
-    if (document.getElementById("RESP_3_CED")) document.getElementById("RESP_3_CED").value = data.RESP_3_CED || "";
-
-    document.getElementById("RESP_4_NOM").value = data.RESP_4_NOM || "";
-    document.getElementById("RESP_4_CAR").value = data.RESP_4_CAR || "";
-    if (document.getElementById("RESP_4_CED")) document.getElementById("RESP_4_CED").value = data.RESP_4_CED || "";
-
-    document.getElementById("RESP_5_NOM").value = data.RESP_5_NOM || "";
-    document.getElementById("RESP_5_CAR").value = data.RESP_5_CAR || "";
-    if (document.getElementById("RESP_5_CED")) document.getElementById("RESP_5_CED").value = data.RESP_5_CED || "";
-
-    // Equipment Filters (Dropdown labels & hidden inputs)
-    const setEquFilter = (id, val) => {
-        const input = document.getElementById("input_resp" + id + "_equ");
-        const label = document.getElementById("label_resp" + id + "_equ");
-        if (input) input.value = val || "";
-        if (label) label.innerText = val || "SIN FILTRO";
-    };
-
-    setEquFilter("1", data.RESP_1_EQU);
-    setEquFilter("2", data.RESP_2_EQU);
-    setEquFilter("3", data.RESP_3_EQU);
-    setEquFilter("4", data.RESP_4_EQU);
-    setEquFilter("5", data.RESP_5_EQU);
+    // Los cinco responsables: nombre, cargo, cédula y filtro de firma. El bloque queda
+    // abierto si trae datos y recogido si no (lo mismo que hace la vista al abrir /edit).
+    for (let i = 1; i <= 5; i++) {
+        llenarResponsable(i, data);
+    }
 
     // Dropdowns (Tipo/Estatus)
     document.getElementById("input_tipo").value = data.TIPO_FRENTE;
@@ -115,9 +86,37 @@ function populateFrenteForm(data) {
     if (btnEliminar) {
         btnEliminar.dataset.frenteId = data.ID_FRENTE;
         btnEliminar.dataset.frenteNombre = data.NOMBRE_FRENTE || "";
-        btnEliminar.style.display = "inline-flex";
+        btnEliminar.hidden = false;
     }
 }
+
+// Escribe el responsable n (de los datos del frente, o vacío si data es null) y abre su
+// bloque solo si trae nombre, cargo o cédula.
+function llenarResponsable(n, data) {
+    let conDatos = false;
+    ["NOM", "CAR", "CED"].forEach((campo) => {
+        const input = document.getElementById("RESP_" + n + "_" + campo);
+        const valor = (data && data["RESP_" + n + "_" + campo]) || "";
+        if (input) input.value = valor;
+        if (valor) conDatos = true;
+    });
+    const equ = (data && data["RESP_" + n + "_EQU"]) || "";
+    const input = document.getElementById("input_resp" + n + "_equ");
+    const label = document.getElementById("label_resp" + n + "_equ");
+    if (input) input.value = equ;
+    if (label) label.innerText = equ || "SIN FILTRO";
+    window.toggleResp(n, conDatos);
+}
+
+// Acordeón de responsables: clic en el encabezado abre/cierra su bloque. Con `abrir`
+// (true/false) lo deja en ese estado en vez de alternar.
+window.toggleResp = function (n, abrir) {
+    const body = document.getElementById("respBody" + n);
+    const head = document.getElementById("respHead" + n);
+    if (!body) return;
+    const cerrado = body.classList.toggle("resp-collapsed", abrir === undefined ? undefined : !abrir);
+    if (head) head.classList.toggle("cerrado", cerrado);
+};
 
 // --- 2. SEARCH & DROPDOWN LOGIC ---
 window.filterFrentesDropdown = function (input) {
@@ -265,7 +264,7 @@ window.resetFrentesForm = function () {
         if (btnEliminar) {
             btnEliminar.dataset.frenteId = "";
             btnEliminar.dataset.frenteNombre = "";
-            btnEliminar.style.display = "none";
+            btnEliminar.hidden = true;
         }
 
         // form.reset() devuelve cada campo a su valor RENDERIZADO, no a vacio: abierto
@@ -288,18 +287,10 @@ window.resetFrentesForm = function () {
         document.getElementById("label_estatus").innerText =
             "Seleccione Estatus...";
 
-        // Los cinco responsables: nombre, cargo, cedula y su filtro de equipos. Nombre
-        // y cargo tambien se limpian a mano, por lo mismo que arriba (en /edit vienen
-        // renderizados con los datos del frente y reset() los devolveria a ese valor).
+        // Los cinco responsables, vacíos y recogidos. Se limpian a mano por lo mismo que
+        // arriba (en /edit vienen renderizados con los datos del frente).
         for (let i = 1; i <= 5; i++) {
-            const input = document.getElementById("input_resp" + i + "_equ");
-            const label = document.getElementById("label_resp" + i + "_equ");
-            if (input) input.value = "";
-            if (label) label.innerText = "SIN FILTRO";
-            ["RESP_" + i + "_NOM", "RESP_" + i + "_CAR", "RESP_" + i + "_CED"].forEach((id) => {
-                const campo = document.getElementById(id);
-                if (campo) campo.value = "";
-            });
+            llenarResponsable(i, null);
         }
 
         const searchInput = document.getElementById("filterSearchInput");
@@ -357,8 +348,7 @@ window.addToSearchList = function (frente) {
     if (noMsg) noMsg.style.display = "none";
 };
 
-// Quita un frente del desplegable de búsqueda al eliminarlo desde el modal
-// "Frentes sin equipos", para no dejarlo listado. Por ID: el nombre se puede
+// Quita un frente del desplegable de búsqueda al eliminarlo, para no dejarlo listado. Por ID: el nombre se puede
 // editar, el ID no cambia nunca.
 window.removeFromSearchList = function (id) {
     const list = document.getElementById("frenteItemsList");
@@ -371,6 +361,119 @@ window.removeFromSearchList = function (id) {
             break;
         }
     }
+};
+
+// --- CANCELAR Y ELIMINAR ---
+// Cancelar: editando un frente vuelve a "Registrar nuevo"; con el formulario en modo
+// registro, sale al menú.
+window.cancelarFrente = function () {
+    const id = document.getElementById("ID_FRENTE");
+    if (id && id.value) {
+        window.resetFrentesForm();
+        return;
+    }
+    if (window.navigateTo) window.navigateTo("/menu");
+    else window.location.href = "/menu";
+};
+
+// Eliminar (botón del formulario y modal "Sin equipos"): UN solo flujo. Pide
+// confirmación, borra por AJAX (borrado lógico) y, si sale bien, quita el frente del
+// buscador, vuelve el formulario a "Registrar" si era el que se editaba y refresca el
+// modal si está abierto. El servidor lo rechaza (422) si tiene equipos, auxiliares o
+// stock de almacén, y ese mensaje es el que se muestra.
+window.eliminarFrenteSPA = function (id, nombre) {
+    if (!id) return;
+    window.showModal({
+        type: "warning",
+        title: "Eliminar Frente",
+        message: '¿Eliminar el frente "' + window.escapeHtml(nombre || "") + '"?\n\nDejará de aparecer en las listas; el historial lo conserva.',
+        confirmText: "Sí, eliminar",
+        cancelText: "Cancelar",
+        onConfirm: function () { borrarFrente(id); },
+    });
+};
+
+function borrarFrente(id) {
+    if (window.showPreloader) window.showPreloader();
+    window.apiFetch("/admin/frentes/" + id, {
+        headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
+        method: "DELETE",
+    })
+        .then((r) => r.json().catch(() => ({})).then((body) => ({ ok: r.ok, body })))
+        .then(({ ok, body }) => {
+            if (window.hidePreloader) window.hidePreloader();
+            if (!ok || !body.success) {
+                showNotification("error", body.message || "No se pudo eliminar el frente.");
+                return;
+            }
+            showNotification("success", body.message || "Frente eliminado.");
+            window.removeFromSearchList(id);
+            const actual = document.getElementById("ID_FRENTE");
+            if (actual && String(actual.value) === String(id)) window.resetFrentesForm();
+            if (document.getElementById("sinEquiposList")) window.cargarFrentesSinEquipos();
+        })
+        .catch(() => {
+            if (window.hidePreloader) window.hidePreloader();
+            showNotification("error", "Error de red al eliminar el frente.");
+        });
+}
+
+// --- MODAL "FRENTES SIN EQUIPOS" (candidatos a eliminar) ---
+window.abrirModalSinEquipos = function () {
+    const previo = document.getElementById("sinEquiposOverlay");
+    if (previo) previo.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "sinEquiposOverlay";
+    overlay.className = "sin-equipos-overlay";
+    overlay.innerHTML =
+        '<div class="sin-equipos-modal">' +
+            '<div class="sin-equipos-cab">' +
+                '<i class="material-icons">domain_disabled</i>' +
+                "<h2>Frentes sin equipos</h2>" +
+                '<button type="button" id="btnCloseSinEquipos" title="Cerrar"><i class="material-icons">close</i></button>' +
+            "</div>" +
+            '<div class="sin-equipos-cuerpo"><div id="sinEquiposList" class="sin-equipos-lista">' +
+                '<div class="sin-equipos-vacio"><i class="material-icons sin-equipos-gira">sync</i></div>' +
+            "</div></div>" +
+        "</div>";
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+    document.getElementById("btnCloseSinEquipos").onclick = () => overlay.remove();
+
+    window.cargarFrentesSinEquipos();
+};
+
+window.cargarFrentesSinEquipos = function () {
+    const list = document.getElementById("sinEquiposList");
+    if (!list) return;
+    window.apiFetch("/admin/frentes/sin-equipos", { headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" } })
+        .then((r) => r.json())
+        .then((data) => {
+            if (!data.frentes || data.frentes.length === 0) {
+                list.innerHTML = '<div class="sin-equipos-vacio"><i class="material-icons">check_circle</i>Todos los frentes tienen equipos asignados</div>';
+                return;
+            }
+            const esc = window.escapeHtml;
+            list.innerHTML = data.frentes.map((f) =>
+                '<div class="sin-equipos-fila">' +
+                    '<div class="sin-equipos-ico"><i class="material-icons">domain_disabled</i></div>' +
+                    '<div class="sin-equipos-datos">' +
+                        '<div class="sin-equipos-nombre">' + esc(f.nombre) + " <span>" + esc(f.estatus || "—") + "</span></div>" +
+                        (f.ubicacion ? '<div class="sin-equipos-ubic"><i class="material-icons">place</i>' + esc(f.ubicacion) + "</div>" : "") +
+                    "</div>" +
+                    '<button type="button" class="btn-primary-maquinaria btn-eliminar-frente" data-id="' + f.id + '" data-nombre="' + esc(f.nombre) + '">' +
+                        '<i class="material-icons">delete_outline</i>Eliminar</button>' +
+                "</div>"
+            ).join("");
+            // data-* y no onclick con el nombre dentro del JS: un nombre con comillas no rompe nada.
+            list.querySelectorAll("button[data-id]").forEach((b) => {
+                b.onclick = () => window.eliminarFrenteSPA(b.dataset.id, b.dataset.nombre);
+            });
+        })
+        .catch(() => {
+            list.innerHTML = '<div class="sin-equipos-vacio sin-equipos-error">Error al cargar los frentes.</div>';
+        });
 };
 
 function showNotification(type, message) {
