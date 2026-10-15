@@ -329,6 +329,17 @@
         background: #e1effa;
         border-color: var(--maquinaria-blue, #0067b1);
     }
+    /* Lupa + texto con las MISMAS medidas que el filtro Tipo (custom-dropdown con lupa,
+       .dropdown-trigger:has(> input) en estilos_globales): lupa con 10px a la izquierda y el
+       texto pegado a 4px. Antes Modelo, Marca y Año dejaban 12px + 5px y su texto arrancaba
+       14px más adentro que el de Tipo. */
+    .cat-filter-ico {
+        display: flex;
+        align-items: center;
+        padding: 0 0 0 10px;
+        color: var(--maquinaria-gray-text, #64748b);
+    }
+    .cat-filter-ico .material-icons { font-size: 18px; }
     .cat-filter input[type="text"] {
         flex: 1;
         border: none;
@@ -336,7 +347,7 @@
         outline: none;
         font-size: 14px;
         color: #1e293b;
-        padding: 10px 5px;
+        padding: 10px 5px 10px 4px;
         min-width: 0;
     }
     .cat-filter .filter-clear {
@@ -377,6 +388,10 @@
     .cat-fila-marca { display: contents; }
     .cat-adv { position: relative; flex: 0 0 auto; }
     .cat-adv .panel-filtro-avanzado .cat-filter { max-width: none; min-width: 0; }
+    /* Año y Capacidad uno al lado del otro; en pantallas angostas, uno debajo del otro. */
+    .cat-adv-fila { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+    .cat-adv-fila > div { min-width: 0; }   /* si no, el campo de texto no se achica y se sale del panel */
+    @media (max-width: 480px) { .cat-adv-fila { grid-template-columns: 1fr; } }
     .cat-opt.placeholder {
         font-size: 13px;
         color: #475569;

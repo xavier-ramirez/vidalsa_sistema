@@ -23,6 +23,10 @@
         $reqMarca  = mb_strtoupper(trim((string) request('marca', '')));
         $reqAnio   = request('anio');
         $anioLabel = ($reqAnio && $reqAnio !== 'all') ? $reqAnio : '';
+        // Capacidad: el valor es la clave (sin espacios) y se muestra el texto de la opción.
+        $reqCapacidad   = (string) request('capacidad', '');
+        $capacidadLabel = $opcionesFiltro['capacidades'][$reqCapacidad]['label'] ?? '';
+        $hayAvanzado    = $anioLabel !== '' || $capacidadLabel !== '';
 
         $tipoLabel = '';
         if (str_starts_with($reqTipo, 'tipo_eq:')) {
@@ -85,9 +89,7 @@
         <div class="cat-filter {{ $reqModelo ? 'active' : '' }}">
             <input type="hidden" id="catValModelo" name="modelo" value="{{ $reqModelo }}" data-filter-value>
             <div class="cat-filter-box">
-                <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
-                    <i class="material-icons" style="font-size:18px;">search</i>
-                </div>
+                <div class="cat-filter-ico"><i class="material-icons">search</i></div>
                 <input type="text" id="catTxtModelo" name="filter_search_dropdown_m" placeholder="{{ $modeloLabel ?: 'Filtrar Modelo...' }}"
                        autocomplete="off"
                        oninput="catFilterList('modelo', this.value)"
@@ -118,9 +120,7 @@
             <div class="cat-filter {{ $reqMarca ? 'active' : '' }}">
                 <input type="hidden" id="catValMarca" name="marca" value="{{ $reqMarca }}" data-filter-value>
                 <div class="cat-filter-box">
-                    <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
-                        <i class="material-icons" style="font-size:18px;">search</i>
-                    </div>
+                    <div class="cat-filter-ico"><i class="material-icons">search</i></div>
                     <input type="text" id="catTxtMarca" name="filter_search_dropdown_ma" placeholder="{{ $reqMarca ?: 'Filtrar Marca...' }}"
                            autocomplete="off"
                            oninput="catFilterList('marca', this.value)"
@@ -140,24 +140,24 @@
             </div>
 
             {{-- Filtros avanzados: el mismo botón de Almacén (.btn-filtro-avanzado), en rojo
-                 cuando hay un filtro puesto dentro. Por ahora lleva el Año. --}}
+                 cuando hay un filtro puesto dentro. Lleva Año y Capacidad, uno al lado del otro. --}}
             <div class="cat-adv">
-                <button type="button" id="catAdvBtn" class="btn-primary-maquinaria btn-filtro-avanzado {{ $anioLabel ? 'activo' : '' }}"
+                <button type="button" id="catAdvBtn" class="btn-primary-maquinaria btn-filtro-avanzado {{ $hayAvanzado ? 'activo' : '' }}"
                         title="Filtros avanzados" onclick="catToggleAvanzado()">
                     <i class="material-icons">filter_list</i>
                 </button>
-                <div id="catAdvPanel" class="panel-filtro-avanzado" style="display:none;">
+                <div id="catAdvPanel" class="panel-filtro-avanzado ancho" style="display:none;">
                     <h4 class="panel-filtro-avanzado-titulo">
                         Filtros Avanzados
-                        <span class="panel-filtro-avanzado-limpiar" onclick="catSelect('anio','','')">Limpiar Todo</span>
+                        <span class="panel-filtro-avanzado-limpiar" onclick="catLimpiarAvanzado()">Limpiar Todo</span>
                     </h4>
+                    <div class="cat-adv-fila">
+                    <div>
                     <span class="panel-filtro-avanzado-label">Año</span>
                     <div class="cat-filter {{ $anioLabel ? 'active' : '' }}">
                         <input type="hidden" id="catValAnio" name="anio" value="{{ $anioLabel }}" data-filter-value>
                         <div class="cat-filter-box">
-                            <div style="padding:0 12px; display:flex; align-items:center; color:#64748b;">
-                                <i class="material-icons" style="font-size:18px;">search</i>
-                            </div>
+                            <div class="cat-filter-ico"><i class="material-icons">search</i></div>
                             <input type="text" id="catTxtAnio" name="filter_search_dropdown_a" placeholder="{{ $anioLabel ?: 'Filtrar Año...' }}"
                                    autocomplete="off"
                                    oninput="catFilterList('anio', this.value)"
@@ -174,6 +174,37 @@
                                      onmousedown="event.preventDefault(); catElegir('anio', this);">{{ $a }}</div>
                             @endforeach
                         </div>
+                    </div>
+                    </div>
+
+                    {{-- Capacidad: de las unidades (equipos y auxiliares); la tarjeta sale si alguna
+                         la tiene. "60KVA" y "60 KVA" son la misma opción (claveCapacidad). --}}
+                    <div>
+                    <span class="panel-filtro-avanzado-label">Capacidad</span>
+                    <div class="cat-filter {{ $capacidadLabel ? 'active' : '' }}">
+                        <input type="hidden" id="catValCapacidad" name="capacidad" value="{{ $capacidadLabel ? $reqCapacidad : '' }}" data-filter-value>
+                        <div class="cat-filter-box">
+                            <div class="cat-filter-ico"><i class="material-icons">search</i></div>
+                            <input type="text" id="catTxtCapacidad" name="filter_search_dropdown_c" placeholder="{{ $capacidadLabel ?: 'Filtrar Capacidad...' }}"
+                                   autocomplete="off"
+                                   oninput="catFilterList('capacidad', this.value)"
+                                   onfocus="catOpenList('capacidad')"
+                                   onclick="catOpenList('capacidad')"
+                                   onblur="setTimeout(()=>catCloseList('capacidad'),200)">
+                            <i class="material-icons filter-clear"
+                               style="display: {{ $capacidadLabel ? 'flex' : 'none' }};"
+                               onmousedown="event.preventDefault(); catSelect('capacidad','','');">close</i>
+                        </div>
+                        <div id="catListCapacidad" class="cat-list">
+                            @forelse($opcionesFiltro['capacidades'] as $clave => $cap)
+                                <div class="cat-opt" data-value="{{ $clave }}" data-label="{{ $cap['label'] }}" data-tipos="{{ implode(' ', $cap['tipos']) }}"
+                                     onmousedown="event.preventDefault(); catElegir('capacidad', this);">{{ $cap['label'] }}</div>
+                            @empty
+                                <div class="cat-opt placeholder">Ninguna unidad tiene capacidad</div>
+                            @endforelse
+                        </div>
+                    </div>
+                    </div>
                     </div>
                 </div>
             </div>

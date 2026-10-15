@@ -82,6 +82,7 @@ function catBuildUrl(page) {
     add('modelo', 'input[name="modelo"]');
     add('marca',  'input[name="marca"]');
     add('anio',   'input[name="anio"]');
+    add('capacidad', 'input[name="capacidad"]');
     add('tipo',   'input[name="tipo"]');
     params.append('ajax_load', '1');
     if (page && page > 1) params.append('page', String(page));

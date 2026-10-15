@@ -69,6 +69,7 @@ class CaracteristicaModeloController extends Controller
         $modeloFiltro = (string) $request->input('modelo', '');   // '' | modelo_eq:{m} | modelo_aux:{m}
         $marcaFiltro  = mb_strtoupper(trim((string) $request->input('marca', '')));
         $anio         = (string) $request->input('anio', '');
+        $capacidad    = self::claveCapacidad((string) $request->input('capacidad', ''));
 
         // Qué clases mostrar según el filtro Tipo/Modelo (si apunta a una clase, solo esa).
         $verVehiculos  = ($tipoFiltro === '' || str_starts_with($tipoFiltro, 'tipo_eq:'))
@@ -83,6 +84,11 @@ class CaracteristicaModeloController extends Controller
         // así el filtro encuentra exactamente lo que se ve.
         if ($marcaFiltro !== '') {
             $items = $items->filter(fn ($i) => mb_strtoupper(trim((string) $i['marca'])) === $marcaFiltro)->values();
+        }
+        // Capacidad: la tarjeta sale si ALGUNA de sus unidades tiene esa capacidad (una tarjeta
+        // agrupa modelo + año, y sus unidades pueden tener capacidades distintas).
+        if ($capacidad !== '') {
+            $items = $items->filter(fn ($i) => isset($i['capacidades'][$capacidad]))->values();
         }
 
         $totalCount       = $items->count();
@@ -139,16 +145,18 @@ class CaracteristicaModeloController extends Controller
     private function opcionesFiltro($items, $tiposVehiculo): array
     {
         $idTipo = $tiposVehiculo->mapWithKeys(fn ($t) => [mb_strtoupper(trim($t->nombre)) => 'tipo_eq:' . $t->id]);
-        $juntar = function ($items, callable $valor, int $orden) use ($idTipo): array {
+        // El tipo de una tarjeta escrito como el valor del filtro Tipo (o null si no tiene).
+        $tipoDe = fn (array $i): ?string => $i['clase'] === 'AUXILIAR'
+            ? 'tipo_aux:' . $i['tipo_raw']
+            : ($idTipo[mb_strtoupper(trim((string) $i['tipo']))] ?? null);
+        $juntar = function ($items, callable $valor, int $orden) use ($tipoDe): array {
             $mapa = [];
             foreach ($items as $i) {
                 $v = $valor($i);
                 if ($v === null || $v === '') {
                     continue;
                 }
-                $tipo = $i['clase'] === 'AUXILIAR'
-                    ? 'tipo_aux:' . $i['tipo_raw']
-                    : ($idTipo[mb_strtoupper(trim((string) $i['tipo']))] ?? null);
+                $tipo = $tipoDe($i);
                 $mapa[$v] ??= [];
                 if ($tipo !== null && !in_array($tipo, $mapa[$v], true)) {
                     $mapa[$v][] = $tipo;
@@ -159,12 +167,69 @@ class CaracteristicaModeloController extends Controller
         };
         $mayus = fn (?string $s) => ($s = mb_strtoupper(trim((string) $s))) !== '' && $s !== '—' ? $s : null;
 
+        // Capacidad: una tarjeta puede tener varias. [clave => ['label' => ..., 'tipos' => [...]]].
+        $capacidades = [];
+        foreach ($items as $i) {
+            $tipo = $tipoDe($i);
+            foreach ($i['capacidades'] ?? [] as $clave => $label) {
+                $capacidades[$clave]['label'] ??= $label;
+                $capacidades[$clave]['tipos'] ??= [];
+                if ($tipo !== null) {
+                    $capacidades[$clave]['tipos'][$tipo] = $tipo;
+                }
+            }
+        }
+        uasort($capacidades, fn ($a, $b) => strnatcasecmp($a['label'], $b['label']));
+
         return [
             'modelosVehiculo' => $juntar($items->where('clase', 'VEHICULO'), fn ($i) => $mayus($i['modelo']), SORT_STRING),
             'modelosAux'      => $juntar($items->where('clase', 'AUXILIAR'), fn ($i) => $mayus($i['modelo']), SORT_STRING),
             'marcas'          => $juntar($items, fn ($i) => $mayus($i['marca']), SORT_STRING),
             'anios'           => $juntar($items, fn ($i) => $i['anio'] ?: null, SORT_NUMERIC),
+            'capacidades'     => array_map(fn ($c) => ['label' => $c['label'], 'tipos' => array_values($c['tipos'])], $capacidades),
         ];
+    }
+
+    /**
+     * Clave de una capacidad para compararla: mayúsculas, sin espacios y con un solo guion.
+     * Así "60KVA" y "60 KVA", o "30-500" y "30--500", son la misma opción del filtro.
+     */
+    private static function claveCapacidad(?string $capacidad): string
+    {
+        return preg_replace(['/\s+/', '/-+/'], ['', '-'], mb_strtoupper(trim((string) $capacidad)));
+    }
+
+    /**
+     * Capacidades de unas unidades: [clave => texto a mostrar]. El texto es el más escrito
+     * (las filas vienen de más a menos usadas), en mayúsculas y con un solo espacio.
+     */
+    private static function capacidadesDe(iterable $valores): array
+    {
+        $out = [];
+        foreach ($valores as $v) {
+            $clave = self::claveCapacidad($v);
+            if ($clave !== '') {
+                $out[$clave] ??= preg_replace('/\s+/', ' ', mb_strtoupper(trim((string) $v)));
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Capacidades por grupo de una consulta de unidades: [clave del grupo => [clave => texto]].
+     * $grupo es la expresión SQL de la clave (la misma con que se arman las tarjetas).
+     */
+    private static function capacidadesPorGrupo($base, string $grupo, string $col): array
+    {
+        // Sin GROUP BY en SQL (el modo estricto no acepta agrupar por la expresión): son pocas
+        // filas; se cuentan aquí y cada grupo queda con sus capacidades de más a menos usadas.
+        return (clone $base)
+            ->whereNotNull($col)->where($col, '!=', '')
+            ->selectRaw("{$grupo} AS GRUPO, {$col} AS CAP")
+            ->toBase()->get()
+            ->groupBy('GRUPO')
+            ->map(fn ($filas) => self::capacidadesDe($filas->countBy('CAP')->sortDesc()->keys()))
+            ->all();
     }
 
     /**
@@ -234,6 +299,9 @@ class CaracteristicaModeloController extends Controller
                 }, []);
 
             $tiposMap = $this->tiposAuxLabels();
+            $capsAux  = self::capacidadesPorGrupo($base,
+                "UPPER(CONCAT(COALESCE(TIPO, ''), '|', COALESCE(NULLIF(TRIM(MARCA), ''), '—'), '|', COALESCE(NULLIF(TRIM(MODELO), ''), '—'), '|', COALESCE(ANIO, 0)))",
+                'CAPACIDAD');
 
             foreach ($grupos as $g) {
                 $key  = mb_strtoupper(trim(($g->TIPO ?? '') . '|' . ($g->MARCA_KEY ?? '—') . '|' . ($g->MODELO_KEY ?? '—') . '|' . ($g->ANIO_KEY ?? 0)));
@@ -253,6 +321,7 @@ class CaracteristicaModeloController extends Controller
                     'foto_url'    => $foto,
                     'placeholder' => 'construction',
                     'total'       => (int) $g->total,
+                    'capacidades' => $capsAux[$key] ?? [],
                     'specs'       => array_filter([
                         'Marca'     => $g->MARCA_KEY !== '—' ? $g->MARCA_KEY : null,
                         'Capacidad' => $info['capacidad'],
@@ -313,6 +382,7 @@ class CaracteristicaModeloController extends Controller
         if ($user = auth()->user()) {
             $user->aplicarScopeFrentesEquipos($consultaUnidades, 'equipos.ID_FRENTE_ACTUAL');
         }
+        $capsFicha = self::capacidadesPorGrupo($consultaUnidades, 'ID_ESPEC', 'CAPACIDAD');
         $unidades = $consultaUnidades
             ->selectRaw('ID_ESPEC, COLOR, MARCA, COUNT(*) AS n')
             ->groupBy('ID_ESPEC', 'COLOR', 'MARCA')
@@ -320,7 +390,7 @@ class CaracteristicaModeloController extends Controller
 
         // toBase(): sin fichas, el map de Eloquent devuelve una colección Eloquent vacía y el
         // merge con las tarjetas SIN FICHA (arrays) fallaría buscando getKey().
-        return $fichas->toBase()->map(function ($cm) use ($unidades) {
+        return $fichas->toBase()->map(function ($cm) use ($unidades, $capsFicha) {
             $suyas = $unidades->get($cm->ID_ESPEC, collect());
             $marca = $this->marcaDeUnidades($suyas);
             return [
@@ -333,6 +403,7 @@ class CaracteristicaModeloController extends Controller
                 'foto_url'    => CaracteristicaModelo::miniatura($cm->FOTO_REFERENCIAL),
                 'placeholder' => 'precision_manufacturing',
                 'total'       => $cm->equipos_count, // nº de equipos ligados a este modelo
+                'capacidades' => $capsFicha[$cm->ID_ESPEC] ?? [],
                 'colores'     => $this->coloresDeTarjeta($suyas, $cm->colores),
                 // Marca: la tarjeta la saca de aquí y la pone bajo el nombre (table_rows),
                 // igual que en las de auxiliares y las SIN FICHA.
@@ -593,12 +664,16 @@ class CaracteristicaModeloController extends Controller
 
         // Fichas que ya existen para esos modelos + año (una consulta), con la clave de
         // claveModelo como fichasDelModelo: "ZZ 1037" encuentra la ficha "ZZ-1037".
+        $caps = self::capacidadesPorGrupo($base,
+            "CONCAT(UPPER(TRIM(COALESCE(t.nombre, ''))), '|', UPPER(TRIM(COALESCE(equipos.MARCA, ''))), '|', UPPER(TRIM(equipos.MODELO)), '|', COALESCE(equipos.ANIO, 0))",
+            'equipos.CAPACIDAD');
+
         $fichas = CaracteristicaModelo::whereIn('ANIO_ESPEC', $grupos->pluck('ANIO_KEY')->unique())
             ->orderBy('ID_ESPEC')->get(['ID_ESPEC', 'MODELO', 'ANIO_ESPEC'])
             ->unique(fn ($f) => self::claveModelo($f->MODELO) . '|' . (int) $f->ANIO_ESPEC)
             ->keyBy(fn ($f) => self::claveModelo($f->MODELO) . '|' . (int) $f->ANIO_ESPEC);
 
-        return $grupos->map(function ($g) use ($colores, $fichas) {
+        return $grupos->map(function ($g) use ($colores, $fichas, $caps) {
             $anio = (int) $g->ANIO_KEY ?: null;
             return [
                 'clase'          => 'VEHICULO',
@@ -612,6 +687,7 @@ class CaracteristicaModeloController extends Controller
                 'foto_url'       => CaracteristicaModelo::miniatura($g->FOTO),
                 'placeholder'    => 'precision_manufacturing',
                 'total'          => (int) $g->total,
+                'capacidades'    => $caps["{$g->TIPO_KEY}|{$g->MARCA_KEY}|{$g->MODELO_KEY}|{$g->ANIO_KEY}"] ?? [],
                 'colores'        => $this->coloresDeTarjeta(
                     $colores->get("{$g->TIPO_KEY}|{$g->MARCA_KEY}|{$g->MODELO_KEY}|{$g->ANIO_KEY}", collect()), collect()),
                 'specs'          => array_filter(['Marca' => $g->MARCA_KEY !== '' ? $g->MARCA_KEY : null]),

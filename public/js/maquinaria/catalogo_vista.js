@@ -23,6 +23,7 @@ window.catalogoArrancar = function (CAT_CFG) {
         if (p === 'modelo') return 'Modelo';
         if (p === 'marca')  return 'Marca';
         if (p === 'anio')   return 'Anio';
+        if (p === 'capacidad') return 'Capacidad';
         if (p === 'tipo')   return 'Tipo';
         return p;
     }
@@ -48,7 +49,7 @@ window.catalogoArrancar = function (CAT_CFG) {
         });
     }
     // Placeholder por defecto de cada filtro — se restaura al limpiar / elegir "TODOS".
-    var CAT_PH_DEFAULT = { modelo: 'Filtrar Modelo...', marca: 'Filtrar Marca...', tipo: 'Filtrar Tipo...', anio: 'Filtrar Año...' };
+    var CAT_PH_DEFAULT = { modelo: 'Filtrar Modelo...', marca: 'Filtrar Marca...', tipo: 'Filtrar Tipo...', anio: 'Filtrar Año...', capacidad: 'Filtrar Capacidad...' };
     // Pinta un filtro con su valor, sin recargar (catSelect recarga).
     function catPintar(p, value, label) {
         var cap = _catCap(p);
@@ -71,10 +72,12 @@ window.catalogoArrancar = function (CAT_CFG) {
             var clearIcon = wrapper.querySelector('.filter-clear');
             if (clearIcon) clearIcon.style.display = value ? 'flex' : 'none';
         }
-        // El Año vive en el panel de filtros avanzados: su botón va en rojo si está puesto.
-        if (p === 'anio') {
+        // Año y Capacidad viven en el panel de filtros avanzados: su botón va en rojo si
+        // cualquiera de los dos está puesto.
+        if (p === 'anio' || p === 'capacidad') {
             var adv = document.getElementById('catAdvBtn');
-            if (adv) adv.classList.toggle('activo', !!value);
+            var puesto = function (id) { return !!(document.getElementById(id) || {}).value; };
+            if (adv) adv.classList.toggle('activo', puesto('catValAnio') || puesto('catValCapacidad'));
         }
         catCloseList(p);
     }
@@ -85,16 +88,22 @@ window.catalogoArrancar = function (CAT_CFG) {
         if (p === 'tipo') catSyncTipo(true);
         catSubmit();
     }
+    // "Limpiar Todo" del panel avanzado: suelta Año y Capacidad y recarga UNA vez.
+    function catLimpiarAvanzado() {
+        catPintar('anio', '', '');
+        catPintar('capacidad', '', '');
+        catSubmit();
+    }
     // Opción de una lista (data-value / data-label): así un valor con comillas no rompe nada.
     function catElegir(p, opt) {
         catSelect(p, opt.dataset.value, opt.dataset.label);
     }
-    // Esconde en Modelo, Marca y Año las opciones que no son del Tipo elegido (data-tipos,
+    // Esconde en Modelo, Marca, Año y Capacidad las opciones que no son del Tipo elegido (data-tipos,
     // lo arma CaracteristicaModeloController::opcionesFiltro), y los grupos que quedan vacíos.
     // soltar = quitar el valor puesto que ya no está entre las opciones.
     function catSyncTipo(soltar) {
         var tipo = (document.getElementById('catValTipo') || {}).value || '';
-        ['modelo', 'marca', 'anio'].forEach(function (p) {
+        ['modelo', 'marca', 'anio', 'capacidad'].forEach(function (p) {
             var list = document.getElementById('catList' + _catCap(p));
             if (!list) return;
             var puesto = (document.getElementById('catVal' + _catCap(p)) || {}).value || '', sigue = false;
@@ -441,6 +450,7 @@ window.catalogoArrancar = function (CAT_CFG) {
     window.catPintar = catPintar;
     window.catSelect = catSelect;
     window.catElegir = catElegir;
+    window.catLimpiarAvanzado = catLimpiarAvanzado;
     window.catSyncTipo = catSyncTipo;
     window.catToggleAvanzado = catToggleAvanzado;
     window._pickFileAndCrop = _pickFileAndCrop;
