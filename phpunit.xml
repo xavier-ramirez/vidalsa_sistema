@@ -21,7 +21,7 @@
         <!-- La tanda completa (600+ pruebas, muchas pintan la pantalla entera de Equipos) ya
              llega a ~510 MB, al borde de los 512 MB de PHP. OJO: `php artisan test` corre las
              pruebas en OTRO proceso y su envoltorio también se queda sin memoria; para la tanda
-             completa usar `php vendor/bin/phpunit` o `php -d memory_limit=1536M artisan test`. -->
+             completa usar `php vendor/bin/phpunit` (con `artisan test` falla a ratos aunque pasen todas). -->
         <ini name="memory_limit" value="1536M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>

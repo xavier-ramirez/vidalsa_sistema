@@ -42,6 +42,10 @@ class CatalogoFiltroCapacidadTest extends MySqlTestCase
         $this->assertSame(1, $n);
         $this->assertStringContainsString($this->modelo, $html);
 
+        // La tarjeta dice las capacidades de sus unidades (la misma fuente que el filtro),
+        // aunque ninguna tenga foto: la más escrita primero.
+        $this->assertStringContainsString('777KVA · 888 KVA', $html);
+
         // La otra capacidad de la MISMA tarjeta también la encuentra.
         $this->assertSame(1, $this->tarjetas(['capacidad' => '888KVA', 'modelo' => 'modelo_aux:' . $this->modelo])[0]);
         // Una capacidad que no tiene: nada.

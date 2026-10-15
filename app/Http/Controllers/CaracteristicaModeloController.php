@@ -216,6 +216,15 @@ class CaracteristicaModeloController extends Controller
     }
 
     /**
+     * Las capacidades de una tarjeta como se leen en ella ("50 KVA · 60 KVA"), o null si no
+     * tiene. La misma fuente que el filtro Capacidad: lo que dice la tarjeta es lo que filtra.
+     */
+    private static function textoCapacidades(array $capacidades): ?string
+    {
+        return $capacidades ? implode(' · ', $capacidades) : null;
+    }
+
+    /**
      * Capacidades por grupo de una consulta de unidades: [clave del grupo => [clave => texto]].
      * $grupo es la expresión SQL de la clave (la misma con que se arman las tarjetas).
      */
@@ -290,11 +299,11 @@ class CaracteristicaModeloController extends Controller
 
             $fotos = (clone $base)
                 ->whereNotNull('FOTO')->where('FOTO', '!=', '')
-                ->selectRaw('TIPO, MARCA, MODELO, ANIO, FOTO, CAPACIDAD, ID_AUXILIAR')
+                ->selectRaw('TIPO, MARCA, MODELO, ANIO, FOTO, ID_AUXILIAR')
                 ->orderByDesc('ID_AUXILIAR')->toBase()->get()
                 ->reduce(function ($carry, $a) {
                     $key = mb_strtoupper(trim(($a->TIPO ?? '') . '|' . ($a->MARCA ?? '—') . '|' . ($a->MODELO ?? '—') . '|' . ($a->ANIO ?? 0)));
-                    if (!isset($carry[$key])) $carry[$key] = ['foto' => $a->FOTO, 'capacidad' => $a->CAPACIDAD];
+                    $carry[$key] ??= $a->FOTO;   // la foto de la unidad más reciente
                     return $carry;
                 }, []);
 
@@ -305,8 +314,7 @@ class CaracteristicaModeloController extends Controller
 
             foreach ($grupos as $g) {
                 $key  = mb_strtoupper(trim(($g->TIPO ?? '') . '|' . ($g->MARCA_KEY ?? '—') . '|' . ($g->MODELO_KEY ?? '—') . '|' . ($g->ANIO_KEY ?? 0)));
-                $info = $fotos[$key] ?? ['foto' => null, 'capacidad' => null];
-                $foto = $info['foto'] ?? null;
+                $foto = $fotos[$key] ?? null;
                 if ($foto && !str_starts_with($foto, 'http') && !str_starts_with($foto, '/')) {
                     $foto = '/storage/' . ltrim($foto, '/');
                 }
@@ -324,7 +332,7 @@ class CaracteristicaModeloController extends Controller
                     'capacidades' => $capsAux[$key] ?? [],
                     'specs'       => array_filter([
                         'Marca'     => $g->MARCA_KEY !== '—' ? $g->MARCA_KEY : null,
-                        'Capacidad' => $info['capacidad'],
+                        'Capacidad' => self::textoCapacidades($capsAux[$key] ?? []),
                     ], fn ($v) => $v !== null && $v !== ''),
                     'sort'        => '1_' . $g->TIPO . '_' . $g->MODELO_KEY,
                 ]);
@@ -409,6 +417,7 @@ class CaracteristicaModeloController extends Controller
                 // igual que en las de auxiliares y las SIN FICHA.
                 'specs'       => array_filter([
                     'Marca'        => $marca,
+                    'Capacidad'    => self::textoCapacidades($capsFicha[$cm->ID_ESPEC] ?? []),
                     'Motor'        => $cm->MOTOR,
                     'Batería'      => $cm->TIPO_BATERIA,
                     'Aceite Motor' => $cm->ACEITE_MOTOR,
@@ -690,7 +699,10 @@ class CaracteristicaModeloController extends Controller
                 'capacidades'    => $caps["{$g->TIPO_KEY}|{$g->MARCA_KEY}|{$g->MODELO_KEY}|{$g->ANIO_KEY}"] ?? [],
                 'colores'        => $this->coloresDeTarjeta(
                     $colores->get("{$g->TIPO_KEY}|{$g->MARCA_KEY}|{$g->MODELO_KEY}|{$g->ANIO_KEY}", collect()), collect()),
-                'specs'          => array_filter(['Marca' => $g->MARCA_KEY !== '' ? $g->MARCA_KEY : null]),
+                'specs'          => array_filter([
+                    'Marca'     => $g->MARCA_KEY !== '' ? $g->MARCA_KEY : null,
+                    'Capacidad' => self::textoCapacidades($caps["{$g->TIPO_KEY}|{$g->MARCA_KEY}|{$g->MODELO_KEY}|{$g->ANIO_KEY}"] ?? []),
+                ]),
                 // Con las fichas, por modelo: una tarjeta sin ficha se lee junto a las demás.
                 'sort'           => '0_' . $g->MODELO_KEY,
             ];
