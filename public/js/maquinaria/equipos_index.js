@@ -1672,12 +1672,17 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 window.__distribUbiHtml = (showUbi && data.ubicaciones) ? data.ubicaciones : '';
                 _eqRenderDistribucion();
 
-                // Aviso de frente en VENTA: se ve solo dentro de un frente de ese tipo.
+                // Aviso de frente VENDIDO / EN TRÁMITE DE VENTA: solo dentro de un frente de esos.
                 const avisoVenta = document.getElementById('eqAvisoVenta');
                 if (avisoVenta) {
-                    avisoVenta.hidden = !data.frenteVenta;
-                    const nombreVenta = avisoVenta.querySelector('[data-nombre]');
-                    if (nombreVenta) nombreVenta.textContent = data.frenteVenta || '';
+                    const v = data.frenteVenta;
+                    avisoVenta.hidden = !v;
+                    if (v) {
+                        avisoVenta.className = 'aviso-venta aviso-venta--' + v.clase;
+                        avisoVenta.querySelector('[data-titulo]').textContent = v.titulo;
+                        avisoVenta.querySelector('[data-nombre]').textContent = v.nombre;
+                        avisoVenta.querySelector('[data-texto]').textContent = v.texto;
+                    }
                 }
 
                 // Al salir de un frente fuera de la flota, limpiar el detalle para que no quede colgado.

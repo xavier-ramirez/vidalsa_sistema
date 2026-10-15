@@ -5450,23 +5450,23 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     pointer-events: none;
 }
 
-/* ── Frentes de VENTA (activos vendidos o por vender) ──────────────────────────
+/* ── Frentes VENDIDO / TRÁMITE DE VENTA ─────────────────────────────────────────
    Etiqueta junto al nombre del frente (filtro de Equipos y columna Frente) y aviso
-   arriba de la tabla al entrar a uno de esos frentes. */
+   arriba de la tabla al entrar al frente. Trámite = naranja; vendido = rojo. */
 .etiqueta-venta {
     display: inline-block;
     margin-left: 6px;
     padding: 1px 7px;
     border-radius: 999px;
-    background: #fff1e6;
-    border: 1px solid #fdba74;
-    color: #c2410c;
     font-size: 10px;
     font-weight: 800;
     letter-spacing: .04em;
     vertical-align: middle;
     white-space: nowrap;
 }
+.etiqueta-venta--tramite { background: #fff1e6; border: 1px solid #fdba74; color: #c2410c; }
+.etiqueta-venta--vendido { background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; }
+
 .aviso-venta {
     display: flex;
     align-items: flex-start;
@@ -5474,13 +5474,13 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     margin: 4px 0 8px;
     padding: 10px 14px;
     border-radius: 12px;
-    background: #fff7ed;
-    border: 1px solid #fdba74;
-    border-left: 5px solid #ea580c;
-    color: #7c2d12;
     font-size: 13px;
     line-height: 1.4;
 }
 .aviso-venta[hidden] { display: none; }
-.aviso-venta > .material-icons { color: #ea580c; font-size: 22px; }
-.aviso-venta strong { display: block; color: #9a3412; }
+.aviso-venta > .material-icons { font-size: 22px; }
+.aviso-venta strong { display: block; }
+.aviso-venta--tramite { background: #fff7ed; border: 1px solid #fdba74; border-left: 5px solid #ea580c; color: #7c2d12; }
+.aviso-venta--tramite > .material-icons, .aviso-venta--tramite strong { color: #c2410c; }
+.aviso-venta--vendido { background: #fef2f2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; color: #7f1d1d; }
+.aviso-venta--vendido > .material-icons, .aviso-venta--vendido strong { color: #b91c1c; }

@@ -69,7 +69,9 @@ function populateFrenteForm(data) {
 
     // Dropdowns (Tipo/Estatus)
     document.getElementById("input_tipo").value = data.TIPO_FRENTE;
-    document.getElementById("label_tipo").innerText = data.TIPO_FRENTE;
+    // El nombre en pantalla del tipo (p. ej. TRAMITE_VENTA → "TRÁMITE DE VENTA") sale de la propia opción.
+    const opcionTipo = document.querySelector('#tipoSelect .dropdown-item[data-value="' + data.TIPO_FRENTE + '"]');
+    document.getElementById("label_tipo").innerText = opcionTipo ? opcionTipo.textContent.trim() : data.TIPO_FRENTE;
     document.getElementById("input_estatus").value = data.ESTATUS_FRENTE;
     document.getElementById("label_estatus").innerText = data.ESTATUS_FRENTE;
 

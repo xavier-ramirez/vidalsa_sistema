@@ -80,7 +80,7 @@
                                  data-value="{{ $frente->ID_FRENTE }}"
                                  onclick="selectOption('frenteFilterSelect', '{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}'); loadEquipos();">
                                 {{ $frente->NOMBRE_FRENTE }}
-                                @if($frente->esVenta())<span class="etiqueta-venta">EN VENTA</span>@endif
+                                @include('admin.frentes.partials.etiqueta_venta', ['frente' => $frente])
                             </div>
                         @endforeach
                     </div>
@@ -855,14 +855,14 @@
     </div>
     @endif
 
-    {{-- Aviso al entrar a un frente de VENTA (activos vendidos o por vender). Lo prende y
-         apaga loadEquipos() con data.frenteVenta en cada filtrado. --}}
-    @php $frenteVenta = ($frenteFueraDeFlota ?? null)?->esVenta() ? $frenteFueraDeFlota : null; @endphp
-    <div id="eqAvisoVenta" class="aviso-venta" role="status" @unless($frenteVenta) hidden @endunless>
+    {{-- Aviso al entrar a un frente VENDIDO o en TRÁMITE DE VENTA (textos y color de
+         FrenteTrabajo::avisoVenta). Lo cambia loadEquipos() con data.frenteVenta en cada filtrado. --}}
+    @php $venta = ($frenteFueraDeFlota ?? null)?->avisoVenta(); @endphp
+    <div id="eqAvisoVenta" class="aviso-venta aviso-venta--{{ $venta['clase'] ?? 'tramite' }}" role="status" @unless($venta) hidden @endunless>
         <i class="material-icons">sell</i>
         <div>
-            <strong>Frente en venta: <span data-nombre>{{ $frenteVenta->NOMBRE_FRENTE ?? '' }}</span></strong>
-            <span>Estos equipos están vendidos o en trámite de venta: la empresa ya no cuenta con ellos y no entran en los totales de la flota.</span>
+            <strong><span data-titulo>{{ $venta['titulo'] ?? '' }}</span>: <span data-nombre>{{ $frenteFueraDeFlota->NOMBRE_FRENTE ?? '' }}</span></strong>
+            <span data-texto>{{ $venta['texto'] ?? '' }}</span>
         </div>
     </div>
 

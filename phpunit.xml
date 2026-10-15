@@ -18,6 +18,9 @@
         </include>
     </source>
     <php>
+        <!-- La tanda completa (600+ pruebas, muchas pintan la pantalla entera de Equipos)
+             pasa de los 512 MB por defecto de PHP y moría al final sin fallar ninguna. -->
+        <ini name="memory_limit" value="1536M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

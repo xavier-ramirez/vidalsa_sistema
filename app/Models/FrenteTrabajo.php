@@ -19,16 +19,30 @@ class FrenteTrabajo extends Model
      */
     use SoftDeletes;
 
-    /** Activos vendidos o por vender: la empresa ya no cuenta con ellos. */
-    public const TIPO_VENTA = 'VENTA';
+    /** Activos ya vendidos. */
+    public const TIPO_VENDIDO = 'VENDIDO';
+    /** Activos en trámite de venta. */
+    public const TIPO_TRAMITE_VENTA = 'TRAMITE_VENTA';
+
+    /**
+     * Tipos de frente (valor guardado => nombre en pantalla). Fuente única: la validación
+     * (FrenteRequest) y las opciones del formulario de frentes salen de aquí.
+     */
+    public const TIPOS = [
+        'OPERACION'              => 'OPERACION',
+        'RESGUARDO'              => 'RESGUARDO',
+        'ESPECIAL'               => 'ESPECIAL',
+        self::TIPO_VENDIDO       => 'VENDIDO',
+        self::TIPO_TRAMITE_VENTA => 'TRÁMITE DE VENTA',
+    ];
 
     /**
      * Tipos de frente FUERA DE LA FLOTA: sus equipos no entran en los totales, las alertas
-     * ni el listado general (solo se ven entrando al frente). ESPECIAL = asignaciones
-     * especiales, no flota propia; VENTA = activos vendidos o por vender. Punto ÚNICO: el
-     * que agregue un tipo aquí lo saca de todas las cuentas a la vez.
+     * ni el listado general (solo se ven entrando al frente o buscándolos). ESPECIAL =
+     * asignaciones especiales, no flota propia; VENDIDO y TRÁMITE DE VENTA = activos con los
+     * que la empresa ya no cuenta. Punto ÚNICO: un tipo agregado aquí sale de todas las cuentas.
      */
-    public const TIPOS_FUERA_DE_FLOTA = ['ESPECIAL', self::TIPO_VENTA];
+    public const TIPOS_FUERA_DE_FLOTA = ['ESPECIAL', self::TIPO_VENDIDO, self::TIPO_TRAMITE_VENTA];
 
     protected $table = 'frentes_trabajo';
     protected $primaryKey = 'ID_FRENTE';
@@ -155,10 +169,27 @@ class FrenteTrabajo extends Model
         return $this->hasMany(MovimientoInventario::class, 'ID_FRENTE', 'ID_FRENTE');
     }
 
-    /** ¿Frente de activos vendidos o por vender? En Equipos se resalta (etiqueta y aviso). */
-    public function esVenta(): bool
+    /**
+     * Lo que Equipos muestra de un frente de venta: la etiqueta junto al nombre del frente
+     * (filtro y columna Frente) y el aviso al entrar al frente. null si el frente no es de venta.
+     */
+    public function avisoVenta(): ?array
     {
-        return $this->TIPO_FRENTE === self::TIPO_VENTA;
+        return match ($this->TIPO_FRENTE) {
+            self::TIPO_VENDIDO => [
+                'clase'    => 'vendido',
+                'etiqueta' => 'VENDIDO',
+                'titulo'   => 'Frente de activos vendidos',
+                'texto'    => 'Estos equipos ya fueron vendidos: la empresa ya no cuenta con ellos y no entran en los totales de la flota.',
+            ],
+            self::TIPO_TRAMITE_VENTA => [
+                'clase'    => 'tramite',
+                'etiqueta' => 'EN TRÁMITE DE VENTA',
+                'titulo'   => 'Frente en trámite de venta',
+                'texto'    => 'Estos equipos están en trámite de venta: no entran en los totales de la flota.',
+            ],
+            default => null,
+        };
     }
 
     /**

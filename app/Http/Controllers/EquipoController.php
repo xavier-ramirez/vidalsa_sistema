@@ -866,9 +866,11 @@ class EquipoController extends Controller
                     ])->render(),
                 'ubicaciones'       => view('admin.equipos.partials.ubicaciones_stats', compact('ubicacionesStats', 'hasFilter', 'frenteFueraDeFlota'))->render(),
                 'showUbicaciones'   => !$auxMode && $frenteFueraDeFlota !== null,
-                // Nombre del frente si es de VENTA (activos vendidos o por vender): el aviso de
-                // arriba de la tabla se muestra con él y se esconde con null.
-                'frenteVenta'       => $frenteFueraDeFlota?->esVenta() ? $frenteFueraDeFlota->NOMBRE_FRENTE : null,
+                // Frente VENDIDO o en TRÁMITE DE VENTA: textos del aviso de arriba de la tabla
+                // (FrenteTrabajo::avisoVenta) + nombre. null = aviso escondido.
+                'frenteVenta'       => ($venta = $frenteFueraDeFlota?->avisoVenta())
+                    ? $venta + ['nombre' => $frenteFueraDeFlota->NOMBRE_FRENTE]
+                    : null,
                 // HTML de la distribución de auxiliares para el toggle de la card (vacío si la card
                 // aux no aplica → el front desactiva el toggle).
                 'auxDistribution'   => $auxDistributionHtml,

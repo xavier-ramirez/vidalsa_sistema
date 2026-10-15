@@ -98,21 +98,17 @@
                         <input type="hidden" name="TIPO_FRENTE" id="input_tipo"
                             value="{{ old('TIPO_FRENTE', $frente->TIPO_FRENTE ?? '') }}">
                         <div class="dropdown-trigger" onclick="toggleDropdown('tipoSelect', event)">
-                            <span
-                                id="label_tipo">{{ old('TIPO_FRENTE', $frente->TIPO_FRENTE ?? 'Seleccione Tipo...') }}</span>
+                            @php $tipoActual = old('TIPO_FRENTE', $frente->TIPO_FRENTE ?? ''); @endphp
+                            <span id="label_tipo">{{ \App\Models\FrenteTrabajo::TIPOS[$tipoActual] ?? 'Seleccione Tipo...' }}</span>
                             <i class="material-icons">expand_more</i>
                         </div>
+                        {{-- Opciones desde FrenteTrabajo::TIPOS (valor => nombre en pantalla). VENDIDO y
+                             TRÁMITE DE VENTA quedan fuera de la flota, como ESPECIAL, y en Equipos se resaltan. --}}
                         <div class="dropdown-content">
-                            <div class="dropdown-item"
-                                onclick="selectOption('tipoSelect', 'OPERACION', 'OPERACION', 'tipo')">OPERACION</div>
-                            <div class="dropdown-item"
-                                onclick="selectOption('tipoSelect', 'RESGUARDO', 'RESGUARDO', 'tipo')">RESGUARDO</div>
-                            <div class="dropdown-item"
-                                onclick="selectOption('tipoSelect', 'ESPECIAL', 'ESPECIAL', 'tipo')">ESPECIAL</div>
-                            {{-- VENTA: activos vendidos o por vender. Como ESPECIAL, quedan fuera de
-                                 la flota (FrenteTrabajo::TIPOS_FUERA_DE_FLOTA) y en Equipos se resaltan. --}}
-                            <div class="dropdown-item"
-                                onclick="selectOption('tipoSelect', 'VENTA', 'VENTA', 'tipo')">VENTA <span class="form-label-hint">activos vendidos o por vender</span></div>
+                            @foreach(\App\Models\FrenteTrabajo::TIPOS as $valorTipo => $nombreTipo)
+                                <div class="dropdown-item" data-value="{{ $valorTipo }}"
+                                    onclick="selectOption('tipoSelect', '{{ $valorTipo }}', '{{ $nombreTipo }}', 'tipo')">{{ $nombreTipo }}</div>
+                            @endforeach
                         </div>
                     </div>
                 </div>
