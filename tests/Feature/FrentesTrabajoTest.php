@@ -147,6 +147,22 @@ class FrentesTrabajoTest extends MySqlTestCase
         $this->assertNull(FrenteTrabajo::find($f->ID_FRENTE));
     }
 
+    public function test_no_deja_eliminar_un_frente_con_stock_de_almacen(): void
+    {
+        $f = $this->frente();
+        $fila = DB::table('almacen_stock')->first(['ID_ALMACEN', 'ID_PRODUCTO']);
+        $this->assertNotNull($fila, 'Hace falta algún stock para tomar almacén y producto.');
+        DB::table('almacen_stock')->insert(['ID_ALMACEN' => $fila->ID_ALMACEN, 'ID_PRODUCTO' => $fila->ID_PRODUCTO,
+            'ID_FRENTE' => $f->ID_FRENTE, 'CANTIDAD' => 5]);
+        $admin = $this->superAdmin();
+
+        $this->assertNotContains($f->ID_FRENTE, array_column($this->actingAs($admin)->getJson('/admin/frentes/sin-equipos')->json('frentes'), 'id'),
+            'Con stock no sale como candidato a eliminar.');
+        $this->actingAs($admin)->deleteJson("/admin/frentes/{$f->ID_FRENTE}?json=true")
+            ->assertStatus(422)->assertJson(['success' => false, 'productos_con_stock' => 1]);
+        $this->assertNotNull(FrenteTrabajo::find($f->ID_FRENTE));
+    }
+
     public function test_eliminar_no_borra_el_frente_del_historial(): void
     {
         $origen = $this->frente();
@@ -178,6 +194,24 @@ class FrentesTrabajoTest extends MySqlTestCase
         $vivo = FrenteTrabajo::find($f->ID_FRENTE);
         $this->assertNotNull($vivo, 'Vuelve el MISMO frente (mismo ID), con su historial.');
         $this->assertSame('MATURIN', $vivo->UBICACION);
+    }
+
+    public function test_movilizar_al_nombre_de_un_frente_eliminado_lo_revive(): void
+    {
+        $f = $this->frente();
+        $admin = $this->superAdmin();
+        $this->actingAs($admin)->deleteJson("/admin/frentes/{$f->ID_FRENTE}?json=true")->assertOk();
+        $equipo = \App\Models\Equipo::whereNotNull('ID_FRENTE_ACTUAL')->first();
+        $this->assertNotNull($equipo, 'Hace falta un equipo con frente.');
+
+        $this->actingAs($admin)->postJson(route('equipos.bulkMobilize'), [
+            'ids' => [$equipo->ID_EQUIPO], 'destination' => $f->NOMBRE_FRENTE, 'generar_pdf' => false,
+        ])->assertOk();
+
+        $this->assertNotNull(FrenteTrabajo::find($f->ID_FRENTE), 'Revive el MISMO frente, sin chocar con el nombre único.');
+        $this->assertSame(1, FrenteTrabajo::withTrashed()->where('NOMBRE_FRENTE', $f->NOMBRE_FRENTE)->count());
+        $this->assertTrue(DB::table('movilizacion_historial')->where('ID_EQUIPO', $equipo->ID_EQUIPO)
+            ->where('ID_FRENTE_DESTINO', $f->ID_FRENTE)->exists());
     }
 
     public function test_un_frente_eliminado_no_se_acepta_como_destino(): void

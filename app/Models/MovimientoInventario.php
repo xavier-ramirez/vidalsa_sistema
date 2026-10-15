@@ -240,7 +240,8 @@ class MovimientoInventario extends Model
 
     public function frente()
     {
-        return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE', 'ID_FRENTE');
+        // withTrashed: es historial; un frente eliminado (borrado lógico) sigue dando su nombre.
+        return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE', 'ID_FRENTE')->withTrashed();
     }
 
     public function usuario()
@@ -410,7 +411,7 @@ class MovimientoInventario extends Model
 
         return $ids->isEmpty()
             ? collect()
-            : FrenteTrabajo::whereIn('ID_FRENTE', $ids)->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+            : FrenteTrabajo::withTrashed()->whereIn('ID_FRENTE', $ids)->pluck('NOMBRE_FRENTE', 'ID_FRENTE');   // historial: también eliminados
     }
 
     /**

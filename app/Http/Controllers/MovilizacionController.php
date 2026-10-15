@@ -71,9 +71,9 @@ class MovilizacionController extends Controller
         }
 
         // Los combos de los filtros solo hacen falta al pintar la pagina (no en el JSON de
-        // cada filtrado). TODOS los frentes (activos y finalizados): se busca tambien en
-        // movilizaciones de frentes antiguos.
-        $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get();
+        // cada filtrado). TODOS los frentes (activos, finalizados y eliminados): se busca
+        // tambien en movilizaciones de frentes antiguos.
+        $frentes = FrenteTrabajo::withTrashed()->orderBy('NOMBRE_FRENTE')->get();
         $allTipos = \App\Models\TipoEquipo::orderBy('nombre')->get();
         $tiposAux = \App\Models\EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')
             ->distinct()->orderBy('TIPO')->pluck('TIPO');
@@ -384,8 +384,11 @@ class MovilizacionController extends Controller
             $destUbicacion = trim((string) $request->input('destination_ubicacion', ''));
             $generarPdf    = (bool) $request->input('generar_pdf', true);
 
-            // Buscar el frente existente (puede tener UBICACION vacía en BD).
-            $frenteExistente = FrenteTrabajo::where('NOMBRE_FRENTE', $destNombre)->first();
+            // Buscar el frente existente (puede tener UBICACION vacía en BD). Si estaba
+            // eliminado se revive aquí (su nombre sigue ocupando el índice UNIQUE); si la
+            // movilización no sigue, el rollBack de la transacción lo deja eliminado.
+            $frenteExistente = FrenteTrabajo::where('NOMBRE_FRENTE', $destNombre)->first()
+                ?? FrenteTrabajo::revivirPorNombre($destNombre);
             $frenteNecesitaUbicacion = !$frenteExistente || empty(trim((string)($frenteExistente->UBICACION ?? '')));
 
             // Guardia backend: la ubicación SOLO es obligatoria cuando se genera el Acta
@@ -413,9 +416,7 @@ class MovilizacionController extends Controller
                 ], 403);
             }
 
-            // Crear el frente si no existe, o recuperar el existente (si estaba eliminado,
-            // se revive: su nombre sigue ocupando el índice UNIQUE).
-            FrenteTrabajo::revivirPorNombre($destNombre);
+            // Crear el frente si no existe, o recuperar el existente.
             $frente = FrenteTrabajo::firstOrCreate(
                 ['NOMBRE_FRENTE' => $destNombre],
                 [
@@ -484,7 +485,7 @@ class MovilizacionController extends Controller
             // ($frente, ya cargado arriba). Se reutiliza más abajo TANTO para congelar el
             // snapshot del historial como para el bloque de auditoría — un solo cómputo.
             $origenIds     = $aMovilizar->pluck('ID_FRENTE_ACTUAL')->filter()->unique()->values();
-            $origenNombres = FrenteTrabajo::whereIn('ID_FRENTE', $origenIds)->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+            $origenNombres = FrenteTrabajo::withTrashed()->whereIn('ID_FRENTE', $origenIds)->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
 
             // Crear movilizaciones una por una para obtener IDs exactos
             // (sin depender de timestamp match entre Carbon Âµs y MySQL TIMESTAMP sin fracciÃ³n).
@@ -694,8 +695,10 @@ class MovilizacionController extends Controller
                 ->sortDesc()
                 ->keys()
                 ->first();
-            $frenteOrigen  = FrenteTrabajo::find($idOrigenMayoria ?? $movilizacion->ID_FRENTE_ORIGEN);
-            $frenteDestino = FrenteTrabajo::find($movilizacion->ID_FRENTE_DESTINO);
+            // withTrashed: el acta de una movilización vieja se puede regenerar aunque su
+            // frente se haya eliminado después.
+            $frenteOrigen  = FrenteTrabajo::withTrashed()->find($idOrigenMayoria ?? $movilizacion->ID_FRENTE_ORIGEN);
+            $frenteDestino = FrenteTrabajo::withTrashed()->find($movilizacion->ID_FRENTE_DESTINO);
 
             if (!$frenteDestino) {
                 return back()->withErrors(['error' => 'No se encontrÃ³ el frente de destino']);
@@ -1194,7 +1197,7 @@ class MovilizacionController extends Controller
                 'ID_FRENTE_ORIGEN'  => $origen,
                 'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
                 // Nombre congelado al momento del movimiento — ver Movilizacion::getNombreOrigenAttribute.
-                'NOMBRE_FRENTE_ORIGEN_SNAPSHOT'  => FrenteTrabajo::find($origen)?->NOMBRE_FRENTE,
+                'NOMBRE_FRENTE_ORIGEN_SNAPSHOT'  => FrenteTrabajo::withTrashed()->find($origen)?->NOMBRE_FRENTE,
                 'NOMBRE_FRENTE_DESTINO_SNAPSHOT' => FrenteTrabajo::find($request->ID_FRENTE_DESTINO)?->NOMBRE_FRENTE,
                 'FECHA_DESPACHO'    => $now,
                 'TIPO_MOVIMIENTO'   => 'DESPACHO',

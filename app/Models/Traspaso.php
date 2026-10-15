@@ -166,7 +166,8 @@ class Traspaso extends Model
 
     public function frenteDestino()
     {
-        return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE_DESTINO', 'ID_FRENTE');
+        // withTrashed: es historial; un frente eliminado (borrado lógico) sigue dando su nombre.
+        return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE_DESTINO', 'ID_FRENTE')->withTrashed();
     }
 
     /**

@@ -179,11 +179,15 @@ class FrenteTrabajoController extends Controller
 
         $equiposAsignados    = \App\Models\Equipo::where('ID_FRENTE_ACTUAL', $id)->count();
         $auxiliaresAsignados = \App\Models\EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $id)->count();
+        // Stock de almacén repartido a este frente: eliminado, ya no se podría elegir el
+        // frente para mover ese stock y quedaría colgado.
+        $productosConStock   = \App\Models\AlmacenStock::where('ID_FRENTE', $id)->where('CANTIDAD', '>', 0)->count();
 
-        if ($equiposAsignados > 0 || $auxiliaresAsignados > 0) {
+        if ($equiposAsignados > 0 || $auxiliaresAsignados > 0 || $productosConStock > 0) {
             $partes = [];
             if ($equiposAsignados > 0)    $partes[] = "{$equiposAsignados} equipo(s)";
             if ($auxiliaresAsignados > 0) $partes[] = "{$auxiliaresAsignados} auxiliar(es)";
+            if ($productosConStock > 0)   $partes[] = "{$productosConStock} producto(s) con stock en almacén";
             $msg = 'No se puede eliminar el frente: tiene ' . implode(' y ', $partes) .
                    ' asignados. Reasignelos primero a otro frente.';
 
@@ -193,6 +197,7 @@ class FrenteTrabajoController extends Controller
                     'message' => $msg,
                     'equipos_asignados'    => $equiposAsignados,
                     'auxiliares_asignados' => $auxiliaresAsignados,
+                    'productos_con_stock'  => $productosConStock,
                 ], 422);
             }
             return redirect()->route('frentes.create')->with('error', $msg);
@@ -215,8 +220,8 @@ class FrenteTrabajoController extends Controller
     }
 
     /**
-     * Lista TODOS los frentes que no tienen NINGÚN equipo ni auxiliar asignado
-     * (candidatos a eliminar), SIN importar su estatus: incluye ACTIVOS y
+     * Lista TODOS los frentes que no tienen NINGÚN equipo ni auxiliar asignado ni
+     * stock de almacén (candidatos a eliminar: lo mismo que exige destroy()), SIN importar su estatus: incluye ACTIVOS y
      * FINALIZADOS. Lo consume el modal "Frentes sin equipos" del formulario, que
      * muestra el ESTATUS_FRENTE junto al nombre y ofrece Eliminar en cada fila.
      */
@@ -224,6 +229,9 @@ class FrenteTrabajoController extends Controller
     {
         $frentes = FrenteTrabajo::whereDoesntHave('equipos')
             ->whereDoesntHave('equiposAuxiliares')
+            ->whereNotExists(fn ($q) => $q->from('almacen_stock')
+                ->whereColumn('almacen_stock.ID_FRENTE', 'frentes_trabajo.ID_FRENTE')
+                ->where('almacen_stock.CANTIDAD', '>', 0))
             ->orderBy('NOMBRE_FRENTE')
             ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'UBICACION', 'TIPO_FRENTE', 'ESTATUS_FRENTE']);
 

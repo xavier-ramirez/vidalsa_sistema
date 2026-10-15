@@ -30,7 +30,8 @@ class SuministroOrigen extends Model
 
     public function frente()
     {
-        return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE', 'ID_FRENTE');
+        // withTrashed: es historial; un frente eliminado (borrado lógico) sigue dando su nombre.
+        return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE', 'ID_FRENTE')->withTrashed();
     }
 
     public function consumibles()

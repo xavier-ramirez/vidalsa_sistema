@@ -122,23 +122,23 @@ class Documentacion extends Model
     // Management Relationships
     public function frenteGestionPoliza()
     {
-        return $this->belongsTo(FrenteTrabajo::class, 'poliza_gestion_frente_id', 'ID_FRENTE');
+        return $this->belongsTo(FrenteTrabajo::class, 'poliza_gestion_frente_id', 'ID_FRENTE')->withTrashed();
     }
 
     public function frenteGestionRotc()
     {
-        return $this->belongsTo(FrenteTrabajo::class, 'rotc_gestion_frente_id', 'ID_FRENTE');
+        return $this->belongsTo(FrenteTrabajo::class, 'rotc_gestion_frente_id', 'ID_FRENTE')->withTrashed();
     }
 
     public function frenteGestionRacda()
     {
-        return $this->belongsTo(FrenteTrabajo::class, 'racda_gestion_frente_id', 'ID_FRENTE');
+        return $this->belongsTo(FrenteTrabajo::class, 'racda_gestion_frente_id', 'ID_FRENTE')->withTrashed();
     }
 
     // Gestión del documento ADICIONAL (= "Certificado Asociado" en la UI).
     public function frenteGestionAdicional()
     {
-        return $this->belongsTo(FrenteTrabajo::class, 'adicional_gestion_frente_id', 'ID_FRENTE');
+        return $this->belongsTo(FrenteTrabajo::class, 'adicional_gestion_frente_id', 'ID_FRENTE')->withTrashed();
     }
 
 }

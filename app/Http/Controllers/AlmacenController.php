@@ -2187,7 +2187,7 @@ class AlmacenController extends Controller
         $idsAlm   = $paginator->getCollection()->pluck('ID_ALMACEN')->merge($paginator->getCollection()->pluck('ID_ALMACEN_CONTRAPARTE'))->filter()->unique()->values();
         $idsFre   = $paginator->getCollection()->pluck('ID_FRENTE')->filter()->unique()->values();
         $almById  = $idsAlm->isEmpty() ? collect() : Almacen::whereIn('ID_ALMACEN', $idsAlm)->get(['ID_ALMACEN', 'NOMBRE', 'TIPO'])->keyBy('ID_ALMACEN');
-        $freById  = $idsFre->isEmpty() ? collect() : \App\Models\FrenteTrabajo::whereIn('ID_FRENTE', $idsFre)->get(['ID_FRENTE', 'NOMBRE_FRENTE'])->keyBy('ID_FRENTE');
+        $freById  = $idsFre->isEmpty() ? collect() : \App\Models\FrenteTrabajo::withTrashed()->whereIn('ID_FRENTE', $idsFre)->get(['ID_FRENTE', 'NOMBRE_FRENTE'])->keyBy('ID_FRENTE');
         // Notas de esta página con alguna devolución registrada (la devolución lleva el N° de
         // la nota en REFERENCIA): la fila lo marca para que se vea sin abrir nada.
         $conDevolucion = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
