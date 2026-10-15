@@ -248,6 +248,12 @@
         refrescarAccesos();
         if (!sondeoLanzado) sondearServidor(); // ahora sí hay algo que decidir con el sondeo
     };
+    // Lo contrario: la huella recuperada del servidor resultó ser de OTRO teléfono
+    // (webauthn.js la descarta) y el ícono ya no tiene nada que firmar.
+    window.OfflineAuth.deshabilitarHuella = function () {
+        huellaHabilitada = false;
+        refrescarAccesos();
+    };
     // Los mensajes salen por window.mostrarMsgLogin (inicio_sesion.blade.php): es el
     // único sitio que escribe #offlineLoginMsg y además apaga el spinner y rehabilita
     // "Iniciar sesión". Este archivo tenía su propia versión a medias del mismo <div>.

@@ -1404,14 +1404,20 @@
         (function() {
             if (typeof VidalsaWebAuthn === 'undefined' || !VidalsaWebAuthn.soportado()) return;
             if (!/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return;
-            if (VidalsaWebAuthn.tieneCredenciales()) return;
+            // Quién decide si se pregunta es webauthn.js: recupera del servidor la huella que
+            // el teléfono haya "olvidado" y respeta el "Ahora no" (antes se preguntaba en CADA
+            // entrada con clave en cuanto el teléfono perdía sus datos guardados).
+            var idUsuario = @json(Auth::user()?->ID_USUARIO);
             VidalsaWebAuthn.plataformaDisponible().then(function(ok) {
-                if (!ok) return;
+                return ok ? VidalsaWebAuthn.debeOfrecerRegistro(idUsuario) : false;
+            }).then(function(ofrecer) {
+                if (!ofrecer) return;
                 var modal = document.getElementById('webauthnModal');
                 if (!modal) return;
                 modal.style.display = 'flex';
 
                 document.getElementById('webauthnDismiss').addEventListener('click', function() {
+                    VidalsaWebAuthn.noPreguntarPorAhora(idUsuario);
                     modal.style.display = 'none';
                 });
 

@@ -1,10 +1,39 @@
 /**
  * WebAuthn (huella/biometría) para Vidalsa PWA.
- * Registro: tras login con contraseña, pregunta si activar huella.
+ * Registro: tras login con contraseña, pregunta si activar huella (debeOfrecerRegistro).
  * Login: desde la pantalla de inicio, autenticación biométrica sin contraseña.
+ *
+ * El teléfono sabe que tiene huella por los IDs guardados en localStorage. Ese almacén se
+ * puede perder (Chrome lo limpia si falta espacio, el iPhone separa el de la app de la
+ * pantalla de inicio, entrar por otra dirección es otro almacén) y entonces la app volvía
+ * a pedir vincular la huella aunque siguiera registrada: en el servidor había usuarios con
+ * la misma huella registrada hasta 8 veces. Ahora, tras entrar con clave, los IDs se
+ * RECUPERAN del servidor (sin preguntar nada) y solo se pregunta si de verdad no hay.
  */
 const VidalsaWebAuthn = (() => {
     const STORAGE_KEY = 'vidalsa_webauthn_creds';
+    // Los IDs se recuperaron del servidor y aún no se probaron en ESTE teléfono: pueden
+    // ser de otro. Se borra la marca con el primer acceso con huella que funcione.
+    const SIN_VERIFICAR_KEY = 'vidalsa_webauthn_sin_verificar';
+    // Los recuperados resultaron ser de otro teléfono: el próximo login con clave pregunta
+    // por vincular ESTE (sin volver a recuperarlos, que sería un ciclo).
+    const VINCULAR_ESTE_KEY = 'vidalsa_webauthn_vincular_este';
+    // "Ahora no": {ID_USUARIO: fecha}. No se vuelve a preguntar en NO_PREGUNTAR_DIAS.
+    const NO_PREGUNTAR_KEY = 'vidalsa_webauthn_no_preguntar';
+    const NO_PREGUNTAR_DIAS = 30;
+
+    // localStorage puede no existir o fallar (modo privado): nada de esto debe tumbar el login.
+    function leer(clave) { try { return localStorage.getItem(clave); } catch { return null; } }
+    function escribir(clave, valor) { try { localStorage.setItem(clave, valor); } catch { /* sin almacén */ } }
+    function quitar(clave) { try { localStorage.removeItem(clave); } catch { /* sin almacén */ } }
+
+    // Pide al navegador que NO limpie el almacén de esta app por falta de espacio. Si no
+    // lo concede (o no existe la API) no pasa nada: la recuperación del servidor lo cubre.
+    function pedirPersistencia() {
+        try {
+            if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+        } catch { /* sin API */ }
+    }
 
     function soportado() {
         return !!(window.PublicKeyCredential && navigator.credentials);
@@ -19,14 +48,15 @@ const VidalsaWebAuthn = (() => {
 
     function getCredIds() {
         try {
-            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            return JSON.parse(leer(STORAGE_KEY) || '[]');
         } catch { return []; }
     }
 
-    function saveCredId(id) {
+    function saveCredIds(nuevos) {
         const ids = getCredIds();
-        if (!ids.includes(id)) ids.push(id);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+        nuevos.forEach((id) => { if (id && !ids.includes(id)) ids.push(id); });
+        escribir(STORAGE_KEY, JSON.stringify(ids));
+        pedirPersistencia();
     }
 
     function base64UrlToBytes(b64) {
@@ -135,7 +165,10 @@ const VidalsaWebAuthn = (() => {
             if (esRespuestaDeSesion(res)) { window.location.reload(); return false; }
             const data = await res.json();
             if (!res.ok) throw new Error(textoError(data, 'Error al registrar'));
-            saveCredId(body.credential_id);
+            saveCredIds([body.credential_id]);
+            // Recién registrada en ESTE teléfono: ni dudas ni recordatorios pendientes.
+            quitar(SIN_VERIFICAR_KEY);
+            quitar(VINCULAR_ESTE_KEY);
             return true;
         } catch (e) {
             alert('Error al guardar la huella: ' + e.message);
@@ -216,7 +249,7 @@ const VidalsaWebAuthn = (() => {
                     esBorradoReal = (await resOpt.clone().json()).code === 'sin_credenciales';
                 } catch { esBorradoReal = false; }
             }
-            if (esBorradoReal) localStorage.removeItem(STORAGE_KEY);
+            if (esBorradoReal) quitar(STORAGE_KEY);
             throw new Error('NO_CREDENTIALS');
         }
         const options = await resOpt.json();
@@ -319,6 +352,16 @@ const VidalsaWebAuthn = (() => {
             try {
                 assertion = await navigator.credentials.get({ publicKey });
             } catch {
+                // Con IDs recuperados del servidor y nunca probados aquí, que el lector no
+                // encuentre la huella casi siempre es porque son de OTRO teléfono. Se
+                // descartan y el próximo login con clave pregunta por vincular este. (Si fue
+                // una cancelación de verdad, lo peor es registrar una huella más.)
+                if (leer(SIN_VERIFICAR_KEY)) {
+                    quitar(STORAGE_KEY);
+                    quitar(SIN_VERIFICAR_KEY);
+                    escribir(VINCULAR_ESTE_KEY, '1');
+                    throw new Error('HUELLA_DE_OTRO_TELEFONO');
+                }
                 throw new Error('USER_CANCELLED');
             }
 
@@ -354,6 +397,7 @@ const VidalsaWebAuthn = (() => {
             if (esRespuestaDeSesion(res)) { window.location.reload(); return; }
             const data = await res.json();
             if (!res.ok) throw new Error(textoError(data, 'Error de autenticación'));
+            if (data && data.success) quitar(SIN_VERIFICAR_KEY); // la huella SÍ es de este teléfono
             return data;
         } finally {
             _autenticando = false;
@@ -381,9 +425,42 @@ const VidalsaWebAuthn = (() => {
         return 'Dispositivo';
     }
 
-    function limpiarCredenciales() {
-        localStorage.removeItem(STORAGE_KEY);
+    // ─── ¿OFRECER EL REGISTRO? (tras entrar con clave) ────────────────
+    // Devuelve true solo si hay que mostrar "Activar acceso con huella". Antes se mostraba
+    // con solo no ver IDs en localStorage, y "Ahora no" no se recordaba.
+    async function debeOfrecerRegistro(idUsuario) {
+        if (tieneCredenciales()) return false;
+        if (leer(VINCULAR_ESTE_KEY)) return true; // los recuperados no eran de este teléfono
+
+        // 1) ¿El servidor ya tiene huellas de este usuario? Se recuperan sin preguntar.
+        try {
+            const res = await window.apiFetch('/webauthn/mis-credenciales', { headers: { Accept: 'application/json' } });
+            if (res.ok && esJson(res)) {
+                const ids = (await res.json()).credential_ids || [];
+                if (ids.length) {
+                    saveCredIds(ids);
+                    escribir(SIN_VERIFICAR_KEY, '1');
+                    return false;
+                }
+            }
+        } catch { /* sin red: se decide con lo que hay en el teléfono */ }
+
+        // 2) No hay ninguna: se pregunta, salvo que haya dicho "Ahora no" hace poco.
+        try {
+            const fecha = (JSON.parse(leer(NO_PREGUNTAR_KEY) || '{}') || {})[idUsuario];
+            if (fecha && Date.now() - fecha < NO_PREGUNTAR_DIAS * 86400000) return false;
+        } catch { /* valor dañado: se pregunta */ }
+        return true;
     }
 
-    return { soportado, plataformaDisponible, registrar, autenticar, iniciarPrecarga, tieneCredenciales, limpiarCredenciales };
+    // "Ahora no": no volver a preguntar a este usuario en este teléfono por NO_PREGUNTAR_DIAS.
+    function noPreguntarPorAhora(idUsuario) {
+        let mapa = {};
+        try { mapa = JSON.parse(leer(NO_PREGUNTAR_KEY) || '{}') || {}; } catch { mapa = {}; }
+        mapa[idUsuario] = Date.now();
+        escribir(NO_PREGUNTAR_KEY, JSON.stringify(mapa));
+        quitar(VINCULAR_ESTE_KEY);
+    }
+
+    return { soportado, plataformaDisponible, registrar, autenticar, iniciarPrecarga, tieneCredenciales, debeOfrecerRegistro, noPreguntarPorAhora };
 })();

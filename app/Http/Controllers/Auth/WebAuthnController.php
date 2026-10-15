@@ -99,6 +99,24 @@ class WebAuthnController extends Controller
         return response()->json(['success' => true, 'message' => 'Huella registrada correctamente.']);
     }
 
+    /**
+     * IDs de las huellas que el usuario YA tiene registradas. El teléfono guarda los suyos
+     * en localStorage, y ese almacén se puede perder (limpieza de Chrome por espacio, iPhone
+     * con la app en la pantalla de inicio, entrar por otra dirección): sin ellos la app
+     * creía que no había huella y volvía a pedir vincularla. Tras entrar con clave, el
+     * teléfono los recupera de aquí en vez de registrar otra. Solo IDs públicos: sin la
+     * llave privada, que nunca sale del teléfono, no sirven para entrar.
+     */
+    public function misCredenciales(Request $request)
+    {
+        return response()->json([
+            'credential_ids' => WebAuthnCredential::where('ID_USUARIO', $request->user()->ID_USUARIO)
+                ->orderByDesc('created_at')
+                ->pluck('credential_id')
+                ->values(),
+        ]);
+    }
+
     // ─── AUTENTICACIÓN (usuario NO autenticado) ──────────────────────────
 
     public function loginOptions(Request $request)

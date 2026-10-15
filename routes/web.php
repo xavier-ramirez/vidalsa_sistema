@@ -79,6 +79,8 @@ Route::middleware(['auth'])->group(function () {
     // WebAuthn registro (requiere auth: el usuario ya inició sesión con contraseña)
     Route::post('/webauthn/register-options', [App\Http\Controllers\Auth\WebAuthnController::class, 'registerOptions'])->name('webauthn.registerOptions');
     Route::post('/webauthn/register',         [App\Http\Controllers\Auth\WebAuthnController::class, 'register'])->name('webauthn.register');
+    // IDs de las huellas YA registradas del usuario: el teléfono los recupera si perdió los suyos (webauthn.js).
+    Route::get('/webauthn/mis-credenciales',  [App\Http\Controllers\Auth\WebAuthnController::class, 'misCredenciales'])->name('webauthn.misCredenciales');
 
     Route::middleware(['password.change.check'])->group(function () {
         Route::get('/menu', [App\Http\Controllers\DashboardController::class, 'index'])->name('menu');

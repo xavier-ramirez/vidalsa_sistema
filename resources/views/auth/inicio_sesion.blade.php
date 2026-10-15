@@ -602,6 +602,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 restaurarBio();
                 if (err.message === 'USER_CANCELLED') return;
                 if (err.message === 'NO_CREDENTIALS') return;
+                if (err.message === 'HUELLA_DE_OTRO_TELEFONO') {
+                    // La huella guardada era de otro teléfono (webauthn.js ya la descartó):
+                    // se quita el ícono y, al entrar con la clave, se ofrece vincular este.
+                    if (window.OfflineAuth && window.OfflineAuth.deshabilitarHuella) window.OfflineAuth.deshabilitarHuella();
+                    mostrarMsgLogin('Este teléfono no tiene la huella vinculada. Entre con su clave y podrá activarla.');
+                    return;
+                }
                 if (err.message === 'SIN_CONEXION') { avisarSinConexion(); return; }
                 // Mismo canal de mensajes que el resto de la pantalla (antes escribía el
                 // <div> a mano, saltándose el apagado del spinner y del botón).
