@@ -1,12 +1,12 @@
-{{-- Distribución por DETALLE_UBICACION_ACTUAL — solo se muestra cuando el frente filtrado es TIPO_FRENTE=ESPECIAL.
+{{-- Distribución por DETALLE_UBICACION_ACTUAL — solo se muestra cuando el frente filtrado es fuera de la flota (ESPECIAL o VENTA).
      Mantiene la MISMA forma/tipografía que la card "Equipos y Maquinaria" (partials/distribution_stats):
      header 13px, ítems 12.5px, badge 2px 8px — para que ambas cards se vean idénticas. --}}
 <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
     <i class="material-icons" style="font-size: 18px; color: #f97316;">place</i>
     Detalles
-    @if($frenteEspecial ?? null)
+    @if($frenteFueraDeFlota ?? null)
         <span style="font-size: 10px; color: #94a3b8; font-weight: 500; text-transform: none; margin-left: auto;">
-            {{ $frenteEspecial->NOMBRE_FRENTE }}
+            {{ $frenteFueraDeFlota->NOMBRE_FRENTE }}
         </span>
     @endif
 </h4>

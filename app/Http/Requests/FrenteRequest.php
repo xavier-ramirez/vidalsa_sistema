@@ -99,7 +99,7 @@ class FrenteRequest extends FormRequest
             'ZONA'          => 'nullable|string|max:100',
             'CONTRATOS'     => 'nullable|array',
             'CONTRATOS.*'   => 'string|max:60',
-            'TIPO_FRENTE'   => 'required|in:OPERACION,RESGUARDO,ESPECIAL',
+            'TIPO_FRENTE'   => 'required|in:OPERACION,RESGUARDO,ESPECIAL,VENTA',
             'ESTATUS_FRENTE'=> 'required|in:ACTIVO,FINALIZADO',
             'SUBDIVISIONES' => 'nullable|string',
             'RESP_1_NOM'    => 'nullable|string|max:60',

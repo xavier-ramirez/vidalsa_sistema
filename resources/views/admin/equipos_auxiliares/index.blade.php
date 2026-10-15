@@ -137,13 +137,13 @@
                     <div class="aux-adv-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;">
 
                         {{-- Filtro "Detalle" (DETALLE_UBICACION_ACTUAL) — solo
-                             visible cuando el frente seleccionado es TIPO_FRENTE='ESPECIAL'
+                             visible cuando el frente seleccionado es fuera de la flota (ESPECIAL o VENTA)
                              (patio, almacen, taller). Mismo patron que /admin/equipos:
-                             el controller ya devuelve $availableUbicaciones y $frenteEspecial. --}}
-                        <div id="aux_adv_ubic_wrapper" style="{{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display:none;' }}">
+                             el controller ya devuelve $availableUbicaciones y $frenteFueraDeFlota. --}}
+                        <div id="aux_adv_ubic_wrapper" style="{{ isset($frenteFueraDeFlota) && $frenteFueraDeFlota ? '' : 'display:none;' }}">
                             <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:4px;">
                                 <i class="material-icons" style="font-size:13px;vertical-align:middle;color:#0067b1;">place</i>
-                                Detalle{{ isset($frenteEspecial) && $frenteEspecial ? ' (' . mb_strtoupper($frenteEspecial->NOMBRE_FRENTE) . ')' : '' }}
+                                Detalle{{ isset($frenteFueraDeFlota) && $frenteFueraDeFlota ? ' (' . mb_strtoupper($frenteFueraDeFlota->NOMBRE_FRENTE) . ')' : '' }}
                             </span>
                             <div style="position:relative;">
                                 <input type="hidden" id="aux_val_detalle_ubicacion" name="detalle_ubicacion" value="{{ request('detalle_ubicacion') }}">
@@ -459,11 +459,11 @@
         </div>
 
         {{-- Card "Detalles" (DETALLE_UBICACION_ACTUAL) — visible solo cuando el
-             frente filtrado es TIPO_FRENTE='ESPECIAL'. Mismo patron que
+             frente filtrado es fuera de la flota (ESPECIAL o VENTA). Mismo patron que
              /admin/equipos. cargarAuxiliares (AJAX) muestra/oculta segun
              showUbicaciones del response. --}}
         <div id="auxUbicacionesStatsCard"
-             style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; {{ isset($frenteEspecial) && $frenteEspecial ? '' : 'display: none;' }}">
+             style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; {{ isset($frenteFueraDeFlota) && $frenteFueraDeFlota ? '' : 'display: none;' }}">
             <div id="auxUbicacionesStatsContainer">
                 @include('admin.equipos_auxiliares.partials.ubicaciones_stats')
             </div>

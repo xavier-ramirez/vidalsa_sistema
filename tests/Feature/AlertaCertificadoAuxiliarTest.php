@@ -26,9 +26,9 @@ class AlertaCertificadoAuxiliarTest extends MySqlTestCase
     /** Auxiliar de usar y tirar; la transacción del caso lo revierte al terminar. */
     private function auxiliarConCertificado(string $vence, string $estado = 'OPERATIVO'): EquipoAuxiliar
     {
-        // Frente normal: los ESPECIAL y los FRENTES_FUERA_DE_ALERTAS quedan fuera del panel
+        // Frente normal: los fuera de la flota (ESPECIAL, VENTA) y los FRENTES_FUERA_DE_ALERTAS quedan fuera del panel
         // por decisión del propio panel.
-        $frente = FrenteTrabajo::where('TIPO_FRENTE', '!=', 'ESPECIAL')
+        $frente = FrenteTrabajo::whereNotIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
             ->whereNotIn('ID_FRENTE', DashboardController::FRENTES_FUERA_DE_ALERTAS)
             ->first();
 

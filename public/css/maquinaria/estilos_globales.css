@@ -5449,3 +5449,38 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     color: #fff;
     pointer-events: none;
 }
+
+/* ── Frentes de VENTA (activos vendidos o por vender) ──────────────────────────
+   Etiqueta junto al nombre del frente (filtro de Equipos y columna Frente) y aviso
+   arriba de la tabla al entrar a uno de esos frentes. */
+.etiqueta-venta {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #fff1e6;
+    border: 1px solid #fdba74;
+    color: #c2410c;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.aviso-venta {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 4px 0 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    border-left: 5px solid #ea580c;
+    color: #7c2d12;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.aviso-venta[hidden] { display: none; }
+.aviso-venta > .material-icons { color: #ea580c; font-size: 22px; }
+.aviso-venta strong { display: block; color: #9a3412; }

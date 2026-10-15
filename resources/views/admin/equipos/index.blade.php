@@ -80,6 +80,7 @@
                                  data-value="{{ $frente->ID_FRENTE }}"
                                  onclick="selectOption('frenteFilterSelect', '{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}'); loadEquipos();">
                                 {{ $frente->NOMBRE_FRENTE }}
+                                @if($frente->esVenta())<span class="etiqueta-venta">EN VENTA</span>@endif
                             </div>
                         @endforeach
                     </div>
@@ -397,7 +398,7 @@
 
                     {{-- Filtro Detalle (Patio/Subdivisión): NO es un filtro avanzado visible.
                          Se activa desde el panel lateral "Detalles" (partials/ubicaciones_stats),
-                         solo presente en frentes TIPO_FRENTE=ESPECIAL. El input queda aquí (dentro del
+                         solo presente en frentes fuera de la flota (ESPECIAL o VENTA). El input queda aquí (dentro del
                          panel avanzado) para que loadEquipos()/export lo lean junto al resto de filtros. --}}
                     <input type="hidden" name="detalle_ubicacion" id="detalleUbicacionFilter" value="{{ request('detalle_ubicacion') }}">
 
@@ -587,7 +588,7 @@
                     </div>
                     {{-- Combustible + Detalle (solo equipos, como GPS y Color). Detalle busca el TEXTO que
                          contenga «Detalle a resaltar» (param detalle, LIKE); no es el detalle_ubicacion
-                         exacto que pone el panel lateral de ubicaciones de un frente especial. --}}
+                         exacto que pone el panel lateral de ubicaciones de un frente fuera de la flota. --}}
                     <div class="adv-filter-eq-only" style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <!-- Combustible -->
                         <div>
@@ -854,6 +855,17 @@
     </div>
     @endif
 
+    {{-- Aviso al entrar a un frente de VENTA (activos vendidos o por vender). Lo prende y
+         apaga loadEquipos() con data.frenteVenta en cada filtrado. --}}
+    @php $frenteVenta = ($frenteFueraDeFlota ?? null)?->esVenta() ? $frenteFueraDeFlota : null; @endphp
+    <div id="eqAvisoVenta" class="aviso-venta" role="status" @unless($frenteVenta) hidden @endunless>
+        <i class="material-icons">sell</i>
+        <div>
+            <strong>Frente en venta: <span data-nombre>{{ $frenteVenta->NOMBRE_FRENTE ?? '' }}</span></strong>
+            <span>Estos equipos están vendidos o en trámite de venta: la empresa ya no cuenta con ellos y no entran en los totales de la flota.</span>
+        </div>
+    </div>
+
     <div class="custom-scrollbar-container" style="margin-top: 5px; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch;">
 
         <table class="admin-table table-equipos-mobile" style="width: 100%; min-width: 900px; border-collapse: separate; border-spacing: 0 8px;">
@@ -960,11 +972,11 @@
     </div>
     @endif
 
-    {{-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo frentes TIPO_FRENTE=ESPECIAL. Ya NO es
+    {{-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo frentes fuera de la flota (ESPECIAL o VENTA). Ya NO es
          una card aparte: su HTML se captura aquí (fuente oculta) y se apila como una SECCIÓN más
          ("Detalles") dentro de la lista unificada de la card de Distribución. --}}
     <div id="ubicacionesStatsSource" style="display: none;">
-        @if(isset($frenteEspecial) && $frenteEspecial && !($auxMode ?? false))
+        @if(isset($frenteFueraDeFlota) && $frenteFueraDeFlota && !($auxMode ?? false))
             @include('admin.equipos.partials.ubicaciones_stats')
         @endif
     </div>
@@ -997,7 +1009,7 @@
         // HTML de la sección "Auxiliares" de la lista unificada de Distribución (vacío si no aplica).
         window.__distribAuxHtml = @json($auxDistributionHtml ?? '');
         // HTML de la sección "Detalles" (DETALLE_UBICACION_ACTUAL) de la lista unificada,
-        // capturado de la fuente oculta (vacío si el frente no es especial).
+        // capturado de la fuente oculta (vacío si el frente no está fuera de la flota).
         (function () {
             var src = document.getElementById('ubicacionesStatsSource');
             window.__distribUbiHtml = (src && src.innerHTML.trim()) ? src.innerHTML : '';

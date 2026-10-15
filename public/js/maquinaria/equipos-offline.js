@@ -52,12 +52,12 @@
     // Filas por lote: el MISMO $PAGE_SIZE del backend (EquipoController::index), para que
     // el scroll infinito sin internet se sienta igual que con internet.
     const PAGE_SIZE = 150;
-    // Copia EN MEMORIA de kv.equipos + IDs de frentes ESPECIAL. Filtrar 1.200 objetos son
+    // Copia EN MEMORIA de kv.equipos + IDs de frentes fuera de la flota (ESPECIAL y VENTA). Filtrar 1.200 objetos son
     // décimas de milisegundo, así que cada tecla puede re-filtrar sin tocar IndexedDB.
     // Se refrescan en cada render() (el que corre al activar el modo offline y cada vez
     // que entra una copia nueva), nunca quedan viejos.
     let datos      = null;
-    let especiales = new Set();
+    let fueraDeFlota = new Set();
     let avisoEjes  = '';     // último aviso de ejes no soportados (evita repetirlo)
 
     const up  = (s) => String(s == null ? '' : s).toUpperCase();
@@ -158,7 +158,7 @@
     // `omitir` replica el 3er argumento $exclude de applyEquipoFilters: deja fuera UN eje
     // para poder contar sin autolimitarse. Lo usan las dos listas de Distribución, igual
     // que el backend — la de tipos ignora el filtro de tipo y la de frentes el de frente.
-    // Ojo: al omitir 'frente' se salta el bloque ENTERO, incluido excludeEspecial(), que
+    // Ojo: al omitir 'frente' se salta el bloque ENTERO, incluido excludeFueraDeFlota(), que
     // en el backend vive dentro de ese mismo `if`.
     function coincide(e, f, especifico, omitir) {
         if (!coincideBusqueda(e, f.q)) return false;
@@ -169,8 +169,8 @@
             if (e.id_frente != null) return false;
         } else if (f.frente && f.frente !== 'all') {
             if (String(e.id_frente == null ? '' : e.id_frente) !== f.frente) return false;
-        } else if (!especifico && e.id_frente != null && especiales.has(Number(e.id_frente))) {
-            return false;   // excludeEspecial(): asignaciones especiales fuera del listado general
+        } else if (!especifico && e.id_frente != null && fueraDeFlota.has(Number(e.id_frente))) {
+            return false;   // excludeFueraDeFlota(): ESPECIAL y VENTA fuera del listado general
         }
 
         if (omitir !== 'tipo' && f.tipo && f.tipo !== 'all') {
@@ -514,7 +514,7 @@
             // Copias bajadas antes de que el snapshot mandara el tipo de frente no traen la
             // marca: el conjunto queda vacío y no se excluye nada (el comportamiento de
             // antes) hasta que entre la siguiente copia de catálogos.
-            especiales = new Set((r[1] || []).filter(function (f) { return f.especial; })
+            fueraDeFlota = new Set((r[1] || []).filter(function (f) { return f.fuera_de_flota; })
                                              .map(function (f) { return Number(f.id); }));
         });
     }

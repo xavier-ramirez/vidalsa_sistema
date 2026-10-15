@@ -149,14 +149,14 @@ class Equipo extends Model
     }
 
     /**
-     * Excluye equipos asignados a frentes TIPO_FRENTE=ESPECIAL (no son flota propia).
-     * Mantiene equipos sin frente asignado (ID_FRENTE_ACTUAL IS NULL).
+     * Excluye equipos de frentes FUERA DE LA FLOTA (ESPECIAL y VENTA, ver
+     * FrenteTrabajo::TIPOS_FUERA_DE_FLOTA). Mantiene equipos sin frente asignado.
      * Columna cualificada con `equipos.` para evitar ambigüedad en queries con JOINs.
-     * El cache de IDs vive en FrenteTrabajo::especialIds().
+     * El cache de IDs vive en FrenteTrabajo::idsFueraDeFlota().
      */
-    public function scopeExcludeEspecial($query)
+    public function scopeExcludeFueraDeFlota($query)
     {
-        $ids = FrenteTrabajo::especialIds();
+        $ids = FrenteTrabajo::idsFueraDeFlota();
         if (empty($ids)) return $query;
         $col = $this->getTable() . '.ID_FRENTE_ACTUAL';
         return $query->where(function ($q) use ($ids, $col) {

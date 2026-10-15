@@ -214,9 +214,9 @@ class EquipoController extends Controller
                 $query->where('ID_FRENTE_ACTUAL', $raw);
             } elseif (!$this->tieneFiltroEspecifico($request)) {
                 // "TODOS LOS FRENTES" y SIN búsqueda ni filtro concreto: ocultar los frentes
-                // ESPECIAL (asignaciones especiales, no flota propia). Si el usuario busca por
+                // fuera de la flota (ESPECIAL y VENTA). Si el usuario busca por
                 // serial/placa/etc. o filtra por tipo/modelo/marca/año/..., SÍ se incluyen.
-                $query->excludeEspecial();
+                $query->excludeFueraDeFlota();
             }
         }
 
@@ -245,7 +245,7 @@ class EquipoController extends Controller
 
         // Detalle: TEXTO LIBRE que contenga lo escrito en «Detalle a resaltar»
         // (DETALLE_UBICACION_ACTUAL). Es otro filtro que detalle_ubicacion de arriba, que es la
-        // coincidencia EXACTA que pone el panel lateral de ubicaciones de un frente especial.
+        // coincidencia EXACTA que pone el panel lateral de ubicaciones de un frente fuera de la flota.
         if (!in_array('detalle', $exclude) && $request->filled('detalle') && trim($request->detalle) !== '') {
             $query->where('DETALLE_UBICACION_ACTUAL', 'like', '%' . addcslashes(trim($request->detalle), '%_\\') . '%');
         }
@@ -625,7 +625,7 @@ class EquipoController extends Controller
         $tiposStats  = collect([]);
         $frentesStats = [];
         $ubicacionesStats = collect([]);
-        $frenteEspecial = null;
+        $frenteFueraDeFlota = null;
 
         // Stats, tiposStats, frentesStats, ubicacionesStats usan queries independientes del
         // cap de la tabla: siempre muestran los TOTALES completos según los filtros activos.
@@ -681,10 +681,10 @@ class EquipoController extends Controller
             // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo si el frente filtrado es ESPECIAL;
             // se listan TODAS las ubicaciones del frente (excluyendo el filtro detalle_ubicacion)
             if ($request->filled('id_frente') && $request->id_frente !== 'all') {
-                $frenteEspecial = FrenteTrabajo::where('ID_FRENTE', $request->id_frente)
-                    ->where('TIPO_FRENTE', 'ESPECIAL')
+                $frenteFueraDeFlota = FrenteTrabajo::where('ID_FRENTE', $request->id_frente)
+                    ->whereIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
                     ->first();
-                if ($frenteEspecial) {
+                if ($frenteFueraDeFlota) {
                     $ubicQuery = Equipo::query();
                     $this->applyEquipoFilters($ubicQuery, $request, ['detalle_ubicacion']);
                     $this->applyBusquedaTexto($ubicQuery, $search); // ubicaciones reflejan la búsqueda
@@ -864,8 +864,11 @@ class EquipoController extends Controller
                         'showFrentes'  => ($request->filled('id_tipo') && $request->id_tipo !== 'all')
                                           && !($request->filled('id_frente') && $request->id_frente !== 'all'),
                     ])->render(),
-                'ubicaciones'       => view('admin.equipos.partials.ubicaciones_stats', compact('ubicacionesStats', 'hasFilter', 'frenteEspecial'))->render(),
-                'showUbicaciones'   => !$auxMode && $frenteEspecial !== null,
+                'ubicaciones'       => view('admin.equipos.partials.ubicaciones_stats', compact('ubicacionesStats', 'hasFilter', 'frenteFueraDeFlota'))->render(),
+                'showUbicaciones'   => !$auxMode && $frenteFueraDeFlota !== null,
+                // Nombre del frente si es de VENTA (activos vendidos o por vender): el aviso de
+                // arriba de la tabla se muestra con él y se esconde con null.
+                'frenteVenta'       => $frenteFueraDeFlota?->esVenta() ? $frenteFueraDeFlota->NOMBRE_FRENTE : null,
                 // HTML de la distribución de auxiliares para el toggle de la card (vacío si la card
                 // aux no aplica → el front desactiva el toggle).
                 'auxDistribution'   => $auxDistributionHtml,
@@ -971,7 +974,7 @@ class EquipoController extends Controller
         // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
         // return JSON), así están disponibles tanto para el AJAX como para esta vista.
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'marcasPorTipo', 'modelosPorTipo', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteEspecial', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableDetalles', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'marcasPorTipo', 'modelosPorTipo', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteFueraDeFlota', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableDetalles', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
     }
 
     public function export(Request $request)
@@ -3879,7 +3882,7 @@ class EquipoController extends Controller
             $requestedFrenteId = $request->input('frente_id');
 
             // No excluir ESPECIAL si el usuario está filtrando explícitamente por uno (drill-down).
-            $applyEspecialExclusion = !FrenteTrabajo::isEspecialId($requestedFrenteId);
+            $excluirFueraDeFlota = !FrenteTrabajo::esFueraDeFlota($requestedFrenteId);
 
             // Cache key — v10: el payload trae dos campos nuevos, equipos_gasoil y
             // equipos_gasolina, para las tarjetas de conteo por combustible.
@@ -3905,7 +3908,7 @@ class EquipoController extends Controller
                       . '_b' . md5(implode(',', $frentesBloqueados));
 
             $payload = \Illuminate\Support\Facades\Cache::remember($cacheKey, 120, function () use (
-                $isLocal, $frentesPermitidos, $frentesBloqueados, $requestedFrenteId, $applyEspecialExclusion
+                $isLocal, $frentesPermitidos, $frentesBloqueados, $requestedFrenteId, $excluirFueraDeFlota
             ) {
                 // ── Scope de frente reutilizable ──────────────────────────────────
                 // Aplica el MISMO filtro (usuario local, frente solicitado en el
@@ -3937,8 +3940,8 @@ class EquipoController extends Controller
                 $scopeFrente($baseQuery);
 
                 // Excluir frentes ESPECIAL del dashboard de flota (salvo drill-down explícito).
-                if ($applyEspecialExclusion) {
-                    $baseQuery->excludeEspecial();
+                if ($excluirFueraDeFlota) {
+                    $baseQuery->excludeFueraDeFlota();
                 }
 
                 // ── Stats básicas: 3 counts en una sola query usando SUM condicional ──
@@ -3983,7 +3986,7 @@ class EquipoController extends Controller
                     ->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE')
                     ->whereNotNull('equipos.ID_FRENTE_ACTUAL')
                     ->whereNotNull('frentes_trabajo.NOMBRE_FRENTE')
-                    ->where('frentes_trabajo.TIPO_FRENTE', '!=', 'ESPECIAL')
+                    ->whereNotIn('frentes_trabajo.TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
                     ->groupBy('frentes_trabajo.NOMBRE_FRENTE')
                     ->orderByDesc('total')
                     ->get();
@@ -3997,11 +4000,11 @@ class EquipoController extends Controller
                 // (antes era global; ahora respeta el frente seleccionado en el dashboard).
                 $auxBase = EquipoAuxiliar::query();
                 $scopeFrente($auxBase);
-                if ($applyEspecialExclusion) {
-                    $especialIds = FrenteTrabajo::especialIds();
-                    if (!empty($especialIds)) {
-                        $auxBase->where(function ($q) use ($especialIds) {
-                            $q->whereNull('ID_FRENTE_ACTUAL')->orWhereNotIn('ID_FRENTE_ACTUAL', $especialIds);
+                if ($excluirFueraDeFlota) {
+                    $idsFuera = FrenteTrabajo::idsFueraDeFlota();
+                    if (!empty($idsFuera)) {
+                        $auxBase->where(function ($q) use ($idsFuera) {
+                            $q->whereNull('ID_FRENTE_ACTUAL')->orWhereNotIn('ID_FRENTE_ACTUAL', $idsFuera);
                         });
                     }
                 }
@@ -4162,8 +4165,8 @@ class EquipoController extends Controller
             \App\Models\Usuario::aplicarBloqueoIds($baseQuery, $frentesBloqueados, 'ID_FRENTE_ACTUAL');
 
             // Excluir frentes ESPECIAL salvo cuando se filtra explícitamente por uno.
-            if (!FrenteTrabajo::isEspecialId($requestedFrenteId)) {
-                $baseQuery->excludeEspecial();
+            if (!FrenteTrabajo::esFueraDeFlota($requestedFrenteId)) {
+                $baseQuery->excludeFueraDeFlota();
             }
 
             // Los MISMOS dos filtros que fleetStats (ver el comentario de su $byTypeRaw):
@@ -4410,8 +4413,8 @@ class EquipoController extends Controller
                   ->orWhereHas('documentacion', fn($dq) => $dq->where('PLACA', 'LIKE', $s))
                   ->orWhereHas('tipo', fn($tq) => $tq->where('nombre', 'LIKE', $s));
             });
-            if (!FrenteTrabajo::isEspecialId($currentFrenteId)) {
-                $query->excludeEspecial();
+            if (!FrenteTrabajo::esFueraDeFlota($currentFrenteId)) {
+                $query->excludeFueraDeFlota();
             }
         } else {
             // Modo normal: se listan equipos de TODOS los frentes (no solo el
@@ -4419,8 +4422,8 @@ class EquipoController extends Controller
             // permite enlazar REMOLCADOR del frente A con REMOLCABLE del frente B.
             // Excluimos ESPECIAL (patio/almacen) para no contaminar la lista con
             // unidades que no son flota productiva.
-            if (!FrenteTrabajo::isEspecialId($currentFrenteId)) {
-                $query->excludeEspecial();
+            if (!FrenteTrabajo::esFueraDeFlota($currentFrenteId)) {
+                $query->excludeFueraDeFlota();
             }
         }
 
@@ -4998,7 +5001,7 @@ class EquipoController extends Controller
             $pares->where('ID_FRENTE_ACTUAL', $frente);
             $aux->where('ID_FRENTE_ACTUAL', $frente);
         } elseif ($tipoId === null) {
-            $pares->excludeEspecial();
+            $pares->excludeFueraDeFlota();
         }
 
         if (str_starts_with($tipo, 'tipo_aux:')) {
@@ -5530,7 +5533,7 @@ class EquipoController extends Controller
         $search = $request->input('search');
 
         $query = Equipo::with(['tipo', 'frenteActual', 'documentacion', ...Equipo::conFoto()])
-            ->excludeEspecial();
+            ->excludeFueraDeFlota();
 
         if ($search) {
             $searchUpper = strtoupper(trim($search));

@@ -795,9 +795,9 @@ class OfflineController extends Controller
      * el otro módulo necesita (un GLOBAL-equipos + LOCAL-almacén perdería frentes de
      * equipos).
      *
-     * `especial` marca los TIPO_FRENTE=ESPECIAL (asignaciones especiales, no flota
-     * propia). Lo necesita el listado offline de equipos para reproducir el
-     * excludeEspecial() del backend: sin él la tabla sin internet mostraba ~180 equipos
+     * `fuera_de_flota` marca los frentes ESPECIAL y VENTA (FrenteTrabajo::TIPOS_FUERA_DE_FLOTA).
+     * Lo necesita el listado offline de equipos para reproducir el
+     * excludeFueraDeFlota() del backend: sin él la tabla sin internet mostraba ~180 equipos
      * que la web esconde en el listado general. Va en catálogos (pocos KB) y no en cada
      * equipo para no tocar el esquema del snapshot grande: los teléfonos con una copia
      * anterior no traen la marca y siguen como hasta ahora hasta que entre la siguiente
@@ -814,7 +814,7 @@ class OfflineController extends Controller
             ->map(static fn ($f) => [
                 'id' => (int) $f->ID_FRENTE,
                 'nombre' => MojibakeFix::fix($f->NOMBRE_FRENTE),
-                'especial' => $f->TIPO_FRENTE === 'ESPECIAL',
+                'fuera_de_flota' => in_array($f->TIPO_FRENTE, FrenteTrabajo::TIPOS_FUERA_DE_FLOTA, true),
             ])
             ->values();
     }

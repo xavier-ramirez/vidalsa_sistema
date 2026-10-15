@@ -85,15 +85,15 @@ window.maquinariaArrancar = function (MAQ_CFG) {
             }
 
             // Toggle del filtro "Detalle" (DETALLE_UBICACION_ACTUAL): solo se
-            // muestra cuando el frente seleccionado es TIPO_FRENTE='ESPECIAL'.
+            // muestra cuando el frente seleccionado es fuera de la flota (ESPECIAL o VENTA).
             // Tambien refrescamos las opciones del dropdown segun el frente.
             const ubicWrap = document.getElementById('aux_adv_ubic_wrapper');
             if (ubicWrap) {
                 if (data.showUbicaciones) {
                     ubicWrap.style.display = '';
                     var labelSpan = ubicWrap.querySelector('span');
-                    if (labelSpan && data.frenteEspecialNombre) {
-                        labelSpan.innerHTML = '<i class="material-icons" style="font-size:13px;vertical-align:middle;color:#0067b1;">place</i> Detalle (' + (String(data.frenteEspecialNombre).toUpperCase()) + ')';
+                    if (labelSpan && data.frenteFueraDeFlotaNombre) {
+                        labelSpan.innerHTML = '<i class="material-icons" style="font-size:13px;vertical-align:middle;color:#0067b1;">place</i> Detalle (' + (String(data.frenteFueraDeFlotaNombre).toUpperCase()) + ')';
                     }
                     var listEl = document.getElementById('aux_list_detalle_ubicacion');
                     if (listEl && Array.isArray(data.availableUbicaciones)) {

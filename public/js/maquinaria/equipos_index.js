@@ -896,7 +896,7 @@ function eqEnModoAuxURL() {
 
 // ─── Card de Distribución: UNA sola lista con todas las secciones ─────────────
 // La card muestra TODAS las vistas disponibles apiladas en una sola lista, separadas por
-// sección: EQUIPOS (siempre), DETALLES (DETALLE_UBICACION_ACTUAL, solo en frentes especiales)
+// sección: EQUIPOS (siempre), DETALLES (DETALLE_UBICACION_ACTUAL, solo en frentes fuera de la flota)
 // y AUXILIARES (cuando hay distribución de auxiliares). El clic en la card (fuera de una fila)
 // NO intercambia el contenido: hace SCROLL rápido a la siguiente sección. Los clics sobre una
 // fila (li) conservan su acción de filtrar. Cada vista guarda su HTML en su variable.
@@ -918,7 +918,7 @@ function _eqHayDistribAux() {
 function _eqHayDistribUbi() {
     return !!(window.__distribUbiHtml && String(window.__distribUbiHtml).trim());
 }
-// Secciones disponibles en orden. "equipos" siempre; "detalles" solo en frentes especiales;
+// Secciones disponibles en orden. "equipos" siempre; "detalles" solo en frentes fuera de la flota;
 // "aux" solo cuando hay distribución de auxiliares.
 function _eqVistasDistrib() {
     const v = ['equipos'];
@@ -1663,7 +1663,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 window.__updateDocPresenceUI();
 
                 // Distribución: las 3 secciones de la lista unificada (equipos, detalles, aux).
-                // "detalles" (DETALLE_UBICACION_ACTUAL) solo viene en frentes TIPO_FRENTE=ESPECIAL.
+                // "detalles" (DETALLE_UBICACION_ACTUAL) solo viene en frentes fuera de la flota (ESPECIAL o VENTA).
                 // Cada filtro repinta la lista unificada con las secciones nuevas; el reset del
                 // scroll a la primera sección lo hace _eqRenderDistribucion.
                 const showUbi = !!(data && data.showUbicaciones);
@@ -1672,7 +1672,15 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 window.__distribUbiHtml = (showUbi && data.ubicaciones) ? data.ubicaciones : '';
                 _eqRenderDistribucion();
 
-                // Al salir de un frente especial, limpiar el detalle para que no quede colgado.
+                // Aviso de frente en VENTA: se ve solo dentro de un frente de ese tipo.
+                const avisoVenta = document.getElementById('eqAvisoVenta');
+                if (avisoVenta) {
+                    avisoVenta.hidden = !data.frenteVenta;
+                    const nombreVenta = avisoVenta.querySelector('[data-nombre]');
+                    if (nombreVenta) nombreVenta.textContent = data.frenteVenta || '';
+                }
+
+                // Al salir de un frente fuera de la flota, limpiar el detalle para que no quede colgado.
                 const detalleUbicEl = document.getElementById('detalleUbicacionFilter');
                 if (!showUbi && detalleUbicEl && detalleUbicEl.value !== '') {
                     detalleUbicEl.value = '';

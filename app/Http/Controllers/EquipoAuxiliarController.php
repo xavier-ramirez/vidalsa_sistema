@@ -302,19 +302,19 @@ class EquipoAuxiliarController extends Controller
         }
 
         // ── ASIGNACIONES ESPECIALES (mismo patron que /admin/equipos) ──
-        // Si el frente seleccionado es TIPO_FRENTE='ESPECIAL', exponemos a la
+        // Si el frente seleccionado es fuera de la flota (ESPECIAL o VENTA), exponemos a la
         // vista las ubicaciones (sub-zonas) disponibles para el filtro y el
         // listado de stats por ubicacion.
-        $frenteEspecial = null;
+        $frenteFueraDeFlota = null;
         $availableUbicaciones = collect();
         $ubicacionesStats = collect();
         if ($request->filled('id_frente') && $request->id_frente !== 'all' && $request->id_frente !== 'none') {
-            $frenteEspecial = FrenteTrabajo::where('ID_FRENTE', $request->id_frente)
-                ->where('TIPO_FRENTE', 'ESPECIAL')
+            $frenteFueraDeFlota = FrenteTrabajo::where('ID_FRENTE', $request->id_frente)
+                ->whereIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
                 ->first();
-            if ($frenteEspecial) {
-                // Ubicaciones distintas presentes en este frente especial
-                $availableUbicaciones = EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $frenteEspecial->ID_FRENTE)
+            if ($frenteFueraDeFlota) {
+                // Ubicaciones distintas presentes en este frente fuera de la flota
+                $availableUbicaciones = EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $frenteFueraDeFlota->ID_FRENTE)
                     ->whereNotNull('DETALLE_UBICACION_ACTUAL')
                     ->where('DETALLE_UBICACION_ACTUAL', '!=', '')
                     ->distinct()
@@ -322,7 +322,7 @@ class EquipoAuxiliarController extends Controller
                     ->pluck('DETALLE_UBICACION_ACTUAL');
 
                 // Stats por ubicacion: conteo de auxiliares en cada sub-zona
-                $ubicacionesStats = EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $frenteEspecial->ID_FRENTE)
+                $ubicacionesStats = EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $frenteFueraDeFlota->ID_FRENTE)
                     ->selectRaw("COALESCE(NULLIF(TRIM(DETALLE_UBICACION_ACTUAL), ''), 'Sin Especificación') as detalle, COUNT(*) as total")
                     ->groupBy('detalle')
                     ->orderByDesc('total')
@@ -352,19 +352,19 @@ class EquipoAuxiliarController extends Controller
                 // para que el modal del ojo siga abriendo instant tras paginacion/filtro.
                 'auxDetailsMap'    => $auxDetailsMap,
                 // Asignaciones especiales: solo presentes cuando el frente es ESPECIAL.
-                'showUbicaciones'      => $frenteEspecial !== null,
-                'frenteEspecialNombre' => $frenteEspecial ? $frenteEspecial->NOMBRE_FRENTE : null,
+                'showUbicaciones'      => $frenteFueraDeFlota !== null,
+                'frenteFueraDeFlotaNombre' => $frenteFueraDeFlota ? $frenteFueraDeFlota->NOMBRE_FRENTE : null,
                 'availableUbicaciones' => $availableUbicaciones->values(),
                 'ubicacionesStats'     => $ubicacionesStats,
                 'ubicacionesHtml'      => view('admin.equipos_auxiliares.partials.ubicaciones_stats',
-                                              compact('ubicacionesStats', 'frenteEspecial'))->render(),
+                                              compact('ubicacionesStats', 'frenteFueraDeFlota'))->render(),
             ]);
         }
 
         return view('admin.equipos_auxiliares.index', compact(
             'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'distribucionFrentes', 'showFrentes', 'hasFilter', 'photoByModel',
             'availableMarcas', 'availableModelos', 'availableCapacidades', 'auxDetailsMap',
-            'frenteEspecial', 'availableUbicaciones', 'ubicacionesStats',
+            'frenteFueraDeFlota', 'availableUbicaciones', 'ubicacionesStats',
             'PAGE_SIZE', 'offset', 'nextOffset', 'hasMore', 'totalFound', 'truncated'
         ));
     }

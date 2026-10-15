@@ -19,12 +19,23 @@ class FrenteTrabajo extends Model
      */
     use SoftDeletes;
 
+    /** Activos vendidos o por vender: la empresa ya no cuenta con ellos. */
+    public const TIPO_VENTA = 'VENTA';
+
+    /**
+     * Tipos de frente FUERA DE LA FLOTA: sus equipos no entran en los totales, las alertas
+     * ni el listado general (solo se ven entrando al frente). ESPECIAL = asignaciones
+     * especiales, no flota propia; VENTA = activos vendidos o por vender. Punto ÚNICO: el
+     * que agregue un tipo aquí lo saca de todas las cuentas a la vez.
+     */
+    public const TIPOS_FUERA_DE_FLOTA = ['ESPECIAL', self::TIPO_VENTA];
+
     protected $table = 'frentes_trabajo';
     protected $primaryKey = 'ID_FRENTE';
 
     /**
      * Invalida caches derivados al guardar/borrar un frente:
-     * - `frentes_especial_ids` (leido por especialIds()).
+     * - `frentes_fuera_de_flota_ids` (leido por idsFueraDeFlota()).
      * - `frentes_activos_form`: selector de frente del formulario de alta de equipos
      *   (EquipoController::create lo cachea 1h). Un frente creado por una movilización
      *   a frente nuevo no aparecia ahi hasta que expiraba la cache.
@@ -34,7 +45,7 @@ class FrenteTrabajo extends Model
     protected static function booted(): void
     {
         $bust = static function () {
-            Cache::forget('frentes_especial_ids');
+            Cache::forget('frentes_fuera_de_flota_ids');
             Cache::forget('frentes_activos_form');
             // Sube el contador que invalida todas las variantes de plantilla cacheadas.
             // Por CacheVersion (punto único del idiom add-or-increment): la primera vez
@@ -144,25 +155,31 @@ class FrenteTrabajo extends Model
         return $this->hasMany(MovimientoInventario::class, 'ID_FRENTE', 'ID_FRENTE');
     }
 
+    /** ¿Frente de activos vendidos o por vender? En Equipos se resalta (etiqueta y aviso). */
+    public function esVenta(): bool
+    {
+        return $this->TIPO_FRENTE === self::TIPO_VENTA;
+    }
+
     /**
-     * IDs de frentes TIPO_FRENTE=ESPECIAL (asignaciones especiales, no flota propia).
+     * IDs de los frentes FUERA DE LA FLOTA (TIPOS_FUERA_DE_FLOTA: ESPECIAL y VENTA).
      * Cache 5 min; invalidado automáticamente en booted() al guardar/borrar un frente.
      */
-    public static function especialIds(): array
+    public static function idsFueraDeFlota(): array
     {
         return Cache::remember(
-            'frentes_especial_ids', 300,
-            fn() => static::where('TIPO_FRENTE', 'ESPECIAL')->pluck('ID_FRENTE')->toArray()
+            'frentes_fuera_de_flota_ids', 300,
+            fn() => static::whereIn('TIPO_FRENTE', self::TIPOS_FUERA_DE_FLOTA)->pluck('ID_FRENTE')->toArray()
         );
     }
 
     /**
-     * True si el ID suministrado corresponde a un frente ESPECIAL.
-     * Usado para detectar drill-down explícito y omitir la exclusión.
+     * True si el ID es de un frente fuera de la flota. Lo usan los listados para saber que
+     * el usuario entró a ESE frente a propósito y no hay que excluirlo.
      */
-    public static function isEspecialId($id): bool
+    public static function esFueraDeFlota($id): bool
     {
         if ($id === null || $id === '' || $id === 'all') return false;
-        return in_array((int) $id, array_map('intval', static::especialIds()), true);
+        return in_array((int) $id, array_map('intval', static::idsFueraDeFlota()), true);
     }
 }

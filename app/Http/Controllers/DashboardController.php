@@ -52,7 +52,7 @@ class DashboardController extends Controller
             // consulta con agregación condicional, en vez de 3 count() separados (3 round-trips
             // → 1). Ayuda al rebuild frío del dashboard, sobre todo con BD remota en producción.
             $salud = Equipo::where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
-                ->excludeEspecial()
+                ->excludeFueraDeFlota()
                 ->selectRaw('COUNT(*) as total')
                 ->selectRaw("SUM(CASE WHEN ESTADO_OPERATIVO = 'OPERATIVO' THEN 1 ELSE 0 END) as operativos")
                 // "MANTENIMIENTO" agrupa "MANTENIMIENTO" y "EN MANTENIMIENTO" (inconsistencia en BD).
@@ -276,7 +276,7 @@ class DashboardController extends Controller
      * (pedido del usuario, 08/09-10-2026): sus equipos no se renuevan desde aquí.
      * 2 POR DEFINIR · 17 BOQUERON DE AMANA · 25 PATIO EL LECHON · 39 FINCA MAPIRITO ·
      * 44 CVG PUERTO ORDAZ · 45 MINISTERIO DE OBRAS PÚBLICAS · 78 EQUIPOS DESINCORPORADOS.
-     * Se suman a los TIPO_FRENTE=ESPECIAL en generateAlertsList().
+     * Se suman a los frentes fuera de la flota (ESPECIAL y VENTA) en generateAlertsList().
      */
     public const FRENTES_FUERA_DE_ALERTAS = [2, 17, 25, 39, 44, 45, 78];
 
@@ -324,10 +324,10 @@ class DashboardController extends Controller
         ])
         ->withCount('equiposAuxiliares');
 
-        // Fuera los frentes TIPO_FRENTE=ESPECIAL (asignaciones especiales, no flota propia) y los
-        // FRENTES_FUERA_DE_ALERTAS. Una sola lista para equipos y auxiliares. Los que no tienen
+        // Fuera los frentes fuera de la flota (ESPECIAL y VENTA, FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
+        // y los FRENTES_FUERA_DE_ALERTAS. Una sola lista para equipos y auxiliares. Los que no tienen
         // frente siguen saliendo (whereNotIn solo dejaría fuera también los NULL).
-        $idsFuera = array_merge(\App\Models\FrenteTrabajo::especialIds(), self::FRENTES_FUERA_DE_ALERTAS);
+        $idsFuera = array_merge(\App\Models\FrenteTrabajo::idsFueraDeFlota(), self::FRENTES_FUERA_DE_ALERTAS);
         $query->where(function ($q) use ($idsFuera) {
             $q->whereNull('equipos.ID_FRENTE_ACTUAL')
               ->orWhereNotIn('equipos.ID_FRENTE_ACTUAL', $idsFuera);

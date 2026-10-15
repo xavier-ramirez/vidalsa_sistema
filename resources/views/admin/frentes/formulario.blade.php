@@ -109,6 +109,10 @@
                                 onclick="selectOption('tipoSelect', 'RESGUARDO', 'RESGUARDO', 'tipo')">RESGUARDO</div>
                             <div class="dropdown-item"
                                 onclick="selectOption('tipoSelect', 'ESPECIAL', 'ESPECIAL', 'tipo')">ESPECIAL</div>
+                            {{-- VENTA: activos vendidos o por vender. Como ESPECIAL, quedan fuera de
+                                 la flota (FrenteTrabajo::TIPOS_FUERA_DE_FLOTA) y en Equipos se resaltan. --}}
+                            <div class="dropdown-item"
+                                onclick="selectOption('tipoSelect', 'VENTA', 'VENTA', 'tipo')">VENTA <span class="form-label-hint">activos vendidos o por vender</span></div>
                         </div>
                     </div>
                 </div>
