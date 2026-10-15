@@ -39,21 +39,20 @@ window.loadUsuarios = function (url = null) {
     const searchInput = document.getElementById('searchInput');
     const frenteInput = document.querySelector('input[name="id_frente"]');
     const rolInput = document.querySelector('input[name="id_rol"]');
-    const fechaInput = document.querySelector('input[name="fecha_creacion"]');
 
     // Unified Filter Object (Single Source of Truth)
     const filters = {
         search: searchInput?.value,
-        id_frente: (frenteInput?.value !== '') ? frenteInput?.value : null,
-        id_rol: (rolInput?.value !== '') ? rolInput?.value : null,
-        fecha_creacion: fechaInput?.value || null
+        id_frente: frenteInput?.value,
+        id_rol: rolInput?.value
     };
 
     const params = new URLSearchParams();
 
-    // Cleanly append only valid filter values (non-null, non-empty)
+    // Solo valores reales: vacío o 'all' («TODOS LOS FRENTES/ROLES») = sin filtro, y así
+    // tampoco queda ?id_frente=all en la URL (que pintaba el filtro como activo al volver).
     Object.entries(filters).forEach(([key, value]) => {
-        if (value && typeof value === 'string' && value.trim() !== '') {
+        if (value && typeof value === 'string' && value.trim() !== '' && value !== 'all') {
             params.append(key, value.trim());
         }
     });
@@ -74,7 +73,8 @@ window.loadUsuarios = function (url = null) {
     // Antes aquí se cortaba y se pintaba "SELECCIONE UN FILTRO", dejando la tabla en blanco
     // al borrar el buscador — inconsistente con la carga inicial (que SÍ muestra todos).
     // Ahora la tabla siempre se llena: buscador vacío → todos; con texto → filtrado.
-    const finalUrl = baseUrl + '?' + params.toString();
+    const query = params.toString();
+    const finalUrl = query ? baseUrl + '?' + query : baseUrl;
     tableBody.style.opacity = '0.5';
     if (window.showPreloader) window.showPreloader();
 
@@ -110,6 +110,39 @@ window.loadUsuarios = function (url = null) {
             tableBody.style.opacity = '1';
             if (window.hidePreloader) window.hidePreloader();
         });
+};
+
+// Eliminar un usuario (papelera de la fila). Por AJAX: la tabla se recarga en la MISMA URL
+// (filtros y página) en vez de recargar la página entera y volver al listado sin filtros.
+// Si era el último de la página, el servidor devuelve la última página que exista.
+window.usrEliminar = function (id, nombre) {
+    window.showModal({
+        type: 'danger',
+        title: '¿Eliminar usuario?',
+        message: '¿Estás seguro de que deseas eliminar a "<strong>' + window.escapeHtml(nombre) + '</strong>"?<br>Esta acción no se puede deshacer.',
+        confirmText: 'Eliminar',
+        cancelText: 'Cancelar',
+        onConfirm: function () {
+            if (window.showPreloader) window.showPreloader();
+            window.apiFetch('/admin/usuarios/' + encodeURIComponent(id), {
+                method: 'DELETE',
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body: body }; }); })
+                .then(function (res) {
+                    if (window.hidePreloader) window.hidePreloader();
+                    if (!res.ok || !res.body.success) throw new Error(res.body.message || 'No se pudo eliminar el usuario.');
+                    window.showToast(res.body.message || 'Usuario eliminado correctamente.', 'success');
+                    // Los filtros los lee loadUsuarios de los campos; aquí solo se le pasa la página.
+                    const pagina = new URLSearchParams(window.location.search).get('page');
+                    window.loadUsuarios(pagina ? window.location.pathname + '?page=' + pagina : null);
+                })
+                .catch(function (e) {
+                    if (window.hidePreloader) window.hidePreloader();
+                    window.showToast(e.message || 'No se pudo eliminar el usuario.', 'error');
+                });
+        }
+    });
 };
 
 // Pagination click handler. En fase de CAPTURA: este archivo se carga con su vista, asi que
@@ -344,5 +377,4 @@ window.addEventListener('spa:contentLoaded', function () {
     }
 });
 
-// confirmDelete se borro de aqui: se usa la version global de uicomponents.js.
 

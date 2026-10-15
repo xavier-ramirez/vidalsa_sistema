@@ -1,6 +1,6 @@
                 @forelse($users as $user)
                     <tr>
-                         <td class="table-cell-bordered" style="font-size: 13px; color: var(--maquinaria-dark-blue); padding: 8px 12px; white-space: nowrap;">
+                         <td class="table-cell-bordered" style="font-size: 13px; color: var(--maquinaria-dark-blue); padding: 8px 12px;">
                             {{-- Tooltip estilizado (igual que el "detalle" de equipos): al
                                  pasar/enfocar la fila se muestra la fecha de creación. El CSS
                                  global `.admin-table tr:hover .tooltip-bubble` lo dispara. --}}
@@ -44,7 +44,7 @@
                                 </span>
                             </div>
                         </td>
-                        <td class="table-cell-bordered" style="font-size: 13px; padding: 8px 12px; color: var(--maquinaria-gray-text); white-space: nowrap;">
+                        <td class="table-cell-bordered" style="font-size: 13px; padding: 8px 12px; color: var(--maquinaria-gray-text);">
                             {{-- El PRIMER frente asignado (el desplegable de arriba los lista todos).
                                  Sale de getNombresFrentesAsignados, la misma fuente que usa ese
                                  desplegable: antes era $user->frenteAsignado, que con el eager load
@@ -59,7 +59,10 @@
                         </td>
                         <td style="padding: 4px 12px;">
                             <div style="display: flex; gap: 8px; justify-content: flex-start;">
-                                <a href="{{ route('usuarios.edit', $user->ID_USUARIO) }}" 
+                                {{-- ?return= lleva el listado tal como está (filtros y página): Guardar y
+                                     Cancelar vuelven ahí. En la recarga por AJAX la URL pedida es la misma
+                                     que queda en la barra, así que sirve igual. --}}
+                                <a href="{{ route('usuarios.edit', ['usuario' => $user->ID_USUARIO, 'return' => request()->getRequestUri()]) }}" 
                                    @cannot('manage.users') 
                                    onclick="event.preventDefault(); showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permisos para editar usuarios.', confirmText: 'Entendido', hideCancel: true });" 
                                    @endcannot
@@ -69,7 +72,7 @@
                                     <i class="material-icons" style="font-size: 18px;">edit</i>
                                 </a>
                                 <button type="button" 
-                                    onclick="@can('manage.users') confirmDelete({{ $user->ID_USUARIO }}, '{{ addslashes($user->NOMBRE_COMPLETO) }}') @else showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permisos para eliminar usuarios.', confirmText: 'Entendido', hideCancel: true }); @endcan" 
+                                    onclick="@can('manage.users') window.usrEliminar({{ $user->ID_USUARIO }}, '{{ addslashes($user->NOMBRE_COMPLETO) }}') @else showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permisos para eliminar usuarios.', confirmText: 'Entendido', hideCancel: true }); @endcan" 
                                     class="btn-action-maquinaria"
                                     style="color: var(--maquinaria-red); background: transparent;"
                                     title="Eliminar">

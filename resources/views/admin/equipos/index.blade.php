@@ -885,11 +885,6 @@
                 @endif
             </tbody>
         </table>
-        
-        <form id="delete-form-global" action="" method="POST" style="display: none;">
-            @csrf
-            @method('DELETE')
-        </form>
     </div>
 
 

@@ -323,7 +323,11 @@
         </div>
 
         <div style="margin-top: 30px; display: flex; gap: 12px; justify-content: center;">
-            <a href="{{ route('usuarios.index') }}" class="btn-primary-maquinaria btn-secondary btn-compacto">
+            {{-- Al editar, vuelve al listado con los filtros con que se abrió (lo sanea el controlador). --}}
+            @isset($returnUrl)
+                <input type="hidden" name="return_url" value="{{ $returnUrl }}">
+            @endisset
+            <a href="{{ $returnUrl ?? route('usuarios.index') }}" class="btn-primary-maquinaria btn-secondary btn-compacto">
                 Cancelar
             </a>
             <button type="submit" class="btn-primary-maquinaria btn-compacto"

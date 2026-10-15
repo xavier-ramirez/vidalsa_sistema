@@ -77,32 +77,33 @@ class UserController extends Controller
             // id->nombre una vez por proceso (no hay N+1).
             ->with(['rol:ID_ROL,NOMBRE_ROL']);
 
-        // FILTER 1: Search by name or email (independent)
+        // FILTER 1: nombre o correo. % y _ se buscan como texto, no como comodines.
         if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function($q) use ($search) {
-                $q->where('NOMBRE_COMPLETO', 'like', "%{$search}%")
-                  ->orWhere('CORREO_ELECTRONICO', 'like', "%{$search}%");
+            $like = '%' . addcslashes(trim($request->input('search')), '%_\\') . '%';
+            $query->where(function($q) use ($like) {
+                $q->where('NOMBRE_COMPLETO', 'like', $like)
+                  ->orWhere('CORREO_ELECTRONICO', 'like', $like);
             });
         }
 
-        // FILTER 2: Frente de Trabajo (independent)
+        // FILTER 2: Frente de Trabajo. ID_FRENTE_ASIGNADO es CSV ("3,7"): con un igual, los
+        // usuarios de varios frentes no salian por ninguno de ellos.
         if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
-            $query->where('ID_FRENTE_ASIGNADO', $request->input('id_frente'));
+            $query->whereRaw('FIND_IN_SET(?, ID_FRENTE_ASIGNADO)', [$request->input('id_frente')]);
         }
 
-        // FILTER 3: Fecha de creación del usuario (created_at) — un día exacto.
-        if ($request->filled('fecha_creacion')) {
-            $query->whereDate('created_at', $request->input('fecha_creacion'));
-        }
-
-        // FILTER 4: Rol del usuario (independent)
+        // FILTER 3: Rol del usuario
         if ($request->filled('id_rol') && $request->input('id_rol') !== 'all') {
             $query->where('ID_ROL', $request->input('id_rol'));
         }
 
-        // Execute query with pagination (15 por página).
+        // Execute query with pagination (15 por página). Si la página pedida ya no existe
+        // (se borró el último usuario de la última página, o el filtro deja menos), se
+        // muestra la última que sí hay en vez de una tabla vacía.
         $users = $query->paginate(15)->onEachSide(3)->withQueryString();
+        if ($users->isEmpty() && $users->currentPage() > 1) {
+            $users = $query->paginate(15, ['*'], 'page', $users->lastPage())->onEachSide(3)->withQueryString();
+        }
 
         // Frentes for dropdown
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->get();
@@ -275,9 +276,12 @@ class UserController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id)
+    public function edit(Request $request, string $id)
     {
         $user = Usuario::findOrFail($id);
+        // Listado al que volver (con sus filtros y página) al Cancelar/Guardar. Lo manda el
+        // lápiz de la tabla como ?return=…; se sanea para evitar open-redirect.
+        $returnUrl = self::usuariosReturnUrl($request->query('return'));
         // Solo roles que YA tiene asignados algún usuario: los huérfanos (roles que
         // quedaron sin nadie, p. ej. creados por firstOrCreate y luego desasignados) no
         // ensucian las sugerencias. Para asignar un rol nuevo se escribe el nombre y
@@ -286,7 +290,7 @@ class UserController extends Controller
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->select('ID_FRENTE', 'NOMBRE_FRENTE')->get();
         $available_permissions = self::availablePermissions();
 
-        return view('admin.usuarios.formulario', compact('user', 'roles', 'frentes', 'available_permissions'));
+        return view('admin.usuarios.formulario', compact('user', 'roles', 'frentes', 'available_permissions', 'returnUrl'));
     }
 
     /**
@@ -315,11 +319,28 @@ class UserController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Usuario actualizado correctamente.',
-                'redirect' => route('usuarios.index')
+                'redirect' => self::usuariosReturnUrl($request->input('return_url'))
             ]);
         }
 
-        return redirect()->route('usuarios.index')->with('success', 'Usuario actualizado correctamente.');
+        return redirect()->to(self::usuariosReturnUrl($request->input('return_url')))->with('success', 'Usuario actualizado correctamente.');
+    }
+
+    /**
+     * URL del listado de usuarios a la que volver, con sus filtros. Solo se acepta una ruta
+     * interna a /admin/usuarios (sin host): cualquier otra cosa cae en el listado sin filtros.
+     */
+    private static function usuariosReturnUrl(?string $candidata): string
+    {
+        $porDefecto = route('usuarios.index');
+        if (! $candidata || parse_url($candidata, PHP_URL_HOST) !== null || str_starts_with($candidata, '//')) {
+            return $porDefecto;
+        }
+        if ((parse_url($candidata, PHP_URL_PATH) ?: '') !== '/admin/usuarios') {
+            return $porDefecto;
+        }
+        $query = parse_url($candidata, PHP_URL_QUERY);
+        return $query ? '/admin/usuarios?' . $query : '/admin/usuarios';
     }
 
     /**
@@ -352,10 +373,15 @@ class UserController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
         $user = Usuario::findOrFail($id);
         $user->delete();
+
+        // La tabla lo pide por AJAX (usrEliminar) y se recarga ella misma con sus filtros.
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Usuario eliminado correctamente.']);
+        }
 
         return redirect()->route('usuarios.index')->with('success', 'Usuario eliminado correctamente.');
     }

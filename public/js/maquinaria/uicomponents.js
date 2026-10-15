@@ -393,30 +393,6 @@ window.clearDropdownFilter = function (dropdownId) {
 // única. Carga DESPUÉS que este archivo, así que la copia que existía aquí siempre
 // quedaba pisada (código muerto). Removida para evitar la colisión global.
 
-// Confirm Delete — uses standardModal system (unified)
-window.confirmDelete = function (id, name) {
-    const form = document.getElementById('delete-form-global');
-
-    window.showModal({
-        type: 'danger',
-        title: '¿Eliminar registro?',
-        message: `¿Estás seguro de que deseas eliminar a "<strong>${name}</strong>"?<br>Esta acción no se puede deshacer.`,
-        confirmText: 'Eliminar',
-        cancelText: 'Cancelar',
-        onConfirm: function () {
-            if (window.showPreloader) window.showPreloader();
-            if (form) {
-                if (window.location.pathname.includes('usuarios')) {
-                    form.action = `/admin/usuarios/${id}`;
-                } else {
-                    form.action = window.location.pathname.replace(/\/create|\/edit/, '') + '/' + id;
-                }
-                form.submit();
-            }
-        }
-    });
-};
-
 // Manual toggle function for inline handlers (forms, etc.) - CONSOLIDATED & ROBUST
 window.toggleDropdown = function (dropdownId, event) {
     if (event) event.stopPropagation();

@@ -57,7 +57,7 @@
                     $currentFrente = $frentes->firstWhere('ID_FRENTE', request('id_frente'));
                 @endphp
 
-                <div class="dropdown-trigger {{ request('id_frente') ? 'filter-active' : '' }}" style="background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
+                <div class="dropdown-trigger {{ request('id_frente') && request('id_frente') !== 'all' ? 'filter-active' : '' }}" style="background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
                     
                     <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
                         <i class="material-icons" style="font-size: 18px;">search</i>
@@ -71,7 +71,7 @@
 
                     <div style="display: flex; align-items: center; padding-right: 10px;">
                         <i class="material-icons" data-clear-btn
-                           style="font-size: 18px; color: #a0aec0; margin-right: 5px; display: {{ request('id_frente') ? 'block' : 'none' }};" 
+                           style="font-size: 18px; color: #a0aec0; margin-right: 5px; display: {{ request('id_frente') && request('id_frente') !== 'all' ? 'block' : 'none' }};" 
                            onclick="event.stopPropagation(); clearDropdownFilter('frenteFilterSelect'); loadUsuarios();"
                            title="Limpiar filtro">close</i>
                     </div>
@@ -101,7 +101,7 @@
                     $currentRol = $roles->firstWhere('ID_ROL', request('id_rol'));
                 @endphp
 
-                <div class="dropdown-trigger {{ request('id_rol') ? 'filter-active' : '' }}" style="background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
+                <div class="dropdown-trigger {{ request('id_rol') && request('id_rol') !== 'all' ? 'filter-active' : '' }}" style="background: #fbfcfd; border: 1px solid #cbd5e0; border-radius: 12px; height: 45px; display: flex; align-items: center; justify-content: space-between; padding: 0; width: 100%; overflow: hidden;">
 
                     <div style="padding: 0 10px; display: flex; align-items: center; color: var(--maquinaria-gray-text);">
                         <i class="material-icons" style="font-size: 18px;">search</i>
@@ -115,7 +115,7 @@
 
                     <div style="display: flex; align-items: center; padding-right: 10px;">
                         <i class="material-icons" data-clear-btn
-                           style="font-size: 18px; color: #a0aec0; margin-right: 5px; display: {{ request('id_rol') ? 'block' : 'none' }};"
+                           style="font-size: 18px; color: #a0aec0; margin-right: 5px; display: {{ request('id_rol') && request('id_rol') !== 'all' ? 'block' : 'none' }};"
                            onclick="event.stopPropagation(); clearDropdownFilter('rolFilterSelect'); loadUsuarios();"
                            title="Limpiar filtro">close</i>
                     </div>
@@ -207,8 +207,12 @@
                 width: auto !important;
             }
         }
-        @media (max-width: 1024px) {
-            .usuarios-layout { flex-direction: column; }
+        /* Hasta 1280px el panel lateral (IPs / Usuarios activos) pasa ABAJO: al lado le
+           robaba 318px a la tabla y en un portátil se cortaban Frente, Estado y los botones.
+           align-items: stretch para que la tarjeta blanca mida el ancho de la pantalla y no
+           el de la tabla (con flex-start crecía hasta 1100px y empujaba la página de lado). */
+        @media (max-width: 1280px) {
+            .usuarios-layout { flex-direction: column; align-items: stretch; }
             .usuarios-side { width: 100%; flex-basis: auto; }
             .usr-filter-row { flex-wrap: wrap; }
         }
@@ -228,12 +232,12 @@
         <table class="admin-table table-usuarios-mobile" style="width: 100% !important;">
             <thead>
                 <tr class="tabla-cabecera" style="border-bottom: 2px solid #0f172a;">
-                    <th class="table-cell-bordered" style="min-width: 150px;">Nombre y Apellido</th>
+                    <th class="table-cell-bordered" style="min-width: 110px;">Nombre y Apellido</th>
                     <th class="table-cell-bordered" style="min-width: 140px;">Correo</th>
-                    <th class="table-cell-bordered" style="min-width: 160px;">Rol</th>
+                    <th class="table-cell-bordered" style="min-width: 120px;">Rol</th>
                     <th class="table-cell-bordered" style="min-width: 90px;">Nivel</th>
                     <th class="table-cell-bordered" style="min-width: 85px;">Frente</th>
-                    <th class="table-cell-bordered" style="min-width: 80px;">Estado</th>
+                    <th class="table-cell-bordered" style="min-width: 70px;">Estado</th>
                     <th style="padding: 10px 8px; text-align: center; width: 60px;"></th>
                 </tr>
             </thead>
@@ -241,11 +245,6 @@
                 @include('admin.usuarios.partials.table_rows', ['users' => $users])
             </tbody>
         </table>
-        {{-- Single Delete Form for Optimization --}}
-        <form id="delete-form-global" action="" method="POST" style="display: none;">
-            @csrf
-            @method('DELETE')
-        </form>
     </div>
 
     <!-- Pagination -->

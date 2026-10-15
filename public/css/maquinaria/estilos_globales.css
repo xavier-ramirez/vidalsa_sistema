@@ -136,22 +136,7 @@ body {
     box-sizing: border-box;
 }
 
-.dropdown-trigger {
-    width: 100%;
-    padding: 12px 15px;
-    border-radius: 12px;
-    border: 1px solid #cbd5e0;
-    background: #fbfcfd;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: default;
-    /* Removed pointer cursor */
-    transition: all 0.3s;
-    box-sizing: border-box;
-    font-family: inherit;
-    font-size: 15px;
-}
+/* .dropdown-trigger: definicion UNICA mas abajo (junto a sus reglas :has). */
 
 .dropdown-trigger:hover,
 .multiselect-trigger:hover {
@@ -985,6 +970,20 @@ body {
     gap: 20px;
 }
 
+/* Formulario de usuarios: TODAS las cajas a la altura del campo de texto (46px). Los
+   desplegables median 42px y los multiselect 45px, asi que en una misma fila no
+   coincidian. El campo Rol (input dentro del trigger, sin lupa) recupera la sangria
+   de 15px que le quitaba la regla de los filtros con icono (.dropdown-trigger:has(> input)). */
+#userForm .dropdown-trigger,
+#userForm .multiselect-trigger {
+    height: 46px;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+#userForm .dropdown-trigger:has(> input) > input {
+    padding-left: 15px !important;
+}
+
 @media (max-width: 768px) {
     .form-grid {
         grid-template-columns: 1fr;
@@ -1686,6 +1685,9 @@ input[type="password"]::-ms-clear {
 
 /* La cuenta de tildados. Ocupa solo lo suyo y el buscador sigue en la misma
    linea; si el texto no cabe se recorta antes que empujar al input fuera. */
+.multiselect-resumen:empty {
+    display: none;   /* sin tildados no ocupa el gap: el texto arranca a 15px como en los demas */
+}
 .multiselect-resumen {
     flex: 0 1 auto;
     min-width: 0;
@@ -1862,12 +1864,22 @@ input[type="password"]::-ms-clear {
     background: rgba(239, 68, 68, 0.20);
 }
 
+/* DEFINICION UNICA del trigger del desplegable. Estaba partida en dos (arriba del
+   archivo y aqui) con valores que se contradecian: padding 12px vs 8px, letra 15px vs
+   14px, transition 0.3s vs 0.2s. Aqui queda lo que ya se veia (mandaba esta mitad). */
 .dropdown-trigger {
+    width: 100%;
     padding: 8px 15px;
+    border-radius: 12px;
+    border: 1px solid #cbd5e0;
+    background: #fbfcfd;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    cursor: default;
+    box-sizing: border-box;
+    font-family: inherit;
     font-size: 14px;
     user-select: none;
     transition: all 0.2s;
