@@ -48,6 +48,27 @@ class CatalogoFiltroCapacidadTest extends MySqlTestCase
         $this->assertSame(0, $this->tarjetas(['capacidad' => '999KVA', 'modelo' => 'modelo_aux:' . $this->modelo])[0]);
     }
 
+    public function test_tambien_filtra_vehiculos_sin_ficha_y_con_ficha(): void
+    {
+        $tipo   = \App\Models\TipoEquipo::create(['nombre' => 'TIPO CAP ' . strtoupper(uniqid())]);
+        $sufijo = strtoupper(uniqid());
+        // Sin ficha: la tarjeta sale sola con lo registrado.
+        \App\Models\Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'VEH-SINF-' . $sufijo, 'ANIO' => 2002, 'ESTADO_OPERATIVO' => 'OPERATIVO',
+            'SERIAL_CHASIS' => 'CAP-SF-' . $sufijo, 'id_tipo_equipo' => $tipo->id, 'CAPACIDAD' => '45 TON']);
+        // Con ficha: la capacidad sale de las unidades ligadas a la ficha.
+        $ficha = \App\Models\CaracteristicaModelo::create(['MODELO' => 'VEH-FICHA-' . $sufijo, 'TIPO' => $tipo->nombre, 'ANIO_ESPEC' => 2003]);
+        \App\Models\Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'VEH-FICHA-' . $sufijo, 'ANIO' => 2003, 'ESTADO_OPERATIVO' => 'OPERATIVO',
+            'SERIAL_CHASIS' => 'CAP-CF-' . $sufijo, 'id_tipo_equipo' => $tipo->id, 'ID_ESPEC' => $ficha->ID_ESPEC, 'CAPACIDAD' => '46ton']);
+
+        [$n, $html] = $this->tarjetas(['capacidad' => '45TON', 'tipo' => 'tipo_eq:' . $tipo->id]);
+        $this->assertSame(1, $n);
+        $this->assertStringContainsString('VEH-SINF-' . $sufijo, $html);
+
+        [$n, $html] = $this->tarjetas(['capacidad' => '46 ton', 'tipo' => 'tipo_eq:' . $tipo->id]);
+        $this->assertSame(1, $n, 'La capacidad escrita de otra forma encuentra la tarjeta con ficha.');
+        $this->assertStringContainsString('VEH-FICHA-' . $sufijo, $html);
+    }
+
     public function test_la_lista_de_capacidades_une_las_escritas_distinto(): void
     {
         $html = (string) $this->actingAs($this->superAdminGlobal())->get(route('catalogo.index'))->assertOk()->getContent();
