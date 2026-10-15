@@ -372,11 +372,12 @@
         padding: 5px;
         z-index: 9999;
     }
+    /* Mismo color que las opciones del filtro Tipo (.dropdown-item de la app). */
     .cat-opt {
         padding: 8px 12px;
         font-size: 14px;
         font-weight: 600;
-        color: #1e293b;
+        color: #4a5568;
         cursor: pointer;
         border-radius: 6px;
     }
@@ -388,6 +389,15 @@
     .cat-fila-marca { display: contents; }
     .cat-adv { position: relative; flex: 0 0 auto; }
     .cat-adv .panel-filtro-avanzado .cat-filter { max-width: none; min-width: 0; }
+    /* Panel de Filtros Avanzados con las MISMAS medidas que el de /admin/equipos
+       (#advancedFilterPanel .adv-trigger): caja de 32px y esquinas de 6px, lupa de 16px con
+       6px a cada lado, texto y opciones de 12px. Antes la caja medía 47px. */
+    #catAdvPanel .cat-filter-box { height: 32px; box-sizing: border-box; border-radius: 6px; }
+    #catAdvPanel .cat-filter-ico { padding: 0 6px; color: #94a3b8; }
+    #catAdvPanel .cat-filter-ico .material-icons { font-size: 16px; }
+    #catAdvPanel .cat-filter input[type="text"] { font-size: 12px; padding: 6px 2px; }
+    #catAdvPanel .cat-filter .filter-clear { font-size: 16px; }
+    #catAdvPanel .cat-opt { font-size: 12px; }
     /* Año y Capacidad uno al lado del otro; en pantallas angostas, uno debajo del otro. */
     .cat-adv-fila { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
     .cat-adv-fila > div { min-width: 0; }   /* si no, el campo de texto no se achica y se sale del panel */
