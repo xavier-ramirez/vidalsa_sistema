@@ -5468,13 +5468,26 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 }
 .etiqueta-venta--tramite { background: #fff1e6; border: 1px solid #fdba74; color: #c2410c; }
 .etiqueta-venta--vendido { background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; }
-/* Sobre la foto del equipo (tabla de Equipos): en la esquina de arriba y en color sólido, que se
-   lea encima de cualquier foto. */
-/* .placeholder: el cuadro SIN foto agranda sus <span> a 24px (es para el ícono); la etiqueta no. */
+/* Sobre la foto del equipo (tabla de Equipos): sin contenedor, letra blanca con borde del color
+   (rojo vendido, naranja trámite), en el MEDIO de la foto. paint-order pone el borde detrás de la
+   letra, así queda gruesa y se lee sobre cualquier foto. .placeholder: el cuadro SIN foto agranda
+   sus <span> a 24px (es para el ícono); la etiqueta no. El tamaño va con !important porque
+   admin_equipos_index.css fuerza TODO <span> de la tabla a 11.5px con !important. */
 .table-image-wrapper .etiqueta-venta,
-.table-image-wrapper.placeholder .etiqueta-venta { position: absolute; top: 6px; left: 6px; margin: 0; z-index: 1; font-size: 10px; line-height: 1.5; color: #fff; border: none; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
-.table-image-wrapper .etiqueta-venta--tramite { background: #ea580c; }
-.table-image-wrapper .etiqueta-venta--vendido { background: #dc2626; }
+.table-image-wrapper.placeholder .etiqueta-venta {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1;
+    width: 92%; margin: 0; padding: 0; text-align: center; white-space: normal;
+    background: none; border: none; box-shadow: none;
+    font-size: 17px !important; font-weight: 900; line-height: 1.1; letter-spacing: .06em; color: #fff;
+    -webkit-text-stroke: 4px var(--borde-venta); paint-order: stroke fill;
+}
+.table-image-wrapper .etiqueta-venta--tramite { --borde-venta: #ea580c; font-size: 13px !important; }
+.table-image-wrapper .etiqueta-venta--vendido { --borde-venta: #dc2626; }
+@media (max-width: 768px) {
+    .table-image-wrapper .etiqueta-venta,
+    .table-image-wrapper.placeholder .etiqueta-venta { font-size: 14px !important; -webkit-text-stroke-width: 3px; }
+    .table-image-wrapper .etiqueta-venta--tramite { font-size: 11px !important; }
+}
 
 .aviso-venta {
     display: flex;
