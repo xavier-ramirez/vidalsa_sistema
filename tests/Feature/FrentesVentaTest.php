@@ -113,12 +113,13 @@ class FrentesVentaTest extends MySqlTestCase
         $admin = $this->superAdminGlobal();
 
         $this->actingAs($admin)->patchJson(route('frentes.cambiarTipo', $frente->ID_FRENTE), ['TIPO_FRENTE' => FrenteTrabajo::TIPO_VENDIDO])
-            ->assertOk()->assertJson(['success' => true, 'tipo' => 'VENDIDO', 'aviso' => ['clase' => 'vendido', 'etiqueta' => 'VENDIDO']]);
+            ->assertOk()->assertJson(['success' => true, 'tipo' => 'VENDIDO'])
+            ->assertJsonPath('etiqueta', '<span class="etiqueta-venta etiqueta-venta--vendido">VENDIDO</span>');
         $this->assertSame('VENDIDO', $frente->fresh()->TIPO_FRENTE);
         $this->assertTrue(FrenteTrabajo::esFueraDeFlota($frente->ID_FRENTE), 'Sale de la flota al momento (caché invalidada).');
 
         $this->actingAs($admin)->patchJson(route('frentes.cambiarTipo', $frente->ID_FRENTE), ['TIPO_FRENTE' => 'OPERACION'])
-            ->assertOk()->assertJson(['aviso' => null]);
+            ->assertOk()->assertJsonPath('etiqueta', '');
         $this->assertFalse(FrenteTrabajo::esFueraDeFlota($frente->ID_FRENTE), 'Y vuelve a la flota.');
 
         $this->actingAs($admin)->patchJson(route('frentes.cambiarTipo', $frente->ID_FRENTE), ['TIPO_FRENTE' => 'NO_EXISTE'])

@@ -3765,16 +3765,12 @@ window.eqGuardarTipoFrente = function () {
             }
             window.eqCerrarTipoFrente();
             window.toast(body.message, 'success');
-            // La etiqueta VENDIDO / EN TRÁMITE DE VENTA del filtro de frentes, sin recargar la página.
+            // La etiqueta VENDIDO / EN TRÁMITE DE VENTA del filtro de frentes, sin recargar la página:
+            // el servidor la manda armada con la misma plantilla de la vista (vacía si no es de venta).
             const item = document.querySelector('#frenteFilterSelect .dropdown-item[data-value="' + id + '"]');
             if (item) {
                 item.querySelectorAll('.etiqueta-venta').forEach((e) => e.remove());
-                if (body.aviso) {
-                    const et = document.createElement('span');
-                    et.className = 'etiqueta-venta etiqueta-venta--' + body.aviso.clase;
-                    et.textContent = body.aviso.etiqueta;
-                    item.appendChild(et);
-                }
+                if (body.etiqueta) item.insertAdjacentHTML('beforeend', body.etiqueta);
             }
             // Tabla, aviso del frente y totales con el tipo nuevo.
             if (typeof window.loadEquipos === 'function') window.loadEquipos();

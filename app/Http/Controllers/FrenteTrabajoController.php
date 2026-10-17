@@ -221,8 +221,9 @@ class FrenteTrabajoController extends Controller
      * Cambia SOLO el tipo de un frente (OPERACION, RESGUARDO, ESPECIAL, VENDIDO, TRÁMITE DE
      * VENTA) desde Equipos → Acciones → "Tipo de frente", sin pasar por el formulario completo.
      * Guardar el modelo invalida las cachés (FrenteTrabajo::booted), así que los totales de la
-     * flota y el listado sin conexión ven el cambio. Devuelve el aviso de venta para que la
-     * pantalla actualice la etiqueta del filtro de frentes sin recargar.
+     * flota y el listado sin conexión ven el cambio. Devuelve la etiqueta VENDIDO / EN TRÁMITE
+     * DE VENTA ya armada con la MISMA plantilla del filtro de frentes (vacía si el tipo no es de
+     * venta), para que la pantalla la cambie sin recargar y sin repetir ese HTML en el JS.
      */
     public function cambiarTipo(Request $request, string $id)
     {
@@ -238,8 +239,8 @@ class FrenteTrabajoController extends Controller
         return response()->json([
             'success' => true,
             'message' => "El frente \"{$frente->NOMBRE_FRENTE}\" ahora es " . FrenteTrabajo::TIPOS[$frente->TIPO_FRENTE] . '.',
-            'tipo'    => $frente->TIPO_FRENTE,
-            'aviso'   => $frente->avisoVenta(),
+            'tipo'     => $frente->TIPO_FRENTE,
+            'etiqueta' => trim(view('admin.frentes.partials.etiqueta_venta', ['frente' => $frente])->render()),
         ]);
     }
 
