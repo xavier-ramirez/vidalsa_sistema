@@ -144,19 +144,18 @@ class FrentesVentaTest extends MySqlTestCase
             'Sin super.admin ni siquiera ve la opción.');
     }
 
-    public function test_la_opcion_del_menu_sale_solo_dentro_de_un_frente(): void
+    public function test_la_opcion_del_menu_se_ve_siempre_con_su_modal(): void
     {
         $admin = $this->superAdminGlobal();
         $frente = FrenteTrabajo::value('ID_FRENTE');
 
-        $dentro = (string) $this->actingAs($admin)->get('/admin/equipos?id_frente=' . $frente)->assertOk()->getContent();
-        $this->assertMatchesRegularExpression('/id="btnTipoFrente"[^>]*>/', $dentro);
-        $this->assertDoesNotMatchRegularExpression('/id="btnTipoFrente"[^>]*\s+hidden\s*>/', $dentro, 'Dentro de un frente se ve.');
-        $this->assertStringContainsString('id="tipoFrenteModal"', $dentro);
-        $this->assertStringContainsString('value="TRAMITE_VENTA"', $dentro);
-
-        $fuera = (string) $this->actingAs($admin)->get('/admin/equipos')->assertOk()->getContent();
-        $this->assertMatchesRegularExpression('/id="btnTipoFrente"[^>]*\s+hidden\s*>/', $fuera, 'Sin frente elegido queda oculta.');
+        foreach (['/admin/equipos', '/admin/equipos?id_frente=' . $frente] as $url) {
+            $html = (string) $this->actingAs($admin)->get($url)->assertOk()->getContent();
+            $this->assertMatchesRegularExpression('/id="btnTipoFrente"[^>]*>/', $html, "Se ve en $url.");
+            $this->assertDoesNotMatchRegularExpression('/id="btnTipoFrente"[^>]*\s+hidden\s*>/', $html);
+            $this->assertStringContainsString('id="tipoFrenteSelect"', $html, 'El modal trae su selector de frente.');
+            $this->assertStringContainsString('value="TRAMITE_VENTA"', $html);
+        }
     }
 
     public function test_un_tipo_que_no_existe_no_se_acepta(): void

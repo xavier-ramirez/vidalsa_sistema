@@ -750,12 +750,11 @@
                     <span style="font-size: 14px; font-weight: 500;">Configurar Anclajes</span>
                 </button>
 
-                {{-- Tipo de frente (OPERACION, RESGUARDO, ESPECIAL, VENDIDO, TRÁMITE DE VENTA) del frente
-                     en que se está: solo super.admin (como el módulo de Frentes) y solo dentro de un
-                     frente concreto. equipos_index.js lo muestra/oculta al cambiar el filtro. --}}
+                {{-- Tipo de frente (OPERACION, RESGUARDO, ESPECIAL, VENDIDO, TRÁMITE DE VENTA): solo
+                     super.admin, como el módulo de Frentes. SIEMPRE visible: el modal trae su propio
+                     selector de frente (preelegido el del filtro, si hay uno). --}}
                 @can('super.admin')
-                <button type="button" id="btnTipoFrente" onclick="window.eqAbrirTipoFrente()" class="dropdown-item-custom" style="align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left;"
-                    @unless(ctype_digit((string) request('id_frente'))) hidden @endunless>
+                <button type="button" id="btnTipoFrente" onclick="window.eqAbrirTipoFrente()" class="dropdown-item-custom" style="align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left;">
                     <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;">
                         <i class="material-icons" style="font-size: 18px; color: #ea580c;">sell</i>
                     </div>
@@ -1560,7 +1559,9 @@
             <button type="button" onclick="window.eqCerrarTipoFrente()" title="Cerrar"><i class="material-icons">close</i></button>
         </div>
         <div class="tipo-frente-cuerpo">
-            <p class="tipo-frente-nombre">Frente: <strong data-nombre></strong></p>
+            {{-- Las opciones las copia el JS del filtro de frentes al abrir (mismos frentes que el usuario ve). --}}
+            <label class="tipo-frente-nombre" for="tipoFrenteSelect">Frente</label>
+            <select id="tipoFrenteSelect" class="form-input-custom tipo-frente-select" onchange="window.eqCargarTipoFrente(this.value)"></select>
             <div class="tipo-frente-opciones">
                 @foreach(\App\Models\FrenteTrabajo::TIPOS as $valorTipo => $nombreTipo)
                     <label class="tipo-frente-opcion">

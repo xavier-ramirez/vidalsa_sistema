@@ -5494,7 +5494,6 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 
 /* ── Equipos → Acciones → "Tipo de frente" (botón del menú y su modal) ───────── */
 #btnTipoFrente { display: flex; }
-#btnTipoFrente[hidden] { display: none; }
 .tipo-frente-modal { width: 95%; max-width: 440px; padding: 0; background: #fff; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; max-height: 90vh; }
 .tipo-frente-cab { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 52px; background: #1e293b; color: #fff; }
 .tipo-frente-cab > .material-icons { color: #ea580c; font-size: 20px; }
@@ -5503,8 +5502,9 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .tipo-frente-cab button:hover { background: rgba(255, 255, 255, .2); }
 .tipo-frente-cab button .material-icons { font-size: 18px; }
 .tipo-frente-cuerpo { padding: 14px 18px; overflow-y: auto; }
-.tipo-frente-nombre { margin: 0 0 10px; font-size: 13px; color: #475569; }
-.tipo-frente-nombre strong { color: #1e293b; }
+.tipo-frente-nombre { display: block; margin: 0 0 4px; font-size: 12.5px; font-weight: 600; color: #475569; }
+.tipo-frente-select { width: 100%; height: 38px; padding: 0 10px; margin-bottom: 12px; font-size: 13.5px; text-transform: uppercase; }
+.tipo-frente-opcion:has(input:disabled) { opacity: .55; cursor: default; }
 .tipo-frente-opciones { display: flex; flex-direction: column; gap: 6px; }
 .tipo-frente-opcion { display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer; }
 .tipo-frente-opcion:hover { background: #f8fafc; }
