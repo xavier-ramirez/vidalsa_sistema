@@ -98,7 +98,7 @@ class FrentesVentaTest extends MySqlTestCase
     {
         $admin = $this->superAdminGlobal();
         $html = (string) $this->actingAs($admin)->get('/admin/frentes/create')->assertOk()->getContent();
-        $this->assertStringContainsString("selectOption('tipoSelect', 'VENDIDO', 'VENDIDO', 'tipo')", $html);
+        $this->assertStringContainsString("selectOption('tipoSelect', 'VENDIDO', 'ACTIVOS VENDIDOS', 'tipo')", $html);
         $this->assertStringContainsString("selectOption('tipoSelect', 'TRAMITE_VENTA', 'TRÁMITE DE VENTA', 'tipo')", $html);
 
         // Un frente en trámite muestra su tipo con el nombre en pantalla, no el código guardado.

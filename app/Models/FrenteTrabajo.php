@@ -32,7 +32,7 @@ class FrenteTrabajo extends Model
         'OPERACION'              => 'OPERACION',
         'RESGUARDO'              => 'RESGUARDO',
         'ESPECIAL'               => 'ESPECIAL',
-        self::TIPO_VENDIDO       => 'VENDIDO',
+        self::TIPO_VENDIDO       => 'ACTIVOS VENDIDOS',
         self::TIPO_TRAMITE_VENTA => 'TRÁMITE DE VENTA',
     ];
 
