@@ -36,6 +36,15 @@ class FrenteTrabajo extends Model
         self::TIPO_TRAMITE_VENTA => 'TRÁMITE DE VENTA',
     ];
 
+    /** Qué significa cada tipo (el modal "Tipo de frente" de Equipos lo muestra bajo cada opción). */
+    public const TIPOS_AYUDA = [
+        'OPERACION'              => 'Frente de trabajo. Sus equipos cuentan en la flota.',
+        'RESGUARDO'              => 'Patio o centro de resguardo. Sus equipos cuentan en la flota.',
+        'ESPECIAL'               => 'Asignaciones especiales. Fuera de los totales de la flota.',
+        self::TIPO_VENDIDO       => 'Activos ya vendidos. Fuera de los totales de la flota.',
+        self::TIPO_TRAMITE_VENTA => 'Activos en trámite de venta. Fuera de los totales de la flota.',
+    ];
+
     /**
      * Tipos de frente FUERA DE LA FLOTA: sus equipos no entran en los totales, las alertas
      * ni el listado general (solo se ven entrando al frente o buscándolos). ESPECIAL =

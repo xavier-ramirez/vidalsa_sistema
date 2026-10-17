@@ -1672,6 +1672,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 window.__distribUbiHtml = (showUbi && data.ubicaciones) ? data.ubicaciones : '';
                 _eqRenderDistribucion();
 
+                // "Tipo de frente" del menú Acciones: solo dentro de un frente concreto.
+                window.eqSyncBtnTipoFrente();
+
                 // Aviso de frente VENDIDO / EN TRÁMITE DE VENTA: solo dentro de un frente de esos.
                 const avisoVenta = document.getElementById('eqAvisoVenta');
                 if (avisoVenta) {
@@ -3698,3 +3701,86 @@ if (!window._equiposSpaReady) {
         initEquipos();
     }
 }
+
+// ── Acciones → "Tipo de frente" ─────────────────────────────────────────────
+// Cambia el tipo del frente en que se está (OPERACION, RESGUARDO, ESPECIAL, VENDIDO, TRÁMITE DE
+// VENTA). Solo super.admin: el botón y el modal solo existen para él y la ruta lo exige también.
+function _eqFrenteActual() {
+    const v = ((document.querySelector('input[name="id_frente"]') || {}).value || '').trim();
+    return /^\d+$/.test(v) ? v : null;   // 'all' / 'none' / vacío: no es un frente concreto
+}
+
+window.eqSyncBtnTipoFrente = function () {
+    const btn = document.getElementById('btnTipoFrente');
+    if (btn) btn.hidden = !_eqFrenteActual();
+};
+
+window.eqAbrirTipoFrente = function () {
+    const id = _eqFrenteActual();
+    const modal = document.getElementById('tipoFrenteModal');
+    if (!id || !modal) return;
+    const menu = document.getElementById('splitDropdownMenu');
+    if (menu) menu.style.display = 'none';
+
+    if (window.showPreloader) window.showPreloader();
+    window.apiFetch('/admin/frentes/' + id + '/edit?json=true', { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+        .then((f) => {
+            if (window.hidePreloader) window.hidePreloader();
+            modal.dataset.id = id;
+            modal.querySelector('[data-nombre]').textContent = f.NOMBRE_FRENTE || '';
+            modal.querySelectorAll('input[name="tipo_frente_modal"]').forEach((r) => { r.checked = r.value === f.TIPO_FRENTE; });
+            modal.classList.add('active');
+        })
+        .catch(() => {
+            if (window.hidePreloader) window.hidePreloader();
+            window.toast('No se pudo cargar el frente.', 'error');
+        });
+};
+
+window.eqCerrarTipoFrente = function () {
+    const modal = document.getElementById('tipoFrenteModal');
+    if (modal) modal.classList.remove('active');
+};
+
+window.eqGuardarTipoFrente = function () {
+    const modal = document.getElementById('tipoFrenteModal');
+    const elegido = modal && modal.querySelector('input[name="tipo_frente_modal"]:checked');
+    if (!elegido) { window.toast('Elige un tipo de frente.', 'error'); return; }
+    const id = modal.dataset.id;
+    const btn = document.getElementById('btnGuardarTipoFrente');
+    if (btn) btn.disabled = true;
+
+    window.apiFetch('/admin/frentes/' + id + '/tipo', {
+        method: 'PATCH',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ TIPO_FRENTE: elegido.value }),
+    })
+        .then((r) => r.json().catch(() => ({})).then((body) => ({ ok: r.ok, body })))
+        .then(({ ok, body }) => {
+            if (btn) btn.disabled = false;
+            if (!ok || !body.success) {
+                window.toast((body.errors && body.errors.TIPO_FRENTE && body.errors.TIPO_FRENTE[0]) || body.message || 'No se pudo cambiar el tipo.', 'error');
+                return;
+            }
+            window.eqCerrarTipoFrente();
+            window.toast(body.message, 'success');
+            // La etiqueta VENDIDO / EN TRÁMITE DE VENTA del filtro de frentes, sin recargar la página.
+            const item = document.querySelector('#frenteFilterSelect .dropdown-item[data-value="' + id + '"]');
+            if (item) {
+                item.querySelectorAll('.etiqueta-venta').forEach((e) => e.remove());
+                if (body.aviso) {
+                    const et = document.createElement('span');
+                    et.className = 'etiqueta-venta etiqueta-venta--' + body.aviso.clase;
+                    et.textContent = body.aviso.etiqueta;
+                    item.appendChild(et);
+                }
+            }
+            // Tabla, aviso del frente y totales con el tipo nuevo.
+            if (typeof window.loadEquipos === 'function') window.loadEquipos();
+        })
+        .catch(() => {
+            if (btn) btn.disabled = false;
+            window.toast('Error de red al cambiar el tipo.', 'error');
+        });
+};

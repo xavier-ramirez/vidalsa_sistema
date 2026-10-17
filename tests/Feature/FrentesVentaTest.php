@@ -107,6 +107,57 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertStringContainsString('<span id="label_tipo">TRÁMITE DE VENTA</span>', $edit);
     }
 
+    public function test_cambiar_el_tipo_desde_equipos(): void
+    {
+        [$frente] = $this->frenteConEquipo('OPERACION');
+        $admin = $this->superAdminGlobal();
+
+        $this->actingAs($admin)->patchJson(route('frentes.cambiarTipo', $frente->ID_FRENTE), ['TIPO_FRENTE' => FrenteTrabajo::TIPO_VENDIDO])
+            ->assertOk()->assertJson(['success' => true, 'tipo' => 'VENDIDO', 'aviso' => ['clase' => 'vendido', 'etiqueta' => 'VENDIDO']]);
+        $this->assertSame('VENDIDO', $frente->fresh()->TIPO_FRENTE);
+        $this->assertTrue(FrenteTrabajo::esFueraDeFlota($frente->ID_FRENTE), 'Sale de la flota al momento (caché invalidada).');
+
+        $this->actingAs($admin)->patchJson(route('frentes.cambiarTipo', $frente->ID_FRENTE), ['TIPO_FRENTE' => 'OPERACION'])
+            ->assertOk()->assertJson(['aviso' => null]);
+        $this->assertFalse(FrenteTrabajo::esFueraDeFlota($frente->ID_FRENTE), 'Y vuelve a la flota.');
+
+        $this->actingAs($admin)->patchJson(route('frentes.cambiarTipo', $frente->ID_FRENTE), ['TIPO_FRENTE' => 'NO_EXISTE'])
+            ->assertStatus(422)->assertJsonValidationErrors('TIPO_FRENTE');
+    }
+
+    public function test_cambiar_el_tipo_es_solo_para_super_admin(): void
+    {
+        $frente = FrenteTrabajo::whereNotIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)->firstOrFail();
+        $id = DB::table('usuarios')->insertGetId([
+            'NOMBRE_COMPLETO' => 'PRUEBA SIN SUPER', 'CORREO_ELECTRONICO' => 'prueba.sinsuper.' . Str::random(6) . '@local.test',
+            'PASSWORD_HASH' => bcrypt('x'), 'ID_ROL' => DB::table('roles')->value('ID_ROL'), 'NIVEL_ACCESO_EQUIPOS' => 1,
+            'NIVEL_ACCESO_ALMACEN' => 1, 'ESTATUS' => 'ACTIVO', 'REQUIERE_CAMBIO_CLAVE' => 0, 'PERMISOS' => 'equipos.edit',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $usuario = \App\Models\Usuario::find($id);
+
+        $this->actingAs($usuario)->patchJson(route('frentes.cambiarTipo', $frente->ID_FRENTE), ['TIPO_FRENTE' => 'VENDIDO'])->assertForbidden();
+        $this->assertNotSame('VENDIDO', $frente->fresh()->TIPO_FRENTE);
+        $this->assertStringNotContainsString('id="btnTipoFrente"',
+            (string) $this->actingAs($usuario)->get('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk()->getContent(),
+            'Sin super.admin ni siquiera ve la opción.');
+    }
+
+    public function test_la_opcion_del_menu_sale_solo_dentro_de_un_frente(): void
+    {
+        $admin = $this->superAdminGlobal();
+        $frente = FrenteTrabajo::value('ID_FRENTE');
+
+        $dentro = (string) $this->actingAs($admin)->get('/admin/equipos?id_frente=' . $frente)->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/id="btnTipoFrente"[^>]*>/', $dentro);
+        $this->assertDoesNotMatchRegularExpression('/id="btnTipoFrente"[^>]*\s+hidden\s*>/', $dentro, 'Dentro de un frente se ve.');
+        $this->assertStringContainsString('id="tipoFrenteModal"', $dentro);
+        $this->assertStringContainsString('value="TRAMITE_VENTA"', $dentro);
+
+        $fuera = (string) $this->actingAs($admin)->get('/admin/equipos')->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/id="btnTipoFrente"[^>]*\s+hidden\s*>/', $fuera, 'Sin frente elegido queda oculta.');
+    }
+
     public function test_un_tipo_que_no_existe_no_se_acepta(): void
     {
         $this->actingAs($this->superAdminGlobal())->postJson('/admin/frentes?json=true', [

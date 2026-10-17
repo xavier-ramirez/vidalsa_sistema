@@ -218,6 +218,32 @@ class FrenteTrabajoController extends Controller
     }
 
     /**
+     * Cambia SOLO el tipo de un frente (OPERACION, RESGUARDO, ESPECIAL, VENDIDO, TRÁMITE DE
+     * VENTA) desde Equipos → Acciones → "Tipo de frente", sin pasar por el formulario completo.
+     * Guardar el modelo invalida las cachés (FrenteTrabajo::booted), así que los totales de la
+     * flota y el listado sin conexión ven el cambio. Devuelve el aviso de venta para que la
+     * pantalla actualice la etiqueta del filtro de frentes sin recargar.
+     */
+    public function cambiarTipo(Request $request, string $id)
+    {
+        $data = $request->validate([
+            'TIPO_FRENTE' => ['required', \Illuminate\Validation\Rule::in(array_keys(FrenteTrabajo::TIPOS))],
+        ], [
+            'TIPO_FRENTE.in' => 'Ese tipo de frente no existe.',
+        ]);
+
+        $frente = FrenteTrabajo::findOrFail($id);
+        $frente->update(['TIPO_FRENTE' => $data['TIPO_FRENTE']]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "El frente \"{$frente->NOMBRE_FRENTE}\" ahora es " . FrenteTrabajo::TIPOS[$frente->TIPO_FRENTE] . '.',
+            'tipo'    => $frente->TIPO_FRENTE,
+            'aviso'   => $frente->avisoVenta(),
+        ]);
+    }
+
+    /**
      * Lista TODOS los frentes que no tienen NINGÚN equipo ni auxiliar asignado ni
      * stock de almacén (candidatos a eliminar: lo mismo que exige destroy()), SIN importar su estatus: incluye ACTIVOS y
      * FINALIZADOS. Lo consume el modal "Frentes sin equipos" del formulario, que

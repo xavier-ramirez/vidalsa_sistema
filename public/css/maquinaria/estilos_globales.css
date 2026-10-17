@@ -5491,3 +5491,26 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .aviso-venta--tramite > .material-icons, .aviso-venta--tramite strong { color: #c2410c; }
 .aviso-venta--vendido { background: #fef2f2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; color: #7f1d1d; }
 .aviso-venta--vendido > .material-icons, .aviso-venta--vendido strong { color: #b91c1c; }
+
+/* ── Equipos → Acciones → "Tipo de frente" (botón del menú y su modal) ───────── */
+#btnTipoFrente { display: flex; }
+#btnTipoFrente[hidden] { display: none; }
+.tipo-frente-modal { width: 95%; max-width: 440px; padding: 0; background: #fff; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; max-height: 90vh; }
+.tipo-frente-cab { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 52px; background: #1e293b; color: #fff; }
+.tipo-frente-cab > .material-icons { color: #ea580c; font-size: 20px; }
+.tipo-frente-cab h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.tipo-frente-cab button { position: absolute; right: 14px; width: 32px; height: 32px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, .1); color: #fff; cursor: pointer; }
+.tipo-frente-cab button:hover { background: rgba(255, 255, 255, .2); }
+.tipo-frente-cab button .material-icons { font-size: 18px; }
+.tipo-frente-cuerpo { padding: 14px 18px; overflow-y: auto; }
+.tipo-frente-nombre { margin: 0 0 10px; font-size: 13px; color: #475569; }
+.tipo-frente-nombre strong { color: #1e293b; }
+.tipo-frente-opciones { display: flex; flex-direction: column; gap: 6px; }
+.tipo-frente-opcion { display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer; }
+.tipo-frente-opcion:hover { background: #f8fafc; }
+.tipo-frente-opcion:has(input:checked) { border-color: var(--maquinaria-blue); background: #eff6ff; }
+.tipo-frente-opcion input { margin-top: 3px; accent-color: var(--maquinaria-blue); }
+.tipo-frente-opcion span { display: flex; flex-direction: column; gap: 2px; }
+.tipo-frente-opcion b { font-size: 13px; color: #1e293b; }
+.tipo-frente-opcion small { font-size: 11.5px; color: #64748b; }
+.tipo-frente-pie { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 18px; border-top: 1px solid #f1f5f9; }

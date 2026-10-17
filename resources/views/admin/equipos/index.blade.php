@@ -750,6 +750,19 @@
                     <span style="font-size: 14px; font-weight: 500;">Configurar Anclajes</span>
                 </button>
 
+                {{-- Tipo de frente (OPERACION, RESGUARDO, ESPECIAL, VENDIDO, TRÁMITE DE VENTA) del frente
+                     en que se está: solo super.admin (como el módulo de Frentes) y solo dentro de un
+                     frente concreto. equipos_index.js lo muestra/oculta al cambiar el filtro. --}}
+                @can('super.admin')
+                <button type="button" id="btnTipoFrente" onclick="window.eqAbrirTipoFrente()" class="dropdown-item-custom" style="align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left;"
+                    @unless(ctype_digit((string) request('id_frente'))) hidden @endunless>
+                    <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;">
+                        <i class="material-icons" style="font-size: 18px; color: #ea580c;">sell</i>
+                    </div>
+                    <span style="font-size: 14px; font-weight: 500;">Tipo de frente</span>
+                </button>
+                @endcan
+
                 {{-- Eliminar Seleccionados — SIEMPRE visible para todos los usuarios.
                      La validacion del permiso `user.delete` la hace el JS al click:
                      si el usuario NO tiene la clave literal (esta en PERMISOS_EXPLICITOS,
@@ -1536,6 +1549,37 @@
      CODIGO_PATIO y documentacion.PLACA.
      ═══════════════════════════════════════════════════════════ --}}
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_equipos_index_4.css') }}?v={{ @filemtime(public_path('css/vistas/admin_equipos_index_4.css')) }}">
+{{-- Modal "Tipo de frente" (Acciones): cambia el tipo del frente en que se está. Opciones y
+     su explicación desde FrenteTrabajo::TIPOS / TIPOS_AYUDA. Guarda en PATCH frentes/{id}/tipo. --}}
+@can('super.admin')
+<div id="tipoFrenteModal" class="modal-overlay" style="z-index: 2500;">
+    <div class="modal-content tipo-frente-modal">
+        <div class="tipo-frente-cab">
+            <i class="material-icons">sell</i>
+            <h3>Tipo de frente</h3>
+            <button type="button" onclick="window.eqCerrarTipoFrente()" title="Cerrar"><i class="material-icons">close</i></button>
+        </div>
+        <div class="tipo-frente-cuerpo">
+            <p class="tipo-frente-nombre">Frente: <strong data-nombre></strong></p>
+            <div class="tipo-frente-opciones">
+                @foreach(\App\Models\FrenteTrabajo::TIPOS as $valorTipo => $nombreTipo)
+                    <label class="tipo-frente-opcion">
+                        <input type="radio" name="tipo_frente_modal" value="{{ $valorTipo }}">
+                        <span><b>{{ $nombreTipo }}</b><small>{{ \App\Models\FrenteTrabajo::TIPOS_AYUDA[$valorTipo] ?? '' }}</small></span>
+                    </label>
+                @endforeach
+            </div>
+        </div>
+        <div class="tipo-frente-pie">
+            <button type="button" class="btn-primary-maquinaria btn-secondary btn-compacto" onclick="window.eqCerrarTipoFrente()">Cancelar</button>
+            <button type="button" id="btnGuardarTipoFrente" class="btn-primary-maquinaria btn-compacto" onclick="window.eqGuardarTipoFrente()">
+                <i class="material-icons">save</i> Guardar
+            </button>
+        </div>
+    </div>
+</div>
+@endcan
+
 <div id="bulkLookupModal" class="modal-overlay" style="z-index: 2500;">
     {{-- max-width arranca angosto (fase de pegado: solo dropdown + textarea). El JS
          lo ensancha a 860px al pasar a resultados, donde la tabla necesita el ancho. --}}
