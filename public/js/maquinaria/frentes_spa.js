@@ -20,13 +20,11 @@ document.addEventListener("submit", function (e) {
 //           BUSINESS LOGIC
 // ==========================================
 
-function populateFrenteForm(data) {
-    const form = document.getElementById("frenteForm");
-    if (!form) return;
-
-    form.action = `/admin/frentes/${data.ID_FRENTE}`;
-
-    // Add PUT method
+// Modo del formulario, en UN solo sitio: con un frente → "Edición" (PUT a /admin/frentes/{id},
+// "Guardar Cambios" y la papelera de ese frente); con null → "Registro" (POST, "Registrar",
+// sin papelera). Lo usan populateFrenteForm (al elegir un frente) y resetFrentesForm.
+function ponerModoFormulario(form, frente) {
+    form.action = frente ? `/admin/frentes/${frente.ID_FRENTE}` : "/admin/frentes";
     let methodField = form.querySelector('input[name="_method"]');
     if (!methodField) {
         methodField = document.createElement("input");
@@ -34,18 +32,29 @@ function populateFrenteForm(data) {
         methodField.name = "_method";
         form.appendChild(methodField);
     }
-    methodField.value = "PUT";
+    methodField.value = frente ? "PUT" : "POST";
+    document.getElementById("ID_FRENTE").value = frente ? frente.ID_FRENTE : "";
 
-    // Set Data
-    document.getElementById("ID_FRENTE").value = data.ID_FRENTE;
     const title = document.getElementById("formTitle");
-    if (title) title.innerText = "Edición de Frente de Trabajo";
-
+    if (title) title.innerText = frente ? "Edición de Frente de Trabajo" : "Registro de Frente de Trabajo";
     const btnText = document.getElementById("submitBtnText");
-    if (btnText) btnText.innerText = "Guardar Cambios";
-
+    if (btnText) btnText.innerText = frente ? "Guardar Cambios" : "Registrar";
     const btnIcon = document.getElementById("submitBtnIcon");
-    if (btnIcon) btnIcon.innerText = "save";
+    if (btnIcon) btnIcon.innerText = frente ? "save" : "add_circle";
+
+    // Papelera (junto al buscador): solo con un frente cargado, y apuntando a ESE frente.
+    const papelera = document.getElementById("btnEliminarFrente");
+    if (papelera) {
+        papelera.dataset.frenteId = frente ? frente.ID_FRENTE : "";
+        papelera.dataset.frenteNombre = frente ? (frente.NOMBRE_FRENTE || "") : "";
+        papelera.hidden = !frente;
+    }
+}
+
+function populateFrenteForm(data) {
+    const form = document.getElementById("frenteForm");
+    if (!form) return;
+    ponerModoFormulario(form, data);
 
     document.getElementById("NOMBRE_FRENTE").value = data.NOMBRE_FRENTE || "";
     document.getElementById("UBICACION").value = data.UBICACION || "";
@@ -81,14 +90,6 @@ function populateFrenteForm(data) {
         searchInput.value = data.NOMBRE_FRENTE;
         const clearIcon = document.getElementById("btn_clear_search_frente");
         if (clearIcon) clearIcon.style.display = "block";
-    }
-
-    // Mostrar boton Eliminar y actualizar dataset con el frente cargado
-    const btnEliminar = document.getElementById("btnEliminarFrente");
-    if (btnEliminar) {
-        btnEliminar.dataset.frenteId = data.ID_FRENTE;
-        btnEliminar.dataset.frenteNombre = data.NOMBRE_FRENTE || "";
-        btnEliminar.hidden = false;
     }
 }
 
@@ -246,28 +247,7 @@ window.resetFrentesForm = function () {
     const form = document.getElementById("frenteForm");
     if (form) {
         form.reset();
-        form.action = "/admin/frentes";
-
-        const methodField = form.querySelector('input[name="_method"]');
-        if (methodField) methodField.value = "POST";
-
-        document.getElementById("ID_FRENTE").value = "";
-        const title = document.getElementById("formTitle");
-        if (title) title.innerText = "Registro de Frente de Trabajo";
-
-        const btnText = document.getElementById("submitBtnText");
-        if (btnText) btnText.innerText = "Registrar";
-
-        const btnIcon = document.getElementById("submitBtnIcon");
-        if (btnIcon) btnIcon.innerText = "add_circle";
-
-        // Ocultar boton Eliminar al volver a modo "Registrar nuevo"
-        const btnEliminar = document.getElementById("btnEliminarFrente");
-        if (btnEliminar) {
-            btnEliminar.dataset.frenteId = "";
-            btnEliminar.dataset.frenteNombre = "";
-            btnEliminar.hidden = true;
-        }
+        ponerModoFormulario(form, null);
 
         // form.reset() devuelve cada campo a su valor RENDERIZADO, no a vacio: abierto
         // en /frentes/{id}/edit, deja escritos los datos de ESE frente. Cancelar pasaba
@@ -378,7 +358,7 @@ window.cancelarFrente = function () {
     else window.location.href = "/menu";
 };
 
-// Eliminar (botón del formulario y modal "Sin equipos"): UN solo flujo. Pide
+// Eliminar (papelera junto al buscador y modal "Sin equipos"): UN solo flujo. Pide
 // confirmación, borra por AJAX (borrado lógico) y, si sale bien, quita el frente del
 // buscador, vuelve el formulario a "Registrar" si era el que se editaba y refresca el
 // modal si está abierto. El servidor lo rechaza (422) si tiene equipos, auxiliares o

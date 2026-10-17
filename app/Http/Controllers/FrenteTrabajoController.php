@@ -22,14 +22,19 @@ class FrenteTrabajoController extends Controller
      */
     public function create()
     {
-        // Lista del buscador integrado (el formulario ES el modulo: se elige el frente
-        // aqui mismo). Solo id y nombre: el resto se pide al seleccionarlo.
+        return $this->vistaFormulario(new FrenteTrabajo());
+    }
+
+    /**
+     * La pantalla del módulo (registro y edición son la misma vista). Lista del buscador
+     * integrado: el formulario ES el módulo y el frente se elige aquí mismo; solo id y
+     * nombre, el resto se pide al seleccionarlo. Categorías: el "Filtro Firma" de cada responsable.
+     */
+    private function vistaFormulario(FrenteTrabajo $frente)
+    {
         $allFrentes = FrenteTrabajo::select('ID_FRENTE', 'NOMBRE_FRENTE')
             ->orderBy('NOMBRE_FRENTE')
             ->get();
-
-        // Create empty frente instance for the form
-        $frente = new FrenteTrabajo();
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
 
         return view('admin.frentes.formulario', compact('frente', 'allFrentes', 'categorias'));
@@ -102,14 +107,7 @@ class FrenteTrabajoController extends Controller
             return response()->json($frente);
         }
 
-        // Misma lista del buscador que en create(): la vista es la misma.
-        $allFrentes = FrenteTrabajo::select('ID_FRENTE', 'NOMBRE_FRENTE')
-            ->orderBy('NOMBRE_FRENTE')
-            ->get();
-
-        $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
-
-        return view('admin.frentes.formulario', compact('frente', 'allFrentes', 'categorias'));
+        return $this->vistaFormulario($frente);
     }
 
     /**
