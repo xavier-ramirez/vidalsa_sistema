@@ -2826,6 +2826,11 @@ body:has(.mobile-menu.active) .selection-floating-bar {
 .frentes-buscar { flex: 1 1 auto; min-width: 0; position: relative; }
 #btnSinEquipos { flex: 0 0 auto; height: 38px; padding: 0 14px; display: inline-flex; align-items: center; gap: 6px; }
 #btnSinEquipos .material-icons { font-size: 18px; }
+/* Papelera del frente cargado: cuadrada, del alto del buscador. [hidden] explícito porque el
+   display de .btn-primary-maquinaria le ganaba al atributo. */
+#btnEliminarFrente { flex: 0 0 auto; width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+#btnEliminarFrente[hidden] { display: none; }
+#btnEliminarFrente .material-icons { font-size: 20px; }
 
 /* Acordeón de responsables: clic en el encabezado abre/cierra el bloque. Arrancan
    abiertos solo los que traen datos (.cerrado gira el chevron). */
@@ -2845,9 +2850,6 @@ body:has(.mobile-menu.active) .selection-floating-bar {
 
 /* Botones: los tres con el tamaño de .btn-primary-maquinaria; Eliminar en rojo. */
 .frentes-btn-row { margin-top: 18px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; align-items: center; }
-.frentes-btn-row > button { height: 44px; }
-.frentes-btn-row > button[hidden] { display: none; }   /* Eliminar sin frente cargado: el display de .btn-primary-maquinaria le ganaba a hidden */
-.frentes-btn-row > button .material-icons { font-size: 20px; }
 .btn-eliminar-frente { background: #ef4444; border-color: #ef4444; }
 .btn-eliminar-frente:hover { background: #dc2626; border-color: #dc2626; }
 

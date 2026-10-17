@@ -66,6 +66,18 @@
                 <i class="material-icons" style="font-size: 18px;">domain_disabled</i>
                 <span>Sin equipos</span>
             </button>
+            {{-- Eliminar el frente cargado: solo el ícono de papelera, junto al buscador donde se
+                 eligió, y solo con un frente cargado (frentes_spa.js lo muestra/oculta). Borrado
+                 LÓGICO: sale de listas y selectores, el historial conserva su nombre; el servidor
+                 lo rechaza si tiene equipos, auxiliares o stock de almacén. --}}
+            <button type="button" id="btnEliminarFrente" class="btn-primary-maquinaria btn-eliminar-frente"
+                title="Eliminar este frente" aria-label="Eliminar este frente"
+                data-frente-id="{{ $frente->ID_FRENTE ?? '' }}"
+                data-frente-nombre="{{ $frente->NOMBRE_FRENTE ?? '' }}"
+                onclick="window.eliminarFrenteSPA(this.dataset.frenteId, this.dataset.frenteNombre)"
+                @unless(isset($frente) && $frente->exists) hidden @endunless>
+                <i class="material-icons">delete_outline</i>
+            </button>
         </div>
 
         <form
@@ -238,28 +250,16 @@
                 @endforeach
             </div>
 
-            {{-- Los tres botones con el MISMO tamaño (el de .btn-primary-maquinaria). Cancelar:
-                 editando un frente vuelve a "Registrar nuevo"; si no, sale al menú. Eliminar
-                 (solo con un frente cargado) es borrado LÓGICO: el frente sale de listas y
-                 selectores pero el historial conserva su nombre; el servidor lo rechaza si
-                 tiene equipos, auxiliares o stock de almacén. --}}
+            {{-- Cancelar y Registrar/Guardar, compactos como en el formulario de usuarios.
+                 Cancelar: editando un frente vuelve a "Registrar nuevo"; si no, sale al menú. --}}
             <div class="frentes-btn-row">
-                <button type="button" class="btn-primary-maquinaria btn-secondary" onclick="window.cancelarFrente()">
+                <button type="button" class="btn-primary-maquinaria btn-secondary btn-compacto" onclick="window.cancelarFrente()">
                     Cancelar
                 </button>
 
-                <button type="submit" class="btn-primary-maquinaria">
+                <button type="submit" class="btn-primary-maquinaria btn-compacto">
                     <i class="material-icons" id="submitBtnIcon">{{ (isset($frente) && $frente->exists) ? 'save' : 'add_circle' }}</i>
                     <span id="submitBtnText">{{ (isset($frente) && $frente->exists) ? 'Guardar Cambios' : 'Registrar' }}</span>
-                </button>
-
-                <button type="button" id="btnEliminarFrente" class="btn-primary-maquinaria btn-eliminar-frente"
-                    data-frente-id="{{ $frente->ID_FRENTE ?? '' }}"
-                    data-frente-nombre="{{ $frente->NOMBRE_FRENTE ?? '' }}"
-                    onclick="window.eliminarFrenteSPA(this.dataset.frenteId, this.dataset.frenteNombre)"
-                    @unless(isset($frente) && $frente->exists) hidden @endunless>
-                    <i class="material-icons">delete_outline</i>
-                    <span>Eliminar</span>
                 </button>
             </div>
         </form>
