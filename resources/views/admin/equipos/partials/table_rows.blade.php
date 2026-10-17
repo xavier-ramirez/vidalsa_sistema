@@ -35,7 +35,6 @@
             <div class="tooltip-wrapper eq-frente-nom">
                 <span class="eq-frente-linea">
                     {{ $equipo->frenteActual->NOMBRE_FRENTE ?? 'SIN ASIGNAR' }}
-                    @include('admin.frentes.partials.etiqueta_venta', ['frente' => $equipo->frenteActual])
                     <i class="material-icons confirm-sitio-chip{{ $cfd ? ' eq-cfd' : '' }}@can('equipos.edit') eq-click @endcan"
                        data-equipo-id="{{ $equipo->ID_EQUIPO }}"
                        data-confirmado="{{ $cfd }}"
@@ -81,6 +80,8 @@
                 @else
                     <span class="material-icons">image_not_supported</span>
                 @endif
+                {{-- VENDIDO / EN TRÁMITE DE VENTA montada sobre la foto (esquina de arriba). --}}
+                @include('admin.frentes.partials.etiqueta_venta', ['frente' => $equipo->frenteActual])
             </div>
         </td>
 

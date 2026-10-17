@@ -5468,6 +5468,13 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 }
 .etiqueta-venta--tramite { background: #fff1e6; border: 1px solid #fdba74; color: #c2410c; }
 .etiqueta-venta--vendido { background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; }
+/* Sobre la foto del equipo (tabla de Equipos): en la esquina de arriba y en color sólido, que se
+   lea encima de cualquier foto. */
+/* .placeholder: el cuadro SIN foto agranda sus <span> a 24px (es para el ícono); la etiqueta no. */
+.table-image-wrapper .etiqueta-venta,
+.table-image-wrapper.placeholder .etiqueta-venta { position: absolute; top: 6px; left: 6px; margin: 0; z-index: 1; font-size: 10px; line-height: 1.5; color: #fff; border: none; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
+.table-image-wrapper .etiqueta-venta--tramite { background: #ea580c; }
+.table-image-wrapper .etiqueta-venta--vendido { background: #dc2626; }
 
 .aviso-venta {
     display: flex;
@@ -5485,6 +5492,9 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .aviso-venta > div { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .aviso-venta strong { margin-right: 6px; }
 @media (max-width: 768px) {
+    /* En el teléfono solo lo de negritas ("Frente de activos vendidos: NOMBRE"); la explicación
+       larga queda en el title del aviso. */
+    .aviso-venta [data-texto] { display: none; }
     .aviso-venta > div { white-space: normal; }
 }
 .aviso-venta--tramite { background: #fff7ed; border: 1px solid #fdba74; border-left: 5px solid #ea580c; color: #7c2d12; }
