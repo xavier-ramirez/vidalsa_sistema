@@ -860,7 +860,8 @@
     @php $venta = ($frenteFueraDeFlota ?? null)?->avisoVenta(); @endphp
     <div id="eqAvisoVenta" class="aviso-venta aviso-venta--{{ $venta['clase'] ?? 'tramite' }}" role="status" @unless($venta) hidden @endunless>
         <i class="material-icons">sell</i>
-        <div>
+        {{-- title: el aviso va en UNA línea; si se corta con «…», al pasar el ratón se lee entero. --}}
+        <div data-completo title="{{ $venta ? $venta['titulo'] . ': ' . $frenteFueraDeFlota->NOMBRE_FRENTE . '. ' . $venta['texto'] : '' }}">
             <strong><span data-titulo>{{ $venta['titulo'] ?? '' }}</span>: <span data-nombre>{{ $frenteFueraDeFlota->NOMBRE_FRENTE ?? '' }}</span></strong>
             <span data-texto>{{ $venta['texto'] ?? '' }}</span>
         </div>

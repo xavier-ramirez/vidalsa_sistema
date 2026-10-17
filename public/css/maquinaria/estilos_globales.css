@@ -5471,17 +5471,22 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 
 .aviso-venta {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
     margin: 4px 0 8px;
     padding: 10px 14px;
     border-radius: 12px;
-    font-size: 13px;
+    font-size: 12.5px;
     line-height: 1.4;
 }
 .aviso-venta[hidden] { display: none; }
 .aviso-venta > .material-icons { font-size: 22px; }
-.aviso-venta strong { display: block; }
+/* Título y texto en UNA línea (lo que no quepa se corta con «…»); en el teléfono, en varias. */
+.aviso-venta > div { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aviso-venta strong { margin-right: 6px; }
+@media (max-width: 768px) {
+    .aviso-venta > div { white-space: normal; }
+}
 .aviso-venta--tramite { background: #fff7ed; border: 1px solid #fdba74; border-left: 5px solid #ea580c; color: #7c2d12; }
 .aviso-venta--tramite > .material-icons, .aviso-venta--tramite strong { color: #c2410c; }
 .aviso-venta--vendido { background: #fef2f2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; color: #7f1d1d; }

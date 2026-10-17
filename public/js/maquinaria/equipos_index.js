@@ -1682,6 +1682,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                         avisoVenta.querySelector('[data-titulo]').textContent = v.titulo;
                         avisoVenta.querySelector('[data-nombre]').textContent = v.nombre;
                         avisoVenta.querySelector('[data-texto]').textContent = v.texto;
+                        avisoVenta.querySelector('[data-completo]').title = v.titulo + ': ' + v.nombre + '. ' + v.texto;
                     }
                 }
 
