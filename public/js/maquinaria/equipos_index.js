@@ -3702,7 +3702,7 @@ if (!window._equiposSpaReady) {
 // ── Acciones → "Tipo de frente" ─────────────────────────────────────────────
 // Cambia el tipo de un frente (OPERACION, RESGUARDO, ESPECIAL, VENDIDO, TRÁMITE DE VENTA). Solo
 // super.admin: el botón y el modal solo existen para él y la ruta lo exige también. El frente se
-// elige en el propio modal; viene preelegido el del filtro si se está dentro de uno.
+// busca y elige en el propio modal (viene preelegido el del filtro si se está dentro de uno).
 function _eqFrenteActual() {
     const v = ((document.querySelector('input[name="id_frente"]') || {}).value || '').trim();
     return /^\d+$/.test(v) ? v : null;   // 'all' / 'none' / vacío: no es un frente concreto
@@ -3710,37 +3710,32 @@ function _eqFrenteActual() {
 
 window.eqAbrirTipoFrente = function () {
     const modal = document.getElementById('tipoFrenteModal');
-    const sel = document.getElementById('tipoFrenteSelect');
-    if (!modal || !sel) return;
+    if (!modal) return;
     const menu = document.getElementById('splitDropdownMenu');
     if (menu) menu.style.display = 'none';
 
-    // Los frentes, del filtro de frentes (los mismos que este usuario ve); el nombre sin la etiqueta.
-    sel.innerHTML = '<option value="">Elige un frente...</option>';
-    document.querySelectorAll('#frenteFilterSelect .dropdown-item[data-value]').forEach((it) => {
-        if (!/^\d+$/.test(it.dataset.value)) return;
-        const op = document.createElement('option');
-        op.value = it.dataset.value;
-        op.textContent = (it.firstChild && it.firstChild.textContent || it.textContent).trim();
-        sel.appendChild(op);
-    });
+    // Preelegido el frente del filtro (si se está dentro de uno); si no, a buscarlo.
     const actual = _eqFrenteActual();
-    sel.value = actual && sel.querySelector('option[value="' + actual + '"]') ? actual : '';
-    window.eqCargarTipoFrente(sel.value);
+    const item = actual && modal.querySelector('#tipoFrenteFrente .dropdown-item[data-value="' + actual + '"]');
+    if (item) window.eqElegirFrenteTipo(actual, item.textContent.trim());
+    else {
+        window.selectOption('tipoFrenteFrente', '', 'Buscar frente...');
+        window.eqElegirFrenteTipo('', '');
+    }
     modal.classList.add('active');
 };
 
-// Marca el tipo que tiene hoy el frente elegido (o ninguno si no hay frente elegido).
-window.eqCargarTipoFrente = function (id) {
-    const modal = document.getElementById('tipoFrenteModal');
-    const radios = modal.querySelectorAll('input[name="tipo_frente_modal"]');
-    radios.forEach((r) => { r.checked = false; r.disabled = !id; });
+// Elige el frente del modal y trae su tipo actual (el desplegable de tipo queda en él).
+window.eqElegirFrenteTipo = function (id, nombre) {
+    if (id) window.selectOption('tipoFrenteFrente', id, nombre);
+    window.selectOption('tipoFrenteTipo', '', id ? 'Cargando...' : 'Elige primero un frente');
     if (!id) return;
     window.apiFetch('/admin/frentes/' + id + '/edit?json=true', { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
         .then((f) => {
-            if (document.getElementById('tipoFrenteSelect').value !== String(id)) return; // eligieron otro mientras tanto
-            radios.forEach((r) => { r.checked = r.value === f.TIPO_FRENTE; });
+            if (document.getElementById('tipoFrenteFrenteValor').value !== String(id)) return; // eligieron otro mientras tanto
+            const op = document.querySelector('#tipoFrenteTipo .dropdown-item[data-value="' + f.TIPO_FRENTE + '"] b');
+            window.selectOption('tipoFrenteTipo', f.TIPO_FRENTE, op ? op.textContent : f.TIPO_FRENTE);
         })
         .catch(() => window.toast('No se pudo cargar el frente.', 'error'));
 };
@@ -3751,18 +3746,17 @@ window.eqCerrarTipoFrente = function () {
 };
 
 window.eqGuardarTipoFrente = function () {
-    const modal = document.getElementById('tipoFrenteModal');
-    const id = (document.getElementById('tipoFrenteSelect') || {}).value;
+    const id = (document.getElementById('tipoFrenteFrenteValor') || {}).value;
+    const tipo = (document.getElementById('tipoFrenteTipoValor') || {}).value;
     if (!id) { window.toast('Elige un frente.', 'error'); return; }
-    const elegido = modal && modal.querySelector('input[name="tipo_frente_modal"]:checked');
-    if (!elegido) { window.toast('Elige un tipo de frente.', 'error'); return; }
+    if (!tipo) { window.toast('Elige un tipo de frente.', 'error'); return; }
     const btn = document.getElementById('btnGuardarTipoFrente');
     if (btn) btn.disabled = true;
 
     window.apiFetch('/admin/frentes/' + id + '/tipo', {
         method: 'PATCH',
         headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ TIPO_FRENTE: elegido.value }),
+        body: JSON.stringify({ TIPO_FRENTE: tipo }),
     })
         .then((r) => r.json().catch(() => ({})).then((body) => ({ ok: r.ok, body })))
         .then(({ ok, body }) => {

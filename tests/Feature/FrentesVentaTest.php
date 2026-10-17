@@ -153,8 +153,8 @@ class FrentesVentaTest extends MySqlTestCase
             $html = (string) $this->actingAs($admin)->get($url)->assertOk()->getContent();
             $this->assertMatchesRegularExpression('/id="btnTipoFrente"[^>]*>/', $html, "Se ve en $url.");
             $this->assertDoesNotMatchRegularExpression('/id="btnTipoFrente"[^>]*\s+hidden\s*>/', $html);
-            $this->assertStringContainsString('id="tipoFrenteSelect"', $html, 'El modal trae su selector de frente.');
-            $this->assertStringContainsString('value="TRAMITE_VENTA"', $html);
+            $this->assertStringContainsString('id="tipoFrenteFrente"', $html, 'El modal trae su buscador de frente.');
+            $this->assertStringContainsString('data-value="TRAMITE_VENTA"', $html);
         }
     }
 

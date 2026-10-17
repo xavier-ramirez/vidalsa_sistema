@@ -755,8 +755,8 @@
                      selector de frente (preelegido el del filtro, si hay uno). --}}
                 @can('super.admin')
                 <button type="button" id="btnTipoFrente" onclick="window.eqAbrirTipoFrente()" class="dropdown-item-custom" style="align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left;">
-                    <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;">
-                        <i class="material-icons" style="font-size: 18px; color: #ea580c;">sell</i>
+                    <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
+                        <i class="material-icons" style="font-size: 18px; color: #0284c7;">sell</i>
                     </div>
                     <span style="font-size: 14px; font-weight: 500;">Tipo de frente</span>
                 </button>
@@ -1559,16 +1559,42 @@
             <button type="button" onclick="window.eqCerrarTipoFrente()" title="Cerrar"><i class="material-icons">close</i></button>
         </div>
         <div class="tipo-frente-cuerpo">
-            {{-- Las opciones las copia el JS del filtro de frentes al abrir (mismos frentes que el usuario ve). --}}
-            <label class="tipo-frente-nombre" for="tipoFrenteSelect">Frente</label>
-            <select id="tipoFrenteSelect" class="form-input-custom tipo-frente-select" onchange="window.eqCargarTipoFrente(this.value)"></select>
-            <div class="tipo-frente-opciones">
-                @foreach(\App\Models\FrenteTrabajo::TIPOS as $valorTipo => $nombreTipo)
-                    <label class="tipo-frente-opcion">
-                        <input type="radio" name="tipo_frente_modal" value="{{ $valorTipo }}">
-                        <span><b>{{ $nombreTipo }}</b><small>{{ \App\Models\FrenteTrabajo::TIPOS_AYUDA[$valorTipo] ?? '' }}</small></span>
-                    </label>
-                @endforeach
+            {{-- Frente: desplegable con buscador (los mismos frentes del filtro de frentes, que ya
+                 vienen recortados a lo que el usuario puede ver). Elegir uno carga su tipo actual. --}}
+            <span class="tipo-frente-label">Frente</span>
+            <div class="custom-dropdown" id="tipoFrenteFrente" data-default-label="Buscar frente...">
+                <input type="hidden" id="tipoFrenteFrenteValor" data-filter-value value="">
+                <div class="dropdown-trigger">
+                    <i class="material-icons tipo-frente-lupa">search</i>
+                    <input type="text" data-filter-search placeholder="Buscar frente..." autocomplete="off"
+                           oninput="window.filterDropdownOptions(this)" onfocus="toggleDropdown('tipoFrenteFrente', event)">
+                </div>
+                <div class="dropdown-content">
+                    <div class="dropdown-item-list">
+                        @foreach($frentesDropdown as $frente)
+                            <div class="dropdown-item" data-value="{{ $frente->ID_FRENTE }}"
+                                 onclick="window.eqElegirFrenteTipo('{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}')">{{ $frente->NOMBRE_FRENTE }}</div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+
+            {{-- Tipo: desplegable con los tipos (FrenteTrabajo::TIPOS) y lo que significa cada uno. --}}
+            <span class="tipo-frente-label">Tipo de frente</span>
+            <div class="custom-dropdown" id="tipoFrenteTipo" data-default-label="Elige primero un frente">
+                <input type="hidden" id="tipoFrenteTipoValor" data-filter-value value="">
+                <div class="dropdown-trigger" onclick="toggleDropdown('tipoFrenteTipo', event)">
+                    <span data-filter-label>Elige primero un frente</span>
+                    <i class="material-icons">expand_more</i>
+                </div>
+                <div class="dropdown-content">
+                    @foreach(\App\Models\FrenteTrabajo::TIPOS as $valorTipo => $nombreTipo)
+                        <div class="dropdown-item tipo-frente-item" data-value="{{ $valorTipo }}"
+                             onclick="selectOption('tipoFrenteTipo', '{{ $valorTipo }}', '{{ $nombreTipo }}')">
+                            <b>{{ $nombreTipo }}</b><small>{{ \App\Models\FrenteTrabajo::TIPOS_AYUDA[$valorTipo] ?? '' }}</small>
+                        </div>
+                    @endforeach
+                </div>
             </div>
         </div>
         <div class="tipo-frente-pie">
