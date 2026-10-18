@@ -5529,7 +5529,7 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 #btnTipoFrente { display: flex; }
 .tipo-frente-modal { width: 95%; max-width: 440px; padding: 0; background: #fff; border-radius: 12px; display: flex; flex-direction: column; max-height: 90vh; overflow: visible; }
 .tipo-frente-cab { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 52px; background: #1e293b; color: #fff; border-radius: 12px 12px 0 0; }
-.tipo-frente-cab > .material-icons { color: #38bdf8; font-size: 20px; }
+.tipo-frente-cab > .material-icons { color: #2dd4bf; font-size: 20px; }
 .tipo-frente-cab h3 { margin: 0; font-size: 16px; font-weight: 700; }
 .tipo-frente-cab button { position: absolute; right: 14px; width: 32px; height: 32px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, .1); color: #fff; cursor: pointer; }
 .tipo-frente-cab button:hover { background: rgba(255, 255, 255, .2); }

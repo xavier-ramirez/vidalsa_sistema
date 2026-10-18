@@ -755,8 +755,8 @@
                      selector de frente (preelegido el del filtro, si hay uno). --}}
                 @can('super.admin')
                 <button type="button" id="btnTipoFrente" onclick="window.eqAbrirTipoFrente()" class="dropdown-item-custom" style="align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left;">
-                    <div style="background: #e0f2fe; padding: 6px; border-radius: 6px; display: flex;">
-                        <i class="material-icons" style="font-size: 18px; color: #0284c7;">sell</i>
+                    <div style="background: #ccfbf1; padding: 6px; border-radius: 6px; display: flex;">
+                        <i class="material-icons" style="font-size: 18px; color: #0d9488;">sell</i>
                     </div>
                     <span style="font-size: 14px; font-weight: 500;">Tipo de frente</span>
                 </button>
