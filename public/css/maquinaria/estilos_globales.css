@@ -4990,17 +4990,27 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 /* Cada equipo, un bloque aparte: una raya fina entre uno y otro y más aire arriba y abajo
    (pedido del cliente, 07-10-2026: en la lista no se distinguía dónde terminaba un equipo y
    empezaba el siguiente). Sin esquinas redondeadas: con la raya, el fondo del hover redondeado
-   se despegaba de ella. */
-.mapa-eqp-eq { display: flex; align-items: center; gap: 8px; padding: 9px 8px; cursor: pointer; }
+   se despegaba de ella.
+   Rejilla de dos renglones: arriba el tipo/marca/modelo y, a su derecha, el estado; abajo la placa
+   y el chasis con TODO el ancho de la fila. Antes el estado ocupaba una columna a lo alto de la
+   fila y le robaba ancho también al renglón de abajo: con un estado largo ("Sin conexión…") el
+   chasis ya no cabía al lado de la placa y bajaba, y con uno corto sí cabía — por eso unas filas
+   salían bien y otras no. .mapa-eqp-eq-txt es display: contents para que su <b> y su <small>
+   caigan directo en la rejilla. */
+.mapa-eqp-eq {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; row-gap: 1px;
+    align-items: baseline; padding: 9px 8px; cursor: pointer;
+}
 .mapa-eqp-eq + .mapa-eqp-eq { border-top: 1px solid #e2e8f0; }
 .mapa-eqp-eq:hover { background: #f0f4f8; }
-.mapa-eqp-eq-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mapa-eqp-eq-txt { display: contents; }
 /* Primer renglón: el TIPO y, al lado, la marca y el modelo. Cuando no caben, el que no cabe BAJA
    entero al renglón de abajo (flex-wrap) en vez de cortarse con "…": cortados, el tipo y el modelo
    no se leían. Solo un dato que no cabe ni solo se corta.
    Va en NEGRO (pedido del cliente): sobre el panel claro el gris de antes se leía flojo. El verde
    de "En línea" se queda, que ahí el color ES el dato. */
 .mapa-eqp-eq-txt b {
+    grid-column: 1; grid-row: 1;
     display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; min-width: 0;
     white-space: nowrap;
     color: #000;   /* letra y tamaño: los pone cada trozo (.mapa-eqp-tipo / .mapa-eqp-marca / .mapa-eqp-modelo) */
@@ -5017,11 +5027,12 @@ body:has(.mapa-page) { --mapa-col: 380px; }
    corta con "…" (entero queda en el title). El text-overflow va en el span y no en el small:
    siendo un contenedor flex, el small no tiene texto propio que recortar. */
 .mapa-eqp-eq-txt small {
+    grid-column: 1 / -1; grid-row: 2; min-width: 0;
     display: flex; flex-wrap: wrap; column-gap: 8px; white-space: nowrap;
     font-size: 11px; color: #000;
 }
 .mapa-eqp-dato { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.mapa-eqp-estado { flex: none; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 700; color: #000; }
+.mapa-eqp-estado { grid-column: 2; grid-row: 1; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 700; color: #000; }
 .mapa-eqp-estado.en-linea { color: #15803d; }
 /* Sin posicion: se marca con el cursor y un punto de transparencia, pero NO tanta como para
    deshacer el negro de arriba (estaba en 0.6 y esas filas volvian a leerse grises). */
