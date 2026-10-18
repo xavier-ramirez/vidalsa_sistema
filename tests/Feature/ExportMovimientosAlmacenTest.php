@@ -68,9 +68,7 @@ class ExportMovimientosAlmacenTest extends MySqlTestCase
         ];
     }
 
-    /**
-     * @dataProvider filtrosDeLaPantalla
-     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('filtrosDeLaPantalla')]
     public function test_acepta_los_mismos_filtros_de_la_pantalla(array $filtros): void
     {
         $resp = $this->actingAs($this->usuarioAdmin())->get(self::RUTA . '?' . http_build_query($filtros));

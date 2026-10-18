@@ -56,7 +56,7 @@ class ConsumoDashboardExportTest extends MySqlTestCase
         $this->assertSame('PK', $this->firmaDelArchivo($resp));
     }
 
-    /** @dataProvider filtrosDelModal */
+    #[\PHPUnit\Framework\Attributes\DataProvider('filtrosDelModal')]
     public function test_acepta_los_mismos_filtros_del_modal(array $filtros): void
     {
         $resp = $this->actingAs($this->usuarioConAlmacen())

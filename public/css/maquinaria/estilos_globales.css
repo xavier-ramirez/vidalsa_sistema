@@ -5464,33 +5464,30 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 }
 
 /* ── Frentes VENDIDO / TRÁMITE DE VENTA ─────────────────────────────────────────
-   Etiqueta junto al nombre del frente (filtro de Equipos) y sobre la foto del equipo; aviso
-   arriba de la tabla al entrar al frente. SIN contenedor: letra blanca con borde del color
-   (rojo vendido, naranja trámite). paint-order pone el borde detrás de la letra, así la letra
-   no adelgaza y se lee sobre fondo blanco o sobre cualquier foto. En la lista va inline y SIN
-   nowrap: sigue al nombre como texto y, si no cabe ("EN TRÁMITE DE VENTA" es largo), baja de
-   renglón en vez de salirse del desplegable y sacarle barra de lado. */
-.etiqueta-venta {
-    display: inline;
-    margin-left: 4px;
-    font-size: 11px;
-    font-weight: 900;
-    letter-spacing: .05em;
-    color: #fff;
-    -webkit-text-stroke: 2px var(--borde-venta);   /* en la lista; sobre la foto lo pone su regla */
-    paint-order: stroke fill;
-}
-.etiqueta-venta--tramite { --borde-venta: #ea580c; }
-.etiqueta-venta--vendido { --borde-venta: #dc2626; }
-/* Sobre la foto (tabla de Equipos): en el MEDIO de la foto y más grande. .placeholder: el cuadro
-   SIN foto agranda sus <span> a 24px (es para el ícono); la etiqueta no. El tamaño va con
-   !important porque admin_equipos_index.css fuerza TODO <span> de la tabla a 11.5px con !important. */
+   Estado junto al nombre del frente (filtro de Equipos), sobre la foto del equipo y aviso arriba
+   de la tabla al entrar al frente. Rojo = vendido, amarillo = en trámite (--color-venta).
+   En la lista va con la MISMA letra que el nombre del frente (hereda tamaño y grosor), solo que
+   en su color. */
+.etiqueta-venta { font: inherit; color: var(--color-venta); }
+.etiqueta-venta--tramite { --color-venta: #ca8a04; }
+.etiqueta-venta--vendido { --color-venta: #dc2626; }
+/* Filtro de frentes: cada nombre COMPLETO en una sola línea. La lista se ensancha hasta el más
+   largo (max-content, sin pasarse de la pantalla) y el estado va al lado; si en el teléfono no
+   cabe, baja al renglón de abajo (flex-wrap) en vez de partir el nombre. */
+#frenteFilterSelect .dropdown-content { right: auto; min-width: 100%; width: max-content; max-width: calc(100vw - 32px); }
+#frenteFilterSelect .dropdown-item { white-space: nowrap; }
+#frenteFilterSelect .dropdown-item:has(.etiqueta-venta) { flex-wrap: wrap; column-gap: 8px; row-gap: 0; height: auto; min-height: 35px; }
+/* Sobre la foto (tabla de Equipos): en el MEDIO de la foto, letra blanca con borde del color;
+   paint-order pone el borde detrás de la letra, así no adelgaza y se lee sobre cualquier foto.
+   .placeholder: el cuadro SIN foto agranda sus <span> a 24px (es para el ícono); la etiqueta no.
+   El tamaño va con !important porque admin_equipos_index.css fuerza TODO <span> de la tabla a
+   11.5px con !important. */
 .table-image-wrapper .etiqueta-venta,
 .table-image-wrapper.placeholder .etiqueta-venta {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1;
     width: 92%; margin: 0; text-align: center;
-    font-size: 17px !important; line-height: 1.1; letter-spacing: .06em;
-    -webkit-text-stroke-width: 3px;
+    font-size: 17px !important; font-weight: 900; line-height: 1.1; letter-spacing: .06em; color: #fff;
+    -webkit-text-stroke: 3px var(--color-venta); paint-order: stroke fill;
 }
 .table-image-wrapper .etiqueta-venta--tramite { font-size: 13px !important; }
 @media (max-width: 768px) {
@@ -5520,8 +5517,8 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     .aviso-venta [data-texto] { display: none; }
     .aviso-venta > div { white-space: normal; }
 }
-.aviso-venta--tramite { background: #fff7ed; border: 1px solid #fdba74; border-left: 5px solid #ea580c; color: #7c2d12; }
-.aviso-venta--tramite > .material-icons, .aviso-venta--tramite strong { color: #c2410c; }
+.aviso-venta--tramite { background: #fefce8; border: 1px solid #fde047; border-left: 5px solid #eab308; color: #713f12; }
+.aviso-venta--tramite > .material-icons, .aviso-venta--tramite strong { color: #a16207; }
 .aviso-venta--vendido { background: #fef2f2; border: 1px solid #fca5a5; border-left: 5px solid #dc2626; color: #7f1d1d; }
 .aviso-venta--vendido > .material-icons, .aviso-venta--vendido strong { color: #b91c1c; }
 

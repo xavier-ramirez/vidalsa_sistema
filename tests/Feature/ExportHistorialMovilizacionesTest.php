@@ -63,9 +63,7 @@ class ExportHistorialMovilizacionesTest extends MySqlTestCase
         ];
     }
 
-    /**
-     * @dataProvider filtrosDeLaPantalla
-     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('filtrosDeLaPantalla')]
     public function test_acepta_los_mismos_filtros_de_la_pantalla(array $filtros): void
     {
         $resp = $this->actingAs($this->usuarioAdmin())
@@ -101,9 +99,7 @@ class ExportHistorialMovilizacionesTest extends MySqlTestCase
         ];
     }
 
-    /**
-     * @dataProvider identificadores
-     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('identificadores')]
     public function test_el_serial_es_el_primero_que_exista($chasis, $placa, $motor, $esperado): void
     {
         $equipo = new \App\Models\Equipo();

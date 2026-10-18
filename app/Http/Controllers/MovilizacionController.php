@@ -607,9 +607,9 @@ class MovilizacionController extends Controller
      */
     public function generarActaTraslado(Request $request, $id)
     {
-        // PDFs grandes (muchos equipos) pueden tardar mÃ¡s del default de 30s
+        // PDFs grandes (muchos equipos) pueden tardar más del default de 30s
         @set_time_limit(300);
-        @ini_set('memory_limit', '512M');
+        \App\Support\Memoria::alMenos('512M');
 
         try {
             $baseMov = Movilizacion::findOrFail($id);
@@ -943,7 +943,7 @@ class MovilizacionController extends Controller
     public function previewActaLote(Request $request)
     {
         @set_time_limit(120);
-        @ini_set('memory_limit', '512M');
+        \App\Support\Memoria::alMenos('512M');
 
         $data = $request->validate([
             'ids'                   => 'required|array|min:1',

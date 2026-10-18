@@ -61,7 +61,7 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/id="eqAvisoVenta" class="aviso-venta aviso-venta--vendido" role="status"\s*>/', $html, 'Aviso visible, en rojo.');
     }
 
-    public function test_al_entrar_a_un_frente_en_tramite_se_ve_el_aviso_naranja_y_la_etiqueta(): void
+    public function test_al_entrar_a_un_frente_en_tramite_se_ve_el_aviso_amarillo_y_la_etiqueta(): void
     {
         [$frente] = $this->frenteConEquipo(FrenteTrabajo::TIPO_TRAMITE_VENTA);
         $admin = $this->superAdminGlobal();

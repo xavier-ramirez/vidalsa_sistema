@@ -74,9 +74,7 @@ class FirmasActaTrasladoTest extends MySqlTestCase
         ];
     }
 
-    /**
-     * @dataProvider cantidades
-     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('cantidades')]
     public function test_el_acta_pinta_todas_las_firmas(int $cuantos): void
     {
         $frente = $this->frenteCon($cuantos);

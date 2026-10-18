@@ -63,9 +63,8 @@ class CombustibleEquipoTest extends MySqlTestCase
      * form unificado (equipo + auxiliar) con sus campos escritos aparte. Solo `edit`
      * usa el partial. Agregar el campo en el partial dejaba el registro sin combustible,
      * y esta prueba es la que lo destapo.
-     *
-     * @dataProvider formulariosDeEquipo
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('formulariosDeEquipo')]
     public function test_ambos_formularios_ofrecen_el_desplegable(string $ruta): void
     {
         $editor = $this->editor();

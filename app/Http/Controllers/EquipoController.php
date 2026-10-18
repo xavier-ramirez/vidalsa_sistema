@@ -1645,7 +1645,7 @@ class EquipoController extends Controller
     public function store(Request $request)
     {
         set_time_limit(600);
-        ini_set('memory_limit', '512M');
+        \App\Support\Memoria::alMenos('512M');
 
         // Normalize inputs to uppercase before validation to avoid case-sensitivity issues with unique constraints
         $request->merge([
@@ -2716,7 +2716,7 @@ class EquipoController extends Controller
             return response()->json(['success' => false, 'message' => 'No tiene permiso para realizar esta acción.'], 403);
         }
         set_time_limit(600);
-        ini_set('memory_limit', '512M');
+        \App\Support\Memoria::alMenos('512M');
         $request->validate([
             'file' => 'required|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
             'doc_type' => 'required|in:' . implode(',', array_keys(self::DOC_COLUMNAS)),
@@ -2946,7 +2946,7 @@ class EquipoController extends Controller
             return response()->json(['success' => false, 'message' => 'No tiene permiso para realizar esta acción.'], 403);
         }
         set_time_limit(600);
-        ini_set('memory_limit', '512M');
+        \App\Support\Memoria::alMenos('512M');
 
         // Mismas reglas que uploadDoc: si un PDF vale para el principal, vale para
         // su correccion.
@@ -6168,7 +6168,7 @@ class EquipoController extends Controller
     public function bulkStoreBatch(Request $request)
     {
         set_time_limit(600);
-        ini_set('memory_limit', '512M');
+        \App\Support\Memoria::alMenos('512M');
 
         $request->validate([
             'rows'   => 'required|array|min:1|max:500',

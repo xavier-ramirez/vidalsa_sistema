@@ -2044,7 +2044,7 @@ class EquipoAuxiliarController extends Controller
     {
         // PDFs grandes: mismos límites que EquipoController::uploadDoc.
         set_time_limit(600);
-        ini_set('memory_limit', '512M');
+        \App\Support\Memoria::alMenos('512M');
 
         $request->validate([
             // El tope lo manda GoogleDriveService::MAX_PDF_KB, la comprobacion central por
