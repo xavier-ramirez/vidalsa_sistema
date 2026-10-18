@@ -4993,7 +4993,7 @@ body:has(.mapa-page) { --mapa-col: 380px; }
    se despegaba de ella.
    Rejilla de dos renglones: arriba el tipo/marca/modelo y, a su derecha, el estado; abajo la placa
    y el chasis con TODO el ancho de la fila. Antes el estado ocupaba una columna a lo alto de la
-   fila y le robaba ancho también al renglón de abajo: con un estado largo ("Sin conexión…") el
+   fila y le robaba ancho también al renglón de abajo: con un estado largo ("Última señal hace…") el
    chasis ya no cabía al lado de la placa y bajaba, y con uno corto sí cabía — por eso unas filas
    salían bien y otras no. .mapa-eqp-eq-txt es display: contents para que su <b> y su <small>
    caigan directo en la rejilla. */
