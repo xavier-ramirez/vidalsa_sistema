@@ -44,8 +44,11 @@ class Gps51Service
     /** Segundos que se reutiliza una dirección (una coordenada no cambia de dirección). */
     private const TTL_DIRECCION = 86400;
 
-    /** Segundos que se guarda la ÚLTIMA posición conocida (ver frescasOUltimas). */
-    private const TTL_ULTIMA = 86400;
+    /** Segundos que se guarda la ÚLTIMA posición conocida (ver frescasOUltimas): 30 días. Con un
+     *  día, si nadie abría el mapa en ese tiempo la caché quedaba vacía y la capa Equipos esperaba
+     *  a GPS51 (hasta el tope de 8 s) antes de enseñar nada. Sale marcada `vieja` y con su "Última
+     *  señal hace…", así que una posición de días atrás no se confunde con una actual. */
+    private const TTL_ULTIMA = 2592000;
 
     /** Coordenadas por consulta de direcciones (ver direcciones(); 120 se probaron sin problema). */
     private const DIRECCIONES_POR_CONSULTA = 100;

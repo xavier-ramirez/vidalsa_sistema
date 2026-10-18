@@ -53,7 +53,7 @@ class MapaController extends Controller
             ->filter(fn ($e) => Gps51Service::authcode($e->LINK_GPS) !== null);
 
         // Lo que no está fresco (más de TTL_POSICION) sale con su ÚLTIMA posición conocida, la de
-        // hasta un día atrás y marcada `vieja`, y va igual a `pendientes` para refrescarla. Así el
+        // hasta 30 días atrás y marcada `vieja`, y va igual a `pendientes` para refrescarla. Así el
         // mapa enseña los equipos al instante en vez de esperar a GPS51 (~2–8 s por tanda de 10).
         $authcodes = $equipos->mapWithKeys(fn ($e) => [$e->ID_EQUIPO => Gps51Service::authcode($e->LINK_GPS)])->all();
         [$posiciones, $noFrescos] = Gps51Service::frescasOUltimas($authcodes);
