@@ -5467,9 +5467,9 @@ body:has(.mapa-page) { --mapa-col: 380px; }
    Etiqueta junto al nombre del frente (filtro de Equipos) y sobre la foto del equipo; aviso
    arriba de la tabla al entrar al frente. SIN contenedor: letra blanca con borde del color
    (rojo vendido, naranja trámite). paint-order pone el borde detrás de la letra, así la letra
-   no adelgaza y se lee sobre fondo blanco o sobre cualquier foto. */
-/* inline y SIN nowrap: sigue al nombre como texto y, si no cabe ("EN TRÁMITE DE VENTA" es
-   largo), baja palabra por palabra en vez de salirse de la lista y sacarle barra de lado. */
+   no adelgaza y se lee sobre fondo blanco o sobre cualquier foto. En la lista va inline y SIN
+   nowrap: sigue al nombre como texto y, si no cabe ("EN TRÁMITE DE VENTA" es largo), baja de
+   renglón en vez de salirse del desplegable y sacarle barra de lado. */
 .etiqueta-venta {
     display: inline;
     margin-left: 4px;
@@ -5488,7 +5488,7 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .table-image-wrapper .etiqueta-venta,
 .table-image-wrapper.placeholder .etiqueta-venta {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1;
-    width: 92%; margin: 0; text-align: center; white-space: normal;
+    width: 92%; margin: 0; text-align: center;
     font-size: 17px !important; line-height: 1.1; letter-spacing: .06em;
     -webkit-text-stroke-width: 3px;
 }
