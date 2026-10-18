@@ -1,4 +1,4 @@
-{{-- Distribución por DETALLE_UBICACION_ACTUAL — solo se muestra cuando el frente filtrado es fuera de la flota (ESPECIAL o VENTA).
+{{-- Distribución por DETALLE_UBICACION_ACTUAL — solo se muestra cuando el frente filtrado es fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA).
      Mantiene la MISMA forma/tipografía que la card "Equipos y Maquinaria" (partials/distribution_stats):
      header 13px, ítems 12.5px, badge 2px 8px — para que ambas cards se vean idénticas. --}}
 <h4 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">

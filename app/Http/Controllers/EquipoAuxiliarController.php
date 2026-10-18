@@ -302,7 +302,7 @@ class EquipoAuxiliarController extends Controller
         }
 
         // ── ASIGNACIONES ESPECIALES (mismo patron que /admin/equipos) ──
-        // Si el frente seleccionado es fuera de la flota (ESPECIAL o VENTA), exponemos a la
+        // Si el frente seleccionado es fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA), exponemos a la
         // vista las ubicaciones (sub-zonas) disponibles para el filtro y el
         // listado de stats por ubicacion.
         $frenteFueraDeFlota = null;
@@ -899,6 +899,30 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
+     * Filtro de los auxiliares ANCLADOS, uno solo para el modal (anchoredList) y su Excel
+     * (exportAnclajes): alcance del usuario y, si el listado principal tiene un frente o un tipo
+     * activo, solo esos. Sin frente ni tipo, fuera los de frentes fuera de la flota (ESPECIAL,
+     * VENDIDO, TRÁMITE DE VENTA), igual que los anclajes de equipos (EquipoController::filtrarAnclajes).
+     */
+    private function filtrarAnclados($query, Request $request, bool $isLocalUser, array $frentesPermitidos): void
+    {
+        $this->scopeFrentes($query, 'ID_FRENTE_ACTUAL');
+
+        $frente = trim((string) $request->input('id_frente', ''));
+        $tipo   = trim((string) $request->input('tipo', ''));
+        if ($frente !== '' && $frente !== 'all' && $frente !== 'none') {
+            if (!$isLocalUser || in_array($frente, array_map('strval', $frentesPermitidos), true)) {
+                $query->where('ID_FRENTE_ACTUAL', $frente);
+            }
+        } elseif ($tipo === '' || $tipo === 'all') {
+            $query->excludeFueraDeFlota();
+        }
+        if ($tipo !== '' && $tipo !== 'all') {
+            $query->where('TIPO', $tipo);
+        }
+    }
+
+    /**
      * Lista TODOS los auxiliares anclados con info de su equipo host.
      * Usado por el modal "Anclaje de Auxiliares" del menu Acciones.
      */
@@ -915,19 +939,7 @@ class EquipoAuxiliarController extends Controller
             ...Equipo::conFoto('equipoHost.', true),
         ])->whereNotNull('ID_EQUIPO_HOST');
 
-        $this->scopeFrentes($query, 'ID_FRENTE_ACTUAL');
-
-        // Filtros opcionales (heredados del listado principal): si el usuario
-        // tiene un frente o tipo activo en la URL del index, el modal de
-        // anclajes debe respetarlo para mostrar solo los anclajes en scope.
-        if ($request->filled('id_frente') && $request->id_frente !== 'all' && $request->id_frente !== 'none') {
-            if (!$isLocalUser || in_array((string) $request->id_frente, array_map('strval', $frentesPermitidos), true)) {
-                $query->where('ID_FRENTE_ACTUAL', $request->id_frente);
-            }
-        }
-        if ($request->filled('tipo') && $request->tipo !== 'all') {
-            $query->where('TIPO', $request->tipo);
-        }
+        $this->filtrarAnclados($query, $request, $isLocalUser, $frentesPermitidos);
 
         $items = $query->orderBy('TIPO')->get()->map(function ($a) use ($tipos) {
             $host = $a->equipoHost;
@@ -977,18 +989,7 @@ class EquipoAuxiliarController extends Controller
         $query = EquipoAuxiliar::with(['equipoHost.documentacion', 'equipoHost.tipo', 'frente'])
             ->whereNotNull('ID_EQUIPO_HOST');
 
-        $this->scopeFrentes($query, 'ID_FRENTE_ACTUAL');
-
-        // Mismos filtros que anchoredList: respetar el frente/tipo del listado
-        // principal cuando el usuario los tiene activos.
-        if ($request->filled('id_frente') && $request->id_frente !== 'all' && $request->id_frente !== 'none') {
-            if (!$isLocalUser || in_array((string) $request->id_frente, array_map('strval', $frentesPermitidos), true)) {
-                $query->where('ID_FRENTE_ACTUAL', $request->id_frente);
-            }
-        }
-        if ($request->filled('tipo') && $request->tipo !== 'all') {
-            $query->where('TIPO', $request->tipo);
-        }
+        $this->filtrarAnclados($query, $request, $isLocalUser, $frentesPermitidos);
 
         $currentDate = now()->format('d/m/Y');
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();

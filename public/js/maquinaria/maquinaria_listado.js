@@ -85,7 +85,7 @@ window.maquinariaArrancar = function (MAQ_CFG) {
             }
 
             // Toggle del filtro "Detalle" (DETALLE_UBICACION_ACTUAL): solo se
-            // muestra cuando el frente seleccionado es fuera de la flota (ESPECIAL o VENTA).
+            // muestra cuando el frente seleccionado es fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA).
             // Tambien refrescamos las opciones del dropdown segun el frente.
             const ubicWrap = document.getElementById('aux_adv_ubic_wrapper');
             if (ubicWrap) {

@@ -187,7 +187,7 @@ class FrentesVentaTest extends MySqlTestCase
      */
     public function test_los_auxiliares_del_frente_vendido_siguen_la_misma_regla(): void
     {
-        [$frente] = $this->frenteConEquipo(FrenteTrabajo::TIPO_VENDIDO);
+        [$frente, $equipo] = $this->frenteConEquipo(FrenteTrabajo::TIPO_VENDIDO);
         $admin = $this->superAdminGlobal();
         $totalAux = fn () => (int) $this->actingAs($admin)->getJson('/admin/equipos?id_frente=all')->assertOk()->json('auxConsolidado.total');
 
@@ -195,7 +195,7 @@ class FrentesVentaTest extends MySqlTestCase
         $serial = 'AUXVENTA' . strtoupper(Str::random(6));
         \App\Models\EquipoAuxiliar::create([
             'TIPO' => 'PRUEBAVENTA', 'MARCA' => 'PRUEBA', 'MODELO' => 'VENTA', 'SERIAL' => $serial,
-            'ESTADO_OPERATIVO' => 'OPERATIVO', 'ID_FRENTE_ACTUAL' => $frente->ID_FRENTE,
+            'ESTADO_OPERATIVO' => 'OPERATIVO', 'ID_FRENTE_ACTUAL' => $frente->ID_FRENTE, 'ID_EQUIPO_HOST' => $equipo->ID_EQUIPO,
         ]);
         $this->assertSame($antes, $totalAux(), 'Con "todos los frentes" el auxiliar del frente vendido no cuenta.');
 
@@ -210,6 +210,11 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame('aux', $soloAux->json('mode'));
         $this->assertSame('vendido', $soloAux->json('frenteVenta.clase'), 'Solo auxiliares: el aviso también sale.');
         $this->assertStringContainsString('etiqueta-venta--vendido">VENDIDO<', (string) $soloAux->json('html'));
+
+        // Anclajes de auxiliares: lo mismo (sin frente, fuera; con su frente, dentro).
+        $anclados = fn (string $qs) => collect($this->actingAs($admin)->getJson(route('equipos-auxiliares.anchoredList') . $qs)->assertOk()->json('items'))->pluck('serial');
+        $this->assertNotContains($serial, $anclados(''));
+        $this->assertContains($serial, $anclados('?id_frente=' . $frente->ID_FRENTE));
     }
 
     public function test_un_tipo_que_no_existe_no_se_acepta(): void

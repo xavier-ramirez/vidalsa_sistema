@@ -137,7 +137,7 @@
                     <div class="aux-adv-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;">
 
                         {{-- Filtro "Detalle" (DETALLE_UBICACION_ACTUAL) — solo
-                             visible cuando el frente seleccionado es fuera de la flota (ESPECIAL o VENTA)
+                             visible cuando el frente seleccionado es fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA)
                              (patio, almacen, taller). Mismo patron que /admin/equipos:
                              el controller ya devuelve $availableUbicaciones y $frenteFueraDeFlota. --}}
                         <div id="aux_adv_ubic_wrapper" style="{{ isset($frenteFueraDeFlota) && $frenteFueraDeFlota ? '' : 'display:none;' }}">
@@ -459,7 +459,7 @@
         </div>
 
         {{-- Card "Detalles" (DETALLE_UBICACION_ACTUAL) — visible solo cuando el
-             frente filtrado es fuera de la flota (ESPECIAL o VENTA). Mismo patron que
+             frente filtrado es fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA). Mismo patron que
              /admin/equipos. cargarAuxiliares (AJAX) muestra/oculta segun
              showUbicaciones del response. --}}
         <div id="auxUbicacionesStatsCard"

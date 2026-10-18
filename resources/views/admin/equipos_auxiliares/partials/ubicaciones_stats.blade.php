@@ -1,5 +1,5 @@
 {{-- Distribucion por DETALLE_UBICACION_ACTUAL — solo se muestra cuando el
-     frente filtrado es fuera de la flota (ESPECIAL o VENTA). Mismo patron que /admin/equipos.
+     frente filtrado es fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA). Mismo patron que /admin/equipos.
      Click en una fila => filtra el listado por ese detalle (auxAdvSelect
      sobre el campo detalle_ubicacion del panel avanzado). --}}
 <h4 style="margin: 0 0 12px 0; font-size: 12px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px;">

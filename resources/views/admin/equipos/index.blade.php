@@ -400,7 +400,7 @@
 
                     {{-- Filtro Detalle (Patio/Subdivisión): NO es un filtro avanzado visible.
                          Se activa desde el panel lateral "Detalles" (partials/ubicaciones_stats),
-                         solo presente en frentes fuera de la flota (ESPECIAL o VENTA). El input queda aquí (dentro del
+                         solo presente en frentes fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA). El input queda aquí (dentro del
                          panel avanzado) para que loadEquipos()/export lo lean junto al resto de filtros. --}}
                     <input type="hidden" name="detalle_ubicacion" id="detalleUbicacionFilter" value="{{ request('detalle_ubicacion') }}">
 
@@ -987,7 +987,7 @@
     </div>
     @endif
 
-    {{-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo frentes fuera de la flota (ESPECIAL o VENTA). Ya NO es
+    {{-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo frentes fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA). Ya NO es
          una card aparte: su HTML se captura aquí (fuente oculta) y se apila como una SECCIÓN más
          ("Detalles") dentro de la lista unificada de la card de Distribución. --}}
     <div id="ubicacionesStatsSource" style="display: none;">

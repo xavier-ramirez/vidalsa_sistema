@@ -52,7 +52,7 @@
     // Filas por lote: el MISMO $PAGE_SIZE del backend (EquipoController::index), para que
     // el scroll infinito sin internet se sienta igual que con internet.
     const PAGE_SIZE = 150;
-    // Copia EN MEMORIA de kv.equipos + IDs de frentes fuera de la flota (ESPECIAL y VENTA). Filtrar 1.200 objetos son
+    // Copia EN MEMORIA de kv.equipos + IDs de frentes fuera de la flota (ESPECIAL, VENDIDO y TRÁMITE DE VENTA). Filtrar 1.200 objetos son
     // décimas de milisegundo, así que cada tecla puede re-filtrar sin tocar IndexedDB.
     // Se refrescan en cada render() (el que corre al activar el modo offline y cada vez
     // que entra una copia nueva), nunca quedan viejos.
@@ -170,7 +170,7 @@
         } else if (f.frente && f.frente !== 'all') {
             if (String(e.id_frente == null ? '' : e.id_frente) !== f.frente) return false;
         } else if (!especifico && e.id_frente != null && fueraDeFlota.has(Number(e.id_frente))) {
-            return false;   // excludeFueraDeFlota(): ESPECIAL y VENTA fuera del listado general
+            return false;   // excludeFueraDeFlota(): ESPECIAL, VENDIDO y TRÁMITE DE VENTA fuera del listado general
         }
 
         if (omitir !== 'tipo' && f.tipo && f.tipo !== 'all') {

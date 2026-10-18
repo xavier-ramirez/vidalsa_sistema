@@ -795,7 +795,7 @@ class OfflineController extends Controller
      * el otro módulo necesita (un GLOBAL-equipos + LOCAL-almacén perdería frentes de
      * equipos).
      *
-     * `fuera_de_flota` marca los frentes ESPECIAL y VENTA (FrenteTrabajo::TIPOS_FUERA_DE_FLOTA).
+     * `fuera_de_flota` marca los frentes ESPECIAL, VENDIDO y TRÁMITE DE VENTA (FrenteTrabajo::TIPOS_FUERA_DE_FLOTA).
      * Lo necesita el listado offline de equipos para reproducir el
      * excludeFueraDeFlota() del backend: sin él la tabla sin internet mostraba ~180 equipos
      * que la web esconde en el listado general. Va en catálogos (pocos KB) y no en cada

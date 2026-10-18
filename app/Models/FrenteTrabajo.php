@@ -202,7 +202,7 @@ class FrenteTrabajo extends Model
     }
 
     /**
-     * IDs de los frentes FUERA DE LA FLOTA (TIPOS_FUERA_DE_FLOTA: ESPECIAL y VENTA).
+     * IDs de los frentes FUERA DE LA FLOTA (TIPOS_FUERA_DE_FLOTA: ESPECIAL, VENDIDO y TRÁMITE DE VENTA).
      * Cache 5 min; invalidado automáticamente en booted() al guardar/borrar un frente.
      */
     public static function idsFueraDeFlota(): array

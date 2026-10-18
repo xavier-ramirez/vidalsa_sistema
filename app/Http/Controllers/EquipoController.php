@@ -214,7 +214,7 @@ class EquipoController extends Controller
                 $query->where('ID_FRENTE_ACTUAL', $raw);
             } elseif (!$this->tieneFiltroEspecifico($request)) {
                 // "TODOS LOS FRENTES" y SIN búsqueda ni filtro concreto: ocultar los frentes
-                // fuera de la flota (ESPECIAL y VENTA). Si el usuario busca por
+                // fuera de la flota (ESPECIAL, VENDIDO y TRÁMITE DE VENTA). Si el usuario busca por
                 // serial/placa/etc. o filtra por tipo/modelo/marca/año/..., SÍ se incluyen.
                 $query->excludeFueraDeFlota();
             }

@@ -1667,7 +1667,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 window.__updateDocPresenceUI();
 
                 // Distribución: las 3 secciones de la lista unificada (equipos, detalles, aux).
-                // "detalles" (DETALLE_UBICACION_ACTUAL) solo viene en frentes fuera de la flota (ESPECIAL o VENTA).
+                // "detalles" (DETALLE_UBICACION_ACTUAL) solo viene en frentes fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA).
                 // Cada filtro repinta la lista unificada con las secciones nuevas; el reset del
                 // scroll a la primera sección lo hace _eqRenderDistribucion.
                 const showUbi = !!(data && data.showUbicaciones);
