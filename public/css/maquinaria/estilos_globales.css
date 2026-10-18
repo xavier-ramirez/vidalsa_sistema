@@ -5468,16 +5468,16 @@ body:has(.mapa-page) { --mapa-col: 380px; }
    arriba de la tabla al entrar al frente. SIN contenedor: letra blanca con borde del color
    (rojo vendido, naranja trámite). paint-order pone el borde detrás de la letra, así la letra
    no adelgaza y se lee sobre fondo blanco o sobre cualquier foto. */
+/* inline y SIN nowrap: sigue al nombre como texto y, si no cabe ("EN TRÁMITE DE VENTA" es
+   largo), baja palabra por palabra en vez de salirse de la lista y sacarle barra de lado. */
 .etiqueta-venta {
-    display: inline-block;
+    display: inline;
     margin-left: 4px;
     font-size: 11px;
     font-weight: 900;
     letter-spacing: .05em;
-    vertical-align: middle;
-    white-space: nowrap;
     color: #fff;
-    -webkit-text-stroke: 3px var(--borde-venta);
+    -webkit-text-stroke: 2px var(--borde-venta);   /* en la lista; sobre la foto lo pone su regla */
     paint-order: stroke fill;
 }
 .etiqueta-venta--tramite { --borde-venta: #ea580c; }
