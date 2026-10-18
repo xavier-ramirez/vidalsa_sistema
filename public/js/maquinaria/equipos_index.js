@@ -3740,10 +3740,25 @@ window.eqElegirFrenteTipo = function (id, nombre) {
         .catch(() => window.toast('No se pudo cargar el frente.', 'error'));
 };
 
+// Cierra el modal y sus desplegables (si no, al reabrir aparecían ya desplegados).
 window.eqCerrarTipoFrente = function () {
     const modal = document.getElementById('tipoFrenteModal');
-    if (modal) modal.classList.remove('active');
+    if (!modal) return;
+    modal.querySelectorAll('.custom-dropdown.active').forEach((d) => d.classList.remove('active'));
+    modal.classList.remove('active');
 };
+
+// Cerrar también con Esc o tocando fuera del cuadro. Un solo enlace aunque el módulo se remonte.
+if (!window.__eqTipoFrenteCierreBound) {
+    window.__eqTipoFrenteCierreBound = true;
+    document.addEventListener('click', (e) => {
+        if (e.target.id === 'tipoFrenteModal') window.eqCerrarTipoFrente();
+    });
+    document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('tipoFrenteModal');
+        if (e.key === 'Escape' && modal && modal.classList.contains('active')) window.eqCerrarTipoFrente();
+    });
+}
 
 window.eqGuardarTipoFrente = function () {
     const id = (document.getElementById('tipoFrenteFrenteValor') || {}).value;

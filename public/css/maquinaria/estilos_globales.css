@@ -5453,39 +5453,38 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 }
 
 /* ── Frentes VENDIDO / TRÁMITE DE VENTA ─────────────────────────────────────────
-   Etiqueta junto al nombre del frente (filtro de Equipos y columna Frente) y aviso
-   arriba de la tabla al entrar al frente. Trámite = naranja; vendido = rojo. */
+   Etiqueta junto al nombre del frente (filtro de Equipos) y sobre la foto del equipo; aviso
+   arriba de la tabla al entrar al frente. SIN contenedor: letra blanca con borde del color
+   (rojo vendido, naranja trámite). paint-order pone el borde detrás de la letra, así la letra
+   no adelgaza y se lee sobre fondo blanco o sobre cualquier foto. */
 .etiqueta-venta {
     display: inline-block;
-    margin-left: 6px;
-    padding: 1px 7px;
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .04em;
+    margin-left: 4px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .05em;
     vertical-align: middle;
     white-space: nowrap;
+    color: #fff;
+    -webkit-text-stroke: 3px var(--borde-venta);
+    paint-order: stroke fill;
 }
-.etiqueta-venta--tramite { background: #fff1e6; border: 1px solid #fdba74; color: #c2410c; }
-.etiqueta-venta--vendido { background: #fee2e2; border: 1px solid #fca5a5; color: #b91c1c; }
-/* Sobre la foto del equipo (tabla de Equipos): sin contenedor, letra blanca con borde del color
-   (rojo vendido, naranja trámite), en el MEDIO de la foto. paint-order pone el borde detrás de la
-   letra, así queda gruesa y se lee sobre cualquier foto. .placeholder: el cuadro SIN foto agranda
-   sus <span> a 24px (es para el ícono); la etiqueta no. El tamaño va con !important porque
-   admin_equipos_index.css fuerza TODO <span> de la tabla a 11.5px con !important. */
+.etiqueta-venta--tramite { --borde-venta: #ea580c; }
+.etiqueta-venta--vendido { --borde-venta: #dc2626; }
+/* Sobre la foto (tabla de Equipos): en el MEDIO de la foto y más grande. .placeholder: el cuadro
+   SIN foto agranda sus <span> a 24px (es para el ícono); la etiqueta no. El tamaño va con
+   !important porque admin_equipos_index.css fuerza TODO <span> de la tabla a 11.5px con !important. */
 .table-image-wrapper .etiqueta-venta,
 .table-image-wrapper.placeholder .etiqueta-venta {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1;
-    width: 92%; margin: 0; padding: 0; text-align: center; white-space: normal;
-    background: none; border: none; box-shadow: none;
-    font-size: 17px !important; font-weight: 900; line-height: 1.1; letter-spacing: .06em; color: #fff;
-    -webkit-text-stroke: 4px var(--borde-venta); paint-order: stroke fill;
+    width: 92%; margin: 0; text-align: center; white-space: normal;
+    font-size: 17px !important; line-height: 1.1; letter-spacing: .06em;
+    -webkit-text-stroke-width: 3px;
 }
-.table-image-wrapper .etiqueta-venta--tramite { --borde-venta: #ea580c; font-size: 13px !important; }
-.table-image-wrapper .etiqueta-venta--vendido { --borde-venta: #dc2626; }
+.table-image-wrapper .etiqueta-venta--tramite { font-size: 13px !important; }
 @media (max-width: 768px) {
     .table-image-wrapper .etiqueta-venta,
-    .table-image-wrapper.placeholder .etiqueta-venta { font-size: 14px !important; -webkit-text-stroke-width: 3px; }
+    .table-image-wrapper.placeholder .etiqueta-venta { font-size: 14px !important; -webkit-text-stroke-width: 2.2px; }
     .table-image-wrapper .etiqueta-venta--tramite { font-size: 11px !important; }
 }
 
