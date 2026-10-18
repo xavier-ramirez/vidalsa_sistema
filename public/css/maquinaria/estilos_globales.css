@@ -5473,9 +5473,12 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .etiqueta-venta--vendido { --color-venta: #dc2626; }
 /* Filtro de frentes: cada nombre COMPLETO en una sola línea. La lista se ensancha hasta el más
    largo (max-content, sin pasarse de la pantalla) y el estado va al lado; si en el teléfono no
-   cabe, baja al renglón de abajo (flex-wrap) en vez de partir el nombre. */
+   cabe, baja al renglón de abajo en vez de partir el nombre. El nowrap va en el nombre y en el
+   estado, NO en la fila: el buscador (filterDropdownOptions) pasa las filas a display:block y
+   entonces el corte se hace en el espacio entre los dos; con flex lo hace el flex-wrap. */
 #frenteFilterSelect .dropdown-content { right: auto; min-width: 100%; width: max-content; max-width: calc(100vw - 32px); }
-#frenteFilterSelect .dropdown-item { white-space: nowrap; }
+#frenteFilterSelect .frente-nombre,
+#frenteFilterSelect .etiqueta-venta { white-space: nowrap; }
 #frenteFilterSelect .dropdown-item:has(.etiqueta-venta) { flex-wrap: wrap; column-gap: 8px; row-gap: 0; height: auto; min-height: 35px; }
 /* Sobre la foto (tabla de Equipos): en el MEDIO de la foto, letra blanca con borde del color;
    paint-order pone el borde detrás de la letra, así no adelgaza y se lee sobre cualquier foto.

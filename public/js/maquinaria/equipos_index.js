@@ -1247,11 +1247,15 @@ window.eqRegisterNuevoFrente = function (frente) {
         const safeNombre = nombre.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         item.setAttribute('onclick',
             `selectOption('frenteFilterSelect', '${fid}', '${safeNombre}'); loadEquipos();`);
-        item.textContent = nombre;
+        // Misma forma que los del servidor: el nombre en .frente-nombre (sin el estado de venta).
+        const span = document.createElement('span');
+        span.className = 'frente-nombre';
+        span.textContent = nombre;
+        item.appendChild(span);
         const ref = Array.from(list.querySelectorAll('.dropdown-item')).find((el) => {
             const v = el.getAttribute('data-value');
-            return v && v !== 'all' && v !== 'none' &&
-                   el.textContent.trim().toUpperCase() > nombre.toUpperCase();
+            const n = (el.querySelector('.frente-nombre') || el).textContent.trim();
+            return v && v !== 'all' && v !== 'none' && n.toUpperCase() > nombre.toUpperCase();
         });
         if (ref) list.insertBefore(item, ref);
         else list.appendChild(item);
@@ -3785,9 +3789,12 @@ window.eqGuardarTipoFrente = function () {
             // La etiqueta VENDIDO / EN TRÁMITE DE VENTA del filtro de frentes, sin recargar la página:
             // el servidor la manda armada con la misma plantilla de la vista (vacía si no es de venta).
             const item = document.querySelector('#frenteFilterSelect .dropdown-item[data-value="' + id + '"]');
-            if (item) {
-                item.querySelectorAll('.etiqueta-venta').forEach((e) => e.remove());
-                if (body.etiqueta) item.insertAdjacentHTML('beforeend', body.etiqueta);
+            // Se rehace el contenido (nombre + espacio + estado) en vez de quitar y añadir: así no se
+            // juntan espacios sueltos al cambiar el tipo varias veces.
+            const nombre = item && item.querySelector('.frente-nombre');
+            if (nombre) {
+                item.replaceChildren(nombre);
+                if (body.etiqueta) item.insertAdjacentHTML('beforeend', ' ' + body.etiqueta);
             }
             // Tabla, aviso del frente y totales con el tipo nuevo.
             if (typeof window.loadEquipos === 'function') window.loadEquipos();

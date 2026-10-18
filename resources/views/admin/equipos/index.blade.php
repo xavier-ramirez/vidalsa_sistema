@@ -79,7 +79,9 @@
                             <div class="dropdown-item {{ $currentFrenteId == $frente->ID_FRENTE ? 'selected' : '' }}"
                                  data-value="{{ $frente->ID_FRENTE }}"
                                  onclick="selectOption('frenteFilterSelect', '{{ $frente->ID_FRENTE }}', '{{ addslashes(trim($frente->NOMBRE_FRENTE)) }}'); loadEquipos();">
-                                {{ $frente->NOMBRE_FRENTE }}
+                                {{-- El nombre en su propio span: quien necesite el nombre (dashboard, orden
+                                     al registrar uno nuevo) lo lee de ahí, sin el estado de venta. --}}
+                                <span class="frente-nombre">{{ $frente->NOMBRE_FRENTE }}</span>
                                 @include('admin.frentes.partials.etiqueta_venta', ['frente' => $frente])
                             </div>
                         @endforeach

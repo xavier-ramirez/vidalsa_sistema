@@ -293,7 +293,8 @@ window.openFleetDashboard = async function () {
         const selectedOption = document.querySelector(
             `#frenteFilterSelect .dropdown-item[data-value="${activeFrenteId}"]`
         );
-        firstFrenteName = selectedOption ? selectedOption.textContent.trim() : (hiddenName?.value || '');
+        // .frente-nombre: solo el nombre, sin el estado de venta que va al lado en la lista.
+        firstFrenteName = selectedOption ? (selectedOption.querySelector('.frente-nombre') || selectedOption).textContent.trim() : (hiddenName?.value || '');
 
         // Actualizar los campos ocultos para que exportFleetStats también use el correcto
         if (hiddenId)   hiddenId.value   = firstFrenteId;
