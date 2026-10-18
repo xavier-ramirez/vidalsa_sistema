@@ -83,10 +83,13 @@
                          decoding="async"
                          style="width:100%; height:100%; object-fit:contain;"
                          onerror="this.style.opacity='0.3';">
+                    @include('admin.frentes.partials.etiqueta_venta', ['frente' => $aux->frente])
                 </div>
             @else
                 <div class="table-image-wrapper placeholder">
                     <span class="material-icons">image_not_supported</span>
+                    {{-- VENDIDO / EN TRÁMITE DE VENTA sobre la foto, igual que en las filas de equipos. --}}
+                    @include('admin.frentes.partials.etiqueta_venta', ['frente' => $aux->frente])
                 </div>
             @endif
         </td>

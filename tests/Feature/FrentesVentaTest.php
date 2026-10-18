@@ -126,22 +126,44 @@ class FrentesVentaTest extends MySqlTestCase
             ->assertStatus(422)->assertJsonValidationErrors('TIPO_FRENTE');
     }
 
-    public function test_cambiar_el_tipo_es_solo_para_super_admin(): void
+    /** Usuario de prueba (no super.admin) con los permisos dados; LOCAL si trae frentes asignados. */
+    private function usuarioCon(string $permisos, ?string $frentesAsignados = null): \App\Models\Usuario
     {
-        $frente = FrenteTrabajo::whereNotIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)->firstOrFail();
         $id = DB::table('usuarios')->insertGetId([
-            'NOMBRE_COMPLETO' => 'PRUEBA SIN SUPER', 'CORREO_ELECTRONICO' => 'prueba.sinsuper.' . Str::random(6) . '@local.test',
-            'PASSWORD_HASH' => bcrypt('x'), 'ID_ROL' => DB::table('roles')->value('ID_ROL'), 'NIVEL_ACCESO_EQUIPOS' => 1,
-            'NIVEL_ACCESO_ALMACEN' => 1, 'ESTATUS' => 'ACTIVO', 'REQUIERE_CAMBIO_CLAVE' => 0, 'PERMISOS' => 'equipos.edit',
+            'NOMBRE_COMPLETO' => 'PRUEBA TIPO FRENTE', 'CORREO_ELECTRONICO' => 'prueba.tipofrente.' . Str::random(6) . '@local.test',
+            'PASSWORD_HASH' => bcrypt('x'), 'ID_ROL' => DB::table('roles')->value('ID_ROL'),
+            'NIVEL_ACCESO_EQUIPOS' => $frentesAsignados ? 2 : 1, 'ID_FRENTE_ASIGNADO' => $frentesAsignados,
+            'NIVEL_ACCESO_ALMACEN' => 1, 'ESTATUS' => 'ACTIVO', 'REQUIERE_CAMBIO_CLAVE' => 0, 'PERMISOS' => $permisos,
             'created_at' => now(), 'updated_at' => now(),
         ]);
-        $usuario = \App\Models\Usuario::find($id);
+        return \App\Models\Usuario::find($id);
+    }
 
-        $this->actingAs($usuario)->patchJson(route('frentes.cambiarTipo', $frente->ID_FRENTE), ['TIPO_FRENTE' => 'VENDIDO'])->assertForbidden();
-        $this->assertNotSame('VENDIDO', $frente->fresh()->TIPO_FRENTE);
+    public function test_cambiar_el_tipo_pide_el_permiso_actualizar_informacion(): void
+    {
+        [$frente] = $this->frenteConEquipo('OPERACION');
+        $url = route('frentes.cambiarTipo', $frente->ID_FRENTE);
+
+        // Sin "Actualizar Información" (user.edit): ni la opción ni la ruta.
+        $sin = $this->usuarioCon('equipos.edit');
+        $this->actingAs($sin)->patchJson($url, ['TIPO_FRENTE' => 'VENDIDO'])->assertForbidden();
+        $this->assertSame('OPERACION', $frente->fresh()->TIPO_FRENTE);
         $this->assertStringNotContainsString('id="btnTipoFrente"',
-            (string) $this->actingAs($usuario)->get('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk()->getContent(),
-            'Sin super.admin ni siquiera ve la opción.');
+            (string) $this->actingAs($sin)->get('/admin/equipos')->assertOk()->getContent(), 'Sin el permiso ni siquiera ve la opción.');
+
+        // Con el permiso basta: no hace falta super.admin. Y el modal trae el tipo de cada frente.
+        $con = $this->usuarioCon('user.edit');
+        $html = (string) $this->actingAs($con)->get('/admin/equipos')->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/id="btnTipoFrente"[^>]*>/', $html);
+        $this->assertStringContainsString('data-value="' . $frente->ID_FRENTE . '" data-tipo="OPERACION"', $html);
+        $this->actingAs($con)->patchJson($url, ['TIPO_FRENTE' => 'VENDIDO'])->assertOk()->assertJson(['success' => true, 'tipo' => 'VENDIDO']);
+        $this->assertSame('VENDIDO', $frente->fresh()->TIPO_FRENTE);
+
+        // LOCAL con el permiso: solo sus frentes, uno ajeno no existe para él.
+        $otro = FrenteTrabajo::where('ID_FRENTE', '<>', $frente->ID_FRENTE)->value('ID_FRENTE');
+        $local = $this->usuarioCon('user.edit', (string) $otro);
+        $this->actingAs($local)->patchJson($url, ['TIPO_FRENTE' => 'OPERACION'])->assertNotFound();
+        $this->assertSame('VENDIDO', $frente->fresh()->TIPO_FRENTE);
     }
 
     public function test_la_opcion_del_menu_se_ve_siempre_con_su_modal(): void
@@ -156,6 +178,38 @@ class FrentesVentaTest extends MySqlTestCase
             $this->assertStringContainsString('id="tipoFrenteFrente"', $html, 'El modal trae su buscador de frente.');
             $this->assertStringContainsString('data-value="TRAMITE_VENTA"', $html);
         }
+    }
+
+    /**
+     * Los AUXILIARES de un frente vendido siguen la misma regla que los equipos: fuera de los
+     * totales con "todos los frentes", a la vista al entrar al frente o al buscarlos, con la
+     * etiqueta sobre la foto y con el aviso también cuando solo se ven auxiliares.
+     */
+    public function test_los_auxiliares_del_frente_vendido_siguen_la_misma_regla(): void
+    {
+        [$frente] = $this->frenteConEquipo(FrenteTrabajo::TIPO_VENDIDO);
+        $admin = $this->superAdminGlobal();
+        $totalAux = fn () => (int) $this->actingAs($admin)->getJson('/admin/equipos?id_frente=all')->assertOk()->json('auxConsolidado.total');
+
+        $antes = $totalAux();
+        $serial = 'AUXVENTA' . strtoupper(Str::random(6));
+        \App\Models\EquipoAuxiliar::create([
+            'TIPO' => 'PRUEBAVENTA', 'MARCA' => 'PRUEBA', 'MODELO' => 'VENTA', 'SERIAL' => $serial,
+            'ESTADO_OPERATIVO' => 'OPERATIVO', 'ID_FRENTE_ACTUAL' => $frente->ID_FRENTE,
+        ]);
+        $this->assertSame($antes, $totalAux(), 'Con "todos los frentes" el auxiliar del frente vendido no cuenta.');
+
+        $html = (string) $this->actingAs($admin)->getJson('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk()->json('html');
+        $this->assertStringContainsString($serial, $html, 'Dentro del frente sí sale.');
+        $this->assertSame(2, substr_count($html, 'etiqueta-venta--vendido">VENDIDO<'), 'Etiqueta en el equipo y en el auxiliar.');
+
+        $this->assertStringContainsString($serial, (string) $this->actingAs($admin)
+            ->getJson('/admin/equipos?search_query=' . $serial)->assertOk()->json('html'), 'Buscándolo también sale.');
+
+        $soloAux = $this->actingAs($admin)->getJson('/admin/equipos?id_frente=' . $frente->ID_FRENTE . '&id_tipo=tipo_aux:PRUEBAVENTA')->assertOk();
+        $this->assertSame('aux', $soloAux->json('mode'));
+        $this->assertSame('vendido', $soloAux->json('frenteVenta.clase'), 'Solo auxiliares: el aviso también sale.');
+        $this->assertStringContainsString('etiqueta-venta--vendido">VENDIDO<', (string) $soloAux->json('html'));
     }
 
     public function test_un_tipo_que_no_existe_no_se_acepta(): void

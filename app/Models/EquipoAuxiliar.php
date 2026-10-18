@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 
 class EquipoAuxiliar extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, Concerns\ExcluyeFueraDeFlota;
 
     protected $table      = 'equipos_auxiliares';
     protected $primaryKey = 'ID_AUXILIAR';

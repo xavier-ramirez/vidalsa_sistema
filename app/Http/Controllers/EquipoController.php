@@ -763,6 +763,14 @@ class EquipoController extends Controller
             // El Consolidado en modo aux refleja AUXILIARES (no equipos): se reemplazan
             // las stats que pintan la vista y el JS (mismas claves total/activos/inactivos).
             $stats = $auxEmbed['stats'];
+            // El aviso de frente VENDIDO / EN TRÁMITE DE VENTA también cuando solo se ven
+            // auxiliares (arriba solo se calcula fuera del modo aux).
+            $idFrenteAux = trim((string) $request->input('id_frente', ''));
+            if (ctype_digit($idFrenteAux)) {
+                $frenteFueraDeFlota = FrenteTrabajo::where('ID_FRENTE', $idFrenteAux)
+                    ->whereIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
+                    ->first();
+            }
         }
 
         // ¿El filtro apunta SOLO a equipos? (atributo de vehículo o documento solo-equipos).
@@ -5002,8 +5010,9 @@ class EquipoController extends Controller
         } elseif ($frente !== '' && $frente !== 'all') {
             $pares->where('ID_FRENTE_ACTUAL', $frente);
             $aux->where('ID_FRENTE_ACTUAL', $frente);
-        } elseif ($tipoId === null) {
+        } elseif ($tipoId === null && !str_starts_with($tipo, 'tipo_aux:')) {
             $pares->excludeFueraDeFlota();
+            $aux->excludeFueraDeFlota();
         }
 
         if (str_starts_with($tipo, 'tipo_aux:')) {

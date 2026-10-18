@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Equipo extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, Concerns\ExcluyeFueraDeFlota;
 
     protected $table = 'equipos';
     protected $primaryKey = 'ID_EQUIPO';
@@ -146,23 +146,6 @@ class Equipo extends Model
         if ($valor === null || $valor === '') return null;
 
         return rtrim(rtrim(number_format((float) $valor, 2, '.', ''), '0'), '.');
-    }
-
-    /**
-     * Excluye equipos de frentes FUERA DE LA FLOTA (ESPECIAL y VENTA, ver
-     * FrenteTrabajo::TIPOS_FUERA_DE_FLOTA). Mantiene equipos sin frente asignado.
-     * Columna cualificada con `equipos.` para evitar ambigüedad en queries con JOINs.
-     * El cache de IDs vive en FrenteTrabajo::idsFueraDeFlota().
-     */
-    public function scopeExcludeFueraDeFlota($query)
-    {
-        $ids = FrenteTrabajo::idsFueraDeFlota();
-        if (empty($ids)) return $query;
-        $col = $this->getTable() . '.ID_FRENTE_ACTUAL';
-        return $query->where(function ($q) use ($ids, $col) {
-            $q->whereNull($col)
-              ->orWhereNotIn($col, $ids);
-        });
     }
 
     public function especificaciones()

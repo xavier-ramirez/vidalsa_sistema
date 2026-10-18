@@ -152,12 +152,15 @@ Route::middleware(['auth'])->group(function () {
             // Módulo "Frentes de trabajo": EXCLUSIVO super.admin (clave literal en PERMISOS,
             // independiente del rol — Gate::before en AppServiceProvider). El gate protege
             // server-side; el menú además muestra un toast si un usuario sin la clave intenta abrirlo.
+            // Cambiar SOLO el tipo de un frente (Equipos → Acciones → "Tipo de frente"): con el permiso
+            // "Actualizar Información" (user.edit), no exige super.admin. cambiarTipo además la limita
+            // a los frentes que el usuario ve. Antes del resource para que /tipo no lo tome como {frente}.
+            Route::patch('frentes/{id}/tipo', [App\Http\Controllers\FrenteTrabajoController::class, 'cambiarTipo'])
+                ->whereNumber('id')->middleware('can:user.edit')->name('frentes.cambiarTipo');
             Route::middleware('can:super.admin')->group(function () {
                 // Definida ANTES del resource para que el segmento literal /sin-equipos
                 // no lo tome como un {frente}.
                 Route::get('frentes/sin-equipos', [App\Http\Controllers\FrenteTrabajoController::class, 'sinEquipos'])->name('frentes.sinEquipos');
-                // Cambiar SOLO el tipo de un frente (Equipos → Acciones → "Tipo de frente").
-                Route::patch('frentes/{id}/tipo', [App\Http\Controllers\FrenteTrabajoController::class, 'cambiarTipo'])->whereNumber('id')->name('frentes.cambiarTipo');
                 Route::resource('frentes', App\Http\Controllers\FrenteTrabajoController::class)->except(['show']);
             });
 

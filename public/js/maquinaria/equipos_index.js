@@ -3704,9 +3704,10 @@ if (!window._equiposSpaReady) {
 }
 
 // ── Acciones → "Tipo de frente" ─────────────────────────────────────────────
-// Cambia el tipo de un frente (OPERACION, RESGUARDO, ESPECIAL, VENDIDO, TRÁMITE DE VENTA). Solo
-// super.admin: el botón y el modal solo existen para él y la ruta lo exige también. El frente se
-// busca y elige en el propio modal (viene preelegido el del filtro si se está dentro de uno).
+// Cambia el tipo de un frente (OPERACION, RESGUARDO, ESPECIAL, VENDIDO, TRÁMITE DE VENTA). Con el
+// permiso "Actualizar Información" (user.edit): el botón y el modal solo existen para quien lo tiene
+// y la ruta lo exige también. El frente se busca y elige en el propio modal (viene preelegido el del
+// filtro si se está dentro de uno).
 function _eqFrenteActual() {
     const v = ((document.querySelector('input[name="id_frente"]') || {}).value || '').trim();
     return /^\d+$/.test(v) ? v : null;   // 'all' / 'none' / vacío: no es un frente concreto
@@ -3729,19 +3730,14 @@ window.eqAbrirTipoFrente = function () {
     modal.classList.add('active');
 };
 
-// Elige el frente del modal y trae su tipo actual (el desplegable de tipo queda en él).
+// Elige el frente del modal y marca su tipo actual, que viene en el data-tipo de su opción (no se
+// pide al servidor: /admin/frentes/{id}/edit es solo de super.admin y este modal no lo exige).
 window.eqElegirFrenteTipo = function (id, nombre) {
     if (id) window.selectOption('tipoFrenteFrente', id, nombre);
-    window.selectOption('tipoFrenteTipo', '', id ? 'Cargando...' : 'Elige primero un frente');
-    if (!id) return;
-    window.apiFetch('/admin/frentes/' + id + '/edit?json=true', { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-        .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-        .then((f) => {
-            if (document.getElementById('tipoFrenteFrenteValor').value !== String(id)) return; // eligieron otro mientras tanto
-            const op = document.querySelector('#tipoFrenteTipo .dropdown-item[data-value="' + f.TIPO_FRENTE + '"] b');
-            window.selectOption('tipoFrenteTipo', f.TIPO_FRENTE, op ? op.textContent : f.TIPO_FRENTE);
-        })
-        .catch(() => window.toast('No se pudo cargar el frente.', 'error'));
+    const it = id && document.querySelector('#tipoFrenteFrente .dropdown-item[data-value="' + id + '"]');
+    const tipo = it ? it.dataset.tipo : '';
+    const op = tipo && document.querySelector('#tipoFrenteTipo .dropdown-item[data-value="' + tipo + '"] b');
+    window.selectOption('tipoFrenteTipo', tipo || '', op ? op.textContent : (id ? tipo : 'Elige primero un frente'));
 };
 
 // Cierra el modal y sus desplegables (si no, al reabrir aparecían ya desplegados).
@@ -3786,6 +3782,9 @@ window.eqGuardarTipoFrente = function () {
             }
             window.eqCerrarTipoFrente();
             window.toast(body.message, 'success');
+            // El tipo nuevo, para que al reabrir el modal salga ya marcado.
+            const opModal = document.querySelector('#tipoFrenteFrente .dropdown-item[data-value="' + id + '"]');
+            if (opModal) opModal.dataset.tipo = body.tipo;
             // La etiqueta VENDIDO / EN TRÁMITE DE VENTA del filtro de frentes, sin recargar la página:
             // el servidor la manda armada con la misma plantilla de la vista (vacía si no es de venta).
             const item = document.querySelector('#frenteFilterSelect .dropdown-item[data-value="' + id + '"]');

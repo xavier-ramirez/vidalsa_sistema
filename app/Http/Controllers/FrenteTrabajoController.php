@@ -233,7 +233,9 @@ class FrenteTrabajoController extends Controller
             'TIPO_FRENTE.in' => 'Ese tipo de frente no existe.',
         ]);
 
-        $frente = FrenteTrabajo::findOrFail($id);
+        // Solo frentes que el usuario ve (LOCAL: los suyos; nadie, los bloqueados): la ruta pide
+        // user.edit y no super.admin, así que el permiso solo no basta.
+        $frente = $request->user()->aplicarScopeFrentesEquipos(FrenteTrabajo::query(), 'ID_FRENTE')->findOrFail($id);
         $frente->update(['TIPO_FRENTE' => $data['TIPO_FRENTE']]);
 
         return response()->json([

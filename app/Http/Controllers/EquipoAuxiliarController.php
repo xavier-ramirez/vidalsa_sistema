@@ -370,6 +370,23 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
+     * ¿Pide el request algo CONCRETO (búsqueda, tipo, marca, modelo, capacidad, año, estado,
+     * ubicación, confirmación o un documento)? Espejo de EquipoController::tieneFiltroEspecifico
+     * con los nombres del módulo aux: si lo pide, se incluyen también los frentes fuera de la flota.
+     */
+    private static function tieneFiltroEspecifico(Request $request): bool
+    {
+        foreach (['search', 'marca', 'modelo', 'capacidad', 'anio', 'detalle_ubicacion'] as $p) {
+            if (trim((string) $request->input($p, '')) !== '') return true;
+        }
+        foreach (['tipo', 'estado'] as $p) {
+            if ($request->filled($p) && $request->input($p) !== 'all') return true;
+        }
+        if (in_array(strtoupper(trim((string) $request->input('confirmado', ''))), ['SI', 'NO'], true)) return true;
+        return $request->boolean('con_propiedad') || $request->boolean('con_certificado');
+    }
+
+    /**
      * Filtros del listado de auxiliares. Extraido de index() para reutilizar el
      * MISMO filtrado desde la vista embebida en /admin/equipos (buildEmbedPayload()).
      * El search bypassa el scope LOCAL, igual que en /admin/equipos.
@@ -398,6 +415,11 @@ class EquipoAuxiliarController extends Controller
             if (!$isLocalUser || in_array((string) $request->id_frente, array_map('strval', $frentesPermitidos), true)) {
                 $q->where('ID_FRENTE_ACTUAL', $request->id_frente);
             }
+        } elseif (!self::tieneFiltroEspecifico($request)) {
+            // "TODOS LOS FRENTES" sin búsqueda ni filtro concreto: fuera los auxiliares de frentes
+            // fuera de la flota (ESPECIAL, VENDIDO, TRÁMITE DE VENTA), igual que los equipos en
+            // EquipoController::applyEquipoFilters. Antes se contaban en la card, la tabla y el Excel.
+            $q->excludeFueraDeFlota();
         }
         if ($request->filled('detalle_ubicacion')) {
             $q->where('DETALLE_UBICACION_ACTUAL', trim($request->detalle_ubicacion));
