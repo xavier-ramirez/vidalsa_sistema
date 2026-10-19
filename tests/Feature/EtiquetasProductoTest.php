@@ -7,11 +7,10 @@ use App\Models\Usuario;
 use Tests\MySqlTestCase;
 
 /**
- * Etiquetas QR de productos (/admin/almacen/etiquetas, AlmacenController::etiquetasPdf):
- * que las dos tiras de la etiquetadora salgan como PDF de verdad, con una página por
- * etiqueta y al tamaño del rollo, y la hoja carta con 30 por hoja. Un formato desconocido
- * cae en la tira de 50×30. El diseño (QR + código, descripción ajustada, medida y
- * ubicación) lo dibuja dibujarEtiqueta; aquí se fija que ninguna medida rompa el armado.
+ * Etiquetas de productos con código de barras (/admin/almacen/etiquetas,
+ * AlmacenController::etiquetas): el servidor entrega la LISTA y la pantalla las dibuja
+ * (almacen_index.js), enseña la vista previa e imprime. Aquí se fija la lista: qué
+ * productos, con qué datos y cuántas copias, y los topes; el dibujo se revisa en el navegador.
  */
 class EtiquetasProductoTest extends MySqlTestCase
 {
@@ -22,34 +21,49 @@ class EtiquetasProductoTest extends MySqlTestCase
         return $u;
     }
 
-    public function test_las_tiras_salen_como_pdf_una_etiqueta_por_pagina(): void
+    private function conCodigo(int $cuantos = 1)
     {
-        $p = ProductoInventario::activos()->whereNotNull('CODIGO')->where('CODIGO', '!=', '')->first();
-        $this->assertNotNull($p, 'Hace falta un producto activo con código.');
-
-        // Página en puntos: 50×30 mm = 141,73×85,04 pt; 40×25 mm = 113,38×70,87 pt.
-        foreach (['50x30' => '141.73', '40x25' => '113.38', 'otro' => '141.73'] as $formato => $ancho) {
-            $resp = $this->actingAs($this->usuario())
-                ->get(route('almacen.etiquetas', ['items' => $p->ID_PRODUCTO . ':2', 'formato' => $formato]));
-            $resp->assertOk()->assertHeader('content-type', 'application/pdf');
-            $pdf = $resp->getContent();
-            $this->assertStringStartsWith('%PDF', $pdf, "El formato {$formato} no devolvió un PDF.");
-            $this->assertMatchesRegularExpression('/\/Type \/Pages[^>]*\/Count 2\b/', $pdf, "Una etiqueta por página ({$formato}).");
-            $this->assertStringContainsString('/MediaBox [0.000000 0.000000 ' . $ancho, $pdf, "Tamaño de la tira ({$formato}).");
-        }
+        $ps = ProductoInventario::activos()->whereNotNull('CODIGO')->where('CODIGO', '!=', '')->orderBy('NOMBRE')->limit($cuantos)->get();
+        $this->assertCount($cuantos, $ps, 'Hacen falta productos activos con código.');
+        return $ps;
     }
 
-    public function test_la_hoja_carta_lleva_30_etiquetas_por_pagina(): void
+    public function test_cada_producto_con_sus_copias_y_lo_que_lleva_la_etiqueta(): void
     {
-        $p = ProductoInventario::activos()->whereNotNull('CODIGO')->where('CODIGO', '!=', '')->first();
-        $this->assertNotNull($p, 'Hace falta un producto activo con código.');
+        [$a, $b] = $this->conCodigo(2)->all();
+        $j = $this->actingAs($this->usuario())
+            ->getJson(route('almacen.etiquetas', ['items' => $a->ID_PRODUCTO . ':2,' . $b->ID_PRODUCTO . ':3']))
+            ->assertOk()->json();
 
-        // Carta = 612 × 792 pt. 31 etiquetas → 2 hojas (30 + 1).
-        $resp = $this->actingAs($this->usuario())
-            ->get(route('almacen.etiquetas', ['items' => $p->ID_PRODUCTO . ':31', 'formato' => 'carta']));
-        $resp->assertOk()->assertHeader('content-type', 'application/pdf');
-        $pdf = $resp->getContent();
-        $this->assertMatchesRegularExpression('/\/Type \/Pages[^>]*\/Count 2\b/', $pdf, '30 por hoja: 31 etiquetas son 2 hojas.');
-        $this->assertStringContainsString('/MediaBox [0.000000 0.000000 612.00', $pdf, 'Hoja tamaño carta.');
+        $this->assertSame(5, $j['total']);
+        $porCodigo = collect($j['etiquetas'])->keyBy('codigo');
+        $this->assertSame(2, $porCodigo[$a->CODIGO]['copias']);
+        $this->assertSame(3, $porCodigo[$b->CODIGO]['copias']);
+        $this->assertSame(trim($a->NOMBRE), $porCodigo[$a->CODIGO]['nombre']);
+        $this->assertSame(mb_strtoupper(trim((string) $a->UM)), $porCodigo[$a->CODIGO]['um'], 'La medida va en mayúsculas.');
+        $this->assertArrayHasKey('ubicacion', $porCodigo[$a->CODIGO]);
+    }
+
+    public function test_misma_cantidad_para_los_elegidos_y_topes(): void
+    {
+        [$a, $b] = $this->conCodigo(2)->all();
+        $j = $this->actingAs($this->usuario())
+            ->getJson(route('almacen.etiquetas', ['ids' => $a->ID_PRODUCTO . ',' . $b->ID_PRODUCTO, 'copias' => 4]))
+            ->assertOk()->json();
+        $this->assertSame(8, $j['total']);
+        $this->assertSame([4, 4], array_column($j['etiquetas'], 'copias'));
+
+        // Más de 200 por producto se recorta a 200.
+        $j = $this->actingAs($this->usuario())
+            ->getJson(route('almacen.etiquetas', ['items' => $a->ID_PRODUCTO . ':999']))->assertOk()->json();
+        $this->assertSame(200, $j['total']);
+    }
+
+    public function test_sin_productos_validos_no_hay_etiquetas(): void
+    {
+        $this->actingAs($this->usuario())
+            ->getJson(route('almacen.etiquetas', ['items' => 'abc']))->assertNotFound();
+        $this->actingAs($this->usuario())
+            ->getJson(route('almacen.etiquetas', ['ids' => '999999999']))->assertNotFound();
     }
 }

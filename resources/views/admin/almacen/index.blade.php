@@ -152,26 +152,26 @@
                        data-placeholder-empty="Buscar por código o descripción…"
                        oninput="window.almBuscarInput()" onfocus="window.almBuscarFocus()"
                        onkeydown="window.almBuscarEnter(event)">
-                {{-- Escanear QR: icono dentro del propio buscador. Visible cuando el campo
+                {{-- Escanear el código de barras: icono dentro del propio buscador. Visible cuando el campo
                      está vacío; al escribir/filtrar se oculta y aparece la "x" de limpiar
-                     (toggle en QrScan.iconToggle, llamado desde filtros()/almBuscarInput).
+                     (toggle en LectorBarras.iconToggle, llamado desde filtros()/almBuscarInput).
                      En TELÉFONO se ve el icono de escanear (abre la cámara). En PC se ve en
-                     su lugar el de KITS: allí el QR no abría nada, porque un lector USB
+                     su lugar el de KITS: allí el de escanear no abría nada, porque un lector USB
                      teclea directamente en este buscador. --}}
-                <i class="material-icons qrs-ic" id="almBuscarScan" title="Escanear código QR"
+                <i class="lbr-ic icono-barras" id="almBuscarScan" title="Escanear código de barras"
                    style="display:none;"
-                   onclick="window.QrScan.abrir()">&#xf206;</i>
-                {{-- En PC, donde no hay cámara, ese hueco lo ocupa el acceso a KITS: el QR
+                   onclick="window.LectorBarras.abrir()"></i>
+                {{-- En PC, donde no hay cámara, ese hueco lo ocupa el acceso a KITS: el de escanear
                      allí no abría nada (solo enfocaba este mismo buscador). Cuál de los dos
-                     se ve lo decide QrScan.iconToggle, que es quien sabe si es teléfono.
+                     se ve lo decide LectorBarras.iconToggle, que es quien sabe si es teléfono.
 
                      Desde el 28-09-2026 este es el ÚNICO acceso a Kits: se quitó su item del
                      menú Acciones (pedido del cliente). En el teléfono, por tanto, Kits no se
-                     abre — se decidió así a sabiendas: allí ese hueco es del escáner QR.
+                     abre — se decidió así a sabiendas: allí ese hueco es del de escanear.
                      Por ser el único, en PC se queda SIEMPRE a la vista, también con un filtro
                      puesto: convive con la "x" de limpiar (ver iconToggle). El de escanear, en
                      cambio, sí se esconde al escribir. --}}
-                <i class="material-icons qrs-ic" id="almBuscarKits" title="Kits por equipo"
+                <i class="material-icons lbr-ic" id="almBuscarKits" title="Kits por equipo"
                    style="display:none;"
                    onclick="window.almAbrirKits && window.almAbrirKits()">inventory_2</i>
                 <i class="material-icons filter-clear" style="display:{{ $bActivo ? 'flex' : 'none' }};"
@@ -418,7 +418,7 @@
         <button type="button" onclick="window.almSelAccion()" class="btn-bulk-action">
             <i class="material-icons" style="font-size:18px;">shopping_cart</i><span class="desktop-text">Salida</span>
         </button>
-        {{-- Etiquetas QR de los productos seleccionados (flujo "marcar filas → imprimir
+        {{-- Etiquetas de los productos seleccionados (flujo "marcar filas → imprimir
              sus etiquetas"). Reusa la misma selección (almSeleccion) que la Salida. --}}
         <button type="button" id="almBulkEtqBtn" onclick="window.almSelEtiquetas()" class="btn-bulk-action alm-bulk-sec">
             <i class="material-icons" style="font-size:18px;">&#xe00a;</i><span class="desktop-text">Etiquetas</span>
@@ -428,14 +428,14 @@
 
 {{-- ════════════════════════ MODALES ════════════════════════ --}}
 
-{{-- ── Modal: Generar etiquetas QR (elige formato y produce el PDF) ──────────
+{{-- ── Modal: Generar etiquetas (cantidad y tamaño; Aceptar abre la vista previa) ──
      Sin gate de permiso (read-only, igual que el export). idsCsv lo fija quien lo
      abre: dropdown Acciones (vacío = filtro de categoría actual), barra de selección
      (los seleccionados) o el modal de detalle (un producto). --}}
 <div id="almEtiquetasModal" class="alm-modal-overlay">
     <div class="alm-modal" style="max-width:360px;">
         <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;">&#xe00a;</i> Generar etiquetas QR</h3>
+            <h3><i class="material-icons" style="font-size:20px;">&#xe00a;</i> Generar etiquetas</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almEtiquetasModal')">close</i>
         </div>
         <div class="alm-modal-body" style="gap:10px;">
@@ -490,6 +490,30 @@
     </div>
 </div>
 
+{{-- ── Modal: Vista previa de las etiquetas (como la app de la tienda) ──────────
+     Se ven tal cual van a salir —mismo dibujo que la impresión (almacen_index.js,
+     almEtqHTML / almEtqEstilo)— y desde aquí se mandan a la impresora. Con muchas, se
+     enseñan las primeras y se avisa cuántas más hay. --}}
+<div id="almEtqPreviaModal" class="alm-modal-overlay">
+    <div class="alm-modal alm-etq-previa-modal">
+        <div class="alm-modal-head">
+            <h3><i class="material-icons" style="font-size:20px;">visibility</i> Vista previa</h3>
+            <i class="material-icons alm-x" onclick="almCerrar('almEtqPreviaModal')">close</i>
+        </div>
+        <div class="alm-modal-body" style="gap:10px;">
+            <p id="almEtqPreviaInfo" class="alm-etq-previa-info"></p>
+            <div id="almEtqPrevia" class="alm-etq-previa"></div>
+            <p id="almEtqPreviaMas" class="alm-etq-previa-info" hidden></p>
+        </div>
+        <div class="alm-modal-foot">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almEtqPreviaModal')">Cancelar</button>
+            <button type="button" id="almEtqImprimirBtn" class="btn-primary-maquinaria" onclick="window.almEtqImprimir()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">print</i><span>Imprimir</span></button>
+        </div>
+    </div>
+</div>
+{{-- Marco invisible donde se arma la impresión de las etiquetas (a su tamaño, @page). --}}
+<iframe id="almEtqImpresion" title="Impresión de etiquetas" class="alm-etq-impresion" aria-hidden="true" tabindex="-1"></iframe>
+
 {{-- ── Modal: Papelera de productos (eliminados/soft-delete) ─────────────────
      Lista los productos borrados para buscarlos y restaurarlos. Restaurar deja el
      producto activo de nuevo con su stock intacto (almacen_stock no se borra). --}}
@@ -519,10 +543,10 @@
     </div>
 </div>
 
-{{-- Escaneo QR (modal de cámara + estilo del icono del buscador): partial COMPARTIDO
-     con Movimientos y Recepción. La lógica vive en window.QrScan
-     (public/js/maquinaria/qr_scan.js, global → SPA-safe); aquí solo se engancha al
-     buscador más abajo con QrScan.init. --}}
+{{-- Escaneo del código de barras (modal de cámara + estilo del icono del buscador): partial COMPARTIDO
+     con Movimientos y Recepción. La lógica vive en window.LectorBarras
+     (public/js/maquinaria/lector_barras.js, global → SPA-safe); aquí solo se engancha al
+     buscador más abajo con LectorBarras.init. --}}
 @include('admin.almacen.partials.scan_modal')
 
 {{-- Modal antiguo "Registrar entrada / Registrar salida" por producto individual:
@@ -1354,6 +1378,8 @@
             'equiposOpciones'       => route('almacen.productos.equipos.opciones', ['id' => '__PID__']),
             'export'                => route('almacen.export'),
             'etiquetas'             => route('almacen.etiquetas'),
+            // Librería del código de barras de las etiquetas (local; se baja al generarlas).
+            'libBarras'             => asset('js/vendor/JsBarcode-3.11.6.all.min.js'),
             'movimientos'           => route('almacen.movimientos'),
             'almacenesStore'        => route('almacen.almacenes.store'),
         ],

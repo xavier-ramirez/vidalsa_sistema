@@ -55,7 +55,7 @@
         {{-- Buscar producto — MISMAS funciones que el filtro "Descripción" de /admin/almacen:
              sugerencias fuzzy (código, descripción y nº de parte equivalente), clic en una
              sugerencia = match exacto (o TODAS las presentaciones si esa descripción tiene
-             varias), Enter = similitudes por LIKE, X = limpiar, e icono de escaneo QR.
+             varias), Enter = similitudes por LIKE, X = limpiar, e icono de escanear el código de barras.
              Escribir SOLO refresca las sugerencias — NO dispara la consulta a la tabla. --}}
         <div class="amf-item amf-search">
             <div class="amf-search-wrap">
@@ -65,12 +65,12 @@
                            oninput="window.almMovBuscarInput()"
                            onfocus="window.almMovSuggestFn()"
                            onkeydown="window.almMovBuscarKey(event)">
-                    {{-- Escanear QR: icono dentro del propio buscador, visible solo con el campo
+                    {{-- Escanear el código de barras: icono dentro del propio buscador, visible solo con el campo
                          vacío (comparte lugar con la "x" de limpiar). En teléfono abre la cámara;
                          en PC enfoca este buscador para que el lector USB teclee aquí. --}}
-                    <i class="material-icons qrs-ic" id="almMovBuscarScan" title="Escanear código QR"
+                    <i class="lbr-ic icono-barras" id="almMovBuscarScan" title="Escanear código de barras"
                        style="display:{{ $prodActivo ? 'none' : 'flex' }};"
-                       onclick="window.QrScan.abrir()">&#xf206;</i>
+                       onclick="window.LectorBarras.abrir()"></i>
                     <i class="material-icons clr" id="almMovSearchClear"
                        style="display:{{ $prodActivo ? 'block' : 'none' }};"
                        onclick="window.almMovBuscarLimpiar()">close</i>
@@ -353,9 +353,9 @@
 
 </div>{{-- /page-layout-grid --}}
 
-{{-- Escaneo QR (modal de cámara + estilo del icono del buscador): partial COMPARTIDO con
+{{-- Escaneo del código de barras (modal de cámara + estilo del icono del buscador): partial COMPARTIDO con
      Inventario y Recepción. Va ANTES del script de la vista porque su <script> registra
-     las rutas que usa el QrScan.init de más abajo. --}}
+     las rutas que usa el LectorBarras.init de más abajo. --}}
 @include('admin.almacen.partials.scan_modal')
 
 {{-- Modal "Dashboard de Consumo" (abierto desde el menú Acciones). Compartido con

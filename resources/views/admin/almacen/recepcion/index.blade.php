@@ -107,12 +107,12 @@
                        onfocus="window.trProdSuggest()"
                        onblur="setTimeout(function(){ var s=document.getElementById('trProdSuggest'); if(s) s.classList.remove('open'); }, 150);">
                 <input type="hidden" id="trIdProducto" value="{{ $reqIdProd }}">
-                {{-- Escanear QR: icono dentro del propio buscador, visible solo mientras no
+                {{-- Escanear el código de barras: icono dentro del propio buscador, visible solo mientras no
                      haya producto elegido (comparte lugar con la "x" de limpiar). En teléfono
                      abre la cámara; en PC enfoca este buscador para el lector USB. --}}
-                <i class="material-icons qrs-ic" id="trProdScan" title="Escanear código QR"
+                <i class="lbr-ic icono-barras" id="trProdScan" title="Escanear código de barras"
                    style="display:{{ $reqIdProd ? 'none' : 'flex' }};"
-                   onclick="window.QrScan.abrir()">&#xf206;</i>
+                   onclick="window.LectorBarras.abrir()"></i>
                 <i class="material-icons" id="trProdClear" title="Limpiar filtro por producto"
                    style="display:{{ $reqIdProd ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:default;"
                    onclick="window.trProdClear()">close</i>
@@ -1136,14 +1136,14 @@
 </script>
 @endcan
 
-{{-- Escaneo QR (modal de cámara + estilo del icono del buscador): partial COMPARTIDO con
+{{-- Escaneo del código de barras (modal de cámara + estilo del icono del buscador): partial COMPARTIDO con
      Inventario y Movimientos. Va ANTES de los scripts de la vista porque su <script>
-     registra las rutas que usa el QrScan.init del buscador de producto.
+     registra las rutas que usa el LectorBarras.init del buscador de producto.
 
      FUERA del @can('almacen.movimiento') a propósito: el icono de escanear vive en el
      buscador por producto, que ve CUALQUIERA que entre a la bandeja. Estando dentro del
      @can, a un usuario sin esa clave se le pintaba el icono pero el modal no existía, y
-     en teléfono el botón no hacía nada (qr_scan.js sale si no encuentra #qrsModal). En
+     en teléfono el botón no hacía nada (lector_barras.js sale si no encuentra #lbrModal). En
      PC no se notaba porque ahí no abre cámara: enfoca el buscador para el lector USB. --}}
 @include('admin.almacen.partials.scan_modal')
 

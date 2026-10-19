@@ -232,7 +232,7 @@ window.almMovArrancar = function (CFG) {
 
     // ¿Hay filtro de producto puesto? Texto tecleado O IDs elegidos por clic (que pueden venir
     // de la URL con el cuadro vacío). Criterio ÚNICO: lo consultan el estado visual de abajo,
-    // el icono de escaneo (cfg.activo de QrScan) y el modo offline.
+    // el icono de escaneo (cfg.activo de LectorBarras) y el modo offline.
     function almMovProdActivo() {
         var i = el('almMovSearch');
         return !!((i && i.value.trim()) || window.almMovPickedIds);
@@ -244,7 +244,7 @@ window.almMovArrancar = function (CFG) {
         var activo = almMovProdActivo();
         var caja = inp.closest('.amf-search-box'); if (caja) caja.classList.toggle('active', activo);
         var x = el('almMovSearchClear'); if (x) x.style.display = activo ? 'block' : 'none';
-        window.QrScan.iconToggle();   // escanear visible solo si NO hay filtro de producto
+        window.LectorBarras.iconToggle();   // escanear visible solo si NO hay filtro de producto
     }
 
     /**
@@ -280,10 +280,10 @@ window.almMovArrancar = function (CFG) {
         window.almMovBuscarPick(inp ? inp.value : '', null);
     };
 
-    // Escaneo QR sobre ESTE buscador (icono + cámara en teléfono + lector USB en PC). El
+    // Escaneo del código de barras sobre ESTE buscador (icono + cámara en teléfono + lector USB en PC). El
     // código escaneado se resuelve contra el catálogo y entra por el MISMO pick que un clic
     // en la sugerencia → filtra por el ID de ese producto.
-    window.QrScan.init({
+    window.LectorBarras.init({
         input:      'almMovSearch',
         icono:      'almMovBuscarScan',
         activo:     almMovProdActivo,

@@ -1,6 +1,7 @@
 /**
- * window.QrScan — Escaneo de códigos QR de productos, COMPARTIDO por los módulos de
- * inventario (/admin/almacen, /admin/almacen/movimientos, /admin/almacen/recepcion).
+ * window.LectorBarras — Escaneo del CÓDIGO DE BARRAS de los productos (Code 128, el de las
+ * etiquetas del almacén), COMPARTIDO por los módulos de inventario (/admin/almacen,
+ * /admin/almacen/movimientos, /admin/almacen/recepcion). Antes leía códigos QR.
  *
  * Antes vivía inline dentro de index.blade.php (~200 líneas). Al pedir el icono de
  * escaneo en los buscadores de los otros módulos se extrajo aquí para NO triplicar la
@@ -12,9 +13,9 @@
  *
  * Cómo lo usa una vista:
  *   1) @include('admin.almacen.partials.scan_modal')  → modal + rutas (una vez por página)
- *   2) window.QrScan.init({
+ *   2) window.LectorBarras.init({
  *          input:      'almFiltroBuscar',   // id del buscador de la vista
- *          icono:      'almBuscarScan',     // id del icono QR dentro de ese buscador
+ *          icono:      'almBuscarScan',     // id del icono de escanear dentro de ese buscador
  *          activo:     function () { ... }, // "¿hay filtro puesto?" — decide la vista
  *          onProducto: function (p, label) { ...aplicar el filtro... }
  *      });
@@ -30,7 +31,7 @@
     'use strict';
 
     // Script global: si la SPA vuelve a inyectarlo, no re-declaramos nada.
-    if (window.QrScan) return;
+    if (window.LectorBarras) return;
 
     // Configuración de la VISTA ACTIVA: la fija init en cada navegación SPA.
     var cfg = null;
@@ -39,7 +40,7 @@
     // data-* del propio modal y se leen AL USARLAS, no al cargar: así el partial no impone
     // un orden de scripts. Si el modal no está en la página, devuelven '' y quien llama corta.
     function ruta(nombre) {
-        var m = el('qrsModal');
+        var m = el('lbrModal');
         return (m && m.getAttribute('data-' + nombre)) || '';
     }
 
@@ -87,14 +88,14 @@
     // muestra (o no) el botón "Activar cámara". mostrarBtn=true solo cuando reintentar
     // tiene sentido (fallo de arranque/permiso), no cuando es imposible (sin HTTPS).
     function fallback(msg, mostrarBtn) {
-        var reader = el('qrsReader'), hint = el('qrsHint'), btn = el('qrsActivar');
+        var reader = el('lbrReader'), hint = el('lbrHint'), btn = el('lbrActivar');
         if (reader) reader.style.display = 'none';
         if (btn) btn.style.display = mostrarBtn ? '' : 'none';
         if (hint) hint.textContent = msg;
     }
 
     function iniciarCamara() {
-        var hint = el('qrsHint'), reader = el('qrsReader'), btn = el('qrsActivar');
+        var hint = el('lbrHint'), reader = el('lbrReader'), btn = el('lbrActivar');
         if (hint) hint.textContent = 'Cargando cámara…';
         cargarLib().then(function (cargada) {
             if (!cargada) { fallback('Cámara no disponible en este dispositivo.', false); return; }
@@ -102,10 +103,17 @@
             if (!window.isSecureContext) { fallback('La cámara necesita HTTPS para funcionar.', false); return; }
             if (reader) reader.style.display = '';
             if (hint) hint.textContent = 'Iniciando cámara…';
-            var conf   = { fps: 10, qrbox: { width: 220, height: 220 } };
+            // Recuadro ANCHO y bajo, a la forma de un código de barras (un 90 % del ancho del
+            // video y un 40 % de alto), y el detector del propio teléfono si lo tiene (Chrome en
+            // Android): lee las barras mucho mejor que el de la librería.
+            var conf   = {
+                fps: 10,
+                qrbox: function (w, h) { return { width: Math.floor(w * 0.9), height: Math.floor(Math.min(w, h) * 0.4) }; },
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+            };
             var onOk   = function (texto) { resolver(texto); };
             var onTick = function () { /* frames sin código: ignorar */ };
-            var ok     = function () { if (hint) hint.textContent = 'Apunta la cámara al código QR…'; if (btn) btn.style.display = 'none'; };
+            var ok     = function () { if (hint) hint.textContent = 'Apunta la cámara al código de barras…'; if (btn) btn.style.display = 'none'; };
             // Si TODO falla mostramos el motivo REAL (NotAllowedError = permiso denegado,
             // NotFoundError = sin cámara, etc.) y dejamos visible "Activar cámara" para
             // reintentar con un gesto explícito (vuelve a pedir permiso).
@@ -114,12 +122,12 @@
                 fallback('No se pudo abrir la cámara (' + msg + '). Toca "Activar cámara" y permite el acceso.', true);
             };
             try {
-                // Solo QR: las etiquetas de producto no llevan otro código, y con todos los
-                // formatos activos la librería llegó a leer como "código de barras" el texto o
-                // las líneas de una etiqueta (un número que no era el del producto).
-                scanner = new Html5Qrcode('qrsReader', {
+                // Solo Code 128, el de las etiquetas: con todos los formatos activos la librería
+                // llegó a leer como código el texto o las líneas de una etiqueta (un número que
+                // no era el del producto).
+                scanner = new Html5Qrcode('lbrReader', {
                     verbose: false,
-                    formatsToSupport: typeof Html5QrcodeSupportedFormats !== 'undefined' ? [Html5QrcodeSupportedFormats.QR_CODE] : undefined
+                    formatsToSupport: typeof Html5QrcodeSupportedFormats !== 'undefined' ? [Html5QrcodeSupportedFormats.CODE_128] : undefined
                 });
                 // 1) Intento directo con la cámara trasera (facingMode environment).
                 scanner.start({ facingMode: 'environment' }, conf, onOk, onTick)
@@ -182,7 +190,7 @@
         // y en un telefono tarda un momento, asi que el usuario pulsaba, no pasaba nada
         // visible y volvia a pulsar. Quitar la clase es inmediato; apagar la camara puede ir
         // por detras sin que nadie lo espere.
-        var m = el('qrsModal'); if (m) m.classList.remove('open');
+        var m = el('lbrModal'); if (m) m.classList.remove('open');
         detenerCamara();
     }
 
@@ -211,7 +219,7 @@
     }
 
     // ── Lector USB global (escanear en PC SIN abrir el modal) ──────────────────
-    // Un lector de código de barras/QR por USB se comporta como teclado: "teclea" el
+    // Un lector de código de barras por USB se comporta como teclado: "teclea" el
     // código completo + Enter en milisegundos. Para que en PC NO haga falta abrir el
     // modal (que sin cámara no ofrece nada), escuchamos a nivel de documento: si los
     // caracteres llegan en RÁFAGA (propio del lector, no del tecleo humano) y NO hay
@@ -227,7 +235,7 @@
             return t === 'input' || t === 'textarea' || t === 'select' || a.isContentEditable;
         }
         // Cualquier overlay abierto: los de inventario siguen el patrón "clase con
-        // -overlay + .open" (.alm-modal-overlay, .dtm-overlay, .cdir-overlay, .qrs-overlay)
+        // -overlay + .open" (.alm-modal-overlay, .dtm-overlay, .cdir-overlay, .lbr-overlay)
         // y los globales de estilos_globales.css usan .modal-overlay + .active.
         function hayModalAbierto() { return !!document.querySelector('[class*="overlay"].open, [class*="overlay"].active'); }
         document.addEventListener('keydown', function (e) {
@@ -253,24 +261,24 @@
             buf += e.key;   // carácter imprimible del código (Enter ya salió arriba)
         }, true);
 
-        // Escape cierra el modal de escaneo. Va aquí (y no en cada vista) porque QrScan es
+        // Escape cierra el modal de escaneo. Va aquí (y no en cada vista) porque LectorBarras es
         // el único que sabe DETENER la cámara: el handler genérico de Inventario solo
         // quitaba la clase .open y dejaba el MediaStream vivo.
         document.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape') return;
-            var m = el('qrsModal');
+            var m = el('lbrModal');
             if (m && m.classList.contains('open')) { e.stopPropagation(); cerrar(); }
         }, true);
     })();
 
-    window.QrScan = {
+    window.LectorBarras = {
         /**
          * Engancha el escaneo al buscador de la vista actual. Se llama en CADA visita SPA
          * para que cfg apunte al DOM vivo.
          * @param {{input:string, icono:string, iconoPc?:string, onProducto:Function, activo?:Function}} opts
          */
         init: function (opts) {
-            // Si se navegó con el modal abierto (botón atrás), el #qrsModal se fue del DOM
+            // Si se navegó con el modal abierto (botón atrás), el #lbrModal se fue del DOM
             // pero la instancia Html5Qrcode seguía viva: MediaStream abierto y decodificando
             // a 10 fps para siempre. Cortarla es lo primero.
             if (scanner) cerrar();
@@ -291,7 +299,7 @@
         /** Re-evalúa el icono de escaneo. Las vistas lo llaman cada vez que cambia su filtro. */
         iconToggle: iconToggle,
 
-        /** Clic en el icono QR del buscador. */
+        /** Clic en el icono de escanear del buscador. */
         abrir: function () {
             // En PC NO se abre el modal de cámara (no hay cámara → salía el feo "No se
             // pudo abrir la cámara"). La búsqueda se hace en el propio buscador: un
@@ -304,9 +312,9 @@
                 window.toast('Escanea con el lector USB o escribe el código en el buscador.', 'info');
                 return;
             }
-            var m = el('qrsModal'); if (!m) return;
+            var m = el('lbrModal'); if (!m) return;
             busy = false;
-            var btn = el('qrsActivar'); if (btn) btn.style.display = 'none';
+            var btn = el('lbrActivar'); if (btn) btn.style.display = 'none';
             m.classList.add('open');
             // El modal es SOLO móvil: la cámara es la única vía y arranca al abrir,
             // pidiendo el permiso de una (la lib se precargó en idle).
@@ -321,8 +329,8 @@
          * arrancar — esto re-dispara el pedido de permiso cuando el arranque automático falló.
          */
         reintentar: function () {
-            var btn = el('qrsActivar'); if (btn) btn.style.display = 'none';
-            var hint = el('qrsHint'); if (hint) hint.textContent = 'Iniciando cámara…';
+            var btn = el('lbrActivar'); if (btn) btn.style.display = 'none';
+            var hint = el('lbrHint'); if (hint) hint.textContent = 'Iniciando cámara…';
             detenerCamara();
             setTimeout(iniciarCamara, 250);
         },

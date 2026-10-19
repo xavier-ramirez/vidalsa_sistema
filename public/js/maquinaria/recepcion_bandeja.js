@@ -134,13 +134,13 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         trSearchToggleClear();
         trProdToggleClear();   // tinte + X + icono de escaneo del buscador de producto
     };
-    // Escaneo QR sobre el buscador de producto (icono + cámara en teléfono + lector USB en PC):
+    // Escaneo del código de barras sobre el buscador de producto (icono + cámara en teléfono + lector USB en PC):
     // el código resuelto entra por el MISMO pick que un clic en la sugerencia. `activo` = hay
     // producto elegido (el texto del cuadro solo lo acompaña), así el icono de escaneo y la "x"
     // de limpiar nunca se ven a la vez. Va ANTES de trResetBuscadores porque ese ya sincroniza
     // el icono (via trProdToggleClear) y necesita el enganche puesto. Las funciones que usa
     // —trProdPick, trProdToggleClear— se resuelven al invocarse, más abajo en este mismo script.
-    window.QrScan.init({
+    window.LectorBarras.init({
         input:      'trProdSearch',
         icono:      'trProdScan',
         activo:     function () { return !!v('trIdProducto'); },
@@ -212,7 +212,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         var has = !!v('trIdProducto');
         var x = el('trProdClear'); if (x) x.style.display = has ? 'flex' : 'none';
         var box = input.closest('.tr-search-box'); if (box) box.classList.toggle('active', has);
-        window.QrScan.iconToggle();   // escanear visible solo mientras no haya producto elegido
+        window.LectorBarras.iconToggle();   // escanear visible solo mientras no haya producto elegido
     }
     window.trProdSuggest = function () {
         var inp = el('trProdSearch'), box = el('trProdSuggest');
@@ -271,7 +271,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         window.trProdPick(it.getAttribute('data-pick') || '', it.getAttribute('data-pid') || '');
     });
     // Fija el producto del filtro y recarga la bandeja. Punto único: lo usan el clic en una
-    // sugerencia y el escaneo de un QR (que resuelve el CODIGO contra el catálogo).
+    // sugerencia y el escaneo de un código de barras (que resuelve el CODIGO contra el catálogo).
     window.trProdPick = function (texto, idProducto) {
         var hid = el('trIdProducto'); if (hid) hid.value = idProducto || '';
         var inp = el('trProdSearch'); if (inp) inp.value = texto || '';

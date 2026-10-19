@@ -384,18 +384,16 @@ Route::middleware(['auth'])->group(function () {
             // por cada almacén visible + columna TOTAL.
             Route::get   ('almacen/export',                       [App\Http\Controllers\AlmacenController::class, 'export'])           ->name('almacen.export');
 
-            // ── Etiquetas QR + escaneo (como las etiquetas de góndola del supermercado) ──
-            // Etiquetas QR imprimibles. El QR codifica el CODIGO del producto
-            // (ProductoInventario::qr_payload). GET porque SOLO lee el catálogo y produce
-            // un PDF — mismo nivel de acceso que el export (cualquier usuario que ve el
-            // módulo); no muta nada. Parámetros:
-            //   ?ids=1,2,3   → solo esos productos (selección de filas / "imprimir 1").
-            //   ?categoria=X → todos los activos de esa categoría (cuando no hay ids).
-            //   ?formato=50x30|40x25 → una etiqueta por página al tamaño exacto de la tira
-            //                   de la etiquetadora (impresora térmica tipo Zebra/Brother).
-            //   ?formato=carta → hoja carta con 30 etiquetas (3 × 10) e impresora normal.
-            //                   Default: 50x30. El motor es el mismo TCPDF de la Nota de Entrega.
-            Route::get   ('almacen/etiquetas',                    [App\Http\Controllers\AlmacenController::class, 'etiquetasPdf'])     ->name('almacen.etiquetas');
+            // ── Etiquetas con código de barras + escaneo (como las de góndola del supermercado) ──
+            // Lista de etiquetas en JSON (AlmacenController::etiquetas): la pantalla las dibuja
+            // con código de barras del CODIGO, enseña la vista previa e imprime desde el
+            // navegador. GET porque SOLO lee el catálogo — mismo nivel de acceso que el export
+            // (cualquier usuario que ve el módulo); no muta nada. Parámetros:
+            //   ?items=ID:CANT,… → cada producto con su cantidad.
+            //   ?ids=1,2,3       → solo esos productos (selección de filas / "imprimir 1").
+            //   ?categoria=X     → todos los activos de esa categoría (cuando no hay ids).
+            //   ?copias=N        → copias iguales de cada uno (con ids o categoría).
+            Route::get   ('almacen/etiquetas',                    [App\Http\Controllers\AlmacenController::class, 'etiquetas'])        ->name('almacen.etiquetas');
             // Resolver de escaneo: ?codigo=000123 → JSON { found, producto } con match
             // EXACTO sobre CODIGO y SOLO activos (el índice UNIQUE incluye soft-deleted,
             // por eso se filtra). Read-only, sin permiso (igual que la consulta del módulo).

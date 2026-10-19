@@ -86,15 +86,15 @@
     {{-- Por el MISMO motivo van aquí estos dos, que usan los módulos de inventario:
          · producto_suggest.js (window.ProductoSuggest) — reglas de los autocompletes de
            producto: agrupar por descripción, dedupe y badge de presentaciones.
-         · qr_scan.js (window.QrScan) — escaneo de QR de los buscadores.
+         · lector_barras.js (window.LectorBarras) — escaneo del código de barras en los buscadores.
          Los <script> inline de Inventario / Movimientos / Recepción los invocan AL
-         EVALUARSE (alias de funciones y QrScan.init), no solo dentro de callbacks, así que
-         abajo llegarían tarde. Ambos solo definen funciones; qr_scan además registra sus
+         EVALUARSE (alias de funciones y LectorBarras.init), no solo dentro de callbacks, así que
+         abajo llegarían tarde. Ambos solo definen funciones; lector_barras además registra sus
          listeners en `document`, que en el <head> ya existe. --}}
     <script
         src="{{ asset('js/maquinaria/producto_suggest.js') }}?v={{ @filemtime(public_path('js/maquinaria/producto_suggest.js')) }}"></script>
     <script
-        src="{{ asset('js/maquinaria/qr_scan.js') }}?v={{ @filemtime(public_path('js/maquinaria/qr_scan.js')) }}"></script>
+        src="{{ asset('js/maquinaria/lector_barras.js') }}?v={{ @filemtime(public_path('js/maquinaria/lector_barras.js')) }}"></script>
     {{-- gps_ficha.js (window.GpsFicha) — la ficha de un equipo con GPS, COMPARTIDA por la capa
          Equipos de /mapa y por el modal "Rastreo Satelital en Vivo" del detalle de equipos, que
          tienen que verse idénticas. Va aquí porque el <script> inline de ese modal la usa al
@@ -1124,7 +1124,7 @@
              y Recepción. Global aquí → sobrevive a la navegación SPA. --}}
         <script
             src="{{ asset('js/maquinaria/fuzzy_search.js') }}?v={{ @filemtime(public_path('js/maquinaria/fuzzy_search.js')) }}"></script>
-        {{-- producto_suggest.js y qr_scan.js NO van aquí: se cargan en el <head> (ver arriba),
+        {{-- producto_suggest.js y lector_barras.js NO van aquí: se cargan en el <head> (ver arriba),
              por el mismo motivo que dom_helpers.js. --}}
         <script
             src="{{ asset('js/maquinaria/navegacion.js') }}?v={{ @filemtime(public_path('js/maquinaria/navegacion.js')) }}"></script>

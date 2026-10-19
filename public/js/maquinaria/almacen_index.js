@@ -268,7 +268,7 @@
             x.style.display = filtroPuesto(i) ? 'flex' : 'none';
         };
         tx('almFiltroBuscar'); tx('almFiltroCat');
-        window.QrScan.iconToggle();   // escanear visible solo si el buscador quedó vacío
+        window.LectorBarras.iconToggle();   // escanear visible solo si el buscador quedó vacío
         return p;
     }
 
@@ -539,7 +539,7 @@
         almSuggestHide(); almCatSuggestHide();
     }
     // Suelta la unidad de medida del panel avanzado. La llaman "Limpiar Todo", "Ver todo" y
-    // los que piden UN producto puntual (sugerencia, QR, "En otros almacenes"): con otra
+    // los que piden UN producto puntual (sugerencia, escaneo, "En otros almacenes"): con otra
     // unidad puesta, ese producto quedaba escondido y la tabla salía vacía.
     // Con la MISMA llamada que su X (selectOption), para que el desplegable quede también sin
     // filtro a la vista. La bandera evita la recarga doble: quien suelta la unidad recarga
@@ -636,7 +636,7 @@
         // Mismo motivo: el observador de la lista de frentes apunta al <div> del montaje
         // anterior, que ya no existe (ver almFrentesObservar).
         if (typeof almFrentesObservar === 'function') almFrentesObservar();
-        // Y lo mismo con el escaneo: QrScan solo recuerda la ÚLTIMA vista que se enganchó, así
+        // Y lo mismo con el escaneo: LectorBarras solo recuerda la ÚLTIMA vista que se enganchó, así
         // que al volver de Movimientos o Recepción hay que reclamarlo para este buscador o el
         // lector USB no escanea aquí (ver almEngancharEscaneo).
         if (typeof almEngancharEscaneo === 'function') almEngancharEscaneo();
@@ -882,7 +882,7 @@
         // Si el texto ya no coincide con la última sugerencia elegida, el id pegado deja
         // de aplicar. Lo más simple: descartar siempre que se vuelva a teclear.
         almResetPick();
-        window.QrScan.iconToggle();   // ocultar el icono escanear mientras hay texto
+        window.LectorBarras.iconToggle();   // ocultar el icono escanear mientras hay texto
         window.almBuscarSuggest();
     };
     // Buscar por código o descripción: el foco solo abre sugerencias; los atajos "Stock
@@ -955,7 +955,7 @@
         // exceptúan para id_producto — ver inventarioBaseQuery en el backend). Igual la unidad.
         almSoltarUm();
         almResetBadges();
-        window.QrScan.iconToggle();
+        window.LectorBarras.iconToggle();
         almSuggestHide();
         if (typeof selectOption === 'function') {
             selectOption('almSelAlmacenDropdown', String(idAlmacen), nombre);
@@ -1909,8 +1909,8 @@
     // Baja el archivo vía fetch + blob (no window.location.href / window.open) para
     // mostrar el spinner global MIENTRAS el servidor lo genera y forzar la DESCARGA
     // (en vez de abrir otra pestaña). El nombre sale del Content-Disposition; si no
-    // viene, usa el fallback. La usan la Copia de Inventario (Excel) y las Etiquetas
-    // QR (PDF) — misma UX de descarga que el resto del módulo.
+    // viene, usa el fallback. La usa la Copia de Inventario (Excel) — misma UX de
+    // descarga que el resto del módulo.
     function almDescargarArchivo(url, fallbackName, okMsg, errMsg) {
         pre();
         return window.apiFetch(url)
@@ -1941,19 +1941,134 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  ETIQUETAS QR + ESCANEO  (como las etiquetas de producto del supermercado)
-    //   · Imprimir: almEtiquetasModal (elige formato) → PDF GET almacen.etiquetas.
-    //   · Escanear: window.QrScan (módulo compartido con Movimientos y Recepción) →
+    //  ETIQUETAS CON CÓDIGO DE BARRAS + ESCANEO  (como las de producto del supermercado)
+    //   · Imprimir: almEtiquetasModal (cantidad y tamaño) → lista GET almacen.etiquetas →
+    //     vista previa (almEtqPreviaModal) → impresora. Mismo diseño que las etiquetas de la
+    //     app de la tienda: empresa, descripción, código de barras Code 128 del CODIGO y,
+    //     abajo, el código y la medida.
+    //   · Escanear: window.LectorBarras (módulo compartido con Movimientos y Recepción) →
     //     resuelve el CODIGO vía almacen.buscar-codigo → filtra la tabla a ese producto.
     //  Read-only: sin permiso especial (mismo criterio que el export del inventario).
     // ═══════════════════════════════════════════════════════════════════════
     var ROUTE_ETIQUETAS = CFG.rutas.etiquetas;
 
+    // Tamaños (mm). Rollo = una etiqueta por página, al tamaño de la tira de la etiquetadora;
+    // carta = 30 por hoja (3 × 10, centradas) con su línea de corte para la tijera.
+    var ETQ_FORMATOS = {
+        '50x30': { nombre: 'Rollo 50 × 30 mm', w: 50, h: 30, hoja: null },
+        '40x25': { nombre: 'Rollo 40 × 25 mm', w: 40, h: 25, hoja: null },
+        carta:   { nombre: 'Hoja carta (30 por hoja)', w: 66, h: 26, hoja: { w: 215.9, h: 279.4, cols: 3, filas: 10 } },
+    };
+    var ETQ_EMPRESA = 'CONSTRUCTORA VIDALSA 27';
+    var ETQ_MAX_PREVIA = 60;   // en la vista previa; con más se avisa cuántas faltan
+    var etqPendiente = null;   // lo que muestra la vista previa: { lista, formato }
+
+    // Código de barras Code 128 (JsBarcode) como SVG que se estira a su caja. Si el código
+    // trae algo que un código de barras no admite (ñ, tildes), se escribe el código.
+    function almEtqBarras(codigo) {
+        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        try {
+            window.JsBarcode(svg, codigo, { format: 'CODE128', height: 40, width: 2, margin: 0, flat: true, displayValue: false });
+        } catch (e) {
+            return '<span class="etq-cod">' + escHtml(codigo) + '</span>';
+        }
+        var w = parseFloat(svg.getAttribute('width')), h = parseFloat(svg.getAttribute('height'));
+        svg.removeAttribute('width'); svg.removeAttribute('height'); svg.removeAttribute('style');
+        svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+        svg.setAttribute('preserveAspectRatio', 'none');
+        return svg.outerHTML;
+    }
+
+    // UNA etiqueta. La misma para la vista previa y para la impresión.
+    function almEtqHTML(e, f) {
+        return '<div class="etq' + (f.hoja ? ' etq-corte' : '') + '">'
+            + '<div class="etq-empresa">' + ETQ_EMPRESA + '</div>'
+            + '<div class="etq-nombre">' + escHtml(e.nombre) + '</div>'
+            + (e.ubicacion ? '<div class="etq-var">Ubicación: ' + escHtml(e.ubicacion) + '</div>' : '')
+            + '<div class="etq-barras">' + almEtqBarras(e.codigo) + '</div>'
+            + '<div class="etq-pie"><span class="etq-cod">' + escHtml(e.codigo) + '</span>'
+            +   '<span class="etq-um">' + escHtml(e.um) + '</span></div>'
+            + '</div>';
+    }
+
+    // Estilo de la etiqueta en milímetros y puntos, para la vista previa y la impresión.
+    function almEtqEstilo(f) {
+        var chica = f.h < 28;
+        return '.etq { width:' + f.w + 'mm; height:' + f.h + 'mm; padding:1.5mm 2mm; box-sizing:border-box; display:flex; flex-direction:column; overflow:hidden;'
+            +   ' font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff; }'
+            + ' .etq-corte { border:.15mm dashed #000; border-radius:1.8mm; }'
+            + ' .etq-empresa { font-size:' + (chica ? 5.5 : 6.5) + 'pt; text-transform:uppercase; letter-spacing:.04em; line-height:1.1; }'
+            // La descripción del almacén es larga: hasta dos renglones (en la tira chica, uno).
+            + ' .etq-nombre { font-size:' + (chica ? 7 : 8.5) + 'pt; font-weight:bold; line-height:1.15; overflow:hidden;'
+            +   ' display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:' + (f.w < 45 ? 1 : 2) + '; }'
+            + ' .etq-var { font-size:' + (chica ? 6 : 7) + 'pt; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }'
+            // Margen blanco a cada lado del código (zona de silencio): sin él, estirado de borde a
+            // borde, el lector no siempre encuentra dónde empieza y dónde termina.
+            + ' .etq-barras { flex:1; min-height:6mm; margin:.6mm 2.5mm .3mm; }'
+            + ' .etq-barras svg { width:100%; height:100%; display:block; }'
+            + ' .etq-pie { display:flex; justify-content:space-between; align-items:baseline; gap:1mm; line-height:1; }'
+            + ' .etq-cod { font-size:6pt; letter-spacing:.03em; }'
+            + ' .etq-um { font-size:' + (chica ? 7.5 : 8.5) + 'pt; font-weight:bold; white-space:nowrap; }';
+    }
+
+    // Vista previa: las etiquetas tal cual van a salir; desde ahí se imprimen.
+    function almEtqVistaPrevia(lista, formato) {
+        var f = ETQ_FORMATOS[formato] || ETQ_FORMATOS['50x30'];
+        var total = 0, muestras = [];
+        lista.forEach(function (e) {
+            total += e.copias;
+            for (var i = 0; i < e.copias && muestras.length < ETQ_MAX_PREVIA; i++) muestras.push('<div>' + almEtqHTML(e, f) + '</div>');
+        });
+        etqPendiente = { lista: lista, formato: formato };
+        el('almEtqPreviaInfo').textContent = total + (total === 1 ? ' etiqueta' : ' etiquetas') + ' · ' + f.nombre;
+        el('almEtqPrevia').innerHTML = '<style>' + almEtqEstilo(f) + '</style>' + muestras.join('');
+        var mas = el('almEtqPreviaMas');
+        mas.hidden = total <= ETQ_MAX_PREVIA;
+        mas.textContent = 'y ' + (total - ETQ_MAX_PREVIA) + ' más iguales a estas';
+        el('almEtqImprimirBtn').querySelector('span').textContent = 'Imprimir ' + total;
+        almOpen('almEtqPreviaModal');
+    }
+
+    // Manda a la impresora lo de la vista previa: rollo = una etiqueta por página al tamaño de
+    // la tira; carta = rejillas de 3 × 10 centradas en la hoja. Se arma en un marco invisible
+    // para que el diálogo de impresión salga solo con las etiquetas.
+    window.almEtqImprimir = function () {
+        if (!etqPendiente) return;
+        var f = ETQ_FORMATOS[etqPendiente.formato] || ETQ_FORMATOS['50x30'];
+        var todas = [];
+        etqPendiente.lista.forEach(function (e) {
+            var html = almEtqHTML(e, f);
+            for (var i = 0; i < e.copias; i++) todas.push(html);
+        });
+        var pagina, cuerpo;
+        if (!f.hoja) {
+            pagina = '@page { size:' + f.w + 'mm ' + f.h + 'mm; margin:0; }';
+            cuerpo = todas.map(function (t) { return '<div style="page-break-after:always">' + t + '</div>'; }).join('');
+        } else {
+            var h = f.hoja, porHoja = h.cols * h.filas;
+            var ml = (h.w - h.cols * f.w) / 2, mt = (h.h - h.filas * f.h) / 2;
+            pagina = '@page { size:' + h.w + 'mm ' + h.h + 'mm; margin:0; }';
+            cuerpo = '';
+            for (var i = 0; i < todas.length; i += porHoja) {
+                cuerpo += '<div style="padding:' + mt + 'mm 0 0 ' + ml + 'mm;display:grid;grid-template-columns:repeat(' + h.cols + ',' + f.w + 'mm);page-break-after:always">'
+                    + todas.slice(i, i + porHoja).join('') + '</div>';
+            }
+        }
+        var fr = el('almEtqImpresion');
+        var doc = fr.contentDocument;
+        doc.open();
+        doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Etiquetas</title><style>' + pagina
+            + ' html,body{margin:0;padding:0;} ' + almEtqEstilo(f) + '</style></head><body>' + cuerpo + '</body></html>');
+        doc.close();
+        almCerrar('almEtqPreviaModal');
+        setTimeout(function () { fr.contentWindow.focus(); fr.contentWindow.print(); }, 150);
+    };
+
     // Engancha el escaneo (icono del buscador + cámara + lector USB) a ESTE buscador.
     // Al resolver un código, reusa el "pick" del filtro (almBuscarPick → almCargar),
     // que ya deja la tabla en ese producto y muestra su saldo en el almacén activo.
     //
-    // En FUNCIÓN, no suelto, porque hay que repetirlo en CADA visita: QrScan guarda UNA
+    // En FUNCIÓN, no suelto, porque hay que repetirlo en CADA visita: LectorBarras guarda UNA
     // sola configuración —la de la última vista que llamó a init— y decide por ella si un
     // escaneo le toca. Al volver aquí desde Movimientos o Recepción el cuerpo de este IIFE
     // ya no corre (guard de re-montaje de arriba), así que sin esto la configuración se
@@ -1961,11 +2076,11 @@
     // dejaba de escanear en Inventario hasta recargar con F5, y el icono del cuadro de
     // búsqueda se quedaba como estuviera. Por eso almResetOnRemount lo vuelve a llamar.
     function almEngancharEscaneo() {
-        window.QrScan.init({
+        window.LectorBarras.init({
             input:      'almFiltroBuscar',
             icono:      'almBuscarScan',
-            // En PC ese hueco lo ocupa el acceso a KITS: alli el QR no abria nada (el lector
-            // USB teclea directo en el buscador). Quien decide cual se ve es QrScan.iconToggle.
+            // En PC ese hueco lo ocupa el acceso a KITS: alli el de escanear no abria nada (el lector
+            // USB teclea directo en el buscador). Quien decide cual se ve es LectorBarras.iconToggle.
             // OJO: el de Kits NO se esconde al filtrar —es el unico acceso que tiene— y convive
             // con la "x" de limpiar; el que se turna con ella es solo el de escanear.
             iconoPc:    'almBuscarKits',
@@ -2100,10 +2215,27 @@
                 if (cat) u.searchParams.set('categoria', cat);
             }
         }
-        // Cierra el modal y baja el PDF con spinner (misma UX que la Copia de
-        // Inventario y la Nota de Entrega): nada de abrir otra pestaña.
+        // Pide la lista y la librería del código de barras a la vez (con spinner) y abre la
+        // vista previa; la librería se baja solo la primera vez.
         almCerrar('almEtiquetasModal');
-        almDescargarArchivo(u.toString(), 'Etiquetas_QR_' + fmt + '.pdf', 'Etiquetas descargadas.', 'No se pudieron generar las etiquetas.');
+        pre();
+        var lista = window.apiFetch(u.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); });
+        var libreria = window.cargarScriptUnaVez(CFG.rutas.libBarras, function () { return typeof window.JsBarcode === 'function'; });
+        Promise.all([lista, libreria])
+            .then(function (res) {
+                unpre();
+                var j = res[0].j || {};
+                if (!res[0].ok || !Array.isArray(j.etiquetas) || !j.etiquetas.length) {
+                    toast(j.message || 'No hay productos con código para las etiquetas.', 'error');
+                    return;
+                }
+                almEtqVistaPrevia(j.etiquetas, fmt);
+            })
+            .catch(function () {
+                unpre();
+                toast('No se pudieron generar las etiquetas.', 'error');
+            });
     };
     // Botón "Etiquetas" de la barra de selección masiva → MODO POR PRODUCTO: cada
     // producto seleccionado con su propio campo de cantidad.

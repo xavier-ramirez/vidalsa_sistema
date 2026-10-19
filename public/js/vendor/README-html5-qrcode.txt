@@ -1,16 +1,19 @@
-html5-qrcode — librería de escaneo de QR por cámara (módulo Almacén / Etiquetas)
+html5-qrcode — librería de escaneo por cámara (módulo Almacén / Etiquetas)
 ================================================================================
 
 QUÉ ES
 ------
-`html5-qrcode.min.js` es la librería que abre la cámara del dispositivo y lee el
-código QR de la etiqueta del producto (botón "Escanear" en /admin/almacen).
+`html5-qrcode.min.js` es la librería que abre la cámara del teléfono y lee el
+CÓDIGO DE BARRAS (Code 128) de la etiqueta del producto (icono de escanear en los
+buscadores de Inventario, Movimientos y Recepción). Pese al nombre, lee también
+códigos de barras; window.LectorBarras la limita a Code 128.
 
 Se sirve LOCALMENTE (no depende de internet ni de un CDN en tiempo de ejecución).
-La vista la carga así:
+No va en un <script> de página: public/js/maquinaria/lector_barras.js la inyecta
+bajo demanda desde la ruta que lleva el modal (data-lib en
+resources/views/admin/almacen/partials/scan_modal.blade.php).
 
-    resources/views/admin/almacen/index.blade.php
-    <script src="{{ asset('js/vendor/html5-qrcode.min.js') }}" ...>
+Las etiquetas las dibuja JsBarcode (js/vendor/JsBarcode-3.11.6.all.min.js, MIT).
 
 Versión usada: 2.3.8
 

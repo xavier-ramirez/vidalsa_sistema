@@ -14,7 +14,7 @@
  * del modal. La hora y el "hace" salen de dom_helpers.js (window.fechaHoraLocal / tiempoHace),
  * que ya eran compartidos por el mismo motivo.
  *
- * Se carga GLOBAL en estructura_base (como fuzzy_search.js o qr_scan.js): la SPA omite los
+ * Se carga GLOBAL en estructura_base (como fuzzy_search.js o lector_barras.js): la SPA omite los
  * <script src> que van dentro de @section('content'), así que por vista no sobreviviría a la
  * navegación.
  *
