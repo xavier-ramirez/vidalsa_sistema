@@ -1051,13 +1051,16 @@ class EquipoController extends Controller
         }
 
         // Eager load solo los campos necesarios para el export (evitar SELECT * en relaciones pesadas).
+        $colsDoc = 'ID_EQUIPO,PLACA,NRO_DE_DOCUMENTO,LINK_DOC_PROPIEDAD,NOMBRE_DEL_TITULAR,FECHA_EMISION_PROPIEDAD,'
+            . 'LINK_POLIZA_SEGURO,FECHA_EMISION_POLIZA,FECHA_VENC_POLIZA,LINK_RACDA,FECHA_EMISION_RACDA,FECHA_RACDA,'
+            . 'LINK_ROTC,FECHA_EMISION_ROTC,FECHA_ROTC,LINK_DOC_ADICIONAL,FECHA_ADICIONAL';
         $equipos->with([
             'frenteActual:ID_FRENTE,NOMBRE_FRENTE',
             'tipo:id,nombre',
-            'documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,NOMBRE_DEL_TITULAR,LINK_POLIZA_SEGURO,FECHA_VENC_POLIZA,LINK_RACDA,FECHA_RACDA,LINK_ROTC,FECHA_ROTC,LINK_DOC_ADICIONAL,FECHA_ADICIONAL',
+            'documentacion:' . $colsDoc,
             'equiposAnclados:ID_EQUIPO,id_tipo_equipo,ID_FRENTE_ACTUAL,MARCA,MODELO,SERIAL_CHASIS,SERIAL_DE_MOTOR,ANIO,ESTADO_OPERATIVO,CATEGORIA_FLOTA,ID_ANCLAJE',
             'equiposAnclados.tipo:id,nombre',
-            'equiposAnclados.documentacion:ID_EQUIPO,PLACA,LINK_DOC_PROPIEDAD,NOMBRE_DEL_TITULAR,LINK_POLIZA_SEGURO,FECHA_VENC_POLIZA,LINK_RACDA,FECHA_RACDA,LINK_ROTC,FECHA_ROTC,LINK_DOC_ADICIONAL,FECHA_ADICIONAL',
+            'equiposAnclados.documentacion:' . $colsDoc,
             'equiposAnclados.frenteActual:ID_FRENTE,NOMBRE_FRENTE',
             'ancladoA:ID_EQUIPO,ID_FRENTE_ACTUAL',
             'ancladoA.frenteActual:ID_FRENTE,NOMBRE_FRENTE',
@@ -1091,12 +1094,27 @@ class EquipoController extends Controller
         $spreadsheet->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
 
         $showFrenteCol = ($nombreFrente === 'TODOS LOS FRENTES');
-        // +10 columnas de documentación: SÍ/NO + dato por cada uno (Tít.Prop+Titular /
-        // Póliza+Venc / RACDA+Venc / ROTC+Venc / Certificado+Venc):
-        // con FRENTE → A..U ; sin FRENTE → A..T
-        $lastCol      = $showFrenteCol ? 'U' : 'T';
-        $endTitle     = $showFrenteCol ? 'O' : 'N'; // título C:endTitle (encabezado ancho)
-        $startEdicion = $showFrenteCol ? 'P' : 'O'; // EDICION/REV/FECHA: startEdicion..lastCol (4 cols, angosto)
+        // Columnas de documentación, en orden: [encabezado, ancho]. Cada documento lleva su SÍ/NO
+        // y sus datos; el título, su número, titular y emisión; póliza, RACDA y ROTC, emisión y
+        // vencimiento; el certificado, su vencimiento (la ficha no guarda su emisión). Las letras
+        // salen de aquí: van detrás de las columnas del equipo (10, u 11 con FRENTE).
+        $docColumnas = [
+            ["TÍTULO DE\nPROPIEDAD", 9], ["N° DEL\nTÍTULO", 16], ['TITULAR', 30], ["EMISIÓN\nTÍTULO", 13],
+            ['PÓLIZA', 9],               ["EMISIÓN\nPÓLIZA", 13], ["VENC.\nPÓLIZA", 13],
+            ['RACDA', 9],                ["EMISIÓN\nRACDA", 13],  ["VENC.\nRACDA", 13],
+            ['ROTC', 9],                 ["EMISIÓN\nROTC", 13],   ["VENC.\nROTC", 13],
+            ['CERTIFICADO', 14],         ["VENC.\nCERTIF.", 13],
+        ];
+        $colTitular = 2;   // la única de texto largo: va a la izquierda
+        $primeraDoc = $showFrenteCol ? 12 : 11;
+        $docLetras  = array_map(
+            fn ($i) => \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($primeraDoc + $i),
+            array_keys($docColumnas)
+        );
+        $ultima       = $primeraDoc + count($docColumnas) - 1;
+        $lastCol      = end($docLetras);
+        $endTitle     = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($ultima - 6); // título C:endTitle (encabezado ancho)
+        $startEdicion = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($ultima - 5); // EDICION/REV/FECHA: las 6 últimas columnas
 
         if ($nombreFrente !== 'TODOS LOS FRENTES') {
             $subTitle = 'PROYECTO: "' . mb_strtoupper($nombreFrente) . '"';
@@ -1109,14 +1127,8 @@ class EquipoController extends Controller
         $this->encabezadoCorporativo($sheet, $titleText, $endTitle, $startEdicion, $lastCol, null, 40, 120, $currentDate);
         $headerBorders = self::bordeFinoCorporativo();   // también enmarca la tabla, más abajo
 
-        // Fila 5 - Encabezados de tabla. Cada documento usa 2 columnas: SÍ/NO + dato (titular o fecha de vencimiento).
-        $docHeaders = [
-            "TÍTULO DE\nPROPIEDAD", 'TITULAR',
-            'PÓLIZA',                "VENC.\nPÓLIZA",
-            'RACDA',                 "VENC.\nRACDA",
-            'ROTC',                  "VENC.\nROTC",
-            'CERTIFICADO',           "VENC.\nCERTIF.",
-        ];
+        // Fila 5 - Encabezados de tabla.
+        $docHeaders = array_column($docColumnas, 0);
         if ($showFrenteCol) {
             $headers = array_merge(['N°', 'FRENTE', 'TIPO', 'MARCA', 'MODELO', 'CATEGORÍA DE FLOTA', 'SERIAL DE CHASIS', 'SERIAL DE MOTOR', 'PLACA', 'AÑO', 'ESTADO'], $docHeaders);
         } else {
@@ -1138,16 +1150,6 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('I')->setWidth(18);
             $sheet->getColumnDimension('J')->setWidth(10);
             $sheet->getColumnDimension('K')->setWidth(20);
-            $sheet->getColumnDimension('L')->setWidth(9);  // Título de propiedad (SÍ/NO)
-            $sheet->getColumnDimension('M')->setWidth(30); // Titular
-            $sheet->getColumnDimension('N')->setWidth(9);  // Póliza (SÍ/NO)
-            $sheet->getColumnDimension('O')->setWidth(13); // Venc. Póliza
-            $sheet->getColumnDimension('P')->setWidth(9);  // RACDA (SÍ/NO)
-            $sheet->getColumnDimension('Q')->setWidth(13); // Venc. RACDA
-            $sheet->getColumnDimension('R')->setWidth(9);  // ROTC (SÍ/NO)
-            $sheet->getColumnDimension('S')->setWidth(13); // Venc. ROTC
-            $sheet->getColumnDimension('T')->setWidth(14); // Certificado (SÍ/NO) — ancho p/ que el header "CERTIFICADO" no se corte
-            $sheet->getColumnDimension('U')->setWidth(13); // Venc. Certificado
         } else {
             $sheet->getColumnDimension('A')->setWidth(8);
             $sheet->getColumnDimension('B')->setWidth(32);
@@ -1159,16 +1161,9 @@ class EquipoController extends Controller
             $sheet->getColumnDimension('H')->setWidth(18);
             $sheet->getColumnDimension('I')->setWidth(10);
             $sheet->getColumnDimension('J')->setWidth(20);
-            $sheet->getColumnDimension('K')->setWidth(9);  // Título de propiedad (SÍ/NO)
-            $sheet->getColumnDimension('L')->setWidth(30); // Titular
-            $sheet->getColumnDimension('M')->setWidth(9);  // Póliza (SÍ/NO)
-            $sheet->getColumnDimension('N')->setWidth(13); // Venc. Póliza
-            $sheet->getColumnDimension('O')->setWidth(9);  // RACDA (SÍ/NO)
-            $sheet->getColumnDimension('P')->setWidth(13); // Venc. RACDA
-            $sheet->getColumnDimension('Q')->setWidth(9);  // ROTC (SÍ/NO)
-            $sheet->getColumnDimension('R')->setWidth(13); // Venc. ROTC
-            $sheet->getColumnDimension('S')->setWidth(14); // Certificado (SÍ/NO) — ancho p/ que el header "CERTIFICADO" no se corte
-            $sheet->getColumnDimension('T')->setWidth(13); // Venc. Certificado
+        }
+        foreach ($docColumnas as $i => [, $ancho]) {
+            $sheet->getColumnDimension($docLetras[$i])->setWidth($ancho);
         }
 
         $printedIds  = [];
@@ -1176,10 +1171,21 @@ class EquipoController extends Controller
         $rowNum  = 6;
         $counter = 1;
 
-        // $lastCol NO se captura en el use del closure: antes los usaba el
-        // styling per-cell que vivia adentro; ahora ese styling vive en el bloque batch
-        // post-foreach (que SI los usa en el scope externo).
-        $printEquipoRow = function($equipo, $isAnclado = false) use (&$sheet, &$rowNum, &$counter, &$printedIds, &$ancladoRows, $showFrenteCol, &$printEquipoRow) {
+        // Formato de las celdas de documentos: se arma una vez, no en cada fila.
+        $cargado  = fn ($link) => trim((string) $link) !== '';
+        $siNo     = fn (bool $tiene) => $tiene ? 'SÍ' : 'NO';
+        $texto    = fn ($v) => trim((string) $v) !== '' ? mb_strtoupper(trim((string) $v)) : '—';
+        $fmtFecha = function ($fecha) {
+            if (empty($fecha)) return '—';
+            try {
+                return \Carbon\Carbon::parse($fecha)->format('d/m/Y');
+            } catch (\Exception $e) {
+                return '—';
+            }
+        };
+
+        // El estilo de las filas no va aquí: se pone por rangos después del foreach.
+        $printEquipoRow = function($equipo, $isAnclado = false) use (&$sheet, &$rowNum, &$counter, &$printedIds, &$ancladoRows, $showFrenteCol, $docLetras, $cargado, $siNo, $texto, $fmtFecha, &$printEquipoRow) {
             if (isset($printedIds[$equipo->ID_EQUIPO])) {
                 return;
             }
@@ -1240,23 +1246,10 @@ class EquipoController extends Controller
                 $sheet->setCellValue('J'.$rowNum, $estadoVal);
             }
 
-            // Documentación → 8 columnas pareadas: por cada doc, una columna SÍ/NO y otra con el dato
-            // (Titular para Título de propiedad, fecha de vencimiento para Póliza/RACDA/ROTC).
-            // Si el doc no está cargado → "NO" en la SÍ/NO y "—" en la del dato.
-            // Si está cargado pero falta el dato → "SÍ" en la primera y "—" en el dato.
-            $cargado = fn ($link) => trim((string) $link) !== '';
-            $fmtFecha = function ($fecha) {
-                if (empty($fecha)) return '—';
-                try {
-                    return \Carbon\Carbon::parse($fecha)->format('d/m/Y');
-                } catch (\Exception $e) {
-                    return '—';
-                }
-            };
-            $doc     = $equipo->documentacion;
-            $docCols = $showFrenteCol
-                ? ['L','M','N','O','P','Q','R','S','T','U']  // Prop|Tit | Pol|Venc | Racda|Venc | Rotc|Venc | Cert|Venc
-                : ['K','L','M','N','O','P','Q','R','S','T'];
+            // Documentación: un valor por columna de $docColumnas, en el mismo orden. Sin el
+            // documento → "NO" y "—" en sus datos; cargado pero sin un dato → "—" en ese dato.
+            // Todo como TEXTO: el número del título es largo y Excel lo pasaría a 2,6E+11.
+            $doc = $equipo->documentacion;
 
             $tieneProp   = $doc && $cargado($doc->LINK_DOC_PROPIEDAD);
             $tienePoliza = $doc && $cargado($doc->LINK_POLIZA_SEGURO);
@@ -1264,24 +1257,28 @@ class EquipoController extends Controller
             $tieneRotc   = $doc && $cargado($doc->LINK_ROTC);
             $tieneCert   = $doc && $cargado($doc->LINK_DOC_ADICIONAL); // Certificado = doc. adicional
 
-            $titular = ($doc && $tieneProp) ? trim((string) $doc->NOMBRE_DEL_TITULAR) : '';
+            $docValores = [
+                $siNo($tieneProp),
+                $tieneProp ? $texto($doc->NRO_DE_DOCUMENTO) : '—',
+                $tieneProp ? $texto($doc->NOMBRE_DEL_TITULAR) : '—',
+                $tieneProp ? $fmtFecha($doc->FECHA_EMISION_PROPIEDAD) : '—',
+                $siNo($tienePoliza),
+                $tienePoliza ? $fmtFecha($doc->FECHA_EMISION_POLIZA) : '—',
+                $tienePoliza ? $fmtFecha($doc->FECHA_VENC_POLIZA) : '—',
+                $siNo($tieneRacda),
+                $tieneRacda ? $fmtFecha($doc->FECHA_EMISION_RACDA) : '—',
+                $tieneRacda ? $fmtFecha($doc->FECHA_RACDA) : '—',
+                $siNo($tieneRotc),
+                $tieneRotc ? $fmtFecha($doc->FECHA_EMISION_ROTC) : '—',
+                $tieneRotc ? $fmtFecha($doc->FECHA_ROTC) : '—',
+                $siNo($tieneCert),
+                $tieneCert ? $fmtFecha($doc->FECHA_ADICIONAL) : '—',
+            ];
+            foreach ($docValores as $i => $valor) {
+                $sheet->setCellValueExplicit($docLetras[$i] . $rowNum, $valor, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            }
 
-            $sheet->setCellValue($docCols[0].$rowNum, $tieneProp   ? 'SÍ' : 'NO'); // Título de propiedad (SÍ/NO)
-            $sheet->setCellValue($docCols[1].$rowNum, $titular !== '' ? mb_strtoupper($titular) : '—'); // Titular
-            $sheet->setCellValue($docCols[2].$rowNum, $tienePoliza ? 'SÍ' : 'NO'); // Póliza (SÍ/NO)
-            $sheet->setCellValue($docCols[3].$rowNum, $tienePoliza ? $fmtFecha($doc->FECHA_VENC_POLIZA) : '—'); // Venc. Póliza
-            $sheet->setCellValue($docCols[4].$rowNum, $tieneRacda  ? 'SÍ' : 'NO'); // RACDA (SÍ/NO)
-            $sheet->setCellValue($docCols[5].$rowNum, $tieneRacda  ? $fmtFecha($doc->FECHA_RACDA) : '—'); // Venc. RACDA
-            $sheet->setCellValue($docCols[6].$rowNum, $tieneRotc   ? 'SÍ' : 'NO'); // ROTC (SÍ/NO)
-            $sheet->setCellValue($docCols[7].$rowNum, $tieneRotc   ? $fmtFecha($doc->FECHA_ROTC) : '—'); // Venc. ROTC
-            $sheet->setCellValue($docCols[8].$rowNum, $tieneCert   ? 'SÍ' : 'NO'); // Certificado (SÍ/NO)
-            $sheet->setCellValue($docCols[9].$rowNum, $tieneCert   ? $fmtFecha($doc->FECHA_ADICIONAL) : '—'); // Venc. Certificado
-
-            // Estilos por celda removidos: se aplican en LOTE despues del foreach al
-            // rango completo de datos (ver bloque "Estilos de filas de datos en lote").
-            // Antes: ~25 ops de estilo por equipo -> para 200 equipos = ~5000 operaciones
-            // individuales en PhpSpreadsheet (notoriamente lento). Ahora: 1 op por rango.
-            // Solo trackeamos las filas que son anclados para el italic batch posterior.
+            // Solo se anotan las filas de anclados: su cursiva se pone en lote después.
             if ($isAnclado) {
                 $ancladoRows[] = $rowNum;
             }
@@ -1301,10 +1298,9 @@ class EquipoController extends Controller
             $printEquipoRow($equipo, false);
         }
 
-        // ── Estilos de filas de datos EN LOTE (optimizacion) ─────────────────
-        // Aplicamos UNA SOLA llamada por rango en vez de celda-por-celda dentro del
-        // loop. Resultado visual identico; tiempo de generacion ~5-10x mas rapido en
-        // datasets de 100+ equipos.
+        // ── Estilos de filas de datos EN LOTE ─────────────────
+        // Una llamada por rango y no celda por celda: con cientos de equipos, celda por
+        // celda es lo que hace lento a PhpSpreadsheet.
         $lastDataRow  = $rowNum - 1;
         $firstDataRow = 6;
         if ($lastDataRow >= $firstDataRow) {
@@ -1336,12 +1332,9 @@ class EquipoController extends Controller
             $sheet->getStyle("{$colEstado}{$firstDataRow}:{$colEstado}{$lastDataRow}")->getAlignment()
                 ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
-            // 5) Columnas de documentos: centradas EXCEPTO la del TITULAR (idx 1 -> left)
-            $docColsBatch = $showFrenteCol
-                ? ['L','M','N','O','P','Q','R','S','T','U']
-                : ['K','L','M','N','O','P','Q','R','S','T'];
-            foreach ($docColsBatch as $idx => $dc) {
-                $align = $idx === 1
+            // 5) Columnas de documentos: centradas EXCEPTO la del TITULAR (a la izquierda)
+            foreach ($docLetras as $idx => $dc) {
+                $align = $idx === $colTitular
                     ? \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT
                     : \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER;
                 $sheet->getStyle("{$dc}{$firstDataRow}:{$dc}{$lastDataRow}")->getAlignment()
