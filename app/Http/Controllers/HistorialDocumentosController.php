@@ -153,6 +153,13 @@ class HistorialDocumentosController extends Controller
      */
     public const DATA_VER_KEY = 'historial_docs_ver';
 
+    /**
+     * Formato de los eventos guardados: va en la clave (claveDe). Subirlo cuando cambie COMO se
+     * arma un evento (una etiqueta, un campo): las listas ya guardadas con el formato viejo dejan
+     * de leerse y se rehacen, sin esperar a que alguien cambie algo del historial.
+     */
+    private const FORMATO = 2;
+
     /** Filas por pagina, y eventos por trozo de la lista guardada (20 paginas; ver guardarLista). */
     private const POR_PAGINA = 15;
     private const POR_TROZO = 300;
@@ -184,8 +191,6 @@ class HistorialDocumentosController extends Controller
             'Registro de Modelo'    => 'Registro de Modelo',
             'Edición de Modelo'     => 'Edición de Modelo',
             'Foto de Modelo'        => 'Foto de Modelo',
-            'Registro de Auxiliar'  => 'Registro de Auxiliar',
-            'Foto de Auxiliar'      => 'Foto de Auxiliar',
             'Eliminación de Modelo' => 'Eliminación de Modelo',
         ],
     ];
@@ -389,7 +394,7 @@ class HistorialDocumentosController extends Controller
      */
     private static function claveDe($frentesVisibles, $frentesBloqueados, array $filtros): string
     {
-        return 'historial_docs_' . md5(json_encode([$frentesVisibles, $frentesBloqueados, $filtros]));
+        return 'historial_docs_' . md5(json_encode([self::FORMATO, $frentesVisibles, $frentesBloqueados, $filtros]));
     }
 
     public function index(Request $request)
@@ -1035,12 +1040,14 @@ class HistorialDocumentosController extends Controller
 
             $catAuditLogs = $catAuditQuery->limit(5000)->get();
             foreach ($catAuditLogs as $log) {
+                // Equipos y auxiliares son el MISMO catálogo: un solo tipo de acción para los dos
+                // (pedido del cliente, 19-10-2026). Qué es lo dice la fila (tipo · modelo · año).
                 $catTipoLabel = [
                     'create'          => 'Registro de Modelo',
-                    'create_aux'      => 'Registro de Auxiliar',
+                    'create_aux'      => 'Registro de Modelo',
                     'edit'            => 'Edición de Modelo',
                     'upload_foto'     => 'Foto de Modelo',
-                    'upload_foto_aux' => 'Foto de Auxiliar',
+                    'upload_foto_aux' => 'Foto de Modelo',
                     'delete'          => 'Eliminación de Modelo',
                 ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
 
