@@ -586,10 +586,34 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertTrue($reg->esDeOtroVehiculo());
         $this->assertStringContainsString('otro vehiculo', $reg->MOTIVO);
 
-        // Y no se puede volver a dar por revisado: lo que se arregla es el PDF.
-        $this->actingAs($this->superAdmin())->postJson(route('compresion-pdf.documento.revisado', ['id' => $reg->ID_REGISTRO]))
-            ->assertStatus(422)->assertJson(['success' => false]);
+        // El "Revisado" en lote (sin abrir el PDF) no lo da por bueno: nadie lo ha mirado.
+        $this->actingAs($this->superAdmin())->postJson(route('compresion-pdf.documentos.revisados'), ['ids' => [$reg->ID_REGISTRO]])
+            ->assertOk()->assertJson(['revisadas' => 0, 'fallaron' => 1]);
         $this->assertSame(VerificacionDocumento::DIFIERE, $reg->refresh()->ESTADO);
+
+        // Desde el visor SI: la persona tiene el PDF delante, deja en la ficha el que es y la fila
+        // queda "Coincide", sea cual sea el que eligio (19-10-2026).
+        $this->postJson(route('compresion-pdf.documento.revisado', ['id' => $reg->ID_REGISTRO]))
+            ->assertOk()->assertJson(['success' => true]);
+        $this->assertSame(VerificacionDocumento::COINCIDE, $reg->refresh()->ESTADO);
+        $this->assertStringContainsString('Revisado a mano', $reg->MOTIVO);
+    }
+
+    /** El visor ensena la placa y el serial de un PDF "de otro vehiculo" frente a los de la ficha. */
+    public function test_el_visor_compara_placa_y_serial_de_un_pdf_de_otro_vehiculo(): void
+    {
+        $reg = new VerificacionDocumento([
+            'TIPO' => VerificacionDocumento::PROPIEDAD, 'PLACA' => 'A12BC3D', 'SERIAL' => 'XUG08700PEC00007',
+            'LEIDO' => ['otra_placa' => true, 'serial' => 'XUG08700PECA00007', 'placa' => 'a12-bc3d'],
+        ]);
+        $dif = $reg->diferenciasParaVer();
+        $this->assertSame(['etiqueta' => 'Serial de chasis', 'ficha' => 'XUG08700PEC00007', 'documento' => 'XUG08700PECA00007', 'solo_ver' => true],
+            $dif['SERIAL_CHASIS']);
+        $this->assertArrayNotHasKey('PLACA', $dif, 'la misma placa escrita distinto no es una diferencia');
+
+        // Una lectura normal: solo sus DIFERENCIAS, sin añadidos.
+        $normal = new VerificacionDocumento(['LEIDO' => ['serial' => 'OTRO'], 'SERIAL' => 'X', 'DIFERENCIAS' => ['PLACA' => ['etiqueta' => 'Placa']]]);
+        $this->assertSame(['PLACA' => ['etiqueta' => 'Placa']], $normal->diferenciasParaVer());
     }
 
     /** Una lectura ROTC guardada antes del arreglo, con el titular como diferencia, no cambia al dueño. */

@@ -33,17 +33,19 @@ class CompresionPdfController extends Controller
     }
 
     /**
-     * Un PDF de OTRO vehiculo no se da por revisado: se cambia el archivo (el nuevo se lee esa
-     * noche) o, si la mala es la ficha, se corrige su placa o su serial y se pulsa "Revisar
-     * ahora" (relee los "Datos distintos"). Un "Revisado" lo escondia para siempre (05-10-2026:
-     * el ROTC de un Sinotruk en la ficha de un JAC); por eso la relectura tampoco lo restaura
-     * (VerificarDocumentos).
+     * El boton "Revisado" en LOTE (sin abrir el PDF) no da por revisado uno de OTRO vehiculo:
+     * nadie lo ha mirado (05-10-2026: el ROTC de un Sinotruk en la ficha de un JAC se escondia
+     * asi). Desde el VISOR si (marcarRevisado): ahi la persona tiene el PDF delante y decide.
      */
     private const OTRO_VEHICULO = 'El PDF es de otro vehículo: cámbialo o, si la mala es la ficha, corrige su placa o su serial y pulsa "Revisar ahora". No se da por revisado.';
 
     /**
      * La persona reviso el documento EN EL VISOR y guardo la ficha a mano: la fila queda como
-     * revisada por ella (ver VerificacionDocumento::marcarRevisadoPor). Lo que el panel tiene
+     * revisada por ella, "Coincide" (ver VerificacionDocumento::marcarRevisadoPor), TAMBIEN si
+     * el PDF salio "de otro vehiculo": ella comparo placa y serial (el visor los ensena, ver
+     * diferenciasParaVer) y dejo en la ficha el que es; da igual cual eligio (pedido del cliente
+     * 19-10-2026). Antes se negaba y la ficha quedaba guardada con la fila en "Datos distintos"
+     * ("La ficha se guardó, pero no se pudo marcar la fila como revisada"). Lo que el panel tiene
      * ya lo guardo con su propia ruta (equipos.updateMetadata, incluida la fecha de emision);
      * aqui se pone lo que no tenga como campo propio y se deja constancia en Control de
      * Auditoría.
@@ -57,9 +59,6 @@ class CompresionPdfController extends Controller
         if ($reg->ORIGEN !== VerificacionDocumento::DE_LA_NOCHE) {
             return response()->json(['success' => false,
                 'message' => 'Este PDF viene de la carga masiva: se enlaza solo a su ficha o se descarta con su botón.'], 422);
-        }
-        if ($reg->esDeOtroVehiculo()) {
-            return response()->json(['success' => false, 'message' => self::OTRO_VEHICULO], 422);
         }
         // Los datos que el panel del visor no tiene como campo propio, con el valor que
         // la persona dejo en su campo al guardar. Vacio = solo dar la fila por revisada.

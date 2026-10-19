@@ -727,6 +727,30 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
     }
 
     /**
+     * Las dos polizas reales de Seguros Constitucion que fallaron en la prueba con PDF reales
+     * (19-10-2026): el logo leido "Scoures nstitución" (equipo 965) y el RIF y el capital metidos
+     * entre "Fecha de Emisión:" y su fecha (equipo 585). Texto del OCR recortado.
+     */
+    public function test_las_polizas_de_seguros_constitucion_con_el_ocr_torcido(): void
+    {
+        $lector = app(LectorDocumentoPdf::class);
+        $catalogo = [1 => 'MAMPRECA', 2 => 'SEGUROS CONSTITUCIÓN', 3 => 'PIRÁMIDE SEGUROS', 4 => 'POSEE DOCUMENTO INEA'];
+
+        $logo = "Scoures nstitución\nscata en la superintendencia de seguros bajo el N\nCapital suscnto y pagad R J090286233\n"
+            . "Anexo de Póliza RESPONSABILIDAD CIVIL GENERAL\nVigencia desdo\n21/05/2025\nHasta 21/05/2026";
+        $this->assertSame(2, $lector->aseguradoraEnTexto($logo, $catalogo), 'una errata del OCR en el nombre');
+        $this->assertNull($lector->aseguradoraEnTexto("CUADRO RECIBO\nSuperintendencia de la Actividad Aseguradora", $catalogo),
+            'sin una palabra parecida no se elige ninguna');
+
+        $emision = "Seguros Constitución\nSEGURO DE AUTOMOVIL INDIVIDUAL\nFecha de Emisión: Tipo de Movimiento: Moneda:\nJ090286233\n44.001.00\n"
+            . "12/05/2025 Vigencia de Póliza Desde: 12/05/2025 MODIFICACION Vigencia de Recibo Desde: 12/05/2025 DOLARES\n"
+            . "Hasta: 12/05/2026 Hasta: 12/05/2026\nFecha de Incio Póliza: 12/05/2025";
+        $leido = $lector->extraer(LectorDocumentoPdf::POLIZA, $emision);
+        $this->assertSame('2026-05-12', $leido['vence']);
+        $this->assertSame('2025-05-12', $leido['emision'], 'el inicio de la póliza vale de emisión si la suya no se lee');
+    }
+
+    /**
      * El titulo del INTT lleva abajo la colilla "CERTIFICADO DE CIRCULACIÓN": escaneado y con el
      * encabezado mal leido, salia como ROTC. El ROTC se sigue reconociendo.
      */

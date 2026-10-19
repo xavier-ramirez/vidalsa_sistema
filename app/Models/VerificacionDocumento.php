@@ -403,6 +403,28 @@ class VerificacionDocumento extends Model
         return (bool) ($this->LEIDO['otra_placa'] ?? false);
     }
 
+    /**
+     * Lo que el visor compara (ficha → documento): DIFERENCIAS y, si el PDF salio "de otro
+     * vehiculo", la placa y el serial que leyo frente a los de la ficha. Esa lectura no guarda
+     * diferencias —solo el motivo—, y sin esto quien revisa no veia que el PDF decia
+     * XUG08700PECA00007 y la ficha XUG08700PEC00007 para elegir el bueno. Van marcadas
+     * `solo_ver`: en el titulo se ponen con su "Usar" en la casilla de la ficha; en los demas
+     * documentos no hay casilla y solo se ensenan (la tarea nunca los escribe).
+     */
+    public function diferenciasParaVer(): array
+    {
+        $dif = $this->DIFERENCIAS ?? [];
+        if (!$this->esDeOtroVehiculo()) return $dif;
+        $limpio = fn ($v) => preg_replace('/[^A-Z0-9]/', '', mb_strtoupper((string) $v));
+        foreach (['SERIAL_CHASIS' => ['Serial de chasis', $this->SERIAL, $this->LEIDO['serial'] ?? null],
+                  'PLACA'         => ['Placa', $this->PLACA, $this->LEIDO['placa'] ?? null]] as $campo => [$etiqueta, $ficha, $doc]) {
+            if ($doc && !isset($dif[$campo]) && $limpio($ficha) !== $limpio($doc)) {
+                $dif[$campo] = ['etiqueta' => $etiqueta, 'ficha' => $ficha, 'documento' => $doc, 'solo_ver' => true];
+            }
+        }
+        return $dif;
+    }
+
     /** No se pudo leer ni la placa ni el serial: no hay forma de saber de quien es el PDF. */
     public function sinConfirmar(): bool
     {

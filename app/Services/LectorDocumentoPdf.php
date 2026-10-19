@@ -482,6 +482,10 @@ class LectorDocumentoPdf
             }
             if (preg_match('/Fecha\s*de\s*In[i]?cio\s*(?:de\s*)?P[oó]liza\s*:?[^\S\r\n]*' . $f . '/ui', $plano, $m)) {
                 $datos['desde'] = $this->fecha($m[1]);
+                // Es el inicio de la POLIZA (no el del recibo): vale de emision si la suya no se
+                // lee. En una de Seguros Constitucion (equipo 585, 19-10-2026) el OCR metio el RIF
+                // y el capital entre "Fecha de Emisión:" y su fecha, y quedaba sin emision.
+                $vigenciaDePoliza = true;
             }
         }
         // ANEXO de poliza (el de flota, "SE AMPARA LOS SIGUIENTES VEHICULOS"): no trae "Desde /
@@ -610,7 +614,33 @@ class LectorDocumentoPdf
             }
             if ($mejor !== null) return $mejor;
         }
-        return null;
+        return $this->aseguradoraConErrata($plano, $catalogo);
+    }
+
+    /**
+     * Ultimo intento de aseguradoraEnTexto: la palabra que distingue a la aseguradora, con una
+     * errata del OCR. El nombre suele ir en el logo y el OCR lo lee mal: una poliza real de
+     * Seguros Constitucion (equipo 965, 19-10-2026) decia "Scoures nstitución" y no se
+     * reconocia. Solo palabras de 8+ letras y como mucho una errata por cada 5 letras
+     * (CONSTITUCION admite 2, MAMPRECA y PIRAMIDE 1): con menos no se distingue de otra palabra.
+     */
+    private function aseguradoraConErrata(string $plano, array $catalogo): ?int
+    {
+        $mejor = null;
+        $donde = PHP_INT_MAX;
+        $palabrasTexto = explode(' ', $plano);
+        foreach ($catalogo as $id => $nombre) {
+            foreach (explode(' ', $this->normalizar($nombre)) as $clave) {
+                if (mb_strlen($clave) < 8 || in_array($clave, ['SEGUROS', 'DOCUMENTO'], true) || in_array($clave, self::LUGARES, true)) continue;
+                $tope = intdiv(mb_strlen($clave), 5);
+                foreach ($palabrasTexto as $pos => $palabra) {
+                    if ($pos < $donde && abs(strlen($palabra) - strlen($clave)) <= $tope && levenshtein($palabra, $clave) <= $tope) {
+                        [$donde, $mejor] = [$pos, (int) $id];
+                    }
+                }
+            }
+        }
+        return $mejor;
     }
 
     /** Lugares que salen en las direcciones de las polizas (ver aseguradoraEnTexto). */

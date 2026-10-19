@@ -245,7 +245,7 @@
                                 @elseif ($d->DRIVE_ID)
                                     {{-- Abre el PDF con los campos de la ficha para revisarla (ver cpdfRevisar). --}}
                                     <button type="button" class="pdf-doc-btn" title="Ver el documento y revisar la ficha"
-                                        onclick="window.cpdfRevisar(@js(['id' => $d->ID_REGISTRO, 'equipoId' => (int) $d->ID_EQUIPO, 'tipo' => $d->TIPO, 'dif' => (object) ($d->DIFERENCIAS ?? []), 'estado' => $estadosDoc[$d->ESTADO] ?? $d->ESTADO, 'motivo' => $d->MOTIVO, 'inicio' => \App\Models\VerificacionDocumento::inicioDelDocumento($d->LEIDO), 'fiable' => !($d->esLecturaParcial() || $d->sinConfirmar() || $d->esDeOtroVehiculo() || $d->esDocumentoAnterior())]), '/storage/google/{{ $d->DRIVE_ID }}', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')))">
+                                        onclick="window.cpdfRevisar(@js(['id' => $d->ID_REGISTRO, 'equipoId' => (int) $d->ID_EQUIPO, 'tipo' => $d->TIPO, 'dif' => (object) $d->diferenciasParaVer(), 'estado' => $estadosDoc[$d->ESTADO] ?? $d->ESTADO, 'motivo' => $d->MOTIVO, 'inicio' => \App\Models\VerificacionDocumento::inicioDelDocumento($d->LEIDO), 'fiable' => !($d->esLecturaParcial() || $d->sinConfirmar() || $d->esDeOtroVehiculo() || $d->esDocumentoAnterior())]), '/storage/google/{{ $d->DRIVE_ID }}', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')))">
                                         <i class="material-icons">description</i>
                                     </button>
                                 @endif
@@ -759,6 +759,9 @@
                 // MUESTRA en la lista: ni "Usar" ni campo relleno. Lo decide quien mira el PDF.
                 if (/^IA_/.test(campo)) return;
                 var input = CAMPO[campo] && cont.querySelector('[name="' + CAMPO[campo] + '"]');
+                // La placa y el serial de un PDF "de otro vehiculo" (diferenciasParaVer): sin su
+                // casilla en el panel solo van en la lista de arriba, nunca como campo aparte.
+                if (!input && d.solo_ver) return;
                 if (!input) { otras.push([campo, d, valor]); return; }
                 // textContent, nunca innerHTML: el valor sale de un PDF.
                 var pista = document.createElement('div'), t = document.createElement('span'),
