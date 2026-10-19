@@ -1944,7 +1944,7 @@
     //  ETIQUETAS CON CÓDIGO DE BARRAS + ESCANEO  (como las de producto del supermercado)
     //   · Imprimir: almEtiquetasModal (cantidad y tamaño) → lista GET almacen.etiquetas →
     //     vista previa (almEtqPreviaModal) → impresora. Diseño de las etiquetas de la app de la
-    //     tienda: descripción con la medida al lado, código de barras Code 128 del CODIGO y,
+    //     tienda: descripción terminada en ": MEDIDA", código de barras Code 128 del CODIGO y,
     //     debajo, el código centrado.
     //   · Escanear: window.LectorBarras (módulo compartido con Movimientos y Recepción) →
     //     resuelve el CODIGO vía almacen.buscar-codigo → filtra la tabla a ese producto.
@@ -1985,13 +1985,14 @@
         return svg.outerHTML;
     }
 
-    // UNA etiqueta. La misma para la vista previa y para la impresión: arriba la descripción y,
-    // a su lado, la medida; debajo la ubicación (si tiene), el código de barras y el código. Si
-    // almEtqMedir le achicó la letra a la descripción para que quepa entera, va en e.pt.
+    // UNA etiqueta. La misma para la vista previa y para la impresión: arriba la descripción, a
+    // todo el ancho y terminada en ": MEDIDA" (con la medida en una columna aparte la descripción
+    // se partía en tres renglones); debajo la ubicación (si tiene), el código de barras y el
+    // código. Si almEtqMedir le achicó la letra para que quepa entera, va en e.pt.
     function almEtqHTML(e, f) {
         return '<div class="etq' + (f.hoja ? ' etq-corte' : '') + '">'
-            + '<div class="etq-cab"><div class="etq-nombre"' + (e.pt ? ' style="font-size:' + e.pt + 'pt"' : '') + '>' + escHtml(e.nombre) + '</div>'
-            +   '<span class="etq-um">' + escHtml(e.um) + '</span></div>'
+            + '<div class="etq-nombre"' + (e.pt ? ' style="font-size:' + e.pt + 'pt"' : '') + '>' + escHtml(e.nombre)
+            +   (e.um ? '<span class="etq-um">: ' + escHtml(e.um) + '</span>' : '') + '</div>'
             + (e.ubicacion ? '<div class="etq-var">Ubicación: ' + escHtml(e.ubicacion) + '</div>' : '')
             + '<div class="etq-barras">' + almEtqBarras(e.codigo) + '</div>'
             + '<div class="etq-cod">' + escHtml(e.codigo) + '</div>'
@@ -2009,23 +2010,24 @@
         return '.etq { width:' + f.w + 'mm; height:' + f.h + 'mm; padding:1.5mm 2mm; box-sizing:border-box; display:flex; flex-direction:column; justify-content:safe center; overflow:hidden;'
             +   ' font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff; }'
             + ' .etq-corte { border:.15mm dashed #000; border-radius:1.8mm; }'
-            // Descripción con la medida al lado (sin partirse, a la derecha). Va ENTERA, en los
-            // renglones que haga falta y con el alto justo; si no cabe, almEtqMedir le baja la letra.
-            + ' .etq-cab { flex:none; display:flex; align-items:flex-start; gap:1.5mm; }'
-            + ' .etq-nombre { flex:1; min-width:0; font-size:' + almEtqPtNombre(f) + 'pt; font-weight:bold; line-height:1.15; overflow-wrap:anywhere; }'
+            // Descripción ENTERA, a todo el ancho, en los renglones que haga falta y con el alto
+            // justo; si no cabe, almEtqMedir le baja la letra. ": MEDIDA" no se parte.
+            + ' .etq-nombre { flex:none; font-size:' + almEtqPtNombre(f) + 'pt; font-weight:bold; line-height:1.15; overflow-wrap:anywhere; }'
+            + ' .etq-um { white-space:nowrap; }'
             + ' .etq-var { font-size:' + (baja ? 6 : 7) + 'pt; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }'
             // Margen blanco a cada lado del código (zona de silencio): sin él, estirado de borde a
             // borde, el lector no siempre encuentra dónde empieza y dónde termina.
             + ' .etq-barras { flex:1 1 auto; min-height:' + f.barras + 'mm; max-height:' + f.barrasMax + 'mm; margin:1mm 2.5mm .4mm; }'
             + ' .etq-barras svg { width:100%; height:100%; display:block; }'
-            + ' .etq-um { flex:none; font-size:' + (baja ? 6.5 : 7.5) + 'pt; font-weight:bold; line-height:1.15; white-space:nowrap; }'
             // El código, centrado bajo las barras: lo que se teclea si el lector falla.
             + ' .etq-cod { text-align:center; font-size:' + (baja ? 6.5 : 7.5) + 'pt; letter-spacing:.08em; line-height:1; }';
     }
 
-    // Mide UNA etiqueta de cada producto, fuera de la vista, y si la descripción no cabe entera
-    // le baja la letra de medio punto en medio punto (hasta 5 pt) y lo guarda en e.pt. Así la
-    // vista previa y la impresión salen iguales y se mide una vez por producto, no por copia.
+    // Mide UNA etiqueta de cada producto, fuera de la vista, y elige la letra de su descripción
+    // (e.pt): primero la más grande con la que cabe ENTERA (bajando de medio punto en medio
+    // punto, hasta 5 pt) y, si con hasta 1,5 pt menos ocupa MENOS renglones, esa: una palabra
+    // larga que no cabía dejaba la descripción en tres renglones cortos. Así la vista previa y la
+    // impresión salen iguales y se mide una vez por producto, no por copia.
     function almEtqMedir(lista, f) {
         var host = document.createElement('div');
         host.setAttribute('aria-hidden', 'true');
@@ -2041,7 +2043,14 @@
                 pt -= 0.5;
                 nom.style.fontSize = pt + 'pt';
             }
-            e.pt = pt < almEtqPtNombre(f) ? pt : null;
+            var renglones = function () { return Math.round(nom.getBoundingClientRect().height / parseFloat(getComputedStyle(nom).lineHeight)); };
+            var mejor = pt, menos = renglones();
+            for (var p = pt - 0.5; p >= Math.max(5, pt - 1.5); p -= 0.5) {
+                nom.style.fontSize = p + 'pt';
+                var r = renglones();
+                if (r < menos) { mejor = p; menos = r; }
+            }
+            e.pt = mejor < almEtqPtNombre(f) ? mejor : null;
         });
         host.remove();
     }
