@@ -2203,6 +2203,17 @@
             }
         }
         almOpen('almEtiquetasModal');
+        // El cursor, listo en la cantidad (la de abajo o, con varios, la del primero) y con el
+        // número seleccionado para escribir encima. Tras el pintado del modal: oculto no enfoca.
+        var campo = porProducto ? (cont && cont.querySelector('.alm-etq-cant')) : copias;
+        if (campo) setTimeout(function () { campo.focus(); campo.select(); }, 50);
+    };
+    // Enter en un campo del modal = Aceptar (lo engancha el onkeydown del propio modal, que
+    // sobrevive a la navegación SPA porque viaja en el HTML).
+    window.almEtqTecla = function (e) {
+        if (e.key !== 'Enter' || !e.target || e.target.tagName !== 'INPUT') return;
+        e.preventDefault();
+        window.almEtiquetasGenerar();
     };
     // Vuelve el tamaño a 50 × 30 (el de data-default-label). selectOption lo deja pintado como
     // "filtro activo" (azul) con cualquier valor, también si ya era 50 × 30; aquí no es un

@@ -432,7 +432,7 @@
      Sin gate de permiso (read-only, igual que el export). idsCsv lo fija quien lo
      abre: dropdown Acciones (vacío = filtro de categoría actual), barra de selección
      (los seleccionados) o el modal de detalle (un producto). --}}
-<div id="almEtiquetasModal" class="alm-modal-overlay">
+<div id="almEtiquetasModal" class="alm-modal-overlay" onkeydown="window.almEtqTecla(event)">
     <div class="alm-modal" style="max-width:360px;">
         <div class="alm-modal-head">
             <h3><i class="icono-barras" style="font-size:20px;"></i> Generar etiquetas</h3>
@@ -485,7 +485,7 @@
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almEtiquetasModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" onclick="window.almEtiquetasGenerar()"><i class="icono-barras" style="font-size:17px;vertical-align:-3px;margin-right:4px;"></i>Aceptar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almEtiquetasGenerar()">Aceptar</button>
         </div>
     </div>
 </div>
