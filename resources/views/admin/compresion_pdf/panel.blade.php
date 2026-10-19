@@ -722,6 +722,8 @@
             var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v));
             return m ? m[3] + '/' + m[2] + '/' + m[1] : String(v);
         };
+        // Mismo valor sin mirar mayusculas ni espacios de los extremos.
+        var cpdfMismo = function (a, b) { return String(a).trim().toUpperCase() === String(b).trim().toUpperCase(); };
         var cpdfValor = function (v, clase) {
             return v == null || v === '' ? cpdfNodo('span', clase + ' cpdf-rev-vacio', 'vacío') : cpdfNodo('span', clase, cpdfFecha(v));
         };
@@ -778,14 +780,15 @@
                 // La fecha de emision que la ficha tiene VACIA viene ya puesta: basta con
                 // Guardar (lo pidio el cliente); vaciar el campo = no ponerla.
                 if (CAMPO[campo] === 'fecha_emision' && !input.value) input.value = valor;
+                // La aseguradora sin poner llega como "(sin aseguradora)" (ficha_valor null): no es
+                // un valor que se pueda volver a poner en el campo.
                 var caja = cpdfNodo('div', 'cpdf-opciones'),
-                    mismo = function (a, b) { return String(a).trim().toUpperCase() === String(b).trim().toUpperCase(); },
-                    antes = d.ficha == null ? '' : String(d.ficha),
+                    antes = d.ficha == null || d.ficha_valor === null ? '' : String(d.ficha),
                     opciones = [['Ficha:', actual], ['Documento:', valor]];
-                if (mismo(actual, valor)) {
+                if (cpdfMismo(actual, valor)) {
                     // La ficha ya dice lo del documento. Si al leerse el PDF decia otra cosa (alguien
                     // la corrigio despues), se sigue viendo como estaba, con su "Usar" para volver.
-                    opciones = antes !== '' && !mismo(antes, valor) ? [['Antes en la ficha:', antes], ['Ficha y documento:', valor]] : null;
+                    opciones = antes !== '' && !cpdfMismo(antes, valor) ? [['Antes en la ficha:', antes], ['Ficha y documento:', valor]] : null;
                 }
                 if (!opciones) {
                     // Coinciden y siempre coincidieron: nada que elegir.
@@ -804,7 +807,7 @@
                     });
                     var marcar = function () {
                         caja.querySelectorAll('.cpdf-pista').forEach(function (fila) {
-                            var enUso = mismo(fila.dataset.valor, input.value);
+                            var enUso = cpdfMismo(fila.dataset.valor, input.value);
                             fila.classList.toggle('en-uso', enUso);
                             fila.querySelector('button').textContent = enUso ? 'En uso' : 'Usar';
                         });
