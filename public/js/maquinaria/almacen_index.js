@@ -1954,12 +1954,14 @@
 
     // Tamaños (mm). Rollo = una etiqueta por página, al tamaño de la tira de la etiquetadora;
     // carta = 30 por hoja (3 × 10, centradas) con su línea de corte para la tijera.
-    // `barras` = alto del código de barras (mm): fijo y bajo, para que la descripción quepa entera
-    // (de sobra para el lector: Code 128 pide unos 6 mm o el 15 % del ancho).
+    // `barras` / `barrasMax` = alto del código de barras (mm), mínimo y máximo: la descripción toma
+    // lo que necesite, el código crece con lo que sobre hasta el máximo y, si aún sobra, el bloque
+    // queda centrado en la etiqueta (sin un hueco entre la descripción y las barras). El mínimo es
+    // de sobra para el lector: Code 128 pide unos 6 mm o el 15 % del ancho.
     var ETQ_FORMATOS = {
-        '50x30': { nombre: 'Rollo 50 × 30 mm', w: 50, h: 30, barras: 9, hoja: null },
-        '40x25': { nombre: 'Rollo 40 × 25 mm', w: 40, h: 25, barras: 7, hoja: null },
-        carta:   { nombre: 'Hoja carta (30 por hoja)', w: 66, h: 26, barras: 7, hoja: { w: 215.9, h: 279.4, cols: 3, filas: 10 } },
+        '50x30': { nombre: 'Rollo 50 × 30 mm', w: 50, h: 30, barras: 9, barrasMax: 14, hoja: null },
+        '40x25': { nombre: 'Rollo 40 × 25 mm', w: 40, h: 25, barras: 7, barrasMax: 11, hoja: null },
+        carta:   { nombre: 'Hoja carta (30 por hoja)', w: 66, h: 26, barras: 7, barrasMax: 11, hoja: { w: 215.9, h: 279.4, cols: 3, filas: 10 } },
     };
     var ETQ_MAX_PREVIA = 60;   // en la vista previa; con más se avisa cuántas faltan
     var etqPendiente = null;   // lo que muestra la vista previa: { lista, formato }
@@ -2003,18 +2005,18 @@
 
     function almEtqEstilo(f) {
         var baja = f.h < 28;
-        return '.etq { width:' + f.w + 'mm; height:' + f.h + 'mm; padding:1.5mm 2mm; box-sizing:border-box; display:flex; flex-direction:column; overflow:hidden;'
+        // safe center: centrado si sobra alto; si no cabe, arranca arriba (así se mide el desborde).
+        return '.etq { width:' + f.w + 'mm; height:' + f.h + 'mm; padding:1.5mm 2mm; box-sizing:border-box; display:flex; flex-direction:column; justify-content:safe center; overflow:hidden;'
             +   ' font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff; }'
             + ' .etq-corte { border:.15mm dashed #000; border-radius:1.8mm; }'
-            // Descripción con la medida al lado (sin partirse, a la derecha). La descripción ocupa
-            // TODO el alto que deja el código de barras y va ENTERA, en los renglones que haga
-            // falta: si no cabe, almEtqMedir le baja la letra.
-            + ' .etq-cab { flex:1 1 0; min-height:0; overflow:hidden; display:flex; align-items:flex-start; gap:1.5mm; }'
+            // Descripción con la medida al lado (sin partirse, a la derecha). Va ENTERA, en los
+            // renglones que haga falta y con el alto justo; si no cabe, almEtqMedir le baja la letra.
+            + ' .etq-cab { flex:none; display:flex; align-items:flex-start; gap:1.5mm; }'
             + ' .etq-nombre { flex:1; min-width:0; font-size:' + almEtqPtNombre(f) + 'pt; font-weight:bold; line-height:1.15; overflow-wrap:anywhere; }'
             + ' .etq-var { font-size:' + (baja ? 6 : 7) + 'pt; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }'
             // Margen blanco a cada lado del código (zona de silencio): sin él, estirado de borde a
             // borde, el lector no siempre encuentra dónde empieza y dónde termina.
-            + ' .etq-barras { flex:none; height:' + f.barras + 'mm; margin:.6mm 2.5mm .3mm; }'
+            + ' .etq-barras { flex:1 1 auto; min-height:' + f.barras + 'mm; max-height:' + f.barrasMax + 'mm; margin:1mm 2.5mm .4mm; }'
             + ' .etq-barras svg { width:100%; height:100%; display:block; }'
             + ' .etq-um { flex:none; font-size:' + (baja ? 6.5 : 7.5) + 'pt; font-weight:bold; line-height:1.15; white-space:nowrap; }'
             // El código, centrado bajo las barras: lo que se teclea si el lector falla.
@@ -2032,9 +2034,10 @@
         document.body.appendChild(host);
         var etqs = host.querySelectorAll('.etq');
         lista.forEach(function (e, i) {
-            var cab = etqs[i].querySelector('.etq-cab'), nom = etqs[i].querySelector('.etq-nombre');
+            // No cabe = la etiqueta desborda aun con el código de barras en su alto mínimo.
+            var etq = etqs[i], nom = etq.querySelector('.etq-nombre');
             var pt = almEtqPtNombre(f);
-            while (cab.scrollHeight > cab.clientHeight + 1 && pt > 5) {
+            while (etq.scrollHeight > etq.clientHeight + 1 && pt > 5) {
                 pt -= 0.5;
                 nom.style.fontSize = pt + 'pt';
             }
