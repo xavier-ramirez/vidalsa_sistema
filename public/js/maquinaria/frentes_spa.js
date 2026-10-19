@@ -21,7 +21,7 @@ document.addEventListener("submit", function (e) {
 // ==========================================
 
 // Modo del formulario, en UN solo sitio: con un frente → "Edición" (PUT a /admin/frentes/{id},
-// "Guardar Cambios" y la papelera de ese frente); con null → "Registro" (POST, "Registrar",
+// "Guardar" y la papelera de ese frente); con null → "Registro" (POST, "Registrar",
 // sin papelera). Lo usan populateFrenteForm (al elegir un frente) y resetFrentesForm.
 function ponerModoFormulario(form, frente) {
     form.action = frente ? `/admin/frentes/${frente.ID_FRENTE}` : "/admin/frentes";
@@ -38,7 +38,7 @@ function ponerModoFormulario(form, frente) {
     const title = document.getElementById("formTitle");
     if (title) title.innerText = frente ? "Edición de Frente de Trabajo" : "Registro de Frente de Trabajo";
     const btnText = document.getElementById("submitBtnText");
-    if (btnText) btnText.innerText = frente ? "Guardar Cambios" : "Registrar";
+    if (btnText) btnText.innerText = frente ? "Guardar" : "Registrar";
     const btnIcon = document.getElementById("submitBtnIcon");
     if (btnIcon) btnIcon.innerText = frente ? "save" : "add_circle";
 
@@ -61,7 +61,7 @@ function populateFrenteForm(data) {
 
     // ZONA y CONTRATOS tienen que rellenarse SI O SI: el formulario los manda
     // siempre, asi que lo que quede en pantalla es lo que se guarda. Si no se
-    // pintan aqui, seleccionar un frente en el buscador y darle "Guardar Cambios"
+    // pintan aqui, seleccionar un frente en el buscador y darle "Guardar"
     // sin tocar nada le BORRA la zona (la que sale en el Acta de Traslado) y le
     // mete los contratos del frente que se estuviera viendo antes.
     const zona = document.getElementById("ZONA");

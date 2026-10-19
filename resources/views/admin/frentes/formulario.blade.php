@@ -59,12 +59,11 @@
                     </div>
                 </div>
             </div>
-            {{-- Botón "Sin equipos": abre un modal con los frentes que no tienen ningún
-                 equipo ni auxiliar asignado —de cualquier estatus— para borrarlos. --}}
+            {{-- Botón "Sin equipos" (solo el ícono): abre un modal con los frentes que no tienen
+                 ningún equipo ni auxiliar asignado —de cualquier estatus— para borrarlos. --}}
             <button type="button" id="btnSinEquipos" onclick="window.abrirModalSinEquipos()" title="Frentes sin equipos asignados"
-                class="btn-primary-maquinaria btn-secondary">
-                <i class="material-icons" style="font-size: 18px;">domain_disabled</i>
-                <span>Sin equipos</span>
+                aria-label="Frentes sin equipos asignados" class="btn-primary-maquinaria btn-secondary">
+                <i class="material-icons">domain_disabled</i>
             </button>
             {{-- Eliminar el frente cargado: solo el ícono de papelera, junto al buscador donde se
                  eligió, y solo con un frente cargado (frentes_spa.js lo muestra/oculta). Borrado
@@ -259,7 +258,7 @@
 
                 <button type="submit" class="btn-primary-maquinaria btn-compacto">
                     <i class="material-icons" id="submitBtnIcon">{{ (isset($frente) && $frente->exists) ? 'save' : 'add_circle' }}</i>
-                    <span id="submitBtnText">{{ (isset($frente) && $frente->exists) ? 'Guardar Cambios' : 'Registrar' }}</span>
+                    <span id="submitBtnText">{{ (isset($frente) && $frente->exists) ? 'Guardar' : 'Registrar' }}</span>
                 </button>
             </div>
         </form>

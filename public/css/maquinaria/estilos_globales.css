@@ -2824,12 +2824,12 @@ body:has(.mobile-menu.active) .selection-floating-bar {
 /* Buscador + "Sin equipos": a todo el ancho, alineado con los bordes de los campos. */
 .frentes-buscar-fila { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
 .frentes-buscar { flex: 1 1 auto; min-width: 0; position: relative; }
-#btnSinEquipos { flex: 0 0 auto; height: 38px; padding: 0 14px; display: inline-flex; align-items: center; gap: 6px; }
-#btnSinEquipos .material-icons { font-size: 18px; }
-/* Papelera del frente cargado: cuadrada, del alto del buscador. [hidden] explícito porque el
-   display de .btn-primary-maquinaria le ganaba al atributo. */
+/* "Sin equipos" y la papelera del frente cargado: solo el ícono, cuadrados y del alto del
+   buscador. [hidden] explícito porque el display de .btn-primary-maquinaria le ganaba al atributo. */
+#btnSinEquipos,
 #btnEliminarFrente { flex: 0 0 auto; width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 #btnEliminarFrente[hidden] { display: none; }
+#btnSinEquipos .material-icons,
 #btnEliminarFrente .material-icons { font-size: 20px; }
 
 /* Acordeón de responsables: clic en el encabezado abre/cierra el bloque. Arrancan
@@ -2908,10 +2908,6 @@ body:has(.mobile-menu.active) .selection-floating-bar {
 }
 
 @media (max-width: 600px) {
-    /* "Sin equipos" solo con el icono, cuadrado, para no robar ancho al buscador. */
-    #btnSinEquipos { width: 38px; padding: 0; gap: 0; justify-content: center; }
-    #btnSinEquipos span { display: none; }
-
     /* Tarjeta casi a todo el ancho: el main-viewport mete 20px por lado y la tarjeta
        trae max-width 800px; en esta pantalla se baja a 8px y se suelta el límite. */
     body:has(#frenteForm) .main-viewport {
