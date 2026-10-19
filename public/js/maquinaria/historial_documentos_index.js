@@ -6,6 +6,7 @@
 window.loadHistorialDocumentos = async function (pageUrl = null) {
     const tableBody = document.getElementById('historialTableBody');
     if (!tableBody) return;
+    clearTimeout(window._hdEsperaBusqueda);   // la del buscar-mientras-escribes, si quedaba
 
     window.hdMarcarFiltrosAvanzados();
     if (window.showPreloader) window.showPreloader();
@@ -67,7 +68,11 @@ window.loadHistorialDocumentos = async function (pageUrl = null) {
             if (pg) fetchUrl += '&page=' + pg;
         }
 
-        const response = await window.apiFetch(fetchUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+        // Como loadEquipos: la peticion anterior que siga en vuelo se cancela, para que una
+        // respuesta vieja (de lo que se escribia hace un momento) no pise a la nueva.
+        if (window._hdAbort) window._hdAbort.abort();
+        const abort = window._hdAbort = new AbortController();
+        const response = await window.apiFetch(fetchUrl, { signal: abort.signal, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
 
         if (!response.ok) throw new Error('HTTP ' + response.status);
 
@@ -94,6 +99,8 @@ window.loadHistorialDocumentos = async function (pageUrl = null) {
         }
 
     } catch (e) {
+        // Cancelada por otra mas nueva: esa pinta la tabla.
+        if (e && e.name === 'AbortError') return;
         console.error('[loadHistorialDocumentos] Error:', e);
         if (tableBody) tableBody.style.opacity = '1';
     } finally {
@@ -208,21 +215,19 @@ window.hdLimpiarFiltrosAvanzados = function () {
     window.loadHistorialDocumentos();
 };
 
-// Listeners manuales para los text inputs
-document.addEventListener('DOMContentLoaded', function() {
-    const inputs = ['searchCorreo', 'searchEquipo'];
-    inputs.forEach(id => {
-        const input = document.getElementById(id);
-        if(input) {
-            input.addEventListener('keyup', function(e) {
-                window.checkHistorialClearBtn(id, 'btn_clear_' + id);
-                if (e.key === 'Enter') {
-                    window.loadHistorialDocumentos();
-                }
-            });
-        }
+// Buscar mientras se escribe, como en Equipos: con 4+ letras, 400 ms despues de la ultima
+// tecla. Enter, una sugerencia o la X buscan al momento y cancelan esta espera (lo hace
+// loadHistorialDocumentos), asi que nunca salen dos. Un solo escuchador delegado: el script
+// es global y la pantalla se monta y desmonta por la SPA.
+if (!window._hdBusquedaRegistrada) {
+    window._hdBusquedaRegistrada = true;
+    document.addEventListener('input', function (e) {
+        const id = e.target && e.target.id;
+        if (id !== 'searchCorreo' && id !== 'searchEquipo') return;
+        clearTimeout(window._hdEsperaBusqueda);
+        if (e.target.value.trim().length >= 4) window._hdEsperaBusqueda = setTimeout(window.loadHistorialDocumentos, 400);
     });
-});
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SELECCIÓN DE FILAS Y CONTADOR FLOTANTE (SPA COMPATIBLE)

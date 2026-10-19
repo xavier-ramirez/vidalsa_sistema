@@ -153,9 +153,9 @@ class HistorialDocumentosController extends Controller
      */
     public const DATA_VER_KEY = 'historial_docs_ver';
 
-    /** Filas por pagina, y la entrada aparte con la primera (ver guardarPrimera). */
+    /** Filas por pagina, y eventos por trozo de la lista guardada (20 paginas; ver guardarLista). */
     private const POR_PAGINA = 15;
-    private const SUFIJO_PRIMERA = '_p1';
+    private const POR_TROZO = 300;
 
     /**
      * Las acciones del filtro "Tipo de Acción", por grupo: [grupo => [valor => etiqueta]]. Los
@@ -323,42 +323,61 @@ class HistorialDocumentosController extends Controller
 
         foreach ($alcances as [$frentesVisibles, $frentesBloqueados]) {
             $clave    = self::claveDe($frentesVisibles, $frentesBloqueados, []);
-            $guardado = $almacen->get($clave);
-            if (is_array($guardado) && ($guardado['ver'] ?? null) === $ver) continue;   // ya estaba al dia
+            if (self::leerFicha($almacen, $clave, $ver)) continue;   // ya estaba al dia
 
-            $events = collect($this->construirEventos(new Request(), $frentesVisibles, $frentesBloqueados, null, null, ''));
+            $events = collect($this->construirEventos($frentesVisibles, $frentesBloqueados, null, null, ''));
             self::guardarLista($almacen, $clave, $ver, $events);
         }
     }
 
     /**
-     * Guarda la lista con su resumen y el dia, la MISMA forma que lee index(). La usan index() y
-     * calentar(): antes calentar() guardaba solo la lista, index() la descartaba por faltarle el
-     * resumen y el dia, y el calentado no servia (medido: 1,4 s al abrir despues de calentar).
+     * Guarda la lista EN TROZOS de POR_TROZO eventos, mas una ficha pequena con lo que pide la
+     * pantalla entera (total, resumen de la barra lateral y el dia). Asi una pagina lee su
+     * trozo (~200 KB) y no la lista entera (~3,5 MB): bajo Apache leerla costaba ~250 ms por
+     * pagina (en CLI 40). La ficha va la ULTIMA: si algo falla a medias, sin ficha no se usa.
+     * La usan index() y calentar(), y tienen que guardar igual.
      *
-     * 6 horas, no 10 minutos: la version va DENTRO del valor, asi que una lista pasada de fecha
-     * NUNCA se sirve (se compara y se rehace). Con 10 minutos se enfriaba sola en cada pausa.
+     * 6 horas, no 10 minutos: la version va DENTRO de la ficha, asi que una lista pasada de
+     * fecha NUNCA se sirve (se compara y se rehace). Con 10 minutos se enfriaba sola en cada pausa.
      */
     private static function guardarLista($almacen, string $clave, $ver, \Illuminate\Support\Collection $events): array
     {
-        $resumen = self::resumen($events);
-        $valor = ['ver' => $ver, 'dia' => now()->toDateString(), 'resumen' => $resumen];
-        $almacen->put($clave, $valor + ['events' => $events->all()], now()->addHours(6));
-        self::guardarPrimera($almacen, $clave, $valor, $events);
-        return $resumen;
+        $trozos = $events->values()->chunk(self::POR_TROZO);
+        foreach ($trozos as $n => $trozo) {
+            $almacen->put($clave . '_t' . $n, $trozo->values()->all(), now()->addHours(6));
+        }
+        $ficha = ['ver' => $ver, 'dia' => now()->toDateString(), 'total' => $events->count(),
+                  'trozos' => $trozos->count(), 'resumen' => self::resumen($events)];
+        $almacen->put($clave, $ficha, now()->addHours(6));
+        return $ficha;
     }
 
-    /**
-     * La primera pagina, aparte y pequena: es lo unico que se ve al abrir, y leer la lista entera
-     * (~3,5 MB, 35-60 ms medidos) solo para enseñar 15 filas era la mitad de lo que tardaba la
-     * pantalla en salir. Las demas paginas leen la grande.
-     */
-    private static function guardarPrimera($almacen, string $clave, array $valor, \Illuminate\Support\Collection $events): void
+    /** La ficha de esa lista si es de la version actual; null si no hay o esta vieja. */
+    private static function leerFicha($almacen, string $clave, $ver): ?array
     {
-        $almacen->put($clave . self::SUFIJO_PRIMERA, $valor + [
-            'total'  => $events->count(),
-            'events' => $events->forPage(1, self::POR_PAGINA)->values()->all(),
-        ], now()->addHours(6));
+        $f = $almacen->get($clave);
+        return is_array($f) && ($f['ver'] ?? null) === $ver && isset($f['trozos']) ? $f : null;
+    }
+
+    /** Las filas de una pagina, leyendo solo su trozo. null si el trozo falta (se rehace). */
+    private static function leerPagina($almacen, string $clave, array $ficha, int $page): ?\Illuminate\Support\Collection
+    {
+        $desde = ($page - 1) * self::POR_PAGINA;
+        if ($desde >= $ficha['total']) return collect();
+        $trozo = $almacen->get($clave . '_t' . intdiv($desde, self::POR_TROZO));
+        return is_array($trozo) ? collect(array_slice($trozo, $desde % self::POR_TROZO, self::POR_PAGINA)) : null;
+    }
+
+    /** La lista entera, trozo a trozo. null si falta alguno. */
+    private static function leerTodo($almacen, string $clave, array $ficha): ?\Illuminate\Support\Collection
+    {
+        $todo = [];
+        for ($n = 0; $n < $ficha['trozos']; $n++) {
+            $trozo = $almacen->get($clave . '_t' . $n);
+            if (!is_array($trozo)) return null;
+            array_push($todo, ...$trozo);
+        }
+        return collect($todo);
     }
 
     /**
@@ -419,9 +438,15 @@ class HistorialDocumentosController extends Controller
         // todos los filtros que afectan al resultado (ver claveDe). La versión
         // (DATA_VER_KEY) viaja en el VALOR, no en la clave — ver el comentario de la
         // constante.
+        // Sin los vacios: "?search_correo=" es la vista sin filtros y tiene que dar la MISMA clave
+        // (la que deja hecha calentar), no otra que obligue a armar la lista.
+        $filtros = fn (array $campos) => array_filter($request->only($campos), fn ($v) => $v !== null && $v !== '' && $v !== 'all');
         $ver      = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
         $cacheKey = self::claveDe($frentesVisibles, $frentesBloqueados,
-            $request->only(['fecha_desde', 'fecha_hasta', 'search_equipo', 'search_correo', 'search_tipo', 'hd_ids']));
+            $filtros(['fecha_desde', 'fecha_hasta', 'search_equipo', 'search_correo', 'search_tipo', 'hd_ids']));
+        // La lista de los filtros que van a SQL (placa/serial y fechas): usuario, accion y
+        // seleccion se sacan de ella en memoria (filtrarEnMemoria), sin volver a la base.
+        $claveBase = self::claveDe($frentesVisibles, $frentesBloqueados, $filtros(['fecha_desde', 'fecha_hasta', 'search_equipo']));
 
         // Esta lista va al caché de ARCHIVO, no al de base de datos (el de por defecto).
         // Pesa ~3 MB y medido en esta maquina: guardarla en MySQL cuesta 116 ms y en archivo
@@ -431,41 +456,38 @@ class HistorialDocumentosController extends Controller
         $almacen = \Illuminate\Support\Facades\Cache::store('file');
 
         $page = max(1, (int) $request->input('page', 1));
-        $hoy = now()->toDateString();
 
-        // La pagina 1 (abrir la pantalla, cambiar un filtro) sale de su entrada pequeña si esta
-        // al dia; si no, por el camino de siempre, que vuelve a dejarla hecha.
-        $primera = $page === 1 ? $almacen->get($cacheKey . self::SUFIJO_PRIMERA) : null;
-        if (is_array($primera) && ($primera['ver'] ?? null) === $ver && ($primera['dia'] ?? null) === $hoy) {
-            $filas   = collect($primera['events']);
-            $total   = $primera['total'];
-            $resumen = $primera['resumen'];
-        } else {
-            $cached = $almacen->get($cacheKey);
-            // Con la lista va su resumen de la barra lateral: contarlo cuesta ~1/3 de la pantalla, asi
-            // que se cuenta UNA vez por version de la lista, no en cada carga ni cambio de pagina. El
-            // dia va en el valor: "Hoy" y "Ultimos 7 dias" no pueden servirse de ayer.
-            if (is_array($cached) && ($cached['ver'] ?? null) === $ver) {
-                $events = collect($cached['events']);
-                if (($cached['dia'] ?? null) === $hoy && isset($cached['resumen'])) {
-                    $resumen = $cached['resumen'];
-                    // Guardada antes de que existiera la entrada de la primera pagina.
-                    if ($page === 1) self::guardarPrimera($almacen, $cacheKey, array_diff_key($cached, ['events' => 1]), $events);
-                } else {
-                    // Lista al dia pero de otro dia: solo se recuenta el resumen, no se rehace todo.
-                    $resumen = self::guardarLista($almacen, $cacheKey, $ver, $events);
-                }
-            } else {
+        // Con la lista va su resumen de la barra lateral: contarlo cuesta ~1/3 de la pantalla, asi
+        // que se cuenta UNA vez por version de la lista, no en cada carga ni cambio de pagina. El
+        // dia va en la ficha: "Hoy" y "Ultimos 7 dias" no pueden servirse de ayer; si cambio, se
+        // recuenta sobre la lista guardada, sin rehacerla.
+        $ficha = self::leerFicha($almacen, $cacheKey, $ver);
+        if ($ficha && $ficha['dia'] !== now()->toDateString()) {
+            $todo  = self::leerTodo($almacen, $cacheKey, $ficha);
+            $ficha = $todo ? self::guardarLista($almacen, $cacheKey, $ver, $todo) : null;
+        }
+        $filas = $ficha ? self::leerPagina($almacen, $cacheKey, $ficha, $page) : null;
+
+        if ($filas === null) {
+            // La lista de los filtros de SQL, ya guardada, si la hay: usuario, accion y seleccion
+            // salen de ella sin volver a la base.
+            $fichaBase = $claveBase === $cacheKey ? null : self::leerFicha($almacen, $claveBase, $ver);
+            $events = $fichaBase ? self::leerTodo($almacen, $claveBase, $fichaBase) : null;
+            if ($events === null) {
                 $events = collect($this->construirEventos(
-                    $request, $frentesVisibles, $frentesBloqueados,
+                    $frentesVisibles, $frentesBloqueados,
                     $fechaDesdeSql, $fechaHastaSql, $searchEquipoSql
                 ));
-                $resumen = self::guardarLista($almacen, $cacheKey, $ver, $events);
+                // Guardada tambien sin los filtros de memoria: el siguiente usuario o accion
+                // que se elija sale de aqui.
+                if ($claveBase !== $cacheKey) self::guardarLista($almacen, $claveBase, $ver, $events);
             }
-
-            $total = $events->count();
-            $filas = $events->forPage($page, self::POR_PAGINA)->values(); // values(): claves desde 0 para el blade
+            $events = self::filtrarEnMemoria($events, $request);
+            $ficha  = self::guardarLista($almacen, $cacheKey, $ver, $events);
+            $filas  = $events->forPage($page, self::POR_PAGINA)->values(); // values(): claves desde 0 para el blade
         }
+        $total   = $ficha['total'];
+        $resumen = $ficha['resumen'];
 
         // Paginación manual (LengthAwarePaginator) sobre la colección de eventos.
         $paginatedEvents = new \Illuminate\Pagination\LengthAwarePaginator(
@@ -525,7 +547,6 @@ class HistorialDocumentosController extends Controller
      * @return array  Eventos (stdClass) ordenados por fecha desc.
      */
     private function construirEventos(
-        Request $request,
         ?array $frentesVisibles,
         array $frentesBloqueados,
         ?Carbon $fechaDesdeSql,
@@ -1117,53 +1138,50 @@ class HistorialDocumentosController extends Controller
         // 3. Sort descending by date
         $events = $events->sortByDesc('fecha')->values();
 
-        // 4. Filtros finales en memoria sobre los eventos ya construidos.
-        //    - search_correo y search_tipo: NO se pueden hacer en SQL porque
-        //      'autor'/'autor_nombre' son correo/nombre derivados de 6 relaciones
-        //      distintas + el label 'tipo' es un string construido en PHP (no en DB).
-        //      search_correo ubica por nombre O correo (ver más abajo).
-        //    - fecha_desde/hasta: se aplico en SQL para REDUCIR el dataset, pero
-        //      hay que repetir aqui porque un Documentacion tiene 6 fechas y solo
-        //      necesitamos que UNA caiga en rango para traerlo; los eventos de las
-        //      OTRAS fechas del mismo doc deben filtrarse aqui.
-        //    - search_equipo y scope LOCAL ya se filtraron en SQL completamente.
-        $hasInMemoryFilter = $request->filled('search_correo')
-                          || $request->filled('search_tipo')
-                          || $fechaDesdeSql || $fechaHastaSql;
-        if ($hasInMemoryFilter) {
-            $search_correo = self::normal($request->search_correo);
-            $search_tipo   = trim((string) $request->search_tipo);
-
-            $events = $events->filter(function ($event) use ($search_correo, $search_tipo, $fechaDesdeSql, $fechaHastaSql) {
-                // Ubicar por NOMBRE o CORREO del autor: el término casa si está en
-                // cualquiera de los dos (autor = correo, autor_nombre = nombre completo).
-                if ($search_correo
-                    && strpos(self::normal($event->autor), $search_correo) === false
-                    && strpos(self::normal($event->autor_nombre ?? ''), $search_correo) === false) {
-                    return false;
-                }
-                if ($search_tipo !== '' && $search_tipo !== 'all' && !self::esDeTipo($event, $search_tipo)) return false;
-                if ($fechaDesdeSql && $event->fecha->lt($fechaDesdeSql)) return false;
-                if ($fechaHastaSql && $event->fecha->gt($fechaHastaSql)) return false;
-                return true;
-            })->values();
-        }
-
-        // 4b. "Ver solo seleccionados" (contador de la barra flotante): whitelist de
-        //     eventos por su hash md5 — el MISMO que genera el partial en data-hd-id
-        //     (equipo_id + tipo + timestamp). Replica el ids_in del módulo Equipos para
-        //     esta vista de eventos heterogéneos sin clave primaria única. La seguridad
-        //     (scope por frentes permitidos) ya se aplicó en SQL y se mantiene.
-        if ($request->filled('hd_ids')) {
-            $hdIdsSet = array_flip(array_filter(array_map('trim', explode(',', (string) $request->input('hd_ids')))));
-            if (!empty($hdIdsSet)) {
-                $events = $events->filter(function ($event) use ($hdIdsSet) {
-                    return isset($hdIdsSet[md5($event->equipo_id . $event->tipo . $event->fecha->timestamp)]);
-                })->values();
-            }
+        // 4. Las fechas, otra vez en memoria: el SQL trae un documento si UNA de sus 6 fechas cae
+        //    en el rango, y los eventos de las OTRAS fechas de ese documento se quitan aqui.
+        //    Usuario, accion y seleccion NO van aqui sino en filtrarEnMemoria, sobre esta lista
+        //    ya guardada.
+        if ($fechaDesdeSql || $fechaHastaSql) {
+            $events = $events->filter(fn ($e) => !($fechaDesdeSql && $e->fecha->lt($fechaDesdeSql))
+                                              && !($fechaHastaSql && $e->fecha->gt($fechaHastaSql)))->values();
         }
 
         return $events->all();
+    }
+
+    /**
+     * Los filtros que NO cambian que eventos salen de la base, solo cuales se ensenan: usuario
+     * (por nombre o correo), accion y "ver solo seleccionados". Se aplican sobre la lista ya
+     * guardada de los filtros de SQL (placa/serial y fechas), sin volver a armarla: antes cada
+     * combinacion NUEVA de estos filtros la rehacia entera (~0,9 s medidos) y por eso no iban
+     * tan rapido como en Equipos.
+     *
+     * search_correo y search_tipo no pueden ir en SQL: el autor sale de 6 relaciones distintas
+     * y el texto del tipo se arma en PHP.
+     */
+    private static function filtrarEnMemoria(\Illuminate\Support\Collection $events, Request $request): \Illuminate\Support\Collection
+    {
+        $correo = self::normal($request->input('search_correo'));
+        $tipo   = trim((string) $request->input('search_tipo'));
+        if ($tipo === 'all') $tipo = '';
+        // "Ver solo seleccionados": el MISMO hash que pinta el partial en data-hd-id
+        // (equipo_id + tipo + timestamp), como el ids_in del modulo Equipos.
+        $ids = array_flip(array_filter(array_map('trim', explode(',', (string) $request->input('hd_ids')))));
+
+        if ($correo === '' && $tipo === '' && !$ids) return $events;
+
+        return $events->filter(function ($e) use ($correo, $tipo, $ids) {
+            // Por NOMBRE o CORREO del autor: casa si esta en cualquiera de los dos.
+            if ($correo !== ''
+                && strpos(self::normal($e->autor), $correo) === false
+                && strpos(self::normal($e->autor_nombre ?? ''), $correo) === false) {
+                return false;
+            }
+            if ($tipo !== '' && !self::esDeTipo($e, $tipo)) return false;
+            if ($ids && !isset($ids[md5($e->equipo_id . $e->tipo . $e->fecha->timestamp)])) return false;
+            return true;
+        })->values();
     }
 
     /**
