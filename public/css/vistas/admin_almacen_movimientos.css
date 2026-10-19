@@ -530,13 +530,16 @@
 
         /* Destino: banda gris inferior, de borde a borde junto con la fecha (a su derecha).
            El margen derecho negativo tapa el hueco entre columnas para que la franja siga
-           entera; un destino largo se recorta con puntos suspensivos antes de la fecha. */
+           entera. Es un bloque y no flex: así un destino largo se recorta con puntos
+           suspensivos antes de la fecha, también cuando es texto suelto (almacén, o la fila
+           sin internet de movimientos-offline.js), y la línea "tomado de" va DEBAJO. */
         .alm-mov-table tr.alm-mov-row td.mv-td-destino {
             grid-area: destino !important;
-            justify-content: flex-start !important;
+            display: block !important;
             justify-self: stretch !important;
             font-size: 10.5px !important;
             font-weight: 700 !important;
+            line-height: 1.4 !important;
             color: #3730a3 !important;
             background: #f8fafc !important;
             border-radius: 0 0 0 8px !important;
@@ -546,7 +549,6 @@
             overflow: hidden !important;
             text-overflow: ellipsis !important;
             max-width: none !important;
-            gap: 4px !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-destino::before {
             content: "location_on";
@@ -554,8 +556,23 @@
             font-size: 13px;
             color: #3730a3;
             font-weight: normal;
-            flex-shrink: 0;
+            vertical-align: -2px;
+            margin-right: 4px;
         }
+        /* El nombre del frente, en la línea del icono (en escritorio es un bloque). */
+        .alm-mov-table tr.alm-mov-row td.mv-td-destino .mv-destino-frente { display: inline !important; }
+        /* "tomado de" / "devuelto a": su propia línea bajo el nombre, a la altura del texto
+           (13 px del icono + 4 de margen), con sus puntos suspensivos si no cabe. */
+        .alm-mov-table tr.alm-mov-row td.mv-td-destino .mv-tomado-de {
+            display: block !important;
+            margin: 1px 0 0 17px !important;
+            font-size: 10px !important;
+            font-weight: 600 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+        .alm-mov-table tr.alm-mov-row td.mv-td-destino .mv-tomado-de i { font-size: 12px; vertical-align: -2px; margin-right: 2px; }
 
         /* Empty state: el <tr><td colspan="6"> del partial — sin tarjeta */
         .alm-mov-table tbody tr:not(.alm-mov-row) {
