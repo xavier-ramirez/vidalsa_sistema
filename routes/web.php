@@ -557,22 +557,13 @@ Route::middleware(['auth'])->group(function () {
             // controlador (Usuario::veAuditoriaDocumentos).
             Route::get('historial-documentos', [App\Http\Controllers\HistorialDocumentosController::class, 'index'])->name('historial-documentos.index');
 
-            // Dar lecturas por revisadas: super.admin o la carga masiva, y con 'user.edit' (también
-            // escriben en la ficha). Lo comprueba el controlador (Usuario::revisaDocumentos).
-            // Revisado a mano desde el visor: la persona corrigio la ficha en el panel y da la
-            // fila por buena (ver CompresionPdfController::marcarRevisado).
-            Route::post('compresion-pdf/documento/{id}/revisado', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisado'])
-                ->whereNumber('id')->name('compresion-pdf.documento.revisado');
-            // Varias de una vez, eligiendo las filas en la tabla, sin abrir el visor.
-            Route::post('compresion-pdf/documentos/revisados', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisados'])
-                ->name('compresion-pdf.documentos.revisados');
-
             // Carga masiva de documentos (menu Acciones). Se analiza UN PDF por
             // peticion (el OCR de Drive tarda ~8 s y treinta juntos se caerian por timeout; lo
             // que coincide se enlaza solo), lo descartado sale de Drive y el VIN de un BL que no
             // caso con ninguna ficha se ata a mano.
             // Permiso PROPIO y exclusivo ('docs.carga.masiva'), y SOLO ese (pedido del cliente,
             // 01-10-2026): ni super.admin lo hereda (ver PERMISOS_EXPLICITOS) ni hace falta tenerlo.
+            // Con el mismo permiso se revisan las lecturas (19-10-2026): "Revisado" y "Revisar ahora".
             Route::middleware('can:docs.carga.masiva')->group(function () {
                 Route::post('historial-documentos/carga-masiva/analizar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'analizar'])
                     ->name('historial-documentos.carga-masiva.analizar');
@@ -584,10 +575,19 @@ Route::middleware(['auth'])->group(function () {
                     ->name('historial-documentos.carga-masiva.atar-vin');
                 Route::post('historial-documentos/carga-masiva/atar-documento', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'atarDocumento'])
                     ->name('historial-documentos.carga-masiva.atar-documento');
+                // Revisado a mano desde el visor: la persona corrigio la ficha en el panel y da la
+                // fila por buena (ver CompresionPdfController::marcarRevisado).
+                Route::post('compresion-pdf/documento/{id}/revisado', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisado'])
+                    ->whereNumber('id')->name('compresion-pdf.documento.revisado');
+                // Varias de una vez, eligiendo las filas en la tabla, sin abrir el visor.
+                Route::post('compresion-pdf/documentos/revisados', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisados'])
+                    ->name('compresion-pdf.documentos.revisados');
+                // "Revisar ahora": la lectura de documentos arranca ya, a cualquier hora.
+                Route::post('compresion-pdf/documentos/leer-ahora', [App\Http\Controllers\CompresionPdfController::class, 'leerAhora'])
+                    ->name('compresion-pdf.documentos.leer-ahora');
             });
 
-            // Lo demás de Auditoría, incluida la lectura automática ("Revisar ahora"): solo
-            // super.admin.
+            // Lo demás de Auditoría (desbloquear IP, eliminar del historial, la compresión): solo super.admin.
             Route::middleware('can:super.admin')->group(function () {
                 // Desbloquear IP: la tarjeta que la usa esta en /admin/usuarios (ver unlockIp).
                 Route::delete('historial-documentos/unlock-ip/{id}', [App\Http\Controllers\HistorialDocumentosController::class, 'unlockIp'])->name('historial-documentos.unlock-ip');
@@ -595,9 +595,6 @@ Route::middleware(['auth'])->group(function () {
                 // La pantalla de compresion se mudo a Control de Auditoría: este GET solo
                 // lleva alli (los enlaces viejos y los favoritos siguen sirviendo).
                 Route::get('compresion-pdf', [App\Http\Controllers\CompresionPdfController::class, 'index'])->name('compresion-pdf.index');
-                // "Revisar ahora": la lectura de documentos arranca ya, a cualquier hora.
-                Route::post('compresion-pdf/documentos/leer-ahora', [App\Http\Controllers\CompresionPdfController::class, 'leerAhora'])
-                    ->name('compresion-pdf.documentos.leer-ahora');
             });
 
             // Ruta de emergencia `force-fix-db` removida: los ajustes de schema ahora

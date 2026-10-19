@@ -8,8 +8,6 @@
 
 @php
     $mb = fn ($b) => number_format(($b ?? 0) / 1048576, 1, ',', '.');
-    // Elegir filas, "Revisado" y dar por revisada desde el visor (las rutas lo comprueban igual).
-    $puedeRevisar = auth()->user()->revisaDocumentos();
     $comp = $resumen[\App\Models\CompresionPdf::COMPRIMIDO] ?? null;
     $estados = [
         \App\Models\CompresionPdf::COMPRIMIDO => 'Comprimidos',
@@ -148,14 +146,14 @@
                 <tbody>
                     @forelse ($docs as $d)
                         {{-- Las que no coinciden se eligen con un clic en la fila (ver cpdfSelFila),
-                             si quien mira puede darlas por revisadas ($puedeRevisar); las que ya
+                             si quien mira tiene la carga masiva (con ella se revisa); las que ya
                              coinciden no tienen nada que revisar.
 
                              De la CARGA MASIVA solo lo ya enlazado que quedó para revisar (sin
                              fecha, o un BL sin número): lo demás son propuestas de un PDF que se
                              enlaza solo a su ficha (o dice por qué no), y el servidor las deja
                              fuera del "Revisado" en lote (marcarRevisados). --}}
-                        @if ($puedeRevisar && (($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE
+                        @if (auth()->user()->can('docs.carga.masiva') && (($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE
                               && $d->ORIGEN === \App\Models\VerificacionDocumento::DE_LA_NOCHE)
                              || ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
                               && $d->ESTADO === \App\Models\VerificacionDocumento::APLICADO && $d->A_MANO)))
@@ -263,8 +261,8 @@
         <div style="margin-top:12px;">{{ $docs->links('vendor.pagination.custom-sliding') }}</div>
         {{-- Dar por revisadas las filas elegidas con un clic, sin abrir el visor (ver cpdfMarcarRevisadas):
              las de la lectura automática y lo de la carga masiva ya enlazado que quedó para revisar.
-             Solo quien puede revisar ($puedeRevisar). --}}
-        @if ($puedeRevisar)
+             Con la carga masiva, igual que su ruta. --}}
+        @can('docs.carga.masiva')
         <div id="cpdfSelBarra" class="selection-floating-bar">
             <div class="selection-counter">
                 <i class="material-icons" style="font-size:18px;">fact_check</i>
@@ -276,7 +274,7 @@
                 <i class="material-icons">done_all</i> Revisado
             </button>
         </div>
-        @endif
+        @endcan
         @else
         <div class="cpdf-tabla-caja cpdf-comp">
             <table class="admin-table">
@@ -329,28 +327,7 @@
     </div>
 
     <aside class="cpdf-side">
-        @if ($pestana === 'documentos' && $soloCarga)
-            {{-- Quien entra solo por la carga masiva (ver Usuario::veAuditoriaDocumentos): las
-                 cuentas de todas las lecturas, sin el control de la lectura automática (si está
-                 activa, "Revisar ahora" y su avance), que es de super.admin. --}}
-            <div class="cpdf-hero">
-                <i class="material-icons">fact_check</i>
-                <div>
-                    <small>Documentos leídos</small>
-                    <strong>{{ $resumenDocs->sum() }}</strong>
-                </div>
-            </div>
-            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'revisar', 'page' => null]) }}">
-                <small>Para revisar a mano</small>
-                <strong>{{ $docsParaRevisar }}</strong>
-                <span>ilegibles, ajenos o sin archivo</span>
-            </a>
-            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => \App\Models\VerificacionDocumento::POR_ENGANCHAR, 'page' => null]) }}">
-                <small>Sin enlazar</small>
-                <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::POR_ENGANCHAR] ?? 0 }}</strong>
-                <span>reconocidos, no se pudieron enlazar solos</span>
-            </a>
-        @elseif ($pestana === 'documentos')
+        @if ($pestana === 'documentos')
             <div class="cpdf-hero">
                 <i class="material-icons">fact_check</i>
                 <div>
@@ -371,7 +348,9 @@
                             <span class="cpdf-ahora-pedida">Pedida: {{ $lecturaPedidaTipos ? implode(', ', array_intersect_key(\App\Models\VerificacionDocumento::NOMBRES, array_flip($lecturaPedidaTipos))) : 'todos' }} · {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }} (en curso).</span>
                         @endif
                         {{-- Una fila compacta: rotulo + grupo de botones pegados. El titulo sale corto
-                             ("Titulo"); el nombre entero va en el tooltip y en data-nombre (el aviso). --}}
+                             ("Titulo"); el nombre entero va en el tooltip y en data-nombre (el aviso).
+                             Con la carga masiva, igual que su ruta. --}}
+                        @can('docs.carga.masiva')
                         <div class="cpdf-ahora-fila">
                             <span class="cpdf-ahora-rotulo">Revisar ahora</span>
                             <div class="cpdf-ahora-botones" role="group" aria-label="Revisar ahora">
@@ -383,6 +362,7 @@
                                 @endforeach
                             </div>
                         </div>
+                        @endcan
                     @else
                         <strong>Lectura automática apagada</strong>
                         <span>{{ ucfirst($motivoActiva) }}.</span>
@@ -394,6 +374,11 @@
                 <small>Para revisar a mano</small>
                 <strong>{{ $docsParaRevisar }}</strong>
                 <span>ilegibles, ajenos o sin archivo</span>
+            </a>
+            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => \App\Models\VerificacionDocumento::POR_ENGANCHAR, 'page' => null]) }}">
+                <small>Sin enlazar</small>
+                <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::POR_ENGANCHAR] ?? 0 }}</strong>
+                <span>de la carga masiva: reconocidos, no se pudieron enlazar solos</span>
             </a>
             <div class="cpdf-caja">
                 <small>Última lectura</small>
@@ -487,8 +472,8 @@
         else window.location.href = url;
     };
 
-    {{-- Elegir filas y "Revisado": quien puede revisar, igual que su ruta (Usuario::revisaDocumentos). --}}
-    @if ($puedeRevisar)
+    {{-- Elegir filas, "Revisado" y "Revisar ahora": con la carga masiva, igual que sus rutas. --}}
+    @can('docs.carga.masiva')
     // ── Dar por revisadas varias filas sin abrir el visor ──────────────────────────────
     // De la ficha solo se llenan las fechas que tiene VACIAS y el documento trae
     // (CorrectorFichaDocumento::fechasVacias); lo demas no cambia. Cada fila queda como
@@ -548,10 +533,7 @@
                 });
         });
     };
-    @endif
 
-    {{-- "Revisar ahora" (la lectura automática): solo super.admin, igual que su ruta. --}}
-    @can('super.admin')
     // "Revisar ahora": pide la lectura a cualquier hora (ver VerificarDocumentos::pedirAhora).
     // Con tipo ('propiedad', 'poliza', 'rotc' o 'racda') solo ese documento; '' = todos.
     window.cpdfLeerAhora = function (btn, tipo) {
@@ -704,6 +686,9 @@
     if (!window.__cpdfRevisarBound) {
         window.__cpdfRevisarBound = true;
         var URL_REVISADO = @json(route('compresion-pdf.documento.revisado', ['id' => 0]));
+        // Dar la fila por revisada va con la carga masiva (igual que su ruta). Sin ella, el visor
+        // solo guarda la ficha, como en cualquier otro modulo.
+        var PUEDE_REVISAR = @json(auth()->user()->can('docs.carga.masiva'));
         // Diferencia del verificador -> campo del panel del visor que la corrige.
         // Las fechas de emision tienen su campo en el panel (fecha_emision): lo que dice el
         // documento sale debajo con su "Usar", no como un campo aparte. El serial y la placa
@@ -882,7 +867,7 @@
         };
 
         document.addEventListener('vidalsa:metadata-guardada', function (e) {
-            if (!esEste(e.detail)) return;
+            if (!PUEDE_REVISAR || !esEste(e.detail)) return;
             // El aviso lo da esta pantalla al terminar (uno solo): el del visor se cancela.
             e.preventDefault();
             var id = window._pdfVerif.id, campos = {};

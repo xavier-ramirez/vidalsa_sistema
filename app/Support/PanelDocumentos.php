@@ -32,11 +32,10 @@ class PanelDocumentos
     }
 
     /**
-     * Todo lo que necesita panel.blade.php para la pestaña pedida. $soloCarga: quien entra
-     * sin super.admin, solo por la carga masiva — ve todas las lecturas, pero nada del control
-     * de la lectura automática (su avance ni "Revisar ahora"; ver Usuario::veAuditoriaDocumentos).
+     * Todo lo que necesita panel.blade.php para la pestaña pedida. Las lecturas son las mismas
+     * para todos los que entran; qué botones salen lo decide la vista con los permisos.
      */
-    public static function datos(Request $request, string $pestana, bool $soloCarga = false): array
+    public static function datos(Request $request, string $pestana): array
     {
         $buscar = trim((string) $request->input('buscar', ''));
 
@@ -47,12 +46,11 @@ class PanelDocumentos
         $zona = config('app.schedule_timezone', config('app.timezone'));
 
         $propias = $pestana === self::DOCUMENTOS
-            ? self::datosDocumentos($request, $buscar, $soloCarga)
+            ? self::datosDocumentos($request, $buscar)
             : self::datosCompresion($request, $buscar);
 
         return $propias + [
             'pestana'      => $pestana,
-            'soloCarga'    => $soloCarga,
             'buscar'       => $buscar,
             'activa'       => $activa,
             'motivoActiva' => $motivoActiva,
@@ -118,10 +116,9 @@ class PanelDocumentos
      * Pestaña "Documentos" (titulos, polizas, ROTC y RACDA): filas paginadas, cuantas hay de cada estado, cuando fue la
      * ultima lectura y cuantos documentos faltan por leer.
      */
-    private static function datosDocumentos(Request $request, string $buscar, bool $soloCarga): array
+    private static function datosDocumentos(Request $request, string $buscar): array
     {
-        // El avance de la lectura automática solo lo ve super.admin; las lecturas, todos.
-        $avance = $soloCarga ? [] : self::avance();
+        $avance = self::avance();
         // Los cinco de la revision nocturna mas los de la carga masiva (DE_LA_CARGA_TODOS): las
         // dos procedencias comparten esta tabla, que es la unica del modulo donde se ve el
         // estado de un documento.

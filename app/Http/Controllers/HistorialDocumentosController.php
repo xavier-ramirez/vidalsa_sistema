@@ -402,11 +402,9 @@ class HistorialDocumentosController extends Controller
         // documentos (ver Usuario::veAuditoriaDocumentos).
         $user = auth()->user();
         abort_unless($user && $user->veAuditoriaDocumentos(), 403);
-        $soloCarga = !$user->can('super.admin');
-
-        $pestana = $soloCarga ? PanelDocumentos::DOCUMENTOS : $request->input('pestana');
+        $pestana = $user->can('super.admin') ? $request->input('pestana') : PanelDocumentos::DOCUMENTOS;
         if (PanelDocumentos::esPestana($pestana)) {
-            return view('admin.historial_documentos.index', PanelDocumentos::datos($request, $pestana, $soloCarga));
+            return view('admin.historial_documentos.index', PanelDocumentos::datos($request, $pestana));
         }
 
         // ── Scope LOCAL ─────────────────────────────────────────────────────

@@ -142,8 +142,9 @@ class VerificacionDocumentoTest extends MySqlTestCase
 
     private function superAdmin(): Usuario
     {
-        $u = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
-        $this->assertNotNull($u, 'Hace falta un usuario super.admin para probar.');
+        // Con la carga masiva: con ella se dan las lecturas por revisadas (ver routes/web.php).
+        $u = Usuario::all()->first(fn ($u) => $u->can('super.admin') && $u->can('docs.carga.masiva'));
+        $this->assertNotNull($u, 'Hace falta un usuario super.admin con la carga masiva para probar.');
         return $u;
     }
 
@@ -1624,7 +1625,7 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $placa));
         $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
 
-        $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->revisaDocumentos());   // ni super.admin ni carga masiva + user.edit
+        $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->can('docs.carga.masiva'));   // revisar va con la carga masiva
         $this->actingAs($sinPermiso)->postJson(route('compresion-pdf.documento.revisado', ['id' => $reg->ID_REGISTRO]))
             ->assertForbidden();
         $this->assertSame(VerificacionDocumento::DIFIERE, $reg->refresh()->ESTADO);
@@ -1646,7 +1647,7 @@ class VerificacionDocumentoTest extends MySqlTestCase
         DB::table('documentacion')->where('ID_EQUIPO', $e2)->update(['FECHA_EMISION_PROPIEDAD' => '2019-01-01']);
 
         $url = route('compresion-pdf.documentos.revisados');
-        $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->revisaDocumentos());   // ni super.admin ni carga masiva + user.edit
+        $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->can('docs.carga.masiva'));   // revisar va con la carga masiva
         $this->actingAs($sinPermiso)->postJson($url, ['ids' => [$r1->ID_REGISTRO]])->assertForbidden();
         $this->assertSame(VerificacionDocumento::DIFIERE, $r1->refresh()->ESTADO);
 

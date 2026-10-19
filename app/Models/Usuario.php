@@ -431,25 +431,16 @@ class Usuario extends Authenticatable
     }
     /**
      * Quién entra a Auditoría de Documentos (/admin/historial-documentos). Con 'super.admin',
-     * a todo; con 'docs.carga.masiva' (sin super.admin), a la pestaña de revisión de documentos:
-     * todas las lecturas, las de la noche y las de la carga masiva (pedido del cliente,
-     * 19-10-2026), sin el historial, la compresión ni el control de la lectura automática.
-     * Punto único para la ruta, el menú y la pantalla. No es una clave de permisos: se deriva
-     * de las dos.
+     * a todo; con 'docs.carga.masiva' (sin super.admin), a la pestaña de revisión de documentos,
+     * con todas las lecturas (las de la noche y las de la carga). Lo que se HACE en esa pestaña
+     * (dar por revisado, "Revisar ahora", cargar en lote) va con 'docs.carga.masiva'; eliminar
+     * (descartar un PDF, borrar del historial), solo con super.admin (pedido del cliente,
+     * 19-10-2026). Punto único para la ruta, el menú y la pantalla. No es una clave de
+     * permisos: se deriva de las dos.
      */
     public function veAuditoriaDocumentos(): bool
     {
         return $this->can('super.admin') || $this->can('docs.carga.masiva');
-    }
-
-    /**
-     * Quién da por revisada una lectura (en el visor o varias a la vez): quien entra a la
-     * revisión y además puede editar la ficha ('user.edit', lo mismo que pide guardar el panel
-     * del visor), porque darla por revisada también escribe en la ficha.
-     */
-    public function revisaDocumentos(): bool
-    {
-        return $this->veAuditoriaDocumentos() && $this->can('user.edit');
     }
 
     /**

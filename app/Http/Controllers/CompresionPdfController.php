@@ -52,7 +52,6 @@ class CompresionPdfController extends Controller
      */
     public function marcarRevisado(Request $request, int $id, CorrectorFichaDocumento $corrector)
     {
-        abort_unless($request->user()->revisaDocumentos(), 403);
         $reg = VerificacionDocumento::findOrFail($id);
         // Solo las lecturas de la noche, igual que marcarRevisados: una propuesta de la carga
         // masiva no esta en ninguna ficha todavia (se enlaza sola o se descarta con su boton).
@@ -93,7 +92,6 @@ class CompresionPdfController extends Controller
      */
     public function marcarRevisados(Request $request, CorrectorFichaDocumento $corrector)
     {
-        abort_unless($request->user()->revisaDocumentos(), 403);
         $ids = $request->validate([
             'ids'   => ['required', 'array', 'max:' . self::MAX_REVISADOS],
             'ids.*' => ['integer'],
