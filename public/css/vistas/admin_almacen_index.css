@@ -23,7 +23,7 @@
         color: #1e293b; padding: 10px 6px 10px 4px; min-width: 0; height: 100%; cursor: text;
     }
     .alm-filter .filter-clear { padding: 0 8px; color: #64748b; font-size: 18px; cursor: pointer; }
-    /* El icono "escanear QR" que va dentro del buscador (.qrs-ic) trae su propio estilo
+    /* El icono "escanear" que va dentro del buscador (.lbr-ic) trae su propio estilo
        en el partial compartido admin.almacen.partials.scan_modal. */
 
     /* Tabla de inventario: estilo igualado a /admin/equipos (.table-row-header + .table-header-custom):
@@ -924,9 +924,9 @@
     @media (max-width: 768px) {
         /* La barra de selección en móvil muestra TEXTO en vez de iconos (regla global
            en estilos_globales.css, .selection-floating-bar .desktop-text). Excepción pedida: el botón "Etiquetas" se
-           muestra con su ÍCONO QR (más compacto y reconocible) y sin el texto. El #id
+           muestra con su ícono de código de barras (más compacto y reconocible) y sin el texto. El #id
            gana en especificidad sobre la regla global por clase. */
-        #almBulkEtqBtn i.material-icons { display: inline-flex !important; }
+        #almBulkEtqBtn .icono-barras { display: inline-block !important; }
         #almBulkEtqBtn .desktop-text { display: none !important; }
 
         /* Filtros: cada caja full-width, una debajo de la otra. La fila completa

@@ -59,6 +59,21 @@ class EtiquetasProductoTest extends MySqlTestCase
         $this->assertSame(200, $j['total']);
     }
 
+    public function test_por_categoria_salen_todos_los_activos_con_codigo_de_esa_categoria(): void
+    {
+        $cat = ProductoInventario::activos()->whereNotNull('CODIGO')->where('CODIGO', '!=', '')
+            ->whereNotNull('CATEGORIA')->where('CATEGORIA', '!=', '')->value('CATEGORIA');
+        $this->assertNotNull($cat, 'Hace falta una categoría con productos.');
+        $esperados = ProductoInventario::activos()->whereNotNull('CODIGO')->where('CODIGO', '!=', '')
+            ->where('CATEGORIA', $cat)->orderBy('NOMBRE')->limit(1000)->pluck('CODIGO')->map(fn ($c) => (string) $c)->sort()->values()->all();
+
+        $j = $this->actingAs($this->usuario())
+            ->getJson(route('almacen.etiquetas', ['categoria' => mb_strtolower($cat)]))->assertOk()->json();
+        $codigos = collect($j['etiquetas'])->pluck('codigo')->sort()->values()->all();
+        $this->assertSame($esperados, $codigos, 'Los de la categoría (se busca en mayúsculas), ni uno más.');
+        $this->assertSame(count($esperados), $j['total'], 'Una copia de cada uno por defecto.');
+    }
+
     public function test_sin_productos_validos_no_hay_etiquetas(): void
     {
         $this->actingAs($this->usuario())

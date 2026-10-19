@@ -1963,19 +1963,22 @@
     var ETQ_MAX_PREVIA = 60;   // en la vista previa; con más se avisa cuántas faltan
     var etqPendiente = null;   // lo que muestra la vista previa: { lista, formato }
 
-    // Código de barras Code 128 (JsBarcode) como SVG que se estira a su caja. Si el código
-    // trae algo que un código de barras no admite (ñ, tildes), se escribe el código.
+    // Código de barras Code 128 (JsBarcode) como SVG que se estira a su caja, con bordes nítidos
+    // (sin suavizado, que en la térmica emborrona las barras). Si el código trae algo que un
+    // código de barras no admite (ñ, tildes) se deja el hueco vacío: el código ya va escrito en
+    // el pie. Hoy no pasa: los códigos del catálogo son números de 5 o 6 cifras.
     function almEtqBarras(codigo) {
         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         try {
-            window.JsBarcode(svg, codigo, { format: 'CODE128', height: 40, width: 2, margin: 0, flat: true, displayValue: false });
+            window.JsBarcode(svg, codigo, { format: 'CODE128', height: 40, width: 2, margin: 0, displayValue: false });
         } catch (e) {
-            return '<span class="etq-cod">' + escHtml(codigo) + '</span>';
+            return '';
         }
         var w = parseFloat(svg.getAttribute('width')), h = parseFloat(svg.getAttribute('height'));
         svg.removeAttribute('width'); svg.removeAttribute('height'); svg.removeAttribute('style');
         svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
         svg.setAttribute('preserveAspectRatio', 'none');
+        svg.setAttribute('shape-rendering', 'crispEdges');
         return svg.outerHTML;
     }
 
@@ -1993,45 +1996,53 @@
 
     // Estilo de la etiqueta en milímetros y puntos, para la vista previa y la impresión.
     function almEtqEstilo(f) {
-        var chica = f.h < 28;
+        // Letra menor en las etiquetas BAJAS (40×25 y la celda de 66×26 de la carta): con la
+        // grande no le quedaría alto al código de barras.
+        var baja = f.h < 28;
         return '.etq { width:' + f.w + 'mm; height:' + f.h + 'mm; padding:1.5mm 2mm; box-sizing:border-box; display:flex; flex-direction:column; overflow:hidden;'
             +   ' font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff; }'
             + ' .etq-corte { border:.15mm dashed #000; border-radius:1.8mm; }'
-            + ' .etq-empresa { font-size:' + (chica ? 5.5 : 6.5) + 'pt; text-transform:uppercase; letter-spacing:.04em; line-height:1.1; }'
+            + ' .etq-empresa { font-size:' + (baja ? 5.5 : 6.5) + 'pt; text-transform:uppercase; letter-spacing:.04em; line-height:1.1; }'
             // La descripción del almacén es larga: hasta dos renglones (en la tira chica, uno).
-            + ' .etq-nombre { font-size:' + (chica ? 7 : 8.5) + 'pt; font-weight:bold; line-height:1.15; overflow:hidden;'
+            + ' .etq-nombre { font-size:' + (baja ? 7 : 8.5) + 'pt; font-weight:bold; line-height:1.15; overflow:hidden;'
             +   ' display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:' + (f.w < 45 ? 1 : 2) + '; }'
-            + ' .etq-var { font-size:' + (chica ? 6 : 7) + 'pt; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }'
+            + ' .etq-var { font-size:' + (baja ? 6 : 7) + 'pt; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }'
             // Margen blanco a cada lado del código (zona de silencio): sin él, estirado de borde a
             // borde, el lector no siempre encuentra dónde empieza y dónde termina.
             + ' .etq-barras { flex:1; min-height:6mm; margin:.6mm 2.5mm .3mm; }'
             + ' .etq-barras svg { width:100%; height:100%; display:block; }'
             + ' .etq-pie { display:flex; justify-content:space-between; align-items:baseline; gap:1mm; line-height:1; }'
             + ' .etq-cod { font-size:6pt; letter-spacing:.03em; }'
-            + ' .etq-um { font-size:' + (chica ? 7.5 : 8.5) + 'pt; font-weight:bold; white-space:nowrap; }';
+            + ' .etq-um { font-size:' + (baja ? 7.5 : 8.5) + 'pt; font-weight:bold; white-space:nowrap; }';
     }
 
-    // Vista previa: las etiquetas tal cual van a salir; desde ahí se imprimen.
+    // Vista previa: las etiquetas tal cual van a salir; desde ahí se imprimen. Con más de
+    // ETQ_MAX_PREVIA se enseña primero UNA de cada producto (que no quede ninguno sin ver) y
+    // luego el resto de copias, hasta el tope. El HTML de cada producto se arma una sola vez.
     function almEtqVistaPrevia(lista, formato) {
         var f = ETQ_FORMATOS[formato] || ETQ_FORMATOS['50x30'];
+        var html = lista.map(function (e) { return '<div>' + almEtqHTML(e, f) + '</div>'; });
         var total = 0, muestras = [];
-        lista.forEach(function (e) {
-            total += e.copias;
-            for (var i = 0; i < e.copias && muestras.length < ETQ_MAX_PREVIA; i++) muestras.push('<div>' + almEtqHTML(e, f) + '</div>');
+        lista.forEach(function (e, i) { total += e.copias; if (muestras.length < ETQ_MAX_PREVIA) muestras.push(html[i]); });
+        lista.forEach(function (e, i) {
+            for (var n = 1; n < e.copias && muestras.length < ETQ_MAX_PREVIA; n++) muestras.push(html[i]);
         });
         etqPendiente = { lista: lista, formato: formato };
         el('almEtqPreviaInfo').textContent = total + (total === 1 ? ' etiqueta' : ' etiquetas') + ' · ' + f.nombre;
         el('almEtqPrevia').innerHTML = '<style>' + almEtqEstilo(f) + '</style>' + muestras.join('');
         var mas = el('almEtqPreviaMas');
-        mas.hidden = total <= ETQ_MAX_PREVIA;
-        mas.textContent = 'y ' + (total - ETQ_MAX_PREVIA) + ' más iguales a estas';
+        mas.hidden = total <= muestras.length;
+        mas.textContent = 'y ' + (total - muestras.length) + ' más que no se muestran aquí (se imprimen todas)';
         el('almEtqImprimirBtn').querySelector('span').textContent = 'Imprimir ' + total;
         almOpen('almEtqPreviaModal');
     }
 
     // Manda a la impresora lo de la vista previa: rollo = una etiqueta por página al tamaño de
     // la tira; carta = rejillas de 3 × 10 centradas en la hoja. Se arma en un marco invisible
-    // para que el diálogo de impresión salga solo con las etiquetas.
+    // para que el diálogo de impresión salga solo con las etiquetas. Cada página (.pag) corta
+    // DESPUÉS de sí salvo la última —si no, salía una hoja en blanco al final, que en el rollo
+    // gasta una etiqueta— y en el rollo mide una pizca menos que la tira, para que un redondeo
+    // no empuje media etiqueta a otra página.
     window.almEtqImprimir = function () {
         if (!etqPendiente) return;
         var f = ETQ_FORMATOS[etqPendiente.formato] || ETQ_FORMATOS['50x30'];
@@ -2040,28 +2051,31 @@
             var html = almEtqHTML(e, f);
             for (var i = 0; i < e.copias; i++) todas.push(html);
         });
-        var pagina, cuerpo;
+        var paginas = [], pagina, estiloPag;
         if (!f.hoja) {
             pagina = '@page { size:' + f.w + 'mm ' + f.h + 'mm; margin:0; }';
-            cuerpo = todas.map(function (t) { return '<div style="page-break-after:always">' + t + '</div>'; }).join('');
+            estiloPag = ' .pag { width:' + f.w + 'mm; height:calc(' + f.h + 'mm - .2mm); overflow:hidden; }';
+            paginas = todas;
         } else {
             var h = f.hoja, porHoja = h.cols * h.filas;
             var ml = (h.w - h.cols * f.w) / 2, mt = (h.h - h.filas * f.h) / 2;
             pagina = '@page { size:' + h.w + 'mm ' + h.h + 'mm; margin:0; }';
-            cuerpo = '';
-            for (var i = 0; i < todas.length; i += porHoja) {
-                cuerpo += '<div style="padding:' + mt + 'mm 0 0 ' + ml + 'mm;display:grid;grid-template-columns:repeat(' + h.cols + ',' + f.w + 'mm);page-break-after:always">'
-                    + todas.slice(i, i + porHoja).join('') + '</div>';
-            }
+            estiloPag = ' .pag { padding:' + mt + 'mm 0 0 ' + ml + 'mm; display:grid; grid-template-columns:repeat(' + h.cols + ',' + f.w + 'mm); }';
+            for (var i = 0; i < todas.length; i += porHoja) paginas.push(todas.slice(i, i + porHoja).join(''));
         }
+        var cuerpo = paginas.map(function (t) { return '<div class="pag">' + t + '</div>'; }).join('');
         var fr = el('almEtqImpresion');
         var doc = fr.contentDocument;
         doc.open();
         doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Etiquetas</title><style>' + pagina
-            + ' html,body{margin:0;padding:0;} ' + almEtqEstilo(f) + '</style></head><body>' + cuerpo + '</body></html>');
+            + ' html,body{margin:0;padding:0;} .pag{break-after:page;} .pag:last-child{break-after:auto;}' + estiloPag + ' '
+            + almEtqEstilo(f) + '</style></head><body>' + cuerpo + '</body></html>');
         doc.close();
         almCerrar('almEtqPreviaModal');
-        setTimeout(function () { fr.contentWindow.focus(); fr.contentWindow.print(); }, 150);
+        // print() del marco no necesita darle el foco, y al volver se le devuelve a la página: si
+        // se quedara en el marco invisible, Escape y el lector USB (que escuchan en la página)
+        // dejarían de responder hasta hacer clic en algún sitio.
+        setTimeout(function () { fr.contentWindow.print(); window.focus(); }, 150);
     };
 
     // Engancha el escaneo (icono del buscador + cámara + lector USB) a ESTE buscador.
@@ -2179,8 +2193,7 @@
     window.almEtiquetasGenerar = function () {
         var m = el('almEtiquetasModal'); if (!m) return;
         var fmt = (el('almEtqFormato') && el('almEtqFormato').value) || '50x30';
-        var u = new URL(ROUTE_ETIQUETAS, window.location.origin);
-        u.searchParams.set('formato', fmt);
+        var u = new URL(ROUTE_ETIQUETAS, window.location.origin);   // el tamaño no viaja: lo aplica la pantalla al dibujarlas
 
         // El modo se decide por la PRESENCIA de campos por producto (solo existen con VARIOS),
         // no por si la lista está visible: mirar el display llegó a mandar items= vacío →

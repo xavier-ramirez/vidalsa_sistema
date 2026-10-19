@@ -104,12 +104,10 @@
             if (reader) reader.style.display = '';
             if (hint) hint.textContent = 'Iniciando cámara…';
             // Recuadro ANCHO y bajo, a la forma de un código de barras (un 90 % del ancho del
-            // video y un 40 % de alto), y el detector del propio teléfono si lo tiene (Chrome en
-            // Android): lee las barras mucho mejor que el de la librería.
+            // video y un 40 % de alto).
             var conf   = {
                 fps: 10,
                 qrbox: function (w, h) { return { width: Math.floor(w * 0.9), height: Math.floor(Math.min(w, h) * 0.4) }; },
-                experimentalFeatures: { useBarCodeDetectorIfSupported: true },
             };
             var onOk   = function (texto) { resolver(texto); };
             var onTick = function () { /* frames sin código: ignorar */ };
@@ -124,7 +122,9 @@
             try {
                 // Solo Code 128, el de las etiquetas: con todos los formatos activos la librería
                 // llegó a leer como código el texto o las líneas de una etiqueta (un número que
-                // no era el del producto).
+                // no era el del producto). El detector del propio teléfono (Chrome en Android),
+                // que lee las barras mejor que el de la librería, html5-qrcode lo usa solo si
+                // existe: viene activado por defecto.
                 scanner = new Html5Qrcode('lbrReader', {
                     verbose: false,
                     formatsToSupport: typeof Html5QrcodeSupportedFormats !== 'undefined' ? [Html5QrcodeSupportedFormats.CODE_128] : undefined

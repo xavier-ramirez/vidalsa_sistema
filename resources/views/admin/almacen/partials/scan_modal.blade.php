@@ -24,12 +24,15 @@
     .lbr-ic { padding: 0 8px; color: #64748b; font-size: 20px; cursor: pointer; transition: color .15s; align-items: center; flex: 0 0 auto; }
     .lbr-ic:hover { color: #7c3aed; }
     /* Ícono de código de barras (la fuente de íconos no trae uno): barras en SVG como
-       máscara, del color del texto. Mide lo mismo que los íconos de la fuente (20 px) y
-       queda centrado dentro del relleno del .lbr-ic. */
+       máscara, del color del texto. Mide 1em, como los íconos de la fuente (en el buscador,
+       20 px por el font-size del .lbr-ic), y queda centrado dentro de su relleno. Lo usan
+       también los botones de Etiquetas del inventario, que incluye este partial. */
     .icono-barras {
-        display: inline-block; width: 20px; height: 20px; box-sizing: content-box; background-color: currentColor;
-        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 4h2v16H2zM5 4h1v16H5zM7 4h2v16H7zM10 4h1v16h-1zM12 4h3v16h-3zM16 4h1v16h-1zM18 4h1v16h-1zM20 4h2v16h-2z'/%3E%3C/svg%3E") center / 20px 20px no-repeat;
-                mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 4h2v16H2zM5 4h1v16H5zM7 4h2v16H7zM10 4h1v16h-1zM12 4h3v16h-3zM16 4h1v16h-1zM18 4h1v16h-1zM20 4h2v16h-2z'/%3E%3C/svg%3E") center / 20px 20px no-repeat;
+        --icono-barras: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 4h2v16H2zM5 4h1v16H5zM7 4h2v16H7zM10 4h1v16h-1zM12 4h3v16h-3zM16 4h1v16h-1zM18 4h1v16h-1zM20 4h2v16h-2z'/%3E%3C/svg%3E");
+        display: inline-block; width: 1em; height: 1em; box-sizing: content-box; vertical-align: middle;
+        background-color: currentColor;
+        -webkit-mask: var(--icono-barras) center / 1em 1em no-repeat;
+                mask: var(--icono-barras) center / 1em 1em no-repeat;
     }
 
     /* Velo + caja del modal. Propios (no reusa .alm-modal-overlay) para que el partial
@@ -63,7 +66,7 @@
      data-lib="{{ asset('js/vendor/html5-qrcode.min.js') }}?v={{ @filemtime(public_path('js/vendor/html5-qrcode.min.js')) }}">
     <div class="lbr-modal">
         <div class="lbr-head">
-            <h3><i class="icono-barras"></i> Escanear producto</h3>
+            <h3><i class="icono-barras" style="font-size:20px;"></i> Escanear producto</h3>
             <i class="material-icons lbr-x" onclick="window.LectorBarras.cerrar()">close</i>
         </div>
         <div class="lbr-body">

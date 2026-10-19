@@ -421,7 +421,7 @@
         {{-- Etiquetas de los productos seleccionados (flujo "marcar filas → imprimir
              sus etiquetas"). Reusa la misma selección (almSeleccion) que la Salida. --}}
         <button type="button" id="almBulkEtqBtn" onclick="window.almSelEtiquetas()" class="btn-bulk-action alm-bulk-sec">
-            <i class="material-icons" style="font-size:18px;">&#xe00a;</i><span class="desktop-text">Etiquetas</span>
+            <i class="icono-barras" style="font-size:18px;"></i><span class="desktop-text">Etiquetas</span>
         </button>
     </div>
 </div>
@@ -435,7 +435,7 @@
 <div id="almEtiquetasModal" class="alm-modal-overlay">
     <div class="alm-modal" style="max-width:360px;">
         <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;">&#xe00a;</i> Generar etiquetas</h3>
+            <h3><i class="icono-barras" style="font-size:20px;"></i> Generar etiquetas</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almEtiquetasModal')">close</i>
         </div>
         <div class="alm-modal-body" style="gap:10px;">
@@ -485,7 +485,7 @@
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almEtiquetasModal')">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" onclick="window.almEtiquetasGenerar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">&#xe00a;</i>Aceptar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almEtiquetasGenerar()"><i class="icono-barras" style="font-size:17px;vertical-align:-3px;margin-right:4px;"></i>Aceptar</button>
         </div>
     </div>
 </div>
