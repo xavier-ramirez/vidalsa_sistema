@@ -10,11 +10,13 @@
     .akit-vista { display: flex; flex-direction: column; gap: 10px; min-height: 0; flex: 1 1 auto; }
     .akit-vista[hidden] { display: none; }
 
-    /* Barra superior: buscador + almacén + nuevo */
-    .akit-barra { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .akit-buscar { flex: 1 1 280px; display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px;
-        border: 1px solid #cbd5e0; border-radius: 10px; background: #f8fafc; }
-    .akit-buscar:focus-within { border-color: #0067b1; background: #fff; }
+    /* Barra superior: el buscador encima de las tarjetas y con su mismo ancho (las mismas dos
+       columnas que .akit-cuerpo); el almacén y "Nuevo kit", a la derecha. */
+    .akit-barra { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 12px; align-items: center; }
+    .akit-barra-der { display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-width: 0; }
+    .akit-buscar { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px;
+        border: 1px solid #cbd5e0; border-radius: 10px; background: #fff; }
+    .akit-buscar:focus-within { border-color: #0067b1; }
     .akit-buscar .material-icons { font-size: 19px; color: #0067b1; }
     .akit-buscar input { flex: 1; min-width: 0; border: none; background: transparent; outline: none; font-size: 13.5px; font-weight: 600; color: #0f172a; }
     .akit-buscar .akit-x { cursor: pointer; color: #94a3b8; font-size: 18px; }
@@ -32,18 +34,6 @@
     .akit-alm.sin .material-icons { color: #b45309; }
     .akit-btn-nuevo { height: 40px; padding: 0 14px; border-radius: 10px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 
-    /* Filtros en cascada: tipo → modelo, con su cuenta */
-    .akit-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-    .akit-chips[hidden] { display: none; }
-    .akit-chip { border: 1px solid #cbd5e0; background: #fff; color: #334155; border-radius: 999px; padding: 5px 11px;
-        font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; line-height: 1.2; }
-    .akit-chip:hover { border-color: #0067b1; color: #0067b1; }
-    .akit-chip .n { background: #e2e8f0; color: #475569; border-radius: 999px; padding: 1px 7px; font-size: 11px; }
-    .akit-chip.on { background: #0067b1; border-color: #0067b1; color: #fff; }
-    .akit-chip.on .n { background: rgba(255,255,255,0.25); color: #fff; }
-    .akit-chips-sub .akit-chip { font-weight: 600; background: #f8fafc; }
-    .akit-chips-sub .akit-chip.on { background: #1e293b; border-color: #1e293b; color: #fff; }
-
     /* Cuerpo: tarjetas a la izquierda, detalle a la derecha */
     .akit-cuerpo { display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 12px; min-height: 0; flex: 1 1 auto; }
     .akit-cards { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; min-height: 0; }
@@ -52,9 +42,9 @@
     .akit-card:hover { border-color: #93c5fd; }
     .akit-card.on { border-color: #0067b1; box-shadow: 0 0 0 2px rgba(0,103,177,0.18); }
     .akit-card-top { display: flex; align-items: flex-start; gap: 8px; justify-content: space-between; }
-    .akit-card-nombre { font-size: 13.5px; font-weight: 800; color: #0f172a; line-height: 1.25; }
-    .akit-card-mod { font-size: 11.5px; color: #475569; font-weight: 600; line-height: 1.35; }
-    .akit-card-mod .gen { color: #94a3b8; font-style: italic; font-weight: 500; }
+    .akit-card-nombre { font-size: 12.5px; font-weight: 700; color: #0f172a; line-height: 1.25; }
+    .akit-card-mod { font-size: 11.5px; color: #1e293b; font-weight: 600; line-height: 1.35; }
+    .akit-card-mod .gen { color: #475569; font-style: italic; font-weight: 600; }
     .akit-card-pie { font-size: 11.5px; color: #64748b; }
     .akit-badge { flex: 0 0 auto; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 800; white-space: nowrap; }
     .akit-badge.ok  { background: #dcfce7; color: #166534; }
@@ -65,11 +55,11 @@
 
     .akit-detalle { border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
     .akit-det-cab { padding: 12px 14px 8px; border-bottom: 1px solid #f1f5f9; display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
-    .akit-det-nombre { font-size: 15px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.25; }
+    .akit-det-nombre { font-size: 13.5px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.25; }
     .akit-det-desc { font-size: 12.5px; color: #475569; margin: 3px 0 0; }
     .akit-det-mods { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
-    .akit-tag { background: #eef2f7; color: #334155; border-radius: 6px; padding: 3px 8px; font-size: 11.5px; font-weight: 700; }
-    .akit-tag.gen { background: #f8fafc; color: #94a3b8; font-style: italic; font-weight: 600; }
+    .akit-tag { background: #eef2f7; color: #0f172a; border-radius: 6px; padding: 3px 8px; font-size: 11.5px; font-weight: 700; }
+    .akit-tag.gen { background: #f1f5f9; color: #475569; font-style: italic; font-weight: 600; }
     .akit-det-acc { display: flex; gap: 4px; flex: 0 0 auto; }
     .akit-ico { border: none; background: #f1f5f9; color: #475569; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .akit-ico:hover { background: #e2e8f0; color: #0f172a; }
@@ -152,5 +142,8 @@
         .akit-cuerpo { display: flex; flex-direction: column; overflow-y: auto; }
         .akit-cards, .akit-detalle, .akit-tabla-caja { flex: none; overflow: visible; }
         .akit-ed-fila { grid-template-columns: 1fr; }
+        /* Barra apilada: el buscador a todo el ancho y debajo "Nuevo kit" (y el aviso del almacén). */
+        .akit-barra { grid-template-columns: 1fr; gap: 8px; }
+        .akit-barra-der { flex-wrap: wrap; }
         .akit-alm { flex: 1 1 100%; order: 3; }
     }

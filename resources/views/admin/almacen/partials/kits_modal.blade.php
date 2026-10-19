@@ -4,7 +4,7 @@
 
     Un kit es una RECETA de materiales para uno o varios modelos de equipo ("KIT 250H HOWO" =
     1 filtro de aceite + 1 de combustible + 2 cuñetes). Aquí se busca el kit del equipo (por
-    placa, modelo o nombre, con filtros de tipo y modelo en cascada), se ve cuántos alcanzan con
+    placa, modelo o nombre), se ve cuántos alcanzan con
     lo que hay en el almacén y se cargan en la salida: los materiales quedan marcados en la
     tabla con la cantidad multiplicada y se sigue con el "Registrar salida" de siempre (su
     control de stock, proyectos, nº de parte y Nota de Entrega).
@@ -46,13 +46,13 @@
                                oninput="window.AlmKits.buscar(this.value)">
                         <i class="material-icons akit-x" id="almKitsBuscarX" hidden onclick="window.AlmKits.buscar('', true)">close</i>
                     </div>
-                    <div class="akit-alm" id="almKitsAlmacen"></div>
-                    <button type="button" class="btn-primary-maquinaria akit-btn-nuevo" onclick="window.AlmKits.nuevo()">
-                        <i class="material-icons" style="font-size:18px;">add</i><span>Nuevo kit</span>
-                    </button>
+                    <div class="akit-barra-der">
+                        <div class="akit-alm" id="almKitsAlmacen"></div>
+                        <button type="button" class="btn-primary-maquinaria akit-btn-nuevo" onclick="window.AlmKits.nuevo()">
+                            <i class="material-icons" style="font-size:18px;">add</i><span>Nuevo kit</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="akit-chips" id="almKitsTipos"></div>
-                <div class="akit-chips akit-chips-sub" id="almKitsModelos" hidden></div>
                 <div class="akit-cuerpo">
                     <div class="akit-cards" id="almKitsCards"></div>
                     <div class="akit-detalle" id="almKitsDetalle"></div>

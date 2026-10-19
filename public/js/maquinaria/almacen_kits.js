@@ -23,14 +23,13 @@
         kits: [],            // KitAlmacenService::catalogo()
         existencias: {},     // { id_producto: cantidad } del almacén del inventario
         idAlmacen: '',
-        q: '', tipo: '', modelo: '',
+        q: '',
         sel: null,           // id del kit a la vista
         cuantos: 1,
         modelos: null,       // modelos para elegir en el editor (se piden una vez)
         sugeridos: {},       // clave de modelo → productos ligados (caché del editor)
         ed: null,            // kit en edición: { id, modelos:[], items:[] }
     };
-    var GENERAL = '__general__';   // "tipo" de los kits sin equipos
 
     // ── utilidades ───────────────────────────────────────────────────────────
     function $(id) { return document.getElementById(id); }
@@ -63,7 +62,6 @@
         var it = id && document.querySelector('#almSelAlmacenDropdown .dropdown-item[data-value="' + id + '"]');
         return it ? it.textContent.trim() : '';
     }
-    function tiposDe(k) { return k.modelos.length ? k.modelos.map(function (m) { return m.tipo; }) : [GENERAL]; }
     function kitPorId(id) { return S.kits.filter(function (k) { return k.id === id; })[0] || null; }
 
     // ── datos ────────────────────────────────────────────────────────────────
@@ -134,63 +132,11 @@
         if (qa.length < 5) return '';
         return k.placas.filter(function (p) { return alfanum(p).indexOf(qa) >= 0; })[0] || '';
     }
-    function contar(kits, clave) {
-        var n = {};
-        kits.forEach(function (k) {
-            clave(k).filter(function (v, i, a) { return a.indexOf(v) === i; }).forEach(function (v) { n[v] = (n[v] || 0) + 1; });
-        });
-        return n;
-    }
-    function chip(valor, etiqueta, n, on, accion) {
-        return '<button type="button" class="akit-chip' + (on ? ' on' : '') + '" onclick="window.AlmKits.' + accion + '(' + esc(JSON.stringify(valor)) + ')">'
-            + esc(etiqueta) + '<span class="n">' + n + '</span></button>';
-    }
 
     // ── pintado de la lista ──────────────────────────────────────────────────
     function pintar() {
-        var base = porBusqueda();
-        // Tipo → modelo, cada chip con cuántos kits quedan con él (dentro de la búsqueda).
-        var nTipo = contar(base, tiposDe);
-        if (S.tipo && !nTipo[S.tipo]) { S.tipo = ''; S.modelo = ''; }
-        var tipos = Object.keys(nTipo).sort(function (a, b) {
-            return a === GENERAL ? 1 : b === GENERAL ? -1 : a.localeCompare(b, 'es');
-        });
-        // La fila de chips se esconde SOLO cuando lo único que hay es "Uso general": ahí
-        // saldrían "Todos 3" y "Uso general 3", dos botones con el mismo número que llevan
-        // a la misma lista. Con un tipo REAL (p.ej. todos los kits son de CAMIÓN) el chip
-        // SE QUEDA aunque sea el único: es la puerta a los modelos —pulsarlo es lo que
-        // despliega HOWO / SINOTRUK / JAC—, y esconderlo dejaría esa cascada inalcanzable.
-        var boxTipos = $('almKitsTipos');
-        var soloGeneral = tipos.length === 1 && tipos[0] === GENERAL;
-        var hayChips = base.length > 0 && !soloGeneral;
-        boxTipos.innerHTML = hayChips
-            ? chip('', 'Todos', base.length, !S.tipo, 'filtrarTipo')
-              + tipos.map(function (t) { return chip(t, t === GENERAL ? 'Uso general' : t, nTipo[t], S.tipo === t, 'filtrarTipo'); }).join('')
-            : '';
-        boxTipos.hidden = !hayChips;
-        // Sin chips en pantalla no habría forma de quitar el filtro, así que se suelta.
-        if (!hayChips) S.tipo = '';
-        var enTipo = S.tipo ? base.filter(function (k) { return tiposDe(k).indexOf(S.tipo) >= 0; }) : base;
-        var boxMod = $('almKitsModelos');
-        if (S.tipo && S.tipo !== GENERAL) {
-            var nMod = contar(enTipo, function (k) {
-                return k.modelos.filter(function (m) { return m.tipo === S.tipo; }).map(function (m) { return m.modelo; });
-            });
-            if (S.modelo && !nMod[S.modelo]) S.modelo = '';
-            var mods = Object.keys(nMod).sort(function (a, b) { return a.localeCompare(b, 'es'); });
-            boxMod.innerHTML = mods.length > 1
-                ? chip('', 'Todos los modelos', enTipo.length, !S.modelo, 'filtrarModelo')
-                  + mods.map(function (m) { return chip(m, m, nMod[m], S.modelo === m, 'filtrarModelo'); }).join('')
-                : '';
-            boxMod.hidden = mods.length < 2;
-        } else {
-            S.modelo = '';
-            boxMod.hidden = true;
-            boxMod.innerHTML = '';
-        }
-        var lista = S.modelo
-            ? enTipo.filter(function (k) { return k.modelos.some(function (m) { return m.tipo === S.tipo && m.modelo === S.modelo; }); })
-            : enTipo;
+        // Solo el buscador filtra (placa, modelo o nombre del kit).
+        var lista = porBusqueda();
 
         var cards = $('almKitsCards');
         if (!lista.length) {
@@ -419,7 +365,7 @@
     window.AlmKits = {
         abrir: function () {
             var m = modal(); if (!m) return;
-            S.q = ''; S.tipo = ''; S.modelo = ''; S.cuantos = 1; S.ed = null;
+            S.q = ''; S.cuantos = 1; S.ed = null;
             $('almKitsBuscar').value = '';
             $('almKitsBuscarX').hidden = true;
             mostrarVista(false);
@@ -441,8 +387,6 @@
             $('almKitsBuscarX').hidden = !S.q;
             pintar();
         },
-        filtrarTipo: function (t) { S.tipo = t; S.modelo = ''; pintar(); },
-        filtrarModelo: function (m) { S.modelo = m; pintar(); },
         ver: function (id) {
             if (S.sel !== id) { S.sel = id; S.cuantos = 1; }
             pintar();
@@ -580,7 +524,7 @@
                 body: JSON.stringify(cuerpo),
             }).then(function (b) {
                 toast(b.message || 'Kit guardado.');
-                S.ed = null; S.sel = b.id; S.cuantos = 1; S.q = ''; S.tipo = ''; S.modelo = '';
+                S.ed = null; S.sel = b.id; S.cuantos = 1; S.q = '';
                 $('almKitsBuscar').value = ''; $('almKitsBuscarX').hidden = true;
                 mostrarVista(false);
                 return cargar().then(pintar);
