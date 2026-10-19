@@ -820,7 +820,6 @@
             // Lo MISMO que la fila de la tabla: que concluyo la revision y, dato a dato, que dice
             // la ficha y que dice el documento. Para comparar sin salir del visor.
             aviso.appendChild(cpdfNodo('div', 'cpdf-rev-cab', [cpdfNodo('small', '', 'Revisión'), cpdfNodo('span', 'cpdf-rev-estado', v.estado || '')]));
-            if (v.motivo) aviso.appendChild(cpdfNodo('div', 'cpdf-rev-motivo', v.motivo));
             // Los datos que llevan su propio campo abajo (.cpdf-extra) no se repiten en la lista.
             var enExtra = {};
             otras.forEach(function (o) { enExtra[o[0]] = true; });
@@ -833,6 +832,11 @@
                     cpdfNodo('div', 'cpdf-rev-val', [cpdfValor(d.ficha, 'cpdf-rev-ficha'), cpdfIcono('arrow_forward'), cpdfValor(d.documento, 'cpdf-rev-doc')]),
                 ]));
             });
+            // El motivo, corto: "de otro vehiculo" ya trae los dos seriales/placas, que salen en la
+            // lista de abajo; repetirlos alargaba la tarjeta (pedido del cliente, 19-10-2026).
+            var motivo = v.motivo && lista.childNodes.length && /^El documento es de otro vehiculo/.test(v.motivo)
+                ? 'Es de otro vehículo' : v.motivo;
+            if (motivo) aviso.appendChild(cpdfNodo('div', 'cpdf-rev-motivo', motivo));
             if (lista.childNodes.length) aviso.appendChild(lista);
 
             // Lo que el panel de ese documento no tiene como campo propio: un campo aparte,
