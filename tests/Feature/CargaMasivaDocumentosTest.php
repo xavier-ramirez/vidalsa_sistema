@@ -610,6 +610,27 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame(min($a->ID_EQUIPO, $b->ID_EQUIPO), $p['equipos'][0]['id'], 'siempre la misma: la de ID mas bajo');
     }
 
+    /**
+     * Una providencia real nombra 49 unidades y con el tope viejo (40) se quedaban 9 para la
+     * noche. Ahora entran todas de una vez, sin aviso de tope.
+     */
+    public function test_un_racda_de_49_unidades_las_propone_todas(): void
+    {
+        $this->actingAs($this->usuario());
+        $placas = [];
+        while (count($placas) < 49) {
+            $placas['ZX' . random_int(10000, 99999)] = true;
+        }
+        $placas = array_keys($placas);
+        $ids = array_map(fn ($p) => $this->equipo(['PLACA' => $p])->ID_EQUIPO, $placas);
+
+        $p = $this->soltar("PROVIDENCIA ADMINISTRATIVA N° 1120\nCARACAS, 14 DE JULIO DE 2025\n"
+            . "los vehiculos que poseen las siguientes placas: " . implode(', ', $placas) . "\nTERCERO", LectorDocumentoPdf::RACDA);
+
+        $this->assertEqualsCanonicalizing($ids, array_column($p['equipos'], 'id'));
+        $this->assertStringNotContainsString('revision de la noche', (string) ($p['aviso'] ?? ''));
+    }
+
     /** Soltar dos veces el MISMO archivo se avisa en la segunda. */
     public function test_el_mismo_archivo_soltado_dos_veces_se_avisa(): void
     {

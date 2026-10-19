@@ -111,19 +111,13 @@ class CargaMasivaDocumentos
     ];
 
     /**
-     * Un RACDA es de la EMPRESA y nombra muchas unidades; enlazarlo a cientos de fichas de
-     * un golpe desde aqui seria una operacion enorme detras de un solo clic. Se propone
-     * hasta este tope y, si hay mas, se avisa: para la flota entera esta la revision
-     * nocturna, que ya lo reparte.
+     * Cuantas unidades se enlazan de un golpe con un PDF que nombra muchas: un RACDA (una
+     * providencia real nombra 49) o un BL de SINOTRUK (el HCLKGT03, 84). Enlazar cada una es
+     * solo escribir su ficha —no se sube ni se arma nada por equipo— y el tope de tiempo se
+     * renueva por ficha. Si un PDF pasa de aqui, se avisa y el resto lo enlaza la revision
+     * nocturna. Antes el RACDA tenia 40 y una providencia de 49 se quedaba a medias (19-10-2026).
      */
-    private const TOPE_RACDA = 40;
-
-    /**
-     * Un BL de SINOTRUK nombra hasta ~90 unidades (el HCLKGT03, 84). Enlazar cada una es solo
-     * una fila en embarque_equipo —no se sube ni se arma nada por equipo—, asi que el tope es
-     * mas alto que el del RACDA.
-     */
-    private const TOPE_EMBARQUE = 150;
+    private const TOPE_UNIDADES = 150;
 
     /** Lo que cabe en verificacion_documento_registro.MOTIVO (varchar 255). */
     private const MOTIVO_MAX = 255;
@@ -837,11 +831,11 @@ class CargaMasivaDocumentos
         $buscar = array_keys(array_filter($impreso, fn ($v, $c) => $c !== '', ARRAY_FILTER_USE_BOTH));
         $filas = $buscar
             ? $this->consulta()->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $buscar)
-                ->orderBy('e.ID_EQUIPO')->limit(self::TOPE_EMBARQUE + 1)->get()
+                ->orderBy('e.ID_EQUIPO')->limit(self::TOPE_UNIDADES + 1)->get()
             : collect();
-        if ($filas->count() > self::TOPE_EMBARQUE) {
-            $filas = $filas->take(self::TOPE_EMBARQUE);
-            $this->avisoFichas = 'El BL nombra mas de ' . self::TOPE_EMBARQUE . ' unidades registradas: se proponen ' . self::TOPE_EMBARQUE . '.';
+        if ($filas->count() > self::TOPE_UNIDADES) {
+            $filas = $filas->take(self::TOPE_UNIDADES);
+            $this->avisoFichas = 'El BL nombra mas de ' . self::TOPE_UNIDADES . ' unidades registradas: se proponen ' . self::TOPE_UNIDADES . '.';
         }
 
         $enSistema = $filas->map(fn ($f) => $this->lector->codigo((string) $f->SERIAL_CHASIS))->flip();
@@ -1661,11 +1655,11 @@ class CargaMasivaDocumentos
         if (!$placas) return [];
 
         // Uno mas que el tope, para saber si se paso y DECIRLO (antes se cortaba en silencio).
-        $filas = $this->filasPorPlaca($placas, self::TOPE_RACDA + 1);
-        if ($filas->count() > self::TOPE_RACDA) {
-            $filas = $filas->take(self::TOPE_RACDA);
-            $this->avisoFichas = 'La providencia nombra mas de ' . self::TOPE_RACDA . ' unidades registradas: aqui se proponen '
-                . self::TOPE_RACDA . '. Las demas las enlaza la revision de la noche.';
+        $filas = $this->filasPorPlaca($placas, self::TOPE_UNIDADES + 1);
+        if ($filas->count() > self::TOPE_UNIDADES) {
+            $filas = $filas->take(self::TOPE_UNIDADES);
+            $this->avisoFichas = 'La providencia nombra mas de ' . self::TOPE_UNIDADES . ' unidades registradas: aqui se proponen '
+                . self::TOPE_UNIDADES . '. Las demas las enlaza la revision de la noche.';
         }
 
         // Cada ficha lleva POR QUE se la eligio: su propia placa, la que la providencia nombra.
