@@ -2012,7 +2012,7 @@
             + ' .etq-corte { border:.15mm dashed #000; border-radius:1.8mm; }'
             // Descripción ENTERA, a todo el ancho, en los renglones que haga falta y con el alto
             // justo; si no cabe, almEtqMedir le baja la letra. ": MEDIDA" no se parte.
-            + ' .etq-nombre { flex:none; font-size:' + almEtqPtNombre(f) + 'pt; font-weight:bold; line-height:1.15; overflow-wrap:anywhere; }'
+            + ' .etq-nombre { flex:none; font-size:' + almEtqPtNombre(f) + 'pt; font-weight:normal; line-height:1.15; overflow-wrap:anywhere; }'
             + ' .etq-um { white-space:nowrap; }'
             + ' .etq-var { font-size:' + (baja ? 6 : 7) + 'pt; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }'
             // Margen blanco a cada lado del código (zona de silencio): sin él, estirado de borde a
