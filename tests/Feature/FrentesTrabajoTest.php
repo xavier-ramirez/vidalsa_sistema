@@ -263,6 +263,6 @@ class FrentesTrabajoTest extends MySqlTestCase
             ->get('/menu')
             ->assertOk()
             ->assertDontSee(route('frentes.create'), false)
-            ->assertSee('No tienes permiso para acceder a Frentes de trabajo.', false);
+            ->assertDontSee('Frentes de trabajo', false);
     }
 }

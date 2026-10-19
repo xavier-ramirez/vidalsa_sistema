@@ -539,19 +539,13 @@
                         </a>
                     @endcan
                     {{-- "Frentes de trabajo": módulo EXCLUSIVO super.admin (clave literal en
-                         PERMISOS, sin relación con el rol). Visible para todos, pero solo navega
-                         si tiene la clave; sin ella muestra la notificación moderna (showToast)
-                         en vez de ir a un 403. El gate real vive en la ruta (can:super.admin). --}}
+                         PERMISOS, sin relación con el rol). Sin la clave NO se muestra (pedido del
+                         cliente, 19-10-2026). El gate real vive en la ruta (can:super.admin). --}}
                     @can('super.admin')
                     {{-- Al formulario DIRECTO: /admin/frentes solo hace un 302 a este mismo
                          sitio, y en la red de obra ese salto de mas cuesta un viaje entero. --}}
                     <a href="{{ route('frentes.create') }}"
                         class="nav-dropdown-link {{ request()->is('admin/frentes*') ? 'active' : '' }}">
-                        <i class="material-icons">business</i> Frentes de trabajo
-                    </a>
-                    @else
-                    <a href="#" class="nav-dropdown-link"
-                        onclick="event.preventDefault(); if (window.showToast) { window.showToast('No tienes permiso para acceder a Frentes de trabajo.', 'error'); }">
                         <i class="material-icons">business</i> Frentes de trabajo
                     </a>
                     @endcan
@@ -699,16 +693,10 @@
                     </a>
                 @endcan
                 {{-- Mismo criterio que el menú de escritorio: el módulo es exclusivo
-                     super.admin. Sin la clave el enlace avisa con un toast en vez de
-                     llevar a un 403 (aquí se mostraba a todos y reventaba al tocarlo). --}}
+                     super.admin y sin la clave el enlace no se muestra. --}}
                 @can('super.admin')
                 <a href="{{ route('frentes.create') }}"
                     class="mobile-nav-link {{ request()->is('admin/frentes*') ? 'active' : '' }}">
-                    <i class="material-icons">business</i> Frentes de trabajo
-                </a>
-                @else
-                <a href="#" class="mobile-nav-link"
-                    onclick="event.preventDefault(); if (window.showToast) { window.showToast('No tienes permiso para acceder a Frentes de trabajo.', 'error'); }">
                     <i class="material-icons">business</i> Frentes de trabajo
                 </a>
                 @endcan
