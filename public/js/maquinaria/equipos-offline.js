@@ -58,6 +58,13 @@
     // que entra una copia nueva), nunca quedan viejos.
     let datos      = null;
     let fueraDeFlota = new Set();
+    // Frentes en venta: id → 'vendido' | 'tramite' (catálogo de frentes, campo `venta`).
+    let enVenta = new Map();
+    const ROTULO_VENTA = { vendido: 'VENDIDO', tramite: 'EN TRÁMITE DE VENTA' };
+    // Como el backend: con "todos los frentes" las cifras van SIN los de frentes en venta; dentro
+    // de un frente concreto (aunque sea de venta) son las de ese frente.
+    function restaVenta(f) { return !/^\d+$/.test(String((f && f.frente) || '')); }
+    function deVenta(e) { return e.id_frente != null && enVenta.has(Number(e.id_frente)); }
     let avisoEjes  = '';     // último aviso de ejes no soportados (evita repetirlo)
 
     const up  = (s) => String(s == null ? '' : s).toUpperCase();
@@ -221,6 +228,8 @@
         // (usa total_activa), salvo que el usuario filtre justamente por ese estado, en
         // cuyo caso pasa a contarlos. Se replica igual o el total offline saldría inflado.
         const filtroDesinc = up(f && f.estado) === 'DESINCORPORADO';
+        // Lo de frentes en venta no es de la empresa: fuera de las cifras (ver restaVenta).
+        if (restaVenta(f)) filas = filas.filter(function (e) { return !deVenta(e); });
         const total = filtroDesinc ? filas.length : (filas.length - cuenta('DESINCORPORADO'));
         const oper = cuenta('OPERATIVO'), inop = cuenta('INOPERATIVO');
 
@@ -261,17 +270,36 @@
     //   · cada lista IGNORA su propio eje para no autolimitarse, igual que el backend
     //     (applyEquipoFilters con $exclude), y la de frentes omite los equipos sin frente
     //   · se ordenan por nombre y la barra es el porcentaje sobre el total de la lista
-    function agrupar(filas, idDe, nombreDe) {
+    //   · con "todos los frentes", lo de frentes en venta NO suma en 'total': por tipo va
+    //     anotado en rojo (vendidos / en trámite) y por frente esos frentes salen en rojo, al final
+    function agrupar(filas, idDe, nombreDe, restar) {
         const mapa = new Map();
         filas.forEach(function (e) {
             const id = idDe(e), nom = nombreDe(e) || '';
             const clave = String(id == null ? '' : id);
-            const acc = mapa.get(clave);
-            if (acc) acc.total++;
-            else mapa.set(clave, { id: id, nombre: nom, total: 1 });
+            let acc = mapa.get(clave);
+            if (!acc) mapa.set(clave, acc = { id: id, nombre: nom, total: 0, vendidos: 0, en_tramite: 0 });
+            const v = restar && deVenta(e) ? enVenta.get(Number(e.id_frente)) : null;
+            if (v === 'vendido') acc.vendidos++;
+            else if (v === 'tramite') acc.en_tramite++;
+            else acc.total++;
         });
         return Array.from(mapa.values())
             .sort(function (a, b) { return txt(a.nombre).localeCompare(txt(b.nombre), 'es', { sensitivity: 'base' }); });
+    }
+
+    // Una fila: el MISMO HTML que partials/distribucion_fila.blade.php (clases .dist-*).
+    function filaDistribucion(g, alTocar, barra, venta, sinNombre) {
+        const nota = [];
+        if (g.vendidos) nota.push(g.vendidos + (g.vendidos === 1 ? ' vendido' : ' vendidos'));
+        if (g.en_tramite) nota.push(g.en_tramite + ' en trámite de venta');
+        return '<li class="dist-fila' + (venta ? ' dist-venta' : '') + '" onclick="' + alTocar + '">' +
+            '<div class="dist-cab"><span class="dist-nombre">' + esc(g.nombre || sinNombre) +
+                (venta ? '<small class="dist-rotulo">' + ROTULO_VENTA[venta] + '</small>' : '') +
+                (nota.length ? '<small class="dist-nota">' + nota.join(' · ') + '</small>' : '') +
+            '</span><span class="dist-cant">' + g.total + '</span></div>' +
+            '<div class="dist-barra"><div class="dist-barra-' + (venta ? 'roja' : barra) + '" style="width:' + g.pct + '%;"></div></div>' +
+        '</li>';
     }
 
     function pintarDistribucion(f, especifico) {
@@ -284,21 +312,23 @@
 
         let filas, titulo, icono, colorIcono, barra, alTocar;
         if (porFrente) {
+            // Por frente cada fila ES un frente: los de venta se cuentan enteros, en rojo y al final.
             filas = agrupar(datos.filter(function (e) {
                 return e.id_frente != null && coincide(e, f, especifico, 'frente');
-            }), function (e) { return e.id_frente; }, function (e) { return e.frente; });
-            titulo = 'Ubicación por Frente'; icono = 'map'; colorIcono = '#10b981';
-            barra = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
+            }), function (e) { return e.id_frente; }, function (e) { return e.frente; }, false);
+            filas = filas.filter(function (g) { return !enVenta.has(Number(g.id)); })
+                .concat(filas.filter(function (g) { return enVenta.has(Number(g.id)); }));
+            titulo = 'Ubicación por Frente'; icono = 'map'; colorIcono = '#10b981'; barra = 'verde';
             alTocar = function (g) { return "selectOption('frenteFilterSelect', '" + g.id + "', '" + escAttr(g.nombre) + "'); loadEquipos();"; };
         } else {
             filas = agrupar(datos.filter(function (e) { return coincide(e, f, especifico, 'tipo'); }),
-                function (e) { return e.id_tipo; }, function (e) { return e.tipo; });
-            titulo = 'Equipos y Maquinaria'; icono = 'autorenew'; colorIcono = '#3b82f6';
-            barra = 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)';
+                function (e) { return e.id_tipo; }, function (e) { return e.tipo; }, restaVenta(f));
+            titulo = 'Equipos y Maquinaria'; icono = 'autorenew'; colorIcono = '#3b82f6'; barra = 'azul';
             alTocar = function (g) { return "selectOption('tipoFilterSelect', '" + g.id + "', '" + escAttr(g.nombre) + "'); loadEquipos();"; };
         }
 
         const suma = filas.reduce(function (n, g) { return n + g.total; }, 0);
+        filas.forEach(function (g) { g.pct = suma > 0 ? (g.total / suma) * 100 : 0; });
         // Envuelto en .eq-distrib-sec[data-vista=equipos] como hace _eqRenderDistribucion:
         // no es cosmético. eqSyncDistribToggle() captura el contenido del contenedor como
         // "HTML base" del servidor SOLO si no encuentra esa clase — sin el envoltorio, una
@@ -309,18 +339,10 @@
             '<h4 style="margin:0 0 12px 0;font-size:13px;text-transform:uppercase;color:#64748b;border-bottom:2px solid #f1f5f9;padding-bottom:8px;font-weight:700;display:flex;align-items:center;gap:8px;">' +
                 '<i class="material-icons" style="font-size:18px;color:' + colorIcono + ';">' + icono + '</i>' + titulo +
             '</h4>' +
-            '<ul class="custom-scrollbar" style="list-style:none;padding:0;margin:0;max-height:62vh;overflow-y:auto;overflow-x:visible;overscroll-behavior:contain;display:flex;flex-direction:column;gap:4px;">' +
+            '<ul class="dist-lista custom-scrollbar">' +
             filas.map(function (g) {
-                const pct = suma > 0 ? (g.total / suma) * 100 : 0;
-                return '<li onclick="' + alTocar(g) + '" style="padding-bottom:4px;border-bottom:1px dashed #f1f5f9;transition:opacity .2s;cursor:pointer;">' +
-                    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px;gap:4px;">' +
-                        '<span style="color:#334155;font-size:12.5px;font-weight:600;word-break:break-word;line-height:1.25;flex:1;">' + esc(g.nombre || (porFrente ? 'Sin Asignar' : 'Desconocido')) + '</span>' +
-                        '<span style="font-weight:700;color:#1e293b;font-size:12.5px;background:#f1f5f9;padding:2px 8px;border-radius:4px;flex-shrink:0;white-space:nowrap;">' + g.total + '</span>' +
-                    '</div>' +
-                    '<div style="width:100%;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">' +
-                        '<div style="width:' + pct + '%;height:100%;background:' + barra + ';border-radius:2px;"></div>' +
-                    '</div>' +
-                '</li>';
+                const venta = porFrente ? (enVenta.get(Number(g.id)) || null) : null;
+                return filaDistribucion(g, alTocar(g), barra, venta, porFrente ? 'Sin Asignar' : 'Desconocido');
             }).join('') +
             '</ul>' +
         '</div>';
@@ -516,6 +538,8 @@
             // antes) hasta que entre la siguiente copia de catálogos.
             fueraDeFlota = new Set((r[1] || []).filter(function (f) { return f.fuera_de_flota; })
                                              .map(function (f) { return Number(f.id); }));
+            enVenta = new Map((r[1] || []).filter(function (f) { return f.venta; })
+                                          .map(function (f) { return [Number(f.id), f.venta]; }));
         });
     }
 

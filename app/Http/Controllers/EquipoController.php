@@ -635,9 +635,19 @@ class EquipoController extends Controller
             // Stats: UN solo agregado SUM(CASE) con los mismos filtros, sin offset/limit
             // (antes 5 COUNTs secuenciales; en enlaces lentos la latencia por round-trip
             // domina). Mismo patrón que fleetStats y AlmacenController::statsInventario.
+            // Con "todos los frentes" y una búsqueda o filtro concreto, el listado trae también
+            // los de frentes EN VENTA (vendidos / en trámite): el Consolidado cuenta solo lo
+            // DISPONIBLE y la distribución los marca en rojo. Dentro de un frente concreto (aunque
+            // sea de venta, a propósito) las cifras son las de ese frente.
+            $restarVenta = !ctype_digit(trim((string) $request->input('id_frente', '')));
+            $ventaSql = fn (string $tipo) => $restarVenta ? FrenteTrabajo::sqlEnVenta('equipos.ID_FRENTE_ACTUAL', $tipo) : '1 = 0';
+
             $statsBase = Equipo::query();
             $this->applyEquipoFilters($statsBase, $request);
             $this->applyBusquedaTexto($statsBase, $search); // Consolidado refleja la búsqueda
+            if ($restarVenta) {
+                $statsBase->excludeEnVenta();
+            }
             $agg = $statsBase->selectRaw("
                 COUNT(*) as total_all,
                 SUM(CASE WHEN ESTADO_OPERATIVO != 'DESINCORPORADO' THEN 1 ELSE 0 END) as total_activa,
@@ -665,6 +675,9 @@ class EquipoController extends Controller
                 $docFreeBase = Equipo::query();
                 $this->applyEquipoFilters($docFreeBase, $request, array_keys(self::DOC_FILTER_COLS));
                 $this->applyBusquedaTexto($docFreeBase, $search); // "con/sin doc" refleja la búsqueda
+                if ($restarVenta) {
+                    $docFreeBase->excludeEnVenta();
+                }
                 if ($filtroEstado !== 'DESINCORPORADO') {
                     $docFreeBase->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO');
                 }
@@ -722,23 +735,31 @@ class EquipoController extends Controller
             $tiposQuery = Equipo::query()->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id');
             $this->applyEquipoFilters($tiposQuery, $request, ['id_tipo']);
             $this->applyBusquedaTexto($tiposQuery, $search); // Distribución por tipo refleja la búsqueda
+            // Por tipo: 'total' = lo DISPONIBLE (sin los de frentes en venta) y aparte, para
+            // pintarlos en rojo, cuántos están vendidos y cuántos en trámite.
             $tiposStats = $tiposQuery
-                ->select('equipos.id_tipo_equipo', 'tipo_equipos.nombre', DB::raw('COUNT(*) as total'))
+                ->select('equipos.id_tipo_equipo', 'tipo_equipos.nombre',
+                    DB::raw('SUM(CASE WHEN ' . $ventaSql(FrenteTrabajo::TIPO_VENDIDO) . ' THEN 1 ELSE 0 END) as vendidos'),
+                    DB::raw('SUM(CASE WHEN ' . $ventaSql(FrenteTrabajo::TIPO_TRAMITE_VENTA) . ' THEN 1 ELSE 0 END) as en_tramite'),
+                    DB::raw('COUNT(*) as total'))
                 ->groupBy('equipos.id_tipo_equipo', 'tipo_equipos.nombre')
                 ->orderBy('tipo_equipos.nombre', 'asc')
-                ->get();
+                ->get()
+                ->each(function ($t) { $t->total -= (int) $t->vendidos + (int) $t->en_tramite; });
 
             // Frentes Stats — se muestra cuando hay un tipo filtrado; listamos TODOS los frentes que coinciden (sin filtro id_frente)
             if ($this->tipoEquipoPedido($request) !== null) {
                 $frentesQuery = Equipo::query()->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE');
                 $this->applyEquipoFilters($frentesQuery, $request, ['id_frente']);
                 $this->applyBusquedaTexto($frentesQuery, $search); // frentes stats reflejan la búsqueda
+                // Con su tipo, para marcar en rojo los frentes en venta; esos van al final.
                 $frentesStats = $frentesQuery
                     ->whereNotNull('equipos.ID_FRENTE_ACTUAL')
-                    ->select('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE', DB::raw('COUNT(*) as total'))
-                    ->groupBy('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE')
+                    ->select('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE', 'frentes_trabajo.TIPO_FRENTE', DB::raw('COUNT(*) as total'))
+                    ->groupBy('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE', 'frentes_trabajo.TIPO_FRENTE')
                     ->orderBy('frentes_trabajo.NOMBRE_FRENTE', 'asc')
                     ->get();
+                $frentesStats = FrenteTrabajo::enVentaAlFinal($frentesStats);
             }
         }
 

@@ -30,25 +30,17 @@
          Estuvo un tiempo pintándose siempre, para que la card sirviera de punto de partida,
          hasta que se midió lo que costaba: ~259 ms de GROUP BY y ~60 KB de HTML en CADA
          apertura, con la tabla todavía vacía. --}}
-    <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
+    <ul class="dist-lista custom-scrollbar">
         @php $totalFrentes = $frentesStats->sum('total'); @endphp
         @foreach($frentesStats as $stat)
             @php $percentage = $totalFrentes > 0 ? ($stat->total / $totalFrentes) * 100 : 0; @endphp
-            <li onclick="selectOption('frenteFilterSelect', '{{ $stat->ID_FRENTE_ACTUAL }}', '{{ addslashes(trim($stat->NOMBRE_FRENTE ?? '')) }}'); loadEquipos();"
-                style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: pointer;"
-                onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px;">
-                    <span style="color: #334155; font-size: 12.5px; font-weight: 600; word-break: break-word; line-height: 1.25; flex: 1;">
-                        {{ $stat->NOMBRE_FRENTE ?? 'Sin Asignar' }}
-                    </span>
-                    <span style="font-weight: 700; color: #1e293b; font-size: 12.5px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; white-space: nowrap;">
-                        {{ $stat->total }}
-                    </span>
-                </div>
-                <div style="width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
-                    <div style="width: {{ $percentage }}%; height: 100%; background: linear-gradient(90deg, #10b981 0%, #059669 100%); border-radius: 2px;"></div>
-                </div>
-            </li>
+            {{-- Los frentes vendidos o en trámite (si el listado los trae) salen en rojo y al final. --}}
+            @include('admin.equipos.partials.distribucion_fila', [
+                'alTocar' => "selectOption('frenteFilterSelect', '" . $stat->ID_FRENTE_ACTUAL . "', '" . addslashes(trim($stat->NOMBRE_FRENTE ?? '')) . "'); loadEquipos();",
+                'nombre'  => $stat->NOMBRE_FRENTE ?? 'Sin Asignar',
+                'total'   => $stat->total, 'pct' => $percentage, 'barra' => 'verde',
+                'venta'   => \App\Models\FrenteTrabajo::avisoVentaDe($stat->TIPO_FRENTE ?? null),
+            ])
         @endforeach
     </ul>
 
@@ -59,7 +51,7 @@
         Equipos y Maquinaria
         @include('admin.equipos.partials.distribution_stats_cam', ['nombre' => 'equipos_y_maquinaria'])
     </h4>
-    <ul style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px;" class="custom-scrollbar">
+    <ul class="dist-lista custom-scrollbar">
         {{-- Llega vacía si no hay filtro activo: el controlador solo calcula la distribución
              cuando se ha filtrado (el GROUP BY son ~259 ms y ~60 KB, demasiado para pagarlo
              en cada apertura con la tabla todavía vacía). Sin filtro, este @foreach no pinta
@@ -67,21 +59,13 @@
         @php $totalStats = $tiposStats->sum('total'); @endphp
         @foreach($tiposStats as $stat)
             @php $percentage = $totalStats > 0 ? ($stat->total / $totalStats) * 100 : 0; @endphp
-            <li onclick="selectOption('tipoFilterSelect', '{{ $stat->id_tipo_equipo }}', '{{ addslashes(trim($stat->nombre ?? '')) }}'); loadEquipos();"
-                style="padding-bottom: 4px; border-bottom: 1px dashed #f1f5f9; transition: opacity 0.2s; cursor: pointer;"
-                onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px;">
-                    <span style="color: #334155; font-size: 12.5px; font-weight: 600; word-break: break-word; line-height: 1.25; flex: 1;">
-                        {{ $stat->nombre ?? 'Desconocido' }}
-                    </span>
-                    <span style="font-weight: 700; color: #1e293b; font-size: 12.5px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; white-space: nowrap;">
-                        {{ $stat->total }}
-                    </span>
-                </div>
-                <div style="width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
-                    <div style="width: {{ $percentage }}%; height: 100%; background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); border-radius: 2px;"></div>
-                </div>
-            </li>
+            {{-- 'total' es lo DISPONIBLE; los de este tipo en frentes en venta van anotados en rojo. --}}
+            @include('admin.equipos.partials.distribucion_fila', [
+                'alTocar'   => "selectOption('tipoFilterSelect', '" . $stat->id_tipo_equipo . "', '" . addslashes(trim($stat->nombre ?? '')) . "'); loadEquipos();",
+                'nombre'    => $stat->nombre ?? 'Desconocido',
+                'total'     => $stat->total, 'pct' => $percentage, 'barra' => 'azul',
+                'vendidos'  => (int) ($stat->vendidos ?? 0), 'enTramite' => (int) ($stat->en_tramite ?? 0),
+            ])
         @endforeach
     </ul>
 @endif

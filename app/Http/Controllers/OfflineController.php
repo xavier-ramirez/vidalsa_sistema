@@ -802,6 +802,8 @@ class OfflineController extends Controller
      * equipo para no tocar el esquema del snapshot grande: los teléfonos con una copia
      * anterior no traen la marca y siguen como hasta ahora hasta que entre la siguiente
      * copia de catálogos, que es cualquier alta o edición de frente.
+     * `venta` ('vendido' | 'tramite' | null, FrenteTrabajo::avisoVentaDe): con él la vista sin
+     * conexión resta esos equipos del TOTAL y los pinta en rojo en la distribución, como la web.
      */
     private function consultaFrentes($user, bool $puedeEquipos, bool $puedeAlmacen)
     {
@@ -815,6 +817,7 @@ class OfflineController extends Controller
                 'id' => (int) $f->ID_FRENTE,
                 'nombre' => MojibakeFix::fix($f->NOMBRE_FRENTE),
                 'fuera_de_flota' => in_array($f->TIPO_FRENTE, FrenteTrabajo::TIPOS_FUERA_DE_FLOTA, true),
+                'venta' => FrenteTrabajo::avisoVentaDe($f->TIPO_FRENTE)['clase'] ?? null,
             ])
             ->values();
     }

@@ -587,7 +587,8 @@ class EquipoAuxiliarController extends Controller
         if ($conProp) $docConds[] = "LINK_DOC_PROPIEDAD IS NOT NULL AND LINK_DOC_PROPIEDAD != ''";
         if ($conCert) $docConds[] = "LINK_CERTIFICADO IS NOT NULL AND LINK_CERTIFICADO != ''";
 
-        $stats = $this->auxStatsAggregate($base, $docConds);
+        $stats = $this->auxStatsAggregate($base, $docConds, self::restarVenta($request));
+        unset($stats['listado']);
         if ($conProp || $conCert) {
             $stats['doc_mode']  = true;
             $stats['doc_label'] = ($conProp && $conCert) ? 'Documentos' : ($conProp ? 'Propiedad' : 'Certificado');
@@ -599,26 +600,41 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
+     * ¿Las cifras de auxiliares van SIN los de frentes en venta? Con "todos los frentes" sí (el
+     * listado los trae cuando hay búsqueda o filtro concreto, y no son de la empresa); dentro de
+     * un frente concreto, aunque sea de venta, no. Mismo criterio que el Consolidado de equipos.
+     */
+    private static function restarVenta(Request $request): bool
+    {
+        return !ctype_digit(trim((string) $request->input('id_frente', '')));
+    }
+
+    /**
      * Agregado ÚNICO del consolidado de auxiliares (TOTAL/Operativos/Inoperativos,
      * opcionalmente doc_con) en un solo SUM(CASE) sobre el builder ya filtrado.
      * Fuente única usada por consolidadoStats() y buildEmbedPayload() — sin esto
      * cada uno mantenía su propia copia del selectRaw y podían divergir.
      * $docConds: condiciones SQL (AND) para el desglose "Con documento".
+     * $restarVenta: las cifras sin los de frentes en venta (ver restarVenta). 'listado' es el
+     * conteo de TODAS las filas del listado, para paginar.
      */
-    private function auxStatsAggregate($base, array $docConds = []): array
+    private function auxStatsAggregate($base, array $docConds = [], bool $restarVenta = false): array
     {
+        $disponible = $restarVenta ? 'NOT (' . FrenteTrabajo::sqlEnVenta('equipos_auxiliares.ID_FRENTE_ACTUAL') . ')' : '1 = 1';
         $docSelect = $docConds
-            ? 'SUM(CASE WHEN ' . implode(' AND ', $docConds) . ' THEN 1 ELSE 0 END) as doc_con,'
+            ? 'SUM(CASE WHEN ' . implode(' AND ', $docConds) . ' AND ' . $disponible . ' THEN 1 ELSE 0 END) as doc_con,'
             : '';
 
         $agg = $base->selectRaw("
-            COUNT(*) as total,
+            COUNT(*) as listado,
+            SUM(CASE WHEN {$disponible} THEN 1 ELSE 0 END) as total,
             {$docSelect}
-            SUM(CASE WHEN ESTADO_OPERATIVO = 'OPERATIVO' THEN 1 ELSE 0 END) as activos,
-            SUM(CASE WHEN ESTADO_OPERATIVO = 'INOPERATIVO' THEN 1 ELSE 0 END) as inactivos
+            SUM(CASE WHEN ESTADO_OPERATIVO = 'OPERATIVO' AND {$disponible} THEN 1 ELSE 0 END) as activos,
+            SUM(CASE WHEN ESTADO_OPERATIVO = 'INOPERATIVO' AND {$disponible} THEN 1 ELSE 0 END) as inactivos
         ")->first();
 
         $stats = [
+            'listado'   => (int) $agg->listado,
             'total'     => (int) $agg->total,
             'activos'   => (int) $agg->activos,
             'inactivos' => (int) $agg->inactivos,
@@ -638,16 +654,23 @@ class EquipoAuxiliarController extends Controller
     private function buildAuxDistribucion(Request $request, bool $bypassScope, bool $isLocalUser, array $frentesPermitidos, array $tipos): array
     {
         // Distribución por TIPO: TODOS los tipos del frente/búsqueda (SIN el filtro de tipo).
+        // 'total' = lo DISPONIBLE; aparte, en rojo, los vendidos y en trámite (ver restarVenta).
+        $restar   = self::restarVenta($request);
+        $ventaSql = fn (string $tipo) => $restar ? FrenteTrabajo::sqlEnVenta('equipos_auxiliares.ID_FRENTE_ACTUAL', $tipo) : '1 = 0';
         $distBase = EquipoAuxiliar::query();
         $this->applyAuxiliarFilters($distBase, $request, $bypassScope, $isLocalUser, $frentesPermitidos, ['tipo']);
         $auxDistribucion = $distBase
-            ->selectRaw('TIPO, COUNT(*) as total')
+            ->selectRaw('TIPO, COUNT(*) as total'
+                . ', SUM(CASE WHEN ' . $ventaSql(FrenteTrabajo::TIPO_VENDIDO) . ' THEN 1 ELSE 0 END) as vendidos'
+                . ', SUM(CASE WHEN ' . $ventaSql(FrenteTrabajo::TIPO_TRAMITE_VENTA) . ' THEN 1 ELSE 0 END) as en_tramite')
             ->whereNotNull('TIPO')->where('TIPO', '!=', '')
             ->groupBy('TIPO')->orderByDesc('total')->get()
             ->map(fn ($r) => [
-                'tipo'  => $r->TIPO,
-                'label' => $tipos[$r->TIPO] ?? mb_strtoupper(str_replace('_', ' ', $r->TIPO)),
-                'total' => $r->total,
+                'tipo'       => $r->TIPO,
+                'label'      => $tipos[$r->TIPO] ?? mb_strtoupper(str_replace('_', ' ', $r->TIPO)),
+                'total'      => (int) $r->total - (int) $r->vendidos - (int) $r->en_tramite,
+                'vendidos'   => (int) $r->vendidos,
+                'en_tramite' => (int) $r->en_tramite,
             ])->all();
 
         // Distribución por FRENTE: cuando hay un TIPO de aux seleccionado y NO hay frente.
@@ -658,11 +681,12 @@ class EquipoAuxiliarController extends Controller
         if ($showFrentes) {
             $frenteBase = EquipoAuxiliar::query();
             $this->applyAuxiliarFilters($frenteBase, $request, $bypassScope, $isLocalUser, $frentesPermitidos);
-            $auxDistribucionFrentes = $frenteBase
+            // Con su tipo, para marcar en rojo los frentes en venta; esos van al final.
+            $auxDistribucionFrentes = FrenteTrabajo::enVentaAlFinal($frenteBase
                 ->leftJoin('frentes_trabajo', 'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE')
-                ->selectRaw('equipos_auxiliares.ID_FRENTE_ACTUAL, frentes_trabajo.NOMBRE_FRENTE, COUNT(equipos_auxiliares.ID_AUXILIAR) as total')
-                ->groupBy('equipos_auxiliares.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE')
-                ->orderByDesc('total')->get();
+                ->selectRaw('equipos_auxiliares.ID_FRENTE_ACTUAL, frentes_trabajo.NOMBRE_FRENTE, frentes_trabajo.TIPO_FRENTE, COUNT(equipos_auxiliares.ID_AUXILIAR) as total')
+                ->groupBy('equipos_auxiliares.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE', 'frentes_trabajo.TIPO_FRENTE')
+                ->orderByDesc('total')->get());
         }
         return [$auxDistribucion, $auxDistribucionFrentes, $showFrentes];
     }
@@ -727,9 +751,11 @@ class EquipoAuxiliarController extends Controller
         // JS lo pinten sin cambios. ──
         $statsBase = EquipoAuxiliar::query();
         $this->applyAuxiliarFilters($statsBase, $request, $bypassScope, $isLocalUser, $frentesPermitidos);
-        $stats = $this->auxStatsAggregate($statsBase);
+        $stats = $this->auxStatsAggregate($statsBase, [], self::restarVenta($request));
 
-        $totalFound = $stats['total'];
+        // La paginación cuenta TODAS las filas del listado; el Consolidado, lo disponible.
+        $totalFound = $stats['listado'];
+        unset($stats['listado']);
         $auxiliares = $query->orderByDesc('created_at')->offset($offset)->limit($PAGE_SIZE)->get();
         $nextOffset = $offset + $auxiliares->count();
         $hasMore = $nextOffset < $totalFound;

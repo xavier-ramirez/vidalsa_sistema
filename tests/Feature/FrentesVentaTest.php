@@ -217,6 +217,49 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertContains($serial, $anclados('?id_frente=' . $frente->ID_FRENTE));
     }
 
+    /**
+     * Filtrando por TIPO con "todos los frentes" el listado trae también lo de frentes en venta:
+     * el TOTAL cuenta solo lo disponible y "Ubicación por Frente" muestra el frente vendido en
+     * rojo (con su cantidad). Dentro del frente vendido, sus cifras son las suyas.
+     */
+    public function test_por_tipo_el_total_no_cuenta_lo_vendido_y_el_frente_sale_en_rojo(): void
+    {
+        [$frente, $equipo] = $this->frenteConEquipo(FrenteTrabajo::TIPO_VENDIDO);
+        DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['ESTADO_OPERATIVO' => 'OPERATIVO']);
+        $admin = $this->superAdminGlobal();
+        $tipo = $equipo->id_tipo_equipo;
+
+        $esperado = $admin->aplicarScopeFrentesEquipos(Equipo::where('id_tipo_equipo', $tipo))
+            ->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->excludeEnVenta()->count();
+        $j = $this->actingAs($admin)->getJson('/admin/equipos?id_tipo=' . $tipo)->assertOk();
+        $this->assertSame($esperado, $j->json('stats.total'), 'El TOTAL es lo disponible: sin el vendido.');
+
+        $html = (string) $j->json('distribution');
+        $fila = '/<li class="dist-fila dist-venta"[^>]*>.*?' . preg_quote(e($frente->NOMBRE_FRENTE), '/')
+            . '.*?<small class="dist-rotulo">VENDIDO<\/small>.*?<span class="dist-cant">1<\/span>/s';
+        $this->assertMatchesRegularExpression($fila, $html, 'El frente vendido sale en rojo, con su rótulo y su cantidad.');
+
+        // Dentro del frente vendido, a propósito: sus cifras normales.
+        $this->assertSame(1, $this->actingAs($admin)->getJson('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk()->json('stats.total'));
+    }
+
+    public function test_auxiliares_por_tipo_el_total_no_cuenta_lo_vendido_pero_la_lista_si(): void
+    {
+        [$frente] = $this->frenteConEquipo(FrenteTrabajo::TIPO_VENDIDO);
+        $otro = FrenteTrabajo::whereNotIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)->value('ID_FRENTE');
+        foreach ([$frente->ID_FRENTE, $otro, $otro] as $i => $idFrente) {
+            \App\Models\EquipoAuxiliar::create([
+                'TIPO' => 'PRUEBAVENTA2', 'MARCA' => 'PRUEBA', 'MODELO' => 'VENTA', 'SERIAL' => 'AUXV2' . $i . strtoupper(Str::random(6)),
+                'ESTADO_OPERATIVO' => 'OPERATIVO', 'ID_FRENTE_ACTUAL' => $idFrente,
+            ]);
+        }
+        $j = $this->actingAs($this->superAdminGlobal())->getJson('/admin/equipos?id_tipo=tipo_aux:PRUEBAVENTA2')->assertOk();
+        $this->assertSame(2, $j->json('stats.total'), 'TOTAL: los 2 disponibles, sin el vendido.');
+        $this->assertSame(2, $j->json('stats.activos'));
+        $this->assertSame(3, $j->json('totalFound'), 'La lista (y su paginación) sí los trae a los 3.');
+        $this->assertStringContainsString('<small class="dist-rotulo">VENDIDO</small>', (string) $j->json('distribution'));
+    }
+
     public function test_un_tipo_que_no_existe_no_se_acepta(): void
     {
         $this->actingAs($this->superAdminGlobal())->postJson('/admin/frentes?json=true', [
