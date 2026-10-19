@@ -96,33 +96,70 @@ class HistorialDocumentosTest extends MySqlTestCase
         $this->assertNull($json['resumen_html']);
     }
 
+    /** Una lista nueva para cada caso: ver el comentario de versionUnica(). */
+    private function versionUnica(): void
+    {
+        // En las pruebas la versión vive en la caché de memoria (vuelve a cero en cada corrida) y
+        // la lista armada en la de archivo (sobrevive). Con filtros que se repiten entre corridas,
+        // la versión repetida leería la lista de otra corrida, sin los apuntes de esta.
+        \Illuminate\Support\Facades\Cache::forever(HistorialDocumentosController::DATA_VER_KEY, random_int(1_000_000, 2_000_000_000));
+    }
+
+    private function filas(Usuario $yo, array $filtros): array
+    {
+        return $this->actingAs($yo)->getJson(route('historial-documentos.index', $filtros))->json();
+    }
+
     /**
-     * Equipos y auxiliares son el mismo catálogo: su registro y su foto salen como "Registro de
-     * Modelo" y "Foto de Modelo", y el filtro "Tipo de Acción" ya no ofrece los de auxiliar.
+     * Equipos y auxiliares van en las MISMAS acciones (pedido del cliente, 19-10-2026): el alta
+     * de un auxiliar es "Registro de Vehículo", su baja "Eliminación de Equipo" y su foto del
+     * catálogo "Foto de Modelo". El filtro "Tipo de Acción" ya no ofrece nada "de Auxiliar".
      */
-    public function test_el_catalogo_de_auxiliares_va_en_las_mismas_acciones_que_el_de_equipos(): void
+    public function test_los_auxiliares_van_en_las_mismas_acciones_que_los_equipos(): void
     {
         $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        $serial = 'AUXH' . strtoupper(Str::random(8));
+        $aux = \App\Models\EquipoAuxiliar::create(['TIPO' => 'MAQUINA_DE_SOLDAR', 'MARCA' => 'PRUEBA', 'MODELO' => 'HISTORIAL',
+            'SERIAL' => $serial, 'CREADO_POR' => $yo->ID_USUARIO]);
         $marca = 'AUXPRUEBA' . strtoupper(Str::random(6));
-        foreach (['create_aux', 'upload_foto_aux'] as $accion) {
-            CatalogoAuditLog::create(['ID_USUARIO' => $yo->ID_USUARIO, 'ACCION' => $accion, 'MODELO' => $marca,
-                'CAMBIOS' => ['tipo' => 'SOLDADORA'], 'created_at' => now()]);
-        }
-        $hoy = now()->toDateString();
-        // Versión única: en las pruebas la versión vive en la caché de memoria (vuelve a cero en
-        // cada corrida) y la lista armada en la de archivo (sobrevive). Con filtros que se repiten
-        // entre corridas, la versión repetida leería la lista de otra corrida, sin estos apuntes.
-        \Illuminate\Support\Facades\Cache::forever(HistorialDocumentosController::DATA_VER_KEY, random_int(1_000_000, 2_000_000_000));
+        CatalogoAuditLog::create(['ID_USUARIO' => $yo->ID_USUARIO, 'ACCION' => 'upload_foto_aux', 'MODELO' => $marca,
+            'CAMBIOS' => ['tipo' => 'SOLDADORA'], 'created_at' => now()]);
+        $this->versionUnica();
 
-        foreach (['Registro de Modelo', 'Foto de Modelo'] as $tipo) {
-            $json = $this->actingAs($yo)->getJson(route('historial-documentos.index',
-                ['search_tipo' => $tipo, 'fecha_desde' => $hoy, 'fecha_hasta' => $hoy]))->json();
-            $this->assertStringContainsString($marca, $json['html'], "El de auxiliar sale en \"$tipo\".");
-        }
-        $this->assertArrayNotHasKey('Registro de Auxiliar', HistorialDocumentosController::TIPOS_ACCION['Catálogo de modelos']);
-        $this->assertArrayNotHasKey('Foto de Auxiliar', HistorialDocumentosController::TIPOS_ACCION['Catálogo de modelos']);
+        // El alta, desde su ficha (y se encuentra por su serial, como la de un equipo).
+        $alta = $this->filas($yo, ['search_tipo' => 'Registro de Vehículo', 'search_equipo' => $serial]);
+        $this->assertSame(1, $alta['total'], 'El alta del auxiliar es un "Registro de Vehículo".');
+        $this->assertStringContainsString('Serial: ' . $serial, $alta['html']);
+
+        // La baja, con su ruta: queda en la auditoría como la de un equipo.
+        $this->actingAs($yo)->deleteJson(route('equipos-auxiliares.destroy', $aux->ID_AUXILIAR))->assertOk();
+        $this->versionUnica();
+        $baja = $this->filas($yo, ['search_tipo' => 'Eliminación de Equipo', 'search_equipo' => $serial]);
+        $this->assertSame(1, $baja['total'], 'La baja del auxiliar es una "Eliminación de Equipo".');
+
+        // La foto del catálogo de un auxiliar, en "Foto de Modelo".
+        $hoy = now()->toDateString();
+        $foto = $this->filas($yo, ['search_tipo' => 'Foto de Modelo', 'fecha_desde' => $hoy, 'fecha_hasta' => $hoy]);
+        $this->assertStringContainsString($marca, $foto['html']);
+
+        $grupos = HistorialDocumentosController::TIPOS_ACCION;
+        $this->assertArrayNotHasKey('Registro de Auxiliar', $grupos['Catálogo de modelos']);
+        $this->assertArrayNotHasKey('Foto de Auxiliar', $grupos['Catálogo de modelos']);
         $html = $this->actingAs($yo)->get(route('historial-documentos.index'))->getContent();
         $this->assertStringNotContainsString('de Auxiliar', $html, 'Ni en el desplegable ni en las filas.');
+    }
+
+    /** Las correcciones anexas van en "Subida de documento"; ya no hay "Corrección anexa" aparte. */
+    public function test_las_correcciones_anexas_van_en_subida_de_documento(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        [$id, $placa] = $this->equipoConRacda($yo, now()->subMinutes(5));
+        EquipoAuditLog::registrar($id, 'anexo_racda', []);
+        $this->versionUnica();
+
+        $subidas = $this->filas($yo, ['search_tipo' => 'cat_uploads', 'search_equipo' => $placa]);
+        $this->assertSame(2, $subidas['total'], 'La subida del RACDA y su corrección anexa.');
+        $this->assertArrayNotHasKey('cat_anexos', HistorialDocumentosController::TIPOS_ACCION['Documentos']);
     }
 
     /**

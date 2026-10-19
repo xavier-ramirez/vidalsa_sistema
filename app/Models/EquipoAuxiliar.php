@@ -133,4 +133,13 @@ class EquipoAuxiliar extends Model
     {
         return $this->belongsTo(Usuario::class, 'CREADO_POR', 'ID_USUARIO');
     }
+
+    /**
+     * "TIPO MARCA MODELO", la etiqueta que va en sus apuntes de auditoría (_aux_label): con ella
+     * el historial sigue nombrando al auxiliar aunque luego se borre de la base.
+     */
+    public function etiquetaAuditoria(): string
+    {
+        return trim(implode(' ', array_filter([$this->TIPO, $this->MARCA, $this->MODELO])));
+    }
 }

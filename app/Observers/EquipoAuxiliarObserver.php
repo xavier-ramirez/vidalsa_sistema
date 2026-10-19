@@ -69,11 +69,7 @@ class EquipoAuxiliarObserver
                 $diff[$field] = ['antes' => $oldValue, 'despues' => $newValue];
             }
 
-            $label = trim(implode(' ', array_filter([
-                $aux->TIPO   ?? null,
-                $aux->MARCA  ?? null,
-                $aux->MODELO ?? null,
-            ])));
+            $label = $aux->etiquetaAuditoria();
 
             if (!empty($diff)) {
                 \App\Models\EquipoAuditLog::registrarAux($aux->ID_AUXILIAR, 'aux_edit', $diff, $label);

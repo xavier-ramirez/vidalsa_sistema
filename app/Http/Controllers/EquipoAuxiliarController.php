@@ -1633,7 +1633,12 @@ class EquipoAuxiliarController extends Controller
     {
         $auxiliar = EquipoAuxiliar::findOrFail($id);
         $this->authorizeAuxScope($auxiliar);
-        // Soft-delete con auditoria de quien borro (mismo patron que equipos).
+        // Soft-delete con auditoria de quien borro (mismo patron que equipos): el apunte es la
+        // fila "Eliminación de Equipo" del historial, igual que al borrar un equipo.
+        \App\Models\EquipoAuditLog::registrarAux($auxiliar->ID_AUXILIAR, 'aux_delete', [
+            'codigo_interno' => $auxiliar->CODIGO_INTERNO,
+            'serial'         => $auxiliar->SERIAL,
+        ], $auxiliar->etiquetaAuditoria());
         $auxiliar->deleted_by = auth()->id();
         $auxiliar->save();
         $auxiliar->delete();
@@ -1661,6 +1666,11 @@ class EquipoAuxiliarController extends Controller
         DB::transaction(function () use ($request, $userId, &$borrados) {
             $auxiliares = EquipoAuxiliar::whereIn('ID_AUXILIAR', $request->ids)->lockForUpdate()->get();
             foreach ($auxiliares as $aux) {
+                \App\Models\EquipoAuditLog::registrarAux($aux->ID_AUXILIAR, 'aux_delete', [
+                    'codigo_interno' => $aux->CODIGO_INTERNO,
+                    'serial'         => $aux->SERIAL,
+                    'bulk'           => true,
+                ], $aux->etiquetaAuditoria());
                 $aux->deleted_by = $userId;
                 $aux->save();
                 $aux->delete();

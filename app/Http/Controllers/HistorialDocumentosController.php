@@ -158,7 +158,7 @@ class HistorialDocumentosController extends Controller
      * arma un evento (una etiqueta, un campo): las listas ya guardadas con el formato viejo dejan
      * de leerse y se rehacen, sin esperar a que alguien cambie algo del historial.
      */
-    private const FORMATO = 2;
+    private const FORMATO = 3;
 
     /** Filas por pagina, y eventos por trozo de la lista guardada (20 paginas; ver guardarLista). */
     private const POR_PAGINA = 15;
@@ -185,7 +185,6 @@ class HistorialDocumentosController extends Controller
             'cat_uploads'   => 'Subida de documento',
             'cat_borrados'  => 'Borrado de documento',
             'cat_metadatos' => 'Edición de datos del documento',
-            'cat_anexos'    => 'Corrección anexa',
         ],
         'Catálogo de modelos' => [
             'Registro de Modelo'    => 'Registro de Modelo',
@@ -215,13 +214,11 @@ class HistorialDocumentosController extends Controller
         $key = (string) ($event->doc_key ?? '');
         $empieza = fn (string ...$p) => \Illuminate\Support\Str::startsWith($key, $p);
         return match ($tipo) {
-            'cat_uploads'   => in_array($key, self::SUBIDAS_LEGACY, true) || $empieza('upload_', 'aux_upload_'),
+            // Las correcciones anexas también son subidas (pedido del cliente, 19-10-2026).
+            'cat_uploads'   => in_array($key, self::SUBIDAS_LEGACY, true) || $empieza('upload_', 'aux_upload_', 'anexo_'),
             'cat_borrados'  => $empieza('delete_', 'aux_delete_'),
             // con_metadata: subida que absorbio los datos guardados con ella.
             'cat_metadatos' => $empieza('metadata_') || !empty($event->con_metadata),
-            // Correcciones anexas: aparte y NO dentro de cat_uploads. Anexar solo añade; sustituir
-            // pisa el archivo de Drive, que es lo que busca quien filtra "Subida de documento".
-            'cat_anexos'    => $empieza('anexo_'),
             default         => strpos($textoTipo ?? self::normal($event->tipo ?? ''), $buscado ?? self::normal($tipo)) !== false,
         };
     }
@@ -723,6 +720,45 @@ class HistorialDocumentosController extends Controller
         // duplicar la creación con el log 'create' del audit (ver loop de auditoría).
         $creacionEquipoIds = array_flip($equiposCreados->pluck('ID_EQUIPO')->all());
 
+        // Nombre e identificador de un auxiliar en sus filas (alta y auditoria), en un solo sitio.
+        $auxTiposLabel = \App\Models\EquipoAuxiliar::tiposLabel();
+        $nombreAux = fn ($ax) => trim(($ax->TIPO ? ($auxTiposLabel[$ax->TIPO] ?? $ax->TIPO) : '') . ' ' . $ax->MARCA . ' ' . $ax->MODELO);
+        $idAux = fn ($ax) => !empty($ax->CODIGO_INTERNO) ? 'Código: ' . $ax->CODIGO_INTERNO
+            : (!empty($ax->SERIAL) ? 'Serial: ' . $ax->SERIAL : 'ID Aux: #' . $ax->ID_AUXILIAR);
+
+        // Alta de AUXILIARES: "Registro de Vehículo", igual que la de un equipo (pedido del
+        // cliente, 19-10-2026), desde su ficha y con el mismo alcance: frente propio del
+        // auxiliar (lista blanca y negra), serial o codigo interno, y fecha.
+        $auxCreadosQuery = \App\Models\EquipoAuxiliar::with('creador:ID_USUARIO,CORREO_ELECTRONICO,NOMBRE_COMPLETO')
+            ->whereNotNull('CREADO_POR');
+        \App\Models\Usuario::aplicarScopeIds($auxCreadosQuery, $frentesVisibles, 'ID_FRENTE_ACTUAL');
+        \App\Models\Usuario::aplicarBloqueoIds($auxCreadosQuery, $frentesBloqueados, 'ID_FRENTE_ACTUAL');
+        if ($searchEquipoSql !== '') {
+            $like = '%' . strtoupper($searchEquipoSql) . '%';
+            $auxCreadosQuery->where(fn ($q) => $q->whereRaw('UPPER(SERIAL) like ?', [$like])
+                ->orWhereRaw('UPPER(CODIGO_INTERNO) like ?', [$like]));
+        }
+        if ($fechaDesdeSql) $auxCreadosQuery->where('created_at', '>=', $fechaDesdeSql);
+        if ($fechaHastaSql) $auxCreadosQuery->where('created_at', '<=', $fechaHastaSql);
+
+        foreach ($auxCreadosQuery->orderByDesc('created_at')->limit(5000)->get() as $ax) {
+            $events->push((object)[
+                'doc_key'      => 'creacion_aux',
+                'tipo'         => 'Registro de Vehículo',
+                'autor'        => $ax->creador ? $ax->creador->CORREO_ELECTRONICO : 'Usuario Desconocido',
+                'autor_nombre' => $ax->creador ? ($ax->creador->NOMBRE_COMPLETO ?? '') : '',
+                'fecha'        => $ax->created_at,
+                'link'         => null,
+                'equipo_nombre'=> $nombreAux($ax),
+                'equipo_id'    => $idAux($ax),
+                'equipo_db_id' => null,
+                'cambios'      => [],
+                // Como la del equipo: borrarla sería borrar la unidad. deleteRegistro lo BLOQUEA.
+                'del_source'   => 'equipo_creacion',
+                'del_id'       => $ax->ID_AUXILIAR,
+            ]);
+        }
+
         // Eventos de AUDITORIA de equipos (ediciones, cambios de metadata, ubicacion).
         // Se cargan desde la tabla `equipo_audit_log` con eager loading de
         // equipo + tipo + documentacion + usuario para evitar N+1 y poder mostrar
@@ -811,9 +847,9 @@ class HistorialDocumentosController extends Controller
                     'delete_racda'         => 'Borrado RACDA',
                     'delete_adicional'     => 'Borrado Certificado',
                     'delete_adicional_2'   => 'Borrado Compraventa',
-                    // Correcciones anexas (anexarDoc). NO son subidas del principal: ese
-                    // endpoint solo AÑADE y nunca pisa el archivo anterior, por eso llevan
-                    // verbo propio y categoria propia en el filtro ('cat_anexos').
+                    // Correcciones anexas (anexarDoc). NO pisan el archivo principal (ese
+                    // endpoint solo AÑADE), por eso llevan rotulo propio; en el filtro van
+                    // con "Subida de documento" ('cat_uploads').
                     // Se rotulan con el MISMO nombre que la pestaña del visor
                     // (EquipoController::ROTULO_ANEXO) y se les añade a que documento
                     // corrigen, que es lo unico que distingue una fila de otra: esta
@@ -963,9 +999,6 @@ class HistorialDocumentosController extends Controller
             if ($fechaDesdeSql) $auxAuditQuery->where('created_at', '>=', $fechaDesdeSql);
             if ($fechaHastaSql) $auxAuditQuery->where('created_at', '<=', $fechaHastaSql);
 
-            // Labels de tipo de auxiliar (código → etiqueta legible), resueltos una vez.
-            $auxTiposLabel = \App\Models\EquipoAuxiliar::tiposLabel();
-
             $auxAuditLogs = $auxAuditQuery->limit(5000)->get();
             foreach ($auxAuditLogs as $log) {
                 $ax = $log->auxiliar;
@@ -978,6 +1011,8 @@ class HistorialDocumentosController extends Controller
                     'aux_upload_certificado' => 'Subida Certificado (Auxiliar)',
                     'aux_delete_propiedad'   => 'Borrado Propiedad (Auxiliar)',
                     'aux_delete_certificado' => 'Borrado Certificado (Auxiliar)',
+                    // La baja, con la MISMA etiqueta que la de un equipo (pedido del cliente, 19-10-2026).
+                    'aux_delete'             => 'Eliminación de Equipo',
                 ][$log->ACCION] ?? ucfirst(str_replace('_', ' ', $log->ACCION));
 
                 $cambiosRaw = is_array($log->CAMBIOS) ? $log->CAMBIOS : (is_string($log->CAMBIOS) ? json_decode($log->CAMBIOS, true) : []);
@@ -996,12 +1031,9 @@ class HistorialDocumentosController extends Controller
                 }
 
                 if ($ax) {
-                    $tipoTxt = $ax->TIPO ? ($auxTiposLabel[$ax->TIPO] ?? $ax->TIPO) : '';
                     // Sin el prefijo "Auxiliar": el tipo (Luminaria, Soldadora...) ya lo dice.
-                    $eName   = trim($tipoTxt . ' ' . $ax->MARCA . ' ' . $ax->MODELO);
-                    if (!empty($ax->CODIGO_INTERNO))      $eId = 'Código: ' . $ax->CODIGO_INTERNO;
-                    elseif (!empty($ax->SERIAL))          $eId = 'Serial: ' . $ax->SERIAL;
-                    else                                  $eId = 'ID Aux: #' . $log->ID_AUXILIAR;
+                    $eName = $nombreAux($ax);
+                    $eId   = $idAux($ax);
                 } else {
                     // Auxiliar borrado en duro: usar el label embebido como fallback.
                     $eName = $auxLabel !== '' ? $auxLabel : 'Auxiliar Eliminado';
@@ -1038,13 +1070,16 @@ class HistorialDocumentosController extends Controller
             if ($fechaDesdeSql) $catAuditQuery->where('created_at', '>=', $fechaDesdeSql);
             if ($fechaHastaSql) $catAuditQuery->where('created_at', '<=', $fechaHastaSql);
 
+            // 'create_aux' (alta de un auxiliar) no: esa fila ya la arma el bloque de altas, desde
+            // la ficha del auxiliar, como "Registro de Vehículo".
+            $catAuditQuery->where('ACCION', '<>', 'create_aux');
+
             $catAuditLogs = $catAuditQuery->limit(5000)->get();
             foreach ($catAuditLogs as $log) {
                 // Equipos y auxiliares son el MISMO catálogo: un solo tipo de acción para los dos
                 // (pedido del cliente, 19-10-2026). Qué es lo dice la fila (tipo · modelo · año).
                 $catTipoLabel = [
                     'create'          => 'Registro de Modelo',
-                    'create_aux'      => 'Registro de Modelo',
                     'edit'            => 'Edición de Modelo',
                     'upload_foto'     => 'Foto de Modelo',
                     'upload_foto_aux' => 'Foto de Modelo',
