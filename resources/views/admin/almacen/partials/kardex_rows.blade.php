@@ -56,8 +56,8 @@
         @endphp
         <tr class="alm-mov-row" style="--mov-color: {{ $meta[1] }}">
             {{-- Fecha + Tipo COMBINADOS en una sola columna: la fecha arriba y el tipo
-                 debajo. En mobile el tipo se oculta (.mv-tipo-inline) igual que
-                 antes hacía el td.mv-td-tipo — la cantidad ya comunica entrada/salida. --}}
+                 debajo. En el teléfono van en la franja de abajo, al lado del destino, y del
+                 tipo solo su icono (ver admin_almacen_movimientos.css). --}}
             <td class="mv-td-fecha" data-label="Fecha">
                 {{-- Fecha del movimiento (FECHA, solo dia) + HORA real de registro (created_at,
                      que sí guarda la hora — FECHA es tipo date y siempre va en 00:00). --}}

@@ -262,9 +262,7 @@
              ┌──────────────────────────────────────────────┐
              │ 000124 BOTA DE SEGURIDAD…   −2 PAR      📄   │
              │                          📋 Corregida   ✎    │
-             │                          📅 05/10/26         │
-             │                             —   (tipo)       │
-             │ 📍 TUBERÍA DE 30" VELADERO TRAMO I         ▾ │
+             │ 📍 TUBERÍA DE 30" VELADE… 📅 05/10/2026 ↗  ▾ │
              └──────────────────────────────────────────────┘
                (desplegada, además)
              │ 👤 Registrado por … (y la observación)       │
@@ -307,8 +305,7 @@
             grid-template-columns: 1fr auto auto !important;
             grid-template-areas:
                 "producto cantidad pdf"
-                "producto fecha    pdf"
-                "destino  destino  destino" !important;
+                "destino  fecha    fecha" !important;
             column-gap: 10px !important;
             row-gap: 3px !important;
             background: #fff !important;
@@ -330,10 +327,9 @@
             grid-template-columns: 1fr auto !important;
             grid-template-areas:
                 "producto cantidad"
-                "producto fecha"
                 "detalle  detalle"
                 "ref      ref"
-                "destino  destino" !important;
+                "destino  fecha" !important;
             border: 2px solid var(--maquinaria-blue, #0067b1) !important;
             background: #f0f9ff !important;
             box-shadow: 0 4px 12px rgba(0,103,177,0.15) !important;
@@ -446,19 +442,23 @@
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-devuelto .material-icons,
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-corregida .material-icons { font-size: 13px; }
 
-        /* Fecha: DEBAJO de la cantidad (col 2 fila 2), alineada a la derecha: cantidad y
-           fecha forman un bloque visual a la derecha, y la banda de abajo queda para el
-           destino. */
+        /* Fecha: en la franja gris de abajo, al lado del destino (pedido del cliente,
+           19-10-2026). Sigue la franja hasta el borde derecho y deja libre el hueco de la
+           flechita de desplegar, que se monta encima. */
         .alm-mov-table tr.alm-mov-row td.mv-td-fecha {
             grid-area: fecha !important;
             font-size: 10.5px !important;
-            color: #76777d !important;
-            font-weight: 500 !important;
+            color: #475569 !important;
+            font-weight: 600 !important;
             white-space: nowrap !important;
             gap: 3px !important;
             justify-content: flex-end !important;
-            justify-self: end !important;
-            align-self: flex-start !important;
+            justify-self: stretch !important;
+            align-self: stretch !important;
+            background: #f8fafc !important;
+            border-radius: 0 0 8px 0 !important;
+            padding: 5px 34px 5px 0 !important;
+            margin: 4px -12px 0 0 !important;
         }
         .alm-mov-table tr.alm-mov-row td.mv-td-fecha::before {
             content: "calendar_today";
@@ -472,15 +472,15 @@
         .alm-mov-table tr.alm-mov-row td.mv-td-fecha .mv-hora {
             display: none !important;
         }
-        /* El tipo, bajo la fecha: SOLO su icono, con su color (pedido del cliente, 07-10-2026:
-           sin la palabra "Salida" / "Entrada" en el teléfono). El texto va en el mismo span que
-           el icono, así que se esconde con font-size 0 y el icono recupera su tamaño. */
-        .alm-mov-table tr.alm-mov-row td.mv-td-fecha { flex-wrap: wrap !important; }
+        /* El tipo, a la derecha de la fecha: SOLO su icono, con su color (pedido del cliente,
+           07-10-2026: sin la palabra "Salida" / "Entrada" en el teléfono). El texto va en el
+           mismo span que el icono, así que se esconde con font-size 0 y el icono recupera su
+           tamaño. */
         .alm-mov-table tr.alm-mov-row .mv-tipo-inline {
-            flex-basis: 100%; justify-content: flex-end; margin-top: 1px !important;
+            margin: 0 0 0 2px !important;
             font-size: 0 !important;
         }
-        .alm-mov-table tr.alm-mov-row .mv-tipo-inline .material-icons { font-size: 16px !important; }
+        .alm-mov-table tr.alm-mov-row .mv-tipo-inline .material-icons { font-size: 15px !important; }
 
         /* DESPLEGADA ─────────────────────────────────────────────────────────────
            · Quién lo registró (y la observación): la burbuja de hover de escritorio, aquí
@@ -528,22 +528,20 @@
             background: #fee2e2 !important; border-radius: 5px !important;
         }
 
-        /* Destino: banda gris inferior full-width */
+        /* Destino: banda gris inferior, de borde a borde junto con la fecha (a su derecha).
+           El margen derecho negativo tapa el hueco entre columnas para que la franja siga
+           entera; un destino largo se recorta con puntos suspensivos antes de la fecha. */
         .alm-mov-table tr.alm-mov-row td.mv-td-destino {
             grid-area: destino !important;
-            justify-content: center !important;
+            justify-content: flex-start !important;
             justify-self: stretch !important;
             font-size: 10.5px !important;
             font-weight: 700 !important;
             color: #3730a3 !important;
             background: #f8fafc !important;
-            border-radius: 0 0 8px 8px !important;
-            /* 38px a la derecha: el hueco de la flechita de desplegar, que se monta sobre
-               esta misma banda. Sin reserva, un destino largo ("FRENTE 72 - VELADERO / CRUCE
-               LA GUAIRA") llegaba hasta el borde y sus últimas letras quedaban DEBAJO del
-               icono. Con el hueco, el texto se recorta antes con sus puntos suspensivos. */
-            padding: 5px 38px 5px 12px !important;
-            margin: 4px -12px 0 -10px !important;
+            border-radius: 0 0 0 8px !important;
+            padding: 5px 16px 5px 12px !important;
+            margin: 4px -10px 0 -10px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
