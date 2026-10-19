@@ -232,12 +232,12 @@
         <table class="admin-table table-usuarios-mobile" style="width: 100% !important;">
             <thead>
                 <tr class="tabla-cabecera" style="border-bottom: 2px solid #0f172a;">
-                    <th class="table-cell-bordered" style="min-width: 110px;">Nombre y Apellido</th>
-                    <th class="table-cell-bordered" style="min-width: 140px;">Correo</th>
-                    <th class="table-cell-bordered" style="min-width: 120px;">Rol</th>
-                    <th class="table-cell-bordered" style="min-width: 90px;">Nivel</th>
-                    <th class="table-cell-bordered" style="min-width: 85px;">Frente</th>
-                    <th class="table-cell-bordered" style="min-width: 70px;">Estado</th>
+                    <th class="table-header-custom" style="min-width: 110px;">Nombre y Apellido</th>
+                    <th class="table-header-custom" style="min-width: 140px;">Correo</th>
+                    <th class="table-header-custom" style="min-width: 120px;">Rol</th>
+                    <th class="table-header-custom" style="min-width: 90px;">Nivel</th>
+                    <th class="table-header-custom" style="min-width: 85px;">Frente</th>
+                    <th class="table-header-custom" style="min-width: 70px;">Estado</th>
                     <th style="padding: 10px 8px; text-align: center; width: 60px;"></th>
                 </tr>
             </thead>

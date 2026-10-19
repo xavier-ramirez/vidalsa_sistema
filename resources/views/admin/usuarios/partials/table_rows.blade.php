@@ -1,6 +1,6 @@
                 @forelse($users as $user)
                     <tr>
-                         <td class="table-cell-bordered" style="font-size: 13px; color: var(--maquinaria-dark-blue); padding: 8px 12px;">
+                         <td class="table-cell-custom" style="font-size: 13px; color: var(--maquinaria-dark-blue); padding: 8px 12px;">
                             {{-- Tooltip estilizado (igual que el "detalle" de equipos): al
                                  pasar/enfocar la fila se muestra la fecha de creación. El CSS
                                  global `.admin-table tr:hover .tooltip-bubble` lo dispara. --}}
@@ -23,14 +23,14 @@
                                 </div>
                             </div>
                         </td>
-                        <td class="table-cell-bordered" style="color: var(--maquinaria-gray-text); font-size: 13px; padding: 8px 12px; white-space: nowrap;">{{ $user->CORREO_ELECTRONICO }}</td>
-                        <td class="table-cell-bordered" style="font-size: 13px; padding: 8px 12px; text-align: left; color: #4a5568;">
+                        <td class="table-cell-custom" style="color: var(--maquinaria-gray-text); font-size: 13px; padding: 8px 12px; white-space: nowrap;">{{ $user->CORREO_ELECTRONICO }}</td>
+                        <td class="table-cell-custom" style="font-size: 13px; padding: 8px 12px; text-align: left; color: #4a5568;">
                             {{ $user->rol->NOMBRE_ROL ?? 'S/R' }}
                         </td>
                         {{-- Dos niveles independientes (equipos / almacén). Se muestran en la
                              misma celda porque casi siempre coinciden; cuando divergen, es justo
                              el dato que el admin necesita ver de un vistazo. --}}
-                        <td class="table-cell-bordered" style="font-size: 13px; padding: 8px 12px; text-align: left !important; white-space: nowrap;">
+                        <td class="table-cell-custom" style="font-size: 13px; padding: 8px 12px; text-align: left !important; white-space: nowrap;">
                             <div style="font-size: 13px; line-height: 1.5;">
                                 <span style="color: #94a3b8; font-weight: 600;">EQ</span>
                                 <span style="color: {{ $user->NIVEL_ACCESO_EQUIPOS == 1 ? '#2c7a7b' : '#6b46c1' }}; font-weight: 600;">
@@ -44,7 +44,7 @@
                                 </span>
                             </div>
                         </td>
-                        <td class="table-cell-bordered" style="font-size: 13px; padding: 8px 12px; color: var(--maquinaria-gray-text);">
+                        <td class="table-cell-custom" style="font-size: 13px; padding: 8px 12px; color: var(--maquinaria-gray-text);">
                             {{-- El PRIMER frente asignado (el desplegable de arriba los lista todos).
                                  Sale de getNombresFrentesAsignados, la misma fuente que usa ese
                                  desplegable: antes era $user->frenteAsignado, que con el eager load
@@ -52,7 +52,7 @@
                                  las filas. --}}
                             {{ $user->getNombresFrentesAsignados()[0] ?? 'Global' }}
                         </td>
-                        <td class="table-cell-bordered" style="font-size: 13px; padding: 8px 12px; text-align: left !important;">
+                        <td class="table-cell-custom" style="font-size: 13px; padding: 8px 12px; text-align: left !important;">
                             <span style="color: {{ $user->ESTATUS == 'ACTIVO' ? '#2c7a7b' : '#c53030' }}; font-weight: 600;">
                                 {{ $user->ESTATUS }}
                             </span>
