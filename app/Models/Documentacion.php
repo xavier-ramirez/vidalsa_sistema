@@ -23,7 +23,6 @@ class Documentacion extends Model
         'FECHA_EMISION_POLIZA',
         'FECHA_EMISION_ROTC',
         'FECHA_EMISION_RACDA',
-        'ESTADO_POLIZA',
         'FECHA_VENC_POLIZA',
         'LINK_POLIZA_SEGURO',
         'POLIZA_SUBIDO_POR',
