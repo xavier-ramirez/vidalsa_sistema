@@ -778,16 +778,24 @@
                 // La fecha de emision que la ficha tiene VACIA viene ya puesta: basta con
                 // Guardar (lo pidio el cliente); vaciar el campo = no ponerla.
                 if (CAMPO[campo] === 'fecha_emision' && !input.value) input.value = valor;
-                var caja = cpdfNodo('div', 'cpdf-opciones');
-                if (actual.trim().toUpperCase() === valor.trim().toUpperCase()) {
-                    // Ya coinciden: nada que elegir.
+                var caja = cpdfNodo('div', 'cpdf-opciones'),
+                    mismo = function (a, b) { return String(a).trim().toUpperCase() === String(b).trim().toUpperCase(); },
+                    antes = d.ficha == null ? '' : String(d.ficha),
+                    opciones = [['Ficha:', actual], ['Documento:', valor]];
+                if (mismo(actual, valor)) {
+                    // La ficha ya dice lo del documento. Si al leerse el PDF decia otra cosa (alguien
+                    // la corrigio despues), se sigue viendo como estaba, con su "Usar" para volver.
+                    opciones = antes !== '' && !mismo(antes, valor) ? [['Antes en la ficha:', antes], ['Ficha y documento:', valor]] : null;
+                }
+                if (!opciones) {
+                    // Coinciden y siempre coincidieron: nada que elegir.
                     var igual = pista('Ficha y documento:', valor);
                     igual.appendChild(cpdfNodo('em', 'cpdf-igual', 'iguales'));
                     caja.appendChild(igual);
                 } else {
                     // Las dos, cada una con su boton: decide quien mira el PDF (pedido del cliente,
                     // 19-10-2026). La que esta puesta en el campo sale marcada "En uso".
-                    [['Ficha:', actual], ['Documento:', valor]].forEach(function (op) {
+                    opciones.forEach(function (op) {
                         var fila = pista(op[0], op[1]), usar = document.createElement('button');
                         usar.type = 'button';
                         usar.onclick = function () { input.value = op[1]; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); };
@@ -796,7 +804,7 @@
                     });
                     var marcar = function () {
                         caja.querySelectorAll('.cpdf-pista').forEach(function (fila) {
-                            var enUso = fila.dataset.valor.trim().toUpperCase() === input.value.trim().toUpperCase();
+                            var enUso = mismo(fila.dataset.valor, input.value);
                             fila.classList.toggle('en-uso', enUso);
                             fila.querySelector('button').textContent = enUso ? 'En uso' : 'Usar';
                         });
