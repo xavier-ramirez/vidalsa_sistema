@@ -235,9 +235,9 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame($esperado, $j->json('stats.total'), 'El TOTAL es lo disponible: sin el vendido.');
 
         $html = (string) $j->json('distribution');
-        $fila = '/<li class="dist-fila"[^>]*>\s*<div class="dist-cab">\s*<span class="dist-nombre">\s*' . preg_quote(e($frente->NOMBRE_FRENTE), '/')
-            . ' <small class="dist-rotulo">VENDIDO<\/small>.*?<span class="dist-cant">1<\/span>.*?<div class="dist-barra-roja"/s';
-        $this->assertMatchesRegularExpression($fila, $html, 'El frente vendido: rótulo en la misma línea, su cantidad y la barra en rojo.');
+        $fila = '/<li class="dist-fila"[^>]*>\s*<div class="dist-cab">\s*<span class="dist-nombre">\s*<small class="dist-rotulo">VENDIDO:<\/small> '
+            . preg_quote(e($frente->NOMBRE_FRENTE), '/') . '.*?<span class="dist-cant">1<\/span>.*?<div class="dist-barra-roja"/s';
+        $this->assertMatchesRegularExpression($fila, $html, 'El frente vendido: "VENDIDO: NOMBRE" en una línea, su cantidad y la barra en rojo.');
 
         // Dentro del frente vendido, a propósito: sus cifras normales, y sus filas por TIPO sin el
         // rótulo ni la barra roja (la página completa tiene su propio $venta, el del aviso: el
@@ -264,7 +264,7 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame(2, $j->json('stats.total'), 'TOTAL: los 2 disponibles, sin el vendido.');
         $this->assertSame(2, $j->json('stats.activos'));
         $this->assertSame(3, $j->json('totalFound'), 'La lista (y su paginación) sí los trae a los 3.');
-        $this->assertStringContainsString('<small class="dist-rotulo">VENDIDO</small>', (string) $j->json('distribution'));
+        $this->assertStringContainsString('<small class="dist-rotulo">VENDIDO:</small>', (string) $j->json('distribution'));
     }
 
     public function test_un_tipo_que_no_existe_no_se_acepta(): void

@@ -294,8 +294,8 @@
         if (g.vendidos) nota.push(g.vendidos + (g.vendidos === 1 ? ' vendido' : ' vendidos'));
         if (g.en_tramite) nota.push(g.en_tramite + ' en trámite de venta');
         return '<li class="dist-fila" onclick="' + alTocar + '">' +
-            '<div class="dist-cab"><span class="dist-nombre">' + esc(g.nombre || sinNombre) +
-                (venta ? ' <small class="dist-rotulo">' + ROTULO_VENTA[venta] + '</small>' : '') +
+            '<div class="dist-cab"><span class="dist-nombre">' +
+                (venta ? '<small class="dist-rotulo">' + ROTULO_VENTA[venta] + ':</small> ' : '') + esc(g.nombre || sinNombre) +
                 (nota.length ? '<small class="dist-nota">' + nota.join(' · ') + '</small>' : '') +
             '</span><span class="dist-cant">' + g.total + '</span></div>' +
             '<div class="dist-barra"><div class="dist-barra-' + (venta ? 'roja' : barra) + '" style="width:' + g.pct + '%;"></div>' +

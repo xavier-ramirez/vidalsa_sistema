@@ -7,7 +7,7 @@
      $total     cantidad (lo DISPONIBLE)             $pct     ancho de la barra (0–100)
      $barra     color de la barra ('verde' | 'azul')
      $ventaFila FrenteTrabajo::avisoVentaDe() o null: la fila es un frente vendido o en trámite
-                → su rótulo al lado del nombre y la barra EN ROJO.
+                → su rótulo DELANTE del nombre ("EN TRÁMITE DE VENTA: NOMBRE") y la barra EN ROJO.
      $vendidos, $enTramite, $pctVenta  los de ese tipo que están en frentes en venta (0 si no):
                 se anotan bajo el nombre y van como un tramo ROJO de la barra ($pctVenta), no
                 en $total. La letra no cambia de color: lo rojo es solo la barra.
@@ -23,7 +23,7 @@
 <li class="dist-fila" onclick="{{ $alTocar }}">
     <div class="dist-cab">
         <span class="dist-nombre">
-            {{ $nombre }}@if($ventaFila) <small class="dist-rotulo">{{ $ventaFila['etiqueta'] }}</small>@endif
+            @if($ventaFila)<small class="dist-rotulo">{{ $ventaFila['etiqueta'] }}:</small> @endif{{ $nombre }}
             @if($nota)<small class="dist-nota">{{ implode(' · ', $nota) }}</small>@endif
         </span>
         <span class="dist-cant">{{ $total }}</span>

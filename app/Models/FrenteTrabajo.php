@@ -187,8 +187,9 @@ class FrenteTrabajo extends Model
     }
 
     /**
-     * Lo que Equipos muestra de un frente de venta: la etiqueta junto al nombre del frente
-     * (filtro y columna Frente) y el aviso al entrar al frente. null si el frente no es de venta.
+     * Lo que Equipos muestra de un frente de venta: la etiqueta (junto al nombre en el filtro de
+     * frentes y sobre la foto del equipo), el aviso al entrar al frente y el rótulo de su fila en
+     * "Ubicación por Frente". null si el frente no es de venta.
      */
     public function avisoVenta(): ?array
     {
