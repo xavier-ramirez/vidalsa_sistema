@@ -1943,9 +1943,9 @@
     // ═══════════════════════════════════════════════════════════════════════
     //  ETIQUETAS CON CÓDIGO DE BARRAS + ESCANEO  (como las de producto del supermercado)
     //   · Imprimir: almEtiquetasModal (cantidad y tamaño) → lista GET almacen.etiquetas →
-    //     vista previa (almEtqPreviaModal) → impresora. Mismo diseño que las etiquetas de la
-    //     app de la tienda: empresa, descripción, código de barras Code 128 del CODIGO y,
-    //     abajo, el código y la medida.
+    //     vista previa (almEtqPreviaModal) → impresora. Diseño de las etiquetas de la app de la
+    //     tienda: descripción con la medida al lado, código de barras Code 128 del CODIGO y,
+    //     debajo, el código centrado.
     //   · Escanear: window.LectorBarras (módulo compartido con Movimientos y Recepción) →
     //     resuelve el CODIGO vía almacen.buscar-codigo → filtra la tabla a ese producto.
     //  Read-only: sin permiso especial (mismo criterio que el export del inventario).
@@ -1959,14 +1959,13 @@
         '40x25': { nombre: 'Rollo 40 × 25 mm', w: 40, h: 25, hoja: null },
         carta:   { nombre: 'Hoja carta (30 por hoja)', w: 66, h: 26, hoja: { w: 215.9, h: 279.4, cols: 3, filas: 10 } },
     };
-    var ETQ_EMPRESA = 'CONSTRUCTORA VIDALSA 27';
     var ETQ_MAX_PREVIA = 60;   // en la vista previa; con más se avisa cuántas faltan
     var etqPendiente = null;   // lo que muestra la vista previa: { lista, formato }
 
     // Código de barras Code 128 (JsBarcode) como SVG que se estira a su caja, con bordes nítidos
     // (sin suavizado, que en la térmica emborrona las barras). Si el código trae algo que un
-    // código de barras no admite (ñ, tildes) se deja el hueco vacío: el código ya va escrito en
-    // el pie. Hoy no pasa: los códigos del catálogo son números de 5 o 6 cifras.
+    // código de barras no admite (ñ, tildes) se deja el hueco vacío: el código ya va escrito
+    // debajo. Hoy no pasa: los códigos del catálogo son números de 5 o 6 cifras.
     function almEtqBarras(codigo) {
         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         try {
@@ -1982,15 +1981,15 @@
         return svg.outerHTML;
     }
 
-    // UNA etiqueta. La misma para la vista previa y para la impresión.
+    // UNA etiqueta. La misma para la vista previa y para la impresión: arriba la descripción y,
+    // a su lado, la medida; debajo la ubicación (si tiene), el código de barras y el código.
     function almEtqHTML(e, f) {
         return '<div class="etq' + (f.hoja ? ' etq-corte' : '') + '">'
-            + '<div class="etq-empresa">' + ETQ_EMPRESA + '</div>'
-            + '<div class="etq-nombre">' + escHtml(e.nombre) + '</div>'
+            + '<div class="etq-cab"><div class="etq-nombre">' + escHtml(e.nombre) + '</div>'
+            +   '<span class="etq-um">' + escHtml(e.um) + '</span></div>'
             + (e.ubicacion ? '<div class="etq-var">Ubicación: ' + escHtml(e.ubicacion) + '</div>' : '')
             + '<div class="etq-barras">' + almEtqBarras(e.codigo) + '</div>'
-            + '<div class="etq-pie"><span class="etq-cod">' + escHtml(e.codigo) + '</span>'
-            +   '<span class="etq-um">' + escHtml(e.um) + '</span></div>'
+            + '<div class="etq-cod">' + escHtml(e.codigo) + '</div>'
             + '</div>';
     }
 
@@ -2002,18 +2001,19 @@
         return '.etq { width:' + f.w + 'mm; height:' + f.h + 'mm; padding:1.5mm 2mm; box-sizing:border-box; display:flex; flex-direction:column; overflow:hidden;'
             +   ' font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff; }'
             + ' .etq-corte { border:.15mm dashed #000; border-radius:1.8mm; }'
-            + ' .etq-empresa { font-size:' + (baja ? 5.5 : 6.5) + 'pt; text-transform:uppercase; letter-spacing:.04em; line-height:1.1; }'
             // La descripción del almacén es larga: hasta dos renglones (en la tira chica, uno).
-            + ' .etq-nombre { font-size:' + (baja ? 7 : 8.5) + 'pt; font-weight:bold; line-height:1.15; overflow:hidden;'
+            // Descripción y medida en un renglón: la medida, sin partirse, pegada a la derecha.
+            + ' .etq-cab { display:flex; align-items:flex-start; gap:1.5mm; }'
+            + ' .etq-nombre { flex:1; min-width:0; font-size:' + (baja ? 7 : 8.5) + 'pt; font-weight:bold; line-height:1.15; overflow:hidden;'
             +   ' display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:' + (f.w < 45 ? 1 : 2) + '; }'
             + ' .etq-var { font-size:' + (baja ? 6 : 7) + 'pt; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }'
             // Margen blanco a cada lado del código (zona de silencio): sin él, estirado de borde a
             // borde, el lector no siempre encuentra dónde empieza y dónde termina.
             + ' .etq-barras { flex:1; min-height:6mm; margin:.6mm 2.5mm .3mm; }'
             + ' .etq-barras svg { width:100%; height:100%; display:block; }'
-            + ' .etq-pie { display:flex; justify-content:space-between; align-items:baseline; gap:1mm; line-height:1; }'
-            + ' .etq-cod { font-size:6pt; letter-spacing:.03em; }'
-            + ' .etq-um { font-size:' + (baja ? 7.5 : 8.5) + 'pt; font-weight:bold; white-space:nowrap; }';
+            + ' .etq-um { flex:none; font-size:' + (baja ? 6.5 : 7.5) + 'pt; font-weight:bold; line-height:1.15; white-space:nowrap; }'
+            // El código, centrado bajo las barras: lo que se teclea si el lector falla.
+            + ' .etq-cod { text-align:center; font-size:' + (baja ? 6.5 : 7.5) + 'pt; letter-spacing:.08em; line-height:1; }';
     }
 
     // Vista previa: las etiquetas tal cual van a salir; desde ahí se imprimen. Con más de

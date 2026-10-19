@@ -445,19 +445,21 @@
             <div id="almEtqModoLista" style="display:none;">
                 <div id="almEtqLista" style="max-height:190px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;"></div>
             </div>
-            {{-- Fila inferior: cantidad de etiquetas y el lápiz del tamaño. El tamaño de la tira
-                 NO se ve de entrada —casi siempre solo interesa cuántas—: el lápiz lo muestra
-                 (almEtqVerFormato) y al abrir el modal vuelve a esconderse en 50 × 30.
-                 El campo de cantidad se OCULTA cuando hay varios productos, porque entonces
-                 cada uno lleva el suyo arriba (ver almAbrirEtiquetas). --}}
+            {{-- Abajo: la cantidad de etiquetas (a todo el ancho) con el lápiz del tamaño al lado y,
+                 DEBAJO, el tamaño del papel. El tamaño NO se ve de entrada —casi siempre solo
+                 interesa cuántas—: el lápiz lo muestra (almEtqVerFormato) y al abrir el modal vuelve
+                 a esconderse en 50 × 30. El campo de cantidad se OCULTA cuando hay varios productos,
+                 porque entonces cada uno lleva el suyo arriba (ver almAbrirEtiquetas). --}}
+            <div style="display:flex;flex-direction:column;gap:8px;">
             <div style="display:flex;gap:10px;align-items:center;justify-content:center;">
                 <input type="number" id="almEtqCopias" class="alm-nota-input" value="1" min="1" max="200" step="1"
                        aria-label="Cantidad de etiquetas" title="Cantidad de etiquetas"
-                       style="width:78px;flex:0 0 auto;text-align:center;">
+                       style="flex:1;min-width:0;text-align:center;">
                 <button type="button" id="almEtqFormatoBtn" class="alm-etq-lapiz" onclick="window.almEtqVerFormato()"
                         title="Cambiar el tamaño de la etiqueta" aria-label="Cambiar el tamaño de la etiqueta" aria-expanded="false">
                     <i class="material-icons">edit</i>
                 </button>
+            </div>
                 {{-- Desplegable "Formato": las dos tiras de la etiquetadora o la hoja carta
                      (30 por hoja, impresora normal). Mismo componente custom-dropdown del resto de la app
                      (selectOption escribe en el hidden #almEtqFormato, que lee almEtiquetasGenerar).
@@ -465,7 +467,7 @@
                      hace nada con este desplegable.
                      Ya no lleva <label> encima: el propio campo muestra el tamaño elegido
                      ("Rollo 50 × 30 mm") y va rotulado por aria-label. --}}
-                <div class="custom-dropdown" id="almEtqFormatoDropdown" data-filter-type="formato_etq" data-default-label="Rollo 50 × 30 mm" style="flex:1;min-width:0;" hidden>
+                <div class="custom-dropdown" id="almEtqFormatoDropdown" data-filter-type="formato_etq" data-default-label="Rollo 50 × 30 mm" style="width:100%;" hidden>
                     <input type="hidden" id="almEtqFormato" data-filter-value value="50x30">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:32px;">
                         <input type="text" data-filter-search autocomplete="off" readonly
