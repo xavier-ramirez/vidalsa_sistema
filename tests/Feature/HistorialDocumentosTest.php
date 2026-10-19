@@ -109,6 +109,10 @@ class HistorialDocumentosTest extends MySqlTestCase
                 'CAMBIOS' => ['tipo' => 'SOLDADORA'], 'created_at' => now()]);
         }
         $hoy = now()->toDateString();
+        // Versión única: en las pruebas la versión vive en la caché de memoria (vuelve a cero en
+        // cada corrida) y la lista armada en la de archivo (sobrevive). Con filtros que se repiten
+        // entre corridas, la versión repetida leería la lista de otra corrida, sin estos apuntes.
+        \Illuminate\Support\Facades\Cache::forever(HistorialDocumentosController::DATA_VER_KEY, random_int(1_000_000, 2_000_000_000));
 
         foreach (['Registro de Modelo', 'Foto de Modelo'] as $tipo) {
             $json = $this->actingAs($yo)->getJson(route('historial-documentos.index',
