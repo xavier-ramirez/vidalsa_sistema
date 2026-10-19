@@ -5494,10 +5494,11 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     -webkit-text-stroke: 3px var(--color-venta); paint-order: stroke fill;
 }
 .table-image-wrapper.placeholder:has(.etiqueta-venta) > .material-icons { display: none; }
-/* Vendido: blanca con borde rojo. Trámite: AMARILLA con borde marrón oscuro; blanca con borde
-   amarillo casi no se distinguía sobre el fondo claro del cuadro sin foto ni sobre fotos claras. */
+/* Las dos, letra blanca con borde de su color (--color-venta): rojo vendido, amarillo oscuro
+   trámite —el amarillo claro casi no se veía sobre el fondo blanco del cuadro sin foto—. El
+   trámite, más chico porque el texto es más largo. */
 .table-image-wrapper .etiqueta-venta--tramite,
-.table-image-wrapper.placeholder .etiqueta-venta--tramite { font-size: 13px !important; color: #fde047; -webkit-text-stroke-color: #713f12; }
+.table-image-wrapper.placeholder .etiqueta-venta--tramite { font-size: 13px !important; }
 @media (max-width: 768px) {
     .table-image-wrapper .etiqueta-venta,
     .table-image-wrapper.placeholder .etiqueta-venta { font-size: 14px !important; -webkit-text-stroke-width: 2.2px; }
