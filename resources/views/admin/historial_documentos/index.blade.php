@@ -275,7 +275,6 @@
         background: #f8fafc !important;
         transition: background 0.15s;
     }
-    #historialDocumentosTable .hd-has-cambios { cursor: pointer; }
 
     /* Desktop: fila abierta (burbuja de cambios) o seleccionada = fondo azul claro, borde
        azul y una barra a la izquierda. La barra es una sombra interior y no un borde de 4 px,

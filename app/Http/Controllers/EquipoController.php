@@ -3565,6 +3565,30 @@ class EquipoController extends Controller
             return response()->json(['success' => false, 'message' => 'La fecha de emisión no es válida.'], 422);
         }
 
+        // Largos de las columnas y los dos datos que no se pueden repetir (placa y serial de
+        // motor): sin esto, un texto pegado de mas en una casilla (paso con la Marca, que se
+        // llevo el texto entero del panel) o una placa ajena reventaban en MySQL con un 500.
+        if ($type === 'propiedad') {
+            $v = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                'nro_documento' => 'nullable|string|max:100',
+                'titular'       => 'nullable|string|max:150',
+                'placa'         => ['nullable', 'string', 'max:20', \Illuminate\Validation\Rule::unique('documentacion', 'PLACA')->ignore($equipo->ID_EQUIPO, 'ID_EQUIPO')],
+                'marca'         => 'nullable|string|max:50',
+                'modelo'        => 'nullable|string|max:50',
+                'serial_chasis' => 'nullable|string|max:100',
+                'serial_motor'  => ['nullable', 'string', 'max:100', \Illuminate\Validation\Rule::unique('equipos', 'SERIAL_DE_MOTOR')->ignore($equipo->ID_EQUIPO, 'ID_EQUIPO')],
+            ], [
+                'max'    => 'El campo :attribute es demasiado largo (máximo :max caracteres).',
+                'unique' => 'Ese valor de :attribute ya lo tiene otro equipo.',
+            ], [
+                'nro_documento' => 'Nro. Documento', 'titular' => 'Titular', 'placa' => 'Placa', 'marca' => 'Marca',
+                'modelo' => 'Modelo', 'serial_chasis' => 'Serial Chasis', 'serial_motor' => 'Serial Motor',
+            ]);
+            if ($v->fails()) {
+                return response()->json(['success' => false, 'message' => $v->errors()->first()], 422);
+            }
+        }
+
         $updateData = [];
 
         switch ($type) {

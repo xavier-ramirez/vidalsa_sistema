@@ -46,7 +46,7 @@ class GuardarMetadataNoBorraTest extends MySqlTestCase
             'ID_EQUIPO'          => $equipo->ID_EQUIPO,
             // Unica: documentacion.PLACA tiene indice UNIQUE y el caso corre contra la base de
             // trabajo. Con una placa escrita a mano, el dia que exista en la base el test se cae.
-            'PLACA'              => mb_strtoupper(substr('P' . uniqid(), 0, 8)),
+            'PLACA'              => 'P' . strtoupper(bin2hex(random_bytes(3))),
             'NOMBRE_DEL_TITULAR' => 'CONSTRUCTORA VIDALSA 27 C.A.',
             'NRO_DE_DOCUMENTO'   => '123456789012',
         ]);
@@ -127,6 +127,38 @@ class GuardarMetadataNoBorraTest extends MySqlTestCase
         $equipo->refresh();
         $this->assertSame('', $equipo->MARCA, 'vaciar una columna NOT NULL guarda cadena vacía');
         $this->assertNotEmpty($equipo->SERIAL_CHASIS, 'y no arrastra a las que no se mandaron');
+    }
+
+    /**
+     * Un texto que no cabe en su columna (paso con la Marca: se pego dentro el texto entero del
+     * panel) o una placa que ya es de otro equipo: respuesta 422 con el motivo, no un 500 de
+     * MySQL, y la ficha sin tocar.
+     */
+    public function test_un_texto_demasiado_largo_o_una_placa_ajena_se_rechazan_sin_tocar_la_ficha(): void
+    {
+        $equipo = $this->equipo();
+        $otro = $this->equipo();
+        $marca = $equipo->MARCA;
+
+        $this->actingAs($this->usuario())
+            ->post(route('equipos.updateMetadata', $equipo->ID_EQUIPO), [
+                'doc_type' => 'propiedad',
+                'marca'    => 'XCMG' . str_repeat(' EDITAR DATOS DEL DOCUMENTO', 5),
+            ])->assertStatus(422)->assertJson(['success' => false])
+            ->assertJsonFragment(['message' => 'El campo Marca es demasiado largo (máximo 50 caracteres).']);
+        $this->assertSame($marca, $equipo->refresh()->MARCA, 'la marca sigue como estaba');
+
+        $this->post(route('equipos.updateMetadata', $equipo->ID_EQUIPO), [
+            'doc_type' => 'propiedad',
+            'placa'    => $otro->documentacion->PLACA,
+        ])->assertStatus(422)->assertJsonFragment(['message' => 'Ese valor de Placa ya lo tiene otro equipo.']);
+
+        // Su propia placa, otra vez, no cuenta como repetida.
+        $this->post(route('equipos.updateMetadata', $equipo->ID_EQUIPO), [
+            'doc_type' => 'propiedad',
+            'placa'    => $equipo->documentacion->PLACA,
+            'serial_motor' => $equipo->SERIAL_DE_MOTOR,
+        ])->assertOk();
     }
 
     /**

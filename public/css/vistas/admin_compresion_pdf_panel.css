@@ -161,8 +161,7 @@
     .cpdf-nom { font-size: 12.5px; color: #0f172a; }
     /* Filas que se pueden dar por revisadas: se eligen con un clic en cualquier parte y se
        resaltan con .selected-row-maquinaria, el mismo azul que en Equipos (estilos_globales.css,
-       solo escritorio). En teléfono esa regla no aplica: aquí el mismo azul de fondo. */
-    .cpdf-fila-sel { cursor: pointer; }
+       solo escritorio); el cursor no cambia (pedido del cliente). En teléfono esa regla no aplica: aquí el mismo azul de fondo. */
     @media (max-width: 768px) {
         .cpdf-tabla-caja tr.cpdf-fila-sel.selected-row-maquinaria td { background-color: #bae6fd !important; }
     }

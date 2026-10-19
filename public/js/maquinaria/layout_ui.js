@@ -2385,13 +2385,13 @@ window.loadMetadata = async function () {
 
             if (ctx.docType === 'propiedad') {
                 html += `
-                <div style="${containerStyle}"><label for="meta_nro_doc_${ctx.equipoId}" style="${labelStyle}">Nro. Documento</label><input type="text" id="meta_nro_doc_${ctx.equipoId}" name="nro_documento" value="${info.nro_documento || ''}" ${disabledAttr} autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_titular_${ctx.equipoId}" style="${labelStyle}">Titular</label><input type="text" id="meta_titular_${ctx.equipoId}" name="titular" value="${info.titular || ''}" ${disabledAttr} autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_placa_${ctx.equipoId}" style="${labelStyle}">Placa</label><input type="text" id="meta_placa_${ctx.equipoId}" name="placa" value="${info.placa || ''}" ${disabledAttr} autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_marca_${ctx.equipoId}" style="${labelStyle}">Marca</label><input type="text" id="meta_marca_${ctx.equipoId}" name="marca" value="${info.marca || ''}" ${disabledAttr} autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_modelo_${ctx.equipoId}" style="${labelStyle}">Modelo</label><input type="text" id="meta_modelo_${ctx.equipoId}" name="modelo" value="${info.modelo || ''}" ${disabledAttr} autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_chasis_${ctx.equipoId}" style="${labelStyle}">Serial Chasis</label><input type="text" id="meta_chasis_${ctx.equipoId}" name="serial_chasis" value="${info.serial_chasis || ''}" ${disabledAttr} autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_motor_${ctx.equipoId}" style="${labelStyle}">Serial Motor</label><input type="text" id="meta_motor_${ctx.equipoId}" name="serial_motor" value="${info.serial_motor || ''}" ${disabledAttr} autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_nro_doc_${ctx.equipoId}" style="${labelStyle}">Nro. Documento</label><input type="text" id="meta_nro_doc_${ctx.equipoId}" name="nro_documento" value="${info.nro_documento || ''}" ${disabledAttr} maxlength="100" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_titular_${ctx.equipoId}" style="${labelStyle}">Titular</label><input type="text" id="meta_titular_${ctx.equipoId}" name="titular" value="${info.titular || ''}" ${disabledAttr} maxlength="150" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_placa_${ctx.equipoId}" style="${labelStyle}">Placa</label><input type="text" id="meta_placa_${ctx.equipoId}" name="placa" value="${info.placa || ''}" ${disabledAttr} maxlength="20" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_marca_${ctx.equipoId}" style="${labelStyle}">Marca</label><input type="text" id="meta_marca_${ctx.equipoId}" name="marca" value="${info.marca || ''}" ${disabledAttr} maxlength="50" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_modelo_${ctx.equipoId}" style="${labelStyle}">Modelo</label><input type="text" id="meta_modelo_${ctx.equipoId}" name="modelo" value="${info.modelo || ''}" ${disabledAttr} maxlength="50" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_chasis_${ctx.equipoId}" style="${labelStyle}">Serial Chasis</label><input type="text" id="meta_chasis_${ctx.equipoId}" name="serial_chasis" value="${info.serial_chasis || ''}" ${disabledAttr} maxlength="100" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_motor_${ctx.equipoId}" style="${labelStyle}">Serial Motor</label><input type="text" id="meta_motor_${ctx.equipoId}" name="serial_motor" value="${info.serial_motor || ''}" ${disabledAttr} maxlength="100" autocomplete="off"></div>
             `;
             } else if (ctx.docType === 'poliza') {
                 let datalistOptions = '';

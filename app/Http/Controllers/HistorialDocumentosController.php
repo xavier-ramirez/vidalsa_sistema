@@ -285,6 +285,10 @@ class HistorialDocumentosController extends Controller
     private static function programarCalentado(): void
     {
         if (self::$calentadoProgramado) return;
+        // "Despues de responder" solo existe con php-fpm (el servidor): con el Apache de XAMPP
+        // (mod_php) la respuesta no se cierra hasta que acaba el script, y el navegador esperaba
+        // esos ~1,3 s en cada Guardar. Ahi no se calienta: la pantalla la arma al abrirse.
+        if (PHP_SAPI !== 'cli' && !function_exists('fastcgi_finish_request')) return;
         self::$calentadoProgramado = true;
 
         app()->terminating(function () {
@@ -334,13 +338,27 @@ class HistorialDocumentosController extends Controller
     private static function guardarLista($almacen, string $clave, $ver, \Illuminate\Support\Collection $events): array
     {
         $resumen = self::resumen($events);
-        $almacen->put(
-            $clave,
-            ['ver' => $ver, 'dia' => now()->toDateString(), 'events' => $events->all(), 'resumen' => $resumen],
-            now()->addHours(6)
-        );
+        $valor = ['ver' => $ver, 'dia' => now()->toDateString(), 'resumen' => $resumen];
+        $almacen->put($clave, $valor + ['events' => $events->all()], now()->addHours(6));
+        self::guardarPrimera($almacen, $clave, $valor, $events);
         return $resumen;
     }
+
+    /**
+     * La primera pagina, aparte y pequena: es lo unico que se ve al abrir, y leer la lista entera
+     * (~3,5 MB, 35-60 ms medidos) solo para enseñar 15 filas era la mitad de lo que tardaba la
+     * pantalla en salir. Las demas paginas leen la grande.
+     */
+    private static function guardarPrimera($almacen, string $clave, array $valor, \Illuminate\Support\Collection $events): void
+    {
+        $almacen->put($clave . self::SUFIJO_PRIMERA, $valor + [
+            'total'  => $events->count(),
+            'events' => $events->forPage(1, self::POR_PAGINA)->values()->all(),
+        ], now()->addHours(6));
+    }
+
+    private const POR_PAGINA = 15;
+    private const SUFIJO_PRIMERA = '_p1';
 
     /**
      * La clave del conjunto de eventos: el scope de frentes (asi un cambio de permisos cambia
@@ -411,34 +429,47 @@ class HistorialDocumentosController extends Controller
         // problema de las filas huerfanas de 3 MB que explica el comentario de DATA_VER_KEY.
         $almacen = \Illuminate\Support\Facades\Cache::store('file');
 
-        $cached = $almacen->get($cacheKey);
-        // Con la lista va su resumen de la barra lateral: contarlo cuesta ~1/3 de la pantalla, asi
-        // que se cuenta UNA vez por version de la lista, no en cada carga ni cambio de pagina. El
-        // dia va en el valor: "Hoy" y "Ultimos 7 dias" no pueden servirse de ayer.
-        if (is_array($cached) && ($cached['ver'] ?? null) === $ver) {
-            $events = collect($cached['events']);
-            if (($cached['dia'] ?? null) === now()->toDateString() && isset($cached['resumen'])) {
-                $resumen = $cached['resumen'];
+        $perPage = self::POR_PAGINA;
+        $page = max(1, (int) $request->input('page', 1));
+        $hoy = now()->toDateString();
+
+        // La pagina 1 (abrir la pantalla, cambiar un filtro) sale de su entrada pequeña si esta
+        // al dia; si no, por el camino de siempre, que vuelve a dejarla hecha.
+        $primera = $page === 1 ? $almacen->get($cacheKey . self::SUFIJO_PRIMERA) : null;
+        if (is_array($primera) && ($primera['ver'] ?? null) === $ver && ($primera['dia'] ?? null) === $hoy) {
+            $filas   = collect($primera['events']);
+            $total   = $primera['total'];
+            $resumen = $primera['resumen'];
+        } else {
+            $cached = $almacen->get($cacheKey);
+            // Con la lista va su resumen de la barra lateral: contarlo cuesta ~1/3 de la pantalla, asi
+            // que se cuenta UNA vez por version de la lista, no en cada carga ni cambio de pagina. El
+            // dia va en el valor: "Hoy" y "Ultimos 7 dias" no pueden servirse de ayer.
+            if (is_array($cached) && ($cached['ver'] ?? null) === $ver) {
+                $events = collect($cached['events']);
+                if (($cached['dia'] ?? null) === $hoy && isset($cached['resumen'])) {
+                    $resumen = $cached['resumen'];
+                    // Guardada antes de que existiera la entrada de la primera pagina.
+                    if ($page === 1) self::guardarPrimera($almacen, $cacheKey, array_diff_key($cached, ['events' => 1]), $events);
+                } else {
+                    // Lista al dia pero de otro dia: solo se recuenta el resumen, no se rehace todo.
+                    $resumen = self::guardarLista($almacen, $cacheKey, $ver, $events);
+                }
             } else {
-                // Lista al dia pero de otro dia: solo se recuenta el resumen, no se rehace todo.
+                $events = collect($this->construirEventos(
+                    $request, $frentesVisibles, $frentesBloqueados,
+                    $fechaDesdeSql, $fechaHastaSql, $searchEquipoSql
+                ));
                 $resumen = self::guardarLista($almacen, $cacheKey, $ver, $events);
             }
-        } else {
-            $events = collect($this->construirEventos(
-                $request, $frentesVisibles, $frentesBloqueados,
-                $fechaDesdeSql, $fechaHastaSql, $searchEquipoSql
-            ));
-            $resumen = self::guardarLista($almacen, $cacheKey, $ver, $events);
+
+            $total = $events->count();
+            $filas = $events->forPage($page, $perPage)->values(); // values(): claves desde 0 para el blade
         }
 
-        $total = $events->count();
-
         // Paginación manual (LengthAwarePaginator) sobre la colección de eventos.
-        $perPage = 15;
-        $page = $request->input('page', 1);
-
         $paginatedEvents = new \Illuminate\Pagination\LengthAwarePaginator(
-            $events->forPage($page, $perPage)->values(), // important: values() to reset keys for blade loop
+            $filas,
             $total,
             $perPage,
             $page,
