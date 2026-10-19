@@ -93,7 +93,8 @@
     .cpdf-avance-listo { color: #15803d; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
     /* Revisar a mano en el visor (panel oscuro del visor). Arriba, la tarjeta de la revisión
        (.cpdf-pista-aviso): estado, motivo y, dato a dato, "ficha → documento"; debajo de cada
-       campo del panel, lo que dice el documento con su botón "Usar" (.cpdf-pista). */
+       campo del panel, lo que tiene la ficha AHORA y lo que dice el documento, cada uno con su
+       botón "Usar" (.cpdf-pista dentro de .cpdf-opciones). */
     .cpdf-pista-aviso { margin-bottom: 14px; border-radius: 8px; background: #1e293b; border: 1px solid #334155;
                         color: #cbd5e1; font-size: 12px; line-height: 1.4; overflow: hidden; }
     .cpdf-rev-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #334155; }
@@ -130,6 +131,11 @@
     .cpdf-pista em { font-style: normal; color: #fcd34d; }
     .cpdf-pista button { margin-left: auto; background: #2563eb; color: #fff; border: 0; border-radius: 5px; padding: 3px 10px; font-size: 11px; font-weight: 700; cursor: pointer; }
     .cpdf-pista button:hover { background: #1d4ed8; }
+    /* Ficha y documento, una debajo de la otra; la que está puesta en el campo, marcada. */
+    .cpdf-opciones { display: flex; flex-direction: column; }
+    .cpdf-pista.en-uso { background: rgba(34, 197, 94, .14); border-color: rgba(74, 222, 128, .45); }
+    .cpdf-pista.en-uso button { background: #16a34a; cursor: default; }
+    .cpdf-pista em.cpdf-igual { color: #86efac; }
 
     /* La tabla es la MISMA de Control de Auditoría, Usuarios y Equipos (.admin-table), con
        menos relleno: estas dos listas llevan más columnas y muchas filas. */

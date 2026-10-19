@@ -760,26 +760,52 @@
                 if (!input && d.solo_ver) return;
                 if (!input) { otras.push([campo, d, valor]); return; }
                 // textContent, nunca innerHTML: el valor sale de un PDF.
-                var pista = document.createElement('div'), t = document.createElement('span'),
-                    b = document.createElement('b'), usar = document.createElement('button');
-                pista.className = 'cpdf-pista';
-                t.textContent = 'Documento:';
-                b.textContent = cpdfFecha(valor);
+                var pista = function (rotulo, v) {
+                    var fila = cpdfNodo('div', 'cpdf-pista', [cpdfNodo('span', '', rotulo), cpdfNodo('b', '', v === '' ? 'vacío' : cpdfFecha(v))]);
+                    fila.dataset.valor = v;
+                    return fila;
+                };
                 if (anterior) {
                     // Sin boton: es del PDF viejo.
-                    var nota = document.createElement('em');
-                    nota.textContent = CAMPO[campo] === 'fecha_vencimiento' ? 'más vieja que la ficha: PDF anterior' : 'del PDF anterior';
-                    pista.append(t, b, nota);
-                } else {
-                    usar.type = 'button';
-                    usar.textContent = 'Usar';
-                    usar.onclick = function () { input.value = valor; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); };
-                    pista.append(t, b, usar);
-                    // La fecha de emision que la ficha tiene VACIA viene ya puesta: basta con
-                    // Guardar (lo pidio el cliente); vaciar el campo = no ponerla.
-                    if (CAMPO[campo] === 'fecha_emision' && !input.value) input.value = valor;
+                    var vieja = pista('Documento:', valor);
+                    vieja.appendChild(cpdfNodo('em', '', CAMPO[campo] === 'fecha_vencimiento' ? 'más vieja que la ficha: PDF anterior' : 'del PDF anterior'));
+                    input.insertAdjacentElement('afterend', vieja);
+                    return;
                 }
-                input.insertAdjacentElement('afterend', pista);
+                // Lo que la ficha tiene AHORA (el panel lo carga de la base), no lo que tenia al
+                // leerse el PDF: si alguien la corrigio despues, la lista de arriba ya no es lo actual.
+                var actual = input.value;
+                // La fecha de emision que la ficha tiene VACIA viene ya puesta: basta con
+                // Guardar (lo pidio el cliente); vaciar el campo = no ponerla.
+                if (CAMPO[campo] === 'fecha_emision' && !input.value) input.value = valor;
+                var caja = cpdfNodo('div', 'cpdf-opciones');
+                if (actual.trim().toUpperCase() === valor.trim().toUpperCase()) {
+                    // Ya coinciden: nada que elegir.
+                    var igual = pista('Ficha y documento:', valor);
+                    igual.appendChild(cpdfNodo('em', 'cpdf-igual', 'iguales'));
+                    caja.appendChild(igual);
+                } else {
+                    // Las dos, cada una con su boton: decide quien mira el PDF (pedido del cliente,
+                    // 19-10-2026). La que esta puesta en el campo sale marcada "En uso".
+                    [['Ficha:', actual], ['Documento:', valor]].forEach(function (op) {
+                        var fila = pista(op[0], op[1]), usar = document.createElement('button');
+                        usar.type = 'button';
+                        usar.onclick = function () { input.value = op[1]; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); };
+                        fila.appendChild(usar);
+                        caja.appendChild(fila);
+                    });
+                    var marcar = function () {
+                        caja.querySelectorAll('.cpdf-pista').forEach(function (fila) {
+                            var enUso = fila.dataset.valor.trim().toUpperCase() === input.value.trim().toUpperCase();
+                            fila.classList.toggle('en-uso', enUso);
+                            fila.querySelector('button').textContent = enUso ? 'En uso' : 'Usar';
+                        });
+                    };
+                    input.addEventListener('input', marcar);
+                    input.addEventListener('change', marcar);
+                    marcar();
+                }
+                input.insertAdjacentElement('afterend', caja);
             });
             var aviso = document.createElement('div'), v = window._pdfVerif;
             aviso.className = 'cpdf-pista-aviso';
