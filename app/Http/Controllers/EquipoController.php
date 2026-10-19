@@ -3578,14 +3578,15 @@ class EquipoController extends Controller
                 'serial_chasis' => 'nullable|string|max:100',
                 'serial_motor'  => ['nullable', 'string', 'max:100', \Illuminate\Validation\Rule::unique('equipos', 'SERIAL_DE_MOTOR')->ignore($equipo->ID_EQUIPO, 'ID_EQUIPO')],
             ], [
-                'max'    => 'El campo :attribute es demasiado largo (máximo :max caracteres).',
-                'unique' => 'Ese valor de :attribute ya lo tiene otro equipo.',
+                // El "ya está registrado" de lang/es no dice de quién es (ni concuerda con "la placa").
+                'unique' => 'Otro equipo ya tiene :attribute que escribiste.',
             ], [
-                'nro_documento' => 'Nro. Documento', 'titular' => 'Titular', 'placa' => 'Placa', 'marca' => 'Marca',
-                'modelo' => 'Modelo', 'serial_chasis' => 'Serial Chasis', 'serial_motor' => 'Serial Motor',
+                // Los mismos nombres que lang/es/validation.php da a esas columnas.
+                'nro_documento' => 'el número de documento', 'titular' => 'el nombre del titular', 'placa' => 'la placa',
+                'marca' => 'la marca', 'modelo' => 'el modelo', 'serial_chasis' => 'el serial de chasis', 'serial_motor' => 'el serial de motor',
             ]);
             if ($v->fails()) {
-                return response()->json(['success' => false, 'message' => $v->errors()->first()], 422);
+                return response()->json(['success' => false, 'message' => ucfirst($v->errors()->first())], 422);
             }
         }
 

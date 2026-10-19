@@ -153,6 +153,10 @@ class HistorialDocumentosController extends Controller
      */
     public const DATA_VER_KEY = 'historial_docs_ver';
 
+    /** Filas por pagina, y la entrada aparte con la primera (ver guardarPrimera). */
+    private const POR_PAGINA = 15;
+    private const SUFIJO_PRIMERA = '_p1';
+
     /**
      * Las acciones del filtro "Tipo de Acción", por grupo: [grupo => [valor => etiqueta]]. Los
      * documentos van por accion (valores 'cat_*', ver esDeTipo); lo demas casa por el texto del
@@ -357,9 +361,6 @@ class HistorialDocumentosController extends Controller
         ], now()->addHours(6));
     }
 
-    private const POR_PAGINA = 15;
-    private const SUFIJO_PRIMERA = '_p1';
-
     /**
      * La clave del conjunto de eventos: el scope de frentes (asi un cambio de permisos cambia
      * la clave sola) + la firma de los filtros. NO el usuario: la lista solo depende de lo que
@@ -429,7 +430,6 @@ class HistorialDocumentosController extends Controller
         // problema de las filas huerfanas de 3 MB que explica el comentario de DATA_VER_KEY.
         $almacen = \Illuminate\Support\Facades\Cache::store('file');
 
-        $perPage = self::POR_PAGINA;
         $page = max(1, (int) $request->input('page', 1));
         $hoy = now()->toDateString();
 
@@ -464,14 +464,14 @@ class HistorialDocumentosController extends Controller
             }
 
             $total = $events->count();
-            $filas = $events->forPage($page, $perPage)->values(); // values(): claves desde 0 para el blade
+            $filas = $events->forPage($page, self::POR_PAGINA)->values(); // values(): claves desde 0 para el blade
         }
 
         // Paginación manual (LengthAwarePaginator) sobre la colección de eventos.
         $paginatedEvents = new \Illuminate\Pagination\LengthAwarePaginator(
             $filas,
             $total,
-            $perPage,
+            self::POR_PAGINA,
             $page,
             ['path' => $request->url(), 'query' => $request->query()]
         );

@@ -145,13 +145,13 @@ class GuardarMetadataNoBorraTest extends MySqlTestCase
                 'doc_type' => 'propiedad',
                 'marca'    => 'XCMG' . str_repeat(' EDITAR DATOS DEL DOCUMENTO', 5),
             ])->assertStatus(422)->assertJson(['success' => false])
-            ->assertJsonFragment(['message' => 'El campo Marca es demasiado largo (máximo 50 caracteres).']);
+            ->assertJsonFragment(['message' => 'La marca no puede tener más de 50 caracteres.']);
         $this->assertSame($marca, $equipo->refresh()->MARCA, 'la marca sigue como estaba');
 
         $this->post(route('equipos.updateMetadata', $equipo->ID_EQUIPO), [
             'doc_type' => 'propiedad',
             'placa'    => $otro->documentacion->PLACA,
-        ])->assertStatus(422)->assertJsonFragment(['message' => 'Ese valor de Placa ya lo tiene otro equipo.']);
+        ])->assertStatus(422)->assertJsonFragment(['message' => 'Otro equipo ya tiene la placa que escribiste.']);
 
         // Su propia placa, otra vez, no cuenta como repetida.
         $this->post(route('equipos.updateMetadata', $equipo->ID_EQUIPO), [
