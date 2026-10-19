@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\HistorialDocumentosController;
+use App\Models\CatalogoAuditLog;
 use App\Models\EquipoAuditLog;
 use App\Models\Usuario;
 use App\Support\CacheVersion;
@@ -93,6 +94,31 @@ class HistorialDocumentosTest extends MySqlTestCase
         // Cambiar de pagina no cambia el resumen: no se vuelve a mandar.
         $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['search_equipo' => $placa, 'page' => 2]))->json();
         $this->assertNull($json['resumen_html']);
+    }
+
+    /**
+     * Equipos y auxiliares son el mismo catálogo: su registro y su foto salen como "Registro de
+     * Modelo" y "Foto de Modelo", y el filtro "Tipo de Acción" ya no ofrece los de auxiliar.
+     */
+    public function test_el_catalogo_de_auxiliares_va_en_las_mismas_acciones_que_el_de_equipos(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        $marca = 'AUXPRUEBA' . strtoupper(Str::random(6));
+        foreach (['create_aux', 'upload_foto_aux'] as $accion) {
+            CatalogoAuditLog::create(['ID_USUARIO' => $yo->ID_USUARIO, 'ACCION' => $accion, 'MODELO' => $marca,
+                'CAMBIOS' => ['tipo' => 'SOLDADORA'], 'created_at' => now()]);
+        }
+        $hoy = now()->toDateString();
+
+        foreach (['Registro de Modelo', 'Foto de Modelo'] as $tipo) {
+            $json = $this->actingAs($yo)->getJson(route('historial-documentos.index',
+                ['search_tipo' => $tipo, 'fecha_desde' => $hoy, 'fecha_hasta' => $hoy]))->json();
+            $this->assertStringContainsString($marca, $json['html'], "El de auxiliar sale en \"$tipo\".");
+        }
+        $this->assertArrayNotHasKey('Registro de Auxiliar', HistorialDocumentosController::TIPOS_ACCION['Catálogo de modelos']);
+        $this->assertArrayNotHasKey('Foto de Auxiliar', HistorialDocumentosController::TIPOS_ACCION['Catálogo de modelos']);
+        $html = $this->actingAs($yo)->get(route('historial-documentos.index'))->getContent();
+        $this->assertStringNotContainsString('de Auxiliar', $html, 'Ni en el desplegable ni en las filas.');
     }
 
     /**

@@ -47,8 +47,8 @@
     .cpdf-aviso.ok strong, .cpdf-aviso.ok span { color: #1e3a5f; }
     .cpdf-aviso.apagada { background: #f8fafc; color: #475569; }
     /* "Revisar ahora": el rotulo y, debajo, los cinco botones como un grupo pegado, en UNA fila
-       de cinco columnas iguales a todo el ancho de la tarjeta. Con flex y wrap, en la columna de
-       280 px el ultimo ("Todos") se bajaba solo a otra linea dentro del recuadro. */
+       de cinco columnas iguales (en la columna de 280 px de la PC caben todos; en la tarjeta
+       ancha de la tableta el grupo queda del tamaño de su texto). */
     .cpdf-aviso .cpdf-ahora-fila { display: flex; flex-direction: column; align-items: stretch; gap: 4px; margin-top: 8px; }
     .cpdf-aviso .cpdf-ahora-rotulo { font-weight: 700; font-size: 11.5px; }
     .cpdf-aviso .cpdf-ahora-botones { display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid #93c5fd;
