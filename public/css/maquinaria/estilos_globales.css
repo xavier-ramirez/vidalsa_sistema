@@ -5471,16 +5471,18 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .dist-cab { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; gap: 4px; }
 .dist-nombre { color: #334155; font-size: 12.5px; font-weight: 600; word-break: break-word; line-height: 1.25; flex: 1; }
 .dist-cant { font-weight: 700; color: #1e293b; font-size: 12.5px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; white-space: nowrap; }
-.dist-barra { width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
+/* flex: el tramo rojo (lo en venta de un tipo) sigue al de su color. */
+.dist-barra { display: flex; width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
 .dist-barra > div { height: 100%; border-radius: 2px; }
 .dist-barra-verde { background: linear-gradient(90deg, #10b981 0%, #059669 100%); }
 .dist-barra-azul { background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); }
-/* Frentes vendidos / en trámite y lo de un tipo que está en ellos: en ROJO (pedido del
-   cliente). No entran en el TOTAL del Consolidado. */
-.dist-venta .dist-nombre { color: #b91c1c; }
-.dist-venta .dist-cant { color: #b91c1c; background: #fee2e2; }
-.dist-barra-roja { background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%); }
-.dist-rotulo, .dist-nota { display: block; margin-top: 1px; font-size: 10.5px; font-weight: 700; color: #dc2626; letter-spacing: .02em; }
+/* Frentes vendidos / en trámite y lo de un tipo que está en ellos: la BARRA en rojo (un tramo,
+   en las filas por tipo); la letra no cambia de color (pedido del cliente). No entran en el
+   TOTAL del Consolidado. */
+/* El rojo del bloque "Inoperativo" del Consolidado (#ef4444), en degradado como las otras barras. */
+.dist-barra-roja { background: linear-gradient(90deg, #f87171 0%, #ef4444 100%); }
+.dist-rotulo { font-size: 10.5px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+.dist-nota { display: block; margin-top: 1px; font-size: 10.5px; font-weight: 600; color: #64748b; }
 
 /* ── Frentes VENDIDO / TRÁMITE DE VENTA ─────────────────────────────────────────
    Estado junto al nombre del frente (filtro de Equipos), sobre la foto del equipo y aviso arriba

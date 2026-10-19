@@ -6,25 +6,27 @@
      $alTocar   onclick (filtra por esa fila)       $nombre  texto de la fila
      $total     cantidad (lo DISPONIBLE)             $pct     ancho de la barra (0–100)
      $barra     color de la barra ('verde' | 'azul')
-     $venta     (opcional) FrenteTrabajo::avisoVentaDe(): la fila es un frente vendido o en
-                trámite → en rojo, con su rótulo.
-     $vendidos, $enTramite (opcionales) los de ese tipo que están en frentes en venta: se anotan
-                en rojo bajo el nombre (no van en $total). --}}
+     $ventaFila FrenteTrabajo::avisoVentaDe() o null: la fila es un frente vendido o en trámite
+                → su rótulo al lado del nombre y la barra EN ROJO.
+     $vendidos, $enTramite, $pctVenta  los de ese tipo que están en frentes en venta (0 si no):
+                se anotan bajo el nombre y van como un tramo ROJO de la barra ($pctVenta), no
+                en $total. La letra no cambia de color: lo rojo es solo la barra.
+     TODOS se pasan siempre en el @include: un include HEREDA las variables de la vista que lo
+     incluye (index.blade.php tiene su propio $venta, el del aviso del frente) y uno que faltara
+     tomaría el de allí. --}}
 @php
-    $venta = $venta ?? null;
     $nota = array_filter([
-        ($vendidos ?? 0) > 0 ? $vendidos . ' ' . (($vendidos ?? 0) == 1 ? 'vendido' : 'vendidos') : null,
-        ($enTramite ?? 0) > 0 ? $enTramite . ' en trámite de venta' : null,
+        $vendidos > 0 ? $vendidos . ' ' . ($vendidos == 1 ? 'vendido' : 'vendidos') : null,
+        $enTramite > 0 ? $enTramite . ' en trámite de venta' : null,
     ]);
 @endphp
-<li class="dist-fila{{ $venta ? ' dist-venta' : '' }}" onclick="{{ $alTocar }}">
+<li class="dist-fila" onclick="{{ $alTocar }}">
     <div class="dist-cab">
         <span class="dist-nombre">
-            {{ $nombre }}
-            @if($venta)<small class="dist-rotulo">{{ $venta['etiqueta'] }}</small>@endif
+            {{ $nombre }}@if($ventaFila) <small class="dist-rotulo">{{ $ventaFila['etiqueta'] }}</small>@endif
             @if($nota)<small class="dist-nota">{{ implode(' · ', $nota) }}</small>@endif
         </span>
         <span class="dist-cant">{{ $total }}</span>
     </div>
-    <div class="dist-barra"><div class="dist-barra-{{ $venta ? 'roja' : $barra }}" style="width: {{ $pct }}%;"></div></div>
+    <div class="dist-barra"><div class="dist-barra-{{ $ventaFila ? 'roja' : $barra }}" style="width: {{ $pct }}%;"></div>@if($pctVenta > 0)<div class="dist-barra-roja" style="width: {{ $pctVenta }}%;"></div>@endif</div>
 </li>

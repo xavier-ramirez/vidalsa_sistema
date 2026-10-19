@@ -34,12 +34,13 @@
         @php $totalFrentes = $frentesStats->sum('total'); @endphp
         @foreach($frentesStats as $stat)
             @php $percentage = $totalFrentes > 0 ? ($stat->total / $totalFrentes) * 100 : 0; @endphp
-            {{-- Los frentes vendidos o en trámite (si el listado los trae) salen en rojo y al final. --}}
+            {{-- Los frentes vendidos o en trámite (si el listado los trae): barra en rojo, al final. --}}
             @include('admin.equipos.partials.distribucion_fila', [
                 'alTocar' => "selectOption('frenteFilterSelect', '" . $stat->ID_FRENTE_ACTUAL . "', '" . addslashes(trim($stat->NOMBRE_FRENTE ?? '')) . "'); loadEquipos();",
                 'nombre'  => $stat->NOMBRE_FRENTE ?? 'Sin Asignar',
                 'total'   => $stat->total, 'pct' => $percentage, 'barra' => 'verde',
-                'venta'   => \App\Models\FrenteTrabajo::avisoVentaDe($stat->TIPO_FRENTE ?? null),
+                'ventaFila' => \App\Models\FrenteTrabajo::avisoVentaDe($stat->TIPO_FRENTE ?? null),
+                'vendidos'  => 0, 'enTramite' => 0, 'pctVenta' => 0,
             ])
         @endforeach
     </ul>
@@ -56,15 +57,20 @@
              cuando se ha filtrado (el GROUP BY son ~259 ms y ~60 KB, demasiado para pagarlo
              en cada apertura con la tabla todavía vacía). Sin filtro, este @foreach no pinta
              nada y la card queda en blanco a propósito. --}}
-        @php $totalStats = $tiposStats->sum('total'); @endphp
+        {{-- La barra se mide sobre todo lo que trae la lista (disponible + en venta): el tramo
+             rojo de cada tipo es lo suyo vendido o en trámite. --}}
+        @php $totalStats = $tiposStats->sum(fn ($t) => $t->total + (int) ($t->vendidos ?? 0) + (int) ($t->en_tramite ?? 0)); @endphp
         @foreach($tiposStats as $stat)
-            @php $percentage = $totalStats > 0 ? ($stat->total / $totalStats) * 100 : 0; @endphp
-            {{-- 'total' es lo DISPONIBLE; los de este tipo en frentes en venta van anotados en rojo. --}}
+            @php
+                $percentage = $totalStats > 0 ? ($stat->total / $totalStats) * 100 : 0;
+                $pctVenta   = $totalStats > 0 ? (((int) ($stat->vendidos ?? 0) + (int) ($stat->en_tramite ?? 0)) / $totalStats) * 100 : 0;
+            @endphp
+            {{-- 'total' es lo DISPONIBLE; lo de este tipo en frentes en venta, anotado y en rojo en la barra. --}}
             @include('admin.equipos.partials.distribucion_fila', [
                 'alTocar'   => "selectOption('tipoFilterSelect', '" . $stat->id_tipo_equipo . "', '" . addslashes(trim($stat->nombre ?? '')) . "'); loadEquipos();",
                 'nombre'    => $stat->nombre ?? 'Desconocido',
                 'total'     => $stat->total, 'pct' => $percentage, 'barra' => 'azul',
-                'vendidos'  => (int) ($stat->vendidos ?? 0), 'enTramite' => (int) ($stat->en_tramite ?? 0),
+                'vendidos'  => (int) ($stat->vendidos ?? 0), 'enTramite' => (int) ($stat->en_tramite ?? 0), 'pctVenta' => $pctVenta, 'ventaFila' => null,
             ])
         @endforeach
     </ul>

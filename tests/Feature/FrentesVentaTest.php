@@ -235,12 +235,19 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame($esperado, $j->json('stats.total'), 'El TOTAL es lo disponible: sin el vendido.');
 
         $html = (string) $j->json('distribution');
-        $fila = '/<li class="dist-fila dist-venta"[^>]*>.*?' . preg_quote(e($frente->NOMBRE_FRENTE), '/')
-            . '.*?<small class="dist-rotulo">VENDIDO<\/small>.*?<span class="dist-cant">1<\/span>/s';
-        $this->assertMatchesRegularExpression($fila, $html, 'El frente vendido sale en rojo, con su rótulo y su cantidad.');
+        $fila = '/<li class="dist-fila"[^>]*>\s*<div class="dist-cab">\s*<span class="dist-nombre">\s*' . preg_quote(e($frente->NOMBRE_FRENTE), '/')
+            . ' <small class="dist-rotulo">VENDIDO<\/small>.*?<span class="dist-cant">1<\/span>.*?<div class="dist-barra-roja"/s';
+        $this->assertMatchesRegularExpression($fila, $html, 'El frente vendido: rótulo en la misma línea, su cantidad y la barra en rojo.');
 
-        // Dentro del frente vendido, a propósito: sus cifras normales.
+        // Dentro del frente vendido, a propósito: sus cifras normales, y sus filas por TIPO sin el
+        // rótulo ni la barra roja (la página completa tiene su propio $venta, el del aviso: el
+        // include de la fila lo heredaba y ponía "VENDIDO" en todos los tipos).
         $this->assertSame(1, $this->actingAs($admin)->getJson('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk()->json('stats.total'));
+        $pagina = (string) $this->actingAs($admin)->get('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk()->getContent();
+        $card = substr($pagina, strpos($pagina, 'id="distributionStatsContainer"'), 4000);
+        $this->assertStringContainsString('dist-fila', $card);
+        $this->assertStringNotContainsString('dist-rotulo', $card);
+        $this->assertStringNotContainsString('dist-barra-roja', $card);
     }
 
     public function test_auxiliares_por_tipo_el_total_no_cuenta_lo_vendido_pero_la_lista_si(): void

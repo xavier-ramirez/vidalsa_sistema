@@ -918,12 +918,13 @@ function _eqHayDistribAux() {
 function _eqHayDistribUbi() {
     return !!(window.__distribUbiHtml && String(window.__distribUbiHtml).trim());
 }
-// Secciones disponibles en orden. "equipos" siempre; "detalles" solo en frentes fuera de la flota;
-// "aux" solo cuando hay distribución de auxiliares.
+// Secciones disponibles en orden: "equipos" siempre; "aux" cuando hay distribución de
+// auxiliares; "detalles" (solo en frentes fuera de la flota) AL FINAL, después de los dos
+// gráficos (pedido del cliente).
 function _eqVistasDistrib() {
     const v = ['equipos'];
-    if (_eqHayDistribUbi()) v.push('detalles');
     if (_eqHayDistribAux()) v.push('aux');
+    if (_eqHayDistribUbi()) v.push('detalles');
     return v;
 }
 const _EQ_VISTA_LABEL = { equipos: 'Equipos y Maquinaria', detalles: 'Detalles', aux: 'Auxiliares' };

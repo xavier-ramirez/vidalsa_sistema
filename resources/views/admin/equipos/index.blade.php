@@ -997,8 +997,8 @@
     </div>
 
     <!-- Breakdown by Type or Front (Dynamic) -->
-    {{-- La card muestra TODAS las secciones disponibles (Equipos y Maquinaria, Detalles,
-         Auxiliares) apiladas en UNA sola lista. El CLIC fuera de una fila (onDistribucionCardClick)
+    {{-- La card muestra TODAS las secciones disponibles (Equipos y Maquinaria, Auxiliares y,
+         al final, Detalles) apiladas en UNA sola lista. El CLIC fuera de una fila (onDistribucionCardClick)
          hace SCROLL a la siguiente sección (no intercambia contenido); los clics sobre una fila
          (li) conservan su acción de filtrar. La sección Auxiliares solo se agrega cuando hay
          distribución de auxiliares (con filtro — ver $auxDistributionHtml). --}}

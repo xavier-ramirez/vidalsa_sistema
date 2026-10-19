@@ -57,9 +57,11 @@ class EquiposFiltroTipoTest extends MySqlTestCase
         // El desplegable combinado manda el mismo tipo como 'tipo_eq:N'.
         $this->assertSame($todos, $this->filas(['id_tipo' => "tipo_eq:$tipo"]));
 
-        // La tarjeta de tipos y la de frentes cuentan lo mismo que la tabla.
+        // La tarjeta de tipos y la de frentes cuentan lo mismo que la tabla. En la de tipos, 'total'
+        // es lo DISPONIBLE y lo de frentes vendidos / en trámite va aparte (vendidos, en_tramite).
         $vista = $this->actingAs($this->usuarioGlobal())->get('/admin/equipos?id_tipo=' . $tipo)->assertOk();
-        $this->assertSame(count($todos), (int) $vista->viewData('tiposStats')->firstWhere('id_tipo_equipo', $tipo)->total);
+        $fila = $vista->viewData('tiposStats')->firstWhere('id_tipo_equipo', $tipo);
+        $this->assertSame(count($todos), (int) $fila->total + (int) $fila->vendidos + (int) $fila->en_tramite);
         $sinFrente = DB::table('equipos')->where('id_tipo_equipo', $tipo)->whereNull('deleted_at')->whereNull('ID_FRENTE_ACTUAL')->count();
         $this->assertSame(count($todos) - $sinFrente, (int) $vista->viewData('frentesStats')->sum('total'));
     }

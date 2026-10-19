@@ -271,7 +271,7 @@
     //     (applyEquipoFilters con $exclude), y la de frentes omite los equipos sin frente
     //   · se ordenan por nombre y la barra es el porcentaje sobre el total de la lista
     //   · con "todos los frentes", lo de frentes en venta NO suma en 'total': por tipo va
-    //     anotado en rojo (vendidos / en trámite) y por frente esos frentes salen en rojo, al final
+    //     anotado y como tramo rojo de la barra; por frente, esos frentes con la barra en rojo, al final
     function agrupar(filas, idDe, nombreDe, restar) {
         const mapa = new Map();
         filas.forEach(function (e) {
@@ -293,12 +293,13 @@
         const nota = [];
         if (g.vendidos) nota.push(g.vendidos + (g.vendidos === 1 ? ' vendido' : ' vendidos'));
         if (g.en_tramite) nota.push(g.en_tramite + ' en trámite de venta');
-        return '<li class="dist-fila' + (venta ? ' dist-venta' : '') + '" onclick="' + alTocar + '">' +
+        return '<li class="dist-fila" onclick="' + alTocar + '">' +
             '<div class="dist-cab"><span class="dist-nombre">' + esc(g.nombre || sinNombre) +
-                (venta ? '<small class="dist-rotulo">' + ROTULO_VENTA[venta] + '</small>' : '') +
+                (venta ? ' <small class="dist-rotulo">' + ROTULO_VENTA[venta] + '</small>' : '') +
                 (nota.length ? '<small class="dist-nota">' + nota.join(' · ') + '</small>' : '') +
             '</span><span class="dist-cant">' + g.total + '</span></div>' +
-            '<div class="dist-barra"><div class="dist-barra-' + (venta ? 'roja' : barra) + '" style="width:' + g.pct + '%;"></div></div>' +
+            '<div class="dist-barra"><div class="dist-barra-' + (venta ? 'roja' : barra) + '" style="width:' + g.pct + '%;"></div>' +
+                (g.pctVenta > 0 ? '<div class="dist-barra-roja" style="width:' + g.pctVenta + '%;"></div>' : '') + '</div>' +
         '</li>';
     }
 
@@ -327,8 +328,12 @@
             alTocar = function (g) { return "selectOption('tipoFilterSelect', '" + g.id + "', '" + escAttr(g.nombre) + "'); loadEquipos();"; };
         }
 
-        const suma = filas.reduce(function (n, g) { return n + g.total; }, 0);
-        filas.forEach(function (g) { g.pct = suma > 0 ? (g.total / suma) * 100 : 0; });
+        // Barra sobre todo lo de la lista (disponible + en venta): el tramo rojo es lo en venta.
+        const suma = filas.reduce(function (n, g) { return n + g.total + g.vendidos + g.en_tramite; }, 0);
+        filas.forEach(function (g) {
+            g.pct = suma > 0 ? (g.total / suma) * 100 : 0;
+            g.pctVenta = suma > 0 ? ((g.vendidos + g.en_tramite) / suma) * 100 : 0;
+        });
         // Envuelto en .eq-distrib-sec[data-vista=equipos] como hace _eqRenderDistribucion:
         // no es cosmético. eqSyncDistribToggle() captura el contenido del contenedor como
         // "HTML base" del servidor SOLO si no encuentra esa clase — sin el envoltorio, una
