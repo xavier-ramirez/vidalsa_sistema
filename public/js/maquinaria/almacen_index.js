@@ -1954,10 +1954,12 @@
 
     // Tamaños (mm). Rollo = una etiqueta por página, al tamaño de la tira de la etiquetadora;
     // carta = 30 por hoja (3 × 10, centradas) con su línea de corte para la tijera.
+    // `barras` = alto del código de barras (mm): fijo y bajo, para que la descripción quepa entera
+    // (de sobra para el lector: Code 128 pide unos 6 mm o el 15 % del ancho).
     var ETQ_FORMATOS = {
-        '50x30': { nombre: 'Rollo 50 × 30 mm', w: 50, h: 30, hoja: null },
-        '40x25': { nombre: 'Rollo 40 × 25 mm', w: 40, h: 25, hoja: null },
-        carta:   { nombre: 'Hoja carta (30 por hoja)', w: 66, h: 26, hoja: { w: 215.9, h: 279.4, cols: 3, filas: 10 } },
+        '50x30': { nombre: 'Rollo 50 × 30 mm', w: 50, h: 30, barras: 9, hoja: null },
+        '40x25': { nombre: 'Rollo 40 × 25 mm', w: 40, h: 25, barras: 7, hoja: null },
+        carta:   { nombre: 'Hoja carta (30 por hoja)', w: 66, h: 26, barras: 7, hoja: { w: 215.9, h: 279.4, cols: 3, filas: 10 } },
     };
     var ETQ_MAX_PREVIA = 60;   // en la vista previa; con más se avisa cuántas faltan
     var etqPendiente = null;   // lo que muestra la vista previa: { lista, formato }
@@ -1982,10 +1984,11 @@
     }
 
     // UNA etiqueta. La misma para la vista previa y para la impresión: arriba la descripción y,
-    // a su lado, la medida; debajo la ubicación (si tiene), el código de barras y el código.
+    // a su lado, la medida; debajo la ubicación (si tiene), el código de barras y el código. Si
+    // almEtqMedir le achicó la letra a la descripción para que quepa entera, va en e.pt.
     function almEtqHTML(e, f) {
         return '<div class="etq' + (f.hoja ? ' etq-corte' : '') + '">'
-            + '<div class="etq-cab"><div class="etq-nombre">' + escHtml(e.nombre) + '</div>'
+            + '<div class="etq-cab"><div class="etq-nombre"' + (e.pt ? ' style="font-size:' + e.pt + 'pt"' : '') + '>' + escHtml(e.nombre) + '</div>'
             +   '<span class="etq-um">' + escHtml(e.um) + '</span></div>'
             + (e.ubicacion ? '<div class="etq-var">Ubicación: ' + escHtml(e.ubicacion) + '</div>' : '')
             + '<div class="etq-barras">' + almEtqBarras(e.codigo) + '</div>'
@@ -1994,26 +1997,50 @@
     }
 
     // Estilo de la etiqueta en milímetros y puntos, para la vista previa y la impresión.
+    // Letra de la descripción con la que se empieza: menor en las etiquetas BAJAS (40×25 y la
+    // celda de 66×26 de la carta). almEtqMedir la achica si así no cabe entera.
+    function almEtqPtNombre(f) { return f.h < 28 ? 7 : 8.5; }
+
     function almEtqEstilo(f) {
-        // Letra menor en las etiquetas BAJAS (40×25 y la celda de 66×26 de la carta): con la
-        // grande no le quedaría alto al código de barras.
         var baja = f.h < 28;
         return '.etq { width:' + f.w + 'mm; height:' + f.h + 'mm; padding:1.5mm 2mm; box-sizing:border-box; display:flex; flex-direction:column; overflow:hidden;'
             +   ' font-family:Arial, Helvetica, sans-serif; color:#000; background:#fff; }'
             + ' .etq-corte { border:.15mm dashed #000; border-radius:1.8mm; }'
-            // La descripción del almacén es larga: hasta dos renglones (en la tira chica, uno).
-            // Descripción y medida en un renglón: la medida, sin partirse, pegada a la derecha.
-            + ' .etq-cab { display:flex; align-items:flex-start; gap:1.5mm; }'
-            + ' .etq-nombre { flex:1; min-width:0; font-size:' + (baja ? 7 : 8.5) + 'pt; font-weight:bold; line-height:1.15; overflow:hidden;'
-            +   ' display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:' + (f.w < 45 ? 1 : 2) + '; }'
+            // Descripción con la medida al lado (sin partirse, a la derecha). La descripción ocupa
+            // TODO el alto que deja el código de barras y va ENTERA, en los renglones que haga
+            // falta: si no cabe, almEtqMedir le baja la letra.
+            + ' .etq-cab { flex:1 1 0; min-height:0; overflow:hidden; display:flex; align-items:flex-start; gap:1.5mm; }'
+            + ' .etq-nombre { flex:1; min-width:0; font-size:' + almEtqPtNombre(f) + 'pt; font-weight:bold; line-height:1.15; overflow-wrap:anywhere; }'
             + ' .etq-var { font-size:' + (baja ? 6 : 7) + 'pt; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }'
             // Margen blanco a cada lado del código (zona de silencio): sin él, estirado de borde a
             // borde, el lector no siempre encuentra dónde empieza y dónde termina.
-            + ' .etq-barras { flex:1; min-height:6mm; margin:.6mm 2.5mm .3mm; }'
+            + ' .etq-barras { flex:none; height:' + f.barras + 'mm; margin:.6mm 2.5mm .3mm; }'
             + ' .etq-barras svg { width:100%; height:100%; display:block; }'
             + ' .etq-um { flex:none; font-size:' + (baja ? 6.5 : 7.5) + 'pt; font-weight:bold; line-height:1.15; white-space:nowrap; }'
             // El código, centrado bajo las barras: lo que se teclea si el lector falla.
             + ' .etq-cod { text-align:center; font-size:' + (baja ? 6.5 : 7.5) + 'pt; letter-spacing:.08em; line-height:1; }';
+    }
+
+    // Mide UNA etiqueta de cada producto, fuera de la vista, y si la descripción no cabe entera
+    // le baja la letra de medio punto en medio punto (hasta 5 pt) y lo guarda en e.pt. Así la
+    // vista previa y la impresión salen iguales y se mide una vez por producto, no por copia.
+    function almEtqMedir(lista, f) {
+        var host = document.createElement('div');
+        host.setAttribute('aria-hidden', 'true');
+        host.style.cssText = 'position:absolute;left:-10000px;top:0;visibility:hidden;';
+        host.innerHTML = '<style>' + almEtqEstilo(f) + '</style>' + lista.map(function (e) { return almEtqHTML(e, f); }).join('');
+        document.body.appendChild(host);
+        var etqs = host.querySelectorAll('.etq');
+        lista.forEach(function (e, i) {
+            var cab = etqs[i].querySelector('.etq-cab'), nom = etqs[i].querySelector('.etq-nombre');
+            var pt = almEtqPtNombre(f);
+            while (cab.scrollHeight > cab.clientHeight + 1 && pt > 5) {
+                pt -= 0.5;
+                nom.style.fontSize = pt + 'pt';
+            }
+            e.pt = pt < almEtqPtNombre(f) ? pt : null;
+        });
+        host.remove();
     }
 
     // Vista previa: las etiquetas tal cual van a salir; desde ahí se imprimen. Con más de
@@ -2021,6 +2048,7 @@
     // luego el resto de copias, hasta el tope. El HTML de cada producto se arma una sola vez.
     function almEtqVistaPrevia(lista, formato) {
         var f = ETQ_FORMATOS[formato] || ETQ_FORMATOS['50x30'];
+        almEtqMedir(lista, f);
         var html = lista.map(function (e) { return '<div>' + almEtqHTML(e, f) + '</div>'; });
         var total = 0, muestras = [];
         lista.forEach(function (e, i) { total += e.copias; if (muestras.length < ETQ_MAX_PREVIA) muestras.push(html[i]); });

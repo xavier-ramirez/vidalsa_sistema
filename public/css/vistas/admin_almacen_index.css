@@ -606,6 +606,13 @@
     .alm-etq-lapiz:hover, .alm-etq-lapiz.activo { color: var(--maquinaria-blue, #0067b1); }
     .alm-etq-lapiz:focus-visible { outline: 2px solid var(--maquinaria-blue, #0067b1); outline-offset: 1px; }
     .alm-etq-lapiz .material-icons { font-size: 19px; }
+    /* Cantidad + lápiz y, debajo, el tamaño del papel: los dos campos del MISMO ancho, en la
+       primera columna; el lápiz en la segunda. Con posición fija en la rejilla, el lápiz no se
+       corre a la izquierda cuando la cantidad se esconde (varios productos). */
+    .alm-etq-campos { display: grid; grid-template-columns: min(250px, 100%) auto; justify-content: center; align-items: center; gap: 8px 10px; }
+    .alm-etq-campos > #almEtqCopias { grid-column: 1; grid-row: 1; text-align: center; min-width: 0; }
+    .alm-etq-campos > .alm-etq-lapiz { grid-column: 2; grid-row: 1; }
+    .alm-etq-campos > #almEtqFormatoDropdown { grid-column: 1; grid-row: 2; min-width: 0; }
     /* Vista previa de las etiquetas (como en la app de la tienda): cada etiqueta en blanco,
        con sombra, sobre un fondo gris; el dibujo de la etiqueta lo pone almEtqEstilo. */
     .alm-etq-previa-modal { max-width: 860px; }
