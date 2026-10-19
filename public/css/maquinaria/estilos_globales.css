@@ -2850,9 +2850,10 @@ body:has(.mobile-menu.active) .selection-floating-bar {
 
 /* Cancelar y Registrar/Guardar, centrados debajo del formulario. */
 .frentes-btn-row { margin-top: 18px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; align-items: center; }
-/* Eliminar en rojo: la papelera del buscador y la de cada fila del modal "Sin equipos". */
-.btn-eliminar-frente { background: #ef4444; border-color: #ef4444; }
-.btn-eliminar-frente:hover { background: #dc2626; border-color: #dc2626; }
+/* Papelera (la del buscador y la de cada fila del modal "Sin equipos"): fondo blanco, ícono
+   y borde rojos, como las de Historial de documentos, Almacén y Catálogo. */
+.btn-eliminar-frente { background: #fff; color: #dc2626; border: 1px solid #fca5a5; }
+.btn-eliminar-frente:hover { background: #fee2e2; border-color: #dc2626; }
 
 /* Modal "Frentes sin equipos". */
 .sin-equipos-overlay {
