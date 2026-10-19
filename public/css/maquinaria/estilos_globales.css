@@ -5480,23 +5480,30 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 #frenteFilterSelect .frente-nombre,
 #frenteFilterSelect .etiqueta-venta { white-space: nowrap; }
 #frenteFilterSelect .dropdown-item:has(.etiqueta-venta) { flex-wrap: wrap; column-gap: 8px; row-gap: 0; height: auto; min-height: 35px; }
-/* Sobre la foto (tabla de Equipos): en el MEDIO de la foto, letra blanca con borde del color;
-   paint-order pone el borde detrás de la letra, así no adelgaza y se lee sobre cualquier foto.
-   .placeholder: el cuadro SIN foto agranda sus <span> a 24px (es para el ícono); la etiqueta no.
-   El tamaño va con !important porque admin_equipos_index.css fuerza TODO <span> de la tabla a
-   11.5px con !important. */
+/* Sobre la foto (tabla de Equipos y de auxiliares): en el MEDIO de la foto. paint-order pone el
+   borde detrás de la letra, así no adelgaza y se lee sobre cualquier foto. text-wrap: balance
+   parte "EN TRÁMITE DE VENTA" en dos renglones parejos (antes quedaba "VENTA" sola abajo).
+   .placeholder: el cuadro SIN foto agranda sus <span> a 24px (es para el ícono); la etiqueta no,
+   y el ícono se esconde para que no asome detrás de las letras. El tamaño va con !important
+   porque admin_equipos_index.css fuerza TODO <span> de la tabla a 11.5px con !important. */
 .table-image-wrapper .etiqueta-venta,
 .table-image-wrapper.placeholder .etiqueta-venta {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1;
-    width: 92%; margin: 0; text-align: center;
+    width: 92%; margin: 0; text-align: center; text-wrap: balance;
     font-size: 17px !important; font-weight: 900; line-height: 1.1; letter-spacing: .06em; color: #fff;
     -webkit-text-stroke: 3px var(--color-venta); paint-order: stroke fill;
 }
-.table-image-wrapper .etiqueta-venta--tramite { font-size: 13px !important; }
+.table-image-wrapper.placeholder:has(.etiqueta-venta) > .material-icons { display: none; }
+/* Vendido: blanca con borde rojo. Trámite: AMARILLA con borde marrón oscuro; blanca con borde
+   amarillo casi no se distinguía sobre el fondo claro del cuadro sin foto ni sobre fotos claras. */
+.table-image-wrapper .etiqueta-venta--tramite,
+.table-image-wrapper.placeholder .etiqueta-venta--tramite { font-size: 13px !important; color: #fde047; -webkit-text-stroke-color: #713f12; }
 @media (max-width: 768px) {
     .table-image-wrapper .etiqueta-venta,
     .table-image-wrapper.placeholder .etiqueta-venta { font-size: 14px !important; -webkit-text-stroke-width: 2.2px; }
-    .table-image-wrapper .etiqueta-venta--tramite { font-size: 11px !important; }
+    /* El cuadro del teléfono es angosto: sin espacio entre letras, cabe en dos renglones. */
+    .table-image-wrapper .etiqueta-venta--tramite,
+    .table-image-wrapper.placeholder .etiqueta-venta--tramite { font-size: 11px !important; letter-spacing: 0; width: 98%; }
 }
 
 .aviso-venta {
