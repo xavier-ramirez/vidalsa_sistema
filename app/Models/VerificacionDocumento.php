@@ -305,8 +305,8 @@ class VerificacionDocumento extends Model
     /**
      * De cada tipo de ENLACES, cuantos documentos hay cargados y cuantos faltan por leer: las
      * barras de "Por dónde va la revisión". UNA consulta que recorre documentacion una vez
-     * para los cuatro tipos (con una por tipo eran cuatro recorridos: ~50 ms de los ~80 que
-     * tardaba la pestaña). Cuenta lo mismo que conEnlace() y pendientes().
+     * para los cuatro tipos (con una por tipo eran cuatro recorridos; medido 19-10-2026: ~10 %
+     * menos y tres viajes menos a la base). Cuenta lo mismo que conEnlace() y pendientes().
      *
      * @return array<string, array{total:int, faltan:int}>
      */
@@ -320,7 +320,8 @@ class VerificacionDocumento extends Model
             $tiene = '(' . self::tieneEnlace($columna) . ')';
             $cols[] = "SUM($tiene) as `total_$tipo`";
             // CASE y no "$tiene AND NOT EXISTS": el CASE corta, y la subconsulta solo corre en
-            // las fichas que tienen ese documento (con el AND corria en todas: 53 ms en vez de ~20).
+            // las fichas que tienen ese documento (con el AND corria en todas y era mas lenta que
+            // las cuatro consultas de antes).
             $cols[] = "SUM(CASE WHEN $tiene THEN NOT EXISTS (" . $sub->toSql() . ") ELSE 0 END) as `faltan_$tipo`";
             array_push($bindings, ...$sub->getBindings());
         }
