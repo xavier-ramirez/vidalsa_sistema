@@ -2848,8 +2848,9 @@ body:has(.mobile-menu.active) .selection-floating-bar {
 #frenteForm .resp-head.cerrado .resp-chevron { transform: rotate(-90deg); }
 #frenteForm .resp-collapsed { display: none !important; }
 
-/* Botones: los tres con el tamaño de .btn-primary-maquinaria; Eliminar en rojo. */
+/* Cancelar y Registrar/Guardar, centrados debajo del formulario. */
 .frentes-btn-row { margin-top: 18px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; align-items: center; }
+/* Eliminar en rojo: la papelera del buscador y la de cada fila del modal "Sin equipos". */
 .btn-eliminar-frente { background: #ef4444; border-color: #ef4444; }
 .btn-eliminar-frente:hover { background: #dc2626; border-color: #dc2626; }
 
@@ -2875,8 +2876,9 @@ body:has(.mobile-menu.active) .selection-floating-bar {
 .sin-equipos-nombre span { font-size: 12px; font-weight: 600; color: #64748b; }
 .sin-equipos-ubic { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #64748b; }
 .sin-equipos-ubic .material-icons { font-size: 11px; }
-.sin-equipos-fila .btn-eliminar-frente { padding: 6px 12px; font-size: 12px; height: auto; border-radius: 8px; display: inline-flex; align-items: center; gap: 4px; }
-.sin-equipos-fila .btn-eliminar-frente .material-icons { font-size: 14px; }
+/* Eliminar de cada fila: solo la papelera, cuadrada como la del buscador. */
+.sin-equipos-fila .btn-eliminar-frente { flex: 0 0 auto; width: 34px; height: 34px; padding: 0; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
+.sin-equipos-fila .btn-eliminar-frente .material-icons { font-size: 18px; }
 .sin-equipos-vacio { padding: 36px 20px; text-align: center; color: #94a3b8; }
 .sin-equipos-vacio .material-icons { display: block; margin: 0 auto 10px; font-size: 32px; }
 .sin-equipos-error { color: #ef4444; font-size: 13px; }

@@ -444,8 +444,8 @@ window.cargarFrentesSinEquipos = function () {
                         '<div class="sin-equipos-nombre">' + esc(f.nombre) + " <span>" + esc(f.estatus || "—") + "</span></div>" +
                         (f.ubicacion ? '<div class="sin-equipos-ubic"><i class="material-icons">place</i>' + esc(f.ubicacion) + "</div>" : "") +
                     "</div>" +
-                    '<button type="button" class="btn-primary-maquinaria btn-eliminar-frente" data-id="' + f.id + '" data-nombre="' + esc(f.nombre) + '">' +
-                        '<i class="material-icons">delete_outline</i>Eliminar</button>' +
+                    '<button type="button" class="btn-primary-maquinaria btn-eliminar-frente" title="Eliminar este frente" aria-label="Eliminar este frente"' +
+                        ' data-id="' + f.id + '" data-nombre="' + esc(f.nombre) + '"><i class="material-icons">delete_outline</i></button>' +
                 "</div>"
             ).join("");
             // data-* y no onclick con el nombre dentro del JS: un nombre con comillas no rompe nada.
