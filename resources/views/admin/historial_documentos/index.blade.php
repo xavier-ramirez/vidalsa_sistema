@@ -57,23 +57,6 @@
     <div>
         <div class="admin-card">
             <div class="filter-toolbar-container hd-filter-row" style="margin-bottom: 8px;">
-                <!-- Search Equipo (Placa/Serial) -->
-                <div class="filter-item aligned-filter responsive-filter-item">
-                    <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
-                        <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
-                            <i class="material-icons search-icon">search</i>
-                            <input type="text" id="searchEquipo" name="search_equipo"
-                                value="{{ request('search_equipo') }}"
-                                placeholder="Buscar placa o serial..."
-                                class="search-input-field"
-                                style="height: 100%;"
-                                autocomplete="off"
-                                onkeyup="window.checkHistorialClearBtn('searchEquipo', 'btn_clear_searchEquipo')">
-                            <i id="btn_clear_searchEquipo" class="material-icons clear-icon" style="display: {{ request('search_equipo') ? 'block' : 'none' }};" onclick="clearHistorialFilter('btn_clear_searchEquipo', 'searchEquipo');">close</i>
-                        </div>
-                    </form>
-                </div>
-
                 <!-- Search Correo -->
                 <div class="filter-item aligned-filter responsive-filter-item" style="position: relative;">
                     <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
@@ -105,7 +88,7 @@
                     $reqTipoLabel = collect($tipoGrupos)->collapse()->get($reqTipo, $reqTipo);
                     $hasAdvHd = request()->filled('fecha_desde') || request()->filled('fecha_hasta');
                 @endphp
-                {{-- Acción, al lado del correo. Elegir una opción la aplica: selectOption lanza
+                {{-- Acción, entre el usuario y el serial. Elegir una opción la aplica: selectOption lanza
                      'dropdown-selection' y ese evento recarga la tabla
                      (historial_documentos_index.js) — por eso los onclick NO llaman además a
                      loadHistorialDocumentos. --}}
@@ -146,6 +129,23 @@
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Search Equipo (Placa/Serial) -->
+                <div class="filter-item aligned-filter responsive-filter-item">
+                    <form style="width: 100%;" onsubmit="event.preventDefault(); window.loadHistorialDocumentos();">
+                        <div class="search-wrapper" style="width: 100%; border-color: #cbd5e0; background: #fbfcfd; height: 45px;">
+                            <i class="material-icons search-icon">search</i>
+                            <input type="text" id="searchEquipo" name="search_equipo"
+                                value="{{ request('search_equipo') }}"
+                                placeholder="Buscar placa o serial..."
+                                class="search-input-field"
+                                style="height: 100%;"
+                                autocomplete="off"
+                                onkeyup="window.checkHistorialClearBtn('searchEquipo', 'btn_clear_searchEquipo')">
+                            <i id="btn_clear_searchEquipo" class="material-icons clear-icon" style="display: {{ request('search_equipo') ? 'block' : 'none' }};" onclick="clearHistorialFilter('btn_clear_searchEquipo', 'searchEquipo');">close</i>
+                        </div>
+                    </form>
                 </div>
 
                 {{-- Filtros Avanzados: el rango de fechas, en un popover. El botón se pinta en

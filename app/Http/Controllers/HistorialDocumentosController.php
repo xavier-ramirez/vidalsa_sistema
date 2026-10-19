@@ -319,8 +319,27 @@ class HistorialDocumentosController extends Controller
             if (is_array($guardado) && ($guardado['ver'] ?? null) === $ver) continue;   // ya estaba al dia
 
             $events = collect($this->construirEventos(new Request(), $frentesVisibles, $frentesBloqueados, null, null, ''));
-            $almacen->put($clave, ['ver' => $ver, 'events' => $events->all()], now()->addHours(6));
+            self::guardarLista($almacen, $clave, $ver, $events);
         }
+    }
+
+    /**
+     * Guarda la lista con su resumen y el dia, la MISMA forma que lee index(). La usan index() y
+     * calentar(): antes calentar() guardaba solo la lista, index() la descartaba por faltarle el
+     * resumen y el dia, y el calentado no servia (medido: 1,4 s al abrir despues de calentar).
+     *
+     * 6 horas, no 10 minutos: la version va DENTRO del valor, asi que una lista pasada de fecha
+     * NUNCA se sirve (se compara y se rehace). Con 10 minutos se enfriaba sola en cada pausa.
+     */
+    private static function guardarLista($almacen, string $clave, $ver, \Illuminate\Support\Collection $events): array
+    {
+        $resumen = self::resumen($events);
+        $almacen->put(
+            $clave,
+            ['ver' => $ver, 'dia' => now()->toDateString(), 'events' => $events->all(), 'resumen' => $resumen],
+            now()->addHours(6)
+        );
+        return $resumen;
     }
 
     /**
@@ -396,24 +415,20 @@ class HistorialDocumentosController extends Controller
         // Con la lista va su resumen de la barra lateral: contarlo cuesta ~1/3 de la pantalla, asi
         // que se cuenta UNA vez por version de la lista, no en cada carga ni cambio de pagina. El
         // dia va en el valor: "Hoy" y "Ultimos 7 dias" no pueden servirse de ayer.
-        if (is_array($cached) && ($cached['ver'] ?? null) === $ver && ($cached['dia'] ?? null) === now()->toDateString()) {
+        if (is_array($cached) && ($cached['ver'] ?? null) === $ver) {
             $events = collect($cached['events']);
-            $resumen = $cached['resumen'];
+            if (($cached['dia'] ?? null) === now()->toDateString() && isset($cached['resumen'])) {
+                $resumen = $cached['resumen'];
+            } else {
+                // Lista al dia pero de otro dia: solo se recuenta el resumen, no se rehace todo.
+                $resumen = self::guardarLista($almacen, $cacheKey, $ver, $events);
+            }
         } else {
             $events = collect($this->construirEventos(
                 $request, $frentesVisibles, $frentesBloqueados,
                 $fechaDesdeSql, $fechaHastaSql, $searchEquipoSql
             ));
-            $resumen = self::resumen($events);
-            $almacen->put(
-                $cacheKey,
-                ['ver' => $ver, 'dia' => now()->toDateString(), 'events' => $events->all(), 'resumen' => $resumen],
-                // 6 horas, no 10 minutos: la version va DENTRO del valor, asi que una lista
-                // pasada de fecha NUNCA se sirve (se compara y se rehace). Con 10 minutos se
-                // enfriaba sola en cada pausa y habia que pagar los 2 s otra vez sin que
-                // hubiera cambiado nada.
-                now()->addHours(6)
-            );
+            $resumen = self::guardarLista($almacen, $cacheKey, $ver, $events);
         }
 
         $total = $events->count();
