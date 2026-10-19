@@ -243,8 +243,8 @@ class VerificacionDocumento extends Model
 
     /**
      * "Este documento YA se leyo", en SQL. UNICO sitio donde vive la regla: la usan
-     * pendientes() (como NOT EXISTS) y avanceDe() (como EXISTS dentro de un SUM). Si
-     * estuviera escrita dos veces, un dia dejarian de contar lo mismo.
+     * pendientes() y avances() (las dos como NOT EXISTS). Si estuviera escrita dos veces, un
+     * dia dejarian de contar lo mismo.
      */
     private static function condicionLeido($q, string $tipo, string $columna)
     {
@@ -303,25 +303,39 @@ class VerificacionDocumento extends Model
     }
 
     /**
-     * Cuantos documentos de $tipo hay cargados y cuantos faltan por leer, en UNA consulta.
+     * De cada tipo de ENLACES, cuantos documentos hay cargados y cuantos faltan por leer: las
+     * barras de "Por dónde va la revisión". UNA consulta que recorre documentacion una vez
+     * para los cuatro tipos (con una por tipo eran cuatro recorridos: ~50 ms de los ~80 que
+     * tardaba la pestaña). Cuenta lo mismo que conEnlace() y pendientes().
      *
-     * Antes eran dos (conEnlace()->count() y pendientes()->count()) y cada una repetia el
-     * mismo join de documentacion con equipos: cuatro tipos = ocho consultas para pintar
-     * cuatro barras de avance, ~58 ms medidos. Ahora son cuatro.
+     * @return array<string, array{total:int, faltan:int}>
      */
-    public static function avanceDe(string $tipo, string $columna): array
+    public static function avances(): array
     {
-        $sub = \Illuminate\Support\Facades\DB::query()->selectRaw('1');
-        self::condicionLeido($sub, $tipo, $columna);
+        $cols = [];
+        $bindings = [];
+        foreach (self::ENLACES as $tipo => $columna) {
+            $sub = \Illuminate\Support\Facades\DB::query()->selectRaw('1');
+            self::condicionLeido($sub, $tipo, $columna);
+            $tiene = '(' . self::tieneEnlace($columna) . ')';
+            $cols[] = "SUM($tiene) as `total_$tipo`";
+            // CASE y no "$tiene AND NOT EXISTS": el CASE corta, y la subconsulta solo corre en
+            // las fichas que tienen ese documento (con el AND corria en todas: 53 ms en vez de ~20).
+            $cols[] = "SUM(CASE WHEN $tiene THEN NOT EXISTS (" . $sub->toSql() . ") ELSE 0 END) as `faltan_$tipo`";
+            array_push($bindings, ...$sub->getBindings());
+        }
 
-        $fila = self::conEnlace($columna)
-            ->selectRaw(
-                'COUNT(*) as total, SUM(CASE WHEN EXISTS (' . $sub->toSql() . ') THEN 0 ELSE 1 END) as faltan',
-                $sub->getBindings()
-            )
+        $fila = \Illuminate\Support\Facades\DB::table('documentacion as d')
+            ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
+            ->whereNull('e.deleted_at')
+            ->selectRaw(implode(', ', $cols), $bindings)
             ->first();
 
-        return ['total' => (int) ($fila->total ?? 0), 'faltan' => (int) ($fila->faltan ?? 0)];
+        $avances = [];
+        foreach (array_keys(self::ENLACES) as $tipo) {
+            $avances[$tipo] = ['total' => (int) ($fila->{"total_$tipo"} ?? 0), 'faltan' => (int) ($fila->{"faltan_$tipo"} ?? 0)];
+        }
+        return $avances;
     }
 
     /**
@@ -369,8 +383,13 @@ class VerificacionDocumento extends Model
         return \Illuminate\Support\Facades\DB::table('documentacion as d')
             ->join('equipos as e', 'e.ID_EQUIPO', '=', 'd.ID_EQUIPO')
             ->whereNull('e.deleted_at')
-            ->where("d.$columna", 'like', '/storage/google/%')
-            ->whereRaw(self::idEnlace($columna) . " <> ''");
+            ->whereRaw(self::tieneEnlace($columna));
+    }
+
+    /** "La ficha tiene ese documento en Drive", en SQL: la comparten conEnlace() y avances(). */
+    private static function tieneEnlace(string $columna): string
+    {
+        return "d.$columna LIKE '/storage/google/%' AND " . self::idEnlace($columna) . " <> ''";
     }
 
     /** El id de Drive dentro del enlace guardado (/storage/google/ID?v=N), en SQL. */

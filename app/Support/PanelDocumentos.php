@@ -212,9 +212,8 @@ class PanelDocumentos
     private static function avance(): array
     {
         $avance = [];
-        foreach (VerificacionDocumento::ENLACES as $tipo => $col) {
-            // Las dos cuentas salen de UNA consulta (ver VerificacionDocumento::avanceDe).
-            ['total' => $total, 'faltan' => $faltan] = VerificacionDocumento::avanceDe($tipo, $col);
+        // Los cuatro tipos salen de UNA consulta (ver VerificacionDocumento::avances).
+        foreach (VerificacionDocumento::avances() as $tipo => ['total' => $total, 'faltan' => $faltan]) {
             $avance[$tipo] = [
                 'nombre' => VerificacionDocumento::NOMBRES[$tipo] ?? $tipo,
                 'total'  => $total,
