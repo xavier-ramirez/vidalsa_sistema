@@ -451,15 +451,15 @@
                  a esconderse en 50 × 30. El campo de cantidad se OCULTA cuando hay varios productos,
                  porque entonces cada uno lleva el suyo arriba (ver almAbrirEtiquetas). --}}
             <div style="display:flex;flex-direction:column;gap:8px;">
-            <div style="display:flex;gap:10px;align-items:center;justify-content:center;">
-                <input type="number" id="almEtqCopias" class="alm-nota-input" value="1" min="1" max="200" step="1"
-                       aria-label="Cantidad de etiquetas" title="Cantidad de etiquetas"
-                       style="flex:1;min-width:0;text-align:center;">
-                <button type="button" id="almEtqFormatoBtn" class="alm-etq-lapiz" onclick="window.almEtqVerFormato()"
-                        title="Cambiar el tamaño de la etiqueta" aria-label="Cambiar el tamaño de la etiqueta" aria-expanded="false">
-                    <i class="material-icons">edit</i>
-                </button>
-            </div>
+                <div style="display:flex;gap:10px;align-items:center;justify-content:center;">
+                    <input type="number" id="almEtqCopias" class="alm-nota-input" value="1" min="1" max="200" step="1"
+                           aria-label="Cantidad de etiquetas" title="Cantidad de etiquetas"
+                           style="flex:1;min-width:0;text-align:center;">
+                    <button type="button" id="almEtqFormatoBtn" class="alm-etq-lapiz" onclick="window.almEtqVerFormato()"
+                            title="Cambiar el tamaño de la etiqueta" aria-label="Cambiar el tamaño de la etiqueta" aria-expanded="false">
+                        <i class="material-icons">edit</i>
+                    </button>
+                </div>
                 {{-- Desplegable "Formato": las dos tiras de la etiquetadora o la hoja carta
                      (30 por hoja, impresora normal). Mismo componente custom-dropdown del resto de la app
                      (selectOption escribe en el hidden #almEtqFormato, que lee almEtiquetasGenerar).
