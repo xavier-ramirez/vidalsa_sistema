@@ -33,8 +33,8 @@ class PanelDocumentos
 
     /**
      * Todo lo que necesita panel.blade.php para la pestaña pedida. $soloCarga: quien entra
-     * sin super.admin, solo por la carga masiva — ve únicamente esas filas y nada de la lectura
-     * automática (ver Usuario::veAuditoriaDocumentos).
+     * sin super.admin, solo por la carga masiva — ve todas las lecturas, pero nada del control
+     * de la lectura automática (su avance ni "Revisar ahora"; ver Usuario::veAuditoriaDocumentos).
      */
     public static function datos(Request $request, string $pestana, bool $soloCarga = false): array
     {
@@ -120,9 +120,8 @@ class PanelDocumentos
      */
     private static function datosDocumentos(Request $request, string $buscar, bool $soloCarga): array
     {
-        // Lo de la revisión nocturna (el avance y sus cuentas) solo lo ve super.admin.
+        // El avance de la lectura automática solo lo ve super.admin; las lecturas, todos.
         $avance = $soloCarga ? [] : self::avance();
-        $deLaCarga = fn ($q) => $q->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA);
         // Los cinco de la revision nocturna mas los de la carga masiva (DE_LA_CARGA_TODOS): las
         // dos procedencias comparten esta tabla, que es la unica del modulo donde se ve el
         // estado de un documento.
@@ -143,7 +142,6 @@ class PanelDocumentos
             ? $request->input('tipo_doc') : null;
 
         $filas = VerificacionDocumento::query()
-            ->when($soloCarga, $deLaCarga)
             ->when($estadoDoc === 'revisar', fn ($q) => $q->paraRevisar())
             ->when($estadoDoc === 'corregibles', fn ($q) => $q->corregibles())
             ->when($estadoDoc && !in_array($estadoDoc, ['revisar', 'corregibles'], true),
@@ -189,11 +187,11 @@ class PanelDocumentos
             'vinesFaltan'    => app(\App\Services\CargaMasivaDocumentos::class)->vinesSinAtarDeVarias(
                 $filas->getCollection()->mapWithKeys(fn ($d) => [$d->ID_REGISTRO =>
                     $d->ORIGEN === VerificacionDocumento::DE_CARGA_MASIVA ? $d->PROPUESTA : null])->all()),
-            'resumenDocs'    => VerificacionDocumento::select('ESTADO', DB::raw('COUNT(*) as n'))->when($soloCarga, $deLaCarga)->groupBy('ESTADO')->pluck('n', 'ESTADO'),
+            'resumenDocs'    => VerificacionDocumento::select('ESTADO', DB::raw('COUNT(*) as n'))->groupBy('ESTADO')->pluck('n', 'ESTADO'),
             // Los dos montones que se miran distinto: lo que la tarea todavia pone sola y lo
             // que pide una persona (ilegible, sin archivo, de otro vehiculo o leido a medias).
-            'docsParaRevisar' => VerificacionDocumento::paraRevisar()->when($soloCarga, $deLaCarga)->count(),
-            'docsCorregibles' => $soloCarga ? 0 : VerificacionDocumento::corregibles()->count(),
+            'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
+            'docsCorregibles' => VerificacionDocumento::corregibles()->count(),
             'estadoDoc'      => $estadoDoc,
             'tipoDoc'        => $tipoDoc,
             'ultimaLectura'  => VerificacionDocumento::max('updated_at'),

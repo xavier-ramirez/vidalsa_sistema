@@ -9,11 +9,12 @@ use Illuminate\Support\Str;
 use Tests\MySqlTestCase;
 
 /**
- * Quién entra a Auditoría de Documentos y qué ve (pedido del cliente, 01-10-2026):
+ * Quién entra a Auditoría de Documentos y qué ve (pedido del cliente, 01-10-2026 y 19-10-2026):
  *  - La carga masiva entera (soltar, aplicar, descartar y su revisión) funciona con SU permiso,
- *    'docs.carga.masiva', sin necesitar super.admin.
- *  - La lectura automática ("Lectura automática activa… Revisar ahora", el avance y el
- *    "Revisado") es SOLO de super.admin, igual que el historial y la compresión.
+ *    'docs.carga.masiva', sin necesitar super.admin. Con él se ven TODAS las lecturas (las de la
+ *    noche y las de la carga) y, con 'user.edit', se dan por revisadas (Usuario::revisaDocumentos).
+ *  - El control de la lectura automática ("Lectura automática activa… Revisar ahora" y su
+ *    avance) es SOLO de super.admin, igual que el historial y la compresión.
  * Ver Usuario::veAuditoriaDocumentos. Los usuarios se crean aquí y la transacción los deshace.
  */
 class AuditoriaDocumentosPermisosTest extends MySqlTestCase
@@ -47,7 +48,7 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         return [$noche, $carga];
     }
 
-    public function test_con_solo_la_carga_masiva_entra_a_la_revision_y_ve_solo_lo_cargado(): void
+    public function test_con_solo_la_carga_masiva_entra_a_la_revision_y_ve_todas_las_lecturas(): void
     {
         [$noche, $carga] = $this->filas();
         $u = $this->usuario('docs.carga.masiva');
@@ -58,12 +59,15 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertStringContainsString('window.abrirCargaMasiva', $html, 'El modal de la carga masiva tiene que estar.');
         $this->assertStringContainsString('Carga masiva', $html, 'Y su botón en Acciones.');
         $this->assertStringContainsString($carga, $html, 'Ve lo que se cargó en lote.');
-        $this->assertStringNotContainsString($noche, $html, 'No ve las filas de la lectura automática.');
-        // Nada de la lectura automática, ni las otras pestañas, ni la papelera.
+        $this->assertStringContainsString($noche, $html, 'Y las lecturas de la noche.');
+        $this->assertStringContainsString('Para revisar a mano', $html);
+        // Nada del control de la lectura automática, ni las otras pestañas, ni la papelera.
         $this->assertStringNotContainsString('Lectura automática', $html);
         $this->assertStringNotContainsString('Revisar ahora', $html);
         $this->assertStringNotContainsString('Por dónde va la revisión', $html);
+        // Sin 'user.edit' no da nada por revisado: ni barra, ni filas que se elijan.
         $this->assertStringNotContainsString('cpdfSelBarra', $html);
+        $this->assertStringNotContainsString('cpdfSelFila(', $html);
         $this->assertStringNotContainsString('Historial de cambios', $html);
         $this->assertStringNotContainsString('Compresión de PDF', $html);
         $this->assertStringNotContainsString('abrirPapelera()', $html);
@@ -96,11 +100,33 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         // Descartar borra de Drive: ademas de la carga masiva, pide super.admin (01-10-2026).
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.descartar'), [], ['Accept' => 'application/json'])->assertForbidden();
 
-        // Las de la lectura automática y el resto de Auditoría: solo super.admin.
+        // "Revisar ahora" y el resto de Auditoría: solo super.admin. Y dar por revisado pide
+        // además 'user.edit', que este no tiene: escribe en la ficha.
         $this->actingAs($u)->post(route('compresion-pdf.documentos.leer-ahora'), [], ['Accept' => 'application/json'])->assertForbidden();
         $this->actingAs($u)->post(route('compresion-pdf.documentos.revisados'), ['ids' => [1]], ['Accept' => 'application/json'])->assertForbidden();
         $this->actingAs($u)->post(route('compresion-pdf.documento.revisado', 1), [], ['Accept' => 'application/json'])->assertForbidden();
         $this->actingAs($u)->delete(route('historial-documentos.deleteRegistro'), [], ['Accept' => 'application/json'])->assertForbidden();
+    }
+
+    /** Con la carga masiva y 'user.edit' (como el usuario "Prueba"): elige filas y las da por revisadas. */
+    public function test_con_la_carga_masiva_y_user_edit_da_por_revisadas_las_lecturas(): void
+    {
+        [$noche] = $this->filas();
+        $u = $this->usuario('docs.carga.masiva,user.edit');
+        $id = DB::table('verificacion_documento_registro')->where('MOTIVO', $noche)->value('ID_REGISTRO');
+
+        $html = $this->actingAs($u)->get(route('historial-documentos.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('cpdfSelBarra', $html, 'La barra "Revisado".');
+        $this->assertStringContainsString('cpdfSelFila(', $html, 'La fila de la noche se elige.');
+        $this->assertStringContainsString('window.cpdfMarcarRevisadas', $html);
+        $this->assertStringNotContainsString('window.cpdfLeerAhora', $html, '"Revisar ahora" sigue siendo de super.admin.');
+
+        // Las dos rutas de "Revisado" lo dejan pasar (ya no son solo de super.admin).
+        $this->actingAs($u)->post(route('compresion-pdf.documento.revisado', $id), [], ['Accept' => 'application/json'])
+            ->assertOk()->assertJson(['success' => true]);
+        $this->actingAs($u)->post(route('compresion-pdf.documentos.revisados'), ['ids' => [$id]], ['Accept' => 'application/json'])
+            ->assertOk()->assertJson(['success' => true]);
+        $this->actingAs($u)->post(route('compresion-pdf.documentos.leer-ahora'), [], ['Accept' => 'application/json'])->assertForbidden();
     }
 
     public function test_super_admin_sin_la_clave_de_carga_masiva_ve_la_lectura_automatica_pero_no_la_carga(): void

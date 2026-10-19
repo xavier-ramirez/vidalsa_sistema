@@ -398,8 +398,8 @@ class HistorialDocumentosController extends Controller
         // documentos, que pinta admin/compresion_pdf/panel.blade.php con los datos de
         // App\Support\PanelDocumentos. Cuando el usuario esta en una de esas, NO se arma la
         // lista de eventos: es el trabajo caro de esta pantalla y no se ve.
-        // Entra super.admin (todo) o quien tiene la carga masiva: este, a la revisión de
-        // documentos y solo con lo que se carga en lote (ver Usuario::veAuditoriaDocumentos).
+        // Entra super.admin (todo) o quien tiene la carga masiva: este, solo a la revisión de
+        // documentos (ver Usuario::veAuditoriaDocumentos).
         $user = auth()->user();
         abort_unless($user && $user->veAuditoriaDocumentos(), 403);
         $soloCarga = !$user->can('super.admin');

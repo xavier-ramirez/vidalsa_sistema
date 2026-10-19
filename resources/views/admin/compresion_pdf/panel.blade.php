@@ -8,6 +8,8 @@
 
 @php
     $mb = fn ($b) => number_format(($b ?? 0) / 1048576, 1, ',', '.');
+    // Elegir filas, "Revisado" y dar por revisada desde el visor (las rutas lo comprueban igual).
+    $puedeRevisar = auth()->user()->revisaDocumentos();
     $comp = $resumen[\App\Models\CompresionPdf::COMPRIMIDO] ?? null;
     $estados = [
         \App\Models\CompresionPdf::COMPRIMIDO => 'Comprimidos',
@@ -145,17 +147,18 @@
                 </thead>
                 <tbody>
                     @forelse ($docs as $d)
-                        {{-- Las que no coinciden se eligen con un clic en la fila (ver cpdfSelFila);
-                             las que ya coinciden no tienen nada que revisar.
+                        {{-- Las que no coinciden se eligen con un clic en la fila (ver cpdfSelFila),
+                             si quien mira puede darlas por revisadas ($puedeRevisar); las que ya
+                             coinciden no tienen nada que revisar.
 
                              De la CARGA MASIVA solo lo ya enlazado que quedó para revisar (sin
                              fecha, o un BL sin número): lo demás son propuestas de un PDF que se
                              enlaza solo a su ficha (o dice por qué no), y el servidor las deja
                              fuera del "Revisado" en lote (marcarRevisados). --}}
-                        @if (($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE
+                        @if ($puedeRevisar && (($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE
                               && $d->ORIGEN === \App\Models\VerificacionDocumento::DE_LA_NOCHE)
                              || ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
-                              && $d->ESTADO === \App\Models\VerificacionDocumento::APLICADO && $d->A_MANO))
+                              && $d->ESTADO === \App\Models\VerificacionDocumento::APLICADO && $d->A_MANO)))
                             <tr class="cpdf-fila-sel" data-id="{{ $d->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)">
                         @else
                             <tr>
@@ -252,7 +255,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="cpdf-vacio">{{ $estadoDoc || $tipoDoc || $buscar !== '' ? 'Nada coincide con los filtros.' : ($soloCarga ? 'Todavía no hay documentos cargados.' : 'Todavía no se ha revisado ningún documento.') }}</td></tr>
+                        <tr><td colspan="6" class="cpdf-vacio">{{ $estadoDoc || $tipoDoc || $buscar !== '' ? 'Nada coincide con los filtros.' : 'Todavía no se ha revisado ningún documento.' }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -260,8 +263,8 @@
         <div style="margin-top:12px;">{{ $docs->links('vendor.pagination.custom-sliding') }}</div>
         {{-- Dar por revisadas las filas elegidas con un clic, sin abrir el visor (ver cpdfMarcarRevisadas):
              las de la lectura automática y lo de la carga masiva ya enlazado que quedó para revisar.
-             Solo super.admin. --}}
-        @can('super.admin')
+             Solo quien puede revisar ($puedeRevisar). --}}
+        @if ($puedeRevisar)
         <div id="cpdfSelBarra" class="selection-floating-bar">
             <div class="selection-counter">
                 <i class="material-icons" style="font-size:18px;">fact_check</i>
@@ -273,7 +276,7 @@
                 <i class="material-icons">done_all</i> Revisado
             </button>
         </div>
-        @endcan
+        @endif
         @else
         <div class="cpdf-tabla-caja cpdf-comp">
             <table class="admin-table">
@@ -327,15 +330,21 @@
 
     <aside class="cpdf-side">
         @if ($pestana === 'documentos' && $soloCarga)
-            {{-- Quien entra solo por la carga masiva (ver Usuario::veAuditoriaDocumentos): lo
-                 suyo, sin nada de la lectura automática, que es de super.admin. --}}
+            {{-- Quien entra solo por la carga masiva (ver Usuario::veAuditoriaDocumentos): las
+                 cuentas de todas las lecturas, sin el control de la lectura automática (si está
+                 activa, "Revisar ahora" y su avance), que es de super.admin. --}}
             <div class="cpdf-hero">
-                <i class="material-icons">cloud_upload</i>
+                <i class="material-icons">fact_check</i>
                 <div>
-                    <small>Documentos cargados</small>
+                    <small>Documentos leídos</small>
                     <strong>{{ $resumenDocs->sum() }}</strong>
                 </div>
             </div>
+            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'revisar', 'page' => null]) }}">
+                <small>Para revisar a mano</small>
+                <strong>{{ $docsParaRevisar }}</strong>
+                <span>ilegibles, ajenos o sin archivo</span>
+            </a>
             <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => \App\Models\VerificacionDocumento::POR_ENGANCHAR, 'page' => null]) }}">
                 <small>Sin enlazar</small>
                 <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::POR_ENGANCHAR] ?? 0 }}</strong>
@@ -478,9 +487,8 @@
         else window.location.href = url;
     };
 
-    {{-- Lo de la lectura automática (elegir filas, "Revisado" y "Revisar ahora"): solo
-         super.admin, igual que sus rutas. A quien entra por la carga masiva ni le llega. --}}
-    @can('super.admin')
+    {{-- Elegir filas y "Revisado": quien puede revisar, igual que su ruta (Usuario::revisaDocumentos). --}}
+    @if ($puedeRevisar)
     // ── Dar por revisadas varias filas sin abrir el visor ──────────────────────────────
     // De la ficha solo se llenan las fechas que tiene VACIAS y el documento trae
     // (CorrectorFichaDocumento::fechasVacias); lo demas no cambia. Cada fila queda como
@@ -540,7 +548,10 @@
                 });
         });
     };
+    @endif
 
+    {{-- "Revisar ahora" (la lectura automática): solo super.admin, igual que su ruta. --}}
+    @can('super.admin')
     // "Revisar ahora": pide la lectura a cualquier hora (ver VerificarDocumentos::pedirAhora).
     // Con tipo ('propiedad', 'poliza', 'rotc' o 'racda') solo ese documento; '' = todos.
     window.cpdfLeerAhora = function (btn, tipo) {

@@ -552,10 +552,20 @@ Route::middleware(['auth'])->group(function () {
             // ── Auditoría Documental ─────────────────────────────────────────
             // Control de Auditoría: historial + las dos pestañas de documentos
             // (?pestana=compresion|documentos, ver App\Support\PanelDocumentos). Fuera del grupo
-            // super.admin: entra también quien solo tiene la carga masiva, y entonces ve SOLO la
-            // revisión de lo que carga. Quién entra y qué ve lo decide el controlador
-            // (Usuario::veAuditoriaDocumentos).
+            // super.admin: entra también quien solo tiene la carga masiva, y entonces ve la
+            // revisión de documentos (todas las lecturas). Quién entra y qué ve lo decide el
+            // controlador (Usuario::veAuditoriaDocumentos).
             Route::get('historial-documentos', [App\Http\Controllers\HistorialDocumentosController::class, 'index'])->name('historial-documentos.index');
+
+            // Dar lecturas por revisadas: super.admin o la carga masiva, y con 'user.edit' (también
+            // escriben en la ficha). Lo comprueba el controlador (Usuario::revisaDocumentos).
+            // Revisado a mano desde el visor: la persona corrigio la ficha en el panel y da la
+            // fila por buena (ver CompresionPdfController::marcarRevisado).
+            Route::post('compresion-pdf/documento/{id}/revisado', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisado'])
+                ->whereNumber('id')->name('compresion-pdf.documento.revisado');
+            // Varias de una vez, eligiendo las filas en la tabla, sin abrir el visor.
+            Route::post('compresion-pdf/documentos/revisados', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisados'])
+                ->name('compresion-pdf.documentos.revisados');
 
             // Carga masiva de documentos (menu Acciones). Se analiza UN PDF por
             // peticion (el OCR de Drive tarda ~8 s y treinta juntos se caerian por timeout; lo
@@ -576,8 +586,8 @@ Route::middleware(['auth'])->group(function () {
                     ->name('historial-documentos.carga-masiva.atar-documento');
             });
 
-            // Lo demás de Auditoría, incluida la lectura automática ("Revisar ahora" y el
-            // "Revisado"): solo super.admin.
+            // Lo demás de Auditoría, incluida la lectura automática ("Revisar ahora"): solo
+            // super.admin.
             Route::middleware('can:super.admin')->group(function () {
                 // Desbloquear IP: la tarjeta que la usa esta en /admin/usuarios (ver unlockIp).
                 Route::delete('historial-documentos/unlock-ip/{id}', [App\Http\Controllers\HistorialDocumentosController::class, 'unlockIp'])->name('historial-documentos.unlock-ip');
@@ -585,13 +595,6 @@ Route::middleware(['auth'])->group(function () {
                 // La pantalla de compresion se mudo a Control de Auditoría: este GET solo
                 // lleva alli (los enlaces viejos y los favoritos siguen sirviendo).
                 Route::get('compresion-pdf', [App\Http\Controllers\CompresionPdfController::class, 'index'])->name('compresion-pdf.index');
-                // Revisado a mano desde el visor: la persona corrigio la ficha en el panel y
-                // da la fila por buena (ver CompresionPdfController::marcarRevisado).
-                Route::post('compresion-pdf/documento/{id}/revisado', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisado'])
-                    ->whereNumber('id')->name('compresion-pdf.documento.revisado');
-                // Varias de una vez, eligiendo las filas en la tabla, sin abrir el visor.
-                Route::post('compresion-pdf/documentos/revisados', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisados'])
-                    ->name('compresion-pdf.documentos.revisados');
                 // "Revisar ahora": la lectura de documentos arranca ya, a cualquier hora.
                 Route::post('compresion-pdf/documentos/leer-ahora', [App\Http\Controllers\CompresionPdfController::class, 'leerAhora'])
                     ->name('compresion-pdf.documentos.leer-ahora');

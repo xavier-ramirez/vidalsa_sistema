@@ -22,7 +22,7 @@ use Illuminate\Validation\Rule;
  *
  * Permiso: SOLO 'docs.carga.masiva', que es EXCLUSIVO y ni super.admin hereda (ver
  * autorizar(), abajo). Con esa clave basta, sin super.admin: se entra a Auditoría de
- * Documentos solo a la revisión de lo cargado (ver Usuario::veAuditoriaDocumentos).
+ * Documentos, a la revisión de documentos (ver Usuario::veAuditoriaDocumentos).
  * Todas piden lo mismo; descartar, ademas, super.admin.
  */
 class CargaMasivaDocumentosController extends Controller

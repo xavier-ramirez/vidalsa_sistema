@@ -1618,13 +1618,13 @@ class VerificacionDocumentoTest extends MySqlTestCase
         $this->assertStringContainsString('no se pudo confirmar si ampara', (string) $reg->MOTIVO);
     }
 
-    public function test_sin_super_admin_no_se_puede_marcar_revisado(): void
+    public function test_quien_no_puede_revisar_no_marca_revisado(): void
     {
         [$equipo, $placa] = $this->equipoConDocumentos(['NOMBRE_DEL_TITULAR' => 'TRANSPORTE MILENUIM 0210, CA']);
         $this->lectorFalso($this->textoTitulo('TRANSPORTE MILENIUM 0210 C.A', $placa));
         $reg = $this->verificarSinAplicar($equipo, VerificacionDocumento::PROPIEDAD);
 
-        $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->can('super.admin'));
+        $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->revisaDocumentos());   // ni super.admin ni carga masiva + user.edit
         $this->actingAs($sinPermiso)->postJson(route('compresion-pdf.documento.revisado', ['id' => $reg->ID_REGISTRO]))
             ->assertForbidden();
         $this->assertSame(VerificacionDocumento::DIFIERE, $reg->refresh()->ESTADO);
@@ -1646,7 +1646,7 @@ class VerificacionDocumentoTest extends MySqlTestCase
         DB::table('documentacion')->where('ID_EQUIPO', $e2)->update(['FECHA_EMISION_PROPIEDAD' => '2019-01-01']);
 
         $url = route('compresion-pdf.documentos.revisados');
-        $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->can('super.admin'));
+        $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->revisaDocumentos());   // ni super.admin ni carga masiva + user.edit
         $this->actingAs($sinPermiso)->postJson($url, ['ids' => [$r1->ID_REGISTRO]])->assertForbidden();
         $this->assertSame(VerificacionDocumento::DIFIERE, $r1->refresh()->ESTADO);
 
