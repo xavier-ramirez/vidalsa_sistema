@@ -10,11 +10,11 @@ use Tests\MySqlTestCase;
 
 /**
  * Quién entra a Auditoría de Documentos y qué hace (pedido del cliente, 01-10-2026 y 19-10-2026):
- *  - Con 'docs.carga.masiva' (sin super.admin) se entra a la revisión de documentos, con TODAS las
- *    lecturas (las de la noche y las de la carga), y se revisa: cargar en lote, dar por revisado
- *    (visor y en lote) y "Revisar ahora".
- *  - Eliminar (descartar un PDF, borrar del historial) es SOLO de super.admin, igual que el
- *    historial y la compresión.
+ *  - Con 'docs.carga.masiva' (sin super.admin) se entra a las tres pestañas. En la revisión de
+ *    documentos ve TODAS las lecturas (las de la noche y las de la carga) y revisa: cargar en
+ *    lote, dar por revisado (visor y en lote) y "Revisar ahora". El historial y la compresión,
+ *    solo de mirar.
+ *  - Eliminar (descartar un PDF, borrar del historial, la Papelera) es SOLO de super.admin.
  * Ver Usuario::veAuditoriaDocumentos. Los usuarios se crean aquí y la transacción los deshace.
  */
 class AuditoriaDocumentosPermisosTest extends MySqlTestCase
@@ -53,7 +53,7 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         [$noche, $carga] = $this->filas();
         $u = $this->usuario('docs.carga.masiva');
 
-        $html = $this->actingAs($u)->get(route('historial-documentos.index'))->assertOk()->getContent();
+        $html = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'documentos']))->assertOk()->getContent();
 
         $this->assertStringContainsString('Revisión de documentos', $html);
         $this->assertStringContainsString('window.abrirCargaMasiva', $html, 'El modal de la carga masiva tiene que estar.');
@@ -69,26 +69,29 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertStringContainsString('cpdfSelBarra', $html);
         $this->assertStringContainsString('cpdfSelFila(', $html);
         $this->assertStringContainsString('window.cpdfMarcarRevisadas', $html);
-        // Nada de eliminar, ni las otras pestañas.
+        // Nada de eliminar; las otras pestañas, a la vista.
         $this->assertStringNotContainsString('cpdfDescartarCarga(this', $html, 'Descartar borra de Drive: super.admin.');
-        $this->assertStringNotContainsString('Historial de cambios', $html);
-        $this->assertStringNotContainsString('Compresión de PDF', $html);
+        $this->assertStringContainsString('Historial de cambios', $html);
+        $this->assertStringContainsString('Compresión de PDF', $html);
         $this->assertStringNotContainsString('abrirPapelera()', $html);
         $this->assertStringNotContainsString('hdDeleteRegistro(', $html);
         // Y el enlace del menú para llegar.
         $this->assertStringContainsString(route('historial-documentos.index'), $html);
     }
 
-    public function test_con_solo_la_carga_masiva_no_llega_a_otra_pestana_por_la_url(): void
+    public function test_con_solo_la_carga_masiva_ve_el_historial_y_la_compresion_sin_tocar_nada(): void
     {
         $u = $this->usuario('docs.carga.masiva');
 
-        foreach (['historial', 'compresion'] as $pestana) {
-            $html = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => $pestana]))->assertOk()->getContent();
-            $this->assertStringNotContainsString('PDF comprimidos', $html, "?pestana=$pestana no debe dar la compresión.");
-            $this->assertStringNotContainsString('historialDocumentosTable', $html, "?pestana=$pestana no debe dar el historial.");
-            $this->assertStringContainsString('Revisión de documentos', $html);
-        }
+        $hist = $this->actingAs($u)->get(route('historial-documentos.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('historialDocumentosTable', $hist, 'Ve el historial.');
+        $this->assertStringNotContainsString('btn-hd-del', $hist, 'Sin borrar registros.');
+        $this->assertStringNotContainsString('abrirPapelera()', $hist, 'Ni la Papelera.');
+
+        $comp = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'compresion']))->assertOk()->getContent();
+        $this->assertStringContainsString('PDF comprimidos', $comp, 'Ve la compresión.');
+        $this->assertStringNotContainsString('btn-hd-del', $comp);
+        $this->assertStringNotContainsString('abrirPapelera()', $comp);
     }
 
     public function test_con_solo_la_carga_masiva_revisa_pero_no_elimina(): void

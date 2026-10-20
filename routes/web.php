@@ -552,9 +552,9 @@ Route::middleware(['auth'])->group(function () {
             // ── Auditoría Documental ─────────────────────────────────────────
             // Control de Auditoría: historial + las dos pestañas de documentos
             // (?pestana=compresion|documentos, ver App\Support\PanelDocumentos). Fuera del grupo
-            // super.admin: entra también quien solo tiene la carga masiva, y entonces ve la
-            // revisión de documentos (todas las lecturas). Quién entra y qué ve lo decide el
-            // controlador (Usuario::veAuditoriaDocumentos).
+            // super.admin: entra también quien solo tiene la carga masiva, y ve las tres pestañas
+            // (el historial y la compresión, solo de mirar). Quién entra lo decide el controlador
+            // (Usuario::veAuditoriaDocumentos); lo que se hace, los grupos de abajo.
             Route::get('historial-documentos', [App\Http\Controllers\HistorialDocumentosController::class, 'index'])->name('historial-documentos.index');
 
             // Carga masiva de documentos (menu Acciones). Se analiza UN PDF por

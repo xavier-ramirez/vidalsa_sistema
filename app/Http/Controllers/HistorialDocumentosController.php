@@ -314,8 +314,8 @@ class HistorialDocumentosController extends Controller
 
     /**
      * Deja en cache la vista SIN filtros de cada alcance distinto (frentes visibles y
-     * bloqueados) entre los usuarios que pueden abrir el modulo: super.admin, el mismo permiso
-     * de la ruta. Casi todos ven lo mismo, asi que suele ser una sola lista.
+     * bloqueados) entre los usuarios que pueden abrir el modulo (Usuario::veAuditoriaDocumentos,
+     * lo mismo que mira index). Casi todos ven lo mismo, asi que suele ser una sola lista.
      */
     public function calentar(): void
     {
@@ -323,7 +323,7 @@ class HistorialDocumentosController extends Controller
         $almacen = \Illuminate\Support\Facades\Cache::store('file');
 
         $alcances = \App\Models\Usuario::all()
-            ->filter(fn ($u) => \Illuminate\Support\Facades\Gate::forUser($u)->allows('super.admin'))
+            ->filter(fn ($u) => $u->veAuditoriaDocumentos())
             ->map(fn ($u) => [$u->frentesVisiblesEquiposIds(), $u->getFrentesBloqueadosIds()])
             ->unique(fn ($alcance) => json_encode($alcance));
 
@@ -404,11 +404,11 @@ class HistorialDocumentosController extends Controller
         // documentos, que pinta admin/compresion_pdf/panel.blade.php con los datos de
         // App\Support\PanelDocumentos. Cuando el usuario esta en una de esas, NO se arma la
         // lista de eventos: es el trabajo caro de esta pantalla y no se ve.
-        // Entra super.admin (todo) o quien tiene la carga masiva: este, solo a la revisión de
-        // documentos (ver Usuario::veAuditoriaDocumentos).
+        // Entra super.admin o quien tiene la carga masiva, a las tres pestañas; lo que se HACE en
+        // cada una pide su permiso (ver Usuario::veAuditoriaDocumentos).
         $user = auth()->user();
         abort_unless($user && $user->veAuditoriaDocumentos(), 403);
-        $pestana = $user->can('super.admin') ? $request->input('pestana') : PanelDocumentos::DOCUMENTOS;
+        $pestana = $request->input('pestana');
         if (PanelDocumentos::esPestana($pestana)) {
             return view('admin.historial_documentos.index', PanelDocumentos::datos($request, $pestana));
         }

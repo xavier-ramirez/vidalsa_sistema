@@ -8,18 +8,14 @@
 {{-- Sin título de página: las pestañas ya dicen dónde se está (pedido del cliente, 19-10-2026). --}}
 <div class="hd-pest-fila">
     <div class="hd-pest">
-    {{-- Quien entra solo por la carga masiva ve solo "Revisión de documentos" (ver
-         Usuario::veAuditoriaDocumentos): el historial y la compresión son de super.admin. --}}
-    @can('super.admin')
+    {{-- Las tres para quien entra (Usuario::veAuditoriaDocumentos). Con solo la carga masiva,
+         el historial y la compresión son de mirar: borrar y la Papelera piden super.admin. --}}
     <button type="button" class="{{ $pestana === 'historial' ? 'on' : '' }}" onclick="window.hdPestana('historial')">Historial de cambios</button>
-    @endcan
     <button type="button" class="{{ $pestana === 'documentos' ? 'on' : '' }}" onclick="window.hdPestana('documentos')">
         Revisión de documentos
         @if ($docsParaRevisar) <span class="hd-pend" title="Documentos que hay que revisar a mano">{{ $docsParaRevisar }}</span> @endif
     </button>
-    @can('super.admin')
     <button type="button" class="{{ $pestana === 'compresion' ? 'on' : '' }}" onclick="window.hdPestana('compresion')">Compresión de PDF</button>
-    @endcan
     </div>
 </div>
 <script>

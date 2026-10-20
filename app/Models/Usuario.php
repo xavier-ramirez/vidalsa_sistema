@@ -430,13 +430,13 @@ class Usuario extends Authenticatable
         return $this->nivelTexto($this->NIVEL_ACCESO_ALMACEN);
     }
     /**
-     * Quién entra a Auditoría de Documentos (/admin/historial-documentos). Con 'super.admin',
-     * a todo; con 'docs.carga.masiva' (sin super.admin), a la pestaña de revisión de documentos,
-     * con todas las lecturas (las de la noche y las de la carga). Lo que se HACE en esa pestaña
-     * (dar por revisado, "Revisar ahora", cargar en lote) va con 'docs.carga.masiva'; eliminar
-     * (descartar un PDF, borrar del historial), solo con super.admin (pedido del cliente,
-     * 19-10-2026). Punto único para la ruta, el menú y la pantalla. No es una clave de
-     * permisos: se deriva de las dos.
+     * Quién entra a Auditoría de Documentos (/admin/historial-documentos): con 'super.admin' o
+     * con 'docs.carga.masiva', y los dos ven las tres pestañas (historial, revisión de documentos
+     * con todas las lecturas, y compresión). Lo que se HACE va con su permiso: dar por revisado,
+     * "Revisar ahora" y cargar en lote, con 'docs.carga.masiva'; eliminar (descartar un PDF,
+     * borrar del historial, la Papelera), solo con super.admin. Con solo la carga masiva, el
+     * historial y la compresión son de mirar (pedido del cliente, 19-10-2026). Punto único para
+     * la ruta, el menú y la pantalla. No es una clave de permisos: se deriva de las dos.
      */
     public function veAuditoriaDocumentos(): bool
     {
