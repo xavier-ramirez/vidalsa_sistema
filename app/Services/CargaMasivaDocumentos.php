@@ -1110,7 +1110,7 @@ class CargaMasivaDocumentos
      * modal): las que contienen lo buscado en su serial, placa o codigo, y las de serial o placa
      * PARECIDOS —uno o dos caracteres distintos, como un digito de control mal copiado o una
      * letra mal leida—. Primero la IGUAL a lo buscado, luego lo mas parecido (distancia). Cada
-     * una dice su tipo y frente, si ya esta en un embarque y, con $tipo, si ya tiene ese documento.
+     * una dice su tipo, si ya esta en un embarque y, con $tipo, si ya tiene ese documento.
      */
     public function buscarEquipo(string $buscado, ?string $tipo = null): array
     {
@@ -1120,9 +1120,8 @@ class CargaMasivaDocumentos
         $serial = self::sqlCodigo('e.SERIAL_CHASIS');
         $placa = self::sqlCodigo('d.PLACA');
         $filas = $this->consulta()->addSelect('e.CODIGO_PATIO')
-            // Para elegir bien en la lista: de que tipo es y en que frente esta.
+            // Para elegir bien en la lista: de que tipo es.
             ->addSelect(DB::raw('(SELECT t.nombre FROM tipo_equipos t WHERE t.id = e.id_tipo_equipo) as TIPO_EQUIPO'))
-            ->addSelect(DB::raw('(SELECT f.NOMBRE_FRENTE FROM frentes_trabajo f WHERE f.ID_FRENTE = e.ID_FRENTE_ACTUAL) as FRENTE'))
             ->where(function ($w) use ($cod, $serial, $placa) {
                 $w->whereRaw("$serial LIKE ?", ['%' . $cod . '%'])
                   ->orWhereRaw("$placa LIKE ?", ['%' . $cod . '%'])
@@ -1169,7 +1168,7 @@ class CargaMasivaDocumentos
                 'id' => (int) $par[0]->ID_EQUIPO, 'serial' => $par[0]->SERIAL_CHASIS, 'placa' => $par[0]->PLACA,
                 'codigo' => $par[0]->CODIGO_PATIO,
                 'nombre' => trim(($par[0]->MARCA ?? '') . ' ' . ($par[0]->MODELO ?? '')) ?: ('Equipo #' . $par[0]->ID_EQUIPO),
-                'tipo' => $par[0]->TIPO_EQUIPO, 'frente' => $par[0]->FRENTE,
+                'tipo' => $par[0]->TIPO_EQUIPO,
                 // -1 igual a lo buscado, 0 lo contiene, 1-3 caracteres distintos. La pantalla
                 // muestra solo los mas cercanos y deja el resto detras de un enlace.
                 'distancia' => $par[1],

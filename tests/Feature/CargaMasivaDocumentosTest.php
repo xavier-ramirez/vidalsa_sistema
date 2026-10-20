@@ -961,7 +961,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
 
     /**
      * Al atar, el buscador sugiere tambien por una PLACA mal leida (un caracter distinto), dice el
-     * tipo y el frente de cada equipo y avisa si ya tiene ese documento.
+     * tipo de cada equipo y avisa si ya tiene ese documento.
      */
     public function test_el_buscador_de_atar_sugiere_por_placa_parecida_y_avisa_si_ya_lo_tiene(): void
     {
@@ -976,7 +976,6 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         // Con la placa bien escrita es IGUAL (-1): la pantalla muestra solo ese.
         $this->assertSame(-1, collect($this->servicio()->buscarEquipo($placa))->firstWhere('id', $e->ID_EQUIPO)['distancia']);
         $this->assertArrayHasKey('tipo', $hallado);
-        $this->assertArrayHasKey('frente', $hallado);
         $this->assertFalse(collect($this->servicio()->buscarEquipo($mal, 'rotc'))->firstWhere('id', $e->ID_EQUIPO)['tiene']);
     }
 
