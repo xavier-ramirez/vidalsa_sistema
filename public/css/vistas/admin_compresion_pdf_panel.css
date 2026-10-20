@@ -217,8 +217,7 @@
     .cpdf-atar-doc strong { font-size: 14px; color: #0f172a; }
     .cpdf-atar-doc div span { font-size: 12px; color: #64748b; word-break: break-word; }
     .cpdf-atar-doc div span:empty { display: none; }
-    .cpdf-atar-leido { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 8px 12px;
-                       border: 1px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; }
+    .cpdf-atar-leido { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
     .cpdf-atar-leido span { font-size: 11px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: #64748b; }
     .cpdf-atar-leido b { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 15px; letter-spacing: .5px; color: #0f172a; word-break: break-all; }
     .cpdf-atar-leido b:empty { display: none; }
@@ -296,6 +295,12 @@
     }
     @media (max-width: 768px) {
         .cpdf-filtros > .filter-item.responsive-filter-item { flex: 1 1 100% !important; }
+        /* El botón de Filtros Avanzados (45 px) va al lado del filtro que tiene delante, como en
+           el Historial: ese filtro se encoge para dejarle su hueco en la misma fila. Hace falta la
+           fila (con salto de línea): la regla común del teléfono pone la barra en columna y así
+           cada cosa ocupaba todo el ancho. */
+        .cpdf-filtros { flex-direction: row !important; flex-wrap: wrap !important; }
+        .cpdf-filtros > .filter-item.responsive-filter-item:has(+ .hd-adv-filter-wrap) { flex: 1 1 0 !important; }
 
         /* Del resumen solo se deja "Por dónde va la revisión": en el teléfono lo demás
            empujaba la lista media pantalla hacia abajo (en Compresión no queda nada). */

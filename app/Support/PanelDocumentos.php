@@ -53,6 +53,7 @@ class PanelDocumentos
             'pestana'      => $pestana,
             'buscar'       => $buscar,
             'activa'       => $activa,
+            'conFechas'    => $request->filled('fecha_desde') || $request->filled('fecha_hasta'),
             'motivoActiva' => $motivoActiva,
             'zona'         => $zona,
             // Los horarios salen de los comandos (su HORARIO), los mismos que usa el programador.
@@ -71,6 +72,23 @@ class PanelDocumentos
     }
 
     /** Pestaña "Compresión": filas, filtros y resumen de docs:comprimir. */
+    /**
+     * Filtros Avanzados (fecha_desde / fecha_hasta, partials/filtro_fechas): deja solo lo de esos
+     * días en `$columna`, la fecha que muestra cada lista. Una fecha mal escrita no filtra.
+     */
+    private static function entreFechas($q, Request $request, string $columna): void
+    {
+        foreach (['fecha_desde' => '>=', 'fecha_hasta' => '<='] as $param => $op) {
+            if (!$request->filled($param)) continue;
+            try {
+                $dia = \Carbon\Carbon::parse((string) $request->input($param));
+            } catch (\Throwable $e) {
+                continue;
+            }
+            $q->where($columna, $op, $op === '>=' ? $dia->startOfDay() : $dia->endOfDay());
+        }
+    }
+
     private static function datosCompresion(Request $request, string $buscar): array
     {
         // Un valor que no esta en su lista (p. ej. 'all', "todos") es como no filtrar.
@@ -84,6 +102,7 @@ class PanelDocumentos
             ->groupBy('ESTADO')->get()->keyBy('ESTADO');
 
         $filas = CompresionPdf::query()
+            ->tap(fn ($q) => self::entreFechas($q, $request, 'created_at'))
             ->when($estado, fn ($q) => $q->where('ESTADO', $estado))
             ->when($documento, fn ($q) => $q->where('DOCUMENTO', $documento))
             ->when($buscar !== '', function ($q) use ($buscar) {
@@ -139,6 +158,7 @@ class PanelDocumentos
             ? $request->input('tipo_doc') : null;
 
         $filas = VerificacionDocumento::query()
+            ->tap(fn ($q) => self::entreFechas($q, $request, 'updated_at'))
             ->when($estadoDoc === 'revisar', fn ($q) => $q->paraRevisar())
             ->when($estadoDoc === 'corregibles', fn ($q) => $q->corregibles())
             ->when($estadoDoc && !in_array($estadoDoc, ['revisar', 'corregibles'], true),

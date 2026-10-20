@@ -232,4 +232,33 @@ class HistorialDocumentosTest extends MySqlTestCase
         $this->assertStringNotContainsString('Certificado (auxiliar)', $comp);
         $this->assertSame('Certificado', collect(\App\Support\EnlacesDocumentos::DOCUMENTOS)->firstWhere(1, 'LINK_CERTIFICADO')[3]);
     }
+
+    /**
+     * Filtros Avanzados (fecha desde / hasta) en las TRES pestañas; en Revisión filtran por la
+     * fecha de cada fila y el botón sale en rojo con una fecha puesta.
+     */
+    public function test_las_tres_pestanas_tienen_filtros_avanzados_por_fecha(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        foreach (['documentos', 'historial', 'compresion'] as $pestana) {
+            $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => $pestana]))->assertOk()->getContent();
+            $this->assertSame(1, substr_count($html, 'id="btnHdAdvancedFilter"'), 'Pestaña ' . $pestana);
+            $this->assertSame(1, substr_count($html, 'id="hdFechaDesde"'), 'Pestaña ' . $pestana);
+        }
+
+        $marca = 'FECHAS' . mt_rand(10000, 99999);
+        foreach (['VIEJA' => now()->subDays(20), 'NUEVA' => now()->subDay()] as $nombre => $cuando) {
+            $v = \App\Models\VerificacionDocumento::create([
+                'DRIVE_ID' => $marca . $nombre, 'ORIGEN' => \App\Models\VerificacionDocumento::DE_LA_NOCHE, 'TIPO' => 'poliza',
+                'ARCHIVO' => $marca . '.pdf', 'ESTADO' => \App\Models\VerificacionDocumento::COINCIDE, 'MOTIVO' => $marca . ' ' . $nombre, 'INTENTOS' => 0,
+            ]);
+            \Illuminate\Support\Facades\DB::table('verificacion_documento_registro')->where('ID_REGISTRO', $v->ID_REGISTRO)->update(['updated_at' => $cuando]);
+        }
+        $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => $marca,
+            'fecha_desde' => now()->subDays(3)->toDateString()]))->assertOk()->getContent();
+        $this->assertStringContainsString($marca . ' NUEVA', $html);
+        $this->assertStringNotContainsString($marca . ' VIEJA', $html);
+        $this->assertMatchesRegularExpression('/id="btnHdAdvancedFilter"[^>]*?>/s', $html);
+        $this->assertStringContainsString('background: #fee2e2', $html, 'Con una fecha puesta el botón sale en rojo.');
+    }
 }

@@ -118,6 +118,8 @@
 
             @includeWhen($pestana === 'documentos', 'admin.compresion_pdf.partials.buscador')
 
+            @include('admin.historial_documentos.partials.filtro_fechas', ['alCambiar' => 'window.cpdfFiltrar'])
+
             @include('admin.historial_documentos.partials.acciones')
         </div>
 
@@ -247,7 +249,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="cpdf-vacio">{{ $estadoDoc || $tipoDoc || $buscar !== '' ? 'Nada coincide con los filtros.' : 'Todavía no se ha revisado ningún documento.' }}</td></tr>
+                        <tr><td colspan="6" class="cpdf-vacio">{{ $estadoDoc || $tipoDoc || $buscar !== '' || $conFechas ? 'Nada coincide con los filtros.' : 'Todavía no se ha revisado ningún documento.' }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -311,7 +313,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="cpdf-vacio">{{ $estado || $documento || $buscar !== '' ? 'Nada coincide con los filtros.' : 'No hay nada registrado todavía.' }}</td></tr>
+                        <tr><td colspan="8" class="cpdf-vacio">{{ $estado || $documento || $buscar !== '' || $conFechas ? 'Nada coincide con los filtros.' : 'No hay nada registrado todavía.' }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -466,6 +468,11 @@
              ['cpdfDocEstadoSelect', 'estado_doc'], ['cpdfDocTipoSelect', 'tipo_doc']].forEach(function (par) {
                 var input = document.querySelector('#' + par[0] + ' [data-filter-value]');
                 if (input && input.value && input.value !== 'all') p.set(par[1], input.value);
+            });
+            // Las fechas de Filtros Avanzados (partials/filtro_fechas).
+            [['hdFechaDesde', 'fecha_desde'], ['hdFechaHasta', 'fecha_hasta']].forEach(function (par) {
+                var f = document.getElementById(par[0]);
+                if (f && f.value) p.set(par[1], f.value);
             });
         }
         var url = @json(route('historial-documentos.index')) + (p.toString() ? '?' + p.toString() : '');

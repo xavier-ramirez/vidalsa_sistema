@@ -204,16 +204,17 @@ window.hdMarcarFiltrosAvanzados = function () {
     btn.style.color = activo ? '#ef4444' : '#64748b';
 };
 
-// "Limpiar" del panel: vacía las dos fechas y recarga UNA vez. La acción no se toca:
-// está en la barra, con su propia X.
-window.hdLimpiarFiltrosAvanzados = function () {
+// "Limpiar" del panel: vacía las dos fechas y recarga UNA vez la pestaña en la que se está
+// (`recargar`: la tabla del Historial o la lista de Revisión/Compresión). La acción no se
+// toca: está en la barra, con su propia X.
+window.hdLimpiarFiltrosAvanzados = function (recargar) {
     ['hdFechaDesde', 'hdFechaHasta'].forEach(function (id) {
         const f = document.getElementById(id);
         if (f) f.value = '';
     });
     window.hdToggleDateClear('hdFechaDesde', 'hdClrFechaDesde');
     window.hdToggleDateClear('hdFechaHasta', 'hdClrFechaHasta');
-    window.loadHistorialDocumentos();
+    (recargar || window.loadHistorialDocumentos)();
 };
 
 // Buscar mientras se escribe, como en Equipos: con 4+ letras, 400 ms despues de la ultima
