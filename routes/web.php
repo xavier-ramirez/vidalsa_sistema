@@ -585,7 +585,7 @@ Route::middleware(['auth'])->group(function () {
                     ->name('compresion-pdf.documentos.revisados');
             });
 
-            // Lo demás de Auditoría (desbloquear IP, eliminar del historial, la compresión): solo super.admin.
+            // Lo demás de Auditoría (desbloquear IP, eliminar del historial, la compresión, "Revisar ahora"): solo super.admin.
             Route::middleware('can:super.admin')->group(function () {
                 // Desbloquear IP: la tarjeta que la usa esta en /admin/usuarios (ver unlockIp).
                 Route::delete('historial-documentos/unlock-ip/{id}', [App\Http\Controllers\HistorialDocumentosController::class, 'unlockIp'])->name('historial-documentos.unlock-ip');

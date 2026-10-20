@@ -432,9 +432,9 @@ class Usuario extends Authenticatable
     /**
      * Quién entra a Auditoría de Documentos (/admin/historial-documentos): con 'super.admin' o
      * con 'docs.carga.masiva', y los dos ven las tres pestañas (historial, revisión de documentos
-     * con todas las lecturas, y compresión). Lo que se HACE va con su permiso: dar por revisado,
-     * "Revisar ahora" y cargar en lote, con 'docs.carga.masiva'; eliminar (descartar un PDF,
-     * borrar del historial, la Papelera), solo con super.admin. Con solo la carga masiva, el
+     * con todas las lecturas, y compresión). Lo que se HACE va con su permiso: dar por revisado
+     * y cargar en lote, con 'docs.carga.masiva'; eliminar (descartar un PDF, borrar del
+     * historial, la Papelera) y la lectura automática con "Revisar ahora", solo con super.admin. Con solo la carga masiva, el
      * historial y la compresión son de mirar (pedido del cliente, 19-10-2026). Punto único para
      * la ruta, el menú y la pantalla. No es una clave de permisos: se deriva de las dos.
      */

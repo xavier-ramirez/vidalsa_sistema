@@ -37,7 +37,7 @@ class CompresionPdfController extends Controller
      * nadie lo ha mirado (05-10-2026: el ROTC de un Sinotruk en la ficha de un JAC se escondia
      * asi). Desde el VISOR si (marcarRevisado): ahi la persona tiene el PDF delante y decide.
      */
-    private const OTRO_VEHICULO = 'El PDF es de otro vehículo: cámbialo o, si la mala es la ficha, corrige su placa o su serial y pulsa "Revisar ahora". No se da por revisado.';
+    private const OTRO_VEHICULO = 'El PDF es de otro vehículo: cámbialo o, si la mala es la ficha, corrige su placa o su serial: la lectura automática lo vuelve a comprobar. No se da por revisado.';
 
     /**
      * La persona reviso el documento EN EL VISOR y guardo la ficha a mano: la fila queda como
