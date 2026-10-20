@@ -251,7 +251,7 @@ window.applyRowStyleHd = function(tr, selected) {
 // ── Actualiza el chip contador ──
 window.updateChipHd = function() {
     const chip  = document.getElementById('hd-selection-chip');
-    const count = document.getElementById('hd-selection-count');
+    const count = document.getElementById('hd-selection-chip-cuenta');
     if (!chip || !count) return;
 
     const n = window._hdSelectedIds.size;

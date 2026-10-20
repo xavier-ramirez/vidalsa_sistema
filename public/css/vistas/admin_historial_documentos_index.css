@@ -312,6 +312,16 @@
         .hd-pest button { white-space: nowrap; padding: 8px 10px; font-size: 13.5px; }
     }
 
+/* Contador flotante de filas elegidas (partials/chip_seleccion), el de las tres pestañas.
+   "Ver solo las elegidas" activo: el NÚMERO en un círculo ámbar (mismo patrón que Equipos). */
+.hd-chip-sel .selection-counter.is-filtering .hd-chip-cuenta {
+    background: #fbbf24; color: #1e293b; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center; font-weight: 800; line-height: 1; box-sizing: border-box;
+}
+.hd-chip-sel .btn-bulk-clear { font-size: 13px; cursor: pointer; }
+.hd-chip-sel .btn-bulk-clear:hover { color: #fff; }
+.hd-chip-sel [hidden] { display: none !important; }
+
 /* Resumen de la barra lateral (partials/resumen_lateral): cada fila filtra la tabla. */
 #hdResumen { display: flex; flex-direction: column; gap: 10px; }
 #hdResumen .hd-res-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

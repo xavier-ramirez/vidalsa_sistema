@@ -89,6 +89,17 @@ class PanelDocumentos
         }
     }
 
+    /**
+     * "Ver solo las elegidas" (contador partials/chip_seleccion): ?ids=1,2,3 deja solo esas filas
+     * (ID_REGISTRO). Con tope, como el hd_ids del Historial; lo que no es un número se ignora.
+     */
+    private static function soloElegidas($q, Request $request): void
+    {
+        if (!$request->filled('ids')) return;
+        $ids = array_slice(array_values(array_filter(array_map('intval', explode(',', (string) $request->input('ids'))))), 0, 500);
+        $q->whereIn('ID_REGISTRO', $ids ?: [0]);
+    }
+
     private static function datosCompresion(Request $request, string $buscar): array
     {
         // Un valor que no esta en su lista (p. ej. 'all', "todos") es como no filtrar.
@@ -103,6 +114,7 @@ class PanelDocumentos
 
         $filas = CompresionPdf::query()
             ->tap(fn ($q) => self::entreFechas($q, $request, 'created_at'))
+            ->tap(fn ($q) => self::soloElegidas($q, $request))
             ->when($estado, fn ($q) => $q->where('ESTADO', $estado))
             ->when($documento, fn ($q) => $q->where('DOCUMENTO', $documento))
             ->when($buscar !== '', function ($q) use ($buscar) {
@@ -159,6 +171,7 @@ class PanelDocumentos
 
         $filas = VerificacionDocumento::query()
             ->tap(fn ($q) => self::entreFechas($q, $request, 'updated_at'))
+            ->tap(fn ($q) => self::soloElegidas($q, $request))
             ->when($estadoDoc === 'revisar', fn ($q) => $q->paraRevisar())
             ->when($estadoDoc === 'corregibles', fn ($q) => $q->corregibles())
             ->when($estadoDoc && !in_array($estadoDoc, ['revisar', 'corregibles'], true),

@@ -190,21 +190,9 @@
     </div>
 </div>
 
-{{-- ─── CONTADOR FLOTANTE DE SELECCIÓN ───────────────────────────────────── --}}
-<div id="hd-selection-chip" class="selection-floating-bar">
-    <div class="selection-counter" onclick="window.hdToggleSoloSel(event)" style="cursor: pointer;" title="Ver solo los eventos seleccionados">
-        <div style="background: rgba(255,255,255,0.1); padding: 5px; border-radius: 50%; display: flex;">
-            <i class="material-icons" style="font-size: 18px; color: white;">functions</i>
-        </div>
-        <span id="hd-selection-count">0</span>
-    </div>
-    <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2);"></div>
-    <div style="display: flex; gap: 10px;">
-        <button type="button" onclick="window.hdClearSelection()" style="background: transparent; border: none; color: #94a3b8; font-size: 13px; font-weight: 600;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
-            Limpiar
-        </button>
-    </div>
-</div>
+{{-- ─── CONTADOR FLOTANTE DE SELECCIÓN (el mismo de las tres pestañas) ─── --}}
+@include('admin.historial_documentos.partials.chip_seleccion', ['id' => 'hd-selection-chip',
+    'alTocar' => 'window.hdToggleSoloSel', 'alLimpiar' => 'window.hdClearSelection'])
 
 <style>
     /* Hover en filas seleccionables. Los fondos llevan !important porque .admin-table
@@ -278,22 +266,6 @@
         }
     }
 
-    /* "Ver solo seleccionados" activo: resalta solo el NÚMERO del contador en un
-       círculo ámbar limpio (mismo patrón que el módulo Equipos). */
-    #hd-selection-chip .selection-counter.is-filtering #hd-selection-count {
-        background: #fbbf24;
-        color: #1e293b;
-        min-width: 22px;
-        height: 22px;
-        padding: 0 5px;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 800;
-        line-height: 1;
-        box-sizing: border-box;
-    }
 </style>
 
 

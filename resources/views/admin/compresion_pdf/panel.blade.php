@@ -140,22 +140,19 @@
                 </thead>
                 <tbody>
                     @forelse ($docs as $d)
-                        {{-- Las que no coinciden se eligen con un clic en la fila (ver cpdfSelFila),
-                             si quien mira tiene la carga masiva (con ella se revisa); las que ya
-                             coinciden no tienen nada que revisar.
-
-                             De la CARGA MASIVA solo lo ya enlazado que quedó para revisar (sin
-                             fecha, o un BL sin número): lo demás son propuestas de un PDF que se
-                             enlaza solo a su ficha (o dice por qué no), y el servidor las deja
-                             fuera del "Revisado" en lote (marcarRevisados). --}}
-                        @if (auth()->user()->can('docs.carga.masiva') && (($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE
-                              && $d->ORIGEN === \App\Models\VerificacionDocumento::DE_LA_NOCHE)
-                             || ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
-                              && $d->ESTADO === \App\Models\VerificacionDocumento::APLICADO && $d->A_MANO)))
-                            <tr class="cpdf-fila-sel" data-id="{{ $d->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)">
-                        @else
-                            <tr>
-                        @endif
+                        {{-- Toda fila se elige con un clic (cpdfSelFila, contador partials/chip_seleccion).
+                             Las que además se pueden dar por REVISADAS en lote llevan cpdf-revisable:
+                             las de la noche que no coinciden y, de la CARGA MASIVA, lo ya enlazado que
+                             quedó para revisar (sin fecha, o un BL sin número). Lo demás son propuestas
+                             que se enlazan solas (o dicen por qué no), y el servidor las deja fuera del
+                             "Revisado" en lote (marcarRevisados). Revisar va con la carga masiva. --}}
+                        @php
+                            $revisable = auth()->user()->can('docs.carga.masiva') && (($d->ESTADO !== \App\Models\VerificacionDocumento::COINCIDE
+                                  && $d->ORIGEN === \App\Models\VerificacionDocumento::DE_LA_NOCHE)
+                                 || ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
+                                  && $d->ESTADO === \App\Models\VerificacionDocumento::APLICADO && $d->A_MANO));
+                        @endphp
+                        <tr class="cpdf-fila-sel{{ $revisable ? ' cpdf-revisable' : '' }}" data-id="{{ $d->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)">
                             <td><div class="hd-fecha"><span>{{ $d->updated_at?->format('d/m/Y') }}</span><span class="hd-hora">{{ $d->updated_at?->format('h:i A') }}</span></div></td>
                             <td>
                                 {{ $tiposDoc[$d->TIPO] ?? ($d->TIPO ?: 'Sin reconocer') }}
@@ -255,22 +252,6 @@
             </table>
         </div>
         <div style="margin-top:12px;">{{ $docs->links('vendor.pagination.custom-sliding') }}</div>
-        {{-- Dar por revisadas las filas elegidas con un clic, sin abrir el visor (ver cpdfMarcarRevisadas):
-             las de la lectura automática y lo de la carga masiva ya enlazado que quedó para revisar.
-             Con la carga masiva, igual que su ruta. --}}
-        @can('docs.carga.masiva')
-        <div id="cpdfSelBarra" class="selection-floating-bar">
-            <div class="selection-counter">
-                <i class="material-icons" style="font-size:18px;">fact_check</i>
-                <span id="cpdfSelCuenta">0</span>
-            </div>
-            <div style="width:1px;height:24px;background:rgba(255,255,255,0.2);"></div>
-            <button type="button" class="btn-bulk-clear" onclick="window.cpdfSelLimpiar()">Limpiar</button>
-            <button type="button" class="btn-bulk-action" onclick="window.cpdfMarcarRevisadas()">
-                <i class="material-icons">done_all</i> Revisado
-            </button>
-        </div>
-        @endcan
         @else
         <div class="cpdf-tabla-caja cpdf-comp">
             <table class="admin-table">
@@ -294,7 +275,7 @@
                             $ahorro  = ($f->BYTES_ANTES && $f->BYTES_DESPUES && $f->ESTADO === 'comprimido')
                                 ? round(100 * (1 - $f->BYTES_DESPUES / $f->BYTES_ANTES)) . ' %' : '—';
                         @endphp
-                        <tr>
+                        <tr class="cpdf-fila-sel" data-id="{{ $f->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)">
                             <td><div class="hd-fecha"><span>{{ $f->created_at?->format('d/m/Y') }}</span><span class="hd-hora">{{ $f->created_at?->format('h:i A') }}</span></div></td>
                             <td>{{ $f->DOCUMENTO }}</td>
                             <td>{{ $f->SERIAL ?? '—' }}</td>
@@ -447,12 +428,78 @@
         @endif
     </aside>
 </div>
+@include('admin.historial_documentos.partials.chip_seleccion', ['id' => 'cpdf-selection-chip',
+    'alTocar' => 'window.cpdfSelSolo', 'alLimpiar' => 'window.cpdfSelLimpiar',
+    'revisado' => $pestana === 'documentos' && auth()->user()->can('docs.carga.masiva')])
 @if ($pestana === 'documentos')
     @can('docs.carga.masiva')
         @include('admin.compresion_pdf.partials.atar_modal')
     @endcan
 @endif
 <script>
+    // ── Elegir filas (contador común partials/chip_seleccion) ───────────────────────────
+    // Igual que en el Historial: un clic elige o suelta la fila, el número cuenta las elegidas,
+    // tocarlo muestra SOLO esas (?ids=, lo filtra el servidor) y "Limpiar" las suelta. Aquí cada
+    // filtro o página vuelve a pintar la pestaña, así que la selección se guarda en
+    // window._cpdfSel mientras se siga en la MISMA pestaña; al cambiar de pestaña o salir del
+    // módulo empieza de cero. `revisables` son las elegidas que se pueden dar por revisadas.
+    (function () {
+        var pestana = @json($pestana), url = new URLSearchParams(location.search);
+        var sel = window._cpdfSel;
+        if (!sel || sel.pestana !== pestana) sel = window._cpdfSel = { pestana: pestana, ids: new Set(), revisables: new Set(), solo: false };
+        sel.solo = url.has('ids') && sel.ids.size > 0;
+        if (!window.__cpdfSelSalida) {
+            window.__cpdfSelSalida = true;
+            // Fuera de estas dos listas (otro módulo o el Historial) la selección se olvida.
+            window.addEventListener('spa:contentLoaded', function () {
+                if (!document.getElementById('cpdf-selection-chip')) window._cpdfSel = null;
+            });
+        }
+    })();
+    // Las elegidas que se pueden dar por revisadas (las cpdf-revisable vistas en alguna página).
+    var cpdfMarcadas = function () {
+        var sel = window._cpdfSel;
+        return sel ? Array.from(sel.ids).filter(function (id) { return sel.revisables.has(id); }) : [];
+    };
+    var cpdfSelPintar = function () {
+        var sel = window._cpdfSel; if (!sel) return;
+        document.querySelectorAll('.cpdf-fila-sel').forEach(function (tr) {
+            if (tr.classList.contains('cpdf-revisable')) sel.revisables.add(tr.dataset.id);
+            tr.classList.toggle('selected-row-maquinaria', sel.ids.has(tr.dataset.id));
+        });
+        var chip = document.getElementById('cpdf-selection-chip');
+        if (!chip) return;
+        chip.classList.toggle('active', sel.ids.size > 0);
+        document.getElementById('cpdf-selection-chip-cuenta').textContent = sel.ids.size;
+        chip.querySelector('.selection-counter').classList.toggle('is-filtering', sel.solo);
+        var rev = document.getElementById('cpdf-selection-chip-revisado'), n = cpdfMarcadas().length;
+        if (rev) { rev.hidden = !n; rev.lastChild.textContent = ' Revisado' + (n > 1 ? ' (' + n + ')' : ''); }
+    };
+    // Clic en cualquier parte de la fila la elige o la suelta; los botones y enlaces de la fila
+    // (el PDF, atar, descartar) siguen haciendo lo suyo sin tocar la selección.
+    window.cpdfSelFila = function (e, tr) {
+        if (e.target.closest('button, a, input')) return;
+        var sel = window._cpdfSel, id = tr.dataset.id;
+        if (sel.ids.has(id)) sel.ids.delete(id); else sel.ids.add(id);
+        if (sel.solo && !sel.ids.size) { sel.solo = false; window.cpdfFiltrar(); return; }
+        cpdfSelPintar();
+    };
+    window.cpdfSelLimpiar = function () {
+        var sel = window._cpdfSel; if (!sel) return;
+        var estabaSolo = sel.solo;
+        sel.ids.clear(); sel.solo = false;
+        if (estabaSolo) { window.cpdfFiltrar(); return; }
+        cpdfSelPintar();
+    };
+    window.cpdfSelSolo = function (e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        var sel = window._cpdfSel;
+        if (!sel || !sel.ids.size) { window.toast('No hay filas elegidas todavía.', 'error'); return; }
+        sel.solo = !sel.solo;
+        window.cpdfFiltrar();
+    };
+    cpdfSelPintar();
+
     // Arma la URL con los filtros puestos y la abre por la SPA (sin recargar la página).
     // Se redefine en cada visita: es solo una asignación, no suma listeners.
     window.cpdfFiltrar = function (pestana) {
@@ -469,6 +516,9 @@
                 var input = document.querySelector('#' + par[0] + ' [data-filter-value]');
                 if (input && input.value && input.value !== 'all') p.set(par[1], input.value);
             });
+            // "Ver solo las elegidas" (contador de selección): sus id.
+            var sel = window._cpdfSel;
+            if (sel && sel.solo && sel.ids.size) p.set('ids', Array.from(sel.ids).join(','));
             // Las fechas de Filtros Avanzados (partials/filtro_fechas).
             [['hdFechaDesde', 'fecha_desde'], ['hdFechaHasta', 'fecha_hasta']].forEach(function (par) {
                 var f = document.getElementById(par[0]);
@@ -485,27 +535,7 @@
     // ── Dar por revisadas varias filas sin abrir el visor ──────────────────────────────
     // De la ficha solo se llenan las fechas que tiene VACIAS y el documento trae
     // (CorrectorFichaDocumento::fechasVacias); lo demas no cambia. Cada fila queda como
-    // "Revisado a mano por ...". Se redefinen en cada visita (solo asignaciones).
-    var cpdfMarcadas = function () {
-        return Array.prototype.map.call(document.querySelectorAll('.cpdf-fila-sel.selected-row-maquinaria'), function (tr) { return tr.dataset.id; });
-    };
-    var cpdfSelContar = function () {
-        var n = cpdfMarcadas().length, barra = document.getElementById('cpdfSelBarra'),
-            cuenta = document.getElementById('cpdfSelCuenta');
-        if (barra) barra.classList.toggle('active', n > 0);
-        if (cuenta) cuenta.textContent = n;
-    };
-    // Clic en cualquier parte de la fila la elige o la suelta; el botón del PDF sigue
-    // abriendo el visor sin tocar la selección.
-    window.cpdfSelFila = function (e, tr) {
-        if (e.target.closest('button, a, input')) return;
-        tr.classList.toggle('selected-row-maquinaria');
-        cpdfSelContar();
-    };
-    window.cpdfSelLimpiar = function () {
-        document.querySelectorAll('.cpdf-fila-sel.selected-row-maquinaria').forEach(function (tr) { tr.classList.remove('selected-row-maquinaria'); });
-        cpdfSelContar();
-    };
+    // "Revisado a mano por ...". Las filas se eligen con el contador común (ver "Elegir filas").
     window.cpdfMarcarRevisadas = function () {
         var ids = cpdfMarcadas();
         if (!ids.length) return;
@@ -533,6 +563,9 @@
                              + (data.motivo ? ' (' + data.motivo + ')' : '');
                     }
                     window.toast(txt, data.fallaron ? 'warning' : 'success');
+                    // Las revisadas salen de la selección (ya no hay nada que hacer con ellas).
+                    ids.forEach(function (id) { window._cpdfSel.ids.delete(id); });
+                    if (!window._cpdfSel.ids.size) window._cpdfSel.solo = false;
                     window.cpdfFiltrar();
                 })
                 .catch(function (err) {
@@ -1056,7 +1089,7 @@
             tr.classList.remove('cpdf-fila-sel', 'selected-row-maquinaria');
             tr.removeAttribute('onclick');
             tr.classList.add('cpdf-recien-revisada');
-            if (typeof cpdfSelContar === 'function') cpdfSelContar();
+            cpdfSelPintar();
         };
 
         document.addEventListener('vidalsa:metadata-guardada', function (e) {

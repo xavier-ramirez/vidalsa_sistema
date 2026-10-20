@@ -7,9 +7,12 @@
      23-09-2026: una sola). Lo que coincide se enlaza solo (01-10-2026: sin botón de Aplicar);
      descartar se hace desde esa tabla.
 
-     Aquí solo se SUBEN (con el spinner de la aplicación, un archivo por petición) y el modal se
-     cierra. La LECTURA —el OCR de Google Drive, ~8 s por PDF— sigue en segundo plano en el
-     servidor (ColaCargaMasiva) y cada resultado aparece en la tabla.
+     Al soltar los PDF el modal se CIERRA y se suben en segundo plano, uno por petición, sin
+     tapar la pantalla: un aviso abajo (#hdCmProgreso) dice por cuál va, y se puede seguir
+     usando cualquier parte de la aplicación (pedido del cliente, 20-10-2026: antes el spinner
+     la bloqueaba minutos y, al recargar, la tanda se perdía a medias). Recargar o cerrar la
+     pestaña con una tanda a medias pide confirmación. La LECTURA —el OCR de Google Drive,
+     ~8 s por PDF— sigue en el servidor (ColaCargaMasiva) y cada resultado aparece en la tabla.
 
      Las reglas de seguridad NO viven aquí sino en el servidor (CargaMasivaDocumentos): esta
      pantalla solo las refleja.
@@ -58,27 +61,58 @@
        que vuelva a pintar los mismos colores para deshacerlo. */
     .hd-cm-zona:not(.hd-cm-bloqueada):hover,
     .hd-cm-zona:not(.hd-cm-bloqueada).encima { border-color: #0067b1; background: #eff6ff; color: #0067b1; }
-    .hd-cm-zona.ocupada { cursor: progress; }
     /* Sin tipo elegido no se puede cargar: la zona se ve apagada y no responde al pasar por
        encima, para que se note que el paso que falta es el de arriba. */
     .hd-cm-zona.hd-cm-bloqueada { opacity: 0.45; cursor: not-allowed; border-style: solid; }
     .hd-cm-zona .material-icons { font-size: 26px; }
     .hd-cm-zona small { font-size: 11px; font-weight: 600; color: #94a3b8; }
 
-    /* Los que NO se subieron. Solo se pinta si hubo alguno (si no, el modal ya se cerró). */
-    .hd-cm-nota { font-size: 11.5px; line-height: 1.45; color: #475569; background: #f8fafc;
-                  border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 11px; }
-    .hd-cm-nota[hidden] { display: none; }
-    .hd-cm-nota b { color: #0f172a; }
+</style>
+
+{{-- Estilos del aviso de la tanda (#hdCmProgreso). Aparte, porque pintarProgreso los lleva a
+     <head>: el aviso sigue a la vista en otros módulos y este partial se va al navegar. --}}
+<style id="hdCmProgresoCss">
+    /* Aviso de la tanda en curso: abajo a la izquierda (el centro es del contador de
+       selección), por encima de la página pero sin taparla. Va colgado de <body>, así que
+       sigue a la vista aunque se navegue a otro módulo. */
+    #hdCmProgreso { position: fixed; left: 16px; bottom: 16px; z-index: 9998; width: 300px; max-width: calc(100vw - 32px);
+                    background: #1e293b; color: #e2e8f0; border-radius: 12px; padding: 10px 12px;
+                    box-shadow: 0 10px 25px -5px rgba(0,0,0,.35); font-size: 12.5px; line-height: 1.4; }
+    #hdCmProgreso .hd-cm-p-fila { display: flex; align-items: center; gap: 8px; }
+    #hdCmProgreso .hd-cm-p-fila b { flex: 1; min-width: 0; color: #fff; font-size: 13px; }
+    #hdCmProgreso .material-icons { font-size: 18px; }
+    #hdCmProgreso .hd-cm-p-gira { animation: hdCmGira 1s linear infinite; }
+    @keyframes hdCmGira { to { transform: rotate(360deg); } }
+    #hdCmProgreso .hd-cm-p-x { background: none; border: none; color: #94a3b8; cursor: pointer; display: flex; padding: 0; }
+    #hdCmProgreso .hd-cm-p-x:hover { color: #fff; }
+    #hdCmProgreso .hd-cm-p-barra { height: 4px; margin: 8px 0 6px; border-radius: 2px; background: #334155; overflow: hidden; }
+    #hdCmProgreso .hd-cm-p-barra i { display: block; height: 100%; background: #38bdf8; transition: width .3s; }
+    #hdCmProgreso small { display: block; color: #94a3b8; }
+    #hdCmProgreso .hd-cm-p-mal { margin-top: 6px; color: #fca5a5; font-weight: 600; }
+    #hdCmProgreso .hd-cm-p-ver { margin-top: 8px; width: 100%; border: none; border-radius: 8px; padding: 7px; cursor: pointer;
+                                 background: #0067b1; color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 700; }
+    #hdCmProgreso .hd-cm-p-ver:hover { background: #00548f; }
 </style>
 
 <script>
 (function () {
     var RUTAS = { analizar: @json(route('historial-documentos.carga-masiva.analizar')) };
 
-    // `turno` descarta los resultados de una tanda ya cancelada: cerrar el modal con la cola a
-    // medias no debe seguir pintando ni avisar al terminar.
-    var estado = { turno: 0, corriendo: false, hechos: 0, oyenteTipo: null };
+    var RUTA_REVISION = @json(route('historial-documentos.index', ['pestana' => 'documentos']));
+    // El oyente del desplegable del tipo (ver soltarOyenteTipo).
+    var estado = { oyenteTipo: null };
+    // La tanda en curso vive en WINDOW y no aquí: este script vuelve a correr en cada visita
+    // al módulo, y la subida sigue mientras tanto (en otro módulo o en otra pestaña de este).
+    // { corriendo, total, enviados, hechos, perdidos[], tipoNombre }
+    var tanda = function () { return window.__hdCargaMasiva || null; };
+    if (!window.__hdCargaAvisoSalida) {
+        window.__hdCargaAvisoSalida = true;
+        // Recargar o cerrar la pestaña con una tanda a medias la cortaría: el navegador pregunta.
+        window.addEventListener('beforeunload', function (e) {
+            var t = window.__hdCargaMasiva;
+            if (t && t.corriendo) { e.preventDefault(); e.returnValue = ''; }
+        });
+    }
 
     function $(id) { return document.getElementById(id); }
 
@@ -141,12 +175,9 @@
     // ── El modal ──────────────────────────────────────────────────────────────
 
     function construir() {
-        // Al arrancarle el DOM al modal anterior hay que soltar SU oyente: vive en window, así
-        // que sobrevive al nodo y se quedaría colgado apuntando a una zona que ya no está en la
-        // página, uno por cada reapertura. (Aquí no vale llamar a cerrar(): con una tanda a medias
-        // pregunta, y si el usuario dice que no, se queda sin cerrar y acabaríamos con dos.)
-        soltarOyenteTipo();
-        if ($('hdCmOverlay')) $('hdCmOverlay').remove();
+        // Fuera el modal anterior, si quedó, Y su oyente del tipo: vive en window, así que
+        // sobrevive al nodo y se quedaría colgado, uno por cada reapertura.
+        cerrar();
         var o = document.createElement('div');
         o.id = 'hdCmOverlay';
         o.innerHTML =
@@ -167,11 +198,18 @@
                         '<small>o haz clic para elegirlos</small>' +
                     '</div>' +
                     '<input type="file" id="hdCmInput" accept="application/pdf" multiple hidden>' +
-                    '<div class="hd-cm-nota" id="hdCmNota" hidden></div>' +
                 '</div>' +
             '</div>';
         document.body.appendChild(o);
         enlazar(o);
+        var t = tanda();
+        if (t && t.corriendo) {
+            var zona = $('hdCmZona');
+            zona.classList.add('hd-cm-bloqueada');
+            zona.title = '';
+            zona.querySelector('span').textContent = 'Hay una carga en curso (' + t.enviados + ' de ' + t.total + ')';
+            zona.querySelector('small').textContent = 'Espera a que termine para soltar más';
+        }
     }
 
     function enlazar(o) {
@@ -187,7 +225,7 @@
         // que al limpiar la zona se quedaba con pinta de habilitada sin tipo elegido.)
         var sincronizarZona = function (e) {
             if (e && e.detail && e.detail.dropdownId !== 'hdCmTipo') return;
-            var hay = !!tipoElegido();
+            var t = tanda(), hay = !!tipoElegido() && !(t && t.corriendo);
             zona.classList.toggle('hd-cm-bloqueada', !hay);
             zona.title = hay ? '' : 'Elige primero qué documento vas a cargar';
         };
@@ -198,20 +236,20 @@
         sincronizarZona();
 
         zona.addEventListener('click', function () {
-            if (estado.corriendo) return;
+            if (tanda() && tanda().corriendo) return;
             if (!tipoElegido()) { window.toast('Elige primero qué documento vas a cargar', 'error'); return; }
             input.click();
         });
         input.addEventListener('change', function () { encolar(input.files); input.value = ''; });
 
         ['dragenter', 'dragover'].forEach(function (ev) {
-            zona.addEventListener(ev, function (e) { e.preventDefault(); if (!estado.corriendo && tipoElegido()) zona.classList.add('encima'); });
+            zona.addEventListener(ev, function (e) { e.preventDefault(); if (!(tanda() && tanda().corriendo) && tipoElegido()) zona.classList.add('encima'); });
         });
         ['dragleave', 'drop'].forEach(function (ev) {
             zona.addEventListener(ev, function (e) { e.preventDefault(); zona.classList.remove('encima'); });
         });
         zona.addEventListener('drop', function (e) {
-            if (estado.corriendo || !e.dataTransfer) return;
+            if ((tanda() && tanda().corriendo) || !e.dataTransfer) return;
             // encolar() vuelve a comprobar el tipo; aquí se corta antes para no darle vueltas a
             // los archivos soltados cuando ya se sabe que no van a ir a ninguna parte.
             if (!tipoElegido()) { window.toast('Elige primero qué documento vas a cargar', 'error'); return; }
@@ -220,101 +258,90 @@
     }
 
     function cerrar() {
-        // Mientras se sube, el spinner de la aplicación tapa la pantalla: no se puede cerrar.
-        if (estado.corriendo) return;
-        estado.turno++;
-        estado.corriendo = false;
-        var subio = estado.hechos > 0;
-        estado.hechos = 0;          // que la próxima vez no herede el conteo de esta
         soltarOyenteTipo();
         var o = $('hdCmOverlay');
         if (o) o.remove();
-        // Ya sin el modal delante: la tabla de esta misma pantalla se refresca para que salgan
-        // las filas nuevas sin tener que recargar a mano.
-        if (subio && typeof window.cpdfFiltrar === 'function') window.cpdfFiltrar();
     }
 
-    // ── La cola de subida ─────────────────────────────────────────────────────
+    // ── La subida, en segundo plano ──────────────────────────────────────────
 
     function encolar(archivos) {
         var pdfs = Array.prototype.filter.call(archivos || [], function (a) { return /\.pdf$/i.test(a.name); });
         if (!pdfs.length) { window.toast('Solo se aceptan archivos PDF', 'error'); return; }
-
         var tipo = tipoElegido();
         if (!tipo) { window.toast('Elige primero qué documento vas a cargar', 'error'); return; }
-        var turno = ++estado.turno;
-        estado.corriendo = true;
-        bloquear(true);
-        // El spinner de siempre de la aplicación mientras se suben (tapa también el modal).
-        if (window.showPreloader) window.showPreloader();
+        if (tanda() && tanda().corriendo) { window.toast('Ya hay una carga en curso: espera a que termine.', 'error'); return; }
 
+        var nombre = (document.querySelector('#hdCmTipo .dropdown-item[data-value="' + tipo + '"]') || {}).dataset;
         // `perdidos` son los que NO llegaron a Drive: esos no dejan fila en la tabla (la fila se
-        // identifica por el archivo de Drive), así que si no se nombran aquí desaparecen sin que
-        // nadie se entere. Los demás se leen en segundo plano y salen en la tabla con su motivo.
-        var i = 0, hechos = 0, perdidos = [];
-        estado.hechos = 0;
-        var siguiente = function () {
-            if (turno !== estado.turno) return;              // se cerró el modal: se abandona
-            if (i >= pdfs.length) { terminar(hechos, perdidos); return; }
+        // identifica por el archivo de Drive), así que si no se nombran en el aviso desaparecen
+        // sin que nadie se entere. Los demás se leen en el servidor y salen en la tabla.
+        var t = window.__hdCargaMasiva = { corriendo: true, total: pdfs.length, enviados: 0, hechos: 0, perdidos: [],
+                                           tipoNombre: (nombre && nombre.label) || '' };
+        cerrar();            // el modal se va: la subida sigue sin tapar nada
+        pintarProgreso();
 
-            var archivo = pdfs[i++];
+        var siguiente = function () {
+            if (t.enviados >= t.total) { t.corriendo = false; pintarProgreso(); return; }
+            var archivo = pdfs[t.enviados++];
+            pintarProgreso();
             window.apiPostForm(RUTAS.analizar, { file: archivo, tipo: tipo }, 'No se pudo subir el archivo.')
                 .then(function (b) {
-                    // Sin enlace de Drive no hay fila: cuenta como perdido, no como hecho. Y se
-                    // guarda el MOTIVO que manda el servidor ("el PDF esta incompleto: vuelve a
-                    // escanearlo"), que es lo que dice QUE hacer.
-                    if (b && b.propuesta && b.propuesta.link) { hechos++; estado.hechos++; }
-                    else perdidos.push({ nombre: archivo.name, motivo: (b && b.propuesta && b.propuesta.aviso) || '' });
+                    // Sin enlace de Drive no hay fila: cuenta como perdido, con el MOTIVO del servidor
+                    // ("el PDF esta incompleto: vuelve a escanearlo"), que dice QUE hacer.
+                    if (b && b.propuesta && b.propuesta.link) t.hechos++;
+                    else t.perdidos.push({ nombre: archivo.name, motivo: (b && b.propuesta && b.propuesta.aviso) || '' });
                 })
-                .catch(function (e) { perdidos.push({ nombre: archivo.name, motivo: (e && e.message) || '' }); })
-                .then(function () { if (turno === estado.turno) siguiente(); });
+                .catch(function (e) { t.perdidos.push({ nombre: archivo.name, motivo: (e && e.message) || '' }); })
+                .then(siguiente);
         };
         siguiente();
     }
 
-    // Mientras se sube, ni se cambia el tipo ni se sueltan más archivos: la tanda ya salió
-    // con el tipo que tenía. El desplegable de los filtros no se puede "deshabilitar" como un
-    // <select>, así que se apaga con opacidad y se le quitan los eventos.
-    function bloquear(si) {
-        var zona = $('hdCmZona'), tipo = $('hdCmTipo');
-        if (zona) zona.classList.toggle('ocupada', si);
-        if (tipo) tipo.classList.toggle('hd-cm-apagado', si);
-    }
-
-    function terminar(hechos, perdidos) {
-        estado.corriendo = false;
-        bloquear(false);
-        if (window.hidePreloader) window.hidePreloader();
-
-        if (hechos) {
-            window.toast(hechos + ' subido(s). Se están leyendo en el servidor: aparecerán en la tabla como '
-                + 'enlazados (o, si algo no cuadra, con el porqué) en unos segundos; actualiza la tabla para verlos.', 'success');
+    // El aviso de abajo: por cuál va y, al terminar, cuántos subieron, cuáles no y un botón para
+    // ver el resultado en la tabla de Revisión de documentos. Se reconstruye entero cada vez
+    // (textContent en todo: los nombres de archivo los pone el usuario).
+    function pintarProgreso() {
+        var t = tanda(); if (!t) return;
+        // Sus estilos, a <head> (una vez): así no se van con la vista al navegar.
+        var css = document.getElementById('hdCmProgresoCss');
+        if (css && css.parentNode !== document.head) document.head.appendChild(css);
+        var caja = document.getElementById('hdCmProgreso');
+        if (!caja) { caja = document.createElement('div'); caja.id = 'hdCmProgreso'; document.body.appendChild(caja); }
+        caja.textContent = '';
+        var el = function (tag, clase, texto) { var x = document.createElement(tag); if (clase) x.className = clase; if (texto != null) x.textContent = texto; return x; };
+        var fila = el('div', 'hd-cm-p-fila');
+        fila.appendChild(el('i', 'material-icons' + (t.corriendo ? ' hd-cm-p-gira' : ''), t.corriendo ? 'autorenew' : (t.perdidos.length ? 'warning_amber' : 'cloud_done')));
+        fila.appendChild(el('b', null, t.corriendo
+            ? 'Subiendo ' + t.enviados + ' de ' + t.total + (t.tipoNombre ? ' · ' + t.tipoNombre : '')
+            : t.hechos + ' de ' + t.total + ' subido(s)' + (t.tipoNombre ? ' · ' + t.tipoNombre : '')));
+        if (!t.corriendo) {
+            var x = el('button', 'hd-cm-p-x'); x.type = 'button'; x.title = 'Cerrar';
+            x.appendChild(el('i', 'material-icons', 'close'));
+            x.addEventListener('click', function () { caja.remove(); window.__hdCargaMasiva = null; });
+            fila.appendChild(x);
         }
-        // Todo subió: el modal se cierra ya. Lo que queda (leerlos) es del servidor.
-        if (!perdidos.length) { cerrar(); return; }
-
-        // Si algo NO se subió, el modal se queda: esos nombres solo están escritos aquí y
-        // cerrarlo sería tragarse el único aviso.
-        window.toast(perdidos.length + ' archivo(s) NO se subieron', 'error');
-        var zona = $('hdCmZona');
-        if (zona) zona.querySelector('span').textContent = 'Suelta los PDF aquí';
-        var nota = $('hdCmNota');
-        if (!nota) return;
-        nota.hidden = false;
-        nota.textContent = '';
-        var mal = document.createElement('div');
-        mal.style.cssText = 'color:#b91c1c;font-weight:700;';
-        mal.textContent = 'NO se subieron:';
-        perdidos.forEach(function (p) {
-            var li = document.createElement('div');
-            li.style.cssText = 'margin-top:3px;font-weight:600;';
-            // textContent: el nombre del archivo lo pone el usuario.
-            li.textContent = '· ' + p.nombre + (p.motivo ? ' — ' + p.motivo : '');
-            mal.appendChild(li);
-        });
-        nota.appendChild(mal);
+        caja.appendChild(fila);
+        var barra = el('div', 'hd-cm-p-barra'), i = el('i');
+        i.style.width = Math.round(100 * (t.corriendo ? t.enviados - 1 : t.total) / t.total) + '%';
+        barra.appendChild(i); caja.appendChild(barra);
+        caja.appendChild(el('small', null, t.corriendo
+            ? 'Puedes seguir usando el sistema; no recargues ni cierres esta pestaña hasta que termine.'
+            : 'Se están leyendo en el servidor: cada uno sale en Revisión de documentos, enlazado o con el porqué.'));
+        if (t.perdidos.length) {
+            var mal = el('div', 'hd-cm-p-mal', 'NO se subieron (' + t.perdidos.length + '):');
+            t.perdidos.forEach(function (p) { mal.appendChild(el('div', null, '· ' + p.nombre + (p.motivo ? ' — ' + p.motivo : ''))); });
+            caja.appendChild(mal);
+        }
+        if (!t.corriendo && t.hechos) {
+            var ver = el('button', 'hd-cm-p-ver', 'Ver en Revisión de documentos'); ver.type = 'button';
+            ver.addEventListener('click', function () {
+                caja.remove(); window.__hdCargaMasiva = null;
+                if (typeof window.navigateTo === 'function') window.navigateTo(RUTA_REVISION); else window.location.href = RUTA_REVISION;
+            });
+            caja.appendChild(ver);
+        }
     }
-
     window.abrirCargaMasiva = function () { construir(); };
 })();
 </script>

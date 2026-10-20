@@ -65,8 +65,8 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/Lectura automática (activa|apagada)/', $html);
         $this->assertStringContainsString('Por dónde va la revisión', $html);
         $this->assertStringContainsString('window.cpdfLeerAhora', $html);
-        // Elige filas y las da por revisadas.
-        $this->assertStringContainsString('cpdfSelBarra', $html);
+        // Elige filas (el contador común) y las da por revisadas.
+        $this->assertStringContainsString('id="cpdf-selection-chip-revisado"', $html);
         $this->assertStringContainsString('cpdfSelFila(', $html);
         $this->assertStringContainsString('window.cpdfMarcarRevisadas', $html);
         // Nada de eliminar; las otras pestañas, a la vista.
@@ -128,7 +128,9 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertStringContainsString('Historial de cambios', $html);
         $this->assertStringContainsString('Compresión de PDF', $html);
         $this->assertStringNotContainsString('window.abrirCargaMasiva', $html, 'Sin la clave no se carga el modal.');
-        $this->assertStringNotContainsString('cpdfSelBarra', $html, 'Ni revisa: eso va con la carga masiva.');
+        // Elige filas para verlas (el contador es de todos), pero no revisa: eso va con la carga masiva.
+        $this->assertStringContainsString('id="cpdf-selection-chip"', $html);
+        $this->assertStringNotContainsString('id="cpdf-selection-chip-revisado"', $html, 'Ni revisa: eso va con la carga masiva.');
         $this->assertStringNotContainsString('window.cpdfLeerAhora', $html);
         // En el historial sí tiene el botón de borrar registros.
         $hist = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'historial']))->assertOk()->getContent();
@@ -151,7 +153,7 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/Lectura automática (activa|apagada)/', $html);
         $this->assertStringContainsString('Por dónde va la revisión', $html);
         $this->assertStringContainsString('window.abrirCargaMasiva', $html);
-        $this->assertStringContainsString('cpdfSelBarra', $html);
+        $this->assertStringContainsString('id="cpdf-selection-chip-revisado"', $html);
         $this->assertStringContainsString('window.cpdfDescartarCarga', $html, 'Y descartar.');
     }
 

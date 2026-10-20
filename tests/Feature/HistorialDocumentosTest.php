@@ -261,4 +261,32 @@ class HistorialDocumentosTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/id="btnHdAdvancedFilter"[^>]*?>/s', $html);
         $this->assertStringContainsString('background: #fee2e2', $html, 'Con una fecha puesta el botón sale en rojo.');
     }
+
+    /**
+     * El contador de selección es el MISMO en las tres pestañas, y en Revisión y Compresión
+     * "ver solo las elegidas" (?ids=) deja solo esas filas.
+     */
+    public function test_el_contador_de_seleccion_esta_en_las_tres_y_filtra_las_elegidas(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        foreach (['documentos' => 'cpdf-selection-chip', 'historial' => 'hd-selection-chip', 'compresion' => 'cpdf-selection-chip'] as $pestana => $id) {
+            $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => $pestana]))->assertOk()->getContent();
+            $this->assertSame(1, substr_count($html, 'id="' . $id . '"'), 'Pestaña ' . $pestana);
+            $this->assertStringContainsString('id="' . $id . '-cuenta"', $html);
+        }
+
+        $marca = 'ELEGIDAS' . mt_rand(10000, 99999);
+        $ids = [];
+        foreach (['UNA', 'OTRA'] as $nombre) {
+            $ids[$nombre] = \App\Models\VerificacionDocumento::create([
+                'DRIVE_ID' => $marca . $nombre, 'ORIGEN' => \App\Models\VerificacionDocumento::DE_LA_NOCHE, 'TIPO' => 'poliza',
+                'ARCHIVO' => $marca . '.pdf', 'ESTADO' => \App\Models\VerificacionDocumento::COINCIDE, 'MOTIVO' => $marca . ' ' . $nombre, 'INTENTOS' => 0,
+            ])->ID_REGISTRO;
+        }
+        $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'documentos', 'ids' => $ids['UNA'] . ',x']))
+            ->assertOk()->getContent();
+        $this->assertStringContainsString($marca . ' UNA', $html);
+        $this->assertStringNotContainsString($marca . ' OTRA', $html);
+        $this->assertStringContainsString('data-id="' . $ids['UNA'] . '" onclick="window.cpdfSelFila(event, this)"', $html, 'Toda fila se puede elegir.');
+    }
 }
