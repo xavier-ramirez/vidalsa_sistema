@@ -896,8 +896,8 @@ function eqEnModoAuxURL() {
 
 // ─── Card de Distribución: UNA sola lista con todas las secciones ─────────────
 // La card muestra TODAS las vistas disponibles apiladas en una sola lista, separadas por
-// sección: EQUIPOS (siempre), DETALLES (DETALLE_UBICACION_ACTUAL, solo en frentes fuera de la flota)
-// y AUXILIARES (cuando hay distribución de auxiliares). El clic en la card (fuera de una fila)
+// sección: EQUIPOS (siempre), DETALLES (DETALLE_UBICACION_ACTUAL, solo en frentes fuera de la flota;
+// arranca recogida, ver eqToggleDetalles) y AUXILIARES (cuando hay distribución de auxiliares). El clic en la card (fuera de una fila)
 // NO intercambia el contenido: hace SCROLL rápido a la siguiente sección. Los clics sobre una
 // fila (li) conservan su acción de filtrar. Cada vista guarda su HTML en su variable.
 window.__distribHtml = null;                               // HTML de EQUIPOS (vista por defecto)
@@ -989,9 +989,18 @@ function _eqScrollSuave(cont, destino, dur) {
     }
     _eqScrollRAF = requestAnimationFrame(paso);
 }
+// Despliega / recoge la sección "Detalles" (partials/ubicaciones_stats arranca recogida). Se
+// llama desde el encabezado de la sección (clic o Enter/Espacio).
+window.eqToggleDetalles = function (encabezado) {
+    const sec = encabezado.closest('.eq-detalles');
+    if (!sec) return;
+    const recogida = sec.classList.toggle('is-recogido');
+    encabezado.setAttribute('aria-expanded', recogida ? 'false' : 'true');
+};
 window.onDistribucionCardClick = function (e) {
     // Clic en una fila de datos (li) → respetar su filtro (selectOption/loadEquipos), no navegar.
-    if (e.target.closest('li')) return;
+    // Clic en el encabezado de "Detalles" → solo despliega/recoge esa sección (eqToggleDetalles).
+    if (e.target.closest('li, .eq-detalles-toggle')) return;
     const cont = document.getElementById('distributionStatsContainer');
     if (!cont) return;
     const secs = Array.prototype.slice.call(cont.querySelectorAll('.eq-distrib-sec'));

@@ -989,7 +989,7 @@
 
     {{-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo frentes fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA). Ya NO es
          una card aparte: su HTML se captura aquí (fuente oculta) y se apila como una SECCIÓN más
-         ("Detalles") dentro de la lista unificada de la card de Distribución. --}}
+         ("Detalles", que arranca recogida) dentro de la lista unificada de la card de Distribución. --}}
     <div id="ubicacionesStatsSource" style="display: none;">
         @if(isset($frenteFueraDeFlota) && $frenteFueraDeFlota && !($auxMode ?? false))
             @include('admin.equipos.partials.ubicaciones_stats')

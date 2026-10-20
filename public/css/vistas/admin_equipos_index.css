@@ -250,6 +250,13 @@
     #distributionStatsContainer .eq-distrib-sec ul { max-height: none !important; overflow: visible !important; }
     .eq-distrib-sec + .eq-distrib-sec { margin-top: 14px; }
 
+    /* ── Sección "Detalles" (partials/ubicaciones_stats): arranca RECOGIDA; su encabezado es el
+       botón que la despliega (eqToggleDetalles). Recogida solo se ve el encabezado con el total. ── */
+    .eq-detalles-toggle { cursor: pointer; user-select: none; }
+    .eq-detalles-caret { transition: transform 0.2s; }
+    .eq-detalles.is-recogido .eq-detalles-lista { display: none !important; }
+    .eq-detalles.is-recogido .eq-detalles-caret { transform: rotate(-90deg); }
+
     /* ── Consolidado (Equipos y Maquinaria / Auxiliares): más compacto verticalmente ── */
     #block_total, #block_oper, #block_inop,
     #aux_block_total, #aux_block_oper, #aux_block_inop {
