@@ -50,14 +50,15 @@
     .cpdf-aviso.ok strong, .cpdf-aviso.ok span { color: #1e3a5f; }
     .cpdf-aviso.apagada { background: #f8fafc; color: #475569; }
     /* "Revisar ahora": UN boton que despliega los cuatro documentos y "Todos" (al final, en
-       azul). El menu cuelga del boton y es al menos de su ancho. */
+       azul). El menu cuelga del boton y es al menos de su ancho; el lado al que se ancla lo
+       pone el control de desplegables al abrirlo (partials/desplegables, alternar). */
     .cpdf-aviso .cpdf-ahora-wrap { position: relative; width: fit-content; margin-top: 8px; }
     .cpdf-aviso .cpdf-ahora-btn { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 8px 0 6px;
                                   border: 1px solid #93c5fd; border-radius: 7px; background: #fff; color: #1e3a5f;
                                   font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .15s; }
     .cpdf-aviso .cpdf-ahora-btn:hover { background: #dbeafe; }
     .cpdf-aviso .cpdf-ahora-btn .material-icons { font-size: 17px; margin: 0; }
-    .cpdf-aviso .cpdf-ahora-menu { position: absolute; top: 100%; left: 0; min-width: 100%; margin-top: 4px; z-index: 60;
+    .cpdf-aviso .cpdf-ahora-menu { position: absolute; top: 100%; min-width: 100%; margin-top: 4px; z-index: 60;
                                    background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden;
                                    box-shadow: 0 10px 20px -5px rgba(15,23,42,0.18); }
     .cpdf-aviso .cpdf-ahora { display: block; width: 100%; padding: 8px 12px; border: 0; border-bottom: 1px solid #f1f5f9;
