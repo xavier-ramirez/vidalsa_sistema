@@ -126,9 +126,13 @@
             gap: 8px;
         }
         .perfil-section-title .material-icons { font-size: 16px; color: var(--pf-azul); }
+        /* En negro y en dos líneas parejas: el max-width lo obliga a partirse (entero cabe
+           en una) y text-wrap: balance reparte el texto por igual entre las dos. */
         .perfil-section-sub {
             font-size: 13px;
-            color: var(--pf-gris);
+            color: var(--pf-tinta);
+            max-width: 300px;
+            text-wrap: balance;
             margin-bottom: 16px;
         }
         .pw-label {
@@ -197,18 +201,6 @@
             color: #0067b1;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-6px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
         /* Botonera de "Cambiar contraseña": los botones quedan EXACTAMENTE como los del
            resto de la app (tamaño, radio y relleno los pone .btn-primary-maquinaria).
            Aquí solo se coloca la fila; nada de altos ni anchos propios, que era lo que
@@ -217,7 +209,11 @@
             display: flex;
             gap: 12px;
             justify-content: center;
-            margin-top: 8px;
+            margin-top: 4px;
             flex-wrap: wrap;
         }
+        /* El aviso de fortaleza solo ocupa sitio cuando dice algo: vacío dejaba un hueco
+           fijo entre los campos y los botones. */
+        .pw-fuerza { font-size: 12px; font-weight: 600; color: #94a3b8; }
+        .pw-fuerza:empty { display: none; }
     

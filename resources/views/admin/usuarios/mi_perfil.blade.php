@@ -85,8 +85,7 @@
                     </div>
                 </div>
 
-                <div id="pw-strength-msg" style="font-size: 12px; font-weight: 600; color: #94a3b8; min-height: 18px;">
-                </div>
+                <div id="pw-strength-msg" class="pw-fuerza"></div>
 
                 <div class="perfil-acciones">
                     <a href="{{ route('menu') }}" class="btn-primary-maquinaria btn-secondary">
