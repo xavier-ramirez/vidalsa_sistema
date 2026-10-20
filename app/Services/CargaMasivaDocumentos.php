@@ -189,6 +189,10 @@ class CargaMasivaDocumentos
         // La huella del archivo: con ella se sabe si ESTE MISMO PDF ya se habia soltado antes
         // (ver yaSeSolto). Se saca antes de subirlo.
         $md5 = @md5_file($archivo->getRealPath()) ?: null;
+        // El MISMO PDF ya aplicado y que sigue puesto: subirlo otra vez solo deja una copia
+        // repetida en Drive y una fila de mas (20-10-2026: volver a soltar las 19 renovaciones
+        // duplico en Drive las 16 que ya estaban). Se corta ANTES de subir.
+        if ($yaPuesto = $this->yaEstaPuesto($md5)) return $this->fallo($nombre, null, $yaPuesto);
 
         try {
             $link = GoogleDriveService::getInstance()->subirPdf($archivo, $prefijo . time() . '_' . mt_rand(1000, 9999) . '.pdf');
@@ -2197,6 +2201,31 @@ class CargaMasivaDocumentos
 
         return 'Este mismo archivo ya se habia soltado' . ($otra->created_at ? ' el ' . $otra->created_at->format('d/m/Y') : '')
             . ($otra->ESTADO === VerificacionDocumento::APLICADO ? ' y ya esta aplicado.' : ' y sigue en la tabla.');
+    }
+
+    /**
+     * Si este mismo archivo (misma huella) ya se aplico con la carga masiva a UNA ficha y esa
+     * ficha SIGUE enlazando ese PDF, lo dice: no hay nada que hacer con el. Si ya lo reemplazo
+     * otro (o se quito), no: volver a soltarlo puede ser a proposito. Tampoco los de varias
+     * unidades (BL, RACDA, flota): se vuelven a soltar para enlazar las que faltaban.
+     */
+    private function yaEstaPuesto(?string $md5): ?string
+    {
+        if (!$md5) return null;
+
+        $filas = VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+            ->where('ESTADO', VerificacionDocumento::APLICADO)->whereNotNull('DRIVE_ID')
+            ->where('PROPUESTA', 'like', '%"md5":"' . $md5 . '"%')
+            ->orderByDesc('ID_REGISTRO')->get(['DRIVE_ID', 'APLICADO_EN', 'PROPUESTA']);
+        foreach ($filas as $f) {
+            $p = $f->PROPUESTA ?? [];
+            if (($p['tipo'] ?? null) === self::EMBARQUE || count($p['equipos'] ?? []) !== 1) continue;
+            if (EnlacesDocumentos::sigueEnUso($f->DRIVE_ID)) {
+                return 'Ya está cargado: este mismo PDF se aplicó' . ($f->APLICADO_EN ? ' el ' . $f->APLICADO_EN->format('d/m/Y') : '')
+                    . ' y sigue puesto. No se volvió a subir.';
+            }
+        }
+        return null;
     }
 
     /**

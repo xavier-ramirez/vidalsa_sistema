@@ -1514,6 +1514,11 @@ class VerificacionDocumentoTest extends MySqlTestCase
             ["Vigencia \n1/12/2025 \nDesde 01/12/2025 Hasta \nFrecuencia de Pago: Sucursal: 1/12/2026 Anual \n", '2025-12-01', '2026-12-01'],
             // Las dos fechas de la vigencia separadas por un guion.
             ["VIGENCIA DEL SEGURO:16/01/2026 - 16/01/2027 \n", '2026-01-16', '2027-01-16'],
+            // Piramide con el cuadro desarmado: las dos fechas seguidas y el "al" despues. Trae
+            // ANEXO con su firma, que NO debe ganarle a la vigencia (daba 05/10/2027).
+            ["FRECUENCIA DE PAGO:\nVIGENCIA DEL SEGURO:\nINGENIEROS (INSPECCION)\nSEMESTRAL\n05/10/2026\n09/06/2027\nal\nJ-29387719-9\n"
+             . "VIGENCIA DEL RECIBO:\n05/10/2026\n09/12/2026\nal\nANEXO\nse firma en la ciudad de CARACAS a los 5 días del mes de Octubre del año 2026\n",
+             '2026-10-05', '2027-06-09'],
         ];
         foreach ($casos as [$texto, $desde, $vence]) {
             $d = $l->extraer(VerificacionDocumento::POLIZA, $texto);

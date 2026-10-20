@@ -615,6 +615,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // (Ya no hay cambio de CSS "en caliente": un despliegue que toca public/css cambia la
             // huella version-vistas y recarga entero, y las hojas del módulo llegan con su ?v=.)
 
+            // Con una carga masiva subiendo en segundo plano, recargar la cortaría a medias (pasó
+            // el 20-10-2026: un despliegue dejó sin subir las últimas pólizas). Se sigue por la
+            // SPA; la primera navegación después de que termine recarga como siempre.
+            if (versionChanged && window.__hdCargaMasiva && window.__hdCargaMasiva.corriendo) {
+                versionChanged = false;
+            }
+
             if (versionChanged) {
                 handledCleanup = true;
                 window.location.href = url;

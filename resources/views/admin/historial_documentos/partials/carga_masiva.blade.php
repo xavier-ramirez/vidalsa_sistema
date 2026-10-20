@@ -48,10 +48,9 @@
     .hd-cm-tools { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
     /* El desplegable del tipo es el MISMO componente que los filtros (.custom-dropdown de
        uicomponents.js). Solo se le dice que ocupe todo el ancho y que su lista quede por
-       encima del modal. Apagado mientras se sube una tanda. */
+       encima del modal. */
     .hd-cm-tools .custom-dropdown { width: 100%; }
     .hd-cm-tools .dropdown-content { z-index: 2600; }
-    .hd-cm-apagado { opacity: .55; pointer-events: none; }
     .hd-cm-zona { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
                   height: 110px; border: 2px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; color: #64748b;
                   font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: center; padding: 0 12px;
@@ -66,7 +65,6 @@
     .hd-cm-zona.hd-cm-bloqueada { opacity: 0.45; cursor: not-allowed; border-style: solid; }
     .hd-cm-zona .material-icons { font-size: 26px; }
     .hd-cm-zona small { font-size: 11px; font-weight: 600; color: #94a3b8; }
-
 </style>
 
 {{-- Estilos del aviso de la tanda (#hdCmProgreso). Aparte, porque pintarProgreso los lleva a

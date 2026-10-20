@@ -464,7 +464,9 @@
     var cpdfSelPintar = function () {
         var sel = window._cpdfSel; if (!sel) return;
         document.querySelectorAll('.cpdf-fila-sel').forEach(function (tr) {
+            // Al día con lo que se ve: una fila ya revisada deja de contar para "Revisado".
             if (tr.classList.contains('cpdf-revisable')) sel.revisables.add(tr.dataset.id);
+            else sel.revisables.delete(tr.dataset.id);
             tr.classList.toggle('selected-row-maquinaria', sel.ids.has(tr.dataset.id));
         });
         var chip = document.getElementById('cpdf-selection-chip');
@@ -1086,8 +1088,8 @@
                 estado.textContent = @json($estadosDoc[\App\Models\VerificacionDocumento::COINCIDE]);
                 estado.title = motivo || '';
             }
-            tr.classList.remove('cpdf-fila-sel', 'selected-row-maquinaria');
-            tr.removeAttribute('onclick');
+            // Sigue pudiéndose elegir (como toda fila), pero ya no cuenta para "Revisado".
+            tr.classList.remove('cpdf-revisable');
             tr.classList.add('cpdf-recien-revisada');
             cpdfSelPintar();
         };

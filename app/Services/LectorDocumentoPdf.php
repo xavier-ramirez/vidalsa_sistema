@@ -464,8 +464,13 @@ class LectorDocumentoPdf
         // Tras "Hasta" pueden venir otros rotulos antes de su fecha ("Hasta \nFrecuencia de
         // Pago: Sucursal: 1/12/2026"), pero ninguna otra cifra: [^\d] no se salta una fecha.
         // Entre las dos de la vigencia puede ir "al", "hasta" o un guion ("16/01/2026 - 16/01/2027").
+        // La de Piramide a veces sale con el cuadro desarmado: "VIGENCIA DEL SEGURO:", otros
+        // rotulos sin cifras y las DOS fechas seguidas, con el "al" despues (renovaciones del
+        // 05-10-2026). Sin esa tercera forma no se leia la vigencia y el ANEXO de la misma poliza
+        // la fechaba por su firma (+1 año: 05/10/2027 en vez de 09/06/2027).
         if (preg_match('/Desde\s*' . $f . '\s*Hasta[^\d]{0,60}' . $f . '/ui', $plano, $m, PREG_OFFSET_CAPTURE)
-            || preg_match('/Vigencia[^\r\n]{0,45}\R?[^\d\r\n]{0,15}' . $f . '\s*(?:al|a|hasta|-|–)\s*' . $f . '/ui', $plano, $m, PREG_OFFSET_CAPTURE)) {
+            || preg_match('/Vigencia[^\r\n]{0,45}\R?[^\d\r\n]{0,15}' . $f . '\s*(?:al|a|hasta|-|–)\s*' . $f . '/ui', $plano, $m, PREG_OFFSET_CAPTURE)
+            || preg_match('/Vigencia\s+del\s+Seguro\s*:?[^\d]{0,60}?' . $f . '\s*(?:(?:al|a|hasta|-|–)\s*)?' . $f . '/ui', $plano, $m, PREG_OFFSET_CAPTURE)) {
             $datos['desde'] = $this->fecha($m[1][0]);
             $datos['vence'] = $this->fecha($m[2][0]);
             // "RECIBO" en la vigencia o en el rotulo de justo antes ("Vigencia del Recibo:

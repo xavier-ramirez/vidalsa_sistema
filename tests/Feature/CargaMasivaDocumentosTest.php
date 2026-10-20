@@ -631,7 +631,11 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertStringNotContainsString('revision de la noche', (string) ($p['aviso'] ?? ''));
     }
 
-    /** Soltar dos veces el MISMO archivo se avisa en la segunda. */
+    /**
+     * Soltar dos veces el MISMO archivo: si la primera ya esta puesta en su ficha, la segunda
+     * NO se sube (seria una copia repetida en Drive); si la ficha ya tiene otro, se sube y se
+     * avisa.
+     */
     public function test_el_mismo_archivo_soltado_dos_veces_se_avisa(): void
     {
         $this->actingAs($this->usuario());
@@ -639,19 +643,28 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $texto = "CERTIFICADO DE CIRCULACION ROTC\nSerial de Carroceria {$e->SERIAL_CHASIS}\nFecha de Vencimiento 10/10/2027";
         $unico = 'q' . uniqid();
 
-        // Un solo Drive falso para las dos: cada archivo tiene que salir con su propio id,
+        // Un solo Drive falso para todas: cada archivo tiene que salir con su propio id,
         // como en el Drive de verdad (DriveFalso numera desde 1 cada vez que se instala).
         \Illuminate\Support\Facades\Storage::fake('local');
         config(['services.gemini.key' => null]);
         \Tests\DriveFalso::instalar();
         try {
             $pdf = fn () => \Illuminate\Http\UploadedFile::fake()->createWithContent('doc.pdf', "%PDF-1.5\n" . str_repeat($unico, 200) . "\n%%EOF\n");
-            $this->assertSame('listo', $this->lectorCon($texto)->analizar($pdf(), LectorDocumentoPdf::ROTC)['estado']);
+            $primera = $this->lectorCon($texto)->analizar($pdf(), LectorDocumentoPdf::ROTC);
+            $this->assertSame('listo', $primera['estado']);
+            $puesta = $this->lectorCon($texto)->analizar($pdf(), LectorDocumentoPdf::ROTC);
+            // La ficha pasa a tener otro PDF: el de antes ya no esta puesto.
+            $e->documentacion()->update(['LINK_ROTC' => '/storage/google/otro-rotc-cm']);
             $otra = $this->lectorCon($texto)->analizar($pdf(), LectorDocumentoPdf::ROTC);
         } finally {
             \Tests\DriveFalso::quitar();
         }
 
+        $this->assertNull($puesta['link'], 'No se subio a Drive.');
+        $this->assertStringContainsString('Ya está cargado', $puesta['aviso']);
+        $this->assertSame(2, VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+            ->where('PROPUESTA', 'like', '%"md5":"' . $primera['md5'] . '"%')->count(),
+            'Filas solo de la primera y la tercera: la que no se subio no deja fila.');
         $this->assertSame('revisar', $otra['estado']);
         $this->assertStringContainsString('ya se habia soltado', $otra['aviso']);
     }
