@@ -3,7 +3,10 @@
      header 13px, ítems 12.5px, badge 2px 8px — para que ambas cards se vean idénticas.
      Arranca RECOGIDA (.is-recogido): el encabezado, con el total, es el botón que despliega la lista
      (eqToggleDetalles en equipos_index.js). --}}
-@php $totalUbicaciones = ($ubicacionesStats ?? collect())->sum('total'); @endphp
+@php
+    $ubicacionesStats = $ubicacionesStats ?? collect();
+    $totalUbicaciones = $ubicacionesStats->sum('total');
+@endphp
 <div class="eq-detalles is-recogido">
 <h4 class="eq-detalles-toggle" role="button" tabindex="0" aria-expanded="false" title="Desplegar / recoger los detalles"
     onclick="eqToggleDetalles(this)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); eqToggleDetalles(this); }"
@@ -19,7 +22,7 @@
     <i class="material-icons eq-detalles-caret" style="font-size: 20px; color: #64748b;{{ ($frenteFueraDeFlota ?? null) ? '' : ' margin-left: auto;' }}">expand_more</i>
 </h4>
 <ul class="eq-detalles-lista custom-scrollbar" style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;">
-    @if(($ubicacionesStats ?? collect())->isEmpty())
+    @if($ubicacionesStats->isEmpty())
         <li style="color: #94a3b8; font-size: 12px; text-align: center; padding: 10px 0;">Sin datos</li>
     @else
         @foreach($ubicacionesStats as $stat)

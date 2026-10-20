@@ -896,11 +896,13 @@ function eqEnModoAuxURL() {
 
 // ─── Card de Distribución: UNA sola lista con todas las secciones ─────────────
 // La card muestra TODAS las vistas disponibles apiladas en una sola lista, separadas por
-// sección: EQUIPOS (siempre), DETALLES (DETALLE_UBICACION_ACTUAL, solo en frentes fuera de la flota;
-// arranca recogida, ver eqToggleDetalles) y AUXILIARES (cuando hay distribución de auxiliares). El clic en la card (fuera de una fila)
-// NO intercambia el contenido: hace SCROLL rápido a la siguiente sección. Los clics sobre una
-// fila (li) conservan su acción de filtrar. Cada vista guarda su HTML en su variable.
+// sección: EQUIPOS (siempre), DETALLES (DETALLE_UBICACION_ACTUAL, solo en frentes fuera de la
+// flota; arranca recogida, ver eqToggleDetalles) y AUXILIARES (cuando hay distribución de
+// auxiliares). El clic en la card (fuera de una fila) NO intercambia el contenido: hace SCROLL
+// rápido a la siguiente sección. Los clics sobre una fila (li) conservan su acción de filtrar.
+// Cada vista guarda su HTML en su variable.
 window.__distribHtml = null;                               // HTML de EQUIPOS (vista por defecto)
+window.__eqDetallesAbierto = false;                        // DETALLES desplegada (sobrevive a los repintados AJAX)
 window.__distribUbiHtml = window.__distribUbiHtml || '';   // HTML de DETALLES (lo fija el Blade / AJAX)
 window.__distribAuxHtml = window.__distribAuxHtml || '';   // HTML de AUXILIARES (lo fija el Blade / AJAX)
 window.__distSecIdx = 0;                                   // última sección a la que saltó el botón
@@ -954,6 +956,9 @@ function _eqRenderDistribucion() {
             : '';
     }).join('');
     if (html) cont.innerHTML = html;
+    // Si el usuario ya desplegó DETALLES (p. ej. tocó una fila para filtrar), el repintado no la recoge.
+    const detalles = window.__eqDetallesAbierto ? cont.querySelector('.eq-detalles') : null;
+    if (detalles) _eqPonerDetalles(detalles, true);
     window.__distSecIdx = 0;
     _eqCancelScroll();       // que una animación en curso no arrastre el contenedor recién reseteado
     cont.scrollTop = 0;
@@ -990,12 +995,18 @@ function _eqScrollSuave(cont, destino, dur) {
     _eqScrollRAF = requestAnimationFrame(paso);
 }
 // Despliega / recoge la sección "Detalles" (partials/ubicaciones_stats arranca recogida). Se
-// llama desde el encabezado de la sección (clic o Enter/Espacio).
+// llama desde el encabezado de la sección (clic o Enter/Espacio). El estado se recuerda en
+// __eqDetallesAbierto para que los repintados AJAX (_eqRenderDistribucion) lo respeten.
+function _eqPonerDetalles(sec, abierta) {
+    sec.classList.toggle('is-recogido', !abierta);
+    const encabezado = sec.querySelector('.eq-detalles-toggle');
+    if (encabezado) encabezado.setAttribute('aria-expanded', abierta ? 'true' : 'false');
+}
 window.eqToggleDetalles = function (encabezado) {
     const sec = encabezado.closest('.eq-detalles');
     if (!sec) return;
-    const recogida = sec.classList.toggle('is-recogido');
-    encabezado.setAttribute('aria-expanded', recogida ? 'false' : 'true');
+    window.__eqDetallesAbierto = sec.classList.contains('is-recogido');
+    _eqPonerDetalles(sec, window.__eqDetallesAbierto);
 };
 window.onDistribucionCardClick = function (e) {
     // Clic en una fila de datos (li) → respetar su filtro (selectOption/loadEquipos), no navegar.
