@@ -9,19 +9,20 @@
 <div class="hd-pest-fila">
     <div class="hd-pest">
     {{-- Las tres para quien entra (Usuario::veAuditoriaDocumentos). Con solo la carga masiva,
-         el historial y la compresión son de mirar: borrar y la Papelera piden super.admin. --}}
-    <button type="button" class="{{ $pestana === 'historial' ? 'on' : '' }}" onclick="window.hdPestana('historial')">Historial de cambios</button>
+         el historial y la compresión son de mirar: borrar y la Papelera piden super.admin.
+         La revisión va primero y es la que se abre (HistorialDocumentosController::index). --}}
     <button type="button" class="{{ $pestana === 'documentos' ? 'on' : '' }}" onclick="window.hdPestana('documentos')">
         Revisión de documentos
         @if ($docsParaRevisar) <span class="hd-pend" title="Documentos que hay que revisar a mano">{{ $docsParaRevisar }}</span> @endif
     </button>
+    <button type="button" class="{{ $pestana === 'historial' ? 'on' : '' }}" onclick="window.hdPestana('historial')">Historial de cambios</button>
     <button type="button" class="{{ $pestana === 'compresion' ? 'on' : '' }}" onclick="window.hdPestana('compresion')">Compresión de PDF</button>
     </div>
 </div>
 <script>
     // Cambiar de pestaña = pedir la misma pantalla con ?pestana=..., por la SPA.
     window.hdPestana = function (cual) {
-        var url = @json(route('historial-documentos.index')) + (cual === 'historial' ? '' : '?pestana=' + cual);
+        var url = @json(route('historial-documentos.index')) + '?pestana=' + cual;
         if (typeof window.navigateTo === 'function') window.navigateTo(url);
         else window.location.href = url;
     };

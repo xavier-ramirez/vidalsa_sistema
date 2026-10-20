@@ -40,19 +40,19 @@ class HistorialDocumentosSinRecargaTest extends MySqlTestCase
 
     public function test_el_servidor_ya_devuelve_la_tabla_filtrada_por_fecha(): void
     {
-        $todas = $this->filas('/admin/historial-documentos');
+        $todas = $this->filas('/admin/historial-documentos?pestana=historial');
         $this->assertGreaterThan(0, $todas, 'sin filas no se puede comparar');
 
         // Una ventana imposible: el servidor tiene que devolver menos filas que sin filtro.
-        $pocas = $this->filas('/admin/historial-documentos?fecha_desde=2099-01-01&fecha_hasta=2099-01-02');
+        $pocas = $this->filas('/admin/historial-documentos?pestana=historial&fecha_desde=2099-01-01&fecha_hasta=2099-01-02');
 
         $this->assertLessThan($todas, $pocas, 'el filtro de fechas NO se aplicó en el servidor');
     }
 
     public function test_el_servidor_ya_devuelve_la_tabla_filtrada_por_equipo(): void
     {
-        $todas = $this->filas('/admin/historial-documentos');
-        $pocas = $this->filas('/admin/historial-documentos?search_equipo=ZZZNOEXISTE999');
+        $todas = $this->filas('/admin/historial-documentos?pestana=historial');
+        $pocas = $this->filas('/admin/historial-documentos?pestana=historial&search_equipo=ZZZNOEXISTE999');
 
         $this->assertLessThan($todas, $pocas, 'el filtro de equipo NO se aplicó en el servidor');
     }

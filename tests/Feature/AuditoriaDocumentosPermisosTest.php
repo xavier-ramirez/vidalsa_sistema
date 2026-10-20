@@ -83,7 +83,7 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
     {
         $u = $this->usuario('docs.carga.masiva');
 
-        $hist = $this->actingAs($u)->get(route('historial-documentos.index'))->assertOk()->getContent();
+        $hist = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'historial']))->assertOk()->getContent();
         $this->assertStringContainsString('historialDocumentosTable', $hist, 'Ve el historial.');
         $this->assertStringNotContainsString('btn-hd-del', $hist, 'Sin borrar registros.');
         $this->assertStringNotContainsString('abrirPapelera()', $hist, 'Ni la Papelera.');
@@ -131,7 +131,7 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertStringNotContainsString('cpdfSelBarra', $html, 'Ni revisa: eso va con la carga masiva.');
         $this->assertStringNotContainsString('window.cpdfLeerAhora', $html);
         // En el historial sí tiene el botón de borrar registros.
-        $hist = $this->actingAs($u)->get(route('historial-documentos.index'))->assertOk()->getContent();
+        $hist = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'historial']))->assertOk()->getContent();
         $this->assertStringContainsString('window.hdDeleteRegistro', $hist);
 
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.analizar'), [], $json)->assertForbidden();

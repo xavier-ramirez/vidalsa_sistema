@@ -13,7 +13,8 @@ window.loadHistorialDocumentos = async function (pageUrl = null) {
     tableBody.style.opacity = '0.5';
 
     try {
-        const params = new URLSearchParams();
+        // Sin ?pestana=historial el modulo abre la revision de documentos.
+        const params = new URLSearchParams({ pestana: 'historial' });
 
         // 1. Filtro de Correo (Autor)
         const sCorreo = document.getElementById('searchCorreo');
@@ -63,7 +64,7 @@ window.loadHistorialDocumentos = async function (pageUrl = null) {
         let fetchUrl = finalUrl;
         if (window._hdSoloSel && window._hdSelectedIds && window._hdSelectedIds.size) {
             const ids = Array.from(window._hdSelectedIds);
-            fetchUrl = '/admin/historial-documentos?hd_ids=' + encodeURIComponent(ids.join(','));
+            fetchUrl = '/admin/historial-documentos?pestana=historial&hd_ids=' + encodeURIComponent(ids.join(','));
             const pg = params.get('page');
             if (pg) fetchUrl += '&page=' + pg;
         }

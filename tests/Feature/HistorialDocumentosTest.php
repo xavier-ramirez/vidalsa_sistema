@@ -50,7 +50,7 @@ class HistorialDocumentosTest extends MySqlTestCase
             'created_at' => $cuando,
         ]);
 
-        $r = $this->actingAs($yo)->get(route('historial-documentos.index', ['search_equipo' => $placa]));
+        $r = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'historial', 'search_equipo' => $placa]));
         $r->assertOk();
         $html = $r->getContent();
 
@@ -69,7 +69,7 @@ class HistorialDocumentosTest extends MySqlTestCase
         ]);
         CacheVersion::olvidarBumpsDelRequest();
         CacheVersion::bump(HistorialDocumentosController::DATA_VER_KEY);
-        $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['search_equipo' => $placa]))->getContent();
+        $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'historial', 'search_equipo' => $placa]))->getContent();
         $this->assertSame(2, substr_count($html, '<tr class="hd-selectable-row'));
         $this->assertStringContainsString('Edición Metadata RACDA', $html);
     }
@@ -80,19 +80,19 @@ class HistorialDocumentosTest extends MySqlTestCase
         $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
         [, $placa] = $this->equipoConRacda($yo, now()->subMinutes(5));
 
-        $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['search_equipo' => $placa]))->getContent();
+        $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'historial', 'search_equipo' => $placa]))->getContent();
         $this->assertStringContainsString('id="hdResumen"', $html);
         $this->assertMatchesRegularExpression('~<small>Hoy</small>\s*<strong>1</strong>~', $html);
         $this->assertStringContainsString('Subida de documento</span><b>1</b>', $html, 'La subida cuenta en su accion.');
 
         // El filtrado por AJAX trae el resumen repintado; filtrar por la accion sigue igual.
-        $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['search_equipo' => $placa, 'search_tipo' => 'cat_uploads']))->json();
+        $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['pestana' => 'historial', 'search_equipo' => $placa, 'search_tipo' => 'cat_uploads']))->json();
         $this->assertSame(1, $json['total']);
         $this->assertStringContainsString('Subida de documento</span><b>1</b>', $json['resumen_html']);
-        $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['search_equipo' => $placa, 'search_tipo' => 'cat_borrados']))->json();
+        $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['pestana' => 'historial', 'search_equipo' => $placa, 'search_tipo' => 'cat_borrados']))->json();
         $this->assertSame(0, $json['total']);
         // Cambiar de pagina no cambia el resumen: no se vuelve a mandar.
-        $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['search_equipo' => $placa, 'page' => 2]))->json();
+        $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['pestana' => 'historial', 'search_equipo' => $placa, 'page' => 2]))->json();
         $this->assertNull($json['resumen_html']);
     }
 
@@ -107,7 +107,7 @@ class HistorialDocumentosTest extends MySqlTestCase
 
     private function filas(Usuario $yo, array $filtros): array
     {
-        return $this->actingAs($yo)->getJson(route('historial-documentos.index', $filtros))->json();
+        return $this->actingAs($yo)->getJson(route('historial-documentos.index', ['pestana' => 'historial'] + $filtros))->json();
     }
 
     /**
@@ -145,7 +145,7 @@ class HistorialDocumentosTest extends MySqlTestCase
         $grupos = HistorialDocumentosController::TIPOS_ACCION;
         $this->assertArrayNotHasKey('Registro de Auxiliar', $grupos['Catálogo de modelos']);
         $this->assertArrayNotHasKey('Foto de Auxiliar', $grupos['Catálogo de modelos']);
-        $html = $this->actingAs($yo)->get(route('historial-documentos.index'))->getContent();
+        $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'historial']))->getContent();
         $this->assertStringNotContainsString('de Auxiliar', $html, 'Ni en el desplegable ni en las filas.');
     }
 
@@ -190,12 +190,25 @@ class HistorialDocumentosTest extends MySqlTestCase
         $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
         $this->assertNotNull($yo, 'Hace falta un usuario super.admin para probar.');
 
-        foreach ([null, 'documentos', 'compresion'] as $pestana) {
+        foreach (['historial', 'documentos', 'compresion'] as $pestana) {
             $html = $this->actingAs($yo)
-                ->get(route('historial-documentos.index', $pestana ? ['pestana' => $pestana] : []))
+                ->get(route('historial-documentos.index', ['pestana' => $pestana]))
                 ->assertOk()->getContent();
-            $this->assertSame(1, substr_count($html, 'id="hdBtnAcciones"'), 'Pestaña ' . ($pestana ?? 'historial'));
+            $this->assertSame(1, substr_count($html, 'id="hdBtnAcciones"'), 'Pestaña ' . $pestana);
         }
+    }
+
+    /** Sin ?pestana= abre la revisión de documentos, que además es la primera pestaña. */
+    public function test_abre_en_la_revision_de_documentos_que_es_la_primera(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        $html = $this->actingAs($yo)->get(route('historial-documentos.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('cpdf-docs', $html, 'Abre la revisión.');
+        $this->assertStringNotContainsString('historialDocumentosTable', $html);
+        preg_match_all("/window\.hdPestana\('(\w+)'\)/", $html, $m);
+        $this->assertSame(['documentos', 'historial', 'compresion'], $m[1]);
+        $this->assertStringContainsString("class=\"on\" onclick=\"window.hdPestana('documentos')\"", $html, 'Y sale marcada.');
     }
 
     /**

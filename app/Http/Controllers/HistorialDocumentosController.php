@@ -408,9 +408,12 @@ class HistorialDocumentosController extends Controller
         // cada una pide su permiso (ver Usuario::veAuditoriaDocumentos).
         $user = auth()->user();
         abort_unless($user && $user->veAuditoriaDocumentos(), 403);
-        $pestana = $request->input('pestana');
-        if (PanelDocumentos::esPestana($pestana)) {
-            return view('admin.historial_documentos.index', PanelDocumentos::datos($request, $pestana));
+        // Se abre en la revisión de documentos (pedido del cliente, 19-10-2026); el historial se
+        // pide con ?pestana=historial (sus filtros y su paginación lo llevan siempre).
+        $pestana = (string) $request->input('pestana');
+        if ($pestana !== 'historial') {
+            return view('admin.historial_documentos.index',
+                PanelDocumentos::datos($request, PanelDocumentos::esPestana($pestana) ? $pestana : PanelDocumentos::DOCUMENTOS));
         }
 
         // ── Scope LOCAL ─────────────────────────────────────────────────────
