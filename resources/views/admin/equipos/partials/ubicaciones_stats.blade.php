@@ -14,12 +14,7 @@
     <i class="material-icons" style="font-size: 18px; color: #f97316;">place</i>
     Detalles
     <span style="font-weight: 700; color: #1e293b; font-size: 12.5px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">{{ $totalUbicaciones }}</span>
-    @if($frenteFueraDeFlota ?? null)
-        <span style="font-size: 10px; color: #94a3b8; font-weight: 500; text-transform: none; margin-left: auto;">
-            {{ $frenteFueraDeFlota->NOMBRE_FRENTE }}
-        </span>
-    @endif
-    <i class="material-icons eq-detalles-caret" style="font-size: 20px; color: #64748b;{{ ($frenteFueraDeFlota ?? null) ? '' : ' margin-left: auto;' }}">expand_more</i>
+    <i class="material-icons eq-detalles-caret" style="font-size: 20px; color: #64748b; margin-left: auto;">expand_more</i>
 </h4>
 <ul class="eq-detalles-lista custom-scrollbar" style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;">
     @if($ubicacionesStats->isEmpty())

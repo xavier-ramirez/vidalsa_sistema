@@ -893,7 +893,7 @@ class EquipoController extends Controller
                         'showFrentes'  => ($request->filled('id_tipo') && $request->id_tipo !== 'all')
                                           && !($request->filled('id_frente') && $request->id_frente !== 'all'),
                     ])->render(),
-                'ubicaciones'       => view('admin.equipos.partials.ubicaciones_stats', compact('ubicacionesStats', 'hasFilter', 'frenteFueraDeFlota'))->render(),
+                'ubicaciones'       => view('admin.equipos.partials.ubicaciones_stats', compact('ubicacionesStats'))->render(),
                 'showUbicaciones'   => !$auxMode && $frenteFueraDeFlota !== null,
                 // Frente VENDIDO o en TRÁMITE DE VENTA: textos del aviso de arriba de la tabla
                 // (FrenteTrabajo::avisoVenta) + nombre. null = aviso escondido.
