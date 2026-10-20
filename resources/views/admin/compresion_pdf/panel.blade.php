@@ -55,12 +55,13 @@
     // cruda ('adicional') y el desplegable "Filtrar Documento" no las ofrecia.
     $tiposDoc = \App\Models\VerificacionDocumento::NOMBRES + \App\Services\CargaMasivaDocumentos::NOMBRES;
     // Los desplegables son iguales salvo su lista: se pintan con el mismo molde. Cada pestaña
-    // filtra por lo suyo (la de compresion, por documento; la de documentos, por estado y tipo).
+    // filtra por lo suyo (la de compresion, por documento; la de documentos, por tipo y estado:
+    // el tipo primero, a la izquierda, y el buscador al final; pedido del cliente, 19-10-2026).
     $desplegables = $pestana === 'documentos' ? [
-        ['id' => 'cpdfDocEstadoSelect', 'nombre' => 'estado_doc', 'etiqueta' => 'Filtrar Estado...', 'todos' => 'TODOS LOS ESTADOS',
-         'valor' => $estadoDoc, 'opciones' => $opcionesEstadoDoc],
         ['id' => 'cpdfDocTipoSelect', 'nombre' => 'tipo_doc', 'etiqueta' => 'Filtrar Documento...', 'todos' => 'TODOS LOS DOCUMENTOS',
          'valor' => $tipoDoc, 'opciones' => $tiposDoc],
+        ['id' => 'cpdfDocEstadoSelect', 'nombre' => 'estado_doc', 'etiqueta' => 'Filtrar Estado...', 'todos' => 'TODOS LOS ESTADOS',
+         'valor' => $estadoDoc, 'opciones' => $opcionesEstadoDoc],
     ] : [
         ['id' => 'cpdfEstadoSelect',    'nombre' => 'estado',    'etiqueta' => 'Filtrar Estado...',    'todos' => 'TODOS LOS ESTADOS',
          'valor' => $estado,    'opciones' => $estados],
@@ -80,19 +81,7 @@
         {{-- Filtros: mismos componentes que Usuarios/Equipos (buscador + custom-dropdown).
              Cada cambio vuelve a pedir la página con los filtros en la URL (cpdfFiltrar). --}}
         <div class="filter-toolbar-container cpdf-filtros">
-            <div class="filter-item aligned-filter responsive-filter-item">
-                <form style="width: 100%;" onsubmit="event.preventDefault(); window.cpdfFiltrar();">
-                    <div class="search-wrapper" style="width: 100%; border-color: {{ $buscar !== '' ? '#0067b1' : '#cbd5e0' }}; background: {{ $buscar !== '' ? '#e1effa' : '#fbfcfd' }}; height: 45px;">
-                        <i class="material-icons search-icon">search</i>
-                        <input type="text" id="cpdfBuscar" value="{{ $buscar }}"
-                            placeholder="{{ $pestana === 'documentos' ? 'Buscar placa, serial o nombre...' : 'Buscar serial o documento...' }}"
-                            class="search-input-field" style="height: 100%;" autocomplete="off"
-                            oninput="document.getElementById('cpdfBuscarX').style.display = this.value ? 'block' : 'none';">
-                        <i id="cpdfBuscarX" class="material-icons clear-icon" style="display: {{ $buscar !== '' ? 'block' : 'none' }};"
-                           onclick="document.getElementById('cpdfBuscar').value=''; window.cpdfFiltrar();">close</i>
-                    </div>
-                </form>
-            </div>
+            @includeWhen($pestana !== 'documentos', 'admin.compresion_pdf.partials.buscador')
 
             @foreach ($desplegables as $dd)
                 <div class="filter-item aligned-filter responsive-filter-item">
@@ -126,6 +115,8 @@
                     </div>
                 </div>
             @endforeach
+
+            @includeWhen($pestana === 'documentos', 'admin.compresion_pdf.partials.buscador')
 
             @include('admin.historial_documentos.partials.acciones')
         </div>

@@ -30,7 +30,9 @@ class EnlacesDocumentos
         ['documentacion', 'LINK_DOC_ADICIONAL',   'doc_adicional_',   'Certificado'],
         ['documentacion', 'LINK_DOC_ADICIONAL_2', 'doc_adicional_2_', 'Compraventa'],
         ['equipos_auxiliares', 'LINK_DOC_PROPIEDAD', 'aux_propiedad_',   'Doc. propiedad (auxiliar)'],
-        ['equipos_auxiliares', 'LINK_CERTIFICADO',   'aux_certificado_', 'Certificado (auxiliar)'],
+        // El mismo nombre que el del equipo: en el filtro de Compresion es UN "Certificado"
+        // (pedido del cliente, 19-10-2026; las filas viejas, en 2026_10_19_130000).
+        ['equipos_auxiliares', 'LINK_CERTIFICADO',   'aux_certificado_', 'Certificado'],
         ['documento_anexos', 'LINK', 'correccion_', 'Correccion anexa'],
         // Un BL: UN archivo para todos los equipos de su embarque (ver Embarque).
         ['embarques', 'LINK', 'embarque_', 'Documento de embarque (BL)'],

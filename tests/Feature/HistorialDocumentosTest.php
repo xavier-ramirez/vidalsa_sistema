@@ -197,4 +197,26 @@ class HistorialDocumentosTest extends MySqlTestCase
             $this->assertSame(1, substr_count($html, 'id="hdBtnAcciones"'), 'Pestaña ' . ($pestana ?? 'historial'));
         }
     }
+
+    /**
+     * Revisión de documentos: tipo, estado y el buscador al final; Compresión sigue con el
+     * buscador primero y UN "Certificado" para equipos y auxiliares.
+     */
+    public function test_orden_de_los_filtros_y_un_solo_certificado(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        $pos = fn (string $html, string $id) => strpos($html, 'id="' . $id . '"');
+
+        $docs = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'documentos']))->assertOk()->getContent();
+        $this->assertSame(1, substr_count($docs, 'id="cpdfBuscar"'));
+        $this->assertTrue($pos($docs, 'cpdfDocTipoSelect') < $pos($docs, 'cpdfDocEstadoSelect')
+            && $pos($docs, 'cpdfDocEstadoSelect') < $pos($docs, 'cpdfBuscar')
+            && $pos($docs, 'cpdfBuscar') < $pos($docs, 'hdBtnAcciones'), 'Tipo, estado, buscador.');
+
+        $comp = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'compresion']))->assertOk()->getContent();
+        $this->assertSame(1, substr_count($comp, 'id="cpdfBuscar"'));
+        $this->assertTrue($pos($comp, 'cpdfBuscar') < $pos($comp, 'cpdfEstadoSelect'));
+        $this->assertStringNotContainsString('Certificado (auxiliar)', $comp);
+        $this->assertSame('Certificado', collect(\App\Support\EnlacesDocumentos::DOCUMENTOS)->firstWhere(1, 'LINK_CERTIFICADO')[3]);
+    }
 }
