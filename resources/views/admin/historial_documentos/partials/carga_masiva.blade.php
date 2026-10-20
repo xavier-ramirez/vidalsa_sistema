@@ -92,16 +92,12 @@
     #hdCmProgreso .hd-cm-p-cuentas { margin-top: 4px; color: #fff; font-weight: 600; }
     #hdCmProgreso .hd-cm-p-ya { margin-top: 6px; color: #86efac; font-weight: 600; }
     #hdCmProgreso .hd-cm-p-mal { margin-top: 6px; color: #fca5a5; font-weight: 600; }
-    #hdCmProgreso .hd-cm-p-ver { margin-top: 8px; width: 100%; border: none; border-radius: 8px; padding: 7px; cursor: pointer;
-                                 background: #0067b1; color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 700; }
-    #hdCmProgreso .hd-cm-p-ver:hover { background: #00548f; }
 </style>
 
 <script>
 (function () {
     var RUTAS = { analizar: @json(route('historial-documentos.carga-masiva.analizar')) };
 
-    var RUTA_REVISION = @json(route('historial-documentos.index', ['pestana' => 'documentos']));
     // El oyente del desplegable del tipo (ver soltarOyenteTipo).
     var estado = { oyenteTipo: null };
     // La tanda en curso vive en WINDOW y no aquí: este script vuelve a correr en cada visita
@@ -304,8 +300,8 @@
         siguiente();
     }
 
-    // El aviso de abajo: por cuál va y, al terminar, cuántos subieron, cuáles no y un botón para
-    // ver el resultado en la tabla de Revisión de documentos. Se reconstruye entero cada vez
+    // El aviso de abajo: por cuál va y, al terminar, cuántos subieron y cuáles no; se cierra con
+    // su X (sin botón a Revisión: pedido del cliente, 20-10-2026). Se reconstruye entero cada vez
     // (textContent en todo: los nombres de archivo los pone el usuario).
     function pintarProgreso() {
         var t = tanda(); if (!t) return;
@@ -347,14 +343,6 @@
             var mal = el('div', 'hd-cm-p-mal', 'NO se subieron (' + t.perdidos.length + '):');
             t.perdidos.forEach(function (p) { mal.appendChild(el('div', null, '· ' + p.nombre + (p.motivo ? ' — ' + p.motivo : ''))); });
             caja.appendChild(mal);
-        }
-        if (!t.corriendo && t.hechos) {
-            var ver = el('button', 'hd-cm-p-ver', 'Ver en Revisión de documentos'); ver.type = 'button';
-            ver.addEventListener('click', function () {
-                caja.remove(); window.__hdCargaMasiva = null;
-                if (typeof window.navigateTo === 'function') window.navigateTo(RUTA_REVISION); else window.location.href = RUTA_REVISION;
-            });
-            caja.appendChild(ver);
         }
     }
     window.abrirCargaMasiva = function () { construir(); };
