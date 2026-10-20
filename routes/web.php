@@ -563,7 +563,8 @@ Route::middleware(['auth'])->group(function () {
             // caso con ninguna ficha se ata a mano.
             // Permiso PROPIO y exclusivo ('docs.carga.masiva'), y SOLO ese (pedido del cliente,
             // 01-10-2026): ni super.admin lo hereda (ver PERMISOS_EXPLICITOS) ni hace falta tenerlo.
-            // Con el mismo permiso se revisan las lecturas (19-10-2026): "Revisado" y "Revisar ahora".
+            // Con el mismo permiso se revisan las lecturas (19-10-2026): "Revisado". ("Revisar ahora",
+            // solo super.admin desde el 20-10-2026: va en el grupo de abajo.)
             Route::middleware('can:docs.carga.masiva')->group(function () {
                 Route::post('historial-documentos/carga-masiva/analizar', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'analizar'])
                     ->name('historial-documentos.carga-masiva.analizar');
@@ -582,9 +583,6 @@ Route::middleware(['auth'])->group(function () {
                 // Varias de una vez, eligiendo las filas en la tabla, sin abrir el visor.
                 Route::post('compresion-pdf/documentos/revisados', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisados'])
                     ->name('compresion-pdf.documentos.revisados');
-                // "Revisar ahora": la lectura de documentos arranca ya, a cualquier hora.
-                Route::post('compresion-pdf/documentos/leer-ahora', [App\Http\Controllers\CompresionPdfController::class, 'leerAhora'])
-                    ->name('compresion-pdf.documentos.leer-ahora');
             });
 
             // Lo demás de Auditoría (desbloquear IP, eliminar del historial, la compresión): solo super.admin.
@@ -595,6 +593,10 @@ Route::middleware(['auth'])->group(function () {
                 // La pantalla de compresion se mudo a Control de Auditoría: este GET solo
                 // lleva alli (los enlaces viejos y los favoritos siguen sirviendo).
                 Route::get('compresion-pdf', [App\Http\Controllers\CompresionPdfController::class, 'index'])->name('compresion-pdf.index');
+                // "Revisar ahora": la lectura de documentos arranca ya, a cualquier hora (pedido del
+                // cliente, 20-10-2026: solo super.admin, igual que la caja de la lectura automática).
+                Route::post('compresion-pdf/documentos/leer-ahora', [App\Http\Controllers\CompresionPdfController::class, 'leerAhora'])
+                    ->name('compresion-pdf.documentos.leer-ahora');
             });
 
             // Ruta de emergencia `force-fix-db` removida: los ajustes de schema ahora

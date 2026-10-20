@@ -12,8 +12,8 @@ use Tests\MySqlTestCase;
  * Quién entra a Auditoría de Documentos y qué hace (pedido del cliente, 01-10-2026 y 19-10-2026):
  *  - Con 'docs.carga.masiva' (sin super.admin) se entra a las tres pestañas. En la revisión de
  *    documentos ve TODAS las lecturas (las de la noche y las de la carga) y revisa: cargar en
- *    lote, dar por revisado (visor y en lote) y "Revisar ahora". El historial y la compresión,
- *    solo de mirar.
+ *    lote y dar por revisado (visor y en lote). El historial y la compresión, solo de mirar.
+ *  - La lectura automática y "Revisar ahora", SOLO super.admin (20-10-2026).
  *  - Eliminar (descartar un PDF, borrar del historial, la Papelera) es SOLO de super.admin.
  * Ver Usuario::veAuditoriaDocumentos. Los usuarios se crean aquí y la transacción los deshace.
  */
@@ -60,11 +60,10 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertStringContainsString('Carga masiva', $html, 'Y su botón en Acciones.');
         $this->assertStringContainsString($carga, $html, 'Ve lo que se cargó en lote.');
         $this->assertStringContainsString($noche, $html, 'Y las lecturas de la noche.');
-        // La lectura automática y su avance, con "Revisar ahora" (los botones salen solo si
-        // está activa en esta base; su función, siempre).
-        $this->assertMatchesRegularExpression('/Lectura automática (activa|apagada)/', $html);
+        // El avance sí; la lectura automática y "Revisar ahora", no (solo super.admin).
         $this->assertStringContainsString('Por dónde va la revisión', $html);
-        $this->assertStringContainsString('window.cpdfLeerAhora', $html);
+        $this->assertStringNotContainsString('Lectura automática', $html);
+        $this->assertStringNotContainsString('window.cpdfLeerAhora', $html);
         // Elige filas (el contador común) y las da por revisadas.
         $this->assertStringContainsString('id="cpdf-selection-chip-revisado"', $html);
         $this->assertStringContainsString('cpdfSelFila(', $html);
@@ -106,11 +105,10 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->actingAs($u)->get(route('historial-documentos.carga-masiva.buscar-equipo'), $json)->assertStatus(422);
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.atar-vin'), [], $json)->assertStatus(422);
 
-        // Revisar: dar por revisado (visor y en lote) y "Revisar ahora" (con un tipo que no
-        // existe, para que llegue al controlador sin pedir de verdad la lectura → 422).
+        // Revisar: dar por revisado (visor y en lote). "Revisar ahora", no: es de super.admin.
         $this->actingAs($u)->post(route('compresion-pdf.documento.revisado', $id), [], $json)->assertOk()->assertJson(['success' => true]);
         $this->actingAs($u)->post(route('compresion-pdf.documentos.revisados'), ['ids' => [$id]], $json)->assertOk()->assertJson(['success' => true]);
-        $this->actingAs($u)->post(route('compresion-pdf.documentos.leer-ahora'), ['tipo' => 'no-existe'], $json)->assertStatus(422);
+        $this->actingAs($u)->post(route('compresion-pdf.documentos.leer-ahora'), ['tipo' => 'no-existe'], $json)->assertForbidden();
 
         // Eliminar: solo super.admin.
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.descartar'), [], $json)->assertForbidden();
@@ -131,7 +129,9 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         // Elige filas para verlas (el contador es de todos), pero no revisa: eso va con la carga masiva.
         $this->assertStringContainsString('id="cpdf-selection-chip"', $html);
         $this->assertStringNotContainsString('id="cpdf-selection-chip-revisado"', $html, 'Ni revisa: eso va con la carga masiva.');
-        $this->assertStringNotContainsString('window.cpdfLeerAhora', $html);
+        // La lectura automática y "Revisar ahora" sí: son de super.admin.
+        $this->assertStringContainsString('Lectura automática', $html);
+        $this->assertStringContainsString('window.cpdfLeerAhora', $html);
         // En el historial sí tiene el botón de borrar registros.
         $hist = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'historial']))->assertOk()->getContent();
         $this->assertStringContainsString('window.hdDeleteRegistro', $hist);
@@ -142,7 +142,8 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.atar-vin'), [], $json)->assertForbidden();
         $this->actingAs($u)->post(route('compresion-pdf.documento.revisado', 1), [], $json)->assertForbidden();
         $this->actingAs($u)->post(route('compresion-pdf.documentos.revisados'), ['ids' => [1]], $json)->assertForbidden();
-        $this->actingAs($u)->post(route('compresion-pdf.documentos.leer-ahora'), [], $json)->assertForbidden();
+        // Llega al controlador (un tipo que no existe → 422, sin pedir de verdad la lectura).
+        $this->actingAs($u)->post(route('compresion-pdf.documentos.leer-ahora'), ['tipo' => 'no-existe'], $json)->assertStatus(422);
     }
 
     public function test_super_admin_con_la_carga_masiva_tiene_todo(): void

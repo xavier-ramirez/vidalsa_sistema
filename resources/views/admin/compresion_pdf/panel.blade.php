@@ -312,6 +312,9 @@
                     <strong>{{ $resumenDocs->sum() }}</strong>
                 </div>
             </div>
+            {{-- La lectura automática y "Revisar ahora": SOLO super.admin (pedido del cliente,
+                 20-10-2026), igual que su ruta. --}}
+            @can('super.admin')
             <div class="cpdf-caja cpdf-aviso {{ $activa ? 'ok' : 'apagada' }}">
                 <i class="material-icons">{{ $activa ? 'schedule' : 'block' }}</i>
                 <div>
@@ -326,9 +329,7 @@
                         @endif
                         {{-- UN boton desplegable con los cuatro documentos y "Todos". El titulo sale
                              corto ("Titulo"); el nombre entero va en data-nombre (el aviso). Lo abre y
-                             cierra el control comun de desplegables (solo uno abierto a la vez). Con la
-                             carga masiva, igual que su ruta. --}}
-                        @can('docs.carga.masiva')
+                             cierra el control comun de desplegables (solo uno abierto a la vez). --}}
                         <div class="cpdf-ahora-wrap">
                             <button type="button" class="cpdf-ahora-btn" onclick="window.cpdfToggleAhora()">
                                 <i class="material-icons">play_arrow</i>Revisar ahora<i class="material-icons">expand_more</i>
@@ -342,13 +343,13 @@
                                 @endforeach
                             </div>
                         </div>
-                        @endcan
                     @else
                         <strong>Lectura automática apagada</strong>
                         <span>{{ ucfirst($motivoActiva) }}.</span>
                     @endif
                 </div>
             </div>
+            @endcan
             {{-- Cada tarjeta filtra la lista de abajo: se pulsa y se ve QUE filas son. --}}
             <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'revisar', 'page' => null]) }}">
                 <small>Para revisar a mano</small>
@@ -532,7 +533,7 @@
         else window.location.href = url;
     };
 
-    {{-- Elegir filas, "Revisado" y "Revisar ahora": con la carga masiva, igual que sus rutas. --}}
+    {{-- "Revisado": con la carga masiva, igual que sus rutas. --}}
     @can('docs.carga.masiva')
     // ── Dar por revisadas varias filas sin abrir el visor ──────────────────────────────
     // De la ficha solo se llenan las fechas que tiene VACIAS y el documento trae
@@ -577,7 +578,10 @@
         });
     };
 
-    // "Revisar ahora": pide la lectura a cualquier hora (ver VerificarDocumentos::pedirAhora).
+    @endcan
+
+    @can('super.admin')
+    // "Revisar ahora" (solo super.admin): pide la lectura a cualquier hora (ver VerificarDocumentos::pedirAhora).
     // Con tipo ('propiedad', 'poliza', 'rotc' o 'racda') solo ese documento; '' = todos.
     window.cpdfLeerAhora = function (btn, tipo) {
         btn.disabled = true;
