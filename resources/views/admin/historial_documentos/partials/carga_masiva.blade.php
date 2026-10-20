@@ -8,7 +8,7 @@
      descartar se hace desde esa tabla.
 
      Al soltar los PDF el modal se CIERRA y se suben en segundo plano, uno por petición, sin
-     tapar la pantalla: un aviso abajo (#hdCmProgreso) dice por cuál va, y se puede seguir
+     tapar la pantalla: un aviso abajo en el centro (#hdCmProgreso) dice por cuál va, y se puede seguir
      usando cualquier parte de la aplicación (pedido del cliente, 20-10-2026: antes el spinner
      la bloqueaba minutos y, al recargar, la tanda se perdía a medias). Recargar o cerrar la
      pestaña con una tanda a medias pide confirmación. La LECTURA —el OCR de Google Drive,
@@ -70,10 +70,12 @@
 {{-- Estilos del aviso de la tanda (#hdCmProgreso). Aparte, porque pintarProgreso los lleva a
      <head>: el aviso sigue a la vista en otros módulos y este partial se va al navegar. --}}
 <style id="hdCmProgresoCss">
-    /* Aviso de la tanda en curso: abajo a la izquierda (el centro es del contador de
-       selección), por encima de la página pero sin taparla. Va colgado de <body>, así que
-       sigue a la vista aunque se navegue a otro módulo. */
-    #hdCmProgreso { position: fixed; left: 16px; bottom: 16px; z-index: 9998; width: 300px; max-width: calc(100vw - 32px);
+    /* Aviso de la tanda en curso: abajo en el CENTRO (pedido del cliente, 20-10-2026), por
+       encima de la página pero sin taparla; si el contador de selección está a la vista, se
+       sube sobre él. Va colgado de <body>, así que sigue a la vista aunque se navegue a otro
+       módulo. El ancho es el de su texto, para que la nota quepa en UNA línea. */
+    #hdCmProgreso { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 9998;
+                    width: max-content; min-width: 300px; max-width: min(680px, calc(100vw - 32px));
                     background: #1e293b; color: #e2e8f0; border-radius: 12px; padding: 10px 12px;
                     box-shadow: 0 10px 25px -5px rgba(0,0,0,.35); font-size: 12.5px; line-height: 1.4; }
     #hdCmProgreso .hd-cm-p-fila { display: flex; align-items: center; gap: 8px; }
@@ -85,7 +87,10 @@
     #hdCmProgreso .hd-cm-p-x:hover { color: #fff; }
     #hdCmProgreso .hd-cm-p-barra { height: 4px; margin: 8px 0 6px; border-radius: 2px; background: #334155; overflow: hidden; }
     #hdCmProgreso .hd-cm-p-barra i { display: block; height: 100%; background: #38bdf8; transition: width .3s; }
-    #hdCmProgreso small { display: block; color: #94a3b8; }
+    body:has(.selection-floating-bar.active) #hdCmProgreso { bottom: 90px; }
+    #hdCmProgreso small { display: block; color: #fff; }
+    #hdCmProgreso .hd-cm-p-cuentas { margin-top: 4px; color: #fff; font-weight: 600; }
+    #hdCmProgreso .hd-cm-p-ya { margin-top: 6px; color: #86efac; font-weight: 600; }
     #hdCmProgreso .hd-cm-p-mal { margin-top: 6px; color: #fca5a5; font-weight: 600; }
     #hdCmProgreso .hd-cm-p-ver { margin-top: 8px; width: 100%; border: none; border-radius: 8px; padding: 7px; cursor: pointer;
                                  background: #0067b1; color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 700; }
@@ -101,7 +106,7 @@
     var estado = { oyenteTipo: null };
     // La tanda en curso vive en WINDOW y no aquí: este script vuelve a correr en cada visita
     // al módulo, y la subida sigue mientras tanto (en otro módulo o en otra pestaña de este).
-    // { corriendo, total, enviados, hechos, perdidos[], tipoNombre }
+    // { corriendo, total, enviados, hechos, perdidos[], yaEstaban[], tipoNombre }
     var tanda = function () { return window.__hdCargaMasiva || null; };
     if (!window.__hdCargaAvisoSalida) {
         window.__hdCargaAvisoSalida = true;
@@ -274,7 +279,9 @@
         // `perdidos` son los que NO llegaron a Drive: esos no dejan fila en la tabla (la fila se
         // identifica por el archivo de Drive), así que si no se nombran en el aviso desaparecen
         // sin que nadie se entere. Los demás se leen en el servidor y salen en la tabla.
-        var t = window.__hdCargaMasiva = { corriendo: true, total: pdfs.length, enviados: 0, hechos: 0, perdidos: [],
+        // `yaEstaban`: el mismo PDF ya está puesto en su ficha y el servidor no lo vuelve a subir
+        // (ya_cargado): no es un error, se cuenta aparte.
+        var t = window.__hdCargaMasiva = { corriendo: true, total: pdfs.length, enviados: 0, hechos: 0, perdidos: [], yaEstaban: [],
                                            tipoNombre: (nombre && nombre.label) || '' };
         cerrar();            // el modal se va: la subida sigue sin tapar nada
         pintarProgreso();
@@ -288,6 +295,7 @@
                     // Sin enlace de Drive no hay fila: cuenta como perdido, con el MOTIVO del servidor
                     // ("el PDF esta incompleto: vuelve a escanearlo"), que dice QUE hacer.
                     if (b && b.propuesta && b.propuesta.link) t.hechos++;
+                    else if (b && b.propuesta && b.propuesta.ya_cargado) t.yaEstaban.push(archivo.name);
                     else t.perdidos.push({ nombre: archivo.name, motivo: (b && b.propuesta && b.propuesta.aviso) || '' });
                 })
                 .catch(function (e) { t.perdidos.push({ nombre: archivo.name, motivo: (e && e.message) || '' }); })
@@ -310,9 +318,8 @@
         var el = function (tag, clase, texto) { var x = document.createElement(tag); if (clase) x.className = clase; if (texto != null) x.textContent = texto; return x; };
         var fila = el('div', 'hd-cm-p-fila');
         fila.appendChild(el('i', 'material-icons' + (t.corriendo ? ' hd-cm-p-gira' : ''), t.corriendo ? 'autorenew' : (t.perdidos.length ? 'warning_amber' : 'cloud_done')));
-        fila.appendChild(el('b', null, t.corriendo
-            ? 'Subiendo ' + t.enviados + ' de ' + t.total + (t.tipoNombre ? ' · ' + t.tipoNombre : '')
-            : t.hechos + ' de ' + t.total + ' subido(s)' + (t.tipoNombre ? ' · ' + t.tipoNombre : '')));
+        fila.appendChild(el('b', null, (t.corriendo ? 'Subiendo ' + t.enviados + ' de ' + t.total : t.total + ' adjuntado(s)')
+            + (t.tipoNombre ? ' · ' + t.tipoNombre : '')));
         if (!t.corriendo) {
             var x = el('button', 'hd-cm-p-x'); x.type = 'button'; x.title = 'Cerrar';
             x.appendChild(el('i', 'material-icons', 'close'));
@@ -323,9 +330,19 @@
         var barra = el('div', 'hd-cm-p-barra'), i = el('i');
         i.style.width = Math.round(100 * (t.corriendo ? t.enviados - 1 : t.total) / t.total) + '%';
         barra.appendChild(i); caja.appendChild(barra);
-        caja.appendChild(el('small', null, t.corriendo
+        if (t.corriendo || t.hechos) caja.appendChild(el('small', null, t.corriendo
             ? 'Puedes seguir usando el sistema; no recargues ni cierres esta pestaña hasta que termine.'
             : 'Se están leyendo en el servidor: cada uno sale en Revisión de documentos, enlazado o con el porqué.'));
+        // Las cuentas, que suman los adjuntados: así se ve enseguida si falta alguno.
+        if (!t.corriendo) {
+            caja.appendChild(el('div', 'hd-cm-p-cuentas', t.hechos + ' subido(s) · ' + t.yaEstaban.length + ' ya estaban cargados · '
+                + t.perdidos.length + ' no se subieron'));
+        }
+        if (t.yaEstaban.length) {
+            var ya = el('div', 'hd-cm-p-ya', 'Ya estaban cargados, no se volvieron a subir (' + t.yaEstaban.length + '):');
+            ya.appendChild(el('div', null, t.yaEstaban.join(', ')));
+            caja.appendChild(ya);
+        }
         if (t.perdidos.length) {
             var mal = el('div', 'hd-cm-p-mal', 'NO se subieron (' + t.perdidos.length + '):');
             t.perdidos.forEach(function (p) { mal.appendChild(el('div', null, '· ' + p.nombre + (p.motivo ? ' — ' + p.motivo : ''))); });

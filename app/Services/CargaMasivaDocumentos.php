@@ -192,7 +192,7 @@ class CargaMasivaDocumentos
         // El MISMO PDF ya aplicado y que sigue puesto: subirlo otra vez solo deja una copia
         // repetida en Drive y una fila de mas (20-10-2026: volver a soltar las 19 renovaciones
         // duplico en Drive las 16 que ya estaban). Se corta ANTES de subir.
-        if ($yaPuesto = $this->yaEstaPuesto($md5)) return $this->fallo($nombre, null, $yaPuesto);
+        if ($yaPuesto = $this->yaEstaPuesto($md5)) return ['ya_cargado' => true] + $this->fallo($nombre, null, $yaPuesto);
 
         try {
             $link = GoogleDriveService::getInstance()->subirPdf($archivo, $prefijo . time() . '_' . mt_rand(1000, 9999) . '.pdf');

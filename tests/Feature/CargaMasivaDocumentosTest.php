@@ -662,6 +662,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
 
         $this->assertNull($puesta['link'], 'No se subio a Drive.');
         $this->assertStringContainsString('Ya está cargado', $puesta['aviso']);
+        $this->assertTrue($puesta['ya_cargado'] ?? false, 'La pantalla lo cuenta como «ya estaba», no como error.');
         $this->assertSame(2, VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
             ->where('PROPUESTA', 'like', '%"md5":"' . $primera['md5'] . '"%')->count(),
             'Filas solo de la primera y la tercera: la que no se subio no deja fila.');
