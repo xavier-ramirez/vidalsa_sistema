@@ -2,14 +2,16 @@
      decide cuál pasando o no $productoOtros:
       A) "En otros almacenes" — de UN producto ($idProducto). Responde "¿dónde está este
          producto?" en dos niveles, de adentro hacia afuera:
-           1. En ESTE almacén, repartido por proyecto ($productoProyectos). Solo sale en
-              almacenes que separan por proyecto — en el resto todo el saldo vive en la bolsa
-              común y el desglose repetiría el total en una sola línea.
+           1. En ESTE almacén ($productoAqui), en una tarjeta aparte para que no se confunda
+              con los demás, y debajo su reparto por proyecto ($productoProyectos) cuando son
+              dos o más (con uno solo repetiría la cifra).
            2. En CADA uno de los otros almacenes visibles ($productoOtros), también los que
               tienen 0 (pedido del cliente, 16-09-2026: el cero es una respuesta), para pedir
               un traspaso si el actual quedó corto. Cada uno cuelga TAMBIÉN su reparto por
               proyecto ($row->proyectos, que arma el controlador): saber que de los 325 hay 150
               en un frente y 100 en otro es lo que decide a quién pedírselo.
+         Cada almacén lleva una barra, todas a la misma escala (la del que más tiene): así la
+         diferencia entre almacenes se ve sin leer las cifras.
          Sale cuando el filtro apunta a un producto (sugerencia o búsqueda con una sola fila)
          o al tocar una fila de la tabla. No repite la descripción del producto: la fila
          marcada ya la dice (decisión del cliente, 15-09-2026).
@@ -19,6 +21,10 @@
 @php
     $modoCruzado = isset($productoOtros) && $productoOtros !== null;
     $porProyecto = $productoProyectos ?? collect();
+    $aqui        = $productoAqui ?? null;
+    // Escala común de las barras: el almacén con más saldo (este o cualquiera de los otros).
+    $maxSaldo    = $modoCruzado ? max((float) $aqui, (float) $productoOtros->max('CANTIDAD')) : 0;
+    $pctBarra    = fn ($n) => $maxSaldo > 0 ? round(100 * max(0, (float) $n) / $maxSaldo, 1) : 0;
     $dist        = $distribucion ?? collect();
     $totalDist   = $dist->sum('total');
     // Saldo latino "12" / "12,5" / "1.800" — sin ceros sobrantes ni separador roto.
@@ -50,35 +56,35 @@
      index (tipografias compactas) y el :has() que decide si el panel se ve en el teléfono, asi
      que renombrarla apagaria el panel. --}}
 <div class="alm-otros-almacenes">
-    {{-- ── 1. Puertas adentro: reparto por proyecto ────────────────────────────────
-         Solo en almacenes que separan por proyecto. Es la ÚNICA forma de ver el reparto:
-         el módulo ya no tiene filtro por proyecto en la barra de arriba, porque obligaba a
-         ir probando de a un proyecto por vez para responder lo que esta lista contesta de
-         un golpe. --}}
-    @if($porProyecto->count() > 0)
-        @php $totalAqui = $porProyecto->sum('CANTIDAD'); @endphp
-        <h4 class="alm-panel-h4">
-            <i class="material-icons" style="color:#0067b1;">warehouse</i>
-            Almacén {{ $almacenActualNombre ?? 'actual' }}
-        </h4>
-        <ul class="alm-panel-list">
-            @foreach($porProyecto as $fila)
-                @php [$esComun, $rotulo] = $rotuloFrente($fila); @endphp
-                <li class="alm-panel-row">
-                    <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $rotulo }}</span>
-                    <span class="guia" aria-hidden="true"></span>
-                    <span class="qty proy">{{ $fmtQty($fila->CANTIDAD) }}</span>
-                </li>
-            @endforeach
-        </ul>
-        <div class="alm-panel-total">
-            <span>Total en el almacén</span>
-            <strong>{{ $fmtQty($totalAqui) }}</strong>
+    {{-- ── 1. Puertas adentro: este almacén, en su tarjeta ─────────────────────────
+         El reparto por proyecto es la ÚNICA forma de verlo: el módulo ya no tiene filtro por
+         proyecto en la barra de arriba. --}}
+    @if($aqui !== null)
+        <div class="alm-panel-aqui">
+            <div class="alm-panel-aqui-cab">
+                <i class="material-icons">warehouse</i>
+                <span class="nom">{{ $almacenActualNombre ?? 'Este almacén' }}</span>
+                <span class="alm-panel-chip">Aquí</span>
+                <strong class="qty">{{ $fmtQty($aqui) }}</strong>
+            </div>
+            <div class="alm-panel-barra" aria-hidden="true"><span style="width:{{ $pctBarra($aqui) }}%"></span></div>
+            @if($porProyecto->count() > 1)
+                <ul class="alm-panel-sub">
+                    @foreach($porProyecto as $fila)
+                        @php [$esComun, $rotulo] = $rotuloFrente($fila); @endphp
+                        <li>
+                            <span class="nom {{ $esComun ? 'comun' : '' }}">{{ $rotulo }}</span>
+                            <span class="guia" aria-hidden="true"></span>
+                            <span class="qty">{{ $fmtQty($fila->CANTIDAD) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
         </div>
     @endif
 
     {{-- ── 2. Puertas afuera: el resto de la red ── --}}
-    <h4 class="alm-panel-h4 {{ $porProyecto->count() > 0 ? 'sep' : '' }}">
+    <h4 class="alm-panel-h4 {{ $aqui !== null ? 'sep' : '' }}">
         <i class="material-icons" style="color:#10b981;">place</i>
         En otros almacenes
     </h4>
@@ -101,12 +107,13 @@
                      Los <span> .nom y .qty siguen siendo hijos DIRECTOS del <li>: de ellos cuelgan
                      las reglas de teléfono (.alm-otros-almacenes li > .nom y li > .qty), así que meterlos
                      en un envoltorio las habría apagado sin avisar. --}}
-                <li class="alm-panel-row clicable {{ $conSub ? 'con-sub' : '' }}"
+                <li class="alm-panel-row clicable"
                     onclick="window.almVerProductoEnAlmacen('{{ $row->ID_ALMACEN }}', '{{ addslashes($row->NOMBRE) }}', '{{ $idProducto }}')"
                     title="Ver este producto en {{ $row->NOMBRE }}">
                     <span class="nom">{{ $row->NOMBRE }}</span>
                     <span class="guia" aria-hidden="true"></span>
                     <span class="qty {{ $bajo ? 'bajo' : '' }}">{{ $fmtQty($row->CANTIDAD) }}</span>
+                    <div class="alm-panel-barra" aria-hidden="true"><span style="width:{{ $pctBarra($row->CANTIDAD) }}%"></span></div>
                     @if($conSub)
                         <ul class="alm-panel-sub">
                             @foreach($row->proyectos as $p)

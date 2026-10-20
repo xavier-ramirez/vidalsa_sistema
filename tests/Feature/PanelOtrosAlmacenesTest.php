@@ -49,6 +49,9 @@ class PanelOtrosAlmacenesTest extends MySqlTestCase
         $this->assertStringContainsString('En otros almacenes', $html);
         $this->assertStringNotContainsString('alm-otros-prod', $html, 'La fila marcada ya dice qué producto es.');
         $this->assertStringContainsString('class="guia"', $html, 'Cada nombre va unido a su cantidad.');
+        // El almacén abierto va en su tarjeta, y todos llevan barra a la misma escala.
+        $this->assertStringContainsString('alm-panel-aqui', $html);
+        $this->assertSame(1 + substr_count($html, 'almVerProductoEnAlmacen('), substr_count($html, 'class="alm-panel-barra"'));
         $this->assertStringNotContainsString('Distribución de Inventario', $html);
     }
 

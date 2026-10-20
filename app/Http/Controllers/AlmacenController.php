@@ -1035,8 +1035,8 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Panel "En otros almacenes" de UN producto: su reparto por proyecto dentro del almacén
-     * abierto (si separa) y lo que hay en CADA uno de los otros almacenes visibles, también
+     * Panel "En otros almacenes" de UN producto: lo que hay en el almacén abierto (con su
+     * reparto por proyecto, si separa) y en CADA uno de los otros almacenes visibles, también
      * los que tienen 0 (pedido del cliente, 16-09-2026: el cero es una respuesta). No repite
      * la descripción del producto: la fila marcada en la tabla ya dice cuál es.
      */
@@ -1046,6 +1046,10 @@ class AlmacenController extends Controller
             'idProducto'          => $idProducto,
             'productoOtros'       => $this->productoEnOtrosAlmacenes($idProducto, $idAlmacen, $user),
             'productoProyectos'   => $this->productoPorProyecto($idProducto, $idAlmacen),
+            // Lo que hay AQUÍ, separe o no por proyecto: es la cifra contra la que se miden
+            // los demás almacenes (las barras del panel van todas a la misma escala).
+            'productoAqui'        => $idAlmacen === null ? null : (float) AlmacenStock::where('ID_ALMACEN', $idAlmacen)
+                                         ->where('ID_PRODUCTO', $idProducto)->sum('CANTIDAD'),
             'almacenActualNombre' => $nombreAlmacen,
         ])->render();
     }
@@ -1078,18 +1082,6 @@ class AlmacenController extends Controller
             ->get();
     }
 
-    /** GET almacen/productos/{id}/otros-almacenes?id_almacen=N → { html } del panel lateral (clic en una fila). */
-    /**
-     * Foto del producto: sube la imagen a Drive y deja el enlace en productos_inventario.FOTO.
-     *
-     * Misma forma que el resto de archivos de la app —"/storage/google/<id>"— y el mismo
-     * camino que las fotos de equipos y del catalogo: el archivo vive en Drive y la app lo
-     * sirve por esa ruta, asi que la carpeta NO necesita ser publica.
-     *
-     * La imagen se convierte a WebP y se reescala antes de subir (ConvertsImageToWebp), que
-     * es lo que ya se hace con las fotos del catalogo: una foto de telefono de 4 MB queda en
-     * unas decenas de KB y la tabla del inventario no se vuelve lenta por las miniaturas.
-     */
     /**
      * "Despachos": notas que el general despacho y los almacenes de PROYECTO
      * visibles todavia no terminan de recibir. Mismo criterio que "Por revisar" de la
@@ -1108,6 +1100,17 @@ class AlmacenController extends Controller
             ->count();
     }
 
+    /**
+     * Foto del producto: sube la imagen a Drive y deja el enlace en productos_inventario.FOTO.
+     *
+     * Misma forma que el resto de archivos de la app —"/storage/google/<id>"— y el mismo
+     * camino que las fotos de equipos y del catalogo: el archivo vive en Drive y la app lo
+     * sirve por esa ruta, asi que la carpeta NO necesita ser publica.
+     *
+     * La imagen se convierte a WebP y se reescala antes de subir (ConvertsImageToWebp), que
+     * es lo que ya se hace con las fotos del catalogo: una foto de telefono de 4 MB queda en
+     * unas decenas de KB y la tabla del inventario no se vuelve lenta por las miniaturas.
+     */
     public function subirFotoProducto(Request $request, $id)
     {
         $request->validate([
@@ -1174,6 +1177,7 @@ class AlmacenController extends Controller
         \App\Services\GoogleDriveService::borrarTrasResponder($idAnterior);
     }
 
+    /** GET almacen/productos/{id}/otros-almacenes?id_almacen=N → { html } del panel lateral (clic en una fila). */
     public function productoOtrosAlmacenes(Request $request, $id)
     {
         $idAlmacen = (int) $request->integer('id_almacen') ?: null;
@@ -1189,18 +1193,6 @@ class AlmacenController extends Controller
         ]);
     }
 
-    /**
-     * Inventario de UN producto especifico en TODOS los demas almacenes visibles para
-     * el usuario (excluye el almacen actual — que ya se ve en la tabla principal).
-     *
-     * Lo consume el panel lateral "En otros almacenes" (panelOtrosAlmacenes), cuando el
-     * filtro apunta a un producto o se toca su fila en la tabla: asi puede ver, en
-     * un solo vistazo, donde mas existe el producto y pedir un traspaso al almacen
-     * que tenga saldo si el actual se quedo corto.
-     *
-     * INNER JOIN con `almacenes` para descartar filas huerfanas (almacen eliminado
-     * via soft-delete) y obtener el nombre/tipo para pintar la lista.
-     */
     /**
      * Reparto de UN producto entre los PROYECTOS del almacén actual.
      *
@@ -1292,6 +1284,18 @@ class AlmacenController extends Controller
             ->get();
     }
 
+    /**
+     * Inventario de UN producto especifico en TODOS los demas almacenes visibles para
+     * el usuario (excluye el almacen actual — que ya se ve en la tabla principal).
+     *
+     * Lo consume el panel lateral "En otros almacenes" (panelOtrosAlmacenes), cuando el
+     * filtro apunta a un producto o se toca su fila en la tabla: asi puede ver, en
+     * un solo vistazo, donde mas existe el producto y pedir un traspaso al almacen
+     * que tenga saldo si el actual se quedo corto.
+     *
+     * Parte de los almacenes VISIBLES (Almacen::visiblesPara, sin los eliminados) y les
+     * cuelga su saldo: el que no tiene nada del producto sale igual, con 0.
+     */
     private function productoEnOtrosAlmacenes(int $idProducto, ?int $idAlmacenActual, $user)
     {
         // Se parte de los ALMACENES visibles, no del saldo: así el que no tiene nada del

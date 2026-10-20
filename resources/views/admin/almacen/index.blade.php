@@ -1204,7 +1204,6 @@
                     <i class="material-icons" style="font-size:16px;color:#0067b1;">account_tree</i> En este almacén, por proyecto
                 </div>
                 <div id="almDetProyectos" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;"></div>
-                <div class="alm-hint" style="margin-top:6px;">Al despachar puedes elegir de qué proyecto sale, tocándolo en este mismo desglose dentro de la tabla. Sin elegir, la salida toma primero el saldo del proyecto destino y lo que esté sin proyecto; si no alcanza, sigue con el de los demás y queda anotado en la bitácora.</div>
             </div>
 
             {{-- Compatibilidad: nº de parte (equivalencias) + equipos que lo usan. Se carga antes
