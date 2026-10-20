@@ -577,7 +577,6 @@
                 });
         });
     };
-
     @endcan
 
     @can('super.admin')

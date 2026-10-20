@@ -44,7 +44,7 @@
                     cursor: pointer; opacity: 0.7; display: flex; padding: 2px; }
     .hd-cm-cerrar:hover { opacity: 1; }
 
-    /* El cuerpo entero: tipo, zona de soltar y lo que no se subió, uno debajo del otro. */
+    /* El cuerpo entero: el tipo y la zona de soltar, uno debajo del otro. */
     .hd-cm-tools { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
     /* El desplegable del tipo es el MISMO componente que los filtros (.custom-dropdown de
        uicomponents.js). Solo se le dice que ocupe todo el ancho y que su lista quede por
@@ -203,9 +203,8 @@
         enlazar(o);
         var t = tanda();
         if (t && t.corriendo) {
+            // enlazar() ya la dejó bloqueada y sin título.
             var zona = $('hdCmZona');
-            zona.classList.add('hd-cm-bloqueada');
-            zona.title = '';
             zona.querySelector('span').textContent = 'Hay una carga en curso (' + t.enviados + ' de ' + t.total + ')';
             zona.querySelector('small').textContent = 'Espera a que termine para soltar más';
         }
@@ -224,9 +223,10 @@
         // que al limpiar la zona se quedaba con pinta de habilitada sin tipo elegido.)
         var sincronizarZona = function (e) {
             if (e && e.detail && e.detail.dropdownId !== 'hdCmTipo') return;
-            var t = tanda(), hay = !!tipoElegido() && !(t && t.corriendo);
+            var t = tanda(), subiendo = !!(t && t.corriendo), hay = !!tipoElegido() && !subiendo;
             zona.classList.toggle('hd-cm-bloqueada', !hay);
-            zona.title = hay ? '' : 'Elige primero qué documento vas a cargar';
+            // Con una tanda subiendo, lo dice la propia zona ("Hay una carga en curso").
+            zona.title = hay || subiendo ? '' : 'Elige primero qué documento vas a cargar';
         };
         // Se guarda para poder soltarlo (ver soltarOyenteTipo): el modal se reconstruye en cada
         // apertura y si no, los oyentes se irían acumulando en window.
