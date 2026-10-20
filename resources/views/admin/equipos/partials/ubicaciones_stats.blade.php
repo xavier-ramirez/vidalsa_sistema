@@ -16,7 +16,7 @@
     <span style="font-weight: 700; color: #1e293b; font-size: 12.5px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">{{ $totalUbicaciones }}</span>
     <i class="material-icons eq-detalles-caret" style="font-size: 20px; color: #64748b; margin-left: auto;">expand_more</i>
 </h4>
-<ul class="eq-detalles-lista custom-scrollbar" style="list-style: none; padding: 0; margin: 0; max-height: 62vh; overflow-y: auto; overflow-x: visible; display: flex; flex-direction: column; gap: 4px;">
+<ul class="dist-lista eq-detalles-lista custom-scrollbar">
     @if($ubicacionesStats->isEmpty())
         <li style="color: #94a3b8; font-size: 12px; text-align: center; padding: 10px 0;">Sin datos</li>
     @else

@@ -254,7 +254,7 @@
        botón que la despliega (eqToggleDetalles). Recogida solo se ve el encabezado con el total. ── */
     .eq-detalles-toggle { cursor: pointer; user-select: none; }
     .eq-detalles-caret { transition: transform 0.2s; }
-    .eq-detalles.is-recogido .eq-detalles-lista { display: none !important; }
+    .eq-detalles.is-recogido .eq-detalles-lista { display: none; }
     .eq-detalles.is-recogido .eq-detalles-caret { transform: rotate(-90deg); }
 
     /* ── Consolidado (Equipos y Maquinaria / Auxiliares): más compacto verticalmente ── */
