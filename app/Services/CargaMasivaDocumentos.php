@@ -1109,8 +1109,8 @@ class CargaMasivaDocumentos
      * Fichas para atar a mano un VIN que falta o un PDF sin enlazar (lo que se escriba en el
      * modal): las que contienen lo buscado en su serial, placa o codigo, y las de serial o placa
      * PARECIDOS —uno o dos caracteres distintos, como un digito de control mal copiado o una
-     * letra mal leida—. Primero lo mas parecido. Cada una dice su tipo y frente, si ya esta en un
-     * embarque y, con $tipo, si ya tiene ese documento.
+     * letra mal leida—. Primero la IGUAL a lo buscado, luego lo mas parecido (distancia). Cada
+     * una dice su tipo y frente, si ya esta en un embarque y, con $tipo, si ya tiene ese documento.
      */
     public function buscarEquipo(string $buscado, ?string $tipo = null): array
     {
@@ -1151,8 +1151,10 @@ class CargaMasivaDocumentos
             ->map(function ($f) use ($cod) {
                 $suyo = $this->lector->codigo((string) $f->SERIAL_CHASIS);
                 $suPlaca = $this->lector->codigo((string) $f->PLACA);
+                $suCodigo = $this->lector->codigo((string) $f->CODIGO_PATIO);
+                if (in_array($cod, [$suyo, $suPlaca, $suCodigo], true)) return [$f, -1];   // IGUAL
                 if ($suyo !== '' && str_contains($suyo, $cod) || $suPlaca !== '' && str_contains($suPlaca, $cod)
-                    || str_contains($this->lector->codigo((string) $f->CODIGO_PATIO), $cod)) {
+                    || $suCodigo !== '' && str_contains($suCodigo, $cod)) {
                     return [$f, 0];
                 }
                 // Parecido: hasta 3 caracteres distintos en el serial (17) y hasta 2 en la placa (6-7).
@@ -1168,6 +1170,9 @@ class CargaMasivaDocumentos
                 'codigo' => $par[0]->CODIGO_PATIO,
                 'nombre' => trim(($par[0]->MARCA ?? '') . ' ' . ($par[0]->MODELO ?? '')) ?: ('Equipo #' . $par[0]->ID_EQUIPO),
                 'tipo' => $par[0]->TIPO_EQUIPO, 'frente' => $par[0]->FRENTE,
+                // -1 igual a lo buscado, 0 lo contiene, 1-3 caracteres distintos. La pantalla
+                // muestra solo los mas cercanos y deja el resto detras de un enlace.
+                'distancia' => $par[1],
                 'bl' => $par[0]->ID_EMBARQUE ? ($nros[$par[0]->ID_EMBARQUE] ?? 'sin numero') : null,
                 // Si ya tiene ESTE documento (al atarlo se pregunta antes de reemplazarlo).
                 'tiene' => $tipo !== null && !empty($this->ficha($par[0])['links'][$tipo]),

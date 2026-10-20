@@ -630,6 +630,12 @@
         l2.className = 'cpdf-atar-l2';
         l2.textContent = eq.nombre + [eq.tipo, eq.frente].filter(Boolean).map(function (x) { return ' · ' + x; }).join('');
         info.appendChild(l1); info.appendChild(l2);
+        if (eq.distancia === -1) {
+            var ok = document.createElement('div');
+            ok.className = 'cpdf-atar-et verde';
+            ok.textContent = 'Igual a lo leído';
+            info.appendChild(ok);
+        }
         if (bloqueado || eq.tiene) {
             var et = document.createElement('div');
             et.className = 'cpdf-atar-et' + (bloqueado ? ' rojo' : '');
@@ -685,7 +691,31 @@
                 var lista = $a('cpdfAtarLista');
                 lista.textContent = '';
                 atar.equipos = equipos;
-                equipos.forEach(function (eq, n) { lista.appendChild(cpdfAtarFila(eq, n)); });
+                // Solo los MÁS CERCANOS (vienen ordenados): el igual a lo leído, o los que lo
+                // contienen, o el de menos caracteres distintos. El resto, detrás de un enlace,
+                // para no tener que escoger entre seis tractores casi iguales.
+                var d = equipos[0].distancia;
+                var cerca = equipos.filter(function (eq) { return eq.distancia === d; });
+                var nota = document.createElement('div');
+                nota.className = 'cpdf-atar-nota' + (d > 0 ? ' ambar' : '');
+                nota.textContent = d === -1 ? (cerca.length === 1 ? 'Este es el equipo con ese dato:' : 'Estos equipos tienen ese dato:')
+                    : d === 0 ? 'Equipos que contienen lo escrito:'
+                    : 'Ninguno es igual a lo leído. El más parecido (cambia ' + d + (d === 1 ? ' carácter' : ' caracteres')
+                      + '): compara el serial y la placa antes de atar.';
+                lista.appendChild(nota);
+                cerca.forEach(function (eq, n) { lista.appendChild(cpdfAtarFila(eq, n)); });
+                var resto = equipos.slice(cerca.length);
+                if (resto.length) {
+                    var ver = document.createElement('button');
+                    ver.type = 'button';
+                    ver.className = 'cpdf-atar-ver';
+                    ver.textContent = 'No es este: ver ' + resto.length + (resto.length === 1 ? ' parecido más' : ' parecidos más');
+                    ver.addEventListener('click', function () {
+                        ver.remove();
+                        resto.forEach(function (eq, n) { lista.appendChild(cpdfAtarFila(eq, cerca.length + n)); });
+                    });
+                    lista.appendChild(ver);
+                }
                 cpdfAtarMarcar(0);
             })
             .catch(function () { if (mio === atar.turno) cpdfAtarAviso('No se pudo buscar. Inténtalo de nuevo.'); });

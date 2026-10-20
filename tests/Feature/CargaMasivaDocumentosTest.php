@@ -972,6 +972,9 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $hallado = collect($this->servicio()->buscarEquipo($mal, 'poliza'))->firstWhere('id', $e->ID_EQUIPO);
         $this->assertNotNull($hallado, 'Una placa con un caracter distinto se sugiere.');
         $this->assertTrue($hallado['tiene'], 'Ya tiene poliza.');
+        $this->assertSame(1, $hallado['distancia'], 'Un caracter distinto.');
+        // Con la placa bien escrita es IGUAL (-1): la pantalla muestra solo ese.
+        $this->assertSame(-1, collect($this->servicio()->buscarEquipo($placa))->firstWhere('id', $e->ID_EQUIPO)['distancia']);
         $this->assertArrayHasKey('tipo', $hallado);
         $this->assertArrayHasKey('frente', $hallado);
         $this->assertFalse(collect($this->servicio()->buscarEquipo($mal, 'rotc'))->firstWhere('id', $e->ID_EQUIPO)['tiene']);
