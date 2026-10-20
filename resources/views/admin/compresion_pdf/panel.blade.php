@@ -594,10 +594,11 @@
     @can('docs.carga.masiva')
     // ── Atar a un equipo (modal partials/atar_modal) ────────────────────────────────
     // Lo usan atar un PDF sin enlazar y atar un VIN del BL. `o` trae lo que se muestra (doc,
-    // archivo, leido), con qué arranca el buscador (inicial), el tipo de documento (para avisar
-    // de las fichas que ya lo tienen), si un equipo de otro BL se bloquea, y atar(eq, ui), que
-    // hace el POST. ui deja a quien ata marcar la fila ocupada, avisar un error o pedir reemplazo.
-    var atar = { o: null, turno: 0, espera: null, equipos: [], activo: -1 };
+    // archivo, y lo leído: leidoEti + leido), con qué arranca el buscador (inicial), el tipo de
+    // documento (para avisar de las fichas que ya lo tienen), si un equipo de otro BL se bloquea,
+    // y atar(eq, ui), que hace el POST. ui deja a quien ata marcar la fila ocupada, avisar un
+    // error o pedir reemplazo.
+    var atar = { o: null, turno: 0, espera: null, activo: -1 };
     var $a = function (id) { return document.getElementById(id); };
     var cpdfAtarAviso = function (texto) {
         var lista = $a('cpdfAtarLista');
@@ -606,7 +607,7 @@
         p.className = 'cpdf-atar-nada';
         p.textContent = texto;
         lista.appendChild(p);
-        atar.equipos = []; atar.activo = -1;
+        atar.activo = -1;
     };
     var cpdfAtarMarcar = function (k) {
         var ops = $a('cpdfAtarLista').querySelectorAll('.cpdf-atar-op');
@@ -716,7 +717,6 @@
                 if (!equipos.length) { cpdfAtarAviso('Ningún equipo con ese serial, placa o código, ni parecido.'); return; }
                 var lista = $a('cpdfAtarLista');
                 lista.textContent = '';
-                atar.equipos = equipos;
                 // Solo los MÁS CERCANOS (vienen ordenados): el igual a lo leído, o los que lo
                 // contienen, o el de menos caracteres distintos. El resto, detrás de un enlace,
                 // para no tener que escoger entre seis tractores casi iguales.
@@ -747,7 +747,8 @@
                     });
                     lista.appendChild(ver);
                 }
-                cpdfAtarMarcar(0);
+                // Queda elegida la primera que SÍ se puede atar (uno de otro BL no): así Enter ata.
+                cpdfAtarMarcar(Math.max(0, cerca.findIndex(function (eq) { return !(atar.o.bloquearConBl && eq.bl); })));
             })
             .catch(function () { if (mio === atar.turno) cpdfAtarAviso('No se pudo buscar. Inténtalo de nuevo.'); });
     };
