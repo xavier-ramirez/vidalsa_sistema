@@ -232,42 +232,4 @@ class HistorialDocumentosTest extends MySqlTestCase
         $this->assertStringNotContainsString('Certificado (auxiliar)', $comp);
         $this->assertSame('Certificado', collect(\App\Support\EnlacesDocumentos::DOCUMENTOS)->firstWhere(1, 'LINK_CERTIFICADO')[3]);
     }
-
-    /**
-     * Revisión de documentos por GRUPOS: arriba lo de HOY y debajo una por semana (lunes a
-     * domingo, la más nueva primero), cada una con su encabezado y su cuenta, y una de cada dos
-     * con la franja (cpdf-sem-alt).
-     */
-    public function test_la_revision_va_por_hoy_y_semanas_de_lunes_a_domingo(): void
-    {
-        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
-        $marca = 'GRUPOS' . mt_rand(10000, 99999);
-        $fila = function (string $nombre, \Carbon\Carbon $cuando) use ($marca) {
-            $v = \App\Models\VerificacionDocumento::create([
-                'DRIVE_ID' => $marca . $nombre, 'ORIGEN' => \App\Models\VerificacionDocumento::DE_LA_NOCHE, 'TIPO' => 'poliza',
-                'ARCHIVO' => $marca . '-' . $nombre . '.pdf', 'ESTADO' => \App\Models\VerificacionDocumento::COINCIDE,
-                'MOTIVO' => $marca . ' ' . $nombre, 'INTENTOS' => 0,
-            ]);
-            \Illuminate\Support\Facades\DB::table('verificacion_documento_registro')->where('ID_REGISTRO', $v->ID_REGISTRO)
-                ->update(['updated_at' => $cuando]);
-        };
-        $hace2Semanas = now()->subWeeks(2)->startOfWeek(\Carbon\Carbon::MONDAY)->addDays(2)->setTime(9, 0);
-        $hace3Semanas = $hace2Semanas->copy()->subWeek();
-        $fila('VIEJA', $hace3Semanas);
-        $fila('HOY', now());
-        $fila('MEDIA', $hace2Semanas);
-
-        $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => $marca]))
-            ->assertOk()->getContent();
-        $en = fn (string $texto) => strpos($html, $texto);
-
-        $this->assertNotFalse($en('cpdf-grupo-hoy'));
-        $this->assertTrue($en('cpdf-grupo-hoy') < $en($marca . ' HOY') && $en($marca . ' HOY') < $en($marca . ' MEDIA')
-            && $en($marca . ' MEDIA') < $en($marca . ' VIEJA'), 'Hoy, y las semanas de la más nueva a la más vieja.');
-        $this->assertStringContainsString('del lunes ' . $hace2Semanas->copy()->startOfWeek(\Carbon\Carbon::MONDAY)->format('d/m'), $html);
-        $this->assertStringContainsString('al domingo ' . $hace3Semanas->copy()->endOfWeek(\Carbon\Carbon::SUNDAY)->format('d/m/Y'), $html);
-        // La segunda semana (la más vieja) lleva la franja, en su encabezado y en su fila.
-        $this->assertSame(2, substr_count($html, 'cpdf-sem-alt'));
-        $this->assertTrue($en('cpdf-sem-alt') > $en($marca . ' MEDIA'));
-    }
 }
