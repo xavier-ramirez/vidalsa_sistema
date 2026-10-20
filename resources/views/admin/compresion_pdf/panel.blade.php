@@ -126,11 +126,13 @@
             <table class="admin-table">
                 <thead>
                     <tr class="tabla-cabecera">
+                        {{-- Lo corto primero y el detalle al final, que es el que se lleva el ancho
+                             que sobra (pedido del cliente, 20-10-2026). --}}
                         <th>Fecha</th>
                         <th>Documento</th>
-                        <th>Placa / Serial</th>
-                        <th>Qué dice la ficha y qué dice el documento</th>
+                        <th>Equipo</th>
                         <th>Estado</th>
+                        <th>Ficha y documento</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -153,18 +155,20 @@
                             <tr>
                         @endif
                             <td><div class="hd-fecha"><span>{{ $d->updated_at?->format('d/m/Y') }}</span><span class="hd-hora">{{ $d->updated_at?->format('h:i A') }}</span></div></td>
-                            <td style="white-space:nowrap;">
+                            <td>
                                 {{ $tiposDoc[$d->TIPO] ?? ($d->TIPO ?: 'Sin reconocer') }}
                                 {{-- El nombre del archivo solo en lo recién soltado: es la única
                                      forma de saber cuál de los treinta PDF es cada fila. --}}
                                 @if ($d->ARCHIVO)
-                                    <small style="display:block;color:#64748b;font-weight:400;">{{ \Illuminate\Support\Str::limit($d->ARCHIVO, 28) }}</small>
+                                    <small class="cpdf-sub">{{ \Illuminate\Support\Str::limit($d->ARCHIVO, 28) }}</small>
                                 @endif
                             </td>
-                            <td style="white-space:nowrap;">
-                                {{ $d->PLACA ?: '—' }}
-                                @if ($d->SERIAL) <small style="display:block;color:#64748b;">{{ $d->SERIAL }}</small> @endif
+                            {{-- La placa arriba y el serial debajo; sin placa, el serial solo (sin la raya). --}}
+                            <td>
+                                <span class="cpdf-ident">{{ $d->PLACA ?: ($d->SERIAL ?: '—') }}</span>
+                                @if ($d->PLACA && $d->SERIAL) <small class="cpdf-sub">{{ $d->SERIAL }}</small> @endif
                             </td>
+                            <td><span class="cpdf-estado {{ $d->ESTADO }}" @if ($d->MOTIVO) title="{{ $d->MOTIVO }}" @endif>{{ $estadosDoc[$d->ESTADO] ?? $d->ESTADO }}</span></td>
                             {{-- Solo lo que NO cuadra: a la izquierda lo de la ficha (tachado), a la
                                  derecha lo que dice el PDF. Si todo cuadra, lo leido en gris. --}}
                             <td class="cpdf-ancha">
@@ -176,7 +180,7 @@
                                         <span class="cpdf-dif-doc">{{ $dif['documento'] }}</span>
                                     </div>
                                 @empty
-                                    <span style="font-size:12px;color:#64748b;">{{ $d->MOTIVO ?: 'Todo coincide con el documento' }}</span>
+                                    <span class="cpdf-motivo">{{ $d->MOTIVO ?: 'Todo coincide con el documento' }}</span>
                                 @endforelse
                                 {{-- Un PDF de la carga que no se enlazó solo (no se supo de quién es, lo
                                      leyó la IA, venía con algo que mirar): se ata a mano buscando el
@@ -210,8 +214,7 @@
                                     @endcan
                                 @endif
                             </td>
-                            <td><span class="cpdf-estado {{ $d->ESTADO }}" @if ($d->MOTIVO) title="{{ $d->MOTIVO }}" @endif>{{ $estadosDoc[$d->ESTADO] ?? $d->ESTADO }}</span></td>
-                            <td style="white-space:nowrap;">
+                            <td>
                                 @can('docs.carga.masiva')
                                 {{-- Descartar: el PDF subido se va a la papelera de Drive y la fila
                                      desaparece. Sin esto, lo que se sube y no se aplica se queda

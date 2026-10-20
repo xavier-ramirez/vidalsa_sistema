@@ -180,6 +180,10 @@
     .cpdf-dif { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12.5px; line-height: 1.5; }
     .cpdf-dif-eti { font-weight: 700; color: #64748b; }
     .cpdf-dif-doc { color: #166534; font-weight: 600; }
+    /* Revisión: la placa (o el serial, si no hay placa), y debajo en gris el serial o el archivo. */
+    .cpdf-ident { font-weight: 600; color: #0f172a; }
+    .cpdf-sub { display: block; color: #64748b; font-weight: 400; font-size: 11.5px; }
+    .cpdf-motivo { font-size: 12px; color: #64748b; }
     .cpdf-flecha { font-size: 14px; color: #94a3b8; }
 
     /* El VIN de un BL que no casó con ninguna ficha, y su buscador para atarlo a mano. */
@@ -230,14 +234,15 @@
         .cpdf-tabla-caja tbody .pdf-doc-btn { margin-left: auto; }
         .cpdf-tabla-caja .cpdf-vacio { grid-column: 1 / -1; padding: 24px 0 !important; }
 
-        /* Documentos: documento + estado · placa/serial + fecha · diferencias · PDF */
+        /* Documentos (fecha, documento, equipo, estado, detalle, PDF): documento + estado ·
+           equipo · detalle a todo el ancho · fecha + PDF. */
         .cpdf-docs tbody tr { grid-template-columns: 1fr auto; }
         .cpdf-docs tbody td:nth-child(2) { grid-area: 1 / 1; font-weight: 700; }
-        .cpdf-docs tbody td:nth-child(5) { grid-area: 1 / 2; justify-self: end; }
-        .cpdf-docs tbody td:nth-child(3) { grid-area: 2 / 1; }
-        .cpdf-docs tbody td:nth-child(1) { grid-area: 2 / 2; justify-self: end; }
-        .cpdf-docs tbody td:nth-child(4) { grid-column: 1 / -1; margin-top: 4px; }
-        .cpdf-docs tbody td:nth-child(6) { grid-column: 1 / -1; display: flex; }
+        .cpdf-docs tbody td:nth-child(4) { grid-area: 1 / 2; justify-self: end; }
+        .cpdf-docs tbody td:nth-child(3) { grid-column: 1 / -1; }
+        .cpdf-docs tbody td:nth-child(5) { grid-column: 1 / -1; margin-top: 4px; }
+        .cpdf-docs tbody td:nth-child(1) { grid-area: 4 / 1; }
+        .cpdf-docs tbody td:nth-child(6) { grid-area: 4 / 2; display: flex; }
 
         /* Compresión: documento + estado · serial + fecha · antes→después→ahorro · PDF */
         .cpdf-comp tbody tr { grid-template-columns: 1fr 1fr auto; }
