@@ -104,14 +104,26 @@
             if (reader) reader.style.display = '';
             if (hint) hint.textContent = 'Iniciando cámara…';
             // Recuadro ANCHO y bajo, a la forma de un código de barras (un 90 % del ancho del
-            // video y un 40 % de alto).
-            var conf   = {
-                fps: 10,
-                qrbox: function (w, h) { return { width: Math.floor(w * 0.9), height: Math.floor(Math.min(w, h) * 0.4) }; },
+            // video y un 40 % de alto). La cámara se pide en ALTA resolución y con enfoque
+            // continuo: con lo que da por defecto (640×480, foco fijo) las barras finas de la
+            // etiqueta llegaban borrosas. `fuente` es la cámara: facingMode o un deviceId.
+            var conf   = function (fuente) {
+                return {
+                    fps: 15,
+                    qrbox: function (w, h) { return { width: Math.floor(w * 0.9), height: Math.floor(Math.min(w, h) * 0.4) }; },
+                    videoConstraints: Object.assign({
+                        width: { ideal: 1920 }, height: { ideal: 1080 },
+                        advanced: [{ focusMode: 'continuous' }]
+                    }, fuente)
+                };
             };
             var onOk   = function (texto) { resolver(texto); };
             var onTick = function () { /* frames sin código: ignorar */ };
-            var ok     = function () { if (hint) hint.textContent = 'Apunta la cámara al código de barras…'; if (btn) btn.style.display = 'none'; };
+            var ok     = function () {
+                if (hint) hint.textContent = 'Apunta la cámara al código de barras…';
+                if (btn) btn.style.display = 'none';
+                afinarCamara();
+            };
             // Si TODO falla mostramos el motivo REAL (NotAllowedError = permiso denegado,
             // NotFoundError = sin cámara, etc.) y dejamos visible "Activar cámara" para
             // reintentar con un gesto explícito (vuelve a pedir permiso).
@@ -130,19 +142,35 @@
                     formatsToSupport: typeof Html5QrcodeSupportedFormats !== 'undefined' ? [Html5QrcodeSupportedFormats.CODE_128] : undefined
                 });
                 // 1) Intento directo con la cámara trasera (facingMode environment).
-                scanner.start({ facingMode: 'environment' }, conf, onOk, onTick)
+                scanner.start({ facingMode: 'environment' }, conf({ facingMode: 'environment' }), onOk, onTick)
                     .then(ok)
                     .catch(function (e1) {
                         // 2) Fallback: enumerar cámaras y usar la última (suele ser la trasera).
                         //    Cubre teléfonos donde facingMode falla pero el deviceId sí sirve.
                         return Html5Qrcode.getCameras().then(function (cams) {
                             if (!cams || !cams.length) throw e1;
-                            return scanner.start(cams[cams.length - 1].id, conf, onOk, onTick).then(ok);
+                            var id = cams[cams.length - 1].id;
+                            return scanner.start(id, conf({ deviceId: { exact: id } }), onOk, onTick).then(ok);
                         });
                     })
                     .catch(fail);
             } catch (e) { fail(e); }
         });
+    }
+
+    // Ya con la cámara abierta, lo que el teléfono soporte: enfoque continuo (algunos lo
+    // ignoran al pedirlo de entrada y solo lo toman así) y un zoom de 1,5×, para leer la
+    // etiqueta sin acercar tanto el teléfono — de cerca, por debajo de la distancia mínima
+    // de enfoque de la cámara, es justo cuando sale borrosa. Lo que no soporte, se omite.
+    function afinarCamara() {
+        if (!scanner) return;
+        var cap = {};
+        try { cap = scanner.getRunningTrackCapabilities() || {}; } catch (e) { return; }
+        var ajustes = {};
+        if (Array.isArray(cap.focusMode) && cap.focusMode.indexOf('continuous') !== -1) ajustes.focusMode = 'continuous';
+        if (cap.zoom && cap.zoom.max >= 1.5) ajustes.zoom = Math.max(cap.zoom.min || 1, 1.5);
+        if (!Object.keys(ajustes).length) return;
+        scanner.applyVideoConstraints({ advanced: [ajustes] }).catch(function () { /* el teléfono no lo aceptó */ });
     }
 
     function detenerCamara() {
@@ -280,7 +308,7 @@
         init: function (opts) {
             // Si se navegó con el modal abierto (botón atrás), el #lbrModal se fue del DOM
             // pero la instancia Html5Qrcode seguía viva: MediaStream abierto y decodificando
-            // a 10 fps para siempre. Cortarla es lo primero.
+            // a 15 fps para siempre. Cortarla es lo primero.
             if (scanner) cerrar();
             cfg = opts || null;
             iconToggle();

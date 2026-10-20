@@ -54,6 +54,16 @@
     .lbr-head .lbr-x { color: #fff; opacity: .75; cursor: pointer; font-size: 20px; }
     .lbr-head .lbr-x:hover { opacity: 1; }
     .lbr-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; }
+    /* Línea láser que sube y baja dentro del recuadro de lectura, como en los lectores de las
+       tiendas: dice dónde poner las barras y que está leyendo. Cuelga de la sombra que pinta
+       html5-qrcode (#qr-shaded-region, la crea al arrancar la cámara), cuyo hueco es justo
+       el recuadro. */
+    #lbrReader #qr-shaded-region::after {
+        content: ''; position: absolute; left: 4%; right: 4%; top: 0; height: 2px; border-radius: 2px;
+        background: #ef4444; box-shadow: 0 0 6px 2px rgba(239,68,68,.65);
+        animation: lbr-laser 1.6s ease-in-out infinite alternate;
+    }
+    @keyframes lbr-laser { from { top: 6%; } to { top: 94%; } }
 </style>
 
 {{-- data-buscar: endpoint que resuelve el CODIGO escaneado. data-lib: copia LOCAL de
