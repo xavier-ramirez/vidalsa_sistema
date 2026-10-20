@@ -648,7 +648,11 @@
             marcas.appendChild(el('span', 'cpdf-atar-et ' + (mismo ? 'verde' : 'ambar'), mismo ? 'Ya tiene este mismo documento' : 'Ya tiene este documento'));
             var datos = [a.emision && 'emitido el ' + cpdfFecha(a.emision), a.vence && 'vence el ' + cpdfFecha(a.vence),
                          a.cargado && 'cargado el ' + cpdfFecha(a.cargado)].filter(Boolean).join(' · ');
-            if (datos) ident.appendChild(el('div', 'cpdf-atar-actual', 'El que tiene: ' + datos));
+            ident.appendChild(el('div', 'cpdf-atar-actual', datos ? 'El que tiene: ' + datos : 'El que tiene no lleva fechas en la ficha.'));
+        } else if (o.tipo) {
+            // Atando un documento (no un VIN): decir también cuando NO lo tiene, para no confundir
+            // la falta de fechas con un dato que no se ve.
+            ident.appendChild(el('div', 'cpdf-atar-actual', 'No tiene este documento cargado.'));
         }
         if (marcas.childNodes.length) ident.insertBefore(marcas, ident.children[1] || null);
         var quien = el('div', 'cpdf-atar-quien');

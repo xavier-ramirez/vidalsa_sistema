@@ -1,6 +1,6 @@
 {{-- Abrir y cerrar los desplegables de la pantalla (Acciones, Filtros avanzados y "Revisar
-     ahora" de la Revisión). Fuera del bloque del Historial: el botón Acciones sale en las tres
-     pestañas. --}}
+     ahora" de la Revisión). Fuera del bloque del Historial: Acciones y Filtros avanzados salen
+     en las tres pestañas. --}}
 <script>
 (function () {
     function ocultar(id) {

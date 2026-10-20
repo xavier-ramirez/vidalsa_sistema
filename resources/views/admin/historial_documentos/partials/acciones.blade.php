@@ -1,5 +1,5 @@
 {{-- Botón "Acciones" de Control de Auditoría. Va al final de la fila de filtros de cada
-     pestaña (junto a Filtros Avanzados en el Historial), así sale en las TRES. Lo ve
+     pestaña (junto a Filtros Avanzados), así sale en las TRES. Lo ve
      quien entra a la pantalla (Usuario::veAuditoriaDocumentos); cada entrada pide su
      permiso: la carga masiva el suyo, la Papelera super.admin y además user.delete (sin
      él avisa y no abre, ver abrirPapelera en partials/papelera.blade.php). --}}
