@@ -626,20 +626,26 @@
         l1.appendChild(el('span', 'cpdf-atar-serial')).appendChild(cpdfAtarResaltar(eq.serial || ('Equipo #' + eq.id), eq.distancia > 0 ? buscado : ''));
         if (eq.placa) l1.appendChild(el('span', 'cpdf-atar-placa')).appendChild(cpdfAtarResaltar(eq.placa, eq.distancia > 0 ? buscado : ''));
         if (eq.codigo) l1.appendChild(el('span', 'cpdf-atar-placa', eq.codigo));
-        info.appendChild(l1);
-        info.appendChild(el('div', 'cpdf-atar-nombre', eq.nombre));
+        // Dos columnas: a la izquierda el serial/placa y debajo las etiquetas; a la derecha qué
+        // equipo es (marca y modelo) y debajo su tipo y frente.
+        var ident = el('div', 'cpdf-atar-ident');
+        ident.appendChild(l1);
+        var marcas = el('div', 'cpdf-atar-marcas');
+        if (eq.distancia === -1) marcas.appendChild(el('span', 'cpdf-atar-et verde', 'Igual a lo leído'));
+        if (bloqueado) marcas.appendChild(el('span', 'cpdf-atar-et rojo', 'Ya está en el BL ' + eq.bl));
+        else if (eq.tiene) marcas.appendChild(el('span', 'cpdf-atar-et ambar', 'Ya tiene este documento'));
+        if (marcas.childNodes.length) ident.appendChild(marcas);
+        var quien = el('div', 'cpdf-atar-quien');
+        quien.appendChild(el('div', 'cpdf-atar-nombre', eq.nombre));
         var meta = [eq.tipo, eq.frente].filter(Boolean).join(' · ');
         if (meta) {
             var l3 = el('div', 'cpdf-atar-meta');
             l3.appendChild(el('i', 'material-icons', 'place'));
             l3.appendChild(document.createTextNode(meta));
-            info.appendChild(l3);
+            quien.appendChild(l3);
         }
-        var marcas = el('div', 'cpdf-atar-marcas');
-        if (eq.distancia === -1) marcas.appendChild(el('span', 'cpdf-atar-et verde', 'Igual a lo leído'));
-        if (bloqueado) marcas.appendChild(el('span', 'cpdf-atar-et rojo', 'Ya está en el BL ' + eq.bl));
-        else if (eq.tiene) marcas.appendChild(el('span', 'cpdf-atar-et ambar', 'Ya tiene este documento'));
-        if (marcas.childNodes.length) info.appendChild(marcas);
+        info.appendChild(ident);
+        info.appendChild(quien);
         var boton = el('button', 'cpdf-atar-btn');
         boton.type = 'button';
         boton.appendChild(el('i', 'material-icons', 'link'));

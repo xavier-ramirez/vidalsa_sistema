@@ -10,16 +10,19 @@
             <button type="button" class="cpdf-atar-x" onclick="window.cpdfCerrarAtar()" aria-label="Cerrar"><i class="material-icons">close</i></button>
         </div>
         <div class="cpdf-atar-cuerpo">
-            <div class="cpdf-atar-doc">
-                <span class="cpdf-atar-ico"><i class="material-icons">description</i></span>
-                <div>
-                    <strong id="cpdfAtarDoc"></strong>
-                    <span id="cpdfAtarArchivo"></span>
+            {{-- Una fila: el documento a la izquierda y lo leído a la derecha. --}}
+            <div class="cpdf-atar-top">
+                <div class="cpdf-atar-doc">
+                    <span class="cpdf-atar-ico"><i class="material-icons">description</i></span>
+                    <div>
+                        <strong id="cpdfAtarDoc"></strong>
+                        <span id="cpdfAtarArchivo"></span>
+                    </div>
                 </div>
-            </div>
-            <div class="cpdf-atar-leido">
-                <span id="cpdfAtarLeidoEti"></span>
-                <b id="cpdfAtarLeido"></b>
+                <div class="cpdf-atar-leido">
+                    <span id="cpdfAtarLeidoEti"></span>
+                    <b id="cpdfAtarLeido"></b>
+                </div>
             </div>
             <label class="cpdf-atar-buscar">
                 <i class="material-icons">search</i>
