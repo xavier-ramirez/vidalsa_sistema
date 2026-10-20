@@ -615,55 +615,81 @@
         ops.forEach(function (op, n) { op.classList.toggle('activo', n === atar.activo); });
         ops[atar.activo].scrollIntoView({ block: 'nearest' });
     };
+    // `texto` con los caracteres que difieren de `buscado` dentro de <mark>. Solo cuando tienen el
+    // mismo largo (un carácter mal leído, no algo escrito a medias); O/0, I/1 y S/5 cuentan
+    // iguales, como los lee el servidor. Devuelve un fragmento (textContent, sin HTML).
+    var cpdfAtarResaltar = function (texto, buscado) {
+        var frag = document.createDocumentFragment();
+        var limpio = function (v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); };
+        var igual = function (c) { return ({ O: '0', I: '1', S: '5' })[c] || c; };
+        var b = limpio(buscado), t = String(texto || ''), j = 0;
+        var comparar = b !== '' && limpio(t).length === b.length;
+        for (var i = 0; i < t.length; i++) {
+            var c = t[i], alfa = /[A-Za-z0-9]/.test(c);
+            if (comparar && alfa && igual(c.toUpperCase()) !== igual(b[j])) {
+                var m = document.createElement('mark'); m.textContent = c; frag.appendChild(m);
+            } else {
+                frag.appendChild(document.createTextNode(c));
+            }
+            if (alfa) j++;
+        }
+        return frag;
+    };
     var cpdfAtarFila = function (eq, n) {
         var o = atar.o, bloqueado = o.bloquearConBl && !!eq.bl;
         var op = document.createElement('div');
         op.className = 'cpdf-atar-op' + (bloqueado ? ' bloqueado' : '');
         op.setAttribute('role', 'option');
         // textContent en todo: los datos vienen de la base y no se interpretan como HTML.
-        var info = document.createElement('div');
-        info.className = 'cpdf-atar-info';
-        var l1 = document.createElement('div');
-        l1.className = 'cpdf-atar-l1';
-        l1.textContent = [eq.serial, eq.placa, eq.codigo].filter(Boolean).join(' · ') || ('Equipo #' + eq.id);
-        var l2 = document.createElement('div');
-        l2.className = 'cpdf-atar-l2';
-        l2.textContent = eq.nombre + [eq.tipo, eq.frente].filter(Boolean).map(function (x) { return ' · ' + x; }).join('');
-        info.appendChild(l1); info.appendChild(l2);
-        if (eq.distancia === -1) {
-            var ok = document.createElement('div');
-            ok.className = 'cpdf-atar-et verde';
-            ok.textContent = 'Igual a lo leído';
-            info.appendChild(ok);
+        var el = function (etiqueta, clase, texto) {
+            var x = document.createElement(etiqueta);
+            if (clase) x.className = clase;
+            if (texto != null) x.textContent = texto;
+            return x;
+        };
+        // Serial (y placa / código) con el carácter que NO coincide con lo buscado marcado en rojo:
+        // es lo que hay que comparar antes de atar. Solo si no es igual (distancia > 0).
+        var buscado = $a('cpdfAtarBuscar').value;
+        var info = el('div', 'cpdf-atar-info');
+        var l1 = el('div', 'cpdf-atar-l1');
+        l1.appendChild(el('span', 'cpdf-atar-serial')).appendChild(cpdfAtarResaltar(eq.serial || ('Equipo #' + eq.id), eq.distancia > 0 ? buscado : ''));
+        if (eq.placa) l1.appendChild(el('span', 'cpdf-atar-placa')).appendChild(cpdfAtarResaltar(eq.placa, eq.distancia > 0 ? buscado : ''));
+        if (eq.codigo) l1.appendChild(el('span', 'cpdf-atar-placa', eq.codigo));
+        info.appendChild(l1);
+        info.appendChild(el('div', 'cpdf-atar-nombre', eq.nombre));
+        var meta = [eq.tipo, eq.frente].filter(Boolean).join(' · ');
+        if (meta) {
+            var l3 = el('div', 'cpdf-atar-meta');
+            l3.appendChild(el('i', 'material-icons', 'place'));
+            l3.appendChild(document.createTextNode(meta));
+            info.appendChild(l3);
         }
-        if (bloqueado || eq.tiene) {
-            var et = document.createElement('div');
-            et.className = 'cpdf-atar-et' + (bloqueado ? ' rojo' : '');
-            et.textContent = bloqueado ? 'Ya está en el BL ' + eq.bl : 'Ya tiene este documento: se pedirá reemplazarlo';
-            info.appendChild(et);
-        }
-        var boton = document.createElement('button');
+        var marcas = el('div', 'cpdf-atar-marcas');
+        if (eq.distancia === -1) marcas.appendChild(el('span', 'cpdf-atar-et verde', 'Igual a lo leído'));
+        if (bloqueado) marcas.appendChild(el('span', 'cpdf-atar-et rojo', 'Ya está en el BL ' + eq.bl));
+        else if (eq.tiene) marcas.appendChild(el('span', 'cpdf-atar-et ambar', 'Ya tiene este documento'));
+        if (marcas.childNodes.length) info.appendChild(marcas);
+        var boton = el('button', 'cpdf-atar-btn');
         boton.type = 'button';
-        boton.className = 'cpdf-atar-btn';
-        boton.textContent = 'Atar';
+        boton.appendChild(el('i', 'material-icons', 'link'));
+        var rotulo = boton.appendChild(el('span', null, 'Atar'));
         boton.disabled = bloqueado;   // uno que ya está en un embarque no se mueve desde aquí (el servidor tampoco)
         op.appendChild(info); op.appendChild(boton);
         var ui = {
-            ocupado: function (si) { boton.disabled = si || bloqueado; boton.textContent = si ? 'Atando…' : 'Atar'; },
+            ocupado: function (si) { boton.disabled = si || bloqueado; rotulo.textContent = si ? 'Atando…' : 'Atar'; },
             error: function (msg) {
                 ui.ocupado(false);
                 var viejo = op.querySelector('.cpdf-atar-err'); if (viejo) viejo.remove();
-                var e = document.createElement('div'); e.className = 'cpdf-atar-err'; e.textContent = msg;
-                info.appendChild(e);
+                info.appendChild(el('div', 'cpdf-atar-err', msg));
             },
             // La ficha ya tiene ese documento: se pregunta en la propia fila (sin ventana del navegador).
             pedirReemplazo: function (msg, si) {
                 ui.ocupado(false);
                 if (op.querySelector('.cpdf-atar-pisar')) return;
-                var caja = document.createElement('div'); caja.className = 'cpdf-atar-pisar';
-                var t = document.createElement('span'); t.textContent = (msg || 'Esa ficha ya tiene ese documento.') + ' ¿Reemplazarlo por este PDF?';
-                var b1 = document.createElement('button'); b1.type = 'button'; b1.className = 'cpdf-atar-btn rojo'; b1.textContent = 'Reemplazar';
-                var b2 = document.createElement('button'); b2.type = 'button'; b2.className = 'cpdf-atar-btn gris'; b2.textContent = 'No';
+                var caja = el('div', 'cpdf-atar-pisar');
+                var t = el('span', null, (msg || 'Esa ficha ya tiene ese documento.') + ' ¿Reemplazarlo por este PDF?');
+                var b1 = el('button', 'cpdf-atar-btn rojo', 'Reemplazar'); b1.type = 'button';
+                var b2 = el('button', 'cpdf-atar-btn gris', 'No'); b2.type = 'button';
                 b1.addEventListener('click', function (ev) { ev.stopPropagation(); caja.remove(); ui.ocupado(true); si(); });
                 b2.addEventListener('click', function (ev) { ev.stopPropagation(); caja.remove(); });
                 caja.appendChild(t); caja.appendChild(b1); caja.appendChild(b2);
@@ -697,11 +723,16 @@
                 var d = equipos[0].distancia;
                 var cerca = equipos.filter(function (eq) { return eq.distancia === d; });
                 var nota = document.createElement('div');
-                nota.className = 'cpdf-atar-nota' + (d > 0 ? ' ambar' : '');
-                nota.textContent = d === -1 ? (cerca.length === 1 ? 'Este es el equipo con ese dato:' : 'Estos equipos tienen ese dato:')
-                    : d === 0 ? 'Equipos que contienen lo escrito:'
-                    : 'Ninguno es igual a lo leído. El más parecido (cambia ' + d + (d === 1 ? ' carácter' : ' caracteres')
-                      + '): compara el serial y la placa antes de atar.';
+                nota.className = 'cpdf-atar-nota ' + (d === -1 ? 'verde' : d === 0 ? 'azul' : 'ambar');
+                var ico = document.createElement('i');
+                ico.className = 'material-icons';
+                ico.textContent = d === -1 ? 'check_circle' : d === 0 ? 'search' : 'warning_amber';
+                nota.appendChild(ico);
+                nota.appendChild(document.createTextNode(d === -1
+                    ? (cerca.length === 1 ? 'Este equipo tiene ese mismo dato.' : 'Estos equipos tienen ese mismo dato.')
+                    : d === 0 ? 'Equipos que contienen lo escrito.'
+                    : 'Ninguno es igual. El más parecido cambia ' + d + (d === 1 ? ' carácter' : ' caracteres')
+                      + ' (en rojo): compáralo antes de atar.'));
                 lista.appendChild(nota);
                 cerca.forEach(function (eq, n) { lista.appendChild(cpdfAtarFila(eq, n)); });
                 var resto = equipos.slice(cerca.length);
@@ -733,6 +764,7 @@
         atar.o = o;
         $a('cpdfAtarDoc').textContent = o.doc;
         $a('cpdfAtarArchivo').textContent = o.archivo || '';
+        $a('cpdfAtarLeidoEti').textContent = o.leidoEti;
         $a('cpdfAtarLeido').textContent = o.leido || '';
         var campo = $a('cpdfAtarBuscar');
         campo.value = o.inicial || '';
@@ -758,7 +790,7 @@
 
     // Atar un VIN del BL que falta: el buscador arranca con el propio VIN.
     window.cpdfAtarVin = function (link, vin, archivo) {
-        window.cpdfAbrirAtar({ doc: 'Documento de embarque (BL)', archivo: archivo, leido: 'VIN que falta: ' + vin,
+        window.cpdfAbrirAtar({ doc: 'Documento de embarque (BL)', archivo: archivo, leidoEti: 'VIN que falta', leido: vin,
             inicial: vin, tipo: null, bloquearConBl: true, atar: function (eq, ui) {
                 window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-vin')),
                     { link: link, vin: vin, id_equipo: eq.id }, 'No se pudo atar.')
@@ -770,7 +802,7 @@
     // Atar un PDF que no se enlazó solo a la ficha elegida. Si esa ficha ya tiene ese documento,
     // el servidor responde requiere_pisar y se pregunta en la fila antes de reemplazarlo.
     window.cpdfAtarDocumento = function (link, inicial, tipo, doc, archivo) {
-        window.cpdfAbrirAtar({ doc: doc, archivo: archivo, leido: inicial ? 'Se leyó: ' + inicial : 'No se leyó placa ni serial',
+        window.cpdfAbrirAtar({ doc: doc, archivo: archivo, leidoEti: inicial ? 'Se leyó' : 'No se leyó placa ni serial', leido: inicial,
             inicial: inicial, tipo: tipo, bloquearConBl: false, atar: function (eq, ui) {
                 var enviar = function (reemplazar) {
                     window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-documento')),

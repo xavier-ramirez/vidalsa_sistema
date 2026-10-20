@@ -11,9 +11,15 @@
         </div>
         <div class="cpdf-atar-cuerpo">
             <div class="cpdf-atar-doc">
-                <strong id="cpdfAtarDoc"></strong>
-                <span id="cpdfAtarArchivo"></span>
-                <span id="cpdfAtarLeido"></span>
+                <span class="cpdf-atar-ico"><i class="material-icons">description</i></span>
+                <div>
+                    <strong id="cpdfAtarDoc"></strong>
+                    <span id="cpdfAtarArchivo"></span>
+                </div>
+            </div>
+            <div class="cpdf-atar-leido">
+                <span id="cpdfAtarLeidoEti"></span>
+                <b id="cpdfAtarLeido"></b>
             </div>
             <label class="cpdf-atar-buscar">
                 <i class="material-icons">search</i>
