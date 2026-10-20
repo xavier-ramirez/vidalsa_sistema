@@ -961,17 +961,21 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
 
     /**
      * Al atar, el buscador sugiere tambien por una PLACA mal leida (un caracter distinto), dice el
-     * tipo de cada equipo y avisa si ya tiene ese documento.
+     * tipo de cada equipo y avisa si ya tiene ese documento (con sus fechas).
      */
     public function test_el_buscador_de_atar_sugiere_por_placa_parecida_y_avisa_si_ya_lo_tiene(): void
     {
         $placa = 'Q' . strtoupper(substr(md5(uniqid()), 0, 5)) . 'Z';
-        $e = $this->equipo(['PLACA' => $placa, 'LINK_POLIZA_SEGURO' => '/storage/google/poliza-vieja']);
+        $e = $this->equipo(['PLACA' => $placa, 'LINK_POLIZA_SEGURO' => '/storage/google/poliza-vieja',
+            'FECHA_EMISION_POLIZA' => '2025-12-01', 'FECHA_VENC_POLIZA' => '2026-12-01']);
         $mal = substr($placa, 0, -1) . 'X';   // la ultima letra mal leida
 
         $hallado = collect($this->servicio()->buscarEquipo($mal, 'poliza'))->firstWhere('id', $e->ID_EQUIPO);
         $this->assertNotNull($hallado, 'Una placa con un caracter distinto se sugiere.');
         $this->assertTrue($hallado['tiene'], 'Ya tiene poliza.');
+        // Y las fechas de la que ya tiene, para ver si es la misma que se va a atar.
+        $this->assertSame('2025-12-01', $hallado['actual']['emision']);
+        $this->assertSame('2026-12-01', $hallado['actual']['vence']);
         $this->assertSame(1, $hallado['distancia'], 'Un caracter distinto.');
         // Con la placa bien escrita es IGUAL (-1): la pantalla muestra solo ese.
         $this->assertSame(-1, collect($this->servicio()->buscarEquipo($placa))->firstWhere('id', $e->ID_EQUIPO)['distancia']);

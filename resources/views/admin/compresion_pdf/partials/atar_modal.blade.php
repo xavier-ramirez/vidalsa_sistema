@@ -22,6 +22,8 @@
                 <div class="cpdf-atar-leido">
                     <span id="cpdfAtarLeidoEti"></span>
                     <b id="cpdfAtarLeido"></b>
+                    {{-- Emisión y vencimiento del PDF: se comparan con los del que ya tiene cada equipo. --}}
+                    <small id="cpdfAtarFechas"></small>
                 </div>
             </div>
             <label class="cpdf-atar-buscar">

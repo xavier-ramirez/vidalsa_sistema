@@ -1110,8 +1110,23 @@ class CargaMasivaDocumentos
      * modal): las que contienen lo buscado en su serial, placa o codigo, y las de serial o placa
      * PARECIDOS —uno o dos caracteres distintos, como un digito de control mal copiado o una
      * letra mal leida—. Primero la IGUAL a lo buscado, luego lo mas parecido (distancia). Cada
-     * una dice su tipo, si ya esta en un embarque y, con $tipo, si ya tiene ese documento.
+     * una dice su tipo, si ya esta en un embarque (y desde cuando) y, con $tipo, si ya tiene ese
+     * documento y sus fechas.
      */
+    /**
+     * Fechas que la ficha guarda de cada documento (columnas de documentacion): emision, vence y
+     * cuando se cargo. null donde ese documento no la tiene. Las usa buscarEquipo para enseñar,
+     * al atar, las del documento que la ficha YA tiene.
+     */
+    private const FECHAS_DEL_DOC = [
+        LectorDocumentoPdf::PROPIEDAD => ['emision' => 'd.FECHA_EMISION_PROPIEDAD', 'vence' => null, 'cargado' => 'd.PROPIEDAD_FECHA_SUBIDA'],
+        LectorDocumentoPdf::POLIZA    => ['emision' => 'd.FECHA_EMISION_POLIZA', 'vence' => 'd.FECHA_VENC_POLIZA', 'cargado' => 'd.POLIZA_FECHA_SUBIDA'],
+        LectorDocumentoPdf::ROTC      => ['emision' => 'd.FECHA_EMISION_ROTC', 'vence' => 'd.FECHA_ROTC', 'cargado' => 'd.ROTC_FECHA_SUBIDA'],
+        LectorDocumentoPdf::RACDA     => ['emision' => 'd.FECHA_EMISION_RACDA', 'vence' => 'd.FECHA_RACDA', 'cargado' => 'd.RACDA_FECHA_SUBIDA'],
+        self::CERTIFICADO             => ['emision' => null, 'vence' => 'd.FECHA_ADICIONAL', 'cargado' => 'd.ADICIONAL_FECHA_SUBIDA'],
+        self::COMPRAVENTA             => ['emision' => null, 'vence' => null, 'cargado' => 'd.ADICIONAL_2_FECHA_SUBIDA'],
+    ];
+
     public function buscarEquipo(string $buscado, ?string $tipo = null): array
     {
         $cod = $this->lector->codigo($buscado);
@@ -1120,8 +1135,10 @@ class CargaMasivaDocumentos
         $serial = self::sqlCodigo('e.SERIAL_CHASIS');
         $placa = self::sqlCodigo('d.PLACA');
         $filas = $this->consulta()->addSelect('e.CODIGO_PATIO')
-            // Para elegir bien en la lista: de que tipo es.
+            // Para elegir bien en la lista: de que tipo es y, del documento que ya tiene, sus fechas.
             ->addSelect(DB::raw('(SELECT t.nombre FROM tipo_equipos t WHERE t.id = e.id_tipo_equipo) as TIPO_EQUIPO'))
+            ->addSelect(DB::raw('(SELECT ee.created_at FROM embarque_equipo ee WHERE ee.ID_EQUIPO = e.ID_EQUIPO) as BL_DESDE'))
+            ->addSelect(array_values(array_unique(array_filter(array_merge(...array_map('array_values', array_values(self::FECHAS_DEL_DOC)))))))
             ->where(function ($w) use ($cod, $serial, $placa) {
                 $w->whereRaw("$serial LIKE ?", ['%' . $cod . '%'])
                   ->orWhereRaw("$placa LIKE ?", ['%' . $cod . '%'])
@@ -1173,8 +1190,12 @@ class CargaMasivaDocumentos
                 // muestra solo los mas cercanos y deja el resto detras de un enlace.
                 'distancia' => $par[1],
                 'bl' => $par[0]->ID_EMBARQUE ? ($nros[$par[0]->ID_EMBARQUE] ?? 'sin numero') : null,
-                // Si ya tiene ESTE documento (al atarlo se pregunta antes de reemplazarlo).
-                'tiene' => $tipo !== null && !empty($this->ficha($par[0])['links'][$tipo]),
+                'bl_desde' => $this->soloFecha($par[0]->BL_DESDE),
+                // Si ya tiene ESTE documento (al atarlo se pregunta antes de reemplazarlo) y sus
+                // fechas, para ver si el PDF que se ata es el mismo que ya esta.
+                'tiene' => $tiene = $tipo !== null && !empty($this->ficha($par[0])['links'][$tipo]),
+                'actual' => $tiene ? array_map(fn ($col) => $col ? $this->soloFecha($par[0]->{substr($col, 2)}) : null,
+                    self::FECHAS_DEL_DOC[$tipo] ?? []) : null,
             ])
             ->values()->all();
     }
