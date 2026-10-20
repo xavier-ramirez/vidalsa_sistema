@@ -212,8 +212,8 @@
             margin-top: 4px;
             flex-wrap: wrap;
         }
-        /* El aviso de fortaleza solo ocupa sitio cuando dice algo: vacío dejaba un hueco
-           fijo entre los campos y los botones. */
-        .pw-fuerza { font-size: 12px; font-weight: 600; color: #94a3b8; }
-        .pw-fuerza:empty { display: none; }
+        /* El aviso de fortaleza guarda SIEMPRE su renglón (16px): si apareciera y desapareciera,
+           los botones saltarían al escribir. Los márgenes negativos le comen parte del espacio
+           entre filas, así los botones quedan cerca de los campos. */
+        .pw-fuerza { font-size: 12px; font-weight: 600; color: #94a3b8; line-height: 16px; min-height: 16px; margin: -4px 0 -6px; }
     

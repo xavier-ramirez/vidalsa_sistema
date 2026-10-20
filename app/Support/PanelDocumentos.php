@@ -138,7 +138,7 @@ class PanelDocumentos
                                     VerificacionDocumento::NOMBRES + \App\Services\CargaMasivaDocumentos::NOMBRES)
             ? $request->input('tipo_doc') : null;
 
-        $filas = VerificacionDocumento::query()
+        $base = VerificacionDocumento::query()
             ->when($estadoDoc === 'revisar', fn ($q) => $q->paraRevisar())
             ->when($estadoDoc === 'corregibles', fn ($q) => $q->corregibles())
             ->when($estadoDoc && !in_array($estadoDoc, ['revisar', 'corregibles'], true),
@@ -155,11 +155,21 @@ class PanelDocumentos
                     // Por el nombre del PDF: es como se busca lo que uno acaba de soltar.
                     ->orWhere('ARCHIVO', 'like', $like)
                     ->orWhere('LEIDO', 'like', $like)->orWhere('LEIDO', 'like', $likeJson));
-            })
-            // Lo soltado en la carga masiva en las ULTIMAS 24 HORAS va PRIMERO, lo mas nuevo
-            // arriba, este como este: se enlaza solo y queda "Aplicado", y lo aplicado va al
-            // final, detras de miles de filas de la noche; sin esto habia que filtrar para ver
-            // lo que uno acababa de subir.
+            });
+
+        // La tabla va por GRUPOS (pedido del cliente, 20-10-2026): arriba lo de HOY y debajo el
+        // acumulado, semana a semana de lunes a domingo, la mas nueva primero. La fecha es la
+        // que muestra la tabla (updated_at). Dentro de cada grupo manda el orden de siempre.
+        $hoy = today();
+        $lunes = 'DATE(updated_at) - INTERVAL WEEKDAY(updated_at) DAY';   // el lunes de su semana
+        $grupo = "CASE WHEN updated_at >= ? THEN 'hoy' ELSE DATE_FORMAT($lunes, '%Y-%m-%d') END";
+        $filas = (clone $base)
+            ->orderByRaw('CASE WHEN updated_at >= ? THEN 0 ELSE 1 END', [$hoy])
+            ->orderByRaw("$lunes DESC")
+            // Dentro de cada grupo, lo soltado en la carga masiva en las ULTIMAS 24 HORAS va
+            // PRIMERO, lo mas nuevo arriba, este como este: se enlaza solo y queda "Aplicado", y
+            // lo aplicado va al final, detras de miles de filas de la noche; sin esto habia que
+            // filtrar para ver lo que uno acababa de subir.
             ->orderByRaw('CASE WHEN ORIGEN = ? AND created_at >= ? THEN 0 ELSE 1 END',
                 [VerificacionDocumento::DE_CARGA_MASIVA, now()->subDay()])
             ->orderByRaw('CASE WHEN ORIGEN = ? AND created_at >= ? THEN ID_REGISTRO END DESC',
@@ -179,6 +189,10 @@ class PanelDocumentos
 
         return [
             'docs'           => $filas,
+            // Cuantos hay en cada grupo (con los mismos filtros), para el encabezado: una pagina
+            // es de 50 y una semana puede seguir en la siguiente.
+            'conteoGrupos'   => (clone $base)->selectRaw($grupo . ' as grupo, COUNT(*) as n', [$hoy])
+                                    ->groupBy('grupo')->pluck('n', 'grupo'),
             // Los VIN de cada BL de la carga que no casaron con ninguna ficha, de toda la pagina
             // de una vez (la vista los pinta con su boton de "Atar a un equipo").
             'vinesFaltan'    => app(\App\Services\CargaMasivaDocumentos::class)->vinesSinAtarDeVarias(

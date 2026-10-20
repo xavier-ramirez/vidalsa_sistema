@@ -1047,9 +1047,11 @@ class AlmacenController extends Controller
             'productoOtros'       => $this->productoEnOtrosAlmacenes($idProducto, $idAlmacen, $user),
             'productoProyectos'   => $this->productoPorProyecto($idProducto, $idAlmacen),
             // Lo que hay AQUÍ, separe o no por proyecto: es la cifra contra la que se miden
-            // los demás almacenes (las barras del panel van todas a la misma escala).
-            'productoAqui'        => $idAlmacen === null ? null : (float) AlmacenStock::where('ID_ALMACEN', $idAlmacen)
-                                         ->where('ID_PRODUCTO', $idProducto)->sum('CANTIDAD'),
+            // los demás almacenes (las barras del panel van todas a la misma escala). Misma
+            // suma y mismo mínimo que los demás (saldosPorAlmacen).
+            'productoAqui'        => $idAlmacen === null ? null
+                                         : ($this->saldosPorAlmacen($idProducto, [$idAlmacen])->get($idAlmacen)
+                                            ?? (object) ['CANTIDAD' => 0, 'CANTIDAD_MINIMA' => null]),
             'almacenActualNombre' => $nombreAlmacen,
         ])->render();
     }
@@ -1308,19 +1310,7 @@ class AlmacenController extends Controller
             return collect();
         }
 
-        // Un almacén multi-proyecto tiene VARIAS filas de saldo del mismo producto (una
-        // por proyecto), así que se agrupa por almacén: aquí interesa "cuánto hay en ese
-        // almacén" para pedirle un traspaso, no de qué proyecto es cada parte (eso lo
-        // cuelga conDesgloseDeProyectos).
-        $saldos = AlmacenStock::query()
-            ->where('ID_PRODUCTO', $idProducto)
-            ->whereIn('ID_ALMACEN', $visibles->pluck('ID_ALMACEN'))
-            ->groupBy('ID_ALMACEN')
-            ->select('ID_ALMACEN')
-            ->selectRaw('SUM(CANTIDAD) as CANTIDAD')
-            ->selectRaw('MAX(CANTIDAD_MINIMA) as CANTIDAD_MINIMA')
-            ->get()
-            ->keyBy('ID_ALMACEN');
+        $saldos = $this->saldosPorAlmacen($idProducto, $visibles->pluck('ID_ALMACEN'));
 
         $filas = $visibles
             ->map(function ($alm) use ($saldos) {
@@ -1337,6 +1327,26 @@ class AlmacenController extends Controller
             ->values();
 
         return $this->conDesgloseDeProyectos($filas, $idProducto);
+    }
+
+    /**
+     * Saldo de UN producto en cada almacén pedido (ID_ALMACEN => {CANTIDAD, CANTIDAD_MINIMA}).
+     * Un almacén multi-proyecto tiene VARIAS filas de saldo del mismo producto (una por
+     * proyecto), así que se agrupa por almacén: aquí interesa "cuánto hay en ese almacén", no
+     * de qué proyecto es cada parte (eso lo cuelga conDesgloseDeProyectos). La usan el almacén
+     * abierto y los demás del panel, para que las dos cifras se calculen igual.
+     */
+    private function saldosPorAlmacen(int $idProducto, $idsAlmacen)
+    {
+        return AlmacenStock::query()
+            ->where('ID_PRODUCTO', $idProducto)
+            ->whereIn('ID_ALMACEN', $idsAlmacen)
+            ->groupBy('ID_ALMACEN')
+            ->select('ID_ALMACEN')
+            ->selectRaw('SUM(CANTIDAD) as CANTIDAD')
+            ->selectRaw('MAX(CANTIDAD_MINIMA) as CANTIDAD_MINIMA')
+            ->get()
+            ->keyBy('ID_ALMACEN');
     }
 
     /**

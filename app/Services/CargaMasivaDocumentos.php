@@ -345,13 +345,13 @@ class CargaMasivaDocumentos
             $propuesta['estado'] = 'sin_equipo';
             $propuesta['aviso'] = match (true) {
                 $tipo === LectorDocumentoPdf::RACDA
-                    => 'Se leyo la providencia pero ninguna de sus placas esta registrada.',
+                    => 'Ninguna placa de la providencia esta registrada.',
                 // El serial SI cuadro, pero con un auxiliar, y un auxiliar no guarda ese
                 // documento: decir "no se sabe de quien es" haria buscar el fallo donde no esta.
                 !isset(self::TIPOS_AUXILIAR[$tipo]) && $this->auxiliarDelDocumento($leido)
-                    => 'Es de un equipo auxiliar, y los auxiliares solo guardan titulo de propiedad y certificado.',
+                    => 'Es de un auxiliar: solo guardan titulo y certificado.',
                 default
-                    => 'Se leyo el documento pero no dice de que equipo es (ni placa ni serial reconocidos).',
+                    => 'No se reconocio la placa ni el serial.',
             };
             return $this->anotar($propuesta, $driveId);
         }
@@ -647,7 +647,7 @@ class CargaMasivaDocumentos
     {
         $ficha = $p['equipos'][0] ?? null;
         // Sin ficha, lo unico que hay que contar es POR QUE no se supo de quien es.
-        if (!$ficha) return (string) ($p['aviso'] ?: 'Subido en carga masiva. Falta saber de que ficha es.');
+        if (!$ficha) return (string) ($p['aviso'] ?: 'Falta saber de que ficha es.');
 
         $otros = count($p['equipos']) > 1 ? ' y ' . (count($p['equipos']) - 1) . ' unidad(es) mas' : '';
 

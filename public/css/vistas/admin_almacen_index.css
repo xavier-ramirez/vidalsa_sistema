@@ -435,11 +435,15 @@
        tipografía menor para que se lea como detalle de la línea de arriba y no como otro
        almacén más. No es clicable: el clic útil es el de la fila padre, que abre ese
        almacén — aquí solo se informa de dónde está el saldo antes de pedir el traspaso. */
-    /* Las filas de otros almacenes no son una sola línea: la barra y el desglose se pasan
-       al renglón siguiente con flex-basis:100%. Así los dos <span> conservan su sitio (y
-       siguen siendo hijos directos del <li>, de los que cuelgan las reglas de teléfono). */
-    .alm-otros-almacenes .alm-panel-row { flex-wrap:wrap; row-gap:0; }
-    .alm-panel-sub { flex-basis:100%; list-style:none; margin:3px 0 1px 0; padding:0 0 0 10px;
+    /* Las filas de otros almacenes llevan debajo la barra y, si hay, el desglose: rejilla de
+       tres columnas (nombre · guía · cifra) y esos dos a todo el ancho. El nombre se recorta
+       con puntos suspensivos en vez de empujar la cifra a otro renglón, y los <span> siguen
+       siendo hijos directos del <li> (de ellos cuelgan las reglas de teléfono). */
+    .alm-otros-almacenes .alm-panel-row { display:grid; grid-template-columns:minmax(0, max-content) minmax(12px, 1fr) auto;
+        column-gap:8px; }
+    .alm-otros-almacenes .alm-panel-row > .alm-panel-barra,
+    .alm-otros-almacenes .alm-panel-row > .alm-panel-sub { grid-column:1 / -1; }
+    .alm-panel-sub { list-style:none; margin:3px 0 1px 0; padding:0 0 0 10px;
         display:flex; flex-direction:column; gap:1px; border-left:2px solid #cbd5e1; }
     .alm-panel-sub li { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:2px 0; }
     .alm-panel-sub .nom { flex:0 1 auto; min-width:0; color:#334155; font-size:11.5px; font-weight:600;
@@ -460,11 +464,13 @@
     .alm-panel-aqui .alm-panel-sub { margin-top:7px; border-left-color:#bfdbfe; }
     /* Barra de saldo: todas a la escala del almacén que más tiene, así la diferencia entre
        almacenes se ve de un vistazo. Verde en los otros, azul en este y roja si está bajo. */
-    .alm-panel-barra { flex-basis:100%; height:5px; margin-top:4px; background:#e2e8f0; border-radius:3px; overflow:hidden; }
+    .alm-panel-barra { height:5px; margin-top:4px; background:#e2e8f0; border-radius:3px; overflow:hidden; }
     .alm-panel-barra > span { display:block; height:100%; background:#10b981; border-radius:3px; }
     .alm-panel-aqui .alm-panel-barra { margin-top:6px; background:#dbeafe; }
     .alm-panel-aqui .alm-panel-barra > span { background:#0067b1; }
-    .alm-panel-row .qty.bajo ~ .alm-panel-barra > span { background:#ef4444; }
+    .alm-panel-row .qty.bajo ~ .alm-panel-barra > span,
+    .alm-panel-aqui.bajo .alm-panel-barra > span { background:#ef4444; }
+    .alm-panel-aqui.bajo .alm-panel-aqui-cab .qty { color:#b91c1c; }
 
     /* ── Consolidado de Inventario (tarjeta del sidebar) ──────────────────────────
        Vive en clases y no en `style=""` para poder ajustarlo desde los @media sin

@@ -138,6 +138,36 @@
                 </thead>
                 <tbody>
                     @forelse ($docs as $d)
+                        {{-- Grupos: HOY arriba y debajo cada semana (lunes a domingo), cada uno con su
+                             encabezado. La clave es la misma que arma PanelDocumentos (conteoGrupos).
+                             Una semana de cada dos lleva la franja (cpdf-sem-alt) para distinguirla. --}}
+                        @php
+                            $fechaFila = $d->updated_at;
+                            $lunesFila = $fechaFila?->copy()->startOfWeek(\Carbon\Carbon::MONDAY);
+                            $grupoFila = !$fechaFila ? 'sin-fecha' : ($fechaFila->isToday() ? 'hoy' : $lunesFila->toDateString());
+                        @endphp
+                        @if ($grupoFila !== ($grupoPrevio ?? null))
+                            @php
+                                // Una semana de cada dos (la 2.ª, la 4.ª…) lleva la franja; HOY ninguna.
+                                if ($grupoFila !== 'hoy') $nSemanas = ($nSemanas ?? 0) + 1;
+                                $semanaAlterna = $grupoFila !== 'hoy' && $nSemanas % 2 === 0;
+                                $nGrupo = $conteoGrupos[$grupoFila] ?? null;
+                            @endphp
+                            <tr class="cpdf-grupo {{ $grupoFila === 'hoy' ? 'cpdf-grupo-hoy' : ($semanaAlterna ? 'cpdf-sem-alt' : '') }}">
+                                <td colspan="6">
+                                    @if ($grupoFila === 'hoy')
+                                        Hoy <small>{{ $fechaFila->format('d/m/Y') }}</small>
+                                    @elseif ($grupoFila === 'sin-fecha')
+                                        Sin fecha
+                                    @else
+                                        {{ $lunesFila->isSameWeek(now()) ? 'Esta semana' : ($lunesFila->isSameWeek(now()->subWeek()) ? 'Semana pasada' : 'Semana') }}
+                                        <small>del lunes {{ $lunesFila->format('d/m') }} al domingo {{ $lunesFila->copy()->addDays(6)->format('d/m/Y') }}</small>
+                                    @endif
+                                    @if ($nGrupo !== null)<span class="cpdf-grupo-n">{{ $nGrupo }}</span>@endif
+                                </td>
+                            </tr>
+                            @php $grupoPrevio = $grupoFila; @endphp
+                        @endif
                         {{-- Las que no coinciden se eligen con un clic en la fila (ver cpdfSelFila),
                              si quien mira tiene la carga masiva (con ella se revisa); las que ya
                              coinciden no tienen nada que revisar.
@@ -150,9 +180,9 @@
                               && $d->ORIGEN === \App\Models\VerificacionDocumento::DE_LA_NOCHE)
                              || ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
                               && $d->ESTADO === \App\Models\VerificacionDocumento::APLICADO && $d->A_MANO)))
-                            <tr class="cpdf-fila-sel" data-id="{{ $d->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)">
+                            <tr class="cpdf-fila-sel {{ $semanaAlterna ? 'cpdf-sem-alt' : '' }}" data-id="{{ $d->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)">
                         @else
-                            <tr>
+                            <tr class="{{ $semanaAlterna ? 'cpdf-sem-alt' : '' }}">
                         @endif
                             <td><div class="hd-fecha"><span>{{ $d->updated_at?->format('d/m/Y') }}</span><span class="hd-hora">{{ $d->updated_at?->format('h:i A') }}</span></div></td>
                             <td>

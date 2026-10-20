@@ -21,7 +21,11 @@
 @php
     $modoCruzado = isset($productoOtros) && $productoOtros !== null;
     $porProyecto = $productoProyectos ?? collect();
-    $aqui        = $productoAqui ?? null;
+    // Saldo del almacén abierto (null si no hay almacén abierto: no se pinta la tarjeta). Bajo =
+    // en o por debajo de su mínimo, la misma regla que los otros almacenes.
+    $aqui        = isset($productoAqui) ? (float) $productoAqui->CANTIDAD : null;
+    $aquiBajo    = $aqui !== null && $productoAqui->CANTIDAD_MINIMA !== null
+                   && $aqui <= (float) $productoAqui->CANTIDAD_MINIMA;
     // Escala común de las barras: el almacén con más saldo (este o cualquiera de los otros).
     $maxSaldo    = $modoCruzado ? max((float) $aqui, (float) $productoOtros->max('CANTIDAD')) : 0;
     $pctBarra    = fn ($n) => $maxSaldo > 0 ? round(100 * max(0, (float) $n) / $maxSaldo, 1) : 0;
@@ -60,7 +64,7 @@
          El reparto por proyecto es la ÚNICA forma de verlo: el módulo ya no tiene filtro por
          proyecto en la barra de arriba. --}}
     @if($aqui !== null)
-        <div class="alm-panel-aqui">
+        <div class="alm-panel-aqui {{ $aquiBajo ? 'bajo' : '' }}">
             <div class="alm-panel-aqui-cab">
                 <i class="material-icons">warehouse</i>
                 <span class="nom">{{ $almacenActualNombre ?? 'Este almacén' }}</span>

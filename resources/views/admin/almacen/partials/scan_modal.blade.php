@@ -57,13 +57,17 @@
     /* Línea láser que sube y baja dentro del recuadro de lectura, como en los lectores de las
        tiendas: dice dónde poner las barras y que está leyendo. Cuelga de la sombra que pinta
        html5-qrcode (#qr-shaded-region, la crea al arrancar la cámara), cuyo hueco es justo
-       el recuadro. */
+       el recuadro. Se mueve con transform y no con top: lo resuelve la tarjeta gráfica, sin
+       recalcular la página en cada cuadro mientras la cámara lee. La caja ocupa el alto útil
+       del recuadro y la línea es una franja de su borde de arriba: bajar la caja su propio
+       alto la lleva al fondo. */
     #lbrReader #qr-shaded-region::after {
-        content: ''; position: absolute; left: 4%; right: 4%; top: 0; height: 2px; border-radius: 2px;
-        background: #ef4444; box-shadow: 0 0 6px 2px rgba(239,68,68,.65);
+        content: ''; position: absolute; left: 4%; right: 4%; top: 6%; height: 88%; pointer-events: none;
+        background: linear-gradient(to bottom, rgba(239,68,68,0), rgba(239,68,68,.45) 2px, #ef4444 3px 5px,
+                    rgba(239,68,68,.45) 6px, rgba(239,68,68,0) 8px) top / 100% 8px no-repeat;
         animation: lbr-laser 1.6s ease-in-out infinite alternate;
     }
-    @keyframes lbr-laser { from { top: 6%; } to { top: 94%; } }
+    @keyframes lbr-laser { from { transform: translateY(-4px); } to { transform: translateY(calc(100% - 4px)); } }
 </style>
 
 {{-- data-buscar: endpoint que resuelve el CODIGO escaneado. data-lib: copia LOCAL de

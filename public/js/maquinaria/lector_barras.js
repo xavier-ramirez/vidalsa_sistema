@@ -45,6 +45,7 @@
     }
 
     var scanner    = null;    // instancia Html5Qrcode (si la cámara arrancó)
+    var RESOLUCION = { width: { ideal: 1280 }, height: { ideal: 720 } };   // la que se pide a la cámara
     var busy       = false;   // evita resolver dos veces el mismo código
     var libPromise = null;    // carga de html5-qrcode cacheada
 
@@ -104,15 +105,16 @@
             if (reader) reader.style.display = '';
             if (hint) hint.textContent = 'Iniciando cámara…';
             // Recuadro ANCHO y bajo, a la forma de un código de barras (un 90 % del ancho del
-            // video y un 40 % de alto). La cámara se pide en ALTA resolución: con la que da por
-            // defecto (640×480) las barras finas de la etiqueta llegaban borrosas; el enfoque y
-            // el zoom se ajustan después (afinarCamara). `fuente` es la cámara: facingMode o un
+            // video y un 40 % de alto). La cámara se pide en HD (RESOLUCION): con la que da por
+            // defecto (640×480) las barras finas llegaban borrosas; más no sirve, porque la
+            // librería reduce cada cuadro al tamaño del recuadro antes de leerlo. El enfoque y el
+            // zoom se ajustan después (afinarCamara). `fuente` es la cámara: facingMode o un
             // deviceId.
             var conf   = function (fuente) {
                 return {
                     fps: 15,
                     qrbox: function (w, h) { return { width: Math.floor(w * 0.9), height: Math.floor(Math.min(w, h) * 0.4) }; },
-                    videoConstraints: Object.assign({ width: { ideal: 1920 }, height: { ideal: 1080 } }, fuente)
+                    videoConstraints: Object.assign({}, RESOLUCION, fuente)
                 };
             };
             var onOk   = function (texto) { resolver(texto); };
@@ -169,7 +171,10 @@
             if (Array.isArray(cap.focusMode) && cap.focusMode.indexOf('continuous') !== -1) ajustes.focusMode = 'continuous';
             if (cap.zoom && cap.zoom.max >= 1.5) ajustes.zoom = Math.max(cap.zoom.min || 1, 1.5);
             if (!Object.keys(ajustes).length) return;
-            scanner.applyVideoConstraints({ advanced: [ajustes] }).catch(function () { /* el teléfono no lo aceptó */ });
+            // La resolución va otra vez: applyConstraints REEMPLAZA el juego entero y, sin ella,
+            // el teléfono podía volver a su tamaño por defecto.
+            scanner.applyVideoConstraints(Object.assign({}, RESOLUCION, { advanced: [ajustes] }))
+                .catch(function () { /* el teléfono no lo aceptó */ });
         } catch (e) { /* la cámara ya se cerró */ }
     }
 
