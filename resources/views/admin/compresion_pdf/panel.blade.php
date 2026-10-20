@@ -333,24 +333,27 @@
                 <i class="material-icons">{{ $activa ? 'schedule' : 'block' }}</i>
                 <div>
                     @if ($activa)
-                        <strong>Lectura automática activa</strong>
+                        <strong>Lectura automática</strong>
                         {{-- Corto a proposito. La zona solo se nombra si el servidor NO esta en la de Venezuela. --}}
-                        <span>{{ ucfirst($horarioLectura) }}{{ $zona !== 'America/Caracas' ? ' (' . $zona . ')' : '' }} · no toca placa ni serial.</span>
-                        {{-- A cualquier hora: arranca ya y relee tambien los "No se pudo leer". Un boton por
-                             documento (fuera de la franja solo lee ese) y otro para todos. --}}
+                        <span>{{ ucfirst($horarioLectura) }}{{ $zona !== 'America/Caracas' ? ' (' . $zona . ')' : '' }}</span>
+                        {{-- A cualquier hora: arranca ya y relee tambien los "No se pudo leer". Una opcion
+                             por documento (fuera de la franja solo lee ese) y otra para todos. --}}
                         @if ($lecturaPedida)
                             <span class="cpdf-ahora-pedida">Pedida: {{ $lecturaPedidaTipos ? implode(', ', array_intersect_key(\App\Models\VerificacionDocumento::NOMBRES, array_flip($lecturaPedidaTipos))) : 'todos' }} · {{ \Carbon\Carbon::parse($lecturaPedida)->format('g:i a') }} (en curso).</span>
                         @endif
-                        {{-- Una fila compacta: rotulo + grupo de botones pegados. El titulo sale corto
-                             ("Titulo"); el nombre entero va en el tooltip y en data-nombre (el aviso).
-                             Con la carga masiva, igual que su ruta. --}}
+                        {{-- UN boton desplegable con los cuatro documentos y "Todos". El titulo sale
+                             corto ("Titulo"); el nombre entero va en data-nombre (el aviso). Lo abre y
+                             cierra el control comun de desplegables (solo uno abierto a la vez). Con la
+                             carga masiva, igual que su ruta. --}}
                         @can('docs.carga.masiva')
-                        <div class="cpdf-ahora-fila">
-                            <span class="cpdf-ahora-rotulo">Revisar ahora</span>
-                            <div class="cpdf-ahora-botones" role="group" aria-label="Revisar ahora">
+                        <div class="cpdf-ahora-wrap">
+                            <button type="button" class="cpdf-ahora-btn" onclick="window.cpdfToggleAhora()">
+                                <i class="material-icons">play_arrow</i>Revisar ahora<i class="material-icons">expand_more</i>
+                            </button>
+                            <div id="cpdfAhoraMenu" class="cpdf-ahora-menu" style="display: none;">
                                 @foreach (\App\Models\VerificacionDocumento::NOMBRES + ['' => 'Todos'] as $tipoAhora => $nombreAhora)
                                     <button type="button" class="cpdf-ahora {{ $tipoAhora === '' ? 'cpdf-ahora-todos' : '' }}" data-nombre="{{ $nombreAhora }}"
-                                            title="Revisar ahora: {{ $nombreAhora }}" onclick="window.cpdfLeerAhora(this, @js($tipoAhora))">
+                                            onclick="window.cpdfCerrarAhora(); window.cpdfLeerAhora(this, @js($tipoAhora))">
                                         {{ $tipoAhora === \App\Models\VerificacionDocumento::PROPIEDAD ? 'Título' : $nombreAhora }}
                                     </button>
                                 @endforeach

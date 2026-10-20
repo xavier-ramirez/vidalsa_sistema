@@ -1,5 +1,6 @@
-{{-- Abrir y cerrar los desplegables de la pantalla (Acciones y Filtros avanzados).
-     Fuera del bloque del Historial: el botón Acciones sale en las tres pestañas. --}}
+{{-- Abrir y cerrar los desplegables de la pantalla (Acciones, Filtros avanzados y "Revisar
+     ahora" de la Revisión). Fuera del bloque del Historial: el botón Acciones sale en las tres
+     pestañas. --}}
 <script>
 (function () {
     function ocultar(id) {
@@ -26,6 +27,8 @@
     window.hdCerrarAcciones = function () { ocultar('hdAccionesMenu'); };
     window.hdToggleAcciones = function () { alternar('hdAccionesMenu'); };
     window.hdToggleFiltrosAvanzados = function () { alternar('hdAdvancedFilterPanel'); };
+    window.cpdfCerrarAhora = function () { ocultar('cpdfAhoraMenu'); };
+    window.cpdfToggleAhora = function () { alternar('cpdfAhoraMenu'); };
 
     if (window.__hdDesplegablesBound) return;
     window.__hdDesplegablesBound = true;
@@ -37,6 +40,7 @@
         if (!el.closest || !document.querySelector('.hd-pest-fila')) return false;
         if (!el.closest('.hd-adv-filter-wrap')) ocultar('hdAdvancedFilterPanel');
         if (!el.closest('.hd-acciones-wrap')) ocultar('hdAccionesMenu');
+        if (!el.closest('.cpdf-ahora-wrap')) ocultar('cpdfAhoraMenu');
         return true;
     }
     document.addEventListener('click', function (e) { cerrarFuera(e.target); });

@@ -49,21 +49,22 @@
     .cpdf-aviso.ok { background: #eff6ff; border-color: #bfdbfe; color: #1e3a5f; }
     .cpdf-aviso.ok strong, .cpdf-aviso.ok span { color: #1e3a5f; }
     .cpdf-aviso.apagada { background: #f8fafc; color: #475569; }
-    /* "Revisar ahora": el rotulo y, debajo, los cinco botones como un grupo pegado, en UNA fila
-       de cinco columnas iguales (en la columna de 280 px de la PC caben todos; en la tarjeta
-       ancha de la tableta el grupo queda del tamaño de su texto). */
-    .cpdf-aviso .cpdf-ahora-fila { display: flex; flex-direction: column; align-items: stretch; gap: 4px; margin-top: 8px; }
-    .cpdf-aviso .cpdf-ahora-rotulo { font-weight: 700; font-size: 11.5px; }
-    .cpdf-aviso .cpdf-ahora-botones { display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid #93c5fd;
-                                      border-radius: 7px; overflow: hidden; background: #fff; }
-    .cpdf-aviso .cpdf-ahora { height: 24px; padding: 0 2px; border: 0; border-left: 1px solid #bfdbfe; text-align: center;
-                              background: #fff; color: #1e3a5f; font-family: inherit; font-size: 11.5px;
-                              font-weight: 600; line-height: 24px; cursor: pointer;
-                              white-space: nowrap; transition: background .15s; }
-    .cpdf-aviso .cpdf-ahora:first-child { border-left: 0; }
-    .cpdf-aviso .cpdf-ahora:hover:not(:disabled) { background: #dbeafe; }
-    .cpdf-aviso .cpdf-ahora.cpdf-ahora-todos { background: #0067b1; color: #fff; }
-    .cpdf-aviso .cpdf-ahora.cpdf-ahora-todos:hover:not(:disabled) { background: #00548f; }
+    /* "Revisar ahora": UN boton que despliega los cuatro documentos y "Todos" (al final, en
+       azul). El menu cuelga del boton y es al menos de su ancho. */
+    .cpdf-aviso .cpdf-ahora-wrap { position: relative; width: fit-content; margin-top: 8px; }
+    .cpdf-aviso .cpdf-ahora-btn { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 8px 0 6px;
+                                  border: 1px solid #93c5fd; border-radius: 7px; background: #fff; color: #1e3a5f;
+                                  font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .15s; }
+    .cpdf-aviso .cpdf-ahora-btn:hover { background: #dbeafe; }
+    .cpdf-aviso .cpdf-ahora-btn .material-icons { font-size: 17px; margin: 0; }
+    .cpdf-aviso .cpdf-ahora-menu { position: absolute; top: 100%; left: 0; min-width: 100%; margin-top: 4px; z-index: 60;
+                                   background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden;
+                                   box-shadow: 0 10px 20px -5px rgba(15,23,42,0.18); }
+    .cpdf-aviso .cpdf-ahora { display: block; width: 100%; padding: 8px 12px; border: 0; border-bottom: 1px solid #f1f5f9;
+                              background: #fff; color: #1e3a5f; font-family: inherit; font-size: 13px; font-weight: 600;
+                              text-align: left; white-space: nowrap; cursor: pointer; transition: background .15s; }
+    .cpdf-aviso .cpdf-ahora:hover:not(:disabled) { background: #eff6ff; }
+    .cpdf-aviso .cpdf-ahora.cpdf-ahora-todos { border-bottom: 0; color: #0067b1; font-weight: 800; }
     .cpdf-aviso .cpdf-ahora:disabled { opacity: .5; cursor: default; }
     .cpdf-aviso .cpdf-ahora-pedida { margin-top: 6px; font-weight: 700; }
     /* Tarjetas que filtran la lista: son enlaces, pero se ven igual que las demas cajas. */
