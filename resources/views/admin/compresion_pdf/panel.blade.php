@@ -575,23 +575,25 @@
     // documento (para avisar de las fichas que ya lo tienen), si un equipo de otro BL se bloquea,
     // y atar(eq, ui), que hace el POST. ui deja a quien ata marcar la fila ocupada, avisar un
     // error o pedir reemplazo.
-    var atar = { o: null, turno: 0, espera: null, activo: -1 };
-    var $a = function (id) { return document.getElementById(id); };
+    // El script de la vista va suelto (global): nombres con prefijo para no chocar con nada.
+    // Las fechas (aaaa-mm-dd) se muestran con window.formatearFecha (dom_helpers.js).
+    var cpdfAtarEstado = { o: null, turno: 0, espera: null, activo: -1 };
+    var cpdfAtarEl = function (id) { return document.getElementById(id); };
     var cpdfAtarAviso = function (texto) {
-        var lista = $a('cpdfAtarLista');
+        var lista = cpdfAtarEl('cpdfAtarLista');
         lista.textContent = '';
         var p = document.createElement('div');
         p.className = 'cpdf-atar-nada';
         p.textContent = texto;
         lista.appendChild(p);
-        atar.activo = -1;
+        cpdfAtarEstado.activo = -1;
     };
     var cpdfAtarMarcar = function (k) {
-        var ops = $a('cpdfAtarLista').querySelectorAll('.cpdf-atar-op');
+        var ops = cpdfAtarEl('cpdfAtarLista').querySelectorAll('.cpdf-atar-op');
         if (!ops.length) return;
-        atar.activo = (k + ops.length) % ops.length;
-        ops.forEach(function (op, n) { op.classList.toggle('activo', n === atar.activo); });
-        ops[atar.activo].scrollIntoView({ block: 'nearest' });
+        cpdfAtarEstado.activo = (k + ops.length) % ops.length;
+        ops.forEach(function (op, n) { op.classList.toggle('activo', n === cpdfAtarEstado.activo); });
+        ops[cpdfAtarEstado.activo].scrollIntoView({ block: 'nearest' });
     };
     // `texto` con los caracteres que difieren de `buscado` dentro de <mark>. Solo cuando tienen el
     // mismo largo (un carácter mal leído, no algo escrito a medias); O/0, I/1 y S/5 cuentan
@@ -613,9 +615,8 @@
         }
         return frag;
     };
-    var cpdfFecha = function (ymd) { return String(ymd || '').slice(0, 10).split('-').reverse().join('/'); };
     var cpdfAtarFila = function (eq, n) {
-        var o = atar.o, bloqueado = o.bloquearConBl && !!eq.bl;
+        var o = cpdfAtarEstado.o, bloqueado = o.bloquearConBl && !!eq.bl;
         var op = document.createElement('div');
         op.className = 'cpdf-atar-op' + (bloqueado ? ' bloqueado' : '');
         op.setAttribute('role', 'option');
@@ -628,7 +629,7 @@
         };
         // Serial (y placa / código) con el carácter que NO coincide con lo buscado marcado en rojo:
         // es lo que hay que comparar antes de atar. Solo si no es igual (distancia > 0).
-        var buscado = $a('cpdfAtarBuscar').value;
+        var buscado = cpdfAtarEl('cpdfAtarBuscar').value;
         var info = el('div', 'cpdf-atar-info');
         var l1 = el('div', 'cpdf-atar-l1');
         l1.appendChild(el('span', 'cpdf-atar-serial')).appendChild(cpdfAtarResaltar(eq.serial || ('Equipo #' + eq.id), eq.distancia > 0 ? buscado : ''));
@@ -640,14 +641,14 @@
         ident.appendChild(l1);
         var marcas = el('div', 'cpdf-atar-marcas');
         if (eq.distancia === -1) marcas.appendChild(el('span', 'cpdf-atar-et verde', 'Igual a lo leído'));
-        if (bloqueado) marcas.appendChild(el('span', 'cpdf-atar-et rojo', 'Ya está en el BL ' + eq.bl + (eq.bl_desde ? ' desde el ' + cpdfFecha(eq.bl_desde) : '')));
+        if (bloqueado) marcas.appendChild(el('span', 'cpdf-atar-et rojo', 'Ya está en el BL ' + eq.bl + (eq.bl_desde ? ' desde el ' + window.formatearFecha(eq.bl_desde) : '')));
         else if (eq.tiene) {
             // Ya tiene este documento: sus fechas, para ver si el PDF que se ata es el MISMO.
             var a = eq.actual || {}, f = o.fechas || {};
             var mismo = (a.emision || a.vence) && (a.emision || null) === (f.emision || null) && (a.vence || null) === (f.vence || null);
             marcas.appendChild(el('span', 'cpdf-atar-et ' + (mismo ? 'verde' : 'ambar'), mismo ? 'Ya tiene este mismo documento' : 'Ya tiene este documento'));
-            var datos = [a.emision && 'emitido el ' + cpdfFecha(a.emision), a.vence && 'vence el ' + cpdfFecha(a.vence),
-                         a.cargado && 'cargado el ' + cpdfFecha(a.cargado)].filter(Boolean).join(' · ');
+            var datos = [a.emision && 'emitido el ' + window.formatearFecha(a.emision), a.vence && 'vence el ' + window.formatearFecha(a.vence),
+                         a.cargado && 'cargado el ' + window.formatearFecha(a.cargado)].filter(Boolean).join(' · ');
             ident.appendChild(el('div', 'cpdf-atar-actual', datos ? 'El que tiene: ' + datos : 'El que tiene no lleva fechas en la ficha.'));
         } else if (o.tipo) {
             // Atando un documento (no un VIN): decir también cuando NO lo tiene, para no confundir
@@ -694,18 +695,18 @@
         return op;
     };
     var cpdfAtarBuscar = function () {
-        var q = $a('cpdfAtarBuscar').value.trim(), mio = ++atar.turno;
+        var q = cpdfAtarEl('cpdfAtarBuscar').value.trim(), mio = ++cpdfAtarEstado.turno;
         if (q.length < 3) { cpdfAtarAviso('Escribe al menos 3 caracteres del serial, la placa o el código.'); return; }
         cpdfAtarAviso('Buscando…');
         var url = @json(route('historial-documentos.carga-masiva.buscar-equipo')) + '?q=' + encodeURIComponent(q)
-            + (atar.o.tipo ? '&tipo=' + encodeURIComponent(atar.o.tipo) : '');
+            + (cpdfAtarEstado.o.tipo ? '&tipo=' + encodeURIComponent(cpdfAtarEstado.o.tipo) : '');
         window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
             .then(function (b) {
-                if (mio !== atar.turno || !atar.o) return;   // llegó una búsqueda más nueva o se cerró
+                if (mio !== cpdfAtarEstado.turno || !cpdfAtarEstado.o) return;   // llegó una búsqueda más nueva o se cerró
                 var equipos = (b && b.equipos) || [];
                 if (!equipos.length) { cpdfAtarAviso('Ningún equipo con ese serial, placa o código, ni parecido.'); return; }
-                var lista = $a('cpdfAtarLista');
+                var lista = cpdfAtarEl('cpdfAtarLista');
                 lista.textContent = '';
                 // Solo los MÁS CERCANOS (vienen ordenados): el igual a lo leído, o los que lo
                 // contienen, o el de menos caracteres distintos. El resto, detrás de un enlace,
@@ -738,38 +739,38 @@
                     lista.appendChild(ver);
                 }
                 // Queda elegida la primera que SÍ se puede atar (uno de otro BL no): así Enter ata.
-                cpdfAtarMarcar(Math.max(0, cerca.findIndex(function (eq) { return !(atar.o.bloquearConBl && eq.bl); })));
+                cpdfAtarMarcar(Math.max(0, cerca.findIndex(function (eq) { return !(cpdfAtarEstado.o.bloquearConBl && eq.bl); })));
             })
-            .catch(function () { if (mio === atar.turno) cpdfAtarAviso('No se pudo buscar. Inténtalo de nuevo.'); });
+            .catch(function () { if (mio === cpdfAtarEstado.turno) cpdfAtarAviso('No se pudo buscar. Inténtalo de nuevo.'); });
     };
-    window.cpdfAtarEscribe = function () { clearTimeout(atar.espera); atar.espera = setTimeout(cpdfAtarBuscar, 250); };
+    window.cpdfAtarEscribe = function () { clearTimeout(cpdfAtarEstado.espera); cpdfAtarEstado.espera = setTimeout(cpdfAtarBuscar, 250); };
     window.cpdfAtarTecla = function (ev) {
-        if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); cpdfAtarMarcar(atar.activo + (ev.key === 'ArrowDown' ? 1 : -1)); }
+        if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); cpdfAtarMarcar(cpdfAtarEstado.activo + (ev.key === 'ArrowDown' ? 1 : -1)); }
         else if (ev.key === 'Enter') {
             ev.preventDefault();
-            var op = $a('cpdfAtarLista').querySelectorAll('.cpdf-atar-op')[atar.activo];
+            var op = cpdfAtarEl('cpdfAtarLista').querySelectorAll('.cpdf-atar-op')[cpdfAtarEstado.activo];
             if (op) op._elegir();
         }
     };
     window.cpdfAbrirAtar = function (o) {
-        atar.o = o;
-        $a('cpdfAtarDoc').textContent = o.doc;
-        $a('cpdfAtarArchivo').textContent = o.archivo || '';
-        $a('cpdfAtarLeidoEti').textContent = o.leidoEti;
-        $a('cpdfAtarLeido').textContent = o.leido || '';
+        cpdfAtarEstado.o = o;
+        cpdfAtarEl('cpdfAtarDoc').textContent = o.doc;
+        cpdfAtarEl('cpdfAtarArchivo').textContent = o.archivo || '';
+        cpdfAtarEl('cpdfAtarLeidoEti').textContent = o.leidoEti;
+        cpdfAtarEl('cpdfAtarLeido').textContent = o.leido || '';
         var f = o.fechas || {};
-        $a('cpdfAtarFechas').textContent = [f.emision && 'Emisión ' + cpdfFecha(f.emision), f.vence && 'Vence ' + cpdfFecha(f.vence)]
+        cpdfAtarEl('cpdfAtarFechas').textContent = [f.emision && 'Emisión ' + window.formatearFecha(f.emision), f.vence && 'Vence ' + window.formatearFecha(f.vence)]
             .filter(Boolean).join(' · ');
-        var campo = $a('cpdfAtarBuscar');
+        var campo = cpdfAtarEl('cpdfAtarBuscar');
         campo.value = o.inicial || '';
-        $a('cpdfAtarModal').hidden = false;
+        cpdfAtarEl('cpdfAtarModal').hidden = false;
         campo.focus(); campo.select();
         cpdfAtarBuscar();
     };
     window.cpdfCerrarAtar = function () {
-        var m = $a('cpdfAtarModal');
+        var m = cpdfAtarEl('cpdfAtarModal');
         if (m) m.hidden = true;
-        atar.o = null; atar.turno++; clearTimeout(atar.espera);
+        cpdfAtarEstado.o = null; cpdfAtarEstado.turno++; clearTimeout(cpdfAtarEstado.espera);
     };
     // Esc cierra el modal. En document y UNA vez: la vista se vuelve a ejecutar en cada visita.
     if (!window.__cpdfAtarEscBound) {
