@@ -299,7 +299,7 @@
     }
     /* ── Pestañas de Control de Auditoría: Historial · Compresión · Documentos ──
        Las dos ultimas las pinta admin/compresion_pdf/panel.blade.php. */
-    .hd-pest-fila { width: 98%; max-width: 1600px; margin: -6px auto 14px; }
+    .hd-pest-fila { width: 98%; max-width: 1600px; margin: 0 auto 14px; }
     .hd-pest { display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0; min-width: 0; }
     .hd-pest button { border: none; background: none; font: inherit; font-size: 14.5px; font-weight: 700; color: #64748b;
                       padding: 8px 14px; border-bottom: 3px solid transparent; cursor: pointer; }

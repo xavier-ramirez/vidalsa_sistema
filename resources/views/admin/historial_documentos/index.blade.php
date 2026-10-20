@@ -5,16 +5,7 @@
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_historial_documentos_index.css') }}?v={{ @filemtime(public_path('css/vistas/admin_historial_documentos_index.css')) }}">
 
-@include('admin.partials.page_header', [
-    'titulo'       => 'Auditoría de Documentos',
-    'tituloEstilo' => 'margin:0;',
-    'align'        => 'left',
-    'margin'       => '0 auto 16px auto',
-    'padding'      => '0',
-    'extra'        => 'width:98%;max-width:1600px;',
-    'h1Estilo'     => 'display:flex;align-items:center;gap:12px;font-size:24px;',
-])
-
+{{-- Sin título de página: las pestañas ya dicen dónde se está (pedido del cliente, 19-10-2026). --}}
 <div class="hd-pest-fila">
     <div class="hd-pest">
     {{-- Quien entra solo por la carga masiva ve solo "Revisión de documentos" (ver
