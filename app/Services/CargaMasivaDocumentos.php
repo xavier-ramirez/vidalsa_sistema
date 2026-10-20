@@ -1106,26 +1106,36 @@ class CargaMasivaDocumentos
     }
 
     /**
-     * Fichas para atar un VIN que falta (o lo que se escriba): las que contienen lo buscado en
-     * su serial, placa o codigo, y las de serial PARECIDO —uno o dos caracteres distintos, como
-     * el digito de control de un VIN mal copiado—. Primero lo mas parecido. Cada una dice si ya
-     * esta en un embarque.
+     * Fichas para atar a mano un VIN que falta o un PDF sin enlazar (lo que se escriba en el
+     * modal): las que contienen lo buscado en su serial, placa o codigo, y las de serial o placa
+     * PARECIDOS —uno o dos caracteres distintos, como un digito de control mal copiado o una
+     * letra mal leida—. Primero lo mas parecido. Cada una dice su tipo y frente, si ya esta en un
+     * embarque y, con $tipo, si ya tiene ese documento.
      */
-    public function buscarEquipo(string $buscado): array
+    public function buscarEquipo(string $buscado, ?string $tipo = null): array
     {
         $cod = $this->lector->codigo($buscado);
         if (strlen($cod) < 3) return [];
 
         $serial = self::sqlCodigo('e.SERIAL_CHASIS');
+        $placa = self::sqlCodigo('d.PLACA');
         $filas = $this->consulta()->addSelect('e.CODIGO_PATIO')
-            ->where(function ($w) use ($cod, $serial) {
+            // Para elegir bien en la lista: de que tipo es y en que frente esta.
+            ->addSelect(DB::raw('(SELECT t.nombre FROM tipo_equipos t WHERE t.id = e.id_tipo_equipo) as TIPO_EQUIPO'))
+            ->addSelect(DB::raw('(SELECT f.NOMBRE_FRENTE FROM frentes_trabajo f WHERE f.ID_FRENTE = e.ID_FRENTE_ACTUAL) as FRENTE'))
+            ->where(function ($w) use ($cod, $serial, $placa) {
                 $w->whereRaw("$serial LIKE ?", ['%' . $cod . '%'])
-                  ->orWhereRaw(self::sqlCodigo('d.PLACA') . ' LIKE ?', ['%' . $cod . '%'])
+                  ->orWhereRaw("$placa LIKE ?", ['%' . $cod . '%'])
                   ->orWhereRaw(self::sqlCodigo('e.CODIGO_PATIO') . ' LIKE ?', ['%' . $cod . '%']);
                 // Un VIN con un caracter cambiado comparte el principio o el final.
                 if (strlen($cod) >= 10) {
                     $w->orWhereRaw("$serial LIKE ?", [substr($cod, 0, 8) . '%'])
                       ->orWhereRaw("$serial LIKE ?", ['%' . substr($cod, -6)]);
+                }
+                // Y una placa mal leida (6 o 7 caracteres), su principio o su final.
+                if (strlen($cod) >= 5 && strlen($cod) <= 9) {
+                    $w->orWhereRaw("$placa LIKE ?", [substr($cod, 0, 4) . '%'])
+                      ->orWhereRaw("$placa LIKE ?", ['%' . substr($cod, -4)]);
                 }
             })
             // Primero lo que contiene lo buscado, luego lo que comparte el FINAL (el numero de
@@ -1140,19 +1150,27 @@ class CargaMasivaDocumentos
         return $filas
             ->map(function ($f) use ($cod) {
                 $suyo = $this->lector->codigo((string) $f->SERIAL_CHASIS);
-                $contiene = $suyo !== '' && str_contains($suyo, $cod)
-                    || str_contains($this->lector->codigo((string) $f->PLACA), $cod)
-                    || str_contains($this->lector->codigo((string) $f->CODIGO_PATIO), $cod);
-                return [$f, $contiene ? 0 : levenshtein($cod, $suyo)];
+                $suPlaca = $this->lector->codigo((string) $f->PLACA);
+                if ($suyo !== '' && str_contains($suyo, $cod) || $suPlaca !== '' && str_contains($suPlaca, $cod)
+                    || str_contains($this->lector->codigo((string) $f->CODIGO_PATIO), $cod)) {
+                    return [$f, 0];
+                }
+                // Parecido: hasta 3 caracteres distintos en el serial (17) y hasta 2 en la placa (6-7).
+                $porSerial = $suyo !== '' ? levenshtein($cod, $suyo) : PHP_INT_MAX;
+                $porPlaca = $suPlaca !== '' ? levenshtein($cod, $suPlaca) : PHP_INT_MAX;
+                return [$f, min($porSerial <= 3 ? $porSerial : PHP_INT_MAX, $porPlaca <= 2 ? $porPlaca : PHP_INT_MAX)];
             })
-            ->filter(fn ($par) => $par[1] <= 3)
+            ->filter(fn ($par) => $par[1] !== PHP_INT_MAX)
             ->sortBy(fn ($par) => $par[1])
             ->take(8)
             ->map(fn ($par) => [
                 'id' => (int) $par[0]->ID_EQUIPO, 'serial' => $par[0]->SERIAL_CHASIS, 'placa' => $par[0]->PLACA,
                 'codigo' => $par[0]->CODIGO_PATIO,
                 'nombre' => trim(($par[0]->MARCA ?? '') . ' ' . ($par[0]->MODELO ?? '')) ?: ('Equipo #' . $par[0]->ID_EQUIPO),
+                'tipo' => $par[0]->TIPO_EQUIPO, 'frente' => $par[0]->FRENTE,
                 'bl' => $par[0]->ID_EMBARQUE ? ($nros[$par[0]->ID_EMBARQUE] ?? 'sin numero') : null,
+                // Si ya tiene ESTE documento (al atarlo se pregunta antes de reemplazarlo).
+                'tiene' => $tipo !== null && !empty($this->ficha($par[0])['links'][$tipo]),
             ])
             ->values()->all();
     }

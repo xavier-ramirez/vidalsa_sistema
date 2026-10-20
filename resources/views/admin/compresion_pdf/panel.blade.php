@@ -225,7 +225,7 @@
                                         <div class="cpdf-vin-falta">
                                             <span>Sin enlazar</span>
                                             <button type="button" class="cpdf-vin-btn"
-                                                onclick="event.stopPropagation(); window.cpdfAtarDocumento(this, @js($d->PROPUESTA['link']), @js($d->SERIAL ?: $d->PLACA ?: ''))">Atar a un equipo</button>
+                                                onclick="event.stopPropagation(); window.cpdfAtarDocumento(@js($d->PROPUESTA['link']), @js($d->SERIAL ?: $d->PLACA ?: ''), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js($d->ARCHIVO))">Atar a un equipo</button>
                                         </div>
                                     @endcan
                                 @endif
@@ -238,7 +238,7 @@
                                             <div class="cpdf-vin-falta">
                                                 <span>Falta el VIN <b>{{ $vin }}</b></span>
                                                 <button type="button" class="cpdf-vin-btn"
-                                                    onclick="event.stopPropagation(); window.cpdfAtarVin(this, @js($d->PROPUESTA['link']), @js($vin))">Atar a un equipo</button>
+                                                    onclick="event.stopPropagation(); window.cpdfAtarVin(@js($d->PROPUESTA['link']), @js($vin), @js($d->ARCHIVO))">Atar a un equipo</button>
                                             </div>
                                         @endforeach
                                     @endcan
@@ -475,7 +475,11 @@
         @endif
     </aside>
 </div>
-
+@if ($pestana === 'documentos')
+    @can('docs.carga.masiva')
+        @include('admin.compresion_pdf.partials.atar_modal')
+    @endcan
+@endif
 <script>
     // Arma la URL con los filtros puestos y la abre por la SPA (sin recargar la página).
     // Se redefine en cada visita: es solo una asignación, no suma listeners.
@@ -588,103 +592,167 @@
     // Lo que coincide se enlaza solo al leerlo (no hay botón de Aplicar). Aquí se descarta y se
     // ata a mano el VIN de un BL que no casó con ninguna ficha.
     @can('docs.carga.masiva')
-    // Buscador de equipos en la misma fila (serial, placa o código; salen primero los seriales
-    // parecidos). Lo usan atar un VIN del BL y atar un PDF sin enlazar: `atar(eq, boton)` hace el
-    // POST de cada uno. Uno que ya está en un embarque solo se bloquea al atar un VIN.
-    var cpdfBuscarEquipo = function (btn, inicial, bloquearConBl, atar) {
-        var caja = btn.parentNode;
-        if (caja.querySelector('.cpdf-vin-buscar')) return;
-        btn.hidden = true;
-        var zona = document.createElement('div');
-        zona.className = 'cpdf-vin-buscar';
-        var campo = document.createElement('input');
-        campo.type = 'search';
-        campo.value = inicial;
-        campo.placeholder = 'Serial, placa o código';
-        var lista = document.createElement('div');
-        lista.className = 'cpdf-vin-lista';
-        zona.appendChild(campo);
-        zona.appendChild(lista);
-        caja.appendChild(zona);
-        zona.addEventListener('click', function (e) { e.stopPropagation(); });
-
-        var turno = 0, espera = null;
-        function aviso(texto) {
-            lista.textContent = '';
-            var p = document.createElement('div');
-            p.className = 'cpdf-vin-nada';
-            p.textContent = texto;
-            lista.appendChild(p);
-        }
-        function buscar() {
-            var q = campo.value.trim(), mio = ++turno;
-            if (q.length < 3) { aviso('Escribe al menos 3 caracteres.'); return; }
-            aviso('Buscando…');
-            window.apiFetch(@json(route('historial-documentos.carga-masiva.buscar-equipo')) + '?q=' + encodeURIComponent(q),
-                { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(function (r) { return r.json(); })
-                .then(function (b) {
-                    if (mio !== turno) return;           // llegó una búsqueda más nueva
-                    var equipos = (b && b.equipos) || [];
-                    if (!equipos.length) { aviso('No se encontró ningún equipo parecido.'); return; }
-                    lista.textContent = '';
-                    equipos.forEach(function (eq) {
-                        var fila = document.createElement('div');
-                        fila.className = 'cpdf-vin-op';
-                        var txt = document.createElement('span');
-                        // textContent: los datos vienen de la base, no se interpretan como HTML.
-                        txt.textContent = eq.serial + (eq.placa ? ' · ' + eq.placa : '') + (eq.codigo ? ' · ' + eq.codigo : '') + ' — ' + eq.nombre
-                            + (bloquearConBl && eq.bl ? ' (ya está en el BL ' + eq.bl + ')' : '');
-                        var boton = document.createElement('button');
-                        boton.type = 'button';
-                        boton.textContent = 'Atar';
-                        // Uno que ya está en un embarque no se mueve desde aquí (el servidor tampoco lo hace).
-                        boton.disabled = bloquearConBl && !!eq.bl;
-                        boton.addEventListener('click', function () { boton.disabled = true; atar(eq, boton); });
-                        fila.appendChild(txt);
-                        fila.appendChild(boton);
-                        lista.appendChild(fila);
-                    });
-                })
-                .catch(function () { if (mio === turno) aviso('No se pudo buscar. Inténtalo de nuevo.'); });
-        }
-        campo.addEventListener('input', function () { clearTimeout(espera); espera = setTimeout(buscar, 300); });
-        campo.focus();
-        buscar();
+    // ── Atar a un equipo (modal partials/atar_modal) ────────────────────────────────
+    // Lo usan atar un PDF sin enlazar y atar un VIN del BL. `o` trae lo que se muestra (doc,
+    // archivo, leido), con qué arranca el buscador (inicial), el tipo de documento (para avisar
+    // de las fichas que ya lo tienen), si un equipo de otro BL se bloquea, y atar(eq, ui), que
+    // hace el POST. ui deja a quien ata marcar la fila ocupada, avisar un error o pedir reemplazo.
+    var atar = { o: null, turno: 0, espera: null, equipos: [], activo: -1 };
+    var $a = function (id) { return document.getElementById(id); };
+    var cpdfAtarAviso = function (texto) {
+        var lista = $a('cpdfAtarLista');
+        lista.textContent = '';
+        var p = document.createElement('div');
+        p.className = 'cpdf-atar-nada';
+        p.textContent = texto;
+        lista.appendChild(p);
+        atar.equipos = []; atar.activo = -1;
     };
+    var cpdfAtarMarcar = function (k) {
+        var ops = $a('cpdfAtarLista').querySelectorAll('.cpdf-atar-op');
+        if (!ops.length) return;
+        atar.activo = (k + ops.length) % ops.length;
+        ops.forEach(function (op, n) { op.classList.toggle('activo', n === atar.activo); });
+        ops[atar.activo].scrollIntoView({ block: 'nearest' });
+    };
+    var cpdfAtarFila = function (eq, n) {
+        var o = atar.o, bloqueado = o.bloquearConBl && !!eq.bl;
+        var op = document.createElement('div');
+        op.className = 'cpdf-atar-op' + (bloqueado ? ' bloqueado' : '');
+        op.setAttribute('role', 'option');
+        // textContent en todo: los datos vienen de la base y no se interpretan como HTML.
+        var info = document.createElement('div');
+        info.className = 'cpdf-atar-info';
+        var l1 = document.createElement('div');
+        l1.className = 'cpdf-atar-l1';
+        l1.textContent = [eq.serial, eq.placa, eq.codigo].filter(Boolean).join(' · ') || ('Equipo #' + eq.id);
+        var l2 = document.createElement('div');
+        l2.className = 'cpdf-atar-l2';
+        l2.textContent = eq.nombre + [eq.tipo, eq.frente].filter(Boolean).map(function (x) { return ' · ' + x; }).join('');
+        info.appendChild(l1); info.appendChild(l2);
+        if (bloqueado || eq.tiene) {
+            var et = document.createElement('div');
+            et.className = 'cpdf-atar-et' + (bloqueado ? ' rojo' : '');
+            et.textContent = bloqueado ? 'Ya está en el BL ' + eq.bl : 'Ya tiene este documento: se pedirá reemplazarlo';
+            info.appendChild(et);
+        }
+        var boton = document.createElement('button');
+        boton.type = 'button';
+        boton.className = 'cpdf-atar-btn';
+        boton.textContent = 'Atar';
+        boton.disabled = bloqueado;   // uno que ya está en un embarque no se mueve desde aquí (el servidor tampoco)
+        op.appendChild(info); op.appendChild(boton);
+        var ui = {
+            ocupado: function (si) { boton.disabled = si || bloqueado; boton.textContent = si ? 'Atando…' : 'Atar'; },
+            error: function (msg) {
+                ui.ocupado(false);
+                var viejo = op.querySelector('.cpdf-atar-err'); if (viejo) viejo.remove();
+                var e = document.createElement('div'); e.className = 'cpdf-atar-err'; e.textContent = msg;
+                info.appendChild(e);
+            },
+            // La ficha ya tiene ese documento: se pregunta en la propia fila (sin ventana del navegador).
+            pedirReemplazo: function (msg, si) {
+                ui.ocupado(false);
+                if (op.querySelector('.cpdf-atar-pisar')) return;
+                var caja = document.createElement('div'); caja.className = 'cpdf-atar-pisar';
+                var t = document.createElement('span'); t.textContent = (msg || 'Esa ficha ya tiene ese documento.') + ' ¿Reemplazarlo por este PDF?';
+                var b1 = document.createElement('button'); b1.type = 'button'; b1.className = 'cpdf-atar-btn rojo'; b1.textContent = 'Reemplazar';
+                var b2 = document.createElement('button'); b2.type = 'button'; b2.className = 'cpdf-atar-btn gris'; b2.textContent = 'No';
+                b1.addEventListener('click', function (ev) { ev.stopPropagation(); caja.remove(); ui.ocupado(true); si(); });
+                b2.addEventListener('click', function (ev) { ev.stopPropagation(); caja.remove(); });
+                caja.appendChild(t); caja.appendChild(b1); caja.appendChild(b2);
+                info.appendChild(caja);
+            }
+        };
+        var elegir = function () { if (boton.disabled) return; ui.ocupado(true); o.atar(eq, ui); };
+        boton.addEventListener('click', function (ev) { ev.stopPropagation(); elegir(); });
+        op.addEventListener('click', function () { cpdfAtarMarcar(n); });
+        op._elegir = elegir;
+        return op;
+    };
+    var cpdfAtarBuscar = function () {
+        var q = $a('cpdfAtarBuscar').value.trim(), mio = ++atar.turno;
+        if (q.length < 3) { cpdfAtarAviso('Escribe al menos 3 caracteres del serial, la placa o el código.'); return; }
+        cpdfAtarAviso('Buscando…');
+        var url = @json(route('historial-documentos.carga-masiva.buscar-equipo')) + '?q=' + encodeURIComponent(q)
+            + (atar.o.tipo ? '&tipo=' + encodeURIComponent(atar.o.tipo) : '');
+        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (b) {
+                if (mio !== atar.turno || !atar.o) return;   // llegó una búsqueda más nueva o se cerró
+                var equipos = (b && b.equipos) || [];
+                if (!equipos.length) { cpdfAtarAviso('Ningún equipo con ese serial, placa o código, ni parecido.'); return; }
+                var lista = $a('cpdfAtarLista');
+                lista.textContent = '';
+                atar.equipos = equipos;
+                equipos.forEach(function (eq, n) { lista.appendChild(cpdfAtarFila(eq, n)); });
+                cpdfAtarMarcar(0);
+            })
+            .catch(function () { if (mio === atar.turno) cpdfAtarAviso('No se pudo buscar. Inténtalo de nuevo.'); });
+    };
+    window.cpdfAtarEscribe = function () { clearTimeout(atar.espera); atar.espera = setTimeout(cpdfAtarBuscar, 250); };
+    window.cpdfAtarTecla = function (ev) {
+        if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); cpdfAtarMarcar(atar.activo + (ev.key === 'ArrowDown' ? 1 : -1)); }
+        else if (ev.key === 'Enter') {
+            ev.preventDefault();
+            var op = $a('cpdfAtarLista').querySelectorAll('.cpdf-atar-op')[atar.activo];
+            if (op) op._elegir();
+        }
+    };
+    window.cpdfAbrirAtar = function (o) {
+        atar.o = o;
+        $a('cpdfAtarDoc').textContent = o.doc;
+        $a('cpdfAtarArchivo').textContent = o.archivo || '';
+        $a('cpdfAtarLeido').textContent = o.leido || '';
+        var campo = $a('cpdfAtarBuscar');
+        campo.value = o.inicial || '';
+        $a('cpdfAtarModal').hidden = false;
+        campo.focus(); campo.select();
+        cpdfAtarBuscar();
+    };
+    window.cpdfCerrarAtar = function () {
+        var m = $a('cpdfAtarModal');
+        if (m) m.hidden = true;
+        atar.o = null; atar.turno++; clearTimeout(atar.espera);
+    };
+    // Esc cierra el modal. En document y UNA vez: la vista se vuelve a ejecutar en cada visita.
+    if (!window.__cpdfAtarEscBound) {
+        window.__cpdfAtarEscBound = true;
+        document.addEventListener('keydown', function (e) {
+            var m = document.getElementById('cpdfAtarModal');
+            if (e.key === 'Escape' && m && !m.hidden) window.cpdfCerrarAtar();
+        });
+    }
 
-    var cpdfAtado = function (r) { window.toast(r.message || 'Atado', 'success'); window.cpdfFiltrar(); };
+    var cpdfAtado = function (r) { window.cpdfCerrarAtar(); window.toast(r.message || 'Atado', 'success'); window.cpdfFiltrar(); };
 
     // Atar un VIN del BL que falta: el buscador arranca con el propio VIN.
-    window.cpdfAtarVin = function (btn, link, vin) {
-        cpdfBuscarEquipo(btn, vin, true, function (eq, boton) {
-            window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-vin')),
-                { link: link, vin: vin, id_equipo: eq.id }, 'No se pudo atar.')
-                .then(cpdfAtado)
-                .catch(function (e) { boton.disabled = false; window.toast((e && e.message) || 'No se pudo atar', 'error'); });
-        });
+    window.cpdfAtarVin = function (link, vin, archivo) {
+        window.cpdfAbrirAtar({ doc: 'Documento de embarque (BL)', archivo: archivo, leido: 'VIN que falta: ' + vin,
+            inicial: vin, tipo: null, bloquearConBl: true, atar: function (eq, ui) {
+                window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-vin')),
+                    { link: link, vin: vin, id_equipo: eq.id }, 'No se pudo atar.')
+                    .then(cpdfAtado)
+                    .catch(function (e) { ui.error((e && e.message) || 'No se pudo atar.'); });
+            } });
     };
 
     // Atar un PDF que no se enlazó solo a la ficha elegida. Si esa ficha ya tiene ese documento,
-    // se pregunta antes de reemplazarlo (el servidor responde requiere_pisar).
-    window.cpdfAtarDocumento = function (btn, link, inicial) {
-        cpdfBuscarEquipo(btn, inicial, false, function (eq, boton) {
-            var enviar = function (reemplazar) {
-                window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-documento')),
-                    { link: link, id_equipo: eq.id, reemplazar: reemplazar ? 1 : '' }, 'No se pudo atar.')
-                    .then(cpdfAtado)
-                    .catch(function (e) {
-                        if (e && e.requiere_pisar && !reemplazar
-                            && window.confirm((e.message || 'Esa ficha ya tiene ese documento.') + '\n\n¿Reemplazarlo por este PDF?')) {
-                            enviar(true);
-                            return;
-                        }
-                        boton.disabled = false;
-                        window.toast((e && e.message) || 'No se pudo atar', 'error');
-                    });
-            };
-            enviar(false);
-        });
+    // el servidor responde requiere_pisar y se pregunta en la fila antes de reemplazarlo.
+    window.cpdfAtarDocumento = function (link, inicial, tipo, doc, archivo) {
+        window.cpdfAbrirAtar({ doc: doc, archivo: archivo, leido: inicial ? 'Se leyó: ' + inicial : 'No se leyó placa ni serial',
+            inicial: inicial, tipo: tipo, bloquearConBl: false, atar: function (eq, ui) {
+                var enviar = function (reemplazar) {
+                    window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-documento')),
+                        { link: link, id_equipo: eq.id, reemplazar: reemplazar ? 1 : '' }, 'No se pudo atar.')
+                        .then(cpdfAtado)
+                        .catch(function (e) {
+                            if (e && e.requiere_pisar && !reemplazar) { ui.pedirReemplazo(e.message, function () { enviar(true); }); return; }
+                            ui.error((e && e.message) || 'No se pudo atar.');
+                        });
+                };
+                enviar(false);
+            } });
     };
 
     // Descartar lo subido y no aplicado: el PDF se va a la PAPELERA de Drive (se recupera con

@@ -106,9 +106,10 @@ class CargaMasivaDocumentosController extends Controller
     public function buscarEquipo(Request $request)
     {
         $this->autorizar();
-        $q = (string) $request->validate(['q' => 'required|string|max:60'])['q'];
+        $datos = $request->validate(['q' => 'required|string|max:60', 'tipo' => 'nullable|string|max:30']);
 
-        return response()->json(['success' => true, 'equipos' => $this->servicio->buscarEquipo($q)]);
+        return response()->json(['success' => true,
+            'equipos' => $this->servicio->buscarEquipo((string) $datos['q'], $datos['tipo'] ?? null)]);
     }
 
     /** Ata a mano un VIN del BL que no caso con ninguna ficha a la que la persona eligio. */

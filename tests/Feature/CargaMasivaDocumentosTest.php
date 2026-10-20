@@ -959,14 +959,33 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de varias unidades: se enlaza solo a cada una; no se ata a una sola.']);
     }
 
-    /** El JavaScript del panel (con el buscador comun de atar) no tiene errores de sintaxis. */
+    /**
+     * Al atar, el buscador sugiere tambien por una PLACA mal leida (un caracter distinto), dice el
+     * tipo y el frente de cada equipo y avisa si ya tiene ese documento.
+     */
+    public function test_el_buscador_de_atar_sugiere_por_placa_parecida_y_avisa_si_ya_lo_tiene(): void
+    {
+        $placa = 'Q' . strtoupper(substr(md5(uniqid()), 0, 5)) . 'Z';
+        $e = $this->equipo(['PLACA' => $placa, 'LINK_POLIZA_SEGURO' => '/storage/google/poliza-vieja']);
+        $mal = substr($placa, 0, -1) . 'X';   // la ultima letra mal leida
+
+        $hallado = collect($this->servicio()->buscarEquipo($mal, 'poliza'))->firstWhere('id', $e->ID_EQUIPO);
+        $this->assertNotNull($hallado, 'Una placa con un caracter distinto se sugiere.');
+        $this->assertTrue($hallado['tiene'], 'Ya tiene poliza.');
+        $this->assertArrayHasKey('tipo', $hallado);
+        $this->assertArrayHasKey('frente', $hallado);
+        $this->assertFalse(collect($this->servicio()->buscarEquipo($mal, 'rotc'))->firstWhere('id', $e->ID_EQUIPO)['tiene']);
+    }
+
+    /** El JavaScript del panel (con el modal de atar) no tiene errores de sintaxis. */
     public function test_el_javascript_del_panel_es_valido(): void
     {
         $this->actingAs($this->usuario());
         $html = $this->get(route('historial-documentos.index', ['pestana' => 'documentos']))->assertOk()->getContent();
         preg_match_all('~<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>~is', $html, $m);
         $js = implode(";\n", array_filter(array_map('trim', $m[1])));
-        $this->assertStringContainsString('cpdfBuscarEquipo', $js);
+        $this->assertStringContainsString('window.cpdfAbrirAtar', $js);
+        $this->assertStringContainsString('id="cpdfAtarModal"', $html);
         $archivo = tempnam(sys_get_temp_dir(), 'cpdf') . '.js';
         file_put_contents($archivo, $js);
         exec('node --check ' . escapeshellarg($archivo) . ' 2>&1', $salida, $codigo);
