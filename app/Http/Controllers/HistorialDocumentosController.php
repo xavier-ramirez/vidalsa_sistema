@@ -174,10 +174,10 @@ class HistorialDocumentosController extends Controller
             'Registro de Vehículo'  => 'Registro de Vehículo',
             'Edición de Datos'      => 'Edición de Datos',
             // Los cambios de ESTATUS se separan a partir del diff; antes caian en "Edicion de
-            // Datos" y no habia forma de pedirle al historial que equipos se pararon.
-            'Cambio de Estado'      => 'Cambio de Estado',
-            'Desincorporación'      => 'Desincorporación',
-            'Reincorporación'       => 'Reincorporación',
+            // Datos" y no habia forma de pedirle al historial que equipos se pararon. Una sola
+            // opcion para los tres (pedido del cliente, 19-10-2026): cada fila sigue diciendo
+            // cual fue (ver ESTADOS).
+            'cat_estado'            => 'Cambio de Estado',
             'Detalle Masivo'        => 'Detalle Masivo',
             'Eliminación de Equipo' => 'Eliminación de Equipo',
         ],
@@ -194,6 +194,9 @@ class HistorialDocumentosController extends Controller
         ],
     ];
 
+    /** Lo que dice la fila de un cambio de ESTADO_OPERATIVO; el filtro 'cat_estado' toma los tres. */
+    private const ESTADOS = ['cambio' => 'Cambio de Estado', 'desincorporar' => 'Desincorporación', 'reincorporar' => 'Reincorporación'];
+
     /** doc_key de las subidas del flujo viejo (una por documento): cuentan como 'cat_uploads'. */
     private const SUBIDAS_LEGACY = ['propiedad', 'poliza', 'rotc', 'racda', 'adicional', 'adicional_2'];
 
@@ -207,7 +210,7 @@ class HistorialDocumentosController extends Controller
      * ¿El evento es de esa accion del filtro? Los 'cat_*' agrupan los doc_key de cada accion de
      * documentos; cualquier otro valor (acciones del equipo o enlaces viejos con la etiqueta
      * exacta) casa por el texto del tipo. La usan el filtro y el resumen lateral; este pasa los
-     * dos textos ya normalizados (quitar acentos es lo caro: 17 acciones x miles de eventos).
+     * dos textos ya normalizados (quitar acentos es lo caro: 12 acciones x miles de eventos).
      */
     private static function esDeTipo(object $event, string $tipo, ?string $textoTipo = null, ?string $buscado = null): bool
     {
@@ -219,6 +222,7 @@ class HistorialDocumentosController extends Controller
             'cat_borrados'  => $empieza('delete_', 'aux_delete_'),
             // con_metadata: subida que absorbio los datos guardados con ella.
             'cat_metadatos' => $empieza('metadata_') || !empty($event->con_metadata),
+            'cat_estado'    => in_array($event->tipo ?? '', self::ESTADOS, true),
             default         => strpos($textoTipo ?? self::normal($event->tipo ?? ''), $buscado ?? self::normal($tipo)) !== false,
         };
     }
@@ -910,9 +914,9 @@ class HistorialDocumentosController extends Controller
                     $estAntes   = mb_strtoupper(trim((string) ($cambiosRaw['ESTADO_OPERATIVO']['antes'] ?? '')));
                     $estDespues = mb_strtoupper(trim((string) ($cambiosRaw['ESTADO_OPERATIVO']['despues'] ?? '')));
                     $tipoLabel  = match (true) {
-                        $estDespues === 'DESINCORPORADO' => 'Desincorporación',
-                        $estAntes   === 'DESINCORPORADO' => 'Reincorporación',
-                        default                          => 'Cambio de Estado',
+                        $estDespues === 'DESINCORPORADO' => self::ESTADOS['desincorporar'],
+                        $estAntes   === 'DESINCORPORADO' => self::ESTADOS['reincorporar'],
+                        default                          => self::ESTADOS['cambio'],
                     };
                 }
 

@@ -162,6 +162,25 @@ class HistorialDocumentosTest extends MySqlTestCase
         $this->assertArrayNotHasKey('cat_anexos', HistorialDocumentosController::TIPOS_ACCION['Documentos']);
     }
 
+    /** "Cambio de Estado" es UNA opción del filtro y trae los tres; cada fila dice cuál fue. */
+    public function test_cambio_de_estado_junta_desincorporacion_y_reincorporacion(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        [$id, $placa] = $this->equipoConRacda($yo, now()->subMinutes(5));
+        foreach ([['OPERATIVO', 'INOPERATIVO'], ['INOPERATIVO', 'DESINCORPORADO'], ['DESINCORPORADO', 'OPERATIVO']] as [$antes, $despues]) {
+            EquipoAuditLog::registrar($id, 'edit', ['ESTADO_OPERATIVO' => ['antes' => $antes, 'despues' => $despues]]);
+        }
+        $this->versionUnica();
+
+        $estado = $this->filas($yo, ['search_tipo' => 'cat_estado', 'search_equipo' => $placa]);
+        $this->assertSame(3, $estado['total']);
+        foreach (['Cambio de Estado', 'Desincorporación', 'Reincorporación'] as $rotulo) {
+            $this->assertStringContainsString($rotulo, $estado['html']);
+        }
+        $this->assertSame(['Registro de Vehículo', 'Edición de Datos', 'Cambio de Estado', 'Detalle Masivo', 'Eliminación de Equipo'],
+            array_values(HistorialDocumentosController::TIPOS_ACCION['Sobre el equipo']));
+    }
+
     /**
      * Las tres pestañas abren y cada una trae el botón Acciones UNA vez: vive en la fila de
      * filtros, que el Historial pinta en su vista y las otras dos en compresion_pdf/panel.
