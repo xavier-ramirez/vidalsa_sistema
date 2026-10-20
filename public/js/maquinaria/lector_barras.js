@@ -104,17 +104,15 @@
             if (reader) reader.style.display = '';
             if (hint) hint.textContent = 'Iniciando cámara…';
             // Recuadro ANCHO y bajo, a la forma de un código de barras (un 90 % del ancho del
-            // video y un 40 % de alto). La cámara se pide en ALTA resolución y con enfoque
-            // continuo: con lo que da por defecto (640×480, foco fijo) las barras finas de la
-            // etiqueta llegaban borrosas. `fuente` es la cámara: facingMode o un deviceId.
+            // video y un 40 % de alto). La cámara se pide en ALTA resolución: con la que da por
+            // defecto (640×480) las barras finas de la etiqueta llegaban borrosas; el enfoque y
+            // el zoom se ajustan después (afinarCamara). `fuente` es la cámara: facingMode o un
+            // deviceId.
             var conf   = function (fuente) {
                 return {
                     fps: 15,
                     qrbox: function (w, h) { return { width: Math.floor(w * 0.9), height: Math.floor(Math.min(w, h) * 0.4) }; },
-                    videoConstraints: Object.assign({
-                        width: { ideal: 1920 }, height: { ideal: 1080 },
-                        advanced: [{ focusMode: 'continuous' }]
-                    }, fuente)
+                    videoConstraints: Object.assign({ width: { ideal: 1920 }, height: { ideal: 1080 } }, fuente)
                 };
             };
             var onOk   = function (texto) { resolver(texto); };
@@ -158,19 +156,21 @@
         });
     }
 
-    // Ya con la cámara abierta, lo que el teléfono soporte: enfoque continuo (algunos lo
-    // ignoran al pedirlo de entrada y solo lo toman así) y un zoom de 1,5×, para leer la
-    // etiqueta sin acercar tanto el teléfono — de cerca, por debajo de la distancia mínima
-    // de enfoque de la cámara, es justo cuando sale borrosa. Lo que no soporte, se omite.
+    // Ya con la cámara abierta, lo que el teléfono soporte (se pregunta a la cámara, así no se
+    // pide nada que no tenga): enfoque continuo y un zoom de 1,5×, para leer la etiqueta sin
+    // acercar tanto el teléfono — de cerca, por debajo de la distancia mínima de enfoque de la
+    // cámara, es justo cuando sale borrosa. El try cubre que se cierre el lector entre medias:
+    // la librería lanza al instante si la cámara ya no está corriendo.
     function afinarCamara() {
         if (!scanner) return;
-        var cap = {};
-        try { cap = scanner.getRunningTrackCapabilities() || {}; } catch (e) { return; }
-        var ajustes = {};
-        if (Array.isArray(cap.focusMode) && cap.focusMode.indexOf('continuous') !== -1) ajustes.focusMode = 'continuous';
-        if (cap.zoom && cap.zoom.max >= 1.5) ajustes.zoom = Math.max(cap.zoom.min || 1, 1.5);
-        if (!Object.keys(ajustes).length) return;
-        scanner.applyVideoConstraints({ advanced: [ajustes] }).catch(function () { /* el teléfono no lo aceptó */ });
+        try {
+            var cap = scanner.getRunningTrackCapabilities() || {};
+            var ajustes = {};
+            if (Array.isArray(cap.focusMode) && cap.focusMode.indexOf('continuous') !== -1) ajustes.focusMode = 'continuous';
+            if (cap.zoom && cap.zoom.max >= 1.5) ajustes.zoom = Math.max(cap.zoom.min || 1, 1.5);
+            if (!Object.keys(ajustes).length) return;
+            scanner.applyVideoConstraints({ advanced: [ajustes] }).catch(function () { /* el teléfono no lo aceptó */ });
+        } catch (e) { /* la cámara ya se cerró */ }
     }
 
     function detenerCamara() {
