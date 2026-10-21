@@ -2064,7 +2064,8 @@ class CargaMasivaDocumentos
         // 1) Ya tiene uno: no se pisa sin permiso explicito.
         if ($anterior && !$pisar) {
             return ['ok' => false, 'requiere_pisar' => true,
-                    'mensaje' => 'Este equipo ya tiene ese documento, y el nuevo no vence despues: se quedo el suyo.'];
+                    'mensaje' => 'Este equipo ya tiene ese documento, y ' . ($colVence ? 'el nuevo no vence despues' : 'sin vencimiento no se sabe cual es el bueno')
+                        . ': se quedo el suyo.'];
         }
 
         // 2) Ni con permiso se retrocede un vencimiento: misma regla que la revision nocturna
@@ -2179,7 +2180,8 @@ class CargaMasivaDocumentos
         }
         if ($anterior && !$pisar) {
             return ['ok' => false, 'requiere_pisar' => true,
-                    'mensaje' => 'Este auxiliar ya tiene ese documento, y el nuevo no vence despues: se quedo el suyo.'];
+                    'mensaje' => 'Este auxiliar ya tiene ese documento, y ' . ($colVence ? 'el nuevo no vence despues' : 'sin vencimiento no se sabe cual es el bueno')
+                        . ': se quedo el suyo.'];
         }
         if ($colVence && $vence) {
             $motivo = VerificacionDocumento::documentoAnterior($this->soloFecha($aux->$colVence), $vence);

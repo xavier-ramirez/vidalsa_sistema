@@ -987,6 +987,60 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         ]);
     }
 
+    /**
+     * Un PDF de varias unidades reconocidas se enlaza SOLO a todas, sea del documento que sea
+     * (titulo, poliza, ROTC, RACDA, certificado, compraventa), y queda Aplicado sin boton.
+     */
+    public function test_cada_documento_de_varias_unidades_se_enlaza_solo_a_todas(): void
+    {
+        $u = $this->usuario();
+        $columnas = ['propiedad' => 'LINK_DOC_PROPIEDAD', 'poliza' => 'LINK_POLIZA_SEGURO', 'rotc' => 'LINK_ROTC',
+                     'racda' => 'LINK_RACDA', CargaMasivaDocumentos::CERTIFICADO => 'LINK_DOC_ADICIONAL',
+                     CargaMasivaDocumentos::COMPRAVENTA => 'LINK_DOC_ADICIONAL_2'];
+        foreach ($columnas as $tipo => $columna) {
+            $a = $this->equipo(); $b = $this->equipo();
+            $this->racdaDeVarias("solo-$tipo", [$a, $b], ['tipo' => $tipo, 'emision' => '2026-05-15']);
+            $this->servicio()->enlazarLoPendiente();   // la pasada de cada hora: sin sesion
+            $this->actingAs($u);
+
+            foreach ([$a, $b] as $e) {
+                $this->assertSame("/storage/google/solo-$tipo", $e->documentacion()->first()->$columna, "$tipo: enlazado a cada equipo");
+            }
+            $this->assertSame(VerificacionDocumento::APLICADO, VerificacionDocumento::where('DRIVE_ID', "solo-$tipo")->value('ESTADO'), $tipo);
+            $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => "solo-$tipo.pdf"]))
+                ->assertOk()->assertDontSee('cpdfEnlazarEquipos(', false);
+        }
+    }
+
+    /**
+     * Un titulo de dos unidades donde una ya tiene titulo: se enlaza solo a la otra; la que lo
+     * tiene no se pisa (un titulo no trae vencimiento para saber cual es el bueno). La fila dice
+     * por que y sale el boton para decidirlo; al reemplazarlo ahi queda Aplicado.
+     */
+    public function test_un_titulo_de_varias_unidades_no_pisa_el_que_ya_tiene_una(): void
+    {
+        $u = $this->usuario();
+        $con = $this->equipo(['LINK_DOC_PROPIEDAD' => '/storage/google/titulo-viejo', 'FECHA_EMISION_PROPIEDAD' => '2018-10-03']);
+        $sin = $this->equipo();
+        $this->racdaDeVarias('titulo-varias', [$con, $sin], ['tipo' => 'propiedad', 'vence' => null, 'emision' => '2026-05-15']);
+        $this->servicio()->enlazarLoPendiente();
+        $this->actingAs($u);
+
+        $this->assertSame('/storage/google/titulo-varias', $sin->documentacion()->first()->LINK_DOC_PROPIEDAD);
+        $this->assertSame('/storage/google/titulo-viejo', $con->documentacion()->first()->LINK_DOC_PROPIEDAD);
+        $fila = VerificacionDocumento::where('DRIVE_ID', 'titulo-varias')->first();
+        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $fila->ESTADO);
+        $this->assertStringContainsString('Enlazado solo a 1 equipo(s).', $fila->MOTIVO);
+        $this->assertStringContainsString('sin vencimiento no se sabe cual es el bueno: se quedo el suyo.', $fila->MOTIVO);
+        $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'titulo-varias.pdf']))
+            ->assertOk()->assertSee('Enlazar a los 2 equipos');
+
+        $this->postJson(route('historial-documentos.carga-masiva.enlazar-equipo'),
+            ['link' => '/storage/google/titulo-varias', 'id_equipo' => $con->ID_EQUIPO, 'reemplazar' => 1])
+            ->assertOk()->assertJson(['faltan' => 0]);
+        $this->assertSame(VerificacionDocumento::APLICADO, $fila->refresh()->ESTADO);
+    }
+
     /** "Enlazar a los N equipos": el modal enseña sus equipos y cada uno se enlaza con su botón; con el último queda Aplicado. */
     public function test_cada_equipo_de_un_pdf_de_varias_unidades_se_enlaza_con_su_boton(): void
     {
