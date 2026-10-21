@@ -5039,14 +5039,19 @@ class EquipoController extends Controller
         } elseif ($frente !== '' && $frente !== 'all') {
             $pares->where('ID_FRENTE_ACTUAL', $frente);
             $aux->where('ID_FRENTE_ACTUAL', $frente);
-        } elseif ($tipoId === null && !str_starts_with($tipo, 'tipo_aux:')) {
+        } elseif ($tipoId === null && (!str_starts_with($tipo, 'tipo_aux:') || $tipo === 'tipo_aux:all')) {
+            // Sin frente: fuera los frentes fuera de la flota, también con "todos los
+            // auxiliares" (igual que la tabla de Equipos con ese tipo).
             $pares->excludeFueraDeFlota();
             $aux->excludeFueraDeFlota();
         }
 
         if (str_starts_with($tipo, 'tipo_aux:')) {
             $pares->whereRaw('1 = 0');
-            $aux->where('TIPO', substr($tipo, 9));
+            // 'tipo_aux:all' es "todos los auxiliares": sin filtro de tipo (antes buscaba TIPO = 'all').
+            if (substr($tipo, 9) !== 'all') {
+                $aux->where('TIPO', substr($tipo, 9));
+            }
         } elseif ($tipoId !== null) {
             $pares->where('id_tipo_equipo', $tipoId);
             $aux->whereHas('equipoHost', fn ($q) => $q->where('id_tipo_equipo', $tipoId));

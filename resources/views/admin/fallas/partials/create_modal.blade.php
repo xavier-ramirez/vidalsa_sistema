@@ -1,5 +1,5 @@
 {{-- Modal "Nuevo Reporte de Falla" COMPARTIDO (estilos + HTML autocontenidos).
-     Se incluye en /admin/fallas, /admin/equipos y /admin/equipos-auxiliares.
+     Se incluye en /admin/fallas y /admin/equipos.
      La lógica vive en public/js/maquinaria/falla_create_modal.js (parametrizado
      por window.FALLA_MODAL_CFG). NO duplicar: incluir este partial una sola vez por página. --}}
 <style>

@@ -211,10 +211,15 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame('vendido', $soloAux->json('frenteVenta.clase'), 'Solo auxiliares: el aviso también sale.');
         $this->assertStringContainsString('etiqueta-venta--vendido">VENDIDO<', (string) $soloAux->json('html'));
 
-        // Anclajes de auxiliares: lo mismo (sin frente, fuera; con su frente, dentro).
-        $anclados = fn (string $qs) => collect($this->actingAs($admin)->getJson(route('equipos-auxiliares.anchoredList') . $qs)->assertOk()->json('items'))->pluck('serial');
+        // Anclajes (el modal de Equipos, que trae también los auxiliares): lo mismo (sin frente,
+        // fuera; con su frente, dentro).
+        $anclados = fn (string $qs) => collect($this->actingAs($admin)->getJson(route('equipos.getAnchors') . $qs)->assertOk()->json('aux'))
+            ->flatMap(fn ($host) => collect($host['auxes'])->pluck('serial'));
         $this->assertNotContains($serial, $anclados(''));
-        $this->assertContains($serial, $anclados('?id_frente=' . $frente->ID_FRENTE));
+        $this->assertContains($serial, $anclados('?frente_id=' . $frente->ID_FRENTE));
+        // Con "todos los auxiliares" en el tipo: también (antes buscaba un TIPO llamado 'all').
+        $this->assertNotContains($serial, $anclados('?id_tipo=tipo_aux:all'));
+        $this->assertContains($serial, $anclados('?frente_id=' . $frente->ID_FRENTE . '&id_tipo=tipo_aux:all'));
     }
 
     /**

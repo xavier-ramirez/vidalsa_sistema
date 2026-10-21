@@ -896,7 +896,7 @@
             </thead>
             <tbody id="equiposTableBody" style="font-size: 15px;">
                 {{-- Modo aux (tipo auxiliar elegido): la tabla muestra las filas de
-                     auxiliares (mismo partial que /admin/equipos-auxiliares). En carga
+                     auxiliares (equipos_auxiliares/partials/table_rows). En carga
                      inicial por URL ya vienen renderizadas; la navegacion AJAX las
                      intercambia via loadEquipos (data.mode === 'aux'). --}}
                 @if($auxMode ?? false)
@@ -1413,12 +1413,6 @@
     window.equiposAnclajesArrancar(window.EQANC_CFG);
 </script>
 
-{{-- ═══════════════════════════════════════════════════════════
-     MODAL SUB-ACTIVOS (Herramientas y Equipos Menores)
-{{-- Modal Sub-Activos removido: el modulo vivio en este blade hasta abril-2026.
-     Ahora existe como modulo propio en /admin/equipos-auxiliares con anclaje 1:N.
-     Ver resources/views/admin/equipos-auxiliares/. --}}
-
 {{-- Seed window.equiposData en carga inicial (hard-refresh / primera visita).
      En cargas AJAX, loadEquipos() lo rellena desde data.equiposData.
      Aquí lo hacemos para que el modal del ojo funcione sin necesitar hacer
@@ -1814,7 +1808,7 @@
 {{-- falla_create_modal.js se carga GLOBAL en el layout (SPA-safe). --}}
 
 {{-- ═══════════════════════════════════════════════════════════
-     MAQUINARIA DE EQUIPOS AUXILIARES (reusada de /admin/equipos-auxiliares).
+     MAQUINARIA DE EQUIPOS AUXILIARES (equipos_auxiliares/partials/_machinery).
      Da vida a las filas aux cuando el dropdown de Tipo esta en modo AUXILIAR:
      modal de detalles, menu de estado, seleccion masiva, anclar y movilizar.
      Recibe los tipos aux (labels) y el mapa de detalles inicial; $frentes ya

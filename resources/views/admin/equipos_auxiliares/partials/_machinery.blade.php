@@ -225,7 +225,7 @@
         }
 
         // Data pre-cargada en window.auxDetailsMap por el controller (seed
-        // inicial) y por cargarAuxiliares (AJAX de paginacion/filtro). El modal
+        // inicial) y por loadEquipos (data.auxData, al paginar/filtrar). El modal
         // abre INSTANTANEO sin fetch ni preloader — todos los datos del
         // auxiliar visible ya estan en memoria.
         const map = window.auxDetailsMap || {};
@@ -481,16 +481,8 @@
     // Lo que el JavaScript del modulo necesita de ESTA apertura. El codigo esta en
     // public/js/maquinaria/maquinaria_listado.js, que el navegador cachea.
     $maq_cfg = [
-        'nextOffset' => (int) ($nextOffset ?? 0),
-        'hasMore' => !empty($hasMore),
-        'rutaEquiposAuxiliaresIndex' => route("equipos-auxiliares.index"),
-        'rutaEquiposAuxiliaresIndex2' => route("equipos-auxiliares.index"),
-        'tipos' => $tipos,
         'rutaEquiposAuxiliaresBulkMove' => route("equipos-auxiliares.bulkMove"),
-        'rutaEquiposAuxiliaresExport' => route("equipos-auxiliares.export"),
         'rutaEquiposAuxiliaresSearchHosts' => route("equipos-auxiliares.searchHosts"),
-        'rutaEquiposAuxiliaresExportAnclajes' => route("equipos-auxiliares.exportAnclajes"),
-        'rutaEquiposAuxiliaresAnchoredList' => route("equipos-auxiliares.anchoredList"),
     ];
 @endphp
 <script>
@@ -506,8 +498,8 @@
 
 {{-- Seed inicial de window.auxDetailsMap: TODOS los detalles de los auxiliares
      visibles en esta pagina. El modal del ojo abre instantaneamente porque la
-     data ya esta en memoria. Las cargas AJAX de cargarAuxiliares hacen
-     Object.assign para refrescar el mapa al paginar/filtrar (ver L920+). --}}
+     data ya esta en memoria. Al paginar/filtrar, loadEquipos (equipos_index.js)
+     le suma con Object.assign los de data.auxData. --}}
 @if(!empty($auxDetailsMap))
 <script>
     window.auxDetailsMap = Object.assign(window.auxDetailsMap || {}, @json($auxDetailsMap));

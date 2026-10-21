@@ -1468,8 +1468,8 @@ window.showToast = function (message, type = "info") {
 /**
  * Confirmación "en sitio" de EQUIPOS AUXILIARES (espejo de toggleConfirmacionSitio
  * de equipos, definida en equipos_index.js). Vive aquí porque uicomponents.js es
- * GLOBAL: el chip de auxiliares aparece tanto en /admin/equipos-auxiliares como
- * embebido en /admin/equipos (modo aux). Repinta .confirm-sitio-chip-aux por data-aux-id.
+ * GLOBAL: el chip de auxiliares aparece en las filas de auxiliares de /admin/equipos.
+ * Repinta .confirm-sitio-chip-aux por data-aux-id.
  */
 window._pintarConfirmSitioAux = function (id, confirmado) {
     document.querySelectorAll('.confirm-sitio-chip-aux[data-aux-id="' + id + '"]').forEach(function (el) {

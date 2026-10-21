@@ -17,7 +17,7 @@
         // de año/color y el modal "Vincular a una ficha" (data-color de la foto).
         $colorEq = \App\Models\CatalogoColor::normalizar($equipo->COLOR);
 
-        // Estatus: paleta uniformada con /admin/equipos-auxiliares
+        // Estatus: misma paleta que las filas de auxiliares (equipos_auxiliares/partials/table_rows)
         $statusConfig = [
             'OPERATIVO'        => ['color' => '#16a34a', 'bg' => '#f0fdf4', 'icon' => 'check_circle', 'label' => 'OPERATIVO'],
             'INOPERATIVO'      => ['color' => '#dc2626', 'bg' => '#fef2f2', 'icon' => 'cancel',       'label' => 'INOPERATIVO'],
