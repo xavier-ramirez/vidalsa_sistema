@@ -595,4 +595,14 @@ class VerificacionDocumento extends Model
     {
         return $this->belongsTo(Equipo::class, 'ID_EQUIPO', 'ID_EQUIPO');
     }
+
+    /**
+     * El dato que identifica la fila en la tabla de Revisión (pedido del cliente, 21-10-2026):
+     * el serial de chasis; sin él, el de motor (de la ficha); sin él, la placa; si no hay
+     * ninguno, vacío. Con el equipo cargado (PanelDocumentos::datosDocumentos).
+     */
+    public function identificador(): string
+    {
+        return (string) ($this->SERIAL ?: ($this->equipo?->SERIAL_DE_MOTOR ?: ($this->PLACA ?: '')));
+    }
 }

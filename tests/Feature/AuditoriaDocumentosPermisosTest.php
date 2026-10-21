@@ -181,6 +181,36 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertStringNotContainsString('La IA lee distinto', $html);
     }
 
+    /** La columna del equipo: serial de chasis; sin él, el de motor (de la ficha); sin él, la placa; si no, vacía. */
+    public function test_la_columna_del_equipo_es_chasis_motor_o_placa(): void
+    {
+        $marca = 'IDENT' . strtoupper(Str::random(5));
+        $motor = 'MOT' . strtoupper(Str::random(8));
+        $equipo = DB::table('equipos')->insertGetId(['MARCA' => 'PRUEBA', 'MODELO' => 'IDENT', 'ANIO' => 2020,
+            'SERIAL_CHASIS' => 'CH' . strtoupper(Str::random(12)), 'SERIAL_DE_MOTOR' => $motor]);
+        $fila = fn (array $c) => DB::table('verificacion_documento_registro')->insertGetId($c + [
+            'TIPO' => 'poliza', 'ESTADO' => VerificacionDocumento::DIFIERE, 'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE,
+            'MOTIVO' => $marca, 'created_at' => now(), 'updated_at' => now()]);
+        $ids = [
+            'chasis' => $fila(['SERIAL' => 'CHASIS' . $marca, 'PLACA' => 'PL' . $marca, 'ID_EQUIPO' => $equipo]),
+            'motor'  => $fila(['SERIAL' => null, 'PLACA' => 'PL' . $marca, 'ID_EQUIPO' => $equipo]),
+            'placa'  => $fila(['SERIAL' => null, 'PLACA' => 'PL' . $marca]),
+            'nada'   => $fila(['SERIAL' => null, 'PLACA' => null]),
+        ];
+
+        $html = $this->actingAs($this->usuario('super.admin,docs.carga.masiva'))
+            ->get(route('historial-documentos.index', ['pestana' => 'documentos', 'ids' => implode(',', $ids)]))->assertOk()->getContent();
+        $celda = function (int $id) use ($html) {
+            preg_match('~<tr[^>]*data-id="' . $id . '".*?<span class="cpdf-ident">(.*?)</span>~s', $html, $m);
+            return $m[1] ?? 'SIN FILA';
+        };
+
+        $this->assertSame('CHASIS' . $marca, $celda($ids['chasis']));
+        $this->assertSame($motor, $celda($ids['motor']));
+        $this->assertSame('PL' . $marca, $celda($ids['placa']));
+        $this->assertSame('', $celda($ids['nada']), 'Sin ningún dato la celda queda vacía, pero la fila sale.');
+    }
+
     public function test_sin_ninguno_de_los_dos_no_entra_ni_ve_el_enlace(): void
     {
         $u = $this->usuario('equipos.create');

@@ -164,11 +164,9 @@
                                     <small class="cpdf-sub">{{ \Illuminate\Support\Str::limit($d->ARCHIVO, 28) }}</small>
                                 @endif
                             </td>
-                            {{-- La placa arriba y el serial debajo; sin placa, el serial solo (sin la raya). --}}
-                            <td>
-                                <span class="cpdf-ident">{{ $d->PLACA ?: ($d->SERIAL ?: '—') }}</span>
-                                @if ($d->PLACA && $d->SERIAL) <small class="cpdf-sub">{{ $d->SERIAL }}</small> @endif
-                            </td>
+                            {{-- Un solo dato: serial de chasis, si no el de motor, si no la placa
+                                 (VerificacionDocumento::identificador); sin ninguno, la celda vacía. --}}
+                            <td><span class="cpdf-ident">{{ $d->identificador() }}</span></td>
                             <td><span class="cpdf-estado {{ $d->ESTADO }}" @if ($d->MOTIVO) title="{{ $d->motivoParaVer() }}" @endif>{{ $estadosDoc[$d->ESTADO] ?? $d->ESTADO }}</span></td>
                             {{-- Solo lo que NO cuadra: a la izquierda lo de la ficha (tachado), a la
                                  derecha lo que dice el PDF. Si todo cuadra, lo leido en gris. Lo que

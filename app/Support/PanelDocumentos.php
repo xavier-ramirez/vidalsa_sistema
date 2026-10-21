@@ -208,6 +208,9 @@ class PanelDocumentos
                 // 0 va PRIMERO, asi que sin nombrarlo tapaba lo que quedo sin enlazar.
                 . "', '" . VerificacionDocumento::APLICADO . "')")
             ->orderByDesc('updated_at')->orderByDesc('ID_REGISTRO')
+            // El serial de motor no se guarda en la fila: sale de la ficha, de toda la pagina en
+            // una consulta (ver VerificacionDocumento::identificador). Tambien de un equipo borrado.
+            ->with(['equipo' => fn ($q) => $q->withTrashed()->select('ID_EQUIPO', 'SERIAL_DE_MOTOR')])
             ->paginate(50)->withQueryString();
 
         return [
