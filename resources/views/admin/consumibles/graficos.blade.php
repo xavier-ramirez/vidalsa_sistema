@@ -522,11 +522,11 @@
                     <span style="font-size:28px; font-weight:800; color:#fff;">
                         ${parseFloat(d.total).toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}
                     </span>
-                    <span style="font-size:12px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.5px;">
+                    <span style="font-size:12px; font-weight:700; color:#fff; text-transform:uppercase; letter-spacing:.5px;">
                         ${d.unidad} · ${TIPO_LABEL[d.TIPO_CONSUMIBLE] || d.TIPO_CONSUMIBLE}
                     </span>
                 </div>
-                <div style="font-size:11px; color:#64748b; margin-top:6px;">
+                <div style="font-size:11px; color:#fff; margin-top:6px;">
                     ${d.registros} despachos · ${d.equipos_distintos} eq
                 </div>
             </div>`;

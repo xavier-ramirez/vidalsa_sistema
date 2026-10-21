@@ -370,21 +370,21 @@
 
         {{-- Stats compactas SOLO en movil (el sidebar se oculta <=900px) --}}
         <div class="equipos-mobile-stats">
-            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;opacity:0.75;margin-bottom:6px;display:flex;align-items:center;gap:5px;">
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:flex;align-items:center;gap:5px;">
                 <i class="material-icons" style="font-size:13px;">pie_chart</i>
                 Consolidado de Auxiliares
             </div>
             <div style="display:flex;gap:8px;justify-content:space-between;">
                 <div onclick="window.auxFilterByEstado('all')" style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;background:rgba(255,255,255,0.15);box-shadow:0 2px 4px rgba(0,0,0,0.1);cursor:pointer;">
-                    <span style="font-size:10px;font-weight:700;opacity:0.8;margin-bottom:2px;">TOTAL</span>
+                    <span style="font-size:10px;font-weight:700;margin-bottom:2px;">TOTAL</span>
                     <span style="font-size:22px;font-weight:800;line-height:1;">{{ $stats['total'] ?? '—' }}</span>
                 </div>
                 <div onclick="window.auxFilterByEstado('OPERATIVO')" style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);cursor:pointer;">
-                    <span style="font-size:10px;font-weight:700;color:#86efac;margin-bottom:2px;"><i class="material-icons" style="font-size:11px;vertical-align:middle;">check_circle</i> OPER.</span>
+                    <span style="font-size:10px;font-weight:700;margin-bottom:2px;"><i class="material-icons" style="font-size:11px;vertical-align:middle;">check_circle</i> OPER.</span>
                     <span style="color:white;font-size:22px;font-weight:800;line-height:1;">{{ $stats['operativos'] ?? '—' }}</span>
                 </div>
                 <div onclick="window.auxFilterByEstado('INOPERATIVO')" style="flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:10px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);cursor:pointer;">
-                    <span style="font-size:10px;font-weight:700;color:#fca5a5;margin-bottom:2px;"><i class="material-icons" style="font-size:11px;vertical-align:middle;">cancel</i> INOP.</span>
+                    <span style="font-size:10px;font-weight:700;margin-bottom:2px;"><i class="material-icons" style="font-size:11px;vertical-align:middle;">cancel</i> INOP.</span>
                     <span style="color:white;font-size:22px;font-weight:800;line-height:1;">{{ $stats['inoperativos'] ?? '—' }}</span>
                 </div>
             </div>
@@ -425,7 +425,7 @@
         <div style="background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); border-radius: 12px; padding: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
             <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 80px; opacity: 0.1; transform: rotate(-15deg);">construction</i>
             <div style="position: relative; z-index: 2;">
-                <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.8; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
                     <i class="material-icons" style="font-size: 14px;">pie_chart</i>
                     Consolidado
                 </div>
@@ -435,7 +435,7 @@
                          style="display: flex; flex-direction: column; align-items: center; background: rgba(255,255,255,0.15); padding: 8px 6px; border-radius: 10px; min-width: 65px; cursor: pointer; transition: transform 0.15s;"
                          onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
                         <span id="auxStatsTotal" style="font-size: 36px; font-weight: 800; line-height: 1;">{{ $stats['total'] ?? '—' }}</span>
-                        <span style="font-size: 13px; opacity: 0.8; font-weight: 700; margin-top: 2px;">TOTAL</span>
+                        <span style="font-size: 13px; font-weight: 700; margin-top: 2px;">TOTAL</span>
                     </div>
 
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; flex: 1;">
@@ -444,14 +444,14 @@
                              onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
                             <i class="material-icons" style="font-size: 18px; color: #22c55e; margin-bottom: 2px;">check_circle</i>
                             <strong id="auxStatsOperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['operativos'] ?? '—' }}</strong>
-                            <span style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Operativos</span>
+                            <span style="font-size: 11px; letter-spacing: -0.2px; font-weight: 700; text-transform: uppercase;">Operativos</span>
                         </div>
                         <div title="Filtrar solo Inoperativos" onclick="window.auxFilterByEstado('INOPERATIVO')"
                              style="display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 6px 2px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); cursor: pointer; transition: transform 0.15s;"
                              onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
                             <i class="material-icons" style="font-size: 18px; color: #ef4444; margin-bottom: 2px;">cancel</i>
                             <strong id="auxStatsInoperativos" style="font-weight: 800; font-size: 16px; color: white;">{{ $stats['inoperativos'] ?? '—' }}</strong>
-                            <span style="font-size: 11px; letter-spacing: -0.2px; opacity: 0.9; font-weight: 700; text-transform: uppercase;">Inoperativos</span>
+                            <span style="font-size: 11px; letter-spacing: -0.2px; font-weight: 700; text-transform: uppercase;">Inoperativos</span>
                         </div>
                     </div>
                 </div>

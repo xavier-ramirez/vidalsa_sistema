@@ -485,7 +485,7 @@
     .alm-cons-bgicon { position:absolute; right:-15px; bottom:-15px; font-size:80px; opacity:0.1; transform:rotate(-15deg); }
     .alm-cons-inner { position:relative; z-index:2; }
     .alm-consolidado-title { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700;
-        text-transform:uppercase; letter-spacing:1px; opacity:0.8; margin-bottom:6px; }
+        text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
     .alm-consolidado-title .material-icons { font-size:14px; }
     .alm-cons-row { display:flex; align-items:stretch; gap:6px; }
     /* Total: clic = quitar filtros. line-height:1 en el número para que no arrastre el
@@ -493,7 +493,7 @@
     .alm-cons-total { display:flex; flex-direction:column; align-items:center; justify-content:center;
         min-width:62px; padding:5px 7px; border-radius:10px; background:rgba(255,255,255,0.15); cursor:pointer; }
     .alm-cons-total .num { font-size:28px; font-weight:800; line-height:1; }
-    .alm-cons-total .lbl { font-size:10.5px; font-weight:700; text-transform:uppercase; opacity:0.8; margin-top:3px; }
+    .alm-cons-total .lbl { font-size:10.5px; font-weight:700; text-transform:uppercase; margin-top:3px; }
     .alm-cons-badges { flex:1; display:grid; grid-template-columns:repeat(2,1fr); gap:6px; }
     /* Icono + número en la MISMA línea; la etiqueta cae debajo (flex:1 1 100%). */
     .alm-cons-badge { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:2px 5px;
@@ -501,7 +501,7 @@
         transition:background .15s, border-color .15s, box-shadow .15s; }
     .alm-cons-badge .material-icons { font-size:17px; }
     .alm-cons-badge strong { font-size:16px; font-weight:800; color:#fff; line-height:1; }
-    .alm-cons-badge span { flex:1 1 100%; font-size:10.5px; font-weight:700; text-transform:uppercase; opacity:0.9; line-height:1.1; }
+    .alm-cons-badge span { flex:1 1 100%; font-size:10.5px; font-weight:700; text-transform:uppercase; line-height:1.1; }
     .alm-cons-saldo { background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.25); }
     .alm-cons-saldo .material-icons { color:#22c55e; }
     .alm-cons-bajo  { background:rgba(245,158,11,0.18); border:1px solid rgba(245,158,11,0.3); }

@@ -375,7 +375,7 @@
 
                 {{-- Stats compactas solo en móvil --}}
                 <div class="fallas-mobile-stats" style="background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); border-radius: 12px; padding: 10px 14px; margin-bottom: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15);">
-                    <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: 0.75; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
+                    <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
                         <i class="material-icons" style="font-size: 13px;">pie_chart</i>
                         Consolidado de Fallas
                     </div>
@@ -385,11 +385,11 @@
                             <span style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $stats['total_reportes'] }}</span>
                         </div>
                         <div class="eq-mobile-stat-block eq-block-inop" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3);">
-                            <span style="font-size:10px; font-weight:700; color:#fca5a5; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">report_problem</i> ABIERTOS</span>
+                            <span style="font-size:10px; font-weight:700; color:#ffffff; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">report_problem</i> ABIERTOS</span>
                             <span style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $stats['reportes_abiertos'] }}</span>
                         </div>
                         <div class="eq-mobile-stat-block eq-block-cerr" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3);">
-                            <span style="font-size:10px; font-weight:700; color:#86efac; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> CERRADOS</span>
+                            <span style="font-size:10px; font-weight:700; color:#ffffff; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> CERRADOS</span>
                             <span style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $stats['reportes_cerrados'] }}</span>
                         </div>
                     </div>
@@ -419,7 +419,7 @@
 
                     <div style="position: relative; z-index: 2;">
                         <div
-                            style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                            style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
                             <i class="material-icons" style="font-size: 13px;">pie_chart</i>
                             Consolidado de Fallas
                         </div>
@@ -430,19 +430,19 @@
                                 style="flex:1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.15); padding: 8px 4px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.25);">
                                 <i class="material-icons" style="font-size: 17px; color: #ffffff; margin-bottom: 2px;">summarize</i>
                                 <strong id="statTotal" style="font-weight: 800; font-size: 22px; color: white; line-height: 1;">{{ $stats['total_reportes'] }}</strong>
-                                <span style="font-size: 9px; letter-spacing: 0.3px; opacity: 0.9; font-weight: 700; text-transform: uppercase; margin-top: 2px; text-align: center; line-height: 1.15;">Total Reportes</span>
+                                <span style="font-size: 9px; letter-spacing: 0.3px; font-weight: 700; text-transform: uppercase; margin-top: 2px; text-align: center; line-height: 1.15;">Total Reportes</span>
                             </div>
                             <div title="Reportes Abiertos"
                                 style="flex:1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 8px 4px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25);">
                                 <i class="material-icons" style="font-size: 17px; color: #ef4444; margin-bottom: 2px;">report_problem</i>
                                 <strong id="statAbiertos" style="font-weight: 800; font-size: 22px; color: white; line-height: 1;">{{ $stats['reportes_abiertos'] }}</strong>
-                                <span style="font-size: 9px; letter-spacing: 0.3px; opacity: 0.9; font-weight: 700; text-transform: uppercase; margin-top: 2px; text-align: center; line-height: 1.15;">Reportes Abiertos</span>
+                                <span style="font-size: 9px; letter-spacing: 0.3px; font-weight: 700; text-transform: uppercase; margin-top: 2px; text-align: center; line-height: 1.15;">Reportes Abiertos</span>
                             </div>
                             <div title="Reportes Cerrados"
                                 style="flex:1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 8px 4px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25);">
                                 <i class="material-icons" style="font-size: 17px; color: #22c55e; margin-bottom: 2px;">check_circle</i>
                                 <strong id="statCerrados" style="font-weight: 800; font-size: 22px; color: white; line-height: 1;">{{ $stats['reportes_cerrados'] }}</strong>
-                                <span style="font-size: 9px; letter-spacing: 0.3px; opacity: 0.9; font-weight: 700; text-transform: uppercase; margin-top: 2px; text-align: center; line-height: 1.15;">Reportes Cerrados</span>
+                                <span style="font-size: 9px; letter-spacing: 0.3px; font-weight: 700; text-transform: uppercase; margin-top: 2px; text-align: center; line-height: 1.15;">Reportes Cerrados</span>
                             </div>
                         </div>
 

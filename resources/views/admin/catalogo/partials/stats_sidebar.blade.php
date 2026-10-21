@@ -39,7 +39,7 @@
     <div style="position: absolute; bottom: 10px; left: -10px; width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 50%;"></div>
     
     <div style="position: relative; z-index: 2;">
-        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.8; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; color: #cbd5e0;">
+        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
             <i class="material-icons" style="font-size: 14px;">dataset</i>
             Total Registros
         </div>
@@ -48,7 +48,7 @@
             <span style="font-size: 42px; font-weight: 800; line-height: 1; letter-spacing: -1px;">
                 {{ $totalCount }}
             </span>
-            <span style="font-size: 14px; opacity: 0.8; font-weight: 500;">Modelos</span>
+            <span style="font-size: 14px; font-weight: 500;">Modelos</span>
         </div>
     </div>
 </div>

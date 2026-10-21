@@ -25,10 +25,10 @@
        principal de Equipos (sin morado: lo pidió el cliente, 21-09-2026). */
     .cpdf-hero { display: flex; align-items: center; gap: 12px; background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%);
                  border-radius: 12px; padding: 15px; color: #fff; box-shadow: 0 4px 6px -1px rgba(15,23,42,.10); }
-    .cpdf-hero .material-icons { font-size: 26px; opacity: .85; }
-    .cpdf-hero small { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; opacity: .9; }
+    .cpdf-hero .material-icons { font-size: 26px; }
+    .cpdf-hero small { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.2px; }
     .cpdf-hero strong { display: block; font-size: 28px; font-weight: 800; line-height: 1.1; }
-    .cpdf-hero span { display: block; font-size: 12px; opacity: .85; line-height: 1.3; }
+    .cpdf-hero span { display: block; font-size: 12px; line-height: 1.3; }
     /* Como las demas tarjetas: titulo arriba, y la cifra con su explicacion AL LADO. */
     .cpdf-hero > div { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; }
     .cpdf-hero > div small { grid-column: 1 / -1; }

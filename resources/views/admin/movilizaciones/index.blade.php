@@ -336,12 +336,12 @@
         <div style="background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%); border-radius: 12px; padding: 15px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
             <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 80px; opacity: 0.1; transform: rotate(-15deg);">history</i>
             <div style="position: relative; z-index: 2;">
-                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.9; margin-bottom: 5px;">Total Operaciones</div>
+                <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px;">Total Operaciones</div>
                 <div style="display: flex; align-items: baseline; gap: 5px;">
                     <span id="totalTransitoCount" style="font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -1px;">
                         {{ $totalTransito }}
                     </span>
-                    <span style="font-size: 12px; opacity: 0.8; font-weight: 500;">registros</span>
+                    <span style="font-size: 12px; font-weight: 500;">registros</span>
                 </div>
             </div>
         </div>
