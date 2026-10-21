@@ -4064,6 +4064,8 @@ body:has(.mobile-menu.active) .selection-floating-bar {
     body:has(.ent-layout) .ent-list-box { background: transparent !important; border: none !important; border-radius: 0 !important; overflow: visible !important; }
     body:has(.ent-layout) .ent-list-table { display: block !important; }
     body:has(.ent-layout) .ent-list-table thead { display: none !important; }
+    /* Sin líneas: en el teléfono no va el aviso de cómo agregar (pedido del cliente, 21-10-2026). */
+    body:has(.ent-layout) .ent-empty { display: none !important; }
     body:has(.ent-layout) .ent-list-table tbody { display: flex !important; flex-direction: column !important; gap: 8px !important; }
     body:has(.ent-layout) .ent-list-table tbody tr {
         display: grid !important;

@@ -370,10 +370,13 @@
         /* Celda de la nota en la tarjeta RECOGIDA: solo los iconos, en su columna a la derecha
            ("pdf"), del mismo negro que en escritorio y sin círculo de fondo; la nota y
            Modificar uno al LADO del otro (pedido del cliente, 21-10-2026). El número, la
-           referencia / OC, el proveedor y el deshacer salen al desplegarla. */
+           referencia / OC, el proveedor y el deshacer salen al desplegarla. Van arriba, como el
+           nombre y la cantidad, y el -7px sube los botones (30px de alto) hasta que el icono
+           quede a la altura del primer renglón del texto (~15px). */
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref {
             grid-area: pdf !important; position: static !important; flex-direction: row !important;
             justify-content: center !important; align-items: center !important; gap: 2px !important;
+            align-self: flex-start !important; margin-top: -7px !important;
         }
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref::after { content: none !important; }
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref > div,
