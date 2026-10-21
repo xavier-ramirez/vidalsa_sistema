@@ -179,14 +179,14 @@
                                 @forelse ($d->DIFERENCIAS ?? [] as $campo => $dif)
                                     @php $cpdfEsIa = str_starts_with($campo, 'IA_'); @endphp
                                     <div class="cpdf-dif">
-                                        {{-- "(revisión automática)" ya lo dice el rótulo del valor propuesto. --}}
+                                        {{-- Sin "(revisión automática)": el rótulo del valor propuesto ya dice de dónde sale. --}}
                                         <span class="cpdf-dif-eti">{{ str_replace(\App\Models\VerificacionDocumento::MARCA_IA, '', \App\Models\VerificacionDocumento::textoParaVer($dif['etiqueta'])) }}:</span>
                                         {{-- Rótulo y valor van juntos (cpdf-dif-par): al partirse la línea
-                                             no se quedaba el rótulo arriba y su valor abajo. --}}
+                                             no se quedaba el rótulo arriba y su valor abajo. La flecha va
+                                             dentro del segundo, para no quedarse sola en un renglón. --}}
                                         <span class="cpdf-dif-par"><span class="cpdf-dif-rot">Ficha</span>
                                             <span class="cpdf-dif-ficha{{ $cpdfEsIa ? ' ia' : '' }}{{ ($dif['ficha'] ?? '') === '' ? ' vacio' : '' }}">{{ $cpdfVer($dif['ficha'] ?? '') ?: 'vacío' }}</span></span>
-                                        <i class="material-icons cpdf-flecha">arrow_forward</i>
-                                        <span class="cpdf-dif-par"><span class="cpdf-dif-rot">{{ $cpdfEsIa ? 'Leído' : 'PDF' }}</span>
+                                        <span class="cpdf-dif-par"><i class="material-icons cpdf-flecha">arrow_forward</i><span class="cpdf-dif-rot">{{ $cpdfEsIa ? 'Leído' : 'PDF' }}</span>
                                             <span class="cpdf-dif-doc">{{ $cpdfVer($dif['documento'] ?? '') }}</span></span>
                                     </div>
                                 @empty
