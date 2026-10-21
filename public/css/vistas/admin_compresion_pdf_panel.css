@@ -252,7 +252,7 @@
     .cpdf-atar-l1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
     /* La tarjeta del equipo: una sola letra (la del sistema) y sin negritas; lo distinto se ve
        por el carácter marcado en rojo. Serial y placa en la misma línea, la placa como texto
-       suelto en gris (sin recuadro); baja solo si no caben, y un serial más largo que la
+       suelto en gris; baja solo si no caben, y un serial más largo que la
        columna se parte. */
     .cpdf-atar-serial { flex: 0 0 auto; max-width: 100%; font-size: 13px; color: #0f172a; word-break: break-all; }
     .cpdf-atar-placa { font-size: 13px; color: #475569; white-space: nowrap; }
@@ -292,7 +292,7 @@
     /* Teléfono: no cabe a lo ancho, todo apilado. */
     @media (max-width: 640px) {
         .cpdf-atar-info { grid-template-columns: minmax(0, 1fr); }
-        /* Serial y placa juntos también aquí: más apretados para que quepan al lado del botón. */
+        /* Para que el serial y la placa quepan en una línea al lado del botón. */
         .cpdf-atar-op { gap: 8px; padding: 10px; }
         .cpdf-atar-l1 { column-gap: 8px; }
         .cpdf-atar-op > .cpdf-atar-btn { padding: 7px 10px; }
