@@ -289,7 +289,9 @@
                         <tr class="cpdf-fila-sel" data-id="{{ $f->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)">
                             <td><div class="hd-fecha"><span>{{ $f->created_at?->format('d/m/Y') }}</span><span class="hd-hora">{{ $f->created_at?->format('h:i A') }}</span></div></td>
                             <td>{{ $f->DOCUMENTO }}</td>
-                            <td>{{ $f->SERIAL ?? '—' }}</td>
+                            {{-- El serial toma el ancho que sobra: las cifras y el estado quedan juntos a
+                                 la derecha, sin huecos blancos entre columnas. --}}
+                            <td class="cpdf-ancha">{{ $f->SERIAL ?? '—' }}</td>
                             <td class="cpdf-num">{{ $mb($f->BYTES_ANTES) }} MB</td>
                             <td class="cpdf-num">{{ $f->BYTES_DESPUES ? $mb($f->BYTES_DESPUES) . ' MB' : '—' }}</td>
                             <td class="cpdf-num">{{ $ahorro }}</td>

@@ -353,8 +353,11 @@
         .cpdf-docs tbody td:nth-child(6) { grid-area: 4 / 2; display: flex; }
 
         /* Compresión, en el mismo orden que la tarjeta de Documentos: documento + estado ·
-           serial · antes / después / ahorro · fecha + PDF. */
-        .cpdf-comp tbody tr { grid-template-columns: 1fr 1fr auto; }
+           serial · antes / después / ahorro · fecha + PDF. Las cifras van en una franja con
+           su rótulo al lado (no encima: la tarjeta quedaba alta y con mucho blanco), separada
+           por rayas finas de lo de arriba y de lo de abajo (pedido del cliente, 21-10-2026). */
+        /* Sin hueco entre columnas: así las rayas de la franja de cifras salen enteras. */
+        .cpdf-comp tbody tr { grid-template-columns: 1fr 1fr auto; column-gap: 0; }
         .cpdf-comp tbody td:nth-child(2) { grid-area: 1 / 1 / 2 / 3; font-weight: 700; }
         .cpdf-comp tbody td:nth-child(7) { grid-area: 1 / 3; justify-self: end; }
         .cpdf-comp tbody td:nth-child(3) { grid-area: 2 / 1 / 3 / -1; }
@@ -363,9 +366,9 @@
         .cpdf-comp tbody td:nth-child(6) { grid-area: 3 / 3; }
         .cpdf-comp tbody td:nth-child(1) { grid-area: 4 / 1 / 5 / 3; }
         .cpdf-comp tbody td:nth-child(8) { grid-area: 4 / 3; display: flex; }
-        .cpdf-comp tbody td.cpdf-num { text-align: left; margin-top: 4px; }
-        .cpdf-comp tbody td.cpdf-num::before { display: block; font-size: 10px; font-weight: 700;
-            color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; }
+        .cpdf-comp tbody td.cpdf-num { text-align: left; margin: 4px 0 !important; padding: 5px 0 !important;
+            border-top: 1px solid #eef2f7 !important; border-bottom: 1px solid #eef2f7 !important; }
+        .cpdf-comp tbody td.cpdf-num::before { margin-right: 4px; font-size: 11px; color: #475569; }
         .cpdf-comp tbody td:nth-child(4)::before { content: 'Antes'; }
         .cpdf-comp tbody td:nth-child(5)::before { content: 'Después'; }
         .cpdf-comp tbody td:nth-child(6)::before { content: 'Ahorro'; }
