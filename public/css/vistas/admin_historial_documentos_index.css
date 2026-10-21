@@ -194,11 +194,13 @@
         .table-historial-mobile tbody tr {
             display: grid;
             grid-template-columns: 1fr auto;
-            grid-template-rows: auto auto auto;
+            /* El mismo orden que las tarjetas de Revisión y Compresión: qué se hizo · equipo ·
+               quién · fecha (negra) con los botones (pedido del cliente, 21-10-2026). */
             grid-template-areas:
-                "doc    date"
+                "doc    doc"
                 "equipo equipo"
-                "author pdf";
+                "author author"
+                "date   pdf";
             column-gap: 10px;
             row-gap: 8px;
             background: #fff;
@@ -229,16 +231,19 @@
             font-size: 10px;
             padding: 3px 8px;
         }
-        /* Fila 1 der: fecha + hora */
+        /* Abajo izq: fecha y hora en una línea, en negro */
         .table-historial-mobile tbody td:nth-child(1) {
             grid-area: date;
-            justify-self: end;
             font-size: 11.5px;
-            color: #94a3b8;
-            line-height: 1.25;
+            color: #0f172a;
         }
         .table-historial-mobile tbody td:nth-child(1) .hd-fecha {
-            align-items: flex-end;
+            flex-direction: row;
+            gap: 5px;
+        }
+        .table-historial-mobile tbody td:nth-child(1) .hd-hora {
+            color: inherit;
+            font-size: inherit;
         }
         /* Fila 2: equipo (protagonista) */
         .table-historial-mobile tbody td:nth-child(4) {
@@ -251,7 +256,7 @@
             border-bottom: 1px solid #f1f5f9;
             padding: 6px 0 !important;
         }
-        /* Fila 3 izq: autor */
+        /* Quién lo hizo */
         .table-historial-mobile tbody td:nth-child(2) {
             grid-area: author;
             font-size: 12px;
@@ -259,7 +264,6 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 65vw;
             align-self: center;
         }
         .table-historial-mobile tbody td:nth-child(2) .badge-autor {
@@ -271,7 +275,7 @@
         .table-historial-mobile tbody td:nth-child(2) .badge-autor .material-icons {
             display: none;
         }
-        /* Fila 3 der: botón PDF */
+        /* Abajo der: botones (PDF, eliminar) */
         .table-historial-mobile tbody td:nth-child(5) {
             grid-area: pdf;
             justify-self: end;

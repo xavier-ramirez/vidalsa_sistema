@@ -309,19 +309,8 @@
            (pedido del cliente, 21-10-2026). */
         .cpdf-side { gap: 0; }
         .cpdf-side > *:not(.cpdf-avance) { display: none !important; }
-        /* Azul, como la tarjeta de cifras de Equipos en el teléfono (.equipos-mobile-stats,
-           estilos_globales.css): letra blanca y el verde claro que Equipos usa sobre ese fondo
-           (pedido del cliente, 21-10-2026). */
-        .cpdf-avance { grid-column: 1 / -1; padding: 10px 12px; border: none; color: #fff;
-                       background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15); }
-        .cpdf-avance small { margin-bottom: 8px; color: #fff; border-bottom-color: rgba(255, 255, 255, 0.15); }
-        .cpdf-avance small .material-icons { color: #93c5fd; }
-        .cpdf-avance-fila { border-bottom-color: rgba(255, 255, 255, 0.12); }
-        .cpdf-avance .cpdf-avance-nombre,
-        .cpdf-avance .cpdf-avance-cifra { color: #fff; }
-        .cpdf-avance .cpdf-avance-barra { background: rgba(255, 255, 255, 0.2); }
-        .cpdf-avance-barra i { background: #93c5fd; }
-        .cpdf-avance-listo { color: #86efac; }
+        .cpdf-avance { grid-column: 1 / -1; padding: 10px 12px; }
+        .cpdf-avance small { margin-bottom: 8px; }
     }
     @media (max-width: 768px) {
         /* El mismo ancho que Equipos y que la pestaña Historial: la tarjeta a todo lo ancho
@@ -352,8 +341,12 @@
             box-shadow: 0 2px 6px rgba(15, 23, 42, .06); }
         .cpdf-tabla-caja tbody td { display: block; width: auto !important; padding: 0 !important;
             white-space: normal !important; border: none !important; background: none !important; }
-        .cpdf-tabla-caja tbody .hd-fecha { flex-direction: row; gap: 5px; font-size: 11.5px; color: #64748b; }
-        .cpdf-tabla-caja tbody .pdf-doc-btn { margin-left: auto; }
+        /* La fecha, en una línea y en NEGRO (en gris no se leía en el teléfono; pedido del
+           cliente, 21-10-2026): abajo a la izquierda, con los botones a la derecha. */
+        .cpdf-tabla-caja tbody .hd-fecha { flex-direction: row; gap: 5px; font-size: 11.5px; color: #0f172a; }
+        .cpdf-tabla-caja tbody .hd-hora { color: inherit; }
+        /* Los botones de la tarjeta (descartar, PDF), juntos a la derecha. */
+        .cpdf-tabla-caja tbody td:last-child { justify-self: end; gap: 6px; }
         .cpdf-tabla-caja .cpdf-vacio { grid-column: 1 / -1; padding: 24px 0 !important; }
 
         /* Documentos (fecha, documento, equipo, estado, detalle, PDF): documento + estado ·
@@ -366,16 +359,17 @@
         .cpdf-docs tbody td:nth-child(1) { grid-area: 4 / 1; }
         .cpdf-docs tbody td:nth-child(6) { grid-area: 4 / 2; display: flex; }
 
-        /* Compresión: documento + estado · serial + fecha · antes→después→ahorro · PDF */
+        /* Compresión, en el mismo orden que la tarjeta de Documentos: documento + estado ·
+           serial · antes / después / ahorro · fecha + PDF. */
         .cpdf-comp tbody tr { grid-template-columns: 1fr 1fr auto; }
         .cpdf-comp tbody td:nth-child(2) { grid-area: 1 / 1 / 2 / 3; font-weight: 700; }
         .cpdf-comp tbody td:nth-child(7) { grid-area: 1 / 3; justify-self: end; }
-        .cpdf-comp tbody td:nth-child(3) { grid-area: 2 / 1 / 3 / 3; }
-        .cpdf-comp tbody td:nth-child(1) { grid-area: 2 / 3; justify-self: end; }
+        .cpdf-comp tbody td:nth-child(3) { grid-area: 2 / 1 / 3 / -1; }
         .cpdf-comp tbody td:nth-child(4) { grid-area: 3 / 1; }
         .cpdf-comp tbody td:nth-child(5) { grid-area: 3 / 2; }
         .cpdf-comp tbody td:nth-child(6) { grid-area: 3 / 3; }
-        .cpdf-comp tbody td:nth-child(8) { grid-column: 1 / -1; display: flex; }
+        .cpdf-comp tbody td:nth-child(1) { grid-area: 4 / 1 / 5 / 3; }
+        .cpdf-comp tbody td:nth-child(8) { grid-area: 4 / 3; display: flex; }
         .cpdf-comp tbody td.cpdf-num { text-align: left; margin-top: 4px; }
         .cpdf-comp tbody td.cpdf-num::before { display: block; font-size: 10px; font-weight: 700;
             color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; }
