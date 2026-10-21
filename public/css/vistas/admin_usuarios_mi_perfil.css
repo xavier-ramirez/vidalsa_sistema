@@ -123,16 +123,20 @@
             margin-bottom: 4px;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
         }
         .perfil-section-title .material-icons { font-size: 16px; color: var(--pf-azul); }
-        /* En negro y en dos líneas parejas: el max-width lo obliga a partirse (entero cabe
-           en una) y text-wrap: balance reparte el texto por igual entre las dos. */
+        /* En negro, centrado (como el título) y en dos líneas parejas: el max-width lo obliga
+           a partirse (entero cabe en una) y text-wrap: balance reparte el texto por igual. */
         .perfil-section-sub {
             font-size: 13px;
             color: var(--pf-tinta);
             max-width: 300px;
             text-wrap: balance;
+            text-align: center;
+            margin-left: auto;
+            margin-right: auto;
             margin-bottom: 16px;
         }
         .pw-label {
