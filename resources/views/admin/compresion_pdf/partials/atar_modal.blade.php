@@ -2,9 +2,9 @@
      o un VIN del BL. Lo abre window.cpdfAbrirAtar (panel.blade.php) con el documento y lo que se
      leyó; el buscador sugiere equipos al escribir (serial, placa o código, también parecidos) y
      con ↑ ↓ y Enter se elige sin ratón. Si el equipo ya tiene ese documento, se pregunta aquí
-     mismo antes de reemplazarlo. Con un PDF de VARIAS unidades (window.cpdfEnlazarAhora) arriba van
-     sus equipos, para comprobarlos; el buscador sirve para añadir uno que el PDF nombra y no se
-     reconoció (no en un BL ni en un ROTC de flota), y el pie los enlaza a todos. --}}
+     mismo antes de reemplazarlo. Con un PDF de VARIAS unidades (window.cpdfEnlazarAhora), en el mismo
+     orden: el buscador (para añadir uno que el PDF nombra y no se reconoció; no en un BL ni en un
+     ROTC de flota), lo buscado y debajo sus equipos, para comprobarlos; el pie los enlaza a todos. --}}
 <div id="cpdfAtarModal" class="cpdf-atar-velo" hidden onclick="if (event.target === this) window.cpdfCerrarAtar()">
     <div class="cpdf-atar-caja" id="cpdfAtarCaja" role="dialog" aria-modal="true" aria-labelledby="cpdfAtarTitulo">
         <div class="cpdf-atar-cab">
@@ -20,13 +20,13 @@
                     <span id="cpdfAtarLeido" class="cpdf-atar-codigo"></span></div>
                 <div id="cpdfAtarFechas"></div>
             </div>
-            <div id="cpdfAtarSuyos" class="cpdf-atar-lista" hidden></div>
             <label class="cpdf-atar-buscar" id="cpdfAtarBuscarCaja">
                 <i class="material-icons">search</i>
                 <input type="search" id="cpdfAtarBuscar" placeholder="Serial, placa o código del equipo" autocomplete="off"
                        oninput="window.cpdfAtarEscribe()" onkeydown="window.cpdfAtarTecla(event)">
             </label>
             <div id="cpdfAtarLista" class="cpdf-atar-lista" role="listbox"></div>
+            <div id="cpdfAtarSuyos" class="cpdf-atar-lista" hidden></div>
         </div>
         <div id="cpdfAtarPie" class="cpdf-atar-pie" hidden>
             <button type="button" class="cpdf-atar-btn gris" onclick="window.cpdfCerrarAtar()">Cancelar</button>

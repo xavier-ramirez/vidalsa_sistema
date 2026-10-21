@@ -639,7 +639,7 @@
     @can('docs.carga.masiva')
     // ── Atar a un equipo (modal partials/atar_modal) ────────────────────────────────
     // Lo usan atar un PDF sin enlazar, atar un VIN del BL y enlazar un PDF de varias unidades
-    // (o.varias: arriba sus equipos; el buscador añade uno que falte y el pie los enlaza). `o` trae lo que se muestra (doc,
+    // (o.varias: el buscador añade uno que falte, debajo van sus equipos y el pie los enlaza). `o` trae lo que se muestra (doc,
     // archivo, lo leído: leidoEti + leido, y las fechas del PDF), con qué arranca el buscador (inicial), el tipo de
     // documento (para avisar de las fichas que ya lo tienen), si un equipo de otro BL se bloquea,
     // y atar(eq, ui), que hace el POST. ui deja a quien ata marcar la fila ocupada, avisar un
@@ -685,7 +685,7 @@
         }
         return frag;
     };
-    // sinBoton: la tarjeta solo se muestra (los equipos de un PDF de varias unidades, arriba).
+    // sinBoton: la tarjeta solo se muestra (los equipos de un PDF de varias unidades, debajo del buscador).
     var cpdfAtarFila = function (eq, n, sinBoton) {
         var o = cpdfAtarEstado.o, bloqueado = o.bloquearConBl && !!eq.bl;
         var op = document.createElement('div');
@@ -847,11 +847,11 @@
         campo.value = o.inicial || '';
         campo.placeholder = o.varias ? '¿Falta alguno? Serial, placa o código' : 'Serial, placa o código del equipo';
         cpdfAtarEl('cpdfAtarModal').hidden = false;
-        if (o.varias) { cpdfAtarEl('cpdfAtarLista').textContent = ''; cpdfAtarVarias(); return; }
+        if (o.varias) { cpdfAtarEl('cpdfAtarLista').textContent = ''; cpdfAtarVarias(); if (o.buscar) campo.focus(); return; }
         campo.focus(); campo.select();
         cpdfAtarBuscar();
     };
-    // Los equipos de un PDF de varias unidades (arriba, cpdfAtarSuyos), para comprobarlos antes de
+    // Los equipos de un PDF de varias unidades (cpdfAtarSuyos, debajo del buscador), para comprobarlos antes de
     // enlazar; el botón del pie se habilita cuando llegan. No usa el turno del buscador: escribir
     // mientras cargan no debe tirar la respuesta.
     // Pinta sus equipos y los añadidos a mano (con "Quitar"), y el total en el botón del pie.
@@ -925,7 +925,7 @@
     window.cpdfEnlazarAhora = function (link, tipo, doc, fechas, n, buscar) {
         window.cpdfAbrirAtar({ doc: doc, leidoEti: 'Unidades', leido: String(n), fechas: fechas, inicial: '',
             tipo: tipo, bloquearConBl: false, varias: true, buscar: buscar, link: link, n: n, equipos: [], extra: [],
-            // Lo buscado se AÑADE a la lista de arriba (el servidor no se toca hasta enlazar).
+            // Lo buscado se AÑADE a la lista de sus equipos (el servidor no se toca hasta enlazar).
             atar: function (eq, ui) {
                 var o = cpdfAtarEstado.o, ya = o.equipos.concat(o.extra).some(function (x) { return x.id === eq.id; });
                 if (ya) { ui.error('Ya está en la lista.'); return; }

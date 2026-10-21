@@ -291,7 +291,7 @@
     /* Con varias unidades hay dos listas (sus equipos y lo buscado): se desplaza el cuerpo entero. */
     .cpdf-atar-caja.varias .cpdf-atar-cuerpo { overflow-y: auto; }
     .cpdf-atar-caja.varias .cpdf-atar-lista { max-height: none; overflow: visible; }
-    .cpdf-atar-caja.varias #cpdfAtarLista:empty { min-height: 0; }
+    .cpdf-atar-caja.varias #cpdfAtarLista:empty { display: none; }   /* sin búsqueda, sin hueco entre el buscador y sus equipos */
     /* Teléfono: no cabe a lo ancho, todo apilado. */
     @media (max-width: 640px) {
         .cpdf-atar-info { grid-template-columns: minmax(0, 1fr); }
