@@ -12,6 +12,7 @@ use Tests\MySqlTestCase;
  *  - Un filtro activo al cargar la página se marca con .filter-active, la misma clase que
  *    pone selectOption por AJAX (antes el Blade lo pintaba con otro estilo).
  *  - Categoría Flota no aplica a auxiliares: se oculta en modo aux como GPS y Color.
+ *  - Por MODELO sin frente, la card de Distribución dice en qué frente están.
  */
 class EquiposFiltrosAvanzadosTest extends MySqlTestCase
 {
@@ -138,5 +139,22 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
         $this->assertNotFalse($fin);
 
         return substr($html, $ini, $fin - $ini + 400);
+    }
+
+    public function test_por_modelo_sin_frente_la_distribucion_va_por_frente(): void
+    {
+        $fila = DB::table('equipos')->whereNull('deleted_at')->whereNotNull('MODELO')->where('MODELO', '!=', '')
+            ->whereNotNull('ID_FRENTE_ACTUAL')->select('MODELO', 'ID_FRENTE_ACTUAL')->first();
+        $user = $this->superAdminGlobal();
+
+        $porModelo = $this->actingAs($user)->getJson(route('equipos.index', ['modelo' => $fila->MODELO]))->assertOk()->json('distribution');
+        $this->assertStringContainsString('Ubicación por Frente', $porModelo);
+
+        $conFrente = $this->actingAs($user)->getJson(route('equipos.index', ['modelo' => $fila->MODELO, 'id_frente' => $fila->ID_FRENTE_ACTUAL]))
+            ->assertOk()->json('distribution');
+        $this->assertStringNotContainsString('Ubicación por Frente', $conFrente, 'Dentro de un frente sigue yendo por tipo.');
+
+        $pagina = (string) $this->actingAs($user)->get(route('equipos.index', ['modelo' => $fila->MODELO]))->assertOk()->getContent();
+        $this->assertStringContainsString('Ubicación por Frente', $pagina, 'También al abrir la página con el filtro en la URL.');
     }
 }

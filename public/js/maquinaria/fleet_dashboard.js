@@ -86,9 +86,9 @@ function renderFleetEquiposAsignados(lista, frenteActual) {
     const max = Number(lista[0].total) || 1;
     const actual = (frenteActual || '').trim().toUpperCase();
 
-    // Cuatro azules de marca, del más fuerte (los frentes con más equipos) al más claro,
-    // con la letra en blanco como las tarjetas de arriba. La barra de abajo es la
-    // proporción respecto al frente con más equipos.
+    // Tarjeta clara de una línea (puesto · frente · cifra) con un acento de color: cuatro
+    // azules de marca, del más fuerte (los frentes con más equipos) al más claro. La barra
+    // de abajo es la proporción respecto al frente con más equipos.
     const BANDAS = ['fdm-asig--b0', 'fdm-asig--b1', 'fdm-asig--b2', 'fdm-asig--b3'];
     body.innerHTML = `<div class="fdm-asig-grid">${lista.map((row, i) => {
         const banda = BANDAS[Math.floor(i * BANDAS.length / lista.length)];
@@ -96,10 +96,8 @@ function renderFleetEquiposAsignados(lista, frenteActual) {
         const pct = Math.max(4, Math.round((Number(row.total) || 0) * 100 / max));
         return `
             <div class="fdm-asig ${banda}${esActual ? ' fdm-asig--actual' : ''}">
-                <div class="fdm-asig-top">
-                    <span class="fdm-asig-pos">${i + 1}</span>
-                    <span class="fdm-asig-nom" title="${row.frente}">${row.frente}</span>
-                </div>
+                <span class="fdm-asig-pos">${i + 1}</span>
+                <span class="fdm-asig-nom" title="${row.frente}">${row.frente}</span>
                 <div class="fdm-asig-cifra">
                     <b>${row.total}</b><span>equipo${row.total !== 1 ? 's' : ''}</span>
                 </div>

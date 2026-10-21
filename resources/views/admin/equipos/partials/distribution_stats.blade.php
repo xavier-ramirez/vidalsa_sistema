@@ -6,15 +6,15 @@
 @php
     // Lógica de qué card mostrar:
     //   - Si filtra por id_frente (con o sin id_tipo) → mostrar "Distribución" por TIPO
-    //   - Si filtra por id_tipo sin id_frente → mostrar "Ubicación por Frente"
+    //   - Si filtra por id_tipo o por modelo sin id_frente → mostrar "Ubicación por Frente"
     //   - Sin filtros → "Distribución" por TIPO (default)
-    // Se acepta $showFrentes inyectado desde el controller; si no viene, se calcula aquí.
+    // Se acepta $showFrentes inyectado desde el controller (distribucionPorFrente); si no viene, se calcula aquí.
     if (!isset($showFrentes)) {
         $reqFrente = request('id_frente');
         $reqTipo   = request('id_tipo');
         $hasFrenteFilter = $reqFrente && $reqFrente !== 'all';
         $hasTipoFilter   = $reqTipo && $reqTipo !== 'all';
-        $showFrentes     = $hasTipoFilter && !$hasFrenteFilter;
+        $showFrentes     = ($hasTipoFilter || request()->filled('modelo')) && !$hasFrenteFilter;
     }
 @endphp
 

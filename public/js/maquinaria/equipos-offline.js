@@ -265,7 +265,7 @@
     // única forma de consultarla ahí — y su contenido lo pintaba el AJAX, o sea que
     // sin conexión se quedaba con las cifras del momento en que cargó la página.
     // Se recalcula de la copia local replicando distribution_stats.blade.php:
-    //   · qué lista se muestra: por FRENTE si hay filtro de tipo y NO de frente; si no,
+    //   · qué lista se muestra: por FRENTE si hay filtro de tipo o de modelo y NO de frente; si no,
     //     por TIPO (misma regla $showFrentes del partial)
     //   · cada lista IGNORA su propio eje para no autolimitarse, igual que el backend
     //     (applyEquipoFilters con $exclude), y la de frentes omite los equipos sin frente
@@ -309,7 +309,7 @@
 
         const hayTipo   = !!(f.tipo && f.tipo !== 'all');
         const hayFrente = !!(f.frente && f.frente !== 'all');
-        const porFrente = hayTipo && !hayFrente;
+        const porFrente = (hayTipo || !!f.modelo) && !hayFrente;   // = distribucionPorFrente() del backend
 
         let filas, titulo, icono, colorIcono, barra, alTocar;
         if (porFrente) {

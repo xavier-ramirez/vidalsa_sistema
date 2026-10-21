@@ -197,10 +197,11 @@
 
             /* Equipos Asignados por Frente: dos por fila, no una (33 frentes en columna
                se hacían eternos). */
-            #fleetDashboardModal .fdm-asig-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-            #fleetDashboardModal .fdm-asig { padding: 9px 10px 8px; }
-            #fleetDashboardModal .fdm-asig-cifra b { font-size: 21px; }
-            #fleetDashboardModal .fdm-asig-cifra span { font-size: 13px; }
+            #fleetDashboardModal .fdm-asig-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            /* Sin ancho para la cifra al lado del nombre: baja a su propia línea. */
+            #fleetDashboardModal .fdm-asig { grid-template-columns: auto minmax(0, 1fr); padding: 6px 8px 5px; }
+            #fleetDashboardModal .fdm-asig-cifra { grid-column: 1 / -1; }
+            #fleetDashboardModal .fdm-asig-nom { -webkit-line-clamp: 3; }
             /* El subtítulo partía el título en dos líneas y bajaba la cámara a una tercera. */
             #fleetDashboardModal .fdm-panel-sub { display: none; }
 

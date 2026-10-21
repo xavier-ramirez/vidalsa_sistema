@@ -161,6 +161,19 @@ class EquipoController extends Controller
     }
 
     /**
+     * ¿La card de Distribución va por FRENTE («Ubicación por Frente») en vez de por tipo?
+     * Sí cuando se filtra por tipo o por modelo sin frente: la pregunta es «¿dónde están?».
+     * Por modelo, la lista por tipo sale con un solo tipo y no dice nada. La MISMA regla
+     * vive en pintarDistribucion() de equipos-offline.js y en distribution_stats.blade.php.
+     */
+    private function distribucionPorFrente(Request $request): bool
+    {
+        $hayFrente = $request->filled('id_frente') && $request->id_frente !== 'all';
+        $hayTipo   = $request->filled('id_tipo') && $request->id_tipo !== 'all';
+        return !$hayFrente && ($hayTipo || $request->filled('modelo'));
+    }
+
+    /**
      * Aplica al query los filtros activos del request. `$exclude` permite omitir ejes
      * específicos para que los stats de una dimensión no queden limitados por su propio filtro.
      */
@@ -747,8 +760,8 @@ class EquipoController extends Controller
                 ->get()
                 ->each(function ($t) { $t->total -= (int) $t->vendidos + (int) $t->en_tramite; });
 
-            // Frentes Stats — se muestra cuando hay un tipo filtrado; listamos TODOS los frentes que coinciden (sin filtro id_frente)
-            if ($this->tipoEquipoPedido($request) !== null) {
+            // Frentes Stats — solo cuando la card va por frente (distribucionPorFrente); listamos TODOS los frentes que coinciden (sin filtro id_frente)
+            if ($this->distribucionPorFrente($request)) {
                 $frentesQuery = Equipo::query()->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE');
                 $this->applyEquipoFilters($frentesQuery, $request, ['id_frente']);
                 $this->applyBusquedaTexto($frentesQuery, $search); // frentes stats reflejan la búsqueda
@@ -890,8 +903,7 @@ class EquipoController extends Controller
                         'frentesStats' => $frentesStats,
                         'tiposStats'   => $tiposStats,
                         'hasFilter'    => $hasFilter,
-                        'showFrentes'  => ($request->filled('id_tipo') && $request->id_tipo !== 'all')
-                                          && !($request->filled('id_frente') && $request->id_frente !== 'all'),
+                        'showFrentes'  => $this->distribucionPorFrente($request),
                     ])->render(),
                 'ubicaciones'       => view('admin.equipos.partials.ubicaciones_stats', compact('ubicacionesStats'))->render(),
                 'showUbicaciones'   => !$auxMode && $frenteFueraDeFlota !== null,
@@ -999,8 +1011,7 @@ class EquipoController extends Controller
             return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('ANIO')->orderBy('ANIO', 'desc')->pluck('ANIO');
         });
 
-        $showFrentes = ($request->filled('id_tipo') && $request->id_tipo !== 'all' && !$auxMode)
-                       && !($request->filled('id_frente') && $request->id_frente !== 'all');
+        $showFrentes = !$auxMode && $this->distribucionPorFrente($request);
 
         // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
         // return JSON), así están disponibles tanto para el AJAX como para esta vista.
