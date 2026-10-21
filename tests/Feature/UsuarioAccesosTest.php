@@ -69,4 +69,26 @@ class UsuarioAccesosTest extends MySqlTestCase
         $this->assertNull($e->ID_FRENTE_BLOQUEADO);
         $this->assertSame(1, Role::where('NOMBRE_ROL', $rolNuevo)->count());
     }
+
+    /** Si el admin le reinicia la clave a otro, al entrar con ella se le pide cambiarla, como al crearlo. */
+    public function test_reiniciar_la_clave_de_otro_pide_cambiarla_al_entrar(): void
+    {
+        $admin  = $this->superAdminGlobal();
+        $correo = 'prueba.reinicio.' . strtolower(Str::random(8)) . '@cvidalsa27.com';
+        $datos  = ['NOMBRE_COMPLETO' => 'prueba reinicio', 'CORREO_ELECTRONICO' => $correo, 'ID_ROL' => 'ROL PRUEBA REINICIO',
+                   'NIVEL_ACCESO_EQUIPOS' => 1, 'NIVEL_ACCESO_ALMACEN' => 1, 'ESTATUS' => 'ACTIVO'];
+        $this->actingAs($admin)->postJson('/admin/usuarios', $datos + ['password' => '123456'])->assertOk();
+        $id = DB::table('usuarios')->where('CORREO_ELECTRONICO', $correo)->value('ID_USUARIO');
+        $requiere = fn () => (int) DB::table('usuarios')->where('ID_USUARIO', $id)->value('REQUIERE_CAMBIO_CLAVE');
+        DB::table('usuarios')->where('ID_USUARIO', $id)->update(['REQUIERE_CAMBIO_CLAVE' => 0]);   // ya la cambió
+
+        // Editar sin clave no lo toca.
+        $this->actingAs($admin)->putJson('/admin/usuarios/' . $id, $datos)->assertOk();
+        $this->assertSame(0, $requiere());
+
+        // Reiniciarle la clave sí: la próxima vez que entre, cambia la clave.
+        $this->actingAs($admin)->putJson('/admin/usuarios/' . $id, $datos + ['password' => '123456'])->assertOk();
+        $this->assertSame(1, $requiere());
+        $this->actingAs(\App\Models\Usuario::find($id))->get('/menu')->assertRedirect(route('password.change'));
+    }
 }

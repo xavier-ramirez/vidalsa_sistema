@@ -308,9 +308,12 @@ class UserController extends Controller
 
         if ($request->filled('password')) {
             // Un admin cambiando la clave de otro TIENE que echarlo de su sesión: si no,
-            // seguía navegando con una clave que ya no existe. REQUIERE_CAMBIO_CLAVE no se
-            // toca aquí a propósito — lo decide el admin en el formulario.
+            // seguía navegando con una clave que ya no existe. Y como al crearlo, al entrar
+            // con esa clave se le pide cambiarla (la sabe el admin). La suya propia, no.
             $user->establecerClave($request->password);
+            if ((int) $user->ID_USUARIO !== (int) auth()->id()) {
+                $user->REQUIERE_CAMBIO_CLAVE = 1;
+            }
         }
 
         $user->save();
