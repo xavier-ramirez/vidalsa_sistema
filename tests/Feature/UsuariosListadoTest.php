@@ -11,7 +11,7 @@ use Tests\MySqlTestCase;
 /**
  * /admin/usuarios: filtros y vuelta al listado.
  *  - El filtro de Frente encuentra a los usuarios con VARIOS frentes (ID_FRENTE_ASIGNADO es CSV).
- *  - Filtros avanzados: nivel EQ y nivel ALM, cada uno por su lado.
+ *  - Filtros avanzados: un solo desplegable Nivel de acceso (EQ GLOBAL/LOCAL, ALM GLOBAL/LOCAL).
  *  - Editar vuelve al listado con los mismos filtros (?return= saneado contra open-redirect).
  *  - Eliminar por AJAX responde JSON (la tabla se recarga sola con sus filtros).
  *  - Una página que ya no existe muestra la última, no una tabla vacía.
@@ -49,25 +49,26 @@ class UsuariosListadoTest extends MySqlTestCase
         }
     }
 
-    public function test_filtros_avanzados_por_nivel_de_equipos_y_de_almacen(): void
+    public function test_filtro_avanzado_por_nivel_de_acceso(): void
     {
         $u = $this->crearUsuario(null, 1, 2);   // EQ GLOBAL, ALM LOCAL
         $admin = $this->superAdminGlobal();
-        $cuantos = fn (array $f) => $this->actingAs($admin)
-            ->getJson(route('usuarios.index', $f + ['search' => $u->CORREO_ELECTRONICO]))->assertOk()->json('count');
+        $cuantos = fn (string $nivel) => $this->actingAs($admin)
+            ->getJson(route('usuarios.index', ['nivel' => $nivel, 'search' => $u->CORREO_ELECTRONICO]))->assertOk()->json('count');
 
-        $this->assertSame(1, $cuantos(['nivel_equipos' => '1']), 'EQ GLOBAL.');
-        $this->assertSame(0, $cuantos(['nivel_equipos' => '2']), 'No es EQ LOCAL.');
-        $this->assertSame(1, $cuantos(['nivel_almacen' => '2']), 'ALM LOCAL.');
-        $this->assertSame(0, $cuantos(['nivel_almacen' => '1']), 'No es ALM GLOBAL.');
-        $this->assertSame(1, $cuantos(['nivel_equipos' => '1', 'nivel_almacen' => '2']), 'Los dos juntos.');
-        $this->assertSame(0, $cuantos(['nivel_equipos' => '1', 'nivel_almacen' => '1']));
-        $this->assertSame(1, $cuantos(['nivel_equipos' => '9']), 'Un valor que no es nivel se ignora.');
+        $this->assertSame(1, $cuantos('eq-1'), 'EQ GLOBAL.');
+        $this->assertSame(0, $cuantos('eq-2'), 'No es EQ LOCAL.');
+        $this->assertSame(1, $cuantos('alm-2'), 'ALM LOCAL.');
+        $this->assertSame(0, $cuantos('alm-1'), 'No es ALM GLOBAL.');
+        foreach (['eq-9', 'xx-1', '1'] as $raro) {
+            $this->assertSame(1, $cuantos($raro), "«{$raro}» no es un nivel: se ignora.");
+        }
 
         // Al volver con el filtro en la URL, el botón sale en rojo y el desplegable con su valor.
-        $html = (string) $this->actingAs($admin)->get(route('usuarios.index', ['nivel_almacen' => '2']))->assertOk()->getContent();
+        $html = (string) $this->actingAs($admin)->get(route('usuarios.index', ['nivel' => 'alm-2']))->assertOk()->getContent();
         $this->assertStringContainsString('btn-filtro-avanzado activo', $html);
-        $this->assertStringContainsString('name="nivel_almacen" data-filter-value value="2"', $html);
+        $this->assertStringContainsString('name="nivel" data-filter-value value="alm-2"', $html);
+        $this->assertStringContainsString('placeholder="ALM LOCAL"', $html);
     }
 
     public function test_buscador_no_trata_porcentaje_ni_guion_bajo_como_comodines(): void

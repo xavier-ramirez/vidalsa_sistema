@@ -39,14 +39,15 @@ window.loadUsuarios = function (url = null) {
     const searchInput = document.getElementById('searchInput');
     const frenteInput = document.querySelector('input[name="id_frente"]');
     const rolInput = document.querySelector('input[name="id_rol"]');
+    const nivelInput = document.querySelector('input[name="nivel"]');
 
     // Unified Filter Object (Single Source of Truth)
     const filters = {
         search: searchInput?.value,
         id_frente: frenteInput?.value,
-        id_rol: rolInput?.value
+        id_rol: rolInput?.value,
+        nivel: nivelInput?.value
     };
-    USR_NIVELES.forEach(function (n) { filters[n] = usrNivelElegido(n); });
 
     const params = new URLSearchParams();
 
@@ -263,13 +264,7 @@ window.usrToggleAcciones = function () {
     m.style.display = (m.style.display === 'none' || !m.style.display) ? 'block' : 'none';
 };
 
-// ── Filtros avanzados (Nivel EQ / ALM) ───────────────────────────────────────
-// Los dos hidden del panel (lista.blade.php); su name es el parámetro con que viajan.
-const USR_NIVELES = ['nivel_equipos', 'nivel_almacen'];
-function usrNivelElegido(nombre) {
-    const i = document.querySelector('input[name="' + nombre + '"]');
-    return i ? i.value : '';
-}
+// ── Filtros avanzados (Nivel de acceso) ──────────────────────────────────────
 // Sin stopPropagation: el clic sigue hasta document, donde se cierran Acciones, las
 // sugerencias y Frente/Rol (un desplegable a la vez). El panel se cierra en el bloque de abajo.
 window.usrCerrarAvanzado = function () {
@@ -281,19 +276,18 @@ window.usrToggleAvanzado = function () {
     if (!p) return;
     p.style.display = p.style.display === 'block' ? 'none' : 'block';
 };
-// Tras elegir un nivel (o quitarlo con la X): botón en rojo si queda alguno puesto y recarga.
+// Tras elegir un nivel (o quitarlo con la X): botón en rojo si quedó uno puesto y recarga.
 window.usrAvanzadoCambio = function () {
     const btn = document.getElementById('usrAdvBtn');
-    const hay = USR_NIVELES.some(function (n) { return usrNivelElegido(n) !== ''; });
-    if (btn) btn.classList.toggle('activo', hay);
+    const nivel = document.querySelector('input[name="nivel"]');
+    if (btn) btn.classList.toggle('activo', !!(nivel && nivel.value));
     window.loadUsuarios();
 };
 // "Limpiar Todo": sin nada puesto no recarga (la tabla parpadeaba por nada).
 window.usrLimpiarAvanzado = function () {
     const btn = document.getElementById('usrAdvBtn');
     if (!btn || !btn.classList.contains('activo')) return;
-    window.selectOption('usrNivelEqSelect', '', 'TODOS');
-    window.selectOption('usrNivelAlmSelect', '', 'TODOS');
+    window.selectOption('usrNivelSelect', '', 'TODOS');
     window.usrAvanzadoCambio();
 };
 

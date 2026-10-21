@@ -136,19 +136,22 @@
             </div>
 
             {{-- Filtros avanzados, al lado del Rol: el mismo botón de Almacén y Catálogo
-                 (.btn-filtro-avanzado), en rojo cuando hay un nivel elegido. Los dos niveles
-                 son independientes (columna Nivel: EQ y ALM), así que cada uno tiene su
-                 desplegable. Abrir/cerrar y "un desplegable a la vez": usuarios_index.js. --}}
+                 (.btn-filtro-avanzado), en rojo cuando hay un nivel elegido. Un solo desplegable
+                 "Nivel de acceso" con los dos ejes de la columna Nivel (EQ y ALM); viaja como
+                 `nivel` = eje-valor ("eq-1" = EQ GLOBAL). Abrir/cerrar y "un desplegable a la
+                 vez": usuarios_index.js. --}}
             @php
-                $nivelesOpciones = \App\Models\Usuario::NIVELES_ACCESO;
-                $nivelesFiltro = [
-                    ['id' => 'usrNivelEqSelect',  'name' => 'nivel_equipos', 'corto' => 'EQ',  'modulo' => 'Equipos'],
-                    ['id' => 'usrNivelAlmSelect', 'name' => 'nivel_almacen', 'corto' => 'ALM', 'modulo' => 'Almacén'],
-                ];
-                $hayNivel = collect($nivelesFiltro)->contains(fn ($f) => isset($nivelesOpciones[(string) request($f['name'])]));
+                $nivelOpciones = [];
+                foreach (['eq' => 'EQ', 'alm' => 'ALM'] as $eje => $corto) {
+                    foreach (\App\Models\Usuario::NIVELES_ACCESO as $valor => $texto) {
+                        $nivelOpciones["$eje-$valor"] = "$corto $texto";
+                    }
+                }
+                $nivelSel = (string) request('nivel', '');
+                $nivelActivo = isset($nivelOpciones[$nivelSel]);
             @endphp
             <div class="usr-adv-wrap">
-                <button type="button" id="usrAdvBtn" class="btn-primary-maquinaria btn-filtro-avanzado {{ $hayNivel ? 'activo' : '' }}"
+                <button type="button" id="usrAdvBtn" class="btn-primary-maquinaria btn-filtro-avanzado {{ $nivelActivo ? 'activo' : '' }}"
                         title="Filtros avanzados" onclick="window.usrToggleAvanzado();">
                     <i class="material-icons">filter_list</i>
                 </button>
@@ -157,32 +160,28 @@
                         Filtros Avanzados
                         <span class="panel-filtro-avanzado-limpiar" onclick="window.usrLimpiarAvanzado();">Limpiar Todo</span>
                     </h4>
-                    @foreach($nivelesFiltro as $f)
-                        @php $sel = (string) request($f['name'], ''); $activo = isset($nivelesOpciones[$sel]); @endphp
-                        <span class="panel-filtro-avanzado-label" style="{{ $loop->first ? '' : 'margin-top: 10px;' }}">Nivel {{ $f['corto'] }} — {{ $f['modulo'] }}</span>
-                        <div class="custom-dropdown" id="{{ $f['id'] }}" data-filter-type="{{ $f['name'] }}">
-                            <input type="hidden" name="{{ $f['name'] }}" data-filter-value value="{{ $activo ? $sel : '' }}">
-                            <div class="dropdown-trigger {{ $activo ? 'filter-active' : '' }}" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; overflow: hidden; border: 1px solid #cbd5e0; border-radius: 8px; height: 38px;">
-                                <input type="text" data-filter-search autocomplete="off" readonly aria-label="Nivel de {{ $f['modulo'] }}"
-                                       placeholder="{{ $activo ? $f['corto'] . ' ' . $nivelesOpciones[$sel] : 'TODOS' }}"
-                                       style="flex: 1; border: none; background: transparent; padding: 8px 10px; color: #0f172a; outline: none; min-width: 0; cursor: pointer;">
-                                <i class="material-icons" data-clear-btn title="Quitar el filtro"
-                                   style="padding: 0 4px; color: #64748b; font-size: 16px; cursor: pointer; transform: none !important; display: {{ $activo ? 'block' : 'none' }};"
-                                   onclick="event.stopPropagation(); selectOption('{{ $f['id'] }}', '', 'TODOS'); window.usrAvanzadoCambio();">close</i>
-                                <i class="material-icons" style="padding: 0 6px; color: #64748b; font-size: 16px; pointer-events: none; transform: none !important;">expand_more</i>
-                            </div>
-                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
-                                <div class="dropdown-item-list">
-                                    <div class="dropdown-item {{ $activo ? '' : 'selected' }}" data-value="" onclick="selectOption('{{ $f['id'] }}', '', 'TODOS'); window.usrAvanzadoCambio();">TODOS</div>
-                                    @foreach($nivelesOpciones as $valor => $texto)
-                                        <div class="dropdown-item {{ $sel === (string) $valor ? 'selected' : '' }}" data-value="{{ $valor }}" onclick="selectOption('{{ $f['id'] }}', '{{ $valor }}', '{{ $f['corto'] }} {{ $texto }}'); window.usrAvanzadoCambio();">{{ $f['corto'] }} {{ $texto }}</div>
-                                    @endforeach
-                                </div>
+                    <span class="panel-filtro-avanzado-label">Nivel de acceso</span>
+                    <div class="custom-dropdown" id="usrNivelSelect" data-filter-type="nivel">
+                        <input type="hidden" name="nivel" data-filter-value value="{{ $nivelActivo ? $nivelSel : '' }}">
+                        <div class="dropdown-trigger {{ $nivelActivo ? 'filter-active' : '' }}" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; overflow: hidden; border: 1px solid #cbd5e0; border-radius: 8px; height: 38px;">
+                            <input type="text" data-filter-search autocomplete="off" readonly aria-label="Nivel de acceso"
+                                   placeholder="{{ $nivelActivo ? $nivelOpciones[$nivelSel] : 'TODOS' }}"
+                                   style="flex: 1; border: none; background: transparent; padding: 8px 10px; color: #0f172a; outline: none; min-width: 0; cursor: pointer;">
+                            <i class="material-icons" data-clear-btn title="Quitar el filtro"
+                               style="padding: 0 4px; color: #64748b; font-size: 16px; cursor: pointer; transform: none !important; display: {{ $nivelActivo ? 'block' : 'none' }};"
+                               onclick="event.stopPropagation(); selectOption('usrNivelSelect', '', 'TODOS'); window.usrAvanzadoCambio();">close</i>
+                            <i class="material-icons" style="padding: 0 6px; color: #64748b; font-size: 16px; pointer-events: none; transform: none !important;">expand_more</i>
+                        </div>
+                        <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
+                            <div class="dropdown-item-list">
+                                <div class="dropdown-item {{ $nivelActivo ? '' : 'selected' }}" data-value="" onclick="selectOption('usrNivelSelect', '', 'TODOS'); window.usrAvanzadoCambio();">TODOS</div>
+                                @foreach($nivelOpciones as $valor => $texto)
+                                    <div class="dropdown-item {{ $nivelSel === $valor ? 'selected' : '' }}" data-value="{{ $valor }}" onclick="selectOption('usrNivelSelect', '{{ $valor }}', '{{ $texto }}'); window.usrAvanzadoCambio();">{{ $texto }}</div>
+                                @endforeach
                             </div>
                         </div>
-                    @endforeach
+                    </div>
                 </div>
-            </div>
         </div>
 
         {{-- Acciones (mismo botón desplegable que Equipos/Auxiliares/Historial): Nuevo usuario

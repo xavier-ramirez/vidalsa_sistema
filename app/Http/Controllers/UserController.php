@@ -97,13 +97,12 @@ class UserController extends Controller
             $query->where('ID_ROL', $request->input('id_rol'));
         }
 
-        // FILTER 4: niveles de acceso (Filtros avanzados), uno por eje (Usuario::NIVELES_ACCESO).
-        // Otro valor se ignora en vez de devolver una tabla vacía.
-        foreach (['nivel_equipos' => 'NIVEL_ACCESO_EQUIPOS', 'nivel_almacen' => 'NIVEL_ACCESO_ALMACEN'] as $param => $columna) {
-            $nivel = (int) $request->input($param);
-            if (isset(Usuario::NIVELES_ACCESO[$nivel])) {
-                $query->where($columna, $nivel);
-            }
+        // FILTER 4: nivel de acceso (Filtros avanzados) = eje-valor: "eq-1" = EQ GLOBAL,
+        // "alm-2" = ALM LOCAL (Usuario::NIVELES_ACCESO). Otro valor se ignora en vez de
+        // devolver una tabla vacía.
+        if (preg_match('/^(eq|alm)-(\d+)$/', (string) $request->input('nivel'), $m)
+            && isset(Usuario::NIVELES_ACCESO[(int) $m[2]])) {
+            $query->where($m[1] === 'eq' ? 'NIVEL_ACCESO_EQUIPOS' : 'NIVEL_ACCESO_ALMACEN', (int) $m[2]);
         }
 
         // Execute query with pagination (15 por página). Si la página pedida ya no existe
