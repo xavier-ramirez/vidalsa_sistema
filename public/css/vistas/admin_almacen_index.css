@@ -1059,7 +1059,7 @@
                 "nombre nombre nombre"
                 "stock  cant   det" !important;
             gap: 0 !important;
-            /* Gris de la franja de abajo de las tarjetas de Movimientos (pedido del cliente,
+            /* Gris claro en la fila de abajo de la tarjeta (pedido del cliente,
                21-10-2026): lo toma la fila de Stock; la de nombre lleva su propia banda. Las
                tarjetas con stock bajo o recién vistas lo cambian por su color (abajo). */
             background: #f8fafc !important;
