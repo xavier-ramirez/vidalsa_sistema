@@ -220,8 +220,11 @@
            para ajustar padding y tamaños, y ADEMÁS voltea la tarjeta: en teléfono la cifra va
            arriba y la etiqueta debajo, centradas. O sea que el "etiqueta izquierda / cifra
            derecha" que se describe aquí es SOLO de escritorio. */
+        /* Con COLOR, como las tarjetas "Equipos y Maquinaria" / "Equipos Auxiliares" del
+           lateral de Equipos (pedido del cliente, 21-10-2026): el mismo degradado azul y
+           letras blancas; la de auxiliares, en el gris de su tarjeta (.fleet-kpi--aux). */
         .fleet-kpi {
-            background: #fff;
+            background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%);
             border-radius: 10px;
             /* 40px de alto. Nacio para igualar al buscador de frente, que iba en esta misma
                fila; el buscador se mudo a la cabecera, pero el valor se conserva porque es
@@ -259,7 +262,9 @@
                cada tarjeta: cuatro franjas saturadas seguidas son ruido, y al ser las
                cuatro del mismo color no distinguían nada. El acento de color se reserva
                para marcas pequeñas; aquí quien manda es la cifra. */
-            border: 1px solid var(--fd-ring);
+            border: none;
+            color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         .fleet-kpi-lbl {
@@ -273,13 +278,8 @@
                que pueda encogerse de verdad dentro del flex. */
             white-space: normal;
             min-width: 0;
-            /* Negro (antes var(--fd-ink-2) = #64748b, gris): la etiqueta se leía apagada al
-               lado de la cifra. Sigue vigente el motivo por el que NUNCA debe usarse aquí
-               --fd-ink-3 (#8a94a6, 3.06:1): no llega al 4.5:1 que exige AA. */
-            color: var(--fd-ink);
-            /* 600 (antes 500): se pidio la etiqueta "mas oscura". El color ya es --fd-ink
-               (#000, negro puro): no hay tinta mas oscura que dar, asi que lo que se sube es
-               el GROSOR, que es lo que la hace leerse mas marcada al lado de la cifra. */
+            /* Blanco puro sobre el degradado de la tarjeta. */
+            color: #fff;
             font-weight: 600;
         }
 
@@ -296,12 +296,12 @@
                .fleet-kpi, que es el que ahora fija el alto de las cinco tarjetas. */
             font-size: 20px;
             line-height: 1.1;
-            /* Misma tinta que la etiqueta: lo que separa la cifra es el tamaño y el
-               grosor, no el color (antes la etiqueta iba en gris). */
-            color: var(--fd-ink);
+            /* Misma tinta que la etiqueta: lo que separa la cifra es el tamaño y el grosor. */
+            color: #fff;
             font-weight: 700;
             letter-spacing: -0.6px;
         }
+        .fleet-kpi--aux { background: linear-gradient(135deg, #64748b 0%, #475569 100%); }
 
         /* Fila superior del cuerpo: contadores (crecen) + buscador de frente (ancho fijo).
            margin-bottom 8 (antes 12): separaba de mas los contadores del primer grafico. */

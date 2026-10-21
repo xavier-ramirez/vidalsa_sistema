@@ -1227,7 +1227,7 @@
                          updateStatCards a partir de aux_new + aux_old + aux_sin_anio, que son
                          las mismas cifras que ya alimentan las claves del panel de auxiliares
                          (así no puede descuadrar respecto a ese gráfico). --}}
-                    <div class="fleet-kpi">
+                    <div class="fleet-kpi fleet-kpi--aux">
                         <p class="fleet-kpi-lbl">&Sigma; Auxiliares</p>
                         <h3 id="stat_aux_total" class="fleet-kpi-val">0</h3>
                     </div>
