@@ -200,10 +200,16 @@ class HistorialDocumentosController extends Controller
     /** doc_key de las subidas del flujo viejo (una por documento): cuentan como 'cat_uploads'. */
     private const SUBIDAS_LEGACY = ['propiedad', 'poliza', 'rotc', 'racda', 'adicional', 'adicional_2'];
 
-    /** Texto comparable: minusculas y sin acentos. */
+    /**
+     * Texto comparable: minusculas y sin acentos. Recordado por texto: los filtros lo piden para
+     * miles de eventos pero los tipos y autores distintos son unas decenas, y quitar acentos es
+     * lo caro ("Edición de Datos" tardaba 760 ms en filtrar; 21-10-2026).
+     */
     private static function normal(?string $s): string
     {
-        return mb_strtolower(\Illuminate\Support\Str::ascii((string) $s));
+        static $hechos = [];
+        $s = (string) $s;
+        return $hechos[$s] ??= mb_strtolower(\Illuminate\Support\Str::ascii($s));
     }
 
     /**
