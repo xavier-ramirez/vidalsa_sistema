@@ -116,9 +116,11 @@
         }
         .historial-sidebar > div { margin-top: 0 !important; }
         .historial-sidebar > div + div { margin-top: 8px !important; }
-        .hd-total-card {
-            display: none !important;
-        }
+    }
+    /* El total de la auditoría, fuera en teléfono (también acostado) y tableta, igual que el
+       resumen de Revisión y Compresión (admin_compresion_pdf_panel.css, mismo corte de 1024 px). */
+    @media (max-width: 1024px) {
+        .hd-total-card { display: none !important; }
     }
 
     @media (max-width: 768px) {

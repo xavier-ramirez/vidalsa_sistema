@@ -301,6 +301,15 @@
                      position: static; }
         .cpdf-side .cpdf-aviso { grid-column: 1 / -1; }
         .cpdf-filtros { flex-wrap: wrap; }
+
+        /* En una sola columna (teléfono, también acostado, o tableta) del resumen solo se deja
+           "Por dónde va la revisión": lo demás empujaba la lista media pantalla hacia abajo (en
+           Compresión no queda nada). Antes solo hasta 768 px y un teléfono acostado lo veía todo
+           (pedido del cliente, 21-10-2026). */
+        .cpdf-side { gap: 0; }
+        .cpdf-side > *:not(.cpdf-avance) { display: none !important; }
+        .cpdf-avance { grid-column: 1 / -1; padding: 10px 12px; }
+        .cpdf-avance small { margin-bottom: 8px; }
     }
     @media (max-width: 768px) {
         /* El mismo ancho que Equipos y que la pestaña Historial: la tarjeta a todo lo ancho
@@ -317,12 +326,6 @@
         .cpdf-filtros { flex-direction: row !important; flex-wrap: wrap !important; }
         .cpdf-filtros > .filter-item.responsive-filter-item:has(+ .hd-adv-filter-wrap) { flex: 1 1 0 !important; }
 
-        /* Del resumen solo se deja "Por dónde va la revisión": en el teléfono lo demás
-           empujaba la lista media pantalla hacia abajo (en Compresión no queda nada). */
-        .cpdf-side { gap: 0; }
-        .cpdf-side > *:not(.cpdf-avance) { display: none !important; }
-        .cpdf-avance { grid-column: 1 / -1; padding: 10px 12px; }
-        .cpdf-avance small { margin-bottom: 8px; }
 
         /* ── Teléfono: cada fila es una TARJETA ──
            Las dos tablas tienen 6 y 8 columnas: en 390 px no caben y había que arrastrar la
