@@ -970,7 +970,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         ]);
 
         $this->postJson(route('historial-documentos.carga-masiva.atar-documento'), ['link' => '/storage/google/racda-varias', 'id_equipo' => $a->ID_EQUIPO])
-            ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de varias unidades: se enlaza solo a cada una; no se ata a una sola.']);
+            ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de varias unidades: cada una se ata desde su fila; no se ata a una sola.']);
     }
 
     /** Fila de la carga de un RACDA de varias unidades, sin enlazar, como la deja la lectura. */
@@ -1008,14 +1008,14 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             }
             $this->assertSame(VerificacionDocumento::APLICADO, VerificacionDocumento::where('DRIVE_ID', "solo-$tipo")->value('ESTADO'), $tipo);
             $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => "solo-$tipo.pdf"]))
-                ->assertOk()->assertDontSee('cpdfEnlazarEquipos(', false);
+                ->assertOk()->assertDontSee('cpdfAtarFalta(', false);
         }
     }
 
     /**
      * Un titulo de dos unidades donde una ya tiene titulo: se enlaza solo a la otra; la que lo
-     * tiene no se pisa (un titulo no trae vencimiento para saber cual es el bueno). La fila dice
-     * por que y sale el boton para decidirlo; al reemplazarlo ahi queda Aplicado.
+     * tiene no se pisa (sin vencimiento no se sabe cual es el bueno). La fila la muestra "Sin
+     * enlazar" con su boton, como un VIN del BL; al reemplazarlo ahi queda Aplicado.
      */
     public function test_un_titulo_de_varias_unidades_no_pisa_el_que_ya_tiene_una(): void
     {
@@ -1033,109 +1033,119 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertStringContainsString('Enlazado solo a 1 equipo(s).', $fila->MOTIVO);
         $this->assertStringContainsString('sin vencimiento no se sabe cual es el bueno: se quedo el suyo.', $fila->MOTIVO);
         $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'titulo-varias.pdf']))
-            ->assertOk()->assertSee('Enlazar a los 2 equipos');
+            ->assertOk()->assertSee('Sin enlazar el serial ' . $con->SERIAL_CHASIS)
+            ->assertDontSee('Sin enlazar el serial ' . $sin->SERIAL_CHASIS);
 
-        $this->postJson(route('historial-documentos.carga-masiva.enlazar-equipo'),
-            ['link' => '/storage/google/titulo-varias', 'id_equipo' => $con->ID_EQUIPO, 'reemplazar' => 1])
-            ->assertOk()->assertJson(['faltan' => 0]);
+        $atar = fn (array $mas = []) => $this->postJson(route('historial-documentos.carga-masiva.atar-falta'),
+            ['link' => '/storage/google/titulo-varias', 'codigo' => $con->SERIAL_CHASIS, 'id_equipo' => $con->ID_EQUIPO] + $mas);
+        $atar()->assertStatus(422)->assertJson(['requiere_pisar' => true, 'message' => 'Esa ficha ya tiene Titulo de propiedad.']);
+        $atar(['reemplazar' => 1])->assertOk();
+        $this->assertSame('/storage/google/titulo-varias', $con->documentacion()->first()->LINK_DOC_PROPIEDAD);
         $this->assertSame(VerificacionDocumento::APLICADO, $fila->refresh()->ESTADO);
     }
 
-    /** "Enlazar a los N equipos": el modal enseña sus equipos y cada uno se enlaza con su botón; con el último queda Aplicado. */
-    public function test_cada_equipo_de_un_pdf_de_varias_unidades_se_enlaza_con_su_boton(): void
+    /** Un RACDA guarda las placas que nombra y no estan en el sistema, y la fila las dice. */
+    public function test_un_racda_guarda_las_placas_que_no_estan(): void
+    {
+        $this->actingAs($this->usuario());
+        $placa = 'ZX' . random_int(10000, 99999);
+        $e = $this->equipo(['PLACA' => $placa]);
+        $nueva = 'QQ' . random_int(10000, 99999);
+
+        $p = $this->soltar("PROVIDENCIA ADMINISTRATIVA N° 1120\nCARACAS, 14 DE JULIO DE 2025\n"
+            . "los vehiculos que poseen las siguientes placas: $placa, $nueva\nTERCERO", LectorDocumentoPdf::RACDA);
+
+        $this->assertSame([$e->ID_EQUIPO], array_column($p['equipos'], 'id'));
+        $this->assertSame([['codigo' => $nueva]], $p['faltan']);
+        $this->assertStringContainsString("No se consiguio en el sistema la placa $nueva.", $p['aviso']);
+    }
+
+    /**
+     * Una poliza de FLOTA (la tabla "SE AMPARAN LOS SIGUIENTES VEHICULOS") es de TODAS sus
+     * unidades, como un BL: se propone cada una registrada (sin "Comprueba que sea la correcta")
+     * y la que no esta en el sistema queda para atarla a mano.
+     */
+    public function test_una_poliza_de_flota_es_de_todas_sus_unidades(): void
+    {
+        $this->actingAs($this->usuario());
+        $serial = fn () => 'TCMF' . strtoupper(uniqid());
+        $a = $this->equipo(); $a->update(['SERIAL_CHASIS' => $serial()]);
+        $b = $this->equipo(); $b->update(['SERIAL_CHASIS' => $serial()]);
+        $nuevo = $serial();
+
+        $p = $this->soltar("POLIZA DE SEGURO DE AUTOMOVIL\nDesde 01/01/2026 Hasta 01/01/2027\n"
+            . "SE AMPARAN LOS SIGUIENTES VEHICULOS Y/O EQUIPOS\nSerial de carroceria {$a->SERIAL_CHASIS}\n"
+            . "Serial de carroceria {$b->SERIAL_CHASIS}\nSerial de carroceria $nuevo", LectorDocumentoPdf::POLIZA);
+
+        $this->assertEqualsCanonicalizing([$a->ID_EQUIPO, $b->ID_EQUIPO], array_column($p['equipos'], 'id'));
+        $this->assertSame([['codigo' => $nuevo]], $p['faltan']);
+        $this->assertSame('listo', $p['estado']);
+        $this->assertStringContainsString("No se consiguio en el sistema el serial $nuevo.", $p['aviso']);
+    }
+
+    /**
+     * La placa que el PDF nombra y no esta en el sistema sale en la fila con su boton, como un VIN
+     * del BL, tambien cuando lo demas ya se enlazo solo. Se ata a la ficha elegida, la fila lo
+     * dice y deja de faltar.
+     */
+    public function test_la_placa_que_falta_se_ata_a_mano(): void
+    {
+        $u = $this->usuario();
+        $a = $this->equipo(); $b = $this->equipo();
+        $this->racdaDeVarias('racda-falta', [$a], ['faltan' => [['codigo' => 'QQ123ZZ']]]);
+        $this->servicio()->enlazarLoPendiente();
+        $this->actingAs($u);
+        $fila = VerificacionDocumento::where('DRIVE_ID', 'racda-falta')->first();
+        $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO, 'lo reconocido se enlaza solo');
+
+        $ver = fn () => $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-falta.pdf']))->assertOk();
+        $ver()->assertSee('Falta la placa QQ123ZZ')->assertSee('cpdfAtarFalta(', false);
+
+        $atar = fn ($e, string $codigo = 'QQ-123-ZZ') => $this->postJson(route('historial-documentos.carga-masiva.atar-falta'),
+            ['link' => '/storage/google/racda-falta', 'codigo' => $codigo, 'id_equipo' => $e->ID_EQUIPO]);
+        $atar($a)->assertStatus(422)->assertJsonFragment(['message' => 'Ese equipo ya esta en este PDF: elige otro.']);
+        $atar($b)->assertOk();
+
+        $this->assertSame('/storage/google/racda-falta', $b->documentacion()->first()->LINK_RACDA);
+        $fila->refresh();
+        $this->assertSame([], $fila->PROPUESTA['faltan']);
+        $this->assertCount(2, $fila->PROPUESTA['equipos']);
+        $this->assertStringContainsString('Atado a mano: la placa QQ123ZZ al equipo de serial ' . $b->SERIAL_CHASIS . '.', $fila->MOTIVO);
+        $ver()->assertDontSee('cpdfAtarFalta(', false);
+        $atar($b)->assertStatus(422)->assertJsonFragment(['message' => 'Esa unidad ya no falta en este PDF. Recarga la tabla.']);
+    }
+
+    /** Sin ninguna unidad registrada la fila queda "sin ficha"; con la ultima atada, Aplicado y con su equipo. */
+    public function test_un_pdf_de_varias_sin_ninguna_registrada_se_completa_atando(): void
     {
         $this->actingAs($this->usuario());
         $a = $this->equipo(); $b = $this->equipo();
-        $this->racdaDeVarias('racda-uno-a-uno', [$a, $b]);
-        $enlazar = fn ($e, array $mas = []) => $this->postJson(route('historial-documentos.carga-masiva.enlazar-equipo'),
-            ['link' => '/storage/google/racda-uno-a-uno', 'id_equipo' => $e->ID_EQUIPO] + $mas);
-        $equipos = fn () => $this->getJson(route('historial-documentos.carga-masiva.equipos-del-pdf', ['link' => '/storage/google/racda-uno-a-uno']));
-        $estado = fn () => VerificacionDocumento::where('DRIVE_ID', 'racda-uno-a-uno')->value('ESTADO');
+        $this->racdaDeVarias('racda-ninguna', [], ['faltan' => [['codigo' => 'QQ111AA'], ['codigo' => 'QQ222BB']]]);
+        VerificacionDocumento::where('DRIVE_ID', 'racda-ninguna')->update(['ESTADO' => VerificacionDocumento::SIN_FICHA]);
+        $atar = fn ($e, $codigo) => $this->postJson(route('historial-documentos.carga-masiva.atar-falta'),
+            ['link' => '/storage/google/racda-ninguna', 'codigo' => $codigo, 'id_equipo' => $e->ID_EQUIPO]);
+        $fila = fn () => VerificacionDocumento::where('DRIVE_ID', 'racda-ninguna')->first();
 
-        $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-uno-a-uno.pdf']))
-            ->assertOk()->assertSee('cpdfEnlazarEquipos(', false)->assertSee('Enlazar a los 2 equipos');
-        $equipos()->assertOk()->assertJsonCount(2, 'equipos')
-            ->assertJsonPath('equipos.0.serial', $a->SERIAL_CHASIS)->assertJsonPath('equipos.1.serial', $b->SERIAL_CHASIS)
-            ->assertJsonPath('equipos.0.distancia', -1)->assertJsonPath('equipos.0.enlazado', false);
+        $this->postJson(route('historial-documentos.carga-masiva.atar-documento'), ['link' => '/storage/google/racda-ninguna', 'id_equipo' => $a->ID_EQUIPO])
+            ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de varias unidades: cada una se ata desde su fila; no se ata a una sola.']);
 
-        // El primero: queda enlazado ese y la fila sigue sin enlazar.
-        $enlazar($a)->assertOk()->assertJson(['faltan' => 1, 'message' => 'Enlazado al equipo ' . $a->SERIAL_CHASIS . ': RACDA. Falta 1 equipo.']);
-        $this->assertSame('/storage/google/racda-uno-a-uno', $a->documentacion()->first()->LINK_RACDA);
-        $this->assertNull($b->documentacion()->first()->LINK_RACDA);
-        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $estado());
-        $equipos()->assertJsonPath('equipos.0.enlazado', true)->assertJsonPath('equipos.1.enlazado', false);
-
-        // El último: Aplicado, y la fila dice a cuáles se ató a mano.
-        $enlazar($b)->assertOk()->assertJson(['faltan' => 0]);
-        $this->assertSame(VerificacionDocumento::APLICADO, $estado());
-        $motivo = VerificacionDocumento::where('DRIVE_ID', 'racda-uno-a-uno')->value('MOTIVO');
-        $this->assertStringContainsString('Atado a mano: ' . $a->SERIAL_CHASIS . '.', $motivo);
-        $this->assertStringContainsString('Atado a mano: ' . $b->SERIAL_CHASIS . '.', $motivo);
-
-        // Ya enlazado: ni botón ni más enlaces.
-        $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-uno-a-uno.pdf']))
-            ->assertOk()->assertDontSee('cpdfEnlazarEquipos(', false);
-        $enlazar($a)->assertStatus(422);
-        $equipos()->assertStatus(422);
+        $atar($a, 'QQ111AA')->assertOk();
+        $this->assertSame(VerificacionDocumento::SIN_FICHA, $fila()->ESTADO);
+        $atar($b, 'QQ222BB')->assertOk();
+        $this->assertSame(VerificacionDocumento::APLICADO, $fila()->ESTADO);
+        $this->assertSame($b->ID_EQUIPO, (int) $fila()->ID_EQUIPO);
     }
 
-    /** Si la ficha ya tiene ese documento, se pregunta antes de reemplazarlo (como al atar). */
-    public function test_enlazar_un_equipo_que_ya_tiene_el_documento_pide_reemplazar(): void
+    /** Un BL ata sus VIN por su lado (atarVin): por aqui no. */
+    public function test_a_un_bl_no_se_le_ata_una_unidad_por_aqui(): void
     {
         $this->actingAs($this->usuario());
-        $a = $this->equipo(['LINK_RACDA' => '/storage/google/racda-viejo', 'FECHA_RACDA' => '2026-01-01']); $b = $this->equipo();
-        $this->racdaDeVarias('racda-pisa', [$a, $b]);
-        $enlazar = fn (array $mas = []) => $this->postJson(route('historial-documentos.carga-masiva.enlazar-equipo'),
-            ['link' => '/storage/google/racda-pisa', 'id_equipo' => $a->ID_EQUIPO] + $mas);
+        $a = $this->equipo(); $c = $this->equipo();
+        $this->racdaDeVarias('bl-por-aqui', [$a], ['tipo' => CargaMasivaDocumentos::EMBARQUE, 'faltan' => [['codigo' => 'QQ1']]]);
 
-        $enlazar()->assertStatus(422)->assertJson(['requiere_pisar' => true, 'message' => 'Esa ficha ya tiene RACDA.']);
-        $this->assertSame('/storage/google/racda-viejo', $a->documentacion()->first()->LINK_RACDA);
-        $enlazar(['reemplazar' => 1])->assertOk();
-        $this->assertSame('/storage/google/racda-pisa', $a->documentacion()->first()->LINK_RACDA);
-    }
-
-    /** Lo de un solo equipo se ata; lo leído por la revisión automática se comprueba antes: ninguno va por aquí. */
-    public function test_enlazar_equipo_no_va_con_lo_de_un_equipo_ni_con_lo_leido_por_la_ia(): void
-    {
-        $this->actingAs($this->usuario());
-        $a = $this->equipo(); $b = $this->equipo();
-        $this->racdaDeVarias('racda-uno', [$a]);
-        $this->racdaDeVarias('racda-ia', [$a, $b], ['ia' => true]);
-        $enlazar = fn (string $id) => $this->postJson(route('historial-documentos.carga-masiva.enlazar-equipo'),
-            ['link' => '/storage/google/' . $id, 'id_equipo' => $a->ID_EQUIPO]);
-
-        $enlazar('racda-uno')->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de un solo equipo: atalo con "Atar a un equipo".']);
-        $enlazar('racda-ia')->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF tiene algo que mirar antes: no se enlaza solo.']);
-        $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-ia.pdf']))
-            ->assertOk()->assertDontSee('cpdfEnlazarEquipos(', false);
-        $this->assertNull($a->documentacion()->first()->LINK_RACDA);
-    }
-
-    /** Un equipo que el PDF nombra y no se reconoció se busca en el modal y se enlaza; la fila lo recuerda. */
-    public function test_enlazar_un_equipo_buscado_que_no_estaba_en_el_pdf(): void
-    {
-        $this->actingAs($this->usuario());
-        $a = $this->equipo(); $b = $this->equipo(); $c = $this->equipo();
-        $this->racdaDeVarias('racda-mas-uno', [$a, $b]);
-
-        $this->postJson(route('historial-documentos.carga-masiva.enlazar-equipo'), ['link' => '/storage/google/racda-mas-uno', 'id_equipo' => $c->ID_EQUIPO])
-            ->assertOk()->assertJson(['faltan' => 2]);
-        $this->assertSame('/storage/google/racda-mas-uno', $c->documentacion()->first()->LINK_RACDA);
-        $fila = VerificacionDocumento::where('DRIVE_ID', 'racda-mas-uno')->first();
-        $this->assertCount(3, $fila->PROPUESTA['equipos'], 'La fila recuerda el que se sumó.');
-        $this->assertStringContainsString('Atado a mano: ' . $c->SERIAL_CHASIS . '.', $fila->MOTIVO);
-    }
-
-    /** A un BL no se le suman equipos: sus unidades se atan VIN por VIN desde su fila. */
-    public function test_a_un_bl_no_se_le_suma_un_equipo_buscado(): void
-    {
-        $this->actingAs($this->usuario());
-        $a = $this->equipo(); $b = $this->equipo(); $c = $this->equipo();
-        $this->racdaDeVarias('bl-sin-sumar', [$a, $b], ['tipo' => CargaMasivaDocumentos::EMBARQUE]);
-
-        $this->postJson(route('historial-documentos.carga-masiva.enlazar-equipo'), ['link' => '/storage/google/bl-sin-sumar', 'id_equipo' => $c->ID_EQUIPO])
-            ->assertStatus(422)->assertJsonFragment(['message' => 'A un BL o a un ROTC de flota no se le añaden equipos: cada unidad se ata desde su fila.']);
-        $this->assertCount(2, VerificacionDocumento::where('DRIVE_ID', 'bl-sin-sumar')->first()->PROPUESTA['equipos']);
+        $this->postJson(route('historial-documentos.carga-masiva.atar-falta'), ['link' => '/storage/google/bl-por-aqui', 'codigo' => 'QQ1', 'id_equipo' => $c->ID_EQUIPO])
+            ->assertStatus(422)->assertJsonFragment(['message' => 'Un BL se ata VIN por VIN, desde su fila.']);
+        $this->assertNull($c->documentacion()->first()->LINK_RACDA);
     }
 
     /**

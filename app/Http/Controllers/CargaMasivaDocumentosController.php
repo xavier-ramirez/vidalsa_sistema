@@ -19,8 +19,8 @@ use Illuminate\Validation\Rule;
  *   descartar() Borra de Drive el PDF de una propuesta que no se enlazo (super.admin).
  *   buscarEquipo() / atarVin()  Un VIN del BL que no caso con ninguna ficha (su serial difiere
  *               en algo) se ata a mano a la ficha que la persona elige.
- *   equiposDelPdf() / enlazarEquipo()  Un PDF de varias unidades que sigue sin enlazar: se ven
- *               sus equipos en el modal y se enlaza a cada uno con su boton, sin esperar el reintento.
+ *   atarFalta() La unidad de un RACDA, un ROTC o una poliza de flota que no se enlazo sola (no
+ *               esta en el sistema, o su ficha ya tenia ese documento) se ata a mano, como un VIN.
  *
  * Permiso: SOLO 'docs.carga.masiva', que es EXCLUSIVO y ni super.admin hereda (ver
  * autorizar(), abajo). Con esa clave basta, sin super.admin: se entra a Auditoría de
@@ -146,35 +146,23 @@ class CargaMasivaDocumentosController extends Controller
             'requiere_pisar' => !empty($r['requiere_pisar'])], $r['ok'] ? 200 : 422);
     }
 
-    /** Los equipos de un PDF de varias unidades, para comprobarlos en el modal antes de enlazar. */
-    public function equiposDelPdf(Request $request)
-    {
-        $this->autorizar();
-        $datos = $request->validate(['link' => 'required|string|starts_with:/storage/google/']);
-
-        $equipos = $this->servicio->equiposDeLaPropuesta($datos['link']);
-        return $equipos === null
-            ? response()->json(['success' => false, 'message' => CargaMasivaDocumentos::YA_NO_POR_ENLAZAR], 422)
-            : response()->json(['success' => true, 'equipos' => $equipos]);
-    }
-
     /**
-     * Enlaza un PDF de varias unidades a UNO de sus equipos (ver CargaMasivaDocumentos::enlazarEquipo).
-     * Si la ficha ya tiene ese documento responde requiere_pisar y la pantalla pregunta antes.
+     * Ata a mano una unidad de un PDF de varias (la placa o el serial que falta) a la ficha que la
+     * persona eligio (ver CargaMasivaDocumentos::atarFalta). Si la ficha ya tiene ese documento
+     * responde requiere_pisar y la pantalla pregunta antes de reemplazarlo.
      */
-    public function enlazarEquipo(Request $request)
+    public function atarFalta(Request $request)
     {
         $this->autorizar();
         $datos = $request->validate([
             'link'       => 'required|string|starts_with:/storage/google/',
-            'id_equipo'  => 'required|integer|min:1',
-            'auxiliar'   => 'nullable|boolean',
+            'codigo'     => 'required|string|max:40',
+            'id_equipo'  => ['required', 'integer', Rule::exists('equipos', 'ID_EQUIPO')->whereNull('deleted_at')],
             'reemplazar' => 'nullable|boolean',
-        ]);
+        ], ['id_equipo.exists' => 'Ese equipo ya no existe.']);
 
-        $r = $this->servicio->enlazarEquipo($datos['link'], (int) $datos['id_equipo'],
-            (bool) ($datos['auxiliar'] ?? false), (bool) ($datos['reemplazar'] ?? false));
-        return response()->json(['success' => $r['ok'], 'message' => $r['mensaje'], 'faltan' => $r['faltan'] ?? null,
+        $r = $this->servicio->atarFalta($datos['link'], $datos['codigo'], (int) $datos['id_equipo'], (bool) ($datos['reemplazar'] ?? false));
+        return response()->json(['success' => $r['ok'], 'message' => $r['mensaje'],
             'requiere_pisar' => !empty($r['requiere_pisar'])], $r['ok'] ? 200 : 422);
     }
 

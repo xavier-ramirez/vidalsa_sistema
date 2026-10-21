@@ -135,6 +135,7 @@ class PanelDocumentos
             // De la otra pestaña solo hace falta el numero de su botón.
             'docs'        => null,
             'vinesFaltan' => [],
+            'unidadesFaltan' => [],
             'avanceDocs'  => [],
             'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
             'estadoDoc'   => null,
@@ -220,6 +221,11 @@ class PanelDocumentos
             'vinesFaltan'    => app(\App\Services\CargaMasivaDocumentos::class)->vinesSinAtarDeVarias(
                 $filas->getCollection()->mapWithKeys(fn ($d) => [$d->ID_REGISTRO =>
                     $d->ORIGEN === VerificacionDocumento::DE_CARGA_MASIVA ? $d->PROPUESTA : null])->all()),
+            // Y las unidades de cada RACDA, ROTC o poliza de flota que se atan a mano (la placa o
+            // el serial que falta, o un equipo suyo que no entro), cada una con su boton.
+            'unidadesFaltan' => app(\App\Services\CargaMasivaDocumentos::class)->unidadesSinAtar(
+                $filas->getCollection()->mapWithKeys(fn ($d) => [$d->ID_REGISTRO =>
+                    $d->ORIGEN === VerificacionDocumento::DE_CARGA_MASIVA ? $d : null])->all()),
             'resumenDocs'    => VerificacionDocumento::select('ESTADO', DB::raw('COUNT(*) as n'))->groupBy('ESTADO')->pluck('n', 'ESTADO'),
             // Los dos montones que se miran distinto: lo que la tarea todavia pone sola y lo
             // que pide una persona (ilegible, sin archivo, de otro vehiculo o leido a medias).

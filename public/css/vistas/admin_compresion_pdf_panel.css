@@ -284,11 +284,6 @@
     .cpdf-atar-btn.rojo:hover:not(:disabled) { background: #b91c1c; }
     .cpdf-atar-btn.gris { background: #e2e8f0; color: #334155; padding: 5px 12px; font-size: 12px; }
     .cpdf-atar-btn.gris:hover:not(:disabled) { background: #cbd5e1; }
-    .cpdf-atar-buscar[hidden], .cpdf-atar-lista[hidden] { display: none; }
-    /* Con varias unidades hay dos listas (sus equipos y lo buscado): se desplaza el cuerpo entero. */
-    .cpdf-atar-caja.varias .cpdf-atar-cuerpo { overflow-y: auto; }
-    .cpdf-atar-caja.varias .cpdf-atar-lista { max-height: none; overflow: visible; }
-    .cpdf-atar-caja.varias #cpdfAtarLista:empty { display: none; }   /* sin búsqueda, sin hueco entre el buscador y sus equipos */
     /* Teléfono: no cabe a lo ancho, todo apilado. */
     @media (max-width: 640px) {
         .cpdf-atar-info { grid-template-columns: minmax(0, 1fr); }

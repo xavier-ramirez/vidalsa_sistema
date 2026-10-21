@@ -196,11 +196,11 @@
                                      leyó la IA, venía con algo que mirar): se ata a mano buscando el
                                      equipo por serial, placa o código. El BL va VIN por VIN (abajo),
                                      "otro documento" no se ata (se descarta) y lo de varias unidades
-                                     (un RACDA, un ROTC de flota) se enlaza solo a cada una (abajo). --}}
+                                     (un RACDA, un ROTC o una póliza de flota), unidad por unidad (abajo). --}}
                                 @if ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
                                      && in_array($d->ESTADO, [\App\Models\VerificacionDocumento::POR_ENGANCHAR, \App\Models\VerificacionDocumento::SIN_FICHA], true)
                                      && $d->TIPO !== \App\Services\CargaMasivaDocumentos::EMBARQUE && ($d->PROPUESTA['link'] ?? null)
-                                     && count($d->PROPUESTA['equipos'] ?? []) <= 1 && empty($d->PROPUESTA['flota_rotc']))
+                                     && count($d->PROPUESTA['equipos'] ?? []) <= 1 && empty($d->PROPUESTA['flota_rotc']) && !isset($d->PROPUESTA['faltan']))
                                     @can('docs.carga.masiva')
                                         <div class="cpdf-vin-falta">
                                             <span>Sin enlazar</span>
@@ -223,21 +223,19 @@
                                         @endforeach
                                     @endcan
                                 @endif
-                                {{-- Lo de varias unidades que sigue sin enlazar (el reintento es cada hora):
-                                     "Enlazar a los N equipos" abre el modal con sus equipos para comprobarlos y
-                                     enlazarlos uno por uno, con las mismas reglas (CargaMasivaDocumentos::enlazarEquipo).
-                                     Solo lo que se enlazaría solo:
-                                     ni lo leído por la revisión automática ni lo que tiene algo que mirar. --}}
-                                @if ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
-                                     && $d->ESTADO === \App\Models\VerificacionDocumento::POR_ENGANCHAR && ($d->PROPUESTA['link'] ?? null)
-                                     && count($d->PROPUESTA['equipos'] ?? []) > 1 && empty($d->PROPUESTA['ia'])
-                                     && in_array($d->PROPUESTA['estado'] ?? null, ['listo', \App\Services\CargaMasivaDocumentos::ENLAZAR_Y_REVISAR], true))
+                                {{-- Lo de varias unidades (un RACDA, un ROTC o una póliza de flota) que no se enlazó
+                                     solo, como los VIN del BL: cada placa o serial que el PDF nombra y no está en
+                                     el sistema y, mientras siga sin enlazar, cada equipo suyo que no entró. Se ata
+                                     a mano (CargaMasivaDocumentos::atarFalta). --}}
+                                @if (!empty($unidadesFaltan[$d->ID_REGISTRO]))
                                     @can('docs.carga.masiva')
-                                        <div class="cpdf-vin-falta">
-                                            <span>Sin enlazar</span>
-                                            <button type="button" class="cpdf-vin-btn"
-                                                onclick="event.stopPropagation(); window.cpdfEnlazarEquipos(@js($d->PROPUESTA['link']), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]), {{ count($d->PROPUESTA['equipos']) }}, @js($d->TIPO !== \App\Services\CargaMasivaDocumentos::EMBARQUE && empty($d->PROPUESTA['flota_rotc'])))">Enlazar a los {{ count($d->PROPUESTA['equipos']) }} equipos</button>
-                                        </div>
+                                        @foreach ($unidadesFaltan[$d->ID_REGISTRO] as $u)
+                                            <div class="cpdf-vin-falta">
+                                                <span>{{ $u['suyo'] ? 'Sin enlazar' : 'Falta' }} {{ $u['que'] === 'placa' ? 'la placa' : 'el serial' }} {{ $u['codigo'] }}</span>
+                                                <button type="button" class="cpdf-vin-btn"
+                                                    onclick="event.stopPropagation(); window.cpdfAtarFalta(@js($d->PROPUESTA['link']), @js($u['codigo']), @js($u['que']), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))">Atar a un equipo</button>
+                                            </div>
+                                        @endforeach
                                     @endcan
                                 @endif
                             </td>
@@ -638,8 +636,7 @@
     // ata a mano el VIN de un BL que no casó con ninguna ficha.
     @can('docs.carga.masiva')
     // ── Atar a un equipo (modal partials/atar_modal) ────────────────────────────────
-    // Lo usan atar un PDF sin enlazar, atar un VIN del BL y enlazar un PDF de varias unidades
-    // (o.varias: debajo del buscador van sus equipos, cada uno con su botón, y lo buscado se enlaza igual). `o` trae lo que se muestra (doc,
+    // Lo usan atar un PDF sin enlazar, un VIN del BL y una unidad de un PDF de varias. `o` trae lo que se muestra (doc,
     // archivo, lo leído: leidoEti + leido, y las fechas del PDF), con qué arranca el buscador (inicial), el tipo de
     // documento (para avisar de las fichas que ya lo tienen), si un equipo de otro BL se bloquea,
     // y atar(eq, ui), que hace el POST. ui deja a quien ata marcar la fila ocupada, avisar un
@@ -648,9 +645,8 @@
     // Las fechas (aaaa-mm-dd) se muestran con window.formatearFecha (dom_helpers.js).
     var cpdfAtarEstado = { o: null, turno: 0, espera: null, activo: -1 };
     var cpdfAtarEl = function (id) { return document.getElementById(id); };
-    // En la lista de lo buscado o, con caja, en otra (los equipos de un PDF de varias unidades).
-    var cpdfAtarAviso = function (texto, caja) {
-        var lista = cpdfAtarEl(caja || 'cpdfAtarLista');
+    var cpdfAtarAviso = function (texto) {
+        var lista = cpdfAtarEl('cpdfAtarLista');
         lista.textContent = '';
         var p = document.createElement('div');
         p.className = 'cpdf-atar-nada';
@@ -685,12 +681,8 @@
         }
         return frag;
     };
-    // sinMarcar: las tarjetas de los equipos de un PDF de varias unidades (cpdfAtarSuyos) no entran en
-    // la selección con flechas, que es de lo buscado.
-    var cpdfAtarFila = function (eq, n, sinMarcar) {
-        // Bloqueada: uno que ya está en un embarque (no se mueve desde aquí; el servidor tampoco) o
-        // uno que ya tiene este PDF.
-        var o = cpdfAtarEstado.o, bloqueado = (o.bloquearConBl && !!eq.bl) || !!eq.enlazado;
+    var cpdfAtarFila = function (eq, n) {
+        var o = cpdfAtarEstado.o, bloqueado = o.bloquearConBl && !!eq.bl;
         var op = document.createElement('div');
         op.className = 'cpdf-atar-op' + (bloqueado ? ' bloqueado' : '');
         op.setAttribute('role', 'option');
@@ -744,13 +736,11 @@
         var boton = el('button', 'cpdf-atar-btn');
         boton.type = 'button';
         boton.appendChild(el('i', 'material-icons', 'link'));
-        var verbo = eq.enlazado ? 'Enlazado' : (o.varias ? 'Enlazar' : 'Atar');
-        var rotulo = boton.appendChild(el('span', null, verbo));
-        boton.disabled = bloqueado;
-        op.appendChild(info);
-        op.appendChild(boton);
+        var rotulo = boton.appendChild(el('span', null, 'Atar'));
+        boton.disabled = bloqueado;   // uno que ya está en un embarque no se mueve desde aquí (el servidor tampoco)
+        op.appendChild(info); op.appendChild(boton);
         var ui = {
-            ocupado: function (si) { boton.disabled = si || bloqueado; rotulo.textContent = si ? (o.varias ? 'Enlazando…' : 'Atando…') : verbo; },
+            ocupado: function (si) { boton.disabled = si || bloqueado; rotulo.textContent = si ? 'Atando…' : 'Atar'; },
             error: function (msg) {
                 ui.ocupado(false);
                 var viejo = op.querySelector('.cpdf-atar-err'); if (viejo) viejo.remove();
@@ -772,7 +762,7 @@
         };
         var elegir = function () { if (boton.disabled) return; ui.ocupado(true); o.atar(eq, ui); };
         boton.addEventListener('click', function (ev) { ev.stopPropagation(); elegir(); });
-        if (!sinMarcar) op.addEventListener('click', function () { cpdfAtarMarcar(n); });
+        op.addEventListener('click', function () { cpdfAtarMarcar(n); });
         op._elegir = elegir;
         return op;
     };
@@ -836,10 +826,6 @@
     };
     window.cpdfAbrirAtar = function (o) {
         cpdfAtarEstado.o = o;
-        cpdfAtarEl('cpdfAtarTituloTxt').textContent = o.varias ? 'Enlazar a sus equipos' : 'Atar a un equipo';
-        cpdfAtarEl('cpdfAtarCaja').classList.toggle('varias', !!o.varias);
-        cpdfAtarEl('cpdfAtarSuyos').hidden = !o.varias;
-        cpdfAtarEl('cpdfAtarBuscarCaja').hidden = !!o.varias && !o.buscar;
         cpdfAtarEl('cpdfAtarDoc').textContent = o.doc;
         cpdfAtarEl('cpdfAtarLeidoEti').textContent = o.leidoEti + ':';
         cpdfAtarEl('cpdfAtarLeido').textContent = o.leido || '';
@@ -848,30 +834,9 @@
             f.vence && 'Vence: ' + window.formatearFecha(f.vence)].filter(Boolean).join(' · ');
         var campo = cpdfAtarEl('cpdfAtarBuscar');
         campo.value = o.inicial || '';
-        campo.placeholder = o.varias ? '¿Falta alguno? Serial, placa o código' : 'Serial, placa o código del equipo';
         cpdfAtarEl('cpdfAtarModal').hidden = false;
-        if (o.varias) { cpdfAtarEl('cpdfAtarLista').textContent = ''; cpdfAtarVarias(); if (o.buscar) campo.focus(); return; }
         campo.focus(); campo.select();
         cpdfAtarBuscar();
-    };
-    // Los equipos de un PDF de varias unidades (cpdfAtarSuyos, debajo del buscador), cada uno con su
-    // botón Enlazar ("Enlazado" si ya tiene este PDF). Se vuelven a pedir tras cada enlace. No usa el
-    // turno del buscador: escribir mientras cargan no debe tirar la respuesta.
-    var cpdfAtarVarias = function () {
-        var o = cpdfAtarEstado.o;
-        if (!o.equipos.length) cpdfAtarAviso('Buscando sus equipos…', 'cpdfAtarSuyos');
-        window.apiFetch(@json(route('historial-documentos.carga-masiva.equipos-del-pdf')) + '?link=' + encodeURIComponent(o.link),
-            { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
-            .then(function (body) {
-                if (cpdfAtarEstado.o !== o) return;   // se cerró o se abrió otro
-                if (!body || !body.success) { cpdfAtarAviso((body && body.message) || 'No se pudieron traer sus equipos.', 'cpdfAtarSuyos'); return; }
-                o.equipos = body.equipos;
-                var caja = cpdfAtarEl('cpdfAtarSuyos');
-                caja.textContent = '';
-                o.equipos.forEach(function (eq, n) { caja.appendChild(cpdfAtarFila(eq, n, true)); });
-            })
-            .catch(function () { if (cpdfAtarEstado.o === o) cpdfAtarAviso('No se pudieron traer sus equipos.', 'cpdfAtarSuyos'); });
     };
     window.cpdfCerrarAtar = function () {
         var m = cpdfAtarEl('cpdfAtarModal');
@@ -888,32 +853,20 @@
     }
 
     var cpdfAtado = function (r) { window.cpdfCerrarAtar(); window.toast(r.message || 'Atado', 'success'); window.cpdfFiltrar(); };
-
-    // "Enlazar a los N equipos" de un PDF de varias unidades: abre el modal con sus equipos (tipo,
-    // marca y modelo, serial, placa y si ya tienen ese documento) para comprobar que son los que dice
-    // el PDF y enlazarlos uno por uno, como al atar. Si falta uno, se busca y se enlaza igual (buscar:
-    // no en un BL ni en un ROTC de flota). Cuando ya están todos, se cierra y la tabla se repinta.
-    window.cpdfEnlazarEquipos = function (link, tipo, doc, fechas, n, buscar) {
-        window.cpdfAbrirAtar({ doc: doc, leidoEti: 'Unidades', leido: String(n), fechas: fechas, inicial: '',
-            tipo: tipo, bloquearConBl: false, varias: true, buscar: buscar, link: link, equipos: [],
-            atar: function (eq, ui) {
-                var enviar = function (reemplazar) {
-                    window.apiPostForm(@json(route('historial-documentos.carga-masiva.enlazar-equipo')),
-                        { link: link, id_equipo: eq.id, auxiliar: eq.auxiliar ? 1 : '', reemplazar: reemplazar ? 1 : '' }, 'No se pudo enlazar.')
-                        .then(function (r) {
-                            if (!r.faltan) { cpdfAtado(r); return; }
-                            window.toast(r.message, 'success');
-                            cpdfAtarEl('cpdfAtarBuscar').value = '';
-                            cpdfAtarEl('cpdfAtarLista').textContent = '';
-                            cpdfAtarVarias();
-                        })
-                        .catch(function (e) {
-                            if (e && e.requiere_pisar && !reemplazar) { ui.pedirReemplazo(e.message, function () { enviar(true); }); return; }
-                            ui.error((e && e.message) || 'No se pudo enlazar.');
-                        });
-                };
-                enviar(false);
-            } });
+    // El atar() de lo que puede pisar un documento que la ficha ya tiene: si el servidor responde
+    // requiere_pisar, se pregunta en la fila y, con un sí, se manda otra vez con reemplazar.
+    var cpdfAtarPreguntando = function (url, datos) {
+        return function (eq, ui) {
+            var enviar = function (reemplazar) {
+                window.apiPostForm(url, Object.assign({}, datos, { id_equipo: eq.id, reemplazar: reemplazar ? 1 : '' }), 'No se pudo atar.')
+                    .then(cpdfAtado)
+                    .catch(function (e) {
+                        if (e && e.requiere_pisar && !reemplazar) { ui.pedirReemplazo(e.message, function () { enviar(true); }); return; }
+                        ui.error((e && e.message) || 'No se pudo atar.');
+                    });
+            };
+            enviar(false);
+        };
     };
 
     // Atar un VIN del BL que falta: el buscador arranca con el propio VIN.
@@ -931,18 +884,17 @@
     // el servidor responde requiere_pisar y se pregunta en la fila antes de reemplazarlo.
     window.cpdfAtarDocumento = function (link, inicial, tipo, doc, fechas) {
         window.cpdfAbrirAtar({ doc: doc, leidoEti: 'Se leyó', leido: inicial || 'Ni placa ni serial', fechas: fechas,
-            inicial: inicial, tipo: tipo, bloquearConBl: false, atar: function (eq, ui) {
-                var enviar = function (reemplazar) {
-                    window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-documento')),
-                        { link: link, id_equipo: eq.id, reemplazar: reemplazar ? 1 : '' }, 'No se pudo atar.')
-                        .then(cpdfAtado)
-                        .catch(function (e) {
-                            if (e && e.requiere_pisar && !reemplazar) { ui.pedirReemplazo(e.message, function () { enviar(true); }); return; }
-                            ui.error((e && e.message) || 'No se pudo atar.');
-                        });
-                };
-                enviar(false);
-            } });
+            inicial: inicial, tipo: tipo, bloquearConBl: false,
+            atar: cpdfAtarPreguntando(@json(route('historial-documentos.carga-masiva.atar-documento')), { link: link }) });
+    };
+
+    // Atar una unidad de un PDF de varias (RACDA, ROTC o póliza de flota) que no se enlazó sola: la
+    // placa o el serial que el PDF nombra y no está en el sistema, o uno de sus equipos que no entró.
+    // El buscador arranca con ella, como con un VIN del BL.
+    window.cpdfAtarFalta = function (link, codigo, que, tipo, doc, fechas) {
+        window.cpdfAbrirAtar({ doc: doc, leidoEti: que === 'placa' ? 'Placa' : 'Serial', leido: codigo, fechas: fechas,
+            inicial: codigo, tipo: tipo, bloquearConBl: false,
+            atar: cpdfAtarPreguntando(@json(route('historial-documentos.carga-masiva.atar-falta')), { link: link, codigo: codigo }) });
     };
 
     // Descartar lo subido y no aplicado: el PDF se va a la PAPELERA de Drive (se recupera con

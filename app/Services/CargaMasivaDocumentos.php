@@ -123,7 +123,7 @@ class CargaMasivaDocumentos
     private const MOTIVO_MAX = 255;
 
     /** La frase de los VIN que faltan dentro de un aviso; tambien la vieja, "No estan en el sistema: X." */
-    private const FRASE_NO_ESTAN = '/ ?No (se consiguio en el sistema (el|los) VIN|estan en el sistema:) [^.]*\./u';
+    private const FRASE_NO_ESTAN = '/ ?No (se consiguio en el sistema (el VIN|los VIN|la placa|el serial)|se consiguieron en el sistema (los VIN|las placas|los seriales)|estan en el sistema:) [^.]*\./u';
 
     /**
      * Lo que la busqueda de fichas tiene que contar en la propuesta: que el documento nombra
@@ -132,6 +132,14 @@ class CargaMasivaDocumentos
      * vacia al empezar cada archivo.
      */
     private ?string $avisoFichas = null;
+
+    /**
+     * Las unidades que el PDF nombra y no estan en el sistema (las placas de un RACDA, los
+     * seriales de un ROTC o de una poliza de flota): van a la propuesta ('faltan') y cada una se
+     * ata a mano desde su fila, como los VIN de un BL (atarFalta). Lo llenan equiposDelRacda y
+     * equiposDePolizaDeFlota; leer() lo vacia al empezar cada archivo.
+     */
+    private array $faltan = [];
 
     /**
      * Lo que dijo la IA del archivo que se esta analizando: false = todavia no se le pregunto.
@@ -155,6 +163,9 @@ class CargaMasivaDocumentos
 
     /** Lo que responden atar, ver sus equipos y enlazar cuando el PDF ya se enlazo o se descarto. */
     public const YA_NO_POR_ENLAZAR = 'Ese PDF ya no esta por enlazar. Recarga la tabla.';
+
+    /** Un BL no se ata entero ni por unidades: cada VIN que falta, desde su fila (atarVin). */
+    private const BL_VIN_POR_VIN = 'Un BL se ata VIN por VIN, desde su fila.';
 
     /** Lo que responde aplicar cuando la ficha ya tiene ESE mismo PDF (ver yaEnlazado). */
     public const YA_ENLAZADO = 'Ya estaba enlazado.';
@@ -228,6 +239,7 @@ class CargaMasivaDocumentos
     public function leer(UploadedFile $archivo, string $tipoPedido, array $subido): array
     {
         $this->avisoFichas = null;
+        $this->faltan = [];
         $this->avisoTipo = null;
         $this->vistoIa = false;
         ['nombre' => $nombre, 'link' => $link, 'driveId' => $driveId, 'md5' => $md5] = $subido;
@@ -309,7 +321,9 @@ class CargaMasivaDocumentos
         // Si esta lo resuelve todo, la IA ni se entera: no se gasta cupo ni tiempo.
         $conIa = false;
         $notaIa = null;
-        if (!$tipo || !$equipos || $this->faltaFechaQueAlguienPodriaLeer($tipo, $leido)) {
+        // Un RACDA o una poliza de flota cuyas unidades no estan en el sistema SI se leyeron bien:
+        // la IA no las va a registrar. Se atan a mano desde la fila (atarFalta).
+        if (!$tipo || (!$equipos && !$this->faltan) || $this->faltaFechaQueAlguienPodriaLeer($tipo, $leido)) {
             [$tipo, $leido, $equipos, $conIa, $notaIa] = $this->apoyarConIa($archivo, $tipoPedido, $tipo, $leido, $equipos);
         }
 
@@ -349,20 +363,23 @@ class CargaMasivaDocumentos
             'aviso'   => null,
             'ia'      => $conIa,
             'md5'     => $md5,
-        ];
+        ] + ($this->faltan ? ['faltan' => $this->faltan] : []);
+        $noEstan = self::fraseNoEstan(array_column($this->faltan, 'codigo'), self::queFalta($propuesta));
 
         if (!$equipos) {
             $propuesta['estado'] = 'sin_equipo';
             $propuesta['aviso'] = match (true) {
                 $tipo === LectorDocumentoPdf::RACDA
                     => 'Ninguna placa de la providencia esta registrada.',
+                (bool) $this->faltan
+                    => 'Ninguna de sus ' . count($this->faltan) . ' unidades esta registrada.',
                 // El serial SI cuadro, pero con un auxiliar, y un auxiliar no guarda ese
                 // documento: decir "no se sabe de quien es" haria buscar el fallo donde no esta.
                 !isset(self::TIPOS_AUXILIAR[$tipo]) && $this->auxiliarDelDocumento($leido)
                     => 'Es de un auxiliar: solo guardan titulo y certificado.',
                 default
                     => 'No se reconocio la placa ni el serial.',
-            };
+            } . $noEstan;
             return $this->anotar($propuesta, $driveId);
         }
 
@@ -385,6 +402,7 @@ class CargaMasivaDocumentos
             $propuesta['estado'] = 'revisar';
             $propuesta['aviso'] = trim(implode(' ', $avisos) . ' ' . ($propuesta['aviso'] ?? ''));
         }
+        if ($noEstan) $propuesta['aviso'] = trim(($propuesta['aviso'] ?? '') . $noEstan);
 
         return $this->anotar($propuesta, $driveId);
     }
@@ -503,16 +521,10 @@ class CargaMasivaDocumentos
             ->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $porSerial->keys()->all())
             ->orderBy('e.ID_EQUIPO')->get();
 
-        $fichas = [];
-        $conCertificado = 0;
-        foreach ($registrados as $r) {
-            $fila = $porSerial->get($this->lector->codigo((string) $r->SERIAL_CHASIS));
-            if (!$fila) continue;
-            $porQue = 'el serial ' . $r->SERIAL_CHASIS;
-
+        // Lo que aplicar() necesita para armar la parte de UN vehiculo de la tabla.
+        $parte = function (array $fila) use ($certSerial, $flota) {
             $cert = $certSerial->get($this->lector->codigo($fila['serial']));
-            if ($cert) $conCertificado++;
-            $fichas[] = ['coincide_por' => $porQue] + $this->ficha($r) + ['rotc' => [
+            return [
                 'tabla'   => $fila['pagina'],
                 'cert'    => $cert,
                 'vence'   => $fila['vence'],
@@ -523,8 +535,23 @@ class CargaMasivaDocumentos
                 // al vencimiento de la renovacion (03/07/2027), dejaba la ficha con dos fechas de
                 // documentos distintos (219 fichas, 07-10-2026).
                 'emision' => ($cert && ($cert['vence'] ?? null) === $fila['vence']) ? $cert['emision'] : $flota['emision'],
-            ]];
+            ];
+        };
+
+        $fichas = [];
+        $conCertificado = 0;
+        foreach ($registrados as $r) {
+            $fila = $porSerial->get($this->lector->codigo((string) $r->SERIAL_CHASIS));
+            if (!$fila) continue;
+            $rotc = $parte($fila);
+            if ($rotc['cert']) $conCertificado++;
+            $fichas[] = ['coincide_por' => 'el serial ' . $r->SERIAL_CHASIS] + $this->ficha($r) + ['rotc' => $rotc];
         }
+        // Los vehiculos de la tabla que no estan en el sistema: cada uno se ata a mano desde su
+        // fila (atarFalta) y se lleva SU parte, como los registrados.
+        $suyos = array_flip($this->codigos($registrados->pluck('SERIAL_CHASIS')->all()));
+        $faltan = $porSerial->reject(fn ($f, $cod) => isset($suyos[$cod]))
+            ->map(fn ($f) => ['codigo' => $f['serial'], 'rotc' => $parte($f)])->values()->all();
 
         $total = $porSerial->count();
         $propuesta = [
@@ -535,11 +562,12 @@ class CargaMasivaDocumentos
             'equipos' => $fichas, 'estado' => 'listo', 'aviso' => null, 'ia' => false, 'md5' => $md5,
             // Lo que aplicar() necesita para armar la parte de cada equipo (ver parteDeFlota).
             'flota_rotc' => ['portada' => $flota['portada']],
-        ];
+        ] + ($faltan ? ['faltan' => $faltan] : []);
+        $noEstan = self::fraseNoEstan(array_column($faltan, 'codigo'), 'serial');
 
         if (!$fichas) {
             $propuesta['estado'] = 'sin_equipo';
-            $propuesta['aviso'] = "ROTC de flota con $total vehiculos: ninguno esta registrado.";
+            $propuesta['aviso'] = "ROTC de flota con $total vehiculos: ninguno esta registrado." . $noEstan;
             return $propuesta;
         }
 
@@ -548,7 +576,7 @@ class CargaMasivaDocumentos
             . ($total > count($fichas) ? ' (los demas no estan en el sistema)' : '') . '. '
             . 'A cada uno se le enlaza SU parte: la portada, su hoja de la tabla'
             . ($conCertificado ? " y su certificado ($conCertificado lo traen" . ($sinCert ? "; $sinCert no, y van sin certificado)" : ')') : ' (el documento no trae certificados)')
-            . '.';
+            . '.' . $noEstan;
         if ($otra = $this->yaSeSolto($md5, $driveId)) {
             $propuesta['estado'] = 'revisar';
             $propuesta['aviso'] = $otra . ' ' . $propuesta['aviso'];
@@ -696,6 +724,9 @@ class CargaMasivaDocumentos
     {
         if (!$tipo || !$leido) return [];
         if ($tipo === LectorDocumentoPdf::RACDA) return $this->equiposDelRacda($leido);
+        if ($tipo === LectorDocumentoPdf::POLIZA && count($this->codigos($leido['seriales_flota'] ?? [])) > 1) {
+            return $this->equiposDePolizaDeFlota($leido['seriales_flota']);
+        }
 
         $fichas = $this->equipoDelDocumento($leido);
         // Si ningun equipo lo reconoce, puede ser de un AUXILIAR. Solo se mira para los dos
@@ -916,7 +947,7 @@ class CargaMasivaDocumentos
      * leido por la IA NUNCA: hay que comprobarlo.
      *
      * No hay boton de Aplicar (pedido 01-10-2026): esto es lo que enlaza solo; a mano, atarDocumento
-     * y atarVin, y lo de varias unidades, equipo por equipo, enlazarEquipo. Si la ficha ya tiene ese documento, se reemplaza solo cuando el nuevo vence DESPUES (el viejo va a la
+     * y atarVin, y la unidad de un PDF de varias que no entro, atarFalta. Si la ficha ya tiene ese documento, se reemplaza solo cuando el nuevo vence DESPUES (el viejo va a la
      * papelera de Drive, se recupera con un clic); si no, se queda el suyo. Lo que no entra
      * —documento anterior, equipo en otro embarque— se queda sin enlazar y la fila dice por que.
      * Si todo entra, queda "Aplicado".
@@ -1006,8 +1037,13 @@ class CargaMasivaDocumentos
     private function avisoAlDia(array $propuesta): ?string
     {
         $aviso = $propuesta['aviso'] ?? null;
-        if (($propuesta['tipo'] ?? null) !== self::EMBARQUE || !$aviso) return $aviso;
-        return trim(preg_replace(self::FRASE_NO_ESTAN, '', $aviso)) . self::fraseNoEstan($this->vinesSinAtar($propuesta));
+        if (!$aviso) return $aviso;
+        if (($propuesta['tipo'] ?? null) === self::EMBARQUE) {
+            return trim(preg_replace(self::FRASE_NO_ESTAN, '', $aviso)) . self::fraseNoEstan($this->vinesSinAtar($propuesta));
+        }
+        if (!isset($propuesta['faltan'])) return $aviso;
+        return trim(preg_replace(self::FRASE_NO_ESTAN, '', $aviso)
+            . self::fraseNoEstan(array_column($propuesta['faltan'], 'codigo'), self::queFalta($propuesta)));
     }
 
     /**
@@ -1052,56 +1088,112 @@ class CargaMasivaDocumentos
     }
 
     /**
-     * Enlaza un PDF de VARIAS unidades que sigue sin enlazar a UNO de sus equipos, con su boton en
-     * el modal (pedido 21-10-2026: como "Atar a un equipo", equipo por equipo, tras comprobarlo).
-     * Pasa por las mismas puertas que el enlace solo (aplicar); si la ficha ya tiene ese documento
-     * pide $reemplazar. Un equipo que el PDF nombra y no se reconocio (buscado en el modal) se suma
-     * a la propuesta; no en un BL ni en un ROTC de flota, que se atan unidad por unidad. La fila
-     * dice "Atado a mano: serial." (el reintento de cada hora lo conserva) y queda Aplicado cuando
-     * ya estan todos. Lo de un solo equipo no va por aqui: se ata (atarDocumento).
+     * Ata a mano, a la ficha que la persona eligio, una unidad de un PDF de varias (un RACDA, un
+     * ROTC o una poliza de flota) que no se enlazo sola, como un VIN del BL (atarVin): la placa o
+     * el serial que el PDF nombra y no esta en el sistema ('faltan'), o uno de sus equipos
+     * reconocidos que no entro (ya tenia ese documento...). Pasa por las mismas puertas que el
+     * enlace solo (aplicar) y, si la ficha ya tiene ese documento, pide $reemplazar. La fila dice
+     * "Atado a mano" y queda Aplicado cuando no le falta ninguna.
      */
-    public function enlazarEquipo(string $link, int $idEquipo, bool $auxiliar = false, bool $reemplazar = false): array
+    public function atarFalta(string $link, string $codigo, int $idEquipo, bool $reemplazar = false): array
     {
         $p = $this->propuestaGuardada($link);
-        if (!$p || !$this->esPropuestaSinAplicar($link)) {
+        $tipo = $p['tipo'] ?? null;
+        if (!$p || !isset(self::NOMBRES[$tipo])) {
             return ['ok' => false, 'mensaje' => self::YA_NO_POR_ENLAZAR];
         }
-        if (count($p['equipos'] ?? []) < 2) {
-            return ['ok' => false, 'mensaje' => 'Este PDF es de un solo equipo: atalo con "Atar a un equipo".'];
+        if ($tipo === self::EMBARQUE) {
+            return ['ok' => false, 'mensaje' => self::BL_VIN_POR_VIN];
         }
-        if (!empty($p['ia']) || !in_array($p['estado'] ?? null, ['listo', self::ENLAZAR_Y_REVISAR], true)) {
-            return ['ok' => false, 'mensaje' => 'Este PDF tiene algo que mirar antes: no se enlaza solo.'];
+        $cod = $this->lector->codigo($codigo);
+        $k = collect($p['faltan'] ?? [])->search(fn ($f) => $this->lector->codigo((string) $f['codigo']) === $cod);
+        // Si no es una que falta, uno de sus equipos reconocidos que aun no lo tiene.
+        $i = $k === false && $this->esPropuestaSinAplicar($link)
+            ? collect($p['equipos'] ?? [])->search(fn ($f) => empty($f['auxiliar'])
+                && in_array($cod, $this->codigos([$f['placa'] ?? null, $f['serial'] ?? null]), true) && !$this->yaEnlazado($p, $f))
+            : false;
+        if ($k === false && $i === false) {
+            return ['ok' => false, 'mensaje' => 'Esa unidad ya no falta en este PDF. Recarga la tabla.'];
         }
-        $tipo = $p['tipo'];
-        $ficha = collect($p['equipos'])->first(fn ($f) => (int) $f['id'] === $idEquipo && !empty($f['auxiliar']) === $auxiliar);
-        $nuevo = !$ficha;
-        if ($nuevo) {
-            if ($auxiliar || $tipo === self::EMBARQUE || !empty($p['flota_rotc'])) {
-                return ['ok' => false, 'mensaje' => 'A un BL o a un ROTC de flota no se le añaden equipos: cada unidad se ata desde su fila.'];
-            }
-            $fila = $this->consulta()->where('e.ID_EQUIPO', $idEquipo)->first();
-            if (!$fila) return ['ok' => false, 'mensaje' => 'Ese equipo ya no existe.'];
-            $ficha = $this->ficha($fila);
+        $otroDelPdf = collect($p['equipos'] ?? [])->search(fn ($f) => (int) $f['id'] === $idEquipo && empty($f['auxiliar']));
+        if ($otroDelPdf !== false && $otroDelPdf !== $i) {
+            return ['ok' => false, 'mensaje' => 'Ese equipo ya esta en este PDF: elige otro.'];
         }
+        $fila = $this->consulta()->where('e.ID_EQUIPO', $idEquipo)->first();
+        if (!$fila) return ['ok' => false, 'mensaje' => 'Ese equipo ya no existe.'];
 
-        $r = $this->aplicar($idEquipo, $tipo, $link, $p['vence'] ?? null, $p['emision'] ?? null, $reemplazar, false, $auxiliar, false);
-        if (!empty($r['requiere_pisar'])) {
-            return ['ok' => false, 'requiere_pisar' => true, 'mensaje' => 'Esa ficha ya tiene ' . self::NOMBRES[$tipo] . '.'];
+        // La propuesta con ESTE equipo en el lugar de la unidad (y su parte, en un ROTC de flota):
+        // se guarda ANTES de aplicar, que la lee de la tabla (parteDeFlota); si no entra, vuelve.
+        $nueva = $p;
+        $rotc = $k !== false ? ($p['faltan'][$k]['rotc'] ?? null) : ($p['equipos'][$i]['rotc'] ?? null);
+        $ficha = ['coincide_por' => 'lo elegido a mano'] + $this->ficha($fila) + ($rotc ? ['rotc' => $rotc] : []);
+        if ($k !== false) {
+            array_splice($nueva['faltan'], $k, 1);
+            $nueva['equipos'][] = $ficha;
+        } elseif ((int) $p['equipos'][$i]['id'] !== $idEquipo) {
+            $nueva['equipos'][$i] = $ficha;
         }
-        if (!$r['ok']) return $r;
-
-        if ($nuevo) $p['equipos'][] = $ficha;
-        $serial = $ficha['serial'] ?: ($ficha['placa'] ?? null) ?: ('equipo ' . $idEquipo);
         $filaDelPdf = VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($link))
             ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->first();
-        $filaDelPdf?->update(['PROPUESTA' => $p,
-            'MOTIVO' => VerificacionDocumento::motivoQueCabe(trim($filaDelPdf->MOTIVO . ' Atado a mano: ' . $serial . '.'))]);
+        $filaDelPdf->update(['PROPUESTA' => $nueva]);
 
-        $faltan = collect($p['equipos'])->reject(fn ($f) => $this->yaEnlazado($p, $f))->count();
-        if (!$faltan) $this->cerrarPropuesta($link, $this->quedaPorRevisar($p));
+        $r = $this->aplicar($idEquipo, $tipo, $link, $p['vence'] ?? null, $p['emision'] ?? null, $reemplazar, false, false, false);
+        if (!$r['ok']) {
+            $filaDelPdf->update(['PROPUESTA' => $p]);
+            return !empty($r['requiere_pisar'])
+                ? ['ok' => false, 'requiere_pisar' => true, 'mensaje' => 'Esa ficha ya tiene ' . self::NOMBRES[$tipo] . '.']
+                : $r;
+        }
 
-        return ['ok' => true, 'faltan' => $faltan, 'mensaje' => 'Enlazado al equipo ' . $serial . ': ' . self::NOMBRES[$tipo] . '. '
-            . ($faltan ? ($faltan === 1 ? 'Falta 1 equipo.' : "Faltan $faltan equipos.") : 'Ya estan todos.')];
+        $leido = $k !== false ? $p['faltan'][$k]['codigo'] : $codigo;
+        $que = self::queFalta($p);
+        $motivo = trim(preg_replace(self::FRASE_NO_ESTAN, '', (string) $filaDelPdf->MOTIVO))
+            . self::fraseNoEstan(array_column($nueva['faltan'] ?? [], 'codigo'), $que)
+            . ' Atado a mano: ' . ($que === 'placa' ? 'la placa ' : 'el serial ') . $leido . ' al equipo de serial ' . ($fila->SERIAL_CHASIS ?: $idEquipo) . '.';
+        $filaDelPdf->update(['MOTIVO' => VerificacionDocumento::motivoQueCabe($motivo)]);
+
+        // Sin unidades que falten ni equipos sin enlazar, el PDF quedo entero: Aplicado, tambien
+        // la fila que al leerlo no reconocio ninguna ("sin ficha"), que se queda con este equipo.
+        if (empty($nueva['faltan']) && !$this->sinEnlazar($link, $nueva)) {
+            if (!$filaDelPdf->ID_EQUIPO) $filaDelPdf->update(['ID_EQUIPO' => $idEquipo, 'PLACA' => $fila->PLACA, 'SERIAL' => $fila->SERIAL_CHASIS]);
+            $this->cerrarPropuesta($link, $this->quedaPorRevisar($nueva));
+        }
+
+        return ['ok' => true, 'mensaje' => self::NOMBRES[$tipo] . ' atado al equipo de serial ' . ($fila->SERIAL_CHASIS ?: $idEquipo) . '.'];
+    }
+
+    /**
+     * Las unidades de cada PDF de varias que se atan a mano desde su fila (la vista pinta una
+     * linea "Falta la placa X · Atar a un equipo" por cada una), con las MISMAS claves que $filas:
+     * lo que el PDF nombra y no esta en el sistema y, mientras la fila siga sin enlazar, sus
+     * equipos reconocidos que no entraron. Cada una: codigo (lo que se busca), que ('placa' o
+     * 'serial') y suyo (es un equipo reconocido: ya esta en el sistema).
+     */
+    public function unidadesSinAtar(iterable $filas): array
+    {
+        $porFila = [];
+        foreach ($filas as $k => $fila) {
+            $p = $fila?->PROPUESTA;
+            $tipo = $p['tipo'] ?? null;
+            if (!$p || $tipo === self::EMBARQUE || !isset(self::NOMBRES[$tipo]) || empty($p['link'])) continue;
+            $que = self::queFalta($p);
+            $unidades = array_map(fn ($f) => ['codigo' => $f['codigo'], 'que' => $que, 'suyo' => false], $p['faltan'] ?? []);
+            $deVarias = isset($p['faltan']) || count($p['equipos'] ?? []) > 1 || !empty($p['flota_rotc']);
+            if ($deVarias && in_array($fila->ESTADO, VerificacionDocumento::DE_LA_CARGA, true)) {
+                foreach ($this->sinEnlazar($p['link'], $p) as $f) {
+                    $unidades[] = ['codigo' => ($f[$que] ?? null) ?: ($f['serial'] ?? null) ?: ($f['placa'] ?? null), 'que' => $que, 'suyo' => true];
+                }
+            }
+            if ($unidades) $porFila[$k] = $unidades;
+        }
+        return $porFila;
+    }
+
+    /** Los equipos reconocidos de la propuesta que aun no tienen el PDF (el enlace solo no los pudo poner). */
+    private function sinEnlazar(string $link, array $p): array
+    {
+        if (!$this->esPropuestaSinAplicar($link)) return [];
+        return array_values(array_filter($p['equipos'] ?? [], fn ($f) => empty($f['auxiliar']) && !$this->yaEnlazado($p, $f)));
     }
 
     /** El PDF ya esta en la ficha de ese equipo de la propuesta (el ensayo de aplicar no escribe nada). */
@@ -1111,12 +1203,26 @@ class CargaMasivaDocumentos
             false, true, !empty($f['auxiliar']), false)['mensaje'] === self::YA_ENLAZADO;
     }
 
-    /** " No se consiguio en el sistema el VIN X." (o los VIN, hasta 5), o '' si no falta ninguno. */
-    private static function fraseNoEstan(array $vins): string
+    /**
+     * " No se consiguio en el sistema el VIN X." (o "se consiguieron ... los VIN", hasta 5), o '' si no falta ninguno.
+     * $que: 'VIN' (un BL), 'placa' (un RACDA) o 'serial' (un ROTC o una poliza de flota).
+     */
+    private static function fraseNoEstan(array $codigos, string $que = 'VIN'): string
     {
-        if (!$vins) return '';
-        return ' No se consiguio en el sistema ' . (count($vins) === 1 ? 'el VIN ' : 'los VIN ')
-            . implode(', ', array_slice($vins, 0, 5)) . (count($vins) > 5 ? ' y ' . (count($vins) - 5) . ' mas' : '') . '.';
+        if (!$codigos) return '';
+        $uno = count($codigos) === 1;
+        return ' No se ' . ($uno ? 'consiguio' : 'consiguieron') . ' en el sistema ' . match ($que) {
+                'placa'  => $uno ? 'la placa ' : 'las placas ',
+                'serial' => $uno ? 'el serial ' : 'los seriales ',
+                default  => $uno ? 'el VIN ' : 'los VIN ',
+            }
+            . implode(', ', array_slice($codigos, 0, 5)) . (count($codigos) > 5 ? ' y ' . (count($codigos) - 5) . ' mas' : '') . '.';
+    }
+
+    /** Lo que se dice de las unidades de un PDF que faltan: placas en un RACDA, seriales en lo demas. */
+    private static function queFalta(array $p): string
+    {
+        return ($p['tipo'] ?? null) === LectorDocumentoPdf::RACDA ? 'placa' : 'serial';
     }
 
     /**
@@ -1251,32 +1357,6 @@ class CargaMasivaDocumentos
             ->values()->all();
     }
 
-    /**
-     * Los equipos a los que va un PDF de varias unidades, como los ve el modal de atar (tipo,
-     * marca y modelo, serial, placa y si ya tiene ese documento), para comprobarlos y enlazarlos
-     * uno por uno (enlazarEquipo; pedido 21-10-2026). Todos con distancia -1: se reconocieron
-     * porque su placa o su serial estan en el PDF; enlazado, si ya tiene ESTE PDF. Los auxiliares,
-     * con lo que guardo la lectura. null si el PDF ya no esta por enlazar.
-     */
-    public function equiposDeLaPropuesta(string $link): ?array
-    {
-        $p = $this->propuestaGuardada($link);
-        if (!$p || !$this->esPropuestaSinAplicar($link)) return null;
-
-        $ids = collect($p['equipos'] ?? [])->reject(fn ($f) => !empty($f['auxiliar']))->pluck('id')->all();
-        $filas = $this->consultaParaAtar()->whereIn('e.ID_EQUIPO', $ids ?: [0])->get()->keyBy('ID_EQUIPO');
-        $nros = Embarque::whereIn('ID_EMBARQUE', $filas->pluck('ID_EMBARQUE')->filter()->unique())->pluck('NRO_BL', 'ID_EMBARQUE');
-
-        return collect($p['equipos'] ?? [])->map(fn ($f) => (empty($f['auxiliar']) && isset($filas[$f['id']])
-            ? $this->equipoParaAtar($filas[$f['id']], -1, $p['tipo'] ?? null, $nros)
-            : ['id' => (int) $f['id'], 'auxiliar' => !empty($f['auxiliar']), 'serial' => $f['serial'] ?? null,
-               'placa' => $f['placa'] ?? null, 'codigo' => null, 'nombre' => $f['nombre'] ?? ('Auxiliar #' . $f['id']),
-               'tipo' => !empty($f['auxiliar']) ? 'AUXILIAR' : null, 'distancia' => -1, 'bl' => null, 'bl_desde' => null,
-               'tiene' => false, 'actual' => null])
-            + ['enlazado' => $this->yaEnlazado($p, $f)])
-            ->values()->all();
-    }
-
     /** La consulta de equipos del modal de atar: la de siempre mas el tipo, el BL y las fechas de cada documento. */
     private function consultaParaAtar()
     {
@@ -1291,7 +1371,7 @@ class CargaMasivaDocumentos
     private function equipoParaAtar(object $f, int $distancia, ?string $tipo, $nros): array
     {
         return [
-            'id' => (int) $f->ID_EQUIPO, 'auxiliar' => false, 'serial' => $f->SERIAL_CHASIS, 'placa' => $f->PLACA,
+            'id' => (int) $f->ID_EQUIPO, 'serial' => $f->SERIAL_CHASIS, 'placa' => $f->PLACA,
             'codigo' => $f->CODIGO_PATIO,
             'nombre' => trim(($f->MARCA ?? '') . ' ' . ($f->MODELO ?? '')) ?: ('Equipo #' . $f->ID_EQUIPO),
             'tipo' => $f->TIPO_EQUIPO,
@@ -1401,15 +1481,15 @@ class CargaMasivaDocumentos
             return ['ok' => false, 'mensaje' => self::YA_NO_POR_ENLAZAR];
         }
         if ($tipo === self::EMBARQUE) {
-            return ['ok' => false, 'mensaje' => 'Un BL se ata VIN por VIN, desde su fila.'];
+            return ['ok' => false, 'mensaje' => self::BL_VIN_POR_VIN];
         }
         if (!isset(self::NOMBRES[$tipo]) || ($p['estado'] ?? null) === self::OTRO_DOCUMENTO) {
             return ['ok' => false, 'mensaje' => 'No se sabe que documento es: descartalo y vuelve a soltarlo eligiendo su tipo.'];
         }
         // Un PDF de VARIAS unidades (un RACDA, un ROTC de flota) se enlaza a cada una por su lado:
         // atarlo aqui a una lo daria por terminado y las demas se quedarian sin el.
-        if (count($p['equipos'] ?? []) > 1 || !empty($p['flota_rotc'])) {
-            return ['ok' => false, 'mensaje' => 'Este PDF es de varias unidades: se enlaza solo a cada una; no se ata a una sola.'];
+        if (count($p['equipos'] ?? []) > 1 || !empty($p['flota_rotc']) || isset($p['faltan'])) {
+            return ['ok' => false, 'mensaje' => 'Este PDF es de varias unidades: cada una se ata desde su fila; no se ata a una sola.'];
         }
 
         $vence = $p['vence'] ?? null;
@@ -1813,11 +1893,43 @@ class CargaMasivaDocumentos
                 . self::TOPE_UNIDADES . '. Las demas las enlaza la revision de la noche.';
         }
 
+        $this->faltan = $this->noEstan($placas, $filas->pluck('PLACA')->all());
+
         // Cada ficha lleva POR QUE se la eligio: su propia placa, la que la providencia nombra.
         return array_map(
             fn ($f) => ['coincide_por' => 'la placa ' . $f['placa']] + $f,
             $this->fichas($filas)
         );
+    }
+
+    /**
+     * Las unidades de una POLIZA DE FLOTA (su tabla "SE AMPARAN LOS SIGUIENTES VEHICULOS"): todas,
+     * por su serial de carroceria, como un RACDA por sus placas (pedido 21-10-2026). Se enlaza sola
+     * a cada una; las que no estan en el sistema se atan a mano desde su fila, como en un BL.
+     */
+    private function equiposDePolizaDeFlota(array $seriales): array
+    {
+        $filas = $this->consulta()
+            ->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $this->codigos($seriales))
+            ->orderBy('e.ID_EQUIPO')->limit(self::TOPE_UNIDADES)->get();
+        $this->faltan = $this->noEstan($seriales, $filas->pluck('SERIAL_CHASIS')->all());
+
+        return array_map(fn ($f) => ['coincide_por' => 'el serial ' . $f['serial']] + $f, $this->fichas($filas));
+    }
+
+    /**
+     * Lo leido que no casa con ninguno de $delSistema (comparados como codigo(): sin guiones, O/0...),
+     * como lo guarda la propuesta en 'faltan': [['codigo' => lo leido], ...], sin repetir.
+     */
+    private function noEstan(array $leidos, array $delSistema): array
+    {
+        $estan = array_flip($this->codigos($delSistema));
+        $faltan = [];
+        foreach ($leidos as $leido) {
+            $cod = $this->lector->codigo((string) $leido);
+            if ($cod !== '' && !isset($estan[$cod]) && !isset($faltan[$cod])) $faltan[$cod] = ['codigo' => (string) $leido];
+        }
+        return array_values($faltan);
     }
 
     /** Hasta 5 equipos con alguno de esos seriales, siempre en el mismo orden. */
