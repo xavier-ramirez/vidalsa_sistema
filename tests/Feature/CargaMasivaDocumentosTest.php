@@ -871,10 +871,10 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame($vinBl, \Illuminate\Support\Facades\DB::table('embarque_equipo')->where('ID_EQUIPO', $b->ID_EQUIPO)->value('VIN'));
         $this->assertSame('LEZDD2CC7SF' . $digitos, $b->fresh()->SERIAL_CHASIS, 'el serial de la ficha no se toca');
         $this->assertSame([], $this->servicio()->vinesSinAtar($p));
-        // La MISMA fila sigue en la pagina (dice "Atado a mano"), pero ya sin el boton.
-        $panel()->assertOk()->assertSee('Atado a mano: el VIN ' . $vinBl)->assertDontSee("Falta el VIN $vinBl", false);
+        // La MISMA fila sigue saliendo al buscar ese VIN (por lo que leyo del PDF), ya sin el boton.
+        $panel()->assertOk()->assertSee('HCLKGTAT de 2 unidades')->assertDontSee("Falta el VIN $vinBl", false);
         $motivo = $this->filaDeLaCarga($p)->MOTIVO;
-        $this->assertStringContainsString("Atado a mano: el VIN $vinBl", $motivo);
+        $this->assertSame('BL HCLKGTAT de 2 unidades: todas enlazadas.', $motivo);
         $this->assertStringNotContainsString('No se consiguio', $motivo);
 
         // Atarlo otra vez ya no se puede, y el mismo BL soltado de nuevo ya no lo da por perdido.
@@ -930,7 +930,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $fila->refresh();
         $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO);
         $this->assertSame($e->ID_EQUIPO, (int) $fila->ID_EQUIPO);
-        $this->assertStringContainsString('Atado a mano al equipo de serial ' . $e->SERIAL_CHASIS, $fila->MOTIVO);
+        $this->assertStringContainsString('Enlazado a mano al equipo de serial ' . $e->SERIAL_CHASIS, $fila->MOTIVO);
 
         // Ya enlazado, no se vuelve a atar.
         $this->postJson(route('historial-documentos.carga-masiva.atar-documento'), ['link' => $p['link'], 'id_equipo' => $e->ID_EQUIPO])
@@ -970,7 +970,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         ]);
 
         $this->postJson(route('historial-documentos.carga-masiva.atar-documento'), ['link' => '/storage/google/racda-varias', 'id_equipo' => $a->ID_EQUIPO])
-            ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de varias unidades: cada una se ata desde su fila; no se ata a una sola.']);
+            ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de varias unidades: cada una se enlaza desde su fila.']);
     }
 
     /** Fila de la carga de un RACDA de varias unidades, sin enlazar, como la deja la lectura. */
@@ -1030,8 +1030,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame('/storage/google/titulo-viejo', $con->documentacion()->first()->LINK_DOC_PROPIEDAD);
         $fila = VerificacionDocumento::where('DRIVE_ID', 'titulo-varias')->first();
         $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $fila->ESTADO);
-        $this->assertStringContainsString('Enlazado solo a 1 equipo(s).', $fila->MOTIVO);
-        $this->assertStringContainsString('sin vencimiento no se sabe cual es el bueno: se quedo el suyo.', $fila->MOTIVO);
+        $this->assertSame('Titulo de propiedad de 2 unidades: 1 enlazada, 1 por enlazar.', $fila->MOTIVO);
         $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'titulo-varias.pdf']))
             ->assertOk()->assertSee('Sin enlazar el serial ' . $con->SERIAL_CHASIS)
             ->assertDontSee('Sin enlazar el serial ' . $sin->SERIAL_CHASIS);
@@ -1110,7 +1109,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $fila->refresh();
         $this->assertSame([], $fila->PROPUESTA['faltan']);
         $this->assertCount(2, $fila->PROPUESTA['equipos']);
-        $this->assertStringContainsString('Atado a mano: la placa QQ123ZZ al equipo de serial ' . $b->SERIAL_CHASIS . '.', $fila->MOTIVO);
+        $this->assertSame('RACDA de 2 unidades: todas enlazadas.', $fila->MOTIVO);
         $ver()->assertDontSee('cpdfAtarFalta(', false);
         $atar($b)->assertStatus(422)->assertJsonFragment(['message' => 'Esa unidad ya no falta en este PDF. Recarga la tabla.']);
     }
@@ -1127,7 +1126,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $fila = fn () => VerificacionDocumento::where('DRIVE_ID', 'racda-ninguna')->first();
 
         $this->postJson(route('historial-documentos.carga-masiva.atar-documento'), ['link' => '/storage/google/racda-ninguna', 'id_equipo' => $a->ID_EQUIPO])
-            ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de varias unidades: cada una se ata desde su fila; no se ata a una sola.']);
+            ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de varias unidades: cada una se enlaza desde su fila.']);
 
         $atar($a, 'QQ111AA')->assertOk();
         $this->assertSame(VerificacionDocumento::SIN_FICHA, $fila()->ESTADO);
@@ -1144,7 +1143,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->racdaDeVarias('bl-por-aqui', [$a], ['tipo' => CargaMasivaDocumentos::EMBARQUE, 'faltan' => [['codigo' => 'QQ1']]]);
 
         $this->postJson(route('historial-documentos.carga-masiva.atar-falta'), ['link' => '/storage/google/bl-por-aqui', 'codigo' => 'QQ1', 'id_equipo' => $c->ID_EQUIPO])
-            ->assertStatus(422)->assertJsonFragment(['message' => 'Un BL se ata VIN por VIN, desde su fila.']);
+            ->assertStatus(422)->assertJsonFragment(['message' => 'Un BL se enlaza VIN por VIN, desde su fila.']);
         $this->assertNull($c->documentacion()->first()->LINK_RACDA);
     }
 
@@ -1268,8 +1267,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->servicio()->enlazarLoPendiente();
 
         $motivo = (string) $this->filaDeLaCarga($p)->MOTIVO;
-        $this->assertStringNotContainsString("No se consiguio en el sistema el VIN $vinBl", $motivo, 'ya no falta');
-        $this->assertStringContainsString("Atado a mano: el VIN $vinBl", $motivo, 'y la nota de lo atado se conserva');
+        $this->assertSame('BL HCLKGTRI de 3 unidades: 2 enlazadas, 1 por enlazar.', $motivo, 'el VIN atado ya no falta');
         $this->assertSame([], $this->servicio()->vinesSinAtar($p));
 
         // Sin cambios, la siguiente pasada no vuelve a escribir la fila.
@@ -1369,7 +1367,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame('HCLKGTOT', $b->embarques()->first()?->NRO_BL, 'No se saca de su embarque sin preguntar.');
         $fila = $this->filaDeLaCarga($p);
         $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $fila->ESTADO);
-        $this->assertStringContainsString('Enlazado solo a 1 equipo(s)', $fila->MOTIVO);
+        $this->assertSame('BL HCLKGTDE de 2 unidades: 1 enlazada, 1 por enlazar.', $fila->MOTIVO);
     }
 
     /**
@@ -1442,7 +1440,7 @@ Fecha de Vencimiento 10/10/2027",
         $fila = $this->filaDeLaCarga($p);
         $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO);
         $this->assertTrue(VerificacionDocumento::paraRevisar()->whereKey($fila->ID_REGISTRO)->exists(), 'queda para revisar');
-        $this->assertStringContainsString('ponla en el visor', $fila->MOTIVO);
+        $this->assertStringContainsString('ponlo en el visor', $fila->MOTIVO);
 
         // Como lo hace la persona: en el panel del visor (que guarda sin disparar observers).
         $this->postJson(route('equipos.updateMetadata', $e->ID_EQUIPO), ['doc_type' => 'rotc', 'fecha_vencimiento' => '2027-10-10'])
@@ -1513,7 +1511,7 @@ Fecha de Vencimiento 10/10/2027",
         $this->assertSame('/storage/google/rotc-de-antes', $e->documentacion()->first()->LINK_ROTC, 'No se reemplaza sin preguntar.');
         $fila = $this->filaDeLaCarga($p);
         $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $fila->ESTADO);
-        $this->assertStringStartsWith('No se enlazó. Este equipo ya tiene ese documento, y el nuevo no vence despues', $fila->MOTIVO);
+        $this->assertSame('No se enlazo: Ya tenia uno que no vence antes: se quedo el suyo.', $fila->MOTIVO);
     }
 
     /** Si el nuevo vence DESPUES que el de la ficha, lo reemplaza solo (el viejo, a la papelera). */
@@ -1644,7 +1642,7 @@ Fecha de Vencimiento 10/10/2027",
         $this->postJson(route('historial-documentos.carga-masiva.atar-vin'), ['link' => $p['link'], 'vin' => $vinBl, 'id_equipo' => $b->ID_EQUIPO])
             ->assertOk();
         $this->assertSame([], $this->servicio()->vinesSinAtar($p), 'atado, ya no falta');
-        $this->assertStringContainsString("Atado a mano: el VIN $vinBl", $this->filaDeLaCarga($p)->MOTIVO);
+        $this->assertStringStartsWith('BL de 2 unidades: todas enlazadas.', $this->filaDeLaCarga($p)->MOTIVO);
     }
 
     /** Una poliza soltada como BL no se asocia; y un auxiliar no lleva BL. */

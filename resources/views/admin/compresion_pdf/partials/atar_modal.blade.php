@@ -1,4 +1,4 @@
-{{-- Atar a mano a un equipo lo que la carga masiva no enlazó sola: un PDF (póliza, título…),
+{{-- Enlazar a mano a un equipo lo que la carga masiva no enlazó sola: un PDF (póliza, título…),
      un VIN del BL o una unidad de un PDF de varias. Lo abre window.cpdfAbrirAtar (panel.blade.php) con el documento y lo que se
      leyó; el buscador sugiere equipos al escribir (serial, placa o código, también parecidos) y
      con ↑ ↓ y Enter se elige sin ratón. Si el equipo ya tiene ese documento, se pregunta aquí
@@ -6,7 +6,7 @@
 <div id="cpdfAtarModal" class="cpdf-atar-velo" hidden onclick="if (event.target === this) window.cpdfCerrarAtar()">
     <div class="cpdf-atar-caja" role="dialog" aria-modal="true" aria-labelledby="cpdfAtarTitulo">
         <div class="cpdf-atar-cab">
-            <h3 id="cpdfAtarTitulo"><i class="material-icons">link</i>Atar a un equipo</h3>
+            <h3 id="cpdfAtarTitulo"><i class="material-icons">link</i>Enlazar a un equipo</h3>
             <button type="button" class="cpdf-atar-x" onclick="window.cpdfCerrarAtar()" aria-label="Cerrar"><i class="material-icons">close</i></button>
         </div>
         <div class="cpdf-atar-cuerpo">

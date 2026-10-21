@@ -312,7 +312,8 @@
     .hd-pest .hd-pend { background: #fee2e2; color: #b91c1c; border-radius: 999px; padding: 1px 7px; font-size: 12px; font-weight: 800; margin-left: 4px; }
     /* Teléfono: los nombres cortos (sin .hd-pest-mas) y sin partirse; si no caben, la fila se desliza. */
     @media (max-width: 768px) {
-        .hd-pest { overflow-x: auto; scrollbar-width: none; }
+        /* Centradas (pedido del cliente, 21-10-2026); "safe" las deja arrancar a la izquierda si no caben. */
+        .hd-pest { overflow-x: auto; scrollbar-width: none; justify-content: center; justify-content: safe center; }
         .hd-pest::-webkit-scrollbar { display: none; }
         .hd-pest button { white-space: nowrap; padding: 8px 10px; font-size: 13.5px; }
         .hd-pest .hd-pest-mas { display: none; }

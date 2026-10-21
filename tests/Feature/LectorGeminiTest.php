@@ -433,7 +433,7 @@ class LectorGeminiTest extends MySqlTestCase
         $this->assertTrue($fila->A_MANO, 'leido por la IA: no se enlaza solo');
         // POR QUÉ es de ese equipo: el dato impreso en el PDF que cuadró exacto con la ficha.
         // Es lo que responde "¿y cómo sé que lo asoció al equipo correcto?" sin abrir el PDF.
-        $this->assertStringContainsString('Reconocido por el serial ' . $equipo->SERIAL_CHASIS, (string) $fila->MOTIVO);
+        $this->assertStringContainsString('Por el serial ' . $equipo->SERIAL_CHASIS, (string) $fila->MOTIVO);
         // Y la ficha sigue intacta: lo leido por la IA no se enlaza solo.
         $this->assertNull($equipo->documentacion()->first()->LINK_ROTC);
     }

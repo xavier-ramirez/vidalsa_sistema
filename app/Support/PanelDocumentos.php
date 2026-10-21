@@ -188,7 +188,11 @@ class PanelDocumentos
                     ->orWhere('MOTIVO', 'like', $like)
                     // Por el nombre del PDF: es como se busca lo que uno acaba de soltar.
                     ->orWhere('ARCHIVO', 'like', $like)
-                    ->orWhere('LEIDO', 'like', $like)->orWhere('LEIDO', 'like', $likeJson));
+                    ->orWhere('LEIDO', 'like', $like)->orWhere('LEIDO', 'like', $likeJson)
+                    // Lo de la carga masiva, tambien por lo que leyo del PDF: un VIN, una placa o
+                    // un serial que falta (el motivo ya no los nombra: los dice la linea de cada uno).
+                    ->orWhere(fn ($c) => $c->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+                        ->where(fn ($p) => $p->where('PROPUESTA', 'like', $like)->orWhere('PROPUESTA', 'like', $likeJson))));
             })
             // Lo soltado en la carga masiva en las ULTIMAS 24 HORAS va PRIMERO, lo mas nuevo
             // arriba, este como este: se enlaza solo y queda "Aplicado", y lo aplicado va al
