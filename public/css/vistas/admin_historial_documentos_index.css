@@ -195,13 +195,12 @@
         .table-historial-mobile tbody tr {
             display: grid;
             grid-template-columns: 1fr auto;
-            /* El mismo orden que las tarjetas de Revisión y Compresión: qué se hizo · equipo ·
-               quién · fecha (negra) con los botones (pedido del cliente, 21-10-2026). */
+            /* Arriba qué se hizo con la fecha (negra) al lado; el equipo; abajo quién y los
+               botones (pedido del cliente, 21-10-2026). */
             grid-template-areas:
-                "doc    doc"
+                "doc    date"
                 "equipo equipo"
-                "author author"
-                "date   pdf";
+                "author pdf";
             column-gap: 10px;
             /* Juntas: en el teléfono cada tarjeta ocupaba demasiado alto (pedido del cliente, 21-10-2026). */
             row-gap: 4px;
@@ -233,9 +232,10 @@
             font-size: 10px;
             padding: 3px 8px;
         }
-        /* Abajo izq: fecha y hora en una línea, en negro */
+        /* Arriba der: fecha y hora en una línea, en negro */
         .table-historial-mobile tbody td:nth-child(1) {
             grid-area: date;
+            justify-self: end;
             font-size: 11.5px;
             color: #0f172a;
         }
@@ -277,7 +277,7 @@
         .table-historial-mobile tbody td:nth-child(2) .badge-autor .material-icons {
             display: none;
         }
-        /* Abajo der: botones (PDF, eliminar) */
+        /* Abajo der: botones (PDF, eliminar), al lado de quién lo hizo */
         .table-historial-mobile tbody td:nth-child(5) {
             grid-area: pdf;
             justify-self: end;

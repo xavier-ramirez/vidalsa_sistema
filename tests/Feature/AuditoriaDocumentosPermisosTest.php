@@ -55,7 +55,7 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
 
         $html = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'documentos']))->assertOk()->getContent();
 
-        $this->assertStringContainsString('Revisión de documentos', $html);
+        $this->assertStringContainsString('Revisión automática', $html);
         $this->assertStringContainsString('window.abrirCargaMasiva', $html, 'El modal de la carga masiva tiene que estar.');
         $this->assertStringContainsString('Carga masiva', $html, 'Y su botón en Acciones.');
         $this->assertStringContainsString($carga, $html, 'Ve lo que se cargó en lote.');

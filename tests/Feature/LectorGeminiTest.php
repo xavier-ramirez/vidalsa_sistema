@@ -403,7 +403,7 @@ class LectorGeminiTest extends MySqlTestCase
         Http::assertNothingSent();
     }
 
-    // ── Lo soltado se ve en la tabla de Revisión de documentos ────────────────
+    // ── Lo soltado se ve en la tabla de Revisión automática ────────────────
 
     /**
      * El modal solo sirve para soltar archivos: el estado de cada PDF se ve en la MISMA tabla
@@ -499,7 +499,7 @@ class LectorGeminiTest extends MySqlTestCase
     }
 
     /**
-     * La tabla de Revisión de documentos es DONDE SE VE lo soltado: sale su fila, con el
+     * La tabla de Revisión automática es DONDE SE VE lo soltado: sale su fila, con el
      * nombre del PDF, y se encuentra buscando por ese nombre (es lo único que identifica un
      * archivo recién subido).
      */

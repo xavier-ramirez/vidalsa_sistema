@@ -246,7 +246,7 @@ class HistorialDocumentosTest extends MySqlTestCase
     }
 
     /**
-     * Revisión de documentos: tipo, estado y el buscador al final; Compresión sigue con el
+     * Revisión automática: tipo, estado y el buscador al final; Compresión sigue con el
      * buscador primero y UN "Certificado" para equipos y auxiliares.
      */
     public function test_orden_de_los_filtros_y_un_solo_certificado(): void

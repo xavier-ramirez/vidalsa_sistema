@@ -11,8 +11,9 @@
     {{-- Las tres para quien entra (Usuario::veAuditoriaDocumentos). Con solo la carga masiva,
          el historial y la compresión son de mirar: borrar y la Papelera piden super.admin.
          La revisión va primero y es la que se abre (HistorialDocumentosController::index). --}}
+    {{-- "Revisión automática" (pedido del cliente, 21-10-2026; antes "Revisión de documentos"). --}}
     <button type="button" class="{{ $pestana === 'documentos' ? 'on' : '' }}" onclick="window.hdPestana('documentos')">
-        Revisión de documentos
+        Revisión automática
         @if ($docsParaRevisar) <span class="hd-pend" title="Documentos que hay que revisar a mano">{{ $docsParaRevisar }}</span> @endif
     </button>
     <button type="button" class="{{ $pestana === 'historial' ? 'on' : '' }}" onclick="window.hdPestana('historial')">Historial de cambios</button>

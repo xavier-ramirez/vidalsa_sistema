@@ -1,7 +1,7 @@
 {{-- Carga masiva de documentos: la abre el menú Acciones (partials/acciones).
 
      ESTE MODAL SOLO SIRVE PARA SOLTAR ARCHIVOS. El estado de cada PDF —de qué ficha es, si
-     falta la fecha, si no se pudo leer— se ve en la tabla de "Revisión de documentos", que es
+     falta la fecha, si no se pudo leer— se ve en la tabla de "Revisión automática", que es
      la misma donde se ve lo que lee la tarea de la noche. Antes había aquí una segunda lista
      con su propio "Aplicar" y eran dos tablas de documentos en el mismo módulo (pedido
      23-09-2026: una sola). Lo que coincide se enlaza solo (01-10-2026: sin botón de Aplicar);
@@ -328,7 +328,7 @@
         barra.appendChild(i); caja.appendChild(barra);
         if (t.corriendo || t.hechos) caja.appendChild(el('small', null, t.corriendo
             ? 'Puedes seguir usando el sistema; no recargues ni cierres esta pestaña hasta que termine.'
-            : 'Se están leyendo en el servidor: cada uno sale en Revisión de documentos, enlazado o con el porqué.'));
+            : 'Se están leyendo en el servidor: cada uno sale en Revisión automática, enlazado o con el porqué.'));
         // Las cuentas, que suman los adjuntados: así se ve enseguida si falta alguno.
         if (!t.corriendo) {
             caja.appendChild(el('div', 'hd-cm-p-cuentas', t.hechos + ' subido(s) · ' + t.yaEstaban.length + ' ya estaban cargados · '

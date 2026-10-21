@@ -63,6 +63,6 @@ class HistorialDocumentosSinRecargaTest extends MySqlTestCase
         $html = $this->actingAs($this->usuario())
             ->get('/admin/historial-documentos?pestana=documentos')->assertOk()->getContent();
 
-        $this->assertStringContainsString('Revisión de documentos', $html);
+        $this->assertStringContainsString('Revisión automática', $html);
     }
 }

@@ -883,11 +883,12 @@ document.addEventListener('DOMContentLoaded', () => {
         caja.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2147483000;' +
             'display:flex;align-items:center;gap:10px;background:#1e293b;color:#fff;border-radius:12px;' +
             'padding:10px 12px 10px 14px;box-shadow:0 12px 28px rgba(15,23,42,.35);' +
-            'font-family:Nunito,"Segoe UI",system-ui,sans-serif;font-size:13px;max-width:calc(100vw - 24px);';
+            'font-family:Nunito,"Segoe UI",system-ui,sans-serif;font-size:13px;max-width:calc(100vw - 24px);white-space:nowrap;';
         caja.innerHTML =
             '<span style="display:flex;align-items:center;gap:8px;">' +
                 '<i class="material-icons" style="font-size:19px;color:#60a5fa;">system_update_alt</i>' +
-                'Hay cambios nuevos en el sistema' +
+                // En el teléfono, corto: el largo empujaba el botón fuera ("Actuali…").
+                (window.matchMedia('(max-width: 768px)').matches ? 'Hay cambios nuevos' : 'Hay cambios nuevos en el sistema') +
             '</span>' +
             '<button type="button" id="avisoVersionRecargar" style="font:inherit;font-weight:700;cursor:pointer;' +
                 'background:#0067b1;color:#fff;border:none;border-radius:8px;padding:6px 12px;">Actualizar</button>' +

@@ -4,7 +4,7 @@
        $id        id del chip; el número lleva el id "$id-cuenta"
        $alTocar   función de "ver solo las elegidas" (recibe el evento)
        $alLimpiar función de "Limpiar"
-       $revisado  (opcional) con true, el botón "Revisado" de la Revisión de documentos --}}
+       $revisado  (opcional) con true, el botón "Revisado" de la Revisión automática --}}
 <div id="{{ $id }}" class="selection-floating-bar hd-chip-sel">
     <div class="selection-counter" onclick="{{ $alTocar }}(event)" style="cursor: pointer;" title="Ver solo las filas elegidas">
         <div style="background: rgba(255,255,255,0.1); padding: 5px; border-radius: 50%; display: flex;">
