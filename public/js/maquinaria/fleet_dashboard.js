@@ -504,8 +504,8 @@ async function loadFleetDashboardData(frenteId) {
             ? '' : (document.getElementById('dashboardFrenteSearch') || {}).value;
         renderFleetEquiposAsignados(data.equiposPorFrente || [], nombreElegido);
 
-        pintarPorTipo('chartAgeByType', data.ageByType, 'Sin equipos registrados para este frente.');
-        pintarPorTipo('chartAuxByType', data.auxByType, 'Sin equipos auxiliares registrados.');
+        pintarPorTipo('chartAgeByType', data.ageByType);
+        pintarPorTipo('chartAuxByType', data.auxByType);
 
         setTimeout(() => {
             if (spinner) spinner.style.display = 'none';
@@ -531,12 +531,13 @@ async function loadFleetDashboardData(frenteId) {
  * Gráfico "nuevo vs antiguo por tipo" (equipos y auxiliares), en HTML.
  *
  * En la cabecera de cada panel, el RESUMEN (total de cada grupo, que llena
- * updateStatCards): aquí se le pone su porcentaje; sin datos no se muestra. Debajo, UNA FILA POR TIPO, de mayor a
+ * updateStatCards): aquí se le pone su porcentaje. Debajo, UNA FILA POR TIPO, de mayor a
  * menor y una debajo de otra: nombre | barra | desglose por serie y total. El largo de la
  * barra es relativo al tipo con más unidades, así se comparan los tipos entre sí; los
- * tramos son las series.
+ * tramos son las series. Si el frente no tiene ninguno (p. ej. sin auxiliares), el panel
+ * entero se oculta en vez de enseñar un recuadro vacío.
  */
-function pintarPorTipo(contId, datos, textoVacio) {
+function pintarPorTipo(contId, datos) {
     const cont = document.getElementById(contId);
     if (!cont) return;
     const panel = cont.closest('.fdm-panel');
@@ -555,19 +556,17 @@ function pintarPorTipo(contId, datos, textoVacio) {
         return filas.reduce(function (a, f) { return a + f.valores[k]; }, 0);
     });
     const totGeneral = totSerie.reduce(function (a, b) { return a + b; }, 0);
+    if (panel) panel.style.display = filas.length ? '' : 'none';
+    if (!filas.length) {
+        cont.innerHTML = '';
+        return;
+    }
     if (panel) {
         panel.querySelectorAll('.fdm-res[data-serie]').forEach(function (el) {
             const k = Number(el.dataset.serie);
             const pct = el.querySelector('.fdm-res-pct');
-            if (pct) pct.textContent = totGeneral ? Math.round((totSerie[k] || 0) * 100 / totGeneral) + '%' : '—';
+            if (pct) pct.textContent = Math.round((totSerie[k] || 0) * 100 / totGeneral) + '%';
         });
-        const resumen = panel.querySelector('.fdm-resumen');
-        if (resumen) resumen.style.display = totGeneral ? '' : 'none';
-    }
-
-    if (!filas.length) {
-        cont.innerHTML = '<p class="fdm-vacio">' + esc(textoVacio) + '</p>';
-        return;
     }
 
     const max = filas[0].total;
