@@ -160,16 +160,18 @@
        (MovimientoInventario: #16a34a y #dc2626), para que en todo el sistema bien/mal se lean igual. */
     .cpdf-estado { display: inline-block; font-size: 11.5px; font-weight: 700; }
     .cpdf-estado.comprimido { color: #16a34a; }
-    .cpdf-estado.saltado { color: #92400e; cursor: help; }
+    /* El ámbar de la tabla (estados que piden mirar y "Falta el VIN"): UNO solo, algo más claro
+       que el de antes (pedido del cliente, 21-10-2026). */
+    .cpdf-estado.saltado { color: #d97706; cursor: help; }
     .cpdf-estado.error { color: #dc2626; cursor: help; }
     .cpdf-vacio { text-align: center; color: #94a3b8; padding: 30px; }
 
     .cpdf-estado.coincide { color: #16a34a; }
     .cpdf-estado.difiere { color: #dc2626; cursor: help; }
-    .cpdf-estado.ilegible, .cpdf-estado.sin_archivo { color: #92400e; cursor: help; }
+    .cpdf-estado.ilegible, .cpdf-estado.sin_archivo { color: #d97706; cursor: help; }
     /* Carga masiva: azul para lo que espera un clic, ámbar para lo que no se sabe de quién es. */
     .cpdf-estado.por_enganchar { color: #1e40af; cursor: help; }
-    .cpdf-estado.sin_ficha { color: #92400e; cursor: help; }
+    .cpdf-estado.sin_ficha { color: #d97706; cursor: help; }
     /* Se cargo como un documento y el PDF era otro: no se asocio a nada. */
     .cpdf-estado.otro_documento { color: #dc2626; cursor: help; }
     .cpdf-estado.aplicado { color: #16a34a; cursor: help; }
@@ -200,7 +202,7 @@
     .cpdf-flecha { font-size: 14px; color: #94a3b8; }
 
     /* El VIN de un BL que no casó con ninguna ficha, y su buscador para atarlo a mano. */
-    .cpdf-vin-falta { margin-top: 6px; font-size: 12px; color: #b45309; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .cpdf-vin-falta { margin-top: 6px; font-size: 12px; color: #d97706; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
     .cpdf-vin-btn { border: 1px solid #1e40af; background: #fff; color: #1e40af; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
 
     /* Modal "Atar a un equipo" (partials/atar_modal): mismo encabezado oscuro que los demás
