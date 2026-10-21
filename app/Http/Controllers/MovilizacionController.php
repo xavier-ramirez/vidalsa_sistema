@@ -358,9 +358,15 @@ class MovilizacionController extends Controller
 
     public function bulkStore(Request $request)
     {
+        // Equipos (ids) y auxiliares (aux_ids) se movilizan JUNTOS: un solo registro con un
+        // solo N° de acta, y el acta los lista a todos (generarActaTraslado ya agrupa por
+        // CODIGO_CONTROL sin distinguir). Antes los auxiliares iban por su propio endpoint y
+        // un mismo traslado quedaba partido en dos actas.
         $request->validate([
-            'ids'                  => 'required|array|min:1',
+            'ids'                  => 'nullable|array',
             'ids.*'                => 'exists:equipos,ID_EQUIPO',
+            'aux_ids'              => 'nullable|array',
+            'aux_ids.*'            => 'integer|exists:equipos_auxiliares,ID_AUXILIAR',
             'destination'          => 'required|string|max:255',
             'destination_ubicacion'=> 'nullable|string|max:150',
             'generar_pdf'          => 'boolean',
@@ -375,6 +381,10 @@ class MovilizacionController extends Controller
             'firmas.*.nom'         => 'nullable|string|max:120',
             'firmas.*.ced'         => 'nullable|string|max:40',
         ]);
+
+        if (empty($request->input('ids')) && empty($request->input('aux_ids'))) {
+            return response()->json(['success' => false, 'message' => 'Selecciona al menos un equipo o auxiliar.'], 422);
+        }
 
         $authUser = auth()->user();
 
@@ -447,34 +457,48 @@ class MovilizacionController extends Controller
             // Bloquear los equipos PRIMERO. Si por algun motivo (race con destroy,
             // ids fantasma) la coleccion queda vacia abortamos antes de consumir
             // un numero de la secuencia (evita huecos en CODIGO_CONTROL).
-            // Solo equipos VISIBLES para el usuario: mandar un id por el cuerpo de la peticion
-            // no puede mover un equipo de un frente bloqueado. Mismo criterio que el
-            // scopeFrentes del bulkMove de auxiliares.
-            $consultaEquipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids);
-            $authUser->aplicarScopeFrentesEquipos($consultaEquipos, 'equipos.ID_FRENTE_ACTUAL');
-            $equipos = $consultaEquipos
-                ->lockForUpdate()
-                ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
-
-            if ($equipos->isEmpty()) {
-                DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'No se encontraron equipos validos para movilizar.'], 422);
+            // Solo equipos y auxiliares VISIBLES para el usuario: mandar un id por el cuerpo
+            // de la peticion no puede mover nada de un frente bloqueado.
+            $equipos = collect();
+            if (!empty($request->ids)) {
+                $consultaEquipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $request->ids);
+                $authUser->aplicarScopeFrentesEquipos($consultaEquipos, 'equipos.ID_FRENTE_ACTUAL');
+                $equipos = $consultaEquipos
+                    ->lockForUpdate()
+                    ->get(['ID_EQUIPO', 'ID_FRENTE_ACTUAL']);
+            }
+            // Auxiliares: la misma barrera por frente que los equipos.
+            $auxiliares = collect();
+            if (!empty($request->aux_ids)) {
+                $consultaAux = \App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $request->aux_ids);
+                $authUser->aplicarScopeFrentesEquipos($consultaAux, 'equipos_auxiliares.ID_FRENTE_ACTUAL');
+                $auxiliares = $consultaAux
+                    ->lockForUpdate()
+                    ->get(['ID_AUXILIAR', 'ID_FRENTE_ACTUAL']);
             }
 
-            // Omitir los equipos que YA están en el frente destino: no se movilizan (no se
-            // les crea movilización ni se actualizan) — ya están ahí. La operación continúa
-            // solo con los que cambian de frente. Si TODOS ya estaban, no hay nada que hacer
-            // (rollback antes de consumir un CODIGO_CONTROL).
+            if ($equipos->isEmpty() && $auxiliares->isEmpty()) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'No se encontraron equipos ni auxiliares validos para movilizar.'], 422);
+            }
+
+            // Omitir lo que YA está en el frente destino: no se moviliza (no se le crea
+            // movilización ni se actualiza) — ya está ahí. La operación continúa solo con lo
+            // que cambia de frente. Si TODO ya estaba, no hay nada que hacer (rollback antes
+            // de consumir un CODIGO_CONTROL).
             $aMovilizar = $equipos->filter(
                 fn ($e) => (int) $e->ID_FRENTE_ACTUAL !== (int) $frente->ID_FRENTE
             )->values();
-            $omitidos = $equipos->count() - $aMovilizar->count();
+            $auxAMovilizar = $auxiliares->filter(
+                fn ($a) => (int) $a->ID_FRENTE_ACTUAL !== (int) $frente->ID_FRENTE
+            )->values();
+            $omitidos = ($equipos->count() - $aMovilizar->count()) + ($auxiliares->count() - $auxAMovilizar->count());
 
-            if ($aMovilizar->isEmpty()) {
+            if ($aMovilizar->isEmpty() && $auxAMovilizar->isEmpty()) {
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Todos los equipos seleccionados ya están en el frente «' . $destNombre . '». No hay nada que movilizar.',
+                    'message' => 'Todo lo seleccionado ya está en el frente «' . $destNombre . '». No hay nada que movilizar.',
                 ], 422);
             }
 
@@ -484,7 +508,8 @@ class MovilizacionController extends Controller
             // distintos ID_FRENTE_ACTUAL que trae $aMovilizar. El destino es uno solo
             // ($frente, ya cargado arriba). Se reutiliza más abajo TANTO para congelar el
             // snapshot del historial como para el bloque de auditoría — un solo cómputo.
-            $origenIds     = $aMovilizar->pluck('ID_FRENTE_ACTUAL')->filter()->unique()->values();
+            $origenIds     = $aMovilizar->pluck('ID_FRENTE_ACTUAL')
+                ->merge($auxAMovilizar->pluck('ID_FRENTE_ACTUAL'))->filter()->unique()->values();
             $origenNombres = FrenteTrabajo::withTrashed()->whereIn('ID_FRENTE', $origenIds)->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
 
             // Crear movilizaciones una por una para obtener IDs exactos
@@ -505,14 +530,35 @@ class MovilizacionController extends Controller
                 ]);
                 $movilizacionIds[] = $mov->ID_MOVILIZACION;
             }
+            foreach ($auxAMovilizar as $aux) {
+                $mov = Movilizacion::create([
+                    'CODIGO_CONTROL'    => $generarPdf ? $nextId : null,
+                    'ID_EQUIPO'         => null,
+                    'ID_AUXILIAR'       => $aux->ID_AUXILIAR,
+                    'ID_FRENTE_ORIGEN'  => $aux->ID_FRENTE_ACTUAL ?? 1,
+                    'ID_FRENTE_DESTINO' => $frente->ID_FRENTE,
+                    'NOMBRE_FRENTE_ORIGEN_SNAPSHOT'  => $origenNombres[$aux->ID_FRENTE_ACTUAL] ?? null,
+                    'NOMBRE_FRENTE_DESTINO_SNAPSHOT' => $frente->NOMBRE_FRENTE,
+                    'FECHA_DESPACHO'    => $generarPdf ? $now : null,
+                    'TIPO_MOVIMIENTO'   => $generarPdf ? 'DESPACHO' : 'ACT.',
+                    'USUARIO_REGISTRO'  => $userEmail,
+                ]);
+                $movilizacionIds[] = $mov->ID_MOVILIZACION;
+            }
 
-            \App\Models\Equipo::whereIn('ID_EQUIPO', $aMovilizar->pluck('ID_EQUIPO'))->update([
+            // Despacho → queda PENDIENTE de confirmar en el frente destino (el usuario lo
+            // tilda físicamente al llegar), y sin el detalle del frente que deja.
+            $alLlegar = [
                 'ID_FRENTE_ACTUAL'         => $frente->ID_FRENTE,
-                // Despacho → queda PENDIENTE de confirmar en el frente destino (el usuario
-                // lo tilda físicamente al llegar). Antes se ponía 1 (auto-confirmado).
                 'CONFIRMADO_EN_SITIO'      => 0,
                 'DETALLE_UBICACION_ACTUAL' => null,
-            ]);
+            ];
+            if ($aMovilizar->isNotEmpty()) {
+                \App\Models\Equipo::whereIn('ID_EQUIPO', $aMovilizar->pluck('ID_EQUIPO'))->update($alLlegar);
+            }
+            if ($auxAMovilizar->isNotEmpty()) {
+                \App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $auxAMovilizar->pluck('ID_AUXILIAR'))->update($alLlegar);
+            }
             // El mass-update NO dispara EquipoObserver (ver auditoría de abajo):
             // el bump del dashboard /menu hay que hacerlo explícito aquí.
             \App\Http\Controllers\DashboardController::bumpDataVersion();
@@ -649,31 +695,9 @@ class MovilizacionController extends Controller
             // en aux (PLACA, ANIO etc) quedan en cadena vacia.
             foreach ($movilizaciones as $mov) {
                 if (!$mov->equipo && $mov->auxiliar) {
-                    $a = $mov->auxiliar;
-                    $synthetic = new \stdClass();
-                    $synthetic->ID_EQUIPO       = null;
-                    $synthetic->CODIGO_PATIO    = $a->CODIGO_INTERNO ?: $a->SERIAL;
-                    $synthetic->SERIAL_CHASIS   = $a->SERIAL ?: 'â€”';
-                    $synthetic->SERIAL_DE_MOTOR = '';
-                    $synthetic->MARCA           = $a->MARCA ?: '';
-                    $synthetic->MODELO          = $a->MODELO ?: '';
-                    $synthetic->ANIO            = $a->ANIO ?? '';
-                    $synthetic->NUMERO_ETIQUETA = '';
-                    $synthetic->ESTADO_OPERATIVO= $a->ESTADO_OPERATIVO ?? 'OPERATIVO';
-                    $synthetic->FOTO_EQUIPO     = $a->FOTO ?? null;
-                    $synthetic->tipo            = (object) ['nombre' => $a->TIPO ?? 'AUXILIAR'];
-                    $synthetic->documentacion   = (object) ['PLACA' => 'S/P'];
-                    $synthetic->especificaciones= null;
-                    // CATEGORIA_FLOTA = 'FLOTA LIVIANA' hace que los responsables del frente
-                    // configurados con RESP_N_EQU='FLOTA LIVIANA' (o vacÃ­o) pasen el filtro
-                    // en acta_traslado_pdf igual que para vehiculos livianos.
-                    // Antes era 'AUXILIAR' pero ningÃºn RESP_N_EQU tiene ese valor en BD,
-                    // causando que RESP_1 (Coordinador Liviana) quedara fuera y RESP_2
-                    // (elaborador) recibiera la etiqueta 'SOLICITADO:' incorrectamente.
-                    $synthetic->CATEGORIA_FLOTA = 'FLOTA LIVIANA';
-                    // Inyectamos en el modelo para que las refs ->equipo en la
-                    // plantilla y el map() de abajo funcionen igual.
-                    $mov->setRelation('equipo', $synthetic);
+                    // Inyectado como 'equipo' para que la plantilla y el map() de abajo
+                    // funcionen igual.
+                    $mov->setRelation('equipo', $this->auxiliarComoEquipo($mov->auxiliar));
                 }
             }
 
@@ -817,6 +841,35 @@ class MovilizacionController extends Controller
      * Stub (no persistido) de FrenteTrabajo para el ORIGEN editado a mano en la vista
      * previa (texto libre). Sólo lleva los campos que consume el blade del acta.
      */
+    /**
+     * Un auxiliar con la forma de un Equipo para el acta de traslado (la plantilla y
+     * buildActaPdfBinary leen campos de equipo). Lo que el auxiliar no tiene (placa,
+     * motor, etiqueta) queda vacío o en "S/P".
+     */
+    private function auxiliarComoEquipo(\App\Models\EquipoAuxiliar $a): \stdClass
+    {
+        $s = new \stdClass();
+        $s->ID_EQUIPO        = null;
+        $s->ID_FRENTE_ACTUAL = $a->ID_FRENTE_ACTUAL;
+        $s->CODIGO_PATIO     = $a->CODIGO_INTERNO ?: $a->SERIAL;
+        $s->SERIAL_CHASIS    = $a->SERIAL ?: '—';
+        $s->SERIAL_DE_MOTOR  = '';
+        $s->MARCA            = $a->MARCA ?: '';
+        $s->MODELO           = $a->MODELO ?: '';
+        $s->ANIO             = $a->ANIO ?? '';
+        $s->NUMERO_ETIQUETA  = '';
+        $s->ESTADO_OPERATIVO = $a->ESTADO_OPERATIVO ?? 'OPERATIVO';
+        $s->FOTO_EQUIPO      = $a->FOTO ?? null;
+        $s->tipo             = (object) ['nombre' => $a->TIPO ?? 'AUXILIAR'];
+        $s->documentacion    = (object) ['PLACA' => 'S/P'];
+        $s->especificaciones = null;
+        // 'FLOTA LIVIANA' hace que los responsables del frente con RESP_N_EQU='FLOTA LIVIANA'
+        // (o vacío) pasen el filtro en acta_traslado_pdf igual que los vehiculos livianos.
+        // Con 'AUXILIAR' (ningún RESP_N_EQU lo tiene) el Coordinador quedaba fuera.
+        $s->CATEGORIA_FLOTA  = 'FLOTA LIVIANA';
+        return $s;
+    }
+
     private function stubFrenteOrigen(string $nombre, string $zona = ''): FrenteTrabajo
     {
         $f = new FrenteTrabajo();
@@ -946,9 +999,10 @@ class MovilizacionController extends Controller
         \App\Support\Memoria::alMenos('512M');
 
         $data = $request->validate([
-            'ids'                   => 'required|array|min:1',
+            'ids'                   => 'nullable|array',
             'ids.*'                 => 'integer',
-            'type'                  => 'nullable|in:equipo,auxiliar',
+            'aux_ids'               => 'nullable|array',
+            'aux_ids.*'             => 'integer',
             'destination'           => 'required|string|max:150',
             'destination_ubicacion' => 'nullable|string|max:150',
             // Ediciones manuales OPCIONALES desde el botón "Editar" de la vista previa
@@ -963,38 +1017,22 @@ class MovilizacionController extends Controller
         ]);
 
         try {
-            // Para auxiliares: crea objetos sintéticos compatibles con buildActaPdfBinary,
-            // igual que generarActaTraslado() hace para movilizaciones ya registradas.
-            if (($data['type'] ?? 'equipo') === 'auxiliar') {
-                $auxItems = \App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['ids'])->get();
-                if ($auxItems->isEmpty()) {
-                    return response()->json(['message' => 'No se encontraron auxiliares para previsualizar.'], 422);
-                }
-                $equipos = $auxItems->map(function ($a) {
-                    $s = new \stdClass();
-                    $s->ID_FRENTE_ACTUAL = $a->ID_FRENTE_ACTUAL;
-                    $s->CODIGO_PATIO     = $a->CODIGO_INTERNO ?: $a->SERIAL;
-                    $s->SERIAL_CHASIS    = $a->SERIAL ?: '—';
-                    $s->SERIAL_DE_MOTOR  = '';
-                    $s->MARCA            = $a->MARCA ?: '';
-                    $s->MODELO           = $a->MODELO ?: '';
-                    $s->ANIO             = $a->ANIO ?? '';
-                    $s->NUMERO_ETIQUETA  = '';
-                    $s->ESTADO_OPERATIVO = $a->ESTADO_OPERATIVO ?? 'OPERATIVO';
-                    $s->FOTO_EQUIPO      = $a->FOTO ?? null;
-                    $s->tipo             = (object) ['nombre' => $a->TIPO ?? 'AUXILIAR'];
-                    $s->documentacion    = (object) ['PLACA' => 'S/P'];
-                    $s->especificaciones = null;
-                    $s->CATEGORIA_FLOTA  = 'FLOTA LIVIANA';
-                    return $s;
-                });
-            } else {
+            // Equipos y auxiliares juntos, como en la movilización (bulkStore). Los auxiliares
+            // entran como objetos "equipo" compatibles con buildActaPdfBinary.
+            $equipos = collect();
+            if (!empty($data['ids'])) {
                 $equipos = \App\Models\Equipo::with(['tipo', 'documentacion', 'especificaciones'])
                     ->whereIn('ID_EQUIPO', $data['ids'])
                     ->get();
-                if ($equipos->isEmpty()) {
-                    return response()->json(['message' => 'No se encontraron equipos para previsualizar.'], 422);
-                }
+            }
+            if (!empty($data['aux_ids'])) {
+                $equipos = $equipos->toBase()->concat(
+                    \App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['aux_ids'])->get()
+                        ->map(fn ($a) => $this->auxiliarComoEquipo($a))
+                );
+            }
+            if ($equipos->isEmpty()) {
+                return response()->json(['message' => 'No se encontraron equipos ni auxiliares para previsualizar.'], 422);
             }
 
             // Origen del acta: si el usuario lo editó a mano (texto libre) usamos un stub
@@ -1066,18 +1104,17 @@ class MovilizacionController extends Controller
     public function previewActaMeta(Request $request)
     {
         $data = $request->validate([
-            'ids'   => 'required|array|min:1',
-            'ids.*' => 'integer',
-            'type'  => 'nullable|in:equipo,auxiliar',
+            'ids'       => 'nullable|array',
+            'ids.*'     => 'integer',
+            'aux_ids'   => 'nullable|array',
+            'aux_ids.*' => 'integer',
         ]);
 
-        // Los auxiliares viven en otra tabla: sin esto los ID_AUXILIAR se buscaban
-        // contra `equipos` y la precarga del formulario (origen/zona/firmas) salia vacia.
-        // extractFirmasActa() solo lee CATEGORIA_FLOTA de la coleccion → los auxiliares
-        // no la tienen y caen a FLOTA LIVIANA, igual que en previewActaLote().
-        $equipos = ($data['type'] ?? 'equipo') === 'auxiliar'
-            ? \App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['ids'])->get()
-            : \App\Models\Equipo::whereIn('ID_EQUIPO', $data['ids'])->get();
+        // Equipos y auxiliares (otra tabla). extractFirmasActa() solo lee CATEGORIA_FLOTA
+        // de la coleccion → los auxiliares no la tienen y caen a FLOTA LIVIANA, igual que
+        // en previewActaLote().
+        $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $data['ids'] ?? [])->get()->toBase()
+            ->concat(\App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['aux_ids'] ?? [])->get());
         if ($equipos->isEmpty()) {
             return response()->json(['message' => 'No se encontraron equipos.'], 422);
         }

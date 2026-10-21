@@ -14,9 +14,9 @@ use Tests\MySqlTestCase;
  * El hueco que cubre: la lista negra (ID_FRENTE_BLOQUEADO) tapa los equipos de esos
  * frentes en TODA la aplicación, pero la movilización de equipos no la miraba. Se podía meter material en un
  * frente que el usuario no puede ni ver, y sacar equipos de uno bloqueado mandando su
- * ID por el cuerpo de la petición. El equivalente de auxiliares (bulkMove) sí cortaba,
- * con un comentario que dice "nadie —ni GLOBAL— puede movilizar HACIA un frente
- * bloqueado": aquí solo faltaba aplicarlo.
+ * ID por el cuerpo de la petición. Los auxiliares (que tenían su propio endpoint) sí
+ * cortaban —"nadie, ni GLOBAL, puede movilizar HACIA un frente bloqueado"—: aquí solo
+ * faltaba aplicarlo. Hoy los dos se movilizan por este mismo endpoint.
  *
  * No escribe nada permanente: MySqlTestCase revierte la transacción al terminar.
  */

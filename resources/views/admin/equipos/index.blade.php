@@ -1040,11 +1040,10 @@
 
 
 
-<!-- Floating Action Bar -->
-{{-- eq-hide-in-aux: en modo aux se oculta la barra de seleccion de EQUIPOS (la
-     seleccion se conserva, solo no se muestra) para que no se solape con la barra
-     de seleccion de AUXILIARES (auxBulkBar). --}}
-<div id="bulkFloatingBar" class="selection-floating-bar eq-hide-in-aux">
+{{-- Barra flotante de selección: UNA para equipos y auxiliares (cuenta los dos; Detalle y
+     Movilización trabajan con los dos a la vez, con una sola acta). Anclar/Desanclar es
+     solo de equipos y se muestra según el último equipo elegido (updateSelectionUI). --}}
+<div id="bulkFloatingBar" class="selection-floating-bar">
     <div class="selection-counter" onclick="window.toggleEquiposSoloSel(event)" title="Ver solo los seleccionados (toca de nuevo para ver todos)" style="cursor: pointer;">
         <div style="background: rgba(255,255,255,0.1); padding: 5px; border-radius: 50%; display: flex;">
             <i class="material-icons" style="font-size: 18px; color: white;">functions</i>
@@ -1462,13 +1461,8 @@
 </script>
 <script>
 (function () {
-    const csrf = window.getCsrf;   // helper central (dom_helpers.js)
-
-    function getSelectedIds() {
-        // Reusa el selectedEquipos global (selection bar de equipos_index.js).
-        return Object.keys(window.selectedEquipos || {});
-    }
-
+    // Elimina lo seleccionado en la barra: equipos y auxiliares (cada uno por su endpoint,
+    // los dos soft-delete con auditoria).
     window.bulkDeleteEquiposSeleccionados = function () {
         document.getElementById('splitDropdownMenu').style.display = 'none';
         // Permiso: el boton es siempre visible para mostrar la accion en el
@@ -1476,58 +1470,47 @@
         // user.delete (en PERMISOS_EXPLICITOS — ni super.admin la hereda).
         // Sin el permiso → toast moderno (no modal bloqueante).
         if (window.CAN_DELETE_EQUIPOS === false || window.CAN_DELETE_EQUIPOS === 'false') {
-            if (typeof window.showToast === 'function') {
-                window.showToast('No tienes permiso para eliminar equipos.', 'error');
-            } else {
-                alert('No tienes permiso para eliminar equipos.');
-            }
+            window.toast('No tienes permiso para eliminar.', 'error');
             return;
         }
-        const ids = getSelectedIds();
-        if (ids.length === 0) {
-            if (window.showToast) window.showToast('Por favor, selecciona al menos un equipo en la tabla antes de eliminar.', 'warning');
-            else alert('Por favor, selecciona al menos un equipo en la tabla antes de eliminar.');
+        const ids = Object.keys(window.selectedEquipos || {}).map(x => parseInt(x, 10));
+        const auxIds = Object.keys(window._auxSelectedMap || {}).map(x => parseInt(x, 10));
+        const total = ids.length + auxIds.length;
+        if (total === 0) {
+            window.toast('Selecciona al menos un equipo o auxiliar en la tabla antes de eliminar.', 'warning');
             return;
         }
-        const proceed = function () {
+        const borrar = (url, lista) => window.apiFetch(url, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: lista })
+        }).then(r => r.json().catch(() => ({})).then(d => {
+            if (!r.ok || !d.success) throw new Error((d && d.message) || 'No se pudo eliminar.');
+            return d;
+        }));
+        const proceed = async function () {
             if (window.showPreloader) window.showPreloader();
-            window.apiFetch('{{ route("equipos.bulkDelete") }}', {
-                method: 'POST',
-                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ ids: ids.map(x => parseInt(x, 10)) })
-            })
-            .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, body: d })))
-            .then(res => {
+            try {
+                if (ids.length)    await borrar('{{ route("equipos.bulkDelete") }}', ids);
+                if (auxIds.length) await borrar('{{ route("equipos-auxiliares.bulkDelete") }}', auxIds);
+                window.toast(total === 1 ? 'Registro eliminado.' : total + ' registros eliminados.', 'success');
+                if (typeof window.clearSelection === 'function') window.clearSelection();
+                if (typeof window.loadEquipos === 'function') window.loadEquipos();
+            } catch (e) {
+                window.toast(e.message || 'Error de red al eliminar.', 'error');
+                if (typeof window.loadEquipos === 'function') window.loadEquipos();
+            } finally {
                 if (window.hidePreloader) window.hidePreloader();
-                if (res.ok && res.body.success) {
-                    window.toast(res.body.message || 'Equipos eliminados.', 'success');
-                    if (typeof window.clearSelection === 'function') window.clearSelection();
-                    if (typeof window.loadEquipos === 'function') window.loadEquipos();
-                } else {
-                    const msg = (res.body && res.body.message) || 'No se pudo eliminar.';
-                    if (window.showToast) window.showToast(msg, 'error');
-                    else alert(msg);
-                }
-            })
-            .catch(() => {
-                if (window.hidePreloader) window.hidePreloader();
-                window.toast('Error de red al eliminar.', 'error');
-            });
+            }
         };
-        if (typeof window.showModal === 'function') {
-            window.showModal({
-                type: 'warning',
-                title: 'Eliminar Equipos',
-                message: '¿Eliminar ' + ids.length + ' equipo(s) seleccionado(s)?',
-                confirmText: 'Eliminar',
-                cancelText: 'Cancelar',
-                onConfirm: proceed
-            });
-        } else if (confirm('¿Eliminar ' + ids.length + ' equipo(s)?')) {
-            proceed();
-        }
+        window.showModal({
+            type: 'warning',
+            title: 'Eliminar seleccionados',
+            message: '¿Eliminar ' + total + (total === 1 ? ' registro seleccionado?' : ' registros seleccionados?'),
+            confirmText: 'Eliminar',
+            cancelText: 'Cancelar',
+            onConfirm: proceed
+        });
     };
 
     // La papelera (restaurar / borrar definitivo) vive en /admin/historial-documentos

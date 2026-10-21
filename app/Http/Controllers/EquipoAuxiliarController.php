@@ -1365,137 +1365,6 @@ class EquipoAuxiliarController extends Controller
     }
 
     /**
-     * Movilizacion masiva: reasigna multiples auxiliares al mismo ID_FRENTE_ACTUAL.
-     * Acepta array de IDs + frente destino (o creacion de frente nuevo via NOMBRE).
-     */
-    public function bulkMove(Request $request)
-    {
-        $data = $request->validate([
-            'ids'            => 'required|array|min:1',
-            'ids.*'          => 'integer|exists:equipos_auxiliares,ID_AUXILIAR',
-            'id_frente'      => 'nullable|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
-            'destination'    => 'nullable|string|max:150',
-            'nombre_frente'  => 'nullable|string|max:150', // legacy alias
-            'ubicacion'      => 'nullable|string|max:150',
-            'generar_pdf'    => 'nullable|boolean',
-        ]);
-
-        // Resolver el frente destino — soporta 3 modos:
-        //  1) id_frente: id existente (modo viejo)
-        //  2) destination: nombre del frente; si existe se usa, si no se crea
-        //     (firstOrCreate). Si lo crea, requiere ubicacion.
-        //  3) nombre_frente: alias historico de destination (compat)
-        $frenteId = $data['id_frente'] ?? null;
-        $destination = trim($data['destination'] ?? $data['nombre_frente'] ?? '');
-        $ubicacion = trim($data['ubicacion'] ?? '');
-        $generarPdf = (bool) ($data['generar_pdf'] ?? false);
-
-        if (!$frenteId && $destination !== '') {
-            $nombre = mb_strtoupper($destination);
-            $frenteExistente = FrenteTrabajo::whereRaw('UPPER(NOMBRE_FRENTE) = ?', [$nombre])->first()
-                ?? FrenteTrabajo::revivirPorNombre($nombre);   // eliminado: se revive con su historial
-            if ($frenteExistente) {
-                $frenteId = $frenteExistente->ID_FRENTE;
-            } else {
-                // Frente nuevo: la ubicación SOLO es obligatoria cuando se genera el Acta PDF
-                // (la imprime en su encabezado). Sin PDF se crea sin ubicación — coherente con
-                // el flujo de equipos (MovilizacionController::bulkStore).
-                if ($generarPdf && $ubicacion === '') {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'El frente "' . $nombre . '" no existe. Indica su ubicación (zona, municipio o estado) para crearlo.',
-                    ], 422);
-                }
-                $nuevo = FrenteTrabajo::create([
-                    'NOMBRE_FRENTE'  => $nombre,
-                    'ESTATUS_FRENTE' => 'ACTIVO',
-                    'UBICACION'      => $ubicacion !== '' ? mb_strtoupper($ubicacion) : null,
-                ]);
-                $frenteId = $nuevo->ID_FRENTE;
-            }
-        }
-
-        if (!$frenteId) {
-            return response()->json(['success' => false, 'message' => 'Frente destino requerido.'], 422);
-        }
-
-        // LOCAL: solo puede operar sobre auxiliares de sus frentes y el destino
-        // tambien debe estar en su scope.
-        [$isLocalUser, $frentesPermitidos] = $this->userScope();
-        $bulkQuery = EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['ids']);
-        if ($isLocalUser && !in_array((string) $frenteId, array_map('strval', $frentesPermitidos), true)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tiene permisos para movilizar a este frente.'
-            ], 403);
-        }
-        // Nadie (ni GLOBAL) puede movilizar HACIA un frente bloqueado.
-        if ($this->frenteEstaBloqueado($frenteId)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tiene permisos para movilizar a este frente.'
-            ], 403);
-        }
-        // Solo se opera sobre auxiliares VISIBLES (whitelist LOCAL + blacklist bloqueados):
-        // no se pueden mover en masa auxiliares de frentes fuera del scope/bloqueados.
-        $this->scopeFrentes($bulkQuery, 'ID_FRENTE_ACTUAL');
-
-        // Capturamos el frente origen ANTES del UPDATE para el historial.
-        // Sin esto, despues del update todos los registros tendrian
-        // ID_FRENTE_ORIGEN = ID_FRENTE_DESTINO (porque ya cambio).
-        $userEmail = optional(auth()->user())->CORREO_ELECTRONICO ?? 'SISTEMA';
-
-        // Envolvemos en transaccion porque MovilizacionController::generateNextCodigoControl() hace lockForUpdate()
-        $result = DB::transaction(function () use ($bulkQuery, $frenteId, $generarPdf, $userEmail) {
-            $auxParaMover = (clone $bulkQuery)->lockForUpdate()->get(['ID_AUXILIAR', 'ID_FRENTE_ACTUAL']);
-            // Despacho: el auxiliar queda PENDIENTE de confirmar en el frente destino
-            // (se tilda al llegar con el chip, igual que equipos). CONFIRMADO_EN_SITIO -> 0.
-            $affected = $bulkQuery->update(['ID_FRENTE_ACTUAL' => $frenteId, 'CONFIRMADO_EN_SITIO' => 0]);
-
-            $now = now();
-            $codigoControl = $generarPdf ? \App\Http\Controllers\MovilizacionController::generateNextCodigoControl() : null;
-            $movilizacionIds = [];
-
-            foreach ($auxParaMover as $aux) {
-                $mov = \App\Models\Movilizacion::create([
-                    'CODIGO_CONTROL'    => $codigoControl,
-                    'ID_EQUIPO'         => null,
-                    'ID_AUXILIAR'       => $aux->ID_AUXILIAR,
-                    'ID_FRENTE_ORIGEN'  => $aux->ID_FRENTE_ACTUAL ?? 1,
-                    'ID_FRENTE_DESTINO' => $frenteId,
-                    'FECHA_DESPACHO'    => $generarPdf ? $now : null,
-                    'TIPO_MOVIMIENTO'   => $generarPdf ? 'DESPACHO' : 'ACT.',
-                    'USUARIO_REGISTRO'  => $userEmail,
-                ]);
-                $movilizacionIds[] = $mov->ID_MOVILIZACION;
-            }
-
-            return [
-                'affected' => $affected,
-                'codigoControl' => $codigoControl,
-                'movilizacionIds' => $movilizacionIds,
-            ];
-        });
-
-        return response()->json([
-            'success'           => true,
-            'message'           => "Se movilizaron {$result['affected']} equipo(s) auxiliar(es) al frente destino.",
-            'affected'          => $result['affected'],
-            'count'             => $result['affected'],
-            'codigo_control'    => $result['codigoControl'],
-            'generar_pdf'       => $generarPdf,
-            'movilizacion_ids'  => $result['movilizacionIds'],
-        ]);
-    }
-
-
-
-
-    /**
-     * Cambio rapido de estado operativo (inline desde la tabla del index).
-     * Validacion minima: solo ESTADO_OPERATIVO. No toca otros campos required.
-     */
-    /**
      * Confirma (o quita) la presencia física del auxiliar en su frente actual.
      * Espeja EquipoController::confirmarSitio. Mismo ciclo: el despacho deja el
      * auxiliar en 0 (pendiente) y aquí se tilda en 1 (confirmado en sitio).
@@ -1516,6 +1385,10 @@ class EquipoAuxiliarController extends Controller
         ]);
     }
 
+    /**
+     * Cambio rapido de estado operativo (inline desde la tabla del index).
+     * Validacion minima: solo ESTADO_OPERATIVO. No toca otros campos required.
+     */
     public function changeStatus(Request $request, $id)
     {
         $estados = array_keys(EquipoAuxiliar::estadosLabel());

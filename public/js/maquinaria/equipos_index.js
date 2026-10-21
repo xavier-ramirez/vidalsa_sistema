@@ -470,10 +470,13 @@ window.handleFallaCreatedEquipo = function (falla) {
     if (window.updateLocalStats) window.updateLocalStats(ctx.oldStatus, target);
 };
 
-// Selection UI Update Tracker
+// Barra flotante de selección: UNA sola para equipos y auxiliares (antes cada uno tenía
+// la suya y, con los dos marcados, salían dos barras una encima de otra). Cuenta los
+// equipos (window.selectedEquipos) más los auxiliares (window._auxSelectedMap, de
+// maquinaria_listado.js, que llama aquí tras cada cambio).
 function updateSelectionUI() {
     const ids = Object.keys(window.selectedEquipos);
-    const count = ids.length;
+    const count = ids.length + Object.keys(window._auxSelectedMap || {}).length;
     const bar = document.getElementById("bulkFloatingBar");
     const text = document.getElementById("bulkCountText");
 
@@ -494,7 +497,8 @@ function updateSelectionUI() {
                     .find(s => s.rolAnclaje === 'REMOLCADOR' || s.rolAnclaje === 'REMOLCABLE');
                 lastId = withRole ? String(withRole.id) : ids[0];
             }
-            const lastSel    = window.selectedEquipos[lastId];
+            // Sin equipos elegidos (solo auxiliares) no hay nada que anclar: lastSel queda vacío.
+            const lastSel    = lastId ? window.selectedEquipos[lastId] : null;
             const lastHasRole  = lastSel && (lastSel.rolAnclaje === 'REMOLCADOR' || lastSel.rolAnclaje === 'REMOLCABLE');
             const lastAnchored = lastSel && isValidId(lastSel.anchorId);
 
@@ -519,9 +523,10 @@ function updateSelectionUI() {
             bar.classList.remove("active");
 
             // Si estaba "ver solo seleccionados" y ya no queda nada seleccionado,
-            // apagamos el modo y recargamos para volver a mostrar todos los equipos.
+            // apagamos el modo y recargamos para volver a mostrar todo.
             if (window._equiposSoloSel) {
                 window._equiposSoloSel = false;
+                window._auxSoloSel = false;
                 const counter = bar.querySelector('.selection-counter');
                 if (counter) counter.classList.remove('is-filtering');
                 if (typeof window.loadEquipos === 'function') window.loadEquipos();
@@ -529,24 +534,29 @@ function updateSelectionUI() {
         }
     }
 }
+window.updateSelectionUI = updateSelectionUI;
 
 // "Ver solo seleccionados": al tocar el contador de la barra filtra la tabla
-// mostrando ÚNICAMENTE los equipos seleccionados. Tiene dos capas:
+// mostrando ÚNICAMENTE lo seleccionado, equipos y auxiliares. Tiene dos capas:
 //   1. Filtro cliente-side INMEDIATO: oculta filas no seleccionadas al instante.
-//   2. Recarga AJAX con ids_in (whitelist server-side) para paginación correcta.
+//   2. Recarga AJAX con ids_in (whitelist server-side de equipos) para paginación
+//      correcta; las filas de auxiliares las vuelve a filtrar auxRestoreSelection.
 // Volver a tocar deshace el filtro. Mismo patrón que almToggleSoloSel.
 window.toggleEquiposSoloSel = function (e) {
     if (e) { e.preventDefault(); e.stopPropagation(); }
     const ids = Object.keys(window.selectedEquipos || {});
-    if (!ids.length) {
+    const nAux = Object.keys(window._auxSelectedMap || {}).length;
+    if (!ids.length && !nAux) {
         if (typeof window.showToast === 'function') {
-            window.showToast('No hay equipos seleccionados todavía.', 'error');
+            window.showToast('No hay nada seleccionado todavía.', 'error');
         }
         return;
     }
     window._equiposSoloSel = !window._equiposSoloSel;
+    window._auxSoloSel = window._equiposSoloSel;
     const counter = document.querySelector('#bulkFloatingBar .selection-counter');
     if (counter) counter.classList.toggle('is-filtering', window._equiposSoloSel);
+    if (typeof window.auxRestoreSelection === 'function') window.auxRestoreSelection();
 
     // Capa 1: filtro cliente-side instantáneo para feedback visual inmediato.
     // No espera al AJAX — el usuario ve el cambio en el mismo frame del click.
@@ -565,7 +575,8 @@ window.toggleEquiposSoloSel = function (e) {
 
     // Capa 2: recarga AJAX con ids_in para que la paginación y el backend
     // sean coherentes con el filtro activo (especialmente si hay más de una página).
-    window.loadEquipos(null, false, { offset: 0 });
+    // Con solo auxiliares elegidos basta la capa 1 (no hay equipos que pedir).
+    if (ids.length) window.loadEquipos(null, false, { offset: 0 });
     if (window._equiposSoloSel && tbody) {
         tbody.scrollIntoView({ block: 'start' });
     }
@@ -608,18 +619,14 @@ window.clearSelection = function (event) {
         event.stopImmediatePropagation();
     }
 
-    // Defensive check to prevent re-execution
-    if (
-        !window.selectedEquipos ||
-        Object.keys(window.selectedEquipos).length === 0
-    ) {
-        return;
-    }
-
+    // Limpia la selección de equipos y la de auxiliares (la barra es una sola).
+    // Antes quitaba el resaltado de TODAS las filas pero dejaba los auxiliares
+    // seleccionados por dentro.
     window.selectedEquipos = {};
-    document.querySelectorAll(".selected-row-maquinaria").forEach((row) => {
+    document.querySelectorAll("#equiposTableBody tr:not([data-aux-id]).selected-row-maquinaria").forEach((row) => {
         row.classList.remove("selected-row-maquinaria");
     });
+    if (typeof window.auxClearSelection === 'function') window.auxClearSelection();
     updateSelectionUI();
 };
 
@@ -1574,17 +1581,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             document.body.classList.toggle('eq-aux-mode',
                 !!(_tipoInputEl && (_tipoInputEl.value || '').startsWith('tipo_aux:')));
             // aux-table-active: cualquier path que muestre la tabla de auxiliares.
-            // Controla .eq-hide-in-aux (p.ej. bulkFloatingBar de equipos).
+            // Controla .eq-hide-in-aux.
             document.body.classList.toggle('aux-table-active', data.mode === 'aux');
 
             // Stats / distribución / URL: solo en la primera página (offset=0).
             // En lotes subsiguientes (append) los totales ya están correctos y no se tocan.
             if (!append) {
-                // Al cambiar de modo (volver a equipos o a un tipo de vehiculo), limpiar la
-                // seleccion de auxiliares para no dejar su barra flotante activa de fondo.
-                if (data.mode !== 'aux' && typeof window.auxClearSelection === 'function') {
-                    window.auxClearSelection();
-                }
                 const hasActiveFilters = !!paramStr;
                 const displayStat = (val) => hasActiveFilters ? val : '--';
                 // Solo escribe si el valor REALMENTE cambió: si el número/etiqueta es el mismo
@@ -1799,6 +1801,15 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 chunk.forEach(node => fragment.appendChild(node));
                 tableBody.appendChild(fragment);
 
+                // La selección (resaltado y "ver solo seleccionados") se aplica en CADA lote: al
+                // final solo llegaba cuando el usuario bajaba hasta el último, y mientras tanto
+                // lo elegido salía sin marcar y las filas no elegidas seguían a la vista.
+                reApplySelections();
+                if ((window._auxSoloSel || Object.keys(window._auxSelectedMap || {}).length)
+                    && typeof window.auxRestoreSelection === 'function') {
+                    window.auxRestoreSelection();
+                }
+
                 // Registrar SOLO las imágenes de las filas de ESTE lote (no re-escanear todo el
                 // tableBody en cada lote: eso era O(n²) — cada lote re-recorría toda la tabla
                 // creciente). Las filas del chunk ya están insertadas, así que se consultan
@@ -1892,32 +1903,34 @@ window.openUbicacionBulkModal = function (event) {
         return;
     }
 
+    // Equipos y auxiliares en el mismo modal (antes cada uno tenía el suyo).
     const selections = Object.values(window.selectedEquipos || {});
-    if (selections.length === 0) {
-        window.toast('Selecciona al menos un equipo.', 'error');
+    const auxSel = Object.values(window._auxSelectedMap || {});
+    if (selections.length === 0 && auxSel.length === 0) {
+        window.toast('Selecciona al menos un equipo o auxiliar.', 'error');
         return;
     }
 
     // Validar mismo frente: la ubicacion especifica solo tiene sentido dentro
     // de un frente concreto. Si hay mezcla → toast moderno (sin modal bloqueante).
-    const frentesUnicos = [...new Set(selections.map(s => s.frenteId || ''))];
+    const frentesUnicos = [...new Set(selections.map(s => String(s.frenteId || '')).concat(auxSel.map(a => String(a.frenteId || ''))))];
     if (frentesUnicos.length > 1 || frentesUnicos[0] === '') {
-        if (typeof window.showToast === 'function') {
-            window.showToast('Todos los equipos seleccionados deben estar en el MISMO frente. Revisa tu selección.', 'error');
-        } else {
-            alert('Todos los equipos seleccionados deben estar en el MISMO frente. Revisa tu selección.');
-        }
+        window.toast('Todo lo seleccionado debe estar en el MISMO frente. Revisa tu selección.', 'error');
         return;
     }
 
-    // ── Leer valor actual de DETALLE_UBICACION_ACTUAL desde equiposData ──
-    // Si todos los equipos seleccionados tienen el MISMO valor → pre-cargar.
+    // ── Leer valor actual de DETALLE_UBICACION_ACTUAL (equiposData / auxDetailsMap) ──
+    // Si todos tienen el MISMO valor → pre-cargar.
     // Si difieren (o no hay datos en cache) → dejar vacío para evitar sobreescritura accidental.
     const ids = selections.map(s => s.id);
+    const auxIds = auxSel.map(a => a.id);
     const valoresActuales = ids.map(id => {
         const eq = (window.equiposData && window.equiposData[id]) ? window.equiposData[id] : null;
         return eq ? (eq.detalleUbicacion || '') : null;
-    });
+    }).concat(auxIds.map(id => {
+        const aux = (window.auxDetailsMap && window.auxDetailsMap[id]) ? window.auxDetailsMap[id] : null;
+        return aux ? (aux.detalle_ubicacion || '') : null;
+    }));
     // Si algún equipo no está en cache (null), el valor previo es desconocido → no pre-cargar
     const todosEnCache = valoresActuales.every(v => v !== null);
     const valoresUnicos = todosEnCache ? [...new Set(valoresActuales)] : [];
@@ -1934,7 +1947,7 @@ window.openUbicacionBulkModal = function (event) {
     // Agrupar por tipo y contar (mismo resumen limpio que el modal de Movilización):
     // muestra el total por tipo en vez de la placa/serial individual de cada equipo.
     const ubTipoCount = {};
-    selections.forEach(s => {
+    selections.concat(auxSel).forEach(s => {
         const tipoNombre = (s.tipo && s.tipo.trim() !== '') ? s.tipo.trim().toUpperCase() : 'SIN TIPO';
         ubTipoCount[tipoNombre] = (ubTipoCount[tipoNombre] || 0) + 1;
     });
@@ -1963,7 +1976,7 @@ window.openUbicacionBulkModal = function (event) {
             </div>
             <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
                 <div>
-                    <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">${selections.length} equipo${selections.length !== 1 ? 's' : ''} seleccionado${selections.length !== 1 ? 's' : ''}</p>
+                    <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">${selections.length + auxSel.length} seleccionado${selections.length + auxSel.length !== 1 ? 's' : ''}</p>
                     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px 14px;max-height:110px;overflow-y:auto;">
                         ${chipsHtml}
                     </div>
@@ -1976,7 +1989,7 @@ window.openUbicacionBulkModal = function (event) {
                             placeholder="Aspecto a resaltar"
                             style="flex:1;border:none;outline:none;padding:10px 6px;font-size:13px;background:transparent;text-transform:uppercase;letter-spacing:0.3px;">
                     </div>
-                    ${(valorPrevioComun || hayValoresMixtos) ? ('<small style="display:block;margin-top:6px;font-size:11px;line-height:1.4;">' + (valorPrevioComun ? '<span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar el detalle actual.</span>' : '<span style="color:#d97706;font-weight:600;">Los equipos seleccionados tienen detalles distintos.</span>') + '</small>') : ''}
+                    ${(valorPrevioComun || hayValoresMixtos) ? ('<small style="display:block;margin-top:6px;font-size:11px;line-height:1.4;">' + (valorPrevioComun ? '<span style="color:#0284c7;font-weight:600;">Deja el campo en blanco y guarda para borrar el detalle actual.</span>' : '<span style="color:#d97706;font-weight:600;">Lo seleccionado tiene detalles distintos.</span>') + '</small>') : ''}
                 </div>
                 <div id="ub-feedback" style="display:none;padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;"></div>
                 <button type="button" id="ub-submit" style="width:100%;height:46px;border-radius:12px;font-weight:700;font-size:14px;background:#1e293b;color:white;border:none;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.2s;">
@@ -2049,18 +2062,22 @@ window.openUbicacionBulkModal = function (event) {
         // del micro-spinner inline dentro del boton.
         if (typeof window.showPreloader === 'function') window.showPreloader();
         try {
-            const res = await window.apiFetch('/admin/equipos/bulk-ubicacion', {
-                method: 'POST',
-                headers: { 'Accept': 'application/json', 
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ ids: ids, detalle_ubicacion: valorFinal })
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.message || ('Error ' + res.status));
-            }
-            const data = await res.json();
+            // Equipos y auxiliares viven en tablas distintas: cada uno a su endpoint.
+            const enviar = async (url, lista) => {
+                const res = await window.apiFetch(url, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: lista.map(Number), detalle_ubicacion: valorFinal })
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.message || ('Error ' + res.status));
+                }
+                return (await res.json()).count || lista.length;
+            };
+            let total = 0;
+            if (ids.length)    total += await enviar('/admin/equipos/bulk-ubicacion', ids);
+            if (auxIds.length) total += await enviar('/admin/equipos-auxiliares/bulk-ubicacion', auxIds);
 
             // ── Actualizar cache local INMEDIATAMENTE ──────────────────────────
             // loadEquipos puede paginar y no devolver este equipo en la ventana
@@ -2075,6 +2092,11 @@ window.openUbicacionBulkModal = function (event) {
                     }
                 });
             }
+            if (window.auxDetailsMap) {
+                auxIds.forEach(id => {
+                    if (window.auxDetailsMap[id]) window.auxDetailsMap[id].detalle_ubicacion = nuevoDetalle;
+                });
+            }
 
             if (typeof window.clearSelection === 'function') window.clearSelection();
             closeModal();
@@ -2085,8 +2107,8 @@ window.openUbicacionBulkModal = function (event) {
                 await window.loadEquipos(null, true);
             }
             const toastMsg = valorFinal
-                ? 'Detalle actualizado en ' + (data.count || selections.length) + ' equipo(s).'
-                : 'Detalle borrado en ' + (data.count || selections.length) + ' equipo(s).';
+                ? 'Detalle actualizado en ' + total + (total === 1 ? ' registro.' : ' registros.')
+                : 'Detalle borrado en ' + total + (total === 1 ? ' registro.' : ' registros.');
             window.toast(toastMsg, 'success');
         } catch (err) {
             console.error('[Ubicacion bulk]', err);
@@ -2100,8 +2122,7 @@ window.openUbicacionBulkModal = function (event) {
 };
 
 // ── Refresco de frentes de los modales de movilización ─────────────────────────
-// Las listas de frente de los modales (datalist #dynamicFrentesList del modal de
-// equipos y #auxMovilizarList del modal de auxiliares) vienen server-render: si se
+// La lista de frentes del modal (datalist #dynamicFrentesList) viene server-render: si se
 // crea un frente DESPUÉS de cargar la página (otra pestaña, otro usuario, o una
 // copia servida por el Service Worker), el modal no lo tiene hasta recargar.
 // Al ABRIR cada modal se pide la lista fresca (?activos=1 = mismo universo que el
@@ -2130,27 +2151,6 @@ window.refrescarFrentesMovilizacion = function (onNuevos) {
                 });
             }
 
-            const list = document.getElementById('auxMovilizarList');
-            const tpl = list && list.querySelector('.aux-mov-opt');
-            if (list && tpl) {
-                const ids = new Set(Array.from(list.querySelectorAll('.aux-mov-opt')).map((o) => String(o.dataset.id)));
-                frentes.forEach((f) => {
-                    if (ids.has(String(f.ID_FRENTE))) return;
-                    const lbl = String(f.NOMBRE_FRENTE || '').toUpperCase();
-                    // Clonar una opción existente conserva estilos/hover sin duplicar el markup del blade.
-                    const n = tpl.cloneNode(false);
-                    n.dataset.id = f.ID_FRENTE;
-                    n.dataset.label = lbl;
-                    n.dataset.ubicacion = (f.UBICACION || '').trim();
-                    n.textContent = lbl;
-                    n.style.display = '';
-                    n.setAttribute('onmousedown', "event.preventDefault(); auxMovSelect(" + Number(f.ID_FRENTE) + ", '" + lbl.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "');");
-                    // Insertar en orden alfabético (la lista SÍ se muestra ordenada).
-                    const sig = Array.from(list.querySelectorAll('.aux-mov-opt')).find((o) => (o.dataset.label || '') > lbl);
-                    list.insertBefore(n, sig || null);
-                });
-            }
-
             if (nuevos.length && typeof onNuevos === 'function') onNuevos(nuevos);
         })
         .catch(() => {});
@@ -2173,12 +2173,10 @@ window.openBulkModal = function (event) {
         return;
     }
 
-    // 1. Validation
-    if (
-        !window.selectedEquipos ||
-        Object.keys(window.selectedEquipos).length === 0
-    ) {
-        alert("Por favor seleccione equipos primero.");
+    // 1. Validation: equipos y/o auxiliares (se movilizan juntos, con una sola acta).
+    const auxSel = Object.values(window._auxSelectedMap || {});
+    if (Object.keys(window.selectedEquipos || {}).length === 0 && auxSel.length === 0) {
+        window.toast('Selecciona al menos un equipo o auxiliar.', 'error');
         return;
     }
 
@@ -2186,6 +2184,11 @@ window.openBulkModal = function (event) {
     // acta (todo server-side). Sin internet abrimos un modal SIMPLE que solo mueve
     // a un frente EXISTENTE y encola la acción. El acta queda disponible al sincronizar.
     if (window.OfflineMode && window.OfflineMode.estaActivo() && typeof window.abrirModalMovilizarOffline === 'function') {
+        // Sin internet solo se encolan equipos.
+        if (auxSel.length) {
+            window.toast('Los auxiliares se movilizan con conexión. Quítalos de la selección para seguir sin internet.', 'error');
+            return;
+        }
         window.abrirModalMovilizarOffline(Object.values(window.selectedEquipos));
         return;
     }
@@ -2193,8 +2196,8 @@ window.openBulkModal = function (event) {
     // 2. Nuclear Cleanup: Remove any existing dynamic modals
     document.querySelectorAll(".dynamic-bulk-modal").forEach((el) => el.remove());
 
-    // 3. Collect selected equipment codes
-    const selectedList = Object.values(window.selectedEquipos);
+    // 3. Lo seleccionado: equipos y auxiliares (los dos traen `tipo` para el resumen).
+    const selectedList = Object.values(window.selectedEquipos).concat(auxSel);
 
     // 4. Collect frentes from datalist in DOM. data-ubicacion permite saber
     // si el frente registrado tiene ubicacion en BD: si esta vacia, el modal
@@ -2246,7 +2249,7 @@ window.openBulkModal = function (event) {
     const body = document.createElement("div");
     body.style.cssText = "padding:22px 24px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;flex:1;";
 
-    // Agrupar los equipos seleccionados por tipo y contar cuántos hay de cada uno.
+    // Agrupar lo seleccionado por tipo y contar cuántos hay de cada uno.
     // Esto reemplaza mostrar el serial/placa individual de cada equipo por un resumen
     // limpio: "3 × EXCAVADORA HIDRÁULICA", "2 × CAMIÓN VOLTEO", etc.
     const tipoCount = {};
@@ -2269,7 +2272,7 @@ window.openBulkModal = function (event) {
 
     body.innerHTML = `
         <div>
-            <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Equipos a movilizar</p>
+            <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">A movilizar</p>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px 14px;">
                 ${tipoChipsHtml}
             </div>
@@ -2412,21 +2415,19 @@ window.openBulkModal = function (event) {
 
         const btn = this;
         const ids = Object.keys(window.selectedEquipos);
-        // Capturar aux seleccionados en este momento: si el usuario también
-        // tiene auxiliares marcados, se abrirá su modal automáticamente
-        // al confirmar la movilización de equipos (generando un segundo PDF/registro).
-        const auxIdsAlAbrir = Object.keys(window._auxSelectedMap || {});
+        const auxIds = auxSel.map(a => a.id);
 
         // Estado EDITABLE del acta. Arranca con lo del modal; la vista previa puede
         // mutarlo (quitar equipos → ids; re-rutear destino; override cosmético de
         // origen/zona/firmas para el PDF). ejecutarCommit y la vista previa leen de aquí.
-        //   - ids / destination → afectan el REGISTRO real.
+        //   - ids / aux_ids / destination → afectan el REGISTRO real.
         //   - destination_ubicacion → se imprime SIEMPRE en el acta (previa y final), pero
         //     solo se guarda en el frente si éste aún no tenía UBICACION (bulkStore): un
         //     acta no pisa el dato maestro de un frente que ya la tiene.
         //   - origin / origin_zona / firmas → SOLO el documento impreso (override).
         const actaState = {
             ids: ids.slice(),
+            aux_ids: auxIds.slice(),
             destination: dest,
             destination_ubicacion: destUbicacion,
             origin: '',
@@ -2451,6 +2452,7 @@ window.openBulkModal = function (event) {
                 },
                 body: JSON.stringify({
                     ids: actaState.ids,
+                    aux_ids: actaState.aux_ids,
                     destination: actaState.destination,
                     destination_ubicacion: actaState.destination_ubicacion, // requerido si el frente es nuevo O si existe pero sin UBICACION
                     generar_pdf: generarPdf,
@@ -2486,12 +2488,6 @@ window.openBulkModal = function (event) {
             removePortal();
             overlay.remove();
             window.clearSelection();
-
-            // Si había auxiliares seleccionados cuando se abrió el modal, abrir
-            // automáticamente su modal de movilización con el mismo frente destino.
-            if (auxIdsAlAbrir.length && typeof window.openAuxMovilizarModal === 'function') {
-                window.openAuxMovilizarModal({ presetFrente: actaState.destination });
-            }
 
             // ── Actualizar el frente en memoria (frentesData) si se guardó una
             // ubicación nueva para él. Sin esto, al reabrir el modal en la misma
@@ -2652,8 +2648,7 @@ window.openBulkModal = function (event) {
         // editor de una (captura ubicación + firmas); frente completo muestra la previa.
         if (generarPdf) {
             // needsUbicacion (no isNewFrente): un frente que YA existe pero sin UBICACION
-            // en BD también necesita capturarla, o el commit lo rechaza con 422. Mismo
-            // criterio que el modal de auxiliares (_machinery.blade.php).
+            // en BD también necesita capturarla, o el commit lo rechaza con 422.
             window._mostrarVistaPreviaActa(actaState, ejecutarCommit, { editarDirecto: needsUbicacion });
             return;
         }
@@ -2692,7 +2687,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/pdf' },
             body: JSON.stringify({
                 ids: actaState.ids,
-                type: actaState.type || 'equipo',
+                aux_ids: actaState.aux_ids || [],
                 destination: actaState.destination,
                 destination_ubicacion: actaState.destination_ubicacion,
                 origin: actaState.origin || '',
@@ -2895,7 +2890,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
                 var r = await window.apiFetch('/admin/movilizaciones/preview-acta-meta', {
                     method: 'POST',
                     headers: { 'Accept': 'application/json',  'Content-Type': 'application/json'},
-                    body: JSON.stringify({ ids: actaState.ids, type: actaState.type || 'equipo' })
+                    body: JSON.stringify({ ids: actaState.ids, aux_ids: actaState.aux_ids || [] })
                 });
                 if (r.ok) {
                     var m = await r.json();
@@ -2989,7 +2984,7 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         syncFirmasFromDOM();
 
         if (!actaState.destination) { window.toast('El frente de destino no puede quedar vacío.', 'error'); return; }
-        if (!actaState.ids.length) { window.toast('Debe quedar al menos un equipo.', 'error'); return; }
+        if (!actaState.ids.length && !(actaState.aux_ids || []).length) { window.toast('Debe quedar al menos un equipo o auxiliar.', 'error'); return; }
 
         // Frente de origen, Lugar/zona de origen y Ubicación del destino son OBLIGATORIOS: el
         // acta los imprime en el encabezado y junto al frente de destino. El origen se exige

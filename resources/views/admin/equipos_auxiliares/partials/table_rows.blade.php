@@ -28,6 +28,8 @@
     <tr data-aux-id="{{ $aux->ID_AUXILIAR }}"
         data-codigo="{{ $aux->CODIGO_INTERNO ?: $aux->SERIAL }}"
         data-frente="{{ optional($aux->frente)->NOMBRE_FRENTE ?? 'Sin Asignar' }}"
+        data-frente-id="{{ $aux->ID_FRENTE_ACTUAL }}"
+        data-tipo="{{ $tipoLabel }}"
         class="aux-row-selectable aux-row-clickable"
         style="cursor:pointer;">
         {{-- 1. FRENTE + FOTO (patron vehiculos: /admin/equipos)

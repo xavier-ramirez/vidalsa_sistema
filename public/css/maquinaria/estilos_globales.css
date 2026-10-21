@@ -2463,23 +2463,6 @@ body:has(.mobile-menu.active) .selection-floating-bar {
     font-size: 13px;
 }
 
-/* "Ver solo seleccionados" activo en la barra de auxiliares: mismo círculo
-   ámbar que usa #bulkFloatingBar en equipos/index.blade.php. */
-#auxBulkBar .selection-counter.is-filtering #auxBulkCount {
-    background: #fbbf24;
-    color: #1e293b;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 5px;
-    border-radius: 999px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    line-height: 1;
-    box-sizing: border-box;
-}
-
 .btn-bulk-clear {
     background: transparent;
     border: none;
