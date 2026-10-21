@@ -169,15 +169,26 @@
                 overflow: hidden !important;
             }
 
-            /* En TELÉFONO estos dos gráficos no se muestran: a pedido del cliente, en el
-               móvil interesan los contadores y la lista de Ubicación por Frente; los
-               gráficos por tipo se consultan desde la PC, que es donde se leen bien.
-               No se quita su markup — en escritorio siguen igual. */
-            #fleetDashboardModal #fdm-panel-age,
-            #fleetDashboardModal #fdm-panel-auxiliares { display: none !important; }
+            /* Los gráficos por tipo SÍ salen en el teléfono (estuvieron ocultos cuando eran de
+               Chart.js y no se leían; ya son HTML, pintarPorTipo). En la cabecera: título y
+               cámara arriba, el resumen debajo en su propia línea. Cada fila: nombre y cifras
+               arriba, la barra debajo a todo el ancho. */
+            #fleetDashboardModal .fdm-panel-head { flex-wrap: wrap; gap: 6px 10px; }
+            #fleetDashboardModal .fdm-resumen { order: 3; flex-basis: 100%; gap: 4px 14px; }
+            #fleetDashboardModal .fdm-res-lbl { font-size: 11.5px; }
+            #fleetDashboardModal .fdm-res b { font-size: 15px; }
+            #fleetDashboardModal .fdm-fila {
+                grid-template-columns: minmax(0, 1fr) auto;
+                grid-template-areas: "nom cifras" "barra barra";
+                gap: 5px 10px;
+                padding: 7px 0;
+            }
+            #fleetDashboardModal .fdm-fila-nom { grid-area: nom; }
+            #fleetDashboardModal .fdm-fila-cifras { grid-area: cifras; min-width: 0; gap: 10px; }
+            #fleetDashboardModal .fdm-fila-pista { grid-area: barra; height: 10px; }
 
-            /* Panels de gráficos: menos padding. Solo queda el de asignados: los otros dos
-               están ocultos aquí arriba y no tiene sentido darles estilo. */
+            /* Paneles: menos padding. */
+            #fleetDashboardModal .fdm-panel,
             #fdm-panel-assigned {
                 padding: 14px !important;
                 width: 100% !important;

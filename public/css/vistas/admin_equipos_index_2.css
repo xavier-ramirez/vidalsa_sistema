@@ -303,6 +303,22 @@
         }
         .fleet-kpi--aux { background: linear-gradient(135deg, #64748b 0%, #475569 100%); }
 
+        /* Ancho medio (tableta, PC estrecha): las cinco en UNA fila, cifra arriba y etiqueta
+           debajo. En fila "etiqueta | cifra" no cabían: la quinta quedaba sola abajo (820 px)
+           o "Gasoil Máx L/día" se partía en tres líneas (1024 px). */
+        @media (min-width: 769px) and (max-width: 1100px) {
+            #fleetDashboardModal .fleet-stats-grid > .fleet-kpi {
+                flex: 1 1 0;
+                min-width: 0;
+                flex-direction: column-reverse;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                gap: 2px;
+                padding: 8px 6px;
+            }
+        }
+
         /* Fila superior del cuerpo: contadores (crecen) + buscador de frente (ancho fijo).
            margin-bottom 8 (antes 12): separaba de mas los contadores del primer grafico. */
         .fleet-topline {
