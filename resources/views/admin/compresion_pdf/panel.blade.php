@@ -139,6 +139,8 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {{-- aaaa-mm-dd -> dd/mm/aaaa para la columna de diferencias; lo demás tal cual. --}}
+                    @php $cpdfVer = fn ($v) => is_string($v) ? preg_replace('/^(\d{4})-(\d{2})-(\d{2})$/', '$3/$2/$1', $v) : $v; @endphp
                     @forelse ($docs as $d)
                         {{-- Toda fila se elige con un clic (cpdfSelFila, contador partials/chip_seleccion).
                              Las que además se pueden dar por REVISADAS en lote llevan cpdf-revisable:
@@ -169,14 +171,16 @@
                             </td>
                             <td><span class="cpdf-estado {{ $d->ESTADO }}" @if ($d->MOTIVO) title="{{ $d->MOTIVO }}" @endif>{{ $estadosDoc[$d->ESTADO] ?? $d->ESTADO }}</span></td>
                             {{-- Solo lo que NO cuadra: a la izquierda lo de la ficha (tachado), a la
-                                 derecha lo que dice el PDF. Si todo cuadra, lo leido en gris. --}}
+                                 derecha lo que dice el PDF. Si todo cuadra, lo leido en gris. Lo que
+                                 lee distinto la IA (IA_*) no se tacha: puede equivocarse ella, y se
+                                 decide en el visor. Las fechas, dd/mm/aaaa como en todo el sistema. --}}
                             <td class="cpdf-ancha">
                                 @forelse ($d->DIFERENCIAS ?? [] as $campo => $dif)
                                     <div class="cpdf-dif">
                                         <span class="cpdf-dif-eti">{{ $dif['etiqueta'] }}:</span>
-                                        <span class="cpdf-nom mal">{{ $dif['ficha'] ?: '(vacío)' }}</span>
+                                        <span class="cpdf-dif-ficha{{ str_starts_with($campo, 'IA_') ? ' ia' : '' }}{{ ($dif['ficha'] ?? '') === '' ? ' vacio' : '' }}">{{ $cpdfVer($dif['ficha'] ?? '') ?: 'vacío' }}</span>
                                         <i class="material-icons cpdf-flecha">arrow_forward</i>
-                                        <span class="cpdf-dif-doc">{{ $dif['documento'] }}</span>
+                                        <span class="cpdf-dif-doc">{{ $cpdfVer($dif['documento'] ?? '') }}</span>
                                     </div>
                                 @empty
                                     <span class="cpdf-motivo">{{ $d->MOTIVO ?: 'Todo coincide con el documento' }}</span>

@@ -173,18 +173,22 @@
     /* Se cargo como un documento y el PDF era otro: no se asocio a nada. */
     .cpdf-estado.otro_documento { color: #dc2626; cursor: help; }
     .cpdf-estado.aplicado { color: #16a34a; cursor: help; }
-    /* Cada dato que no cuadra, en una linea: etiqueta, lo de la ficha (tachado) y lo del documento. */
-    .cpdf-nom { font-size: 12.5px; color: #0f172a; }
     /* Filas que se pueden dar por revisadas: se eligen con un clic en cualquier parte y se
        resaltan con .selected-row-maquinaria, el mismo azul que en Equipos (estilos_globales.css,
        solo escritorio); el cursor no cambia (pedido del cliente). En teléfono esa regla no aplica: aquí el mismo azul de fondo. */
     @media (max-width: 768px) {
         .cpdf-tabla-caja tr.cpdf-fila-sel.selected-row-maquinaria td { background-color: #bae6fd !important; }
     }
-    .cpdf-nom.mal { color: #dc2626; text-decoration: line-through; }
-    .cpdf-dif { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12.5px; line-height: 1.5; }
-    .cpdf-dif-eti { font-weight: 700; color: #64748b; }
-    .cpdf-dif-doc { color: #16a34a; font-weight: 600; }
+    /* Cada dato que no cuadra, en una linea: etiqueta, lo de la ficha (tachado) y lo del documento.
+       La MISMA letra para las tres partes (tamaño y grosor): solo cambia el color (pedido del
+       cliente, 20-10-2026: se veían tres tipos de letra distintos). */
+    .cpdf-dif { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+    .cpdf-dif-eti { color: #64748b; }
+    .cpdf-dif-ficha { color: #dc2626; text-decoration: line-through; }
+    /* Lo de la IA no tacha la ficha (puede equivocarse ella); vacío, en gris y sin tachar. */
+    .cpdf-dif-ficha.ia { color: #0f172a; text-decoration: none; }
+    .cpdf-dif-ficha.vacio { color: #94a3b8; font-style: italic; text-decoration: none; }
+    .cpdf-dif-doc { color: #16a34a; }
     /* Revisión: la placa (o el serial, si no hay placa), y debajo en gris el serial o el archivo. */
     .cpdf-ident { font-weight: 600; color: #0f172a; }
     .cpdf-sub { display: block; color: #64748b; font-weight: 400; font-size: 11.5px; }
