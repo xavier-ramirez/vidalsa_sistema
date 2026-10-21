@@ -383,6 +383,13 @@
             window.toast('Llegó del teléfono ' + label + '. Cierra la ventana abierta y vuelve a escanearlo.', 'warning');
             return;
         }
+        // Ese producto ya es el filtrado (la cámara lo volvió a leer tras perderlo un momento, o
+        // se escaneó dos veces la misma etiqueta): no se recarga la tabla para mostrar lo mismo.
+        var inp = el(cfg.input);
+        if (typeof cfg.activo === 'function' && cfg.activo() && inp && (inp.value === label || inp.dataset.active === label)) {
+            window.toast('Ya está en pantalla: ' + label, 'info');
+            return;
+        }
         cfg.onProducto(p, label);
         window.toast('Del teléfono: ' + label, 'success');
     }
