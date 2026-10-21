@@ -156,6 +156,9 @@ class CargaMasivaDocumentos
     /** Lo que responden atar, ver sus equipos y enlazar cuando el PDF ya se enlazo o se descarto. */
     public const YA_NO_POR_ENLAZAR = 'Ese PDF ya no esta por enlazar. Recarga la tabla.';
 
+    /** Lo que responde aplicar cuando la ficha ya tiene ESE mismo PDF (ver yaEnlazado). */
+    public const YA_ENLAZADO = 'Ya estaba enlazado.';
+
     public function __construct(private LectorDocumentoPdf $lector, private LectorGemini $ia, private ?RotcDeFlota $rotcFlota = null) {}
 
     private function rotcFlota(): RotcDeFlota
@@ -592,7 +595,7 @@ class CargaMasivaDocumentos
         $actual = Documentacion::where('ID_EQUIPO', $idEquipo)->value('LINK_ROTC');
         if ($parte['pieza'] && $this->mismoArchivo($actual, $parte['pieza'])) {
             if (!$ensayo && $cerrar) $this->cerrarPropuesta($link);
-            return ['ok' => true, 'mensaje' => 'Ya estaba enlazado.'];
+            return ['ok' => true, 'mensaje' => self::YA_ENLAZADO];
         }
 
         $prueba = $this->aplicarEnEquipo($idEquipo, LectorDocumentoPdf::ROTC, $link, $rotc['vence'], $rotc['emision'], $pisar, true, false);
@@ -913,7 +916,7 @@ class CargaMasivaDocumentos
      * leido por la IA NUNCA: hay que comprobarlo.
      *
      * No hay boton de Aplicar (pedido 01-10-2026): esto es lo que enlaza solo; a mano, atarDocumento
-     * y atarVin, y lo de varias unidades, al momento, enlazarAhora. Si la ficha ya tiene ese documento, se reemplaza solo cuando el nuevo vence DESPUES (el viejo va a la
+     * y atarVin, y lo de varias unidades, equipo por equipo, enlazarEquipo. Si la ficha ya tiene ese documento, se reemplaza solo cuando el nuevo vence DESPUES (el viejo va a la
      * papelera de Drive, se recupera con un clic); si no, se queda el suyo. Lo que no entra
      * —documento anterior, equipo en otro embarque— se queda sin enlazar y la fila dice por que.
      * Si todo entra, queda "Aplicado".
@@ -1049,16 +1052,15 @@ class CargaMasivaDocumentos
     }
 
     /**
-     * "Enlazar a los N equipos" de un PDF de VARIAS unidades que sigue sin enlazar, tras ver sus
-     * equipos en el modal (equiposDeLaPropuesta; pedido 21-10-2026): lo mismo que el reintento de
-     * cada hora (enlazarSolo, con sus puertas), pero de esa fila y al momento, a nombre de quien lo
-     * pulsa. Con el MISMO candado: si se esta leyendo un PDF, espera.
-     * $extra: equipos que el PDF nombra pero no se reconocieron, buscados y añadidos a mano en el
-     * modal; se suman a la propuesta (la fila los recuerda) y el motivo los nombra. No en un BL ni
-     * en un ROTC de flota: esos se atan unidad por unidad (atarVin / la parte de cada una).
-     * Lo de un solo equipo no va por aqui: se ata (atarDocumento).
+     * Enlaza un PDF de VARIAS unidades que sigue sin enlazar a UNO de sus equipos, con su boton en
+     * el modal (pedido 21-10-2026: como "Atar a un equipo", equipo por equipo, tras comprobarlo).
+     * Pasa por las mismas puertas que el enlace solo (aplicar); si la ficha ya tiene ese documento
+     * pide $reemplazar. Un equipo que el PDF nombra y no se reconocio (buscado en el modal) se suma
+     * a la propuesta; no en un BL ni en un ROTC de flota, que se atan unidad por unidad. La fila
+     * dice "Atado a mano: serial." (el reintento de cada hora lo conserva) y queda Aplicado cuando
+     * ya estan todos. Lo de un solo equipo no va por aqui: se ata (atarDocumento).
      */
-    public function enlazarAhora(string $link, array $extra = []): array
+    public function enlazarEquipo(string $link, int $idEquipo, bool $auxiliar = false, bool $reemplazar = false): array
     {
         $p = $this->propuestaGuardada($link);
         if (!$p || !$this->esPropuestaSinAplicar($link)) {
@@ -1070,41 +1072,43 @@ class CargaMasivaDocumentos
         if (!empty($p['ia']) || !in_array($p['estado'] ?? null, ['listo', self::ENLAZAR_Y_REVISAR], true)) {
             return ['ok' => false, 'mensaje' => 'Este PDF tiene algo que mirar antes: no se enlaza solo.'];
         }
-        $filaDelPdf = fn () => VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($link))
-            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->first();
-        $yaEstan = array_map(fn ($f) => (int) $f['id'], array_filter($p['equipos'], fn ($f) => empty($f['auxiliar'])));
-        $extra = array_values(array_diff(array_unique(array_map('intval', $extra)), $yaEstan));
-        if ($extra && (($p['tipo'] ?? null) === self::EMBARQUE || !empty($p['flota_rotc']))) {
-            return ['ok' => false, 'mensaje' => 'A un BL o a un ROTC de flota no se le añaden equipos: cada unidad se ata desde su fila.'];
-        }
-        $sumados = $extra ? $this->consulta()->whereIn('e.ID_EQUIPO', $extra)->get() : collect();
-        if ($sumados->count() !== count($extra)) {
-            return ['ok' => false, 'mensaje' => 'Uno de los equipos añadidos ya no existe. Vuelve a buscarlo.'];
-        }
-        if ($extra) {
-            $p['equipos'] = array_merge($p['equipos'], $this->fichas($sumados));
-            $filaDelPdf()?->update(['PROPUESTA' => $p]);
-        }
-
-        $candado = Cache::lock(ColaCargaMasiva::CANDADO, ColaCargaMasiva::ABANDONADO_SEG);
-        if (!$candado->get()) {
-            return ['ok' => false, 'mensaje' => 'Se esta leyendo otro PDF de la carga: prueba en un momento.'];
-        }
-        try {
-            $this->enlazarSolo($p);
-        } finally {
-            $candado->release();
-        }
-
-        $fila = $filaDelPdf();
-        if ($fila && $fila->ESTADO === VerificacionDocumento::APLICADO) {
-            if ($extra) {
-                $fila->update(['MOTIVO' => VerificacionDocumento::motivoQueCabe(trim($fila->MOTIVO . ' Añadido a mano: '
-                    . $sumados->map(fn ($f) => $f->SERIAL_CHASIS ?: $f->PLACA ?: ('equipo ' . $f->ID_EQUIPO))->implode(', ') . '.'))]);
+        $tipo = $p['tipo'];
+        $ficha = collect($p['equipos'])->first(fn ($f) => (int) $f['id'] === $idEquipo && !empty($f['auxiliar']) === $auxiliar);
+        $nuevo = !$ficha;
+        if ($nuevo) {
+            if ($auxiliar || $tipo === self::EMBARQUE || !empty($p['flota_rotc'])) {
+                return ['ok' => false, 'mensaje' => 'A un BL o a un ROTC de flota no se le añaden equipos: cada unidad se ata desde su fila.'];
             }
-            return ['ok' => true, 'mensaje' => 'Enlazado a sus ' . count($p['equipos']) . ' equipos: ' . (self::NOMBRES[$p['tipo']] ?? 'documento') . '.'];
+            $fila = $this->consulta()->where('e.ID_EQUIPO', $idEquipo)->first();
+            if (!$fila) return ['ok' => false, 'mensaje' => 'Ese equipo ya no existe.'];
+            $ficha = $this->ficha($fila);
         }
-        return ['ok' => false, 'mensaje' => $fila?->MOTIVO ?: 'No se pudo enlazar.'];
+
+        $r = $this->aplicar($idEquipo, $tipo, $link, $p['vence'] ?? null, $p['emision'] ?? null, $reemplazar, false, $auxiliar, false);
+        if (!empty($r['requiere_pisar'])) {
+            return ['ok' => false, 'requiere_pisar' => true, 'mensaje' => 'Esa ficha ya tiene ' . self::NOMBRES[$tipo] . '.'];
+        }
+        if (!$r['ok']) return $r;
+
+        if ($nuevo) $p['equipos'][] = $ficha;
+        $serial = $ficha['serial'] ?: ($ficha['placa'] ?? null) ?: ('equipo ' . $idEquipo);
+        $filaDelPdf = VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($link))
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->first();
+        $filaDelPdf?->update(['PROPUESTA' => $p,
+            'MOTIVO' => VerificacionDocumento::motivoQueCabe(trim($filaDelPdf->MOTIVO . ' Atado a mano: ' . $serial . '.'))]);
+
+        $faltan = collect($p['equipos'])->reject(fn ($f) => $this->yaEnlazado($p, $f))->count();
+        if (!$faltan) $this->cerrarPropuesta($link, $this->quedaPorRevisar($p));
+
+        return ['ok' => true, 'faltan' => $faltan, 'mensaje' => 'Enlazado al equipo ' . $serial . ': ' . self::NOMBRES[$tipo] . '. '
+            . ($faltan ? ($faltan === 1 ? 'Falta 1 equipo.' : "Faltan $faltan equipos.") : 'Ya estan todos.')];
+    }
+
+    /** El PDF ya esta en la ficha de ese equipo de la propuesta (el ensayo de aplicar no escribe nada). */
+    private function yaEnlazado(array $p, array $f): bool
+    {
+        return $this->aplicar((int) $f['id'], $p['tipo'], $p['link'], $p['vence'] ?? null, $p['emision'] ?? null,
+            false, true, !empty($f['auxiliar']), false)['mensaje'] === self::YA_ENLAZADO;
     }
 
     /** " No se consiguio en el sistema el VIN X." (o los VIN, hasta 5), o '' si no falta ninguno. */
@@ -1249,10 +1253,10 @@ class CargaMasivaDocumentos
 
     /**
      * Los equipos a los que va un PDF de varias unidades, como los ve el modal de atar (tipo,
-     * marca y modelo, serial, placa y si ya tiene ese documento), para comprobarlos antes de
-     * "Enlazar a los N equipos" (pedido 21-10-2026). Todos con distancia -1: se reconocieron
-     * porque su placa o su serial estan en el PDF. Los auxiliares, con lo que guardo la lectura.
-     * null si el PDF ya no esta por enlazar.
+     * marca y modelo, serial, placa y si ya tiene ese documento), para comprobarlos y enlazarlos
+     * uno por uno (enlazarEquipo; pedido 21-10-2026). Todos con distancia -1: se reconocieron
+     * porque su placa o su serial estan en el PDF; enlazado, si ya tiene ESTE PDF. Los auxiliares,
+     * con lo que guardo la lectura. null si el PDF ya no esta por enlazar.
      */
     public function equiposDeLaPropuesta(string $link): ?array
     {
@@ -1263,11 +1267,13 @@ class CargaMasivaDocumentos
         $filas = $this->consultaParaAtar()->whereIn('e.ID_EQUIPO', $ids ?: [0])->get()->keyBy('ID_EQUIPO');
         $nros = Embarque::whereIn('ID_EMBARQUE', $filas->pluck('ID_EMBARQUE')->filter()->unique())->pluck('NRO_BL', 'ID_EMBARQUE');
 
-        return collect($p['equipos'] ?? [])->map(fn ($f) => empty($f['auxiliar']) && isset($filas[$f['id']])
+        return collect($p['equipos'] ?? [])->map(fn ($f) => (empty($f['auxiliar']) && isset($filas[$f['id']])
             ? $this->equipoParaAtar($filas[$f['id']], -1, $p['tipo'] ?? null, $nros)
-            : ['id' => (int) $f['id'], 'serial' => $f['serial'] ?? null, 'placa' => $f['placa'] ?? null, 'codigo' => null,
-               'nombre' => $f['nombre'] ?? ('Auxiliar #' . $f['id']), 'tipo' => !empty($f['auxiliar']) ? 'AUXILIAR' : null,
-               'distancia' => -1, 'bl' => null, 'bl_desde' => null, 'tiene' => false, 'actual' => null])
+            : ['id' => (int) $f['id'], 'auxiliar' => !empty($f['auxiliar']), 'serial' => $f['serial'] ?? null,
+               'placa' => $f['placa'] ?? null, 'codigo' => null, 'nombre' => $f['nombre'] ?? ('Auxiliar #' . $f['id']),
+               'tipo' => !empty($f['auxiliar']) ? 'AUXILIAR' : null, 'distancia' => -1, 'bl' => null, 'bl_desde' => null,
+               'tiene' => false, 'actual' => null])
+            + ['enlazado' => $this->yaEnlazado($p, $f)])
             ->values()->all();
     }
 
@@ -1285,7 +1291,7 @@ class CargaMasivaDocumentos
     private function equipoParaAtar(object $f, int $distancia, ?string $tipo, $nros): array
     {
         return [
-            'id' => (int) $f->ID_EQUIPO, 'serial' => $f->SERIAL_CHASIS, 'placa' => $f->PLACA,
+            'id' => (int) $f->ID_EQUIPO, 'auxiliar' => false, 'serial' => $f->SERIAL_CHASIS, 'placa' => $f->PLACA,
             'codigo' => $f->CODIGO_PATIO,
             'nombre' => trim(($f->MARCA ?? '') . ' ' . ($f->MODELO ?? '')) ?: ('Equipo #' . $f->ID_EQUIPO),
             'tipo' => $f->TIPO_EQUIPO,
@@ -1476,7 +1482,7 @@ class CargaMasivaDocumentos
         $enEste = $actual && $embarque && (int) $actual->ID_EMBARQUE === (int) $embarque->ID_EMBARQUE;
         if ($enEste) {
             if (!$ensayo && $cerrar) $this->cerrarPropuesta($link);
-            return ['ok' => true, 'mensaje' => 'Ya estaba enlazado.'];
+            return ['ok' => true, 'mensaje' => self::YA_ENLAZADO];
         }
         if ($actual && !$enEste && !$pisar) {
             $otro = Embarque::find($actual->ID_EMBARQUE);
@@ -2052,7 +2058,7 @@ class CargaMasivaDocumentos
         $anterior = $doc?->$colLink;
         if ($this->mismoArchivo($anterior, $link)) {
             if (!$ensayo && $cerrar) $this->cerrarPropuesta($link);
-            return ['ok' => true, 'mensaje' => 'Ya estaba enlazado.'];
+            return ['ok' => true, 'mensaje' => self::YA_ENLAZADO];
         }
 
         // 1) Ya tiene uno: no se pisa sin permiso explicito.
@@ -2169,7 +2175,7 @@ class CargaMasivaDocumentos
         $anterior = $aux->$colLink;
         if ($this->mismoArchivo($anterior, $link)) {
             if (!$ensayo && $cerrar) $this->cerrarPropuesta($link);
-            return ['ok' => true, 'mensaje' => 'Ya estaba enlazado.'];
+            return ['ok' => true, 'mensaje' => self::YA_ENLAZADO];
         }
         if ($anterior && !$pisar) {
             return ['ok' => false, 'requiere_pisar' => true,

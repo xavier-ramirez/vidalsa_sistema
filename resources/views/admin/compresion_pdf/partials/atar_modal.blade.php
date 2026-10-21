@@ -2,9 +2,9 @@
      o un VIN del BL. Lo abre window.cpdfAbrirAtar (panel.blade.php) con el documento y lo que se
      leyó; el buscador sugiere equipos al escribir (serial, placa o código, también parecidos) y
      con ↑ ↓ y Enter se elige sin ratón. Si el equipo ya tiene ese documento, se pregunta aquí
-     mismo antes de reemplazarlo. Con un PDF de VARIAS unidades (window.cpdfEnlazarAhora), en el mismo
-     orden: el buscador (para añadir uno que el PDF nombra y no se reconoció; no en un BL ni en un
-     ROTC de flota), lo buscado y debajo sus equipos, para comprobarlos; el pie los enlaza a todos. --}}
+     mismo antes de reemplazarlo. Con un PDF de VARIAS unidades (window.cpdfEnlazarEquipos), en el mismo
+     orden: el buscador (para uno que el PDF nombra y no se reconoció; no en un BL ni en un ROTC de
+     flota), lo buscado y debajo sus equipos; cada uno se enlaza con su botón. --}}
 <div id="cpdfAtarModal" class="cpdf-atar-velo" hidden onclick="if (event.target === this) window.cpdfCerrarAtar()">
     <div class="cpdf-atar-caja" id="cpdfAtarCaja" role="dialog" aria-modal="true" aria-labelledby="cpdfAtarTitulo">
         <div class="cpdf-atar-cab">
@@ -27,10 +27,6 @@
             </label>
             <div id="cpdfAtarLista" class="cpdf-atar-lista" role="listbox"></div>
             <div id="cpdfAtarSuyos" class="cpdf-atar-lista" hidden></div>
-        </div>
-        <div id="cpdfAtarPie" class="cpdf-atar-pie" hidden>
-            <button type="button" class="cpdf-atar-btn gris" onclick="window.cpdfCerrarAtar()">Cancelar</button>
-            <button type="button" class="cpdf-atar-btn" id="cpdfAtarEnlazar" onclick="window.cpdfAtarEnlazarTodos()"><i class="material-icons">link</i><span></span></button>
         </div>
     </div>
 </div>

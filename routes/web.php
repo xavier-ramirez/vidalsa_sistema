@@ -578,8 +578,8 @@ Route::middleware(['auth'])->group(function () {
                     ->name('historial-documentos.carga-masiva.atar-documento');
                 Route::get('historial-documentos/carga-masiva/equipos-del-pdf', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'equiposDelPdf'])
                     ->name('historial-documentos.carga-masiva.equipos-del-pdf');
-                Route::post('historial-documentos/carga-masiva/enlazar-ahora', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'enlazarAhora'])
-                    ->name('historial-documentos.carga-masiva.enlazar-ahora');
+                Route::post('historial-documentos/carga-masiva/enlazar-equipo', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'enlazarEquipo'])
+                    ->name('historial-documentos.carga-masiva.enlazar-equipo');
                 // Revisado a mano desde el visor: la persona corrigio la ficha en el panel y da la
                 // fila por buena (ver CompresionPdfController::marcarRevisado).
                 Route::post('compresion-pdf/documento/{id}/revisado', [App\Http\Controllers\CompresionPdfController::class, 'marcarRevisado'])

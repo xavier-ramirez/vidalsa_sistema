@@ -283,10 +283,6 @@
     .cpdf-atar-btn.rojo:hover:not(:disabled) { background: #b91c1c; }
     .cpdf-atar-btn.gris { background: #e2e8f0; color: #334155; padding: 5px 12px; font-size: 12px; }
     .cpdf-atar-btn.gris:hover:not(:disabled) { background: #cbd5e1; }
-    /* Pie del modal con un PDF de varias unidades: Cancelar y "Enlazar a los N equipos", centrados. */
-    .cpdf-atar-pie { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 12px 16px; border-top: 1px solid #e2e8f0; }
-    .cpdf-atar-pie[hidden] { display: none; }
-    .cpdf-atar-pie .cpdf-atar-btn.gris { padding: 7px 14px; font-size: 13px; }
     .cpdf-atar-buscar[hidden], .cpdf-atar-lista[hidden] { display: none; }
     /* Con varias unidades hay dos listas (sus equipos y lo buscado): se desplaza el cuerpo entero. */
     .cpdf-atar-caja.varias .cpdf-atar-cuerpo { overflow-y: auto; }

@@ -19,8 +19,8 @@ use Illuminate\Validation\Rule;
  *   descartar() Borra de Drive el PDF de una propuesta que no se enlazo (super.admin).
  *   buscarEquipo() / atarVin()  Un VIN del BL que no caso con ninguna ficha (su serial difiere
  *               en algo) se ata a mano a la ficha que la persona elige.
- *   equiposDelPdf() / enlazarAhora()  Un PDF de varias unidades que sigue sin enlazar: se ven
- *               sus equipos en el modal y se enlaza al momento, sin esperar el reintento de cada hora.
+ *   equiposDelPdf() / enlazarEquipo()  Un PDF de varias unidades que sigue sin enlazar: se ven
+ *               sus equipos en el modal y se enlaza a cada uno con su boton, sin esperar el reintento.
  *
  * Permiso: SOLO 'docs.carga.masiva', que es EXCLUSIVO y ni super.admin hereda (ver
  * autorizar(), abajo). Con esa clave basta, sin super.admin: se entra a Auditoría de
@@ -158,18 +158,24 @@ class CargaMasivaDocumentosController extends Controller
             : response()->json(['success' => true, 'equipos' => $equipos]);
     }
 
-    /** Enlaza al momento un PDF de varias unidades que sigue sin enlazar (ver CargaMasivaDocumentos::enlazarAhora). */
-    public function enlazarAhora(Request $request)
+    /**
+     * Enlaza un PDF de varias unidades a UNO de sus equipos (ver CargaMasivaDocumentos::enlazarEquipo).
+     * Si la ficha ya tiene ese documento responde requiere_pisar y la pantalla pregunta antes.
+     */
+    public function enlazarEquipo(Request $request)
     {
         $this->autorizar();
-        // extra: los equipos añadidos a mano en el modal, "12,34" (ids).
         $datos = $request->validate([
-            'link'  => 'required|string|starts_with:/storage/google/',
-            'extra' => ['nullable', 'string', 'max:500', 'regex:/^\d+(,\d+)*$/'],
+            'link'       => 'required|string|starts_with:/storage/google/',
+            'id_equipo'  => 'required|integer|min:1',
+            'auxiliar'   => 'nullable|boolean',
+            'reemplazar' => 'nullable|boolean',
         ]);
 
-        $r = $this->servicio->enlazarAhora($datos['link'], array_filter(explode(',', $datos['extra'] ?? '')));
-        return response()->json(['success' => $r['ok'], 'message' => $r['mensaje']], $r['ok'] ? 200 : 422);
+        $r = $this->servicio->enlazarEquipo($datos['link'], (int) $datos['id_equipo'],
+            (bool) ($datos['auxiliar'] ?? false), (bool) ($datos['reemplazar'] ?? false));
+        return response()->json(['success' => $r['ok'], 'message' => $r['mensaje'], 'faltan' => $r['faltan'] ?? null,
+            'requiere_pisar' => !empty($r['requiere_pisar'])], $r['ok'] ? 200 : 422);
     }
 
     /**

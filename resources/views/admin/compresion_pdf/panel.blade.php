@@ -225,7 +225,7 @@
                                 @endif
                                 {{-- Lo de varias unidades que sigue sin enlazar (el reintento es cada hora):
                                      "Enlazar a los N equipos" abre el modal con sus equipos para comprobarlos y
-                                     los enlaza al momento, con las mismas reglas (CargaMasivaDocumentos::enlazarAhora).
+                                     enlazarlos uno por uno, con las mismas reglas (CargaMasivaDocumentos::enlazarEquipo).
                                      Solo lo que se enlazaría solo:
                                      ni lo leído por la revisión automática ni lo que tiene algo que mirar. --}}
                                 @if ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
@@ -236,7 +236,7 @@
                                         <div class="cpdf-vin-falta">
                                             <span>Sin enlazar</span>
                                             <button type="button" class="cpdf-vin-btn"
-                                                onclick="event.stopPropagation(); window.cpdfEnlazarAhora(@js($d->PROPUESTA['link']), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]), {{ count($d->PROPUESTA['equipos']) }}, @js($d->TIPO !== \App\Services\CargaMasivaDocumentos::EMBARQUE && empty($d->PROPUESTA['flota_rotc'])))">Enlazar a los {{ count($d->PROPUESTA['equipos']) }} equipos</button>
+                                                onclick="event.stopPropagation(); window.cpdfEnlazarEquipos(@js($d->PROPUESTA['link']), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]), {{ count($d->PROPUESTA['equipos']) }}, @js($d->TIPO !== \App\Services\CargaMasivaDocumentos::EMBARQUE && empty($d->PROPUESTA['flota_rotc'])))">Enlazar a los {{ count($d->PROPUESTA['equipos']) }} equipos</button>
                                         </div>
                                     @endcan
                                 @endif
@@ -639,7 +639,7 @@
     @can('docs.carga.masiva')
     // ── Atar a un equipo (modal partials/atar_modal) ────────────────────────────────
     // Lo usan atar un PDF sin enlazar, atar un VIN del BL y enlazar un PDF de varias unidades
-    // (o.varias: el buscador añade uno que falte, debajo van sus equipos y el pie los enlaza). `o` trae lo que se muestra (doc,
+    // (o.varias: debajo del buscador van sus equipos, cada uno con su botón, y lo buscado se enlaza igual). `o` trae lo que se muestra (doc,
     // archivo, lo leído: leidoEti + leido, y las fechas del PDF), con qué arranca el buscador (inicial), el tipo de
     // documento (para avisar de las fichas que ya lo tienen), si un equipo de otro BL se bloquea,
     // y atar(eq, ui), que hace el POST. ui deja a quien ata marcar la fila ocupada, avisar un
@@ -685,9 +685,12 @@
         }
         return frag;
     };
-    // sinBoton: la tarjeta solo se muestra (los equipos de un PDF de varias unidades, debajo del buscador).
-    var cpdfAtarFila = function (eq, n, sinBoton) {
-        var o = cpdfAtarEstado.o, bloqueado = o.bloquearConBl && !!eq.bl;
+    // sinMarcar: las tarjetas de los equipos de un PDF de varias unidades (cpdfAtarSuyos) no entran en
+    // la selección con flechas, que es de lo buscado.
+    var cpdfAtarFila = function (eq, n, sinMarcar) {
+        // Bloqueada: uno que ya está en un embarque (no se mueve desde aquí; el servidor tampoco) o
+        // uno que ya tiene este PDF.
+        var o = cpdfAtarEstado.o, bloqueado = (o.bloquearConBl && !!eq.bl) || !!eq.enlazado;
         var op = document.createElement('div');
         op.className = 'cpdf-atar-op' + (bloqueado ? ' bloqueado' : '');
         op.setAttribute('role', 'option');
@@ -740,13 +743,13 @@
         var boton = el('button', 'cpdf-atar-btn');
         boton.type = 'button';
         boton.appendChild(el('i', 'material-icons', 'link'));
-        var verbo = o.varias ? 'Añadir' : 'Atar';   // varias unidades: lo buscado se añade a la lista
+        var verbo = eq.enlazado ? 'Enlazado' : (o.varias ? 'Enlazar' : 'Atar');
         var rotulo = boton.appendChild(el('span', null, verbo));
-        boton.disabled = bloqueado;   // uno que ya está en un embarque no se mueve desde aquí (el servidor tampoco)
+        boton.disabled = bloqueado;
         op.appendChild(info);
-        if (!sinBoton) op.appendChild(boton);
+        op.appendChild(boton);
         var ui = {
-            ocupado: function (si) { boton.disabled = si || bloqueado; rotulo.textContent = si ? (o.varias ? 'Añadiendo…' : 'Atando…') : verbo; },
+            ocupado: function (si) { boton.disabled = si || bloqueado; rotulo.textContent = si ? (o.varias ? 'Enlazando…' : 'Atando…') : verbo; },
             error: function (msg) {
                 ui.ocupado(false);
                 var viejo = op.querySelector('.cpdf-atar-err'); if (viejo) viejo.remove();
@@ -768,7 +771,7 @@
         };
         var elegir = function () { if (boton.disabled) return; ui.ocupado(true); o.atar(eq, ui); };
         boton.addEventListener('click', function (ev) { ev.stopPropagation(); elegir(); });
-        if (!sinBoton) op.addEventListener('click', function () { cpdfAtarMarcar(n); });
+        if (!sinMarcar) op.addEventListener('click', function () { cpdfAtarMarcar(n); });
         op._elegir = elegir;
         return op;
     };
@@ -836,7 +839,6 @@
         cpdfAtarEl('cpdfAtarCaja').classList.toggle('varias', !!o.varias);
         cpdfAtarEl('cpdfAtarSuyos').hidden = !o.varias;
         cpdfAtarEl('cpdfAtarBuscarCaja').hidden = !!o.varias && !o.buscar;
-        cpdfAtarEl('cpdfAtarPie').hidden = !o.varias;
         cpdfAtarEl('cpdfAtarDoc').textContent = o.doc;
         cpdfAtarEl('cpdfAtarLeidoEti').textContent = o.leidoEti + ':';
         cpdfAtarEl('cpdfAtarLeido').textContent = o.leido || '';
@@ -851,29 +853,12 @@
         campo.focus(); campo.select();
         cpdfAtarBuscar();
     };
-    // Los equipos de un PDF de varias unidades (cpdfAtarSuyos, debajo del buscador), para comprobarlos antes de
-    // enlazar; el botón del pie se habilita cuando llegan. No usa el turno del buscador: escribir
-    // mientras cargan no debe tirar la respuesta.
-    // Pinta sus equipos y los añadidos a mano (con "Quitar"), y el total en el botón del pie.
-    var cpdfAtarPintarSuyos = function () {
-        var o = cpdfAtarEstado.o, caja = cpdfAtarEl('cpdfAtarSuyos');
-        caja.textContent = '';
-        o.equipos.concat(o.extra).forEach(function (eq, n) {
-            var op = cpdfAtarFila(eq, n, true);
-            if (o.extra.indexOf(eq) !== -1) {
-                var quitar = Object.assign(document.createElement('button'), { type: 'button', className: 'cpdf-atar-btn gris', textContent: 'Quitar' });
-                quitar.addEventListener('click', function () { o.extra.splice(o.extra.indexOf(eq), 1); cpdfAtarPintarSuyos(); });
-                op.appendChild(quitar);
-            }
-            caja.appendChild(op);
-        });
-        cpdfAtarEl('cpdfAtarEnlazar').lastChild.textContent = 'Enlazar a los ' + (o.equipos.length + o.extra.length) + ' equipos';
-    };
+    // Los equipos de un PDF de varias unidades (cpdfAtarSuyos, debajo del buscador), cada uno con su
+    // botón Enlazar ("Enlazado" si ya tiene este PDF). Se vuelven a pedir tras cada enlace. No usa el
+    // turno del buscador: escribir mientras cargan no debe tirar la respuesta.
     var cpdfAtarVarias = function () {
-        var o = cpdfAtarEstado.o, b = cpdfAtarEl('cpdfAtarEnlazar');
-        b.disabled = true;
-        b.lastChild.textContent = 'Enlazar a los ' + o.n + ' equipos';
-        cpdfAtarAviso('Buscando sus equipos…', 'cpdfAtarSuyos');
+        var o = cpdfAtarEstado.o;
+        if (!o.equipos.length) cpdfAtarAviso('Buscando sus equipos…', 'cpdfAtarSuyos');
         window.apiFetch(@json(route('historial-documentos.carga-masiva.equipos-del-pdf')) + '?link=' + encodeURIComponent(o.link),
             { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
@@ -881,26 +866,11 @@
                 if (cpdfAtarEstado.o !== o) return;   // se cerró o se abrió otro
                 if (!body || !body.success) { cpdfAtarAviso((body && body.message) || 'No se pudieron traer sus equipos.', 'cpdfAtarSuyos'); return; }
                 o.equipos = body.equipos;
-                cpdfAtarPintarSuyos();
-                b.disabled = false;
+                var caja = cpdfAtarEl('cpdfAtarSuyos');
+                caja.textContent = '';
+                o.equipos.forEach(function (eq, n) { caja.appendChild(cpdfAtarFila(eq, n, true)); });
             })
             .catch(function () { if (cpdfAtarEstado.o === o) cpdfAtarAviso('No se pudieron traer sus equipos.', 'cpdfAtarSuyos'); });
-    };
-    // El pie: enlaza el PDF a todos sus equipos. Lo que no entre (pudo entrar en unos sí y en otros
-    // no) lo dice el aviso y su fila; la tabla se repinta en los dos casos.
-    window.cpdfAtarEnlazarTodos = function () {
-        var o = cpdfAtarEstado.o, b = cpdfAtarEl('cpdfAtarEnlazar');
-        if (!o || !o.varias) return;
-        b.disabled = true;
-        b.lastChild.textContent = 'Enlazando…';
-        window.apiPostForm(@json(route('historial-documentos.carga-masiva.enlazar-ahora')),
-            { link: o.link, extra: o.extra.map(function (eq) { return eq.id; }).join(',') }, 'No se pudo enlazar.')
-            .then(cpdfAtado)
-            .catch(function (e) {
-                window.cpdfCerrarAtar();
-                window.toast((e && e.message) || 'No se pudo enlazar.', 'error');
-                window.cpdfFiltrar();
-            });
     };
     window.cpdfCerrarAtar = function () {
         var m = cpdfAtarEl('cpdfAtarModal');
@@ -920,19 +890,28 @@
 
     // "Enlazar a los N equipos" de un PDF de varias unidades: abre el modal con sus equipos (tipo,
     // marca y modelo, serial, placa y si ya tienen ese documento) para comprobar que son los que dice
-    // el PDF. Si falta uno, se busca y se añade (buscar: no en un BL ni en un ROTC de flota); el botón
-    // del pie los enlaza a todos (cpdfAtarEnlazarTodos).
-    window.cpdfEnlazarAhora = function (link, tipo, doc, fechas, n, buscar) {
+    // el PDF y enlazarlos uno por uno, como al atar. Si falta uno, se busca y se enlaza igual (buscar:
+    // no en un BL ni en un ROTC de flota). Cuando ya están todos, se cierra y la tabla se repinta.
+    window.cpdfEnlazarEquipos = function (link, tipo, doc, fechas, n, buscar) {
         window.cpdfAbrirAtar({ doc: doc, leidoEti: 'Unidades', leido: String(n), fechas: fechas, inicial: '',
-            tipo: tipo, bloquearConBl: false, varias: true, buscar: buscar, link: link, n: n, equipos: [], extra: [],
-            // Lo buscado se AÑADE a la lista de sus equipos (el servidor no se toca hasta enlazar).
+            tipo: tipo, bloquearConBl: false, varias: true, buscar: buscar, link: link, equipos: [],
             atar: function (eq, ui) {
-                var o = cpdfAtarEstado.o, ya = o.equipos.concat(o.extra).some(function (x) { return x.id === eq.id; });
-                if (ya) { ui.error('Ya está en la lista.'); return; }
-                o.extra.push(Object.assign({}, eq, { distancia: 0 }));   // sin el "Tiene ese mismo dato" de la búsqueda
-                cpdfAtarEl('cpdfAtarBuscar').value = '';
-                cpdfAtarEl('cpdfAtarLista').textContent = '';
-                cpdfAtarPintarSuyos();
+                var enviar = function (reemplazar) {
+                    window.apiPostForm(@json(route('historial-documentos.carga-masiva.enlazar-equipo')),
+                        { link: link, id_equipo: eq.id, auxiliar: eq.auxiliar ? 1 : '', reemplazar: reemplazar ? 1 : '' }, 'No se pudo enlazar.')
+                        .then(function (r) {
+                            if (!r.faltan) { cpdfAtado(r); return; }
+                            window.toast(r.message, 'success');
+                            cpdfAtarEl('cpdfAtarBuscar').value = '';
+                            cpdfAtarEl('cpdfAtarLista').textContent = '';
+                            cpdfAtarVarias();
+                        })
+                        .catch(function (e) {
+                            if (e && e.requiere_pisar && !reemplazar) { ui.pedirReemplazo(e.message, function () { enviar(true); }); return; }
+                            ui.error((e && e.message) || 'No se pudo enlazar.');
+                        });
+                };
+                enviar(false);
             } });
     };
 
