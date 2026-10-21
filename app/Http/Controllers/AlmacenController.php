@@ -1955,7 +1955,7 @@ class AlmacenController extends Controller
     private function queryMovimientosFiltrada(Request $request, $visiblesIds)
     {
         $q = MovimientoInventario::query()
-            ->with(['producto:ID_PRODUCTO,CODIGO,NOMBRE,UM', 'almacen:ID_ALMACEN,NOMBRE,TIPO', 'almacenContraparte:ID_ALMACEN,NOMBRE', 'usuario:ID_USUARIO,NOMBRE_COMPLETO', 'frente:ID_FRENTE,NOMBRE_FRENTE']);
+            ->with(['producto:ID_PRODUCTO,CODIGO,NOMBRE,UM', 'almacen:ID_ALMACEN,NOMBRE,TIPO', 'almacenContraparte:ID_ALMACEN,NOMBRE', 'usuario:ID_USUARIO,NOMBRE_COMPLETO,CORREO_ELECTRONICO', 'frente:ID_FRENTE,NOMBRE_FRENTE']);
 
         if ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all') {
             $idAlmacen = $request->integer('id_almacen');

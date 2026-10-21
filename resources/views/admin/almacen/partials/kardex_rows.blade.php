@@ -50,9 +50,8 @@
             // El usuario que registró el movimiento NO tiene columna propia: aparece como burbuja
             // (.tooltip-bubble — misma clase que el patrón global de /admin/equipos) anclada a la
             // celda Producto, que se muestra al pasar el mouse por CUALQUIER PARTE de la fila.
-            $usuarioTip = $m->usuario?->NOMBRE_COMPLETO
-                ? 'Registrado por: ' . $m->usuario->NOMBRE_COMPLETO
-                : 'Usuario no registrado';
+            // En la PC dice el nombre; en el teléfono, el correo (ver admin_almacen_movimientos.css).
+            $registro = $m->usuario?->NOMBRE_COMPLETO ? $m->usuario : null;
         @endphp
         <tr class="alm-mov-row" style="--mov-color: {{ $meta[1] }}">
             {{-- Fecha + Tipo COMBINADOS en una sola columna: la fecha arriba y el tipo
@@ -86,7 +85,7 @@
                     <div class="mv-parte">{{ $m->NUMERO_PARTE }}</div>
                 @endif
                 <div class="tooltip-bubble">
-                    👤 {{ $usuarioTip }}
+                    👤 @if($registro)Registrado por: <span class="mv-tip-nombre">{{ $registro->NOMBRE_COMPLETO }}</span><span class="mv-tip-correo">{{ $registro->CORREO_ELECTRONICO ?: $registro->NOMBRE_COMPLETO }}</span>@else Usuario no registrado @endif
                     {{-- Observación del lote (NOTAS): se muestra aquí, en la burbuja al hacer
                          foco/hover de la fila — igual que el usuario — en vez de inline en la
                          columna Ref (pedido del cliente). En el teléfono la burbuja se ve fija al
