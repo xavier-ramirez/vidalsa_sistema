@@ -3780,7 +3780,8 @@ body:has(.mobile-menu.active) .selection-floating-bar {
        queda perfectamente centrado. */
     body:has(.page-layout-grid) .main-viewport,
     body:has(.fallas-grid) .main-viewport,
-    body:has(.hd-layout-grid) .main-viewport {
+    body:has(.hd-layout-grid) .main-viewport,
+    body:has(.cpdf-layout) .main-viewport {
         padding-left: 8px !important;
         padding-right: 8px !important;
         width: 100% !important;

@@ -303,6 +303,12 @@
         .cpdf-filtros { flex-wrap: wrap; }
     }
     @media (max-width: 768px) {
+        /* El mismo ancho que Equipos y que la pestaña Historial: la tarjeta a todo lo ancho
+           (el main-viewport deja 8 px por lado, ver estilos_globales.css). Con el 98 % y los
+           20 px de antes la tabla quedaba 40 px más angosta (pedido del cliente, 21-10-2026). */
+        .cpdf-layout { width: 100%; }
+        /* 15 + el borde de 1 px = los 16 px de la tarjeta de Equipos: la tabla, al píxel igual. */
+        .cpdf-main { padding: 15px; }
         .cpdf-filtros > .filter-item.responsive-filter-item { flex: 1 1 100% !important; }
         /* El botón de Filtros Avanzados (45 px) va al lado del filtro que tiene delante, como en
            el Historial: ese filtro se encoge para dejarle su hueco en la misma fila. Hace falta la
