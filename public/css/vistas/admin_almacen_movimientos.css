@@ -201,7 +201,7 @@
         margin-top:5px; padding-top:5px;
         border-top:1px solid rgba(255,255,255,0.18); font-style:italic;
     }
-    /* Quién lo registró: el nombre en la PC; el correo, en el teléfono (abajo). */
+    /* Quién lo registró: el nombre en la PC; el correo, más grande y sin el 👤, en el teléfono (abajo). */
     .alm-mov-table .mv-tip-correo { display:none; }
     .alm-mov-table .mv-tip-flecha {
         position:absolute; top:100%; left:30px; margin-left:-4px;
@@ -499,8 +499,9 @@
         }
         .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tip-notas { border-top: 0 !important; padding-top: 0 !important; margin-top: 2px !important; }
         .alm-mov-table tr.alm-mov-row.mv-row-selected .mv-tip-flecha { display: none !important; }
+        .alm-mov-table .mv-tip-ico,
         .alm-mov-table .mv-tip-nombre { display: none; }
-        .alm-mov-table .mv-tip-correo { display: inline; }
+        .alm-mov-table .mv-tip-correo { display: inline; font-size: 11.5px; }
 
         /* · Stock resultante, en su renglón. */
         .alm-mov-table tr.alm-mov-row.mv-row-selected td.mv-td-stock {

@@ -85,7 +85,7 @@
                     <div class="mv-parte">{{ $m->NUMERO_PARTE }}</div>
                 @endif
                 <div class="tooltip-bubble">
-                    👤 @if($registro)Registrado por: <span class="mv-tip-nombre">{{ $registro->NOMBRE_COMPLETO }}</span><span class="mv-tip-correo">{{ $registro->CORREO_ELECTRONICO ?: $registro->NOMBRE_COMPLETO }}</span>@else Usuario no registrado @endif
+                    <span class="mv-tip-ico">👤 </span>@if($registro)Registrado por: <span class="mv-tip-nombre">{{ $registro->NOMBRE_COMPLETO }}</span><span class="mv-tip-correo">{{ $registro->CORREO_ELECTRONICO ?: $registro->NOMBRE_COMPLETO }}</span>@else Usuario no registrado @endif
                     {{-- Observación del lote (NOTAS): se muestra aquí, en la burbuja al hacer
                          foco/hover de la fila — igual que el usuario — en vez de inline en la
                          columna Ref (pedido del cliente). En el teléfono la burbuja se ve fija al
