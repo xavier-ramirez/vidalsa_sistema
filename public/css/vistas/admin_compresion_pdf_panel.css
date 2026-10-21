@@ -92,7 +92,7 @@
     .cpdf-avance-barra i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); }
     .cpdf-avance .cpdf-avance-cifra { grid-area: 1 / 2; justify-self: end; margin: 0 0 2px; font-size: 12.5px; font-weight: 700; color: #1e293b;
                                       white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .cpdf-avance-listo { color: #15803d; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
+    .cpdf-avance-listo { color: #16a34a; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
     /* Revisar a mano en el visor (panel oscuro del visor). Arriba, la tarjeta de la revisión
        (.cpdf-pista-aviso): estado, motivo y, dato a dato, "ficha → documento"; debajo de cada
        campo del panel, lo que tiene la ficha AHORA y lo que dice el documento, cada uno con su
@@ -155,22 +155,24 @@
     .cpdf-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
     /* Le gana al text-align: left que .tabla-cabecera th pone en la cabecera. */
     .cpdf-tabla-caja .admin-table th.cpdf-num { text-align: right; }
-    /* Estado: solo la letra de color, sin recuadro de fondo (pedido del cliente, 20-10-2026). */
+    /* Estado: solo la letra de color, sin recuadro de fondo (pedido del cliente, 20-10-2026).
+       El verde y el rojo son los MISMOS de las entradas y salidas del historial de Almacén
+       (MovimientoInventario: #16a34a y #dc2626), para que en todo el sistema bien/mal se lean igual. */
     .cpdf-estado { display: inline-block; font-size: 11.5px; font-weight: 700; }
-    .cpdf-estado.comprimido { color: #166534; }
+    .cpdf-estado.comprimido { color: #16a34a; }
     .cpdf-estado.saltado { color: #92400e; cursor: help; }
-    .cpdf-estado.error { color: #991b1b; cursor: help; }
+    .cpdf-estado.error { color: #dc2626; cursor: help; }
     .cpdf-vacio { text-align: center; color: #94a3b8; padding: 30px; }
 
-    .cpdf-estado.coincide { color: #166534; }
-    .cpdf-estado.difiere { color: #991b1b; cursor: help; }
+    .cpdf-estado.coincide { color: #16a34a; }
+    .cpdf-estado.difiere { color: #dc2626; cursor: help; }
     .cpdf-estado.ilegible, .cpdf-estado.sin_archivo { color: #92400e; cursor: help; }
     /* Carga masiva: azul para lo que espera un clic, ámbar para lo que no se sabe de quién es. */
     .cpdf-estado.por_enganchar { color: #1e40af; cursor: help; }
     .cpdf-estado.sin_ficha { color: #92400e; cursor: help; }
     /* Se cargo como un documento y el PDF era otro: no se asocio a nada. */
-    .cpdf-estado.otro_documento { color: #9f1239; cursor: help; }
-    .cpdf-estado.aplicado { color: #166534; cursor: help; }
+    .cpdf-estado.otro_documento { color: #dc2626; cursor: help; }
+    .cpdf-estado.aplicado { color: #16a34a; cursor: help; }
     /* Cada dato que no cuadra, en una linea: etiqueta, lo de la ficha (tachado) y lo del documento. */
     .cpdf-nom { font-size: 12.5px; color: #0f172a; }
     /* Filas que se pueden dar por revisadas: se eligen con un clic en cualquier parte y se
@@ -179,10 +181,10 @@
     @media (max-width: 768px) {
         .cpdf-tabla-caja tr.cpdf-fila-sel.selected-row-maquinaria td { background-color: #bae6fd !important; }
     }
-    .cpdf-nom.mal { color: #991b1b; text-decoration: line-through; }
+    .cpdf-nom.mal { color: #dc2626; text-decoration: line-through; }
     .cpdf-dif { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12.5px; line-height: 1.5; }
     .cpdf-dif-eti { font-weight: 700; color: #64748b; }
-    .cpdf-dif-doc { color: #166534; font-weight: 600; }
+    .cpdf-dif-doc { color: #16a34a; font-weight: 600; }
     /* Revisión: la placa (o el serial, si no hay placa), y debajo en gris el serial o el archivo. */
     .cpdf-ident { font-weight: 600; color: #0f172a; }
     .cpdf-sub { display: block; color: #64748b; font-weight: 400; font-size: 11.5px; }
