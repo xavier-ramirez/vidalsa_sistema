@@ -4,10 +4,10 @@
         /* Label de los bloques verde/rojo del Consolidado. En modo documento
            ("Con/Sin Certificado", "Con Compraventa"...) el texto es más largo y
            se partía en dos líneas: .is-doc lo achica y fuerza una sola línea. */
+        /* En blanco puro, sin transparencia, como los títulos de las tarjetas (pedido del cliente, 21-10-2026). */
         .consolidado-stat-label {
             font-size: 11px;
             letter-spacing: -0.2px;
-            opacity: 0.9;
             font-weight: 700;
             text-transform: uppercase;
             white-space: nowrap;
