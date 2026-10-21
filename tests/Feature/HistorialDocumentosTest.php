@@ -117,12 +117,12 @@ class HistorialDocumentosTest extends MySqlTestCase
         $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'historial', 'search_equipo' => $placa]))->getContent();
         $this->assertStringContainsString('id="hdResumen"', $html);
         $this->assertMatchesRegularExpression('~<small>Hoy</small>\s*<strong>1</strong>~', $html);
-        $this->assertStringContainsString('Subida de documento</span><b>1</b>', $html, 'La subida cuenta en su accion.');
+        $this->assertStringNotContainsString('Por tipo de acción', $html, 'Esa caja se quito (21-10-2026).');
 
         // El filtrado por AJAX trae el resumen repintado; filtrar por la accion sigue igual.
         $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['pestana' => 'historial', 'search_equipo' => $placa, 'search_tipo' => 'cat_uploads']))->json();
         $this->assertSame(1, $json['total']);
-        $this->assertStringContainsString('Subida de documento</span><b>1</b>', $json['resumen_html']);
+        $this->assertMatchesRegularExpression('~<small>Hoy</small>\s*<strong>1</strong>~', $json['resumen_html']);
         $json = $this->actingAs($yo)->getJson(route('historial-documentos.index', ['pestana' => 'historial', 'search_equipo' => $placa, 'search_tipo' => 'cat_borrados']))->json();
         $this->assertSame(0, $json['total']);
         // Cambiar de pagina no cambia el resumen: no se vuelve a mandar.

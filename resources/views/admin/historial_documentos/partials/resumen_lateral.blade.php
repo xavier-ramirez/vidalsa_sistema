@@ -13,17 +13,6 @@
     </button>
 </div>
 
-@if ($resumen['tipos'])
-    <div class="hd-res-caja hd-res-lista">
-        <small><i class="material-icons">category</i> Por tipo de acción</small>
-        @foreach ($resumen['tipos'] as $t)
-            <button type="button" class="hd-res-fila" onclick="window.hdFiltrarResumen({tipo: @js($t['valor']), etiqueta: @js($t['etiqueta'])})">
-                <span>{{ $t['etiqueta'] }}</span><b>{{ $fmt($t['n']) }}</b>
-            </button>
-        @endforeach
-    </div>
-@endif
-
 @if ($resumen['autores'])
     <div class="hd-res-caja hd-res-lista">
         <small><i class="material-icons">group</i> Quién hizo más cambios</small>

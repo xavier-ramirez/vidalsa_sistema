@@ -167,7 +167,7 @@ class HistorialDocumentosController extends Controller
     /**
      * Las acciones del filtro "Tipo de Acción", por grupo: [grupo => [valor => etiqueta]]. Los
      * documentos van por accion (valores 'cat_*', ver esDeTipo); lo demas casa por el texto del
-     * tipo. UNICA lista: la pinta el desplegable y la cuenta el resumen de la barra lateral.
+     * tipo. UNICA lista: la pinta el desplegable.
      */
     public const TIPOS_ACCION = [
         'Sobre el equipo' => [
@@ -209,10 +209,9 @@ class HistorialDocumentosController extends Controller
     /**
      * ¿El evento es de esa accion del filtro? Los 'cat_*' agrupan los doc_key de cada accion de
      * documentos; cualquier otro valor (acciones del equipo o enlaces viejos con la etiqueta
-     * exacta) casa por el texto del tipo. La usan el filtro y el resumen lateral; este pasa los
-     * dos textos ya normalizados (quitar acentos es lo caro: 12 acciones x miles de eventos).
+     * exacta) casa por el texto del tipo. La usa el filtro "Tipo de Acción".
      */
-    private static function esDeTipo(object $event, string $tipo, ?string $textoTipo = null, ?string $buscado = null): bool
+    private static function esDeTipo(object $event, string $tipo): bool
     {
         $key = (string) ($event->doc_key ?? '');
         $empieza = fn (string ...$p) => \Illuminate\Support\Str::startsWith($key, $p);
@@ -223,29 +222,22 @@ class HistorialDocumentosController extends Controller
             // con_metadata: subida que absorbio los datos guardados con ella.
             'cat_metadatos' => $empieza('metadata_') || !empty($event->con_metadata),
             'cat_estado'    => in_array($event->tipo ?? '', self::ESTADOS, true),
-            default         => strpos($textoTipo ?? self::normal($event->tipo ?? ''), $buscado ?? self::normal($tipo)) !== false,
+            default         => strpos(self::normal($event->tipo ?? ''), self::normal($tipo)) !== false,
         };
     }
 
     /**
      * Lo que resume la barra lateral, sobre la MISMA lista que muestra la tabla (con sus filtros):
-     * cuantos hoy y en 7 dias, las acciones que mas se repiten y quien hizo mas cambios.
+     * cuantos hoy y en 7 dias y quien hizo mas cambios. (El "Por tipo de accion" se quito a
+     * pedido del cliente, 21-10-2026: para eso esta el filtro "Tipo de Acción".)
      */
     private static function resumen(\Illuminate\Support\Collection $events): array
     {
         $hoy = now()->startOfDay();
         $semana = now()->subDays(6)->startOfDay();
-        $acciones = array_merge(...array_values(self::TIPOS_ACCION));
-        $buscados = array_map(fn ($valor) => self::normal($valor), array_combine(array_keys($acciones), array_keys($acciones)));
-        $cuenta = array_fill_keys(array_keys($acciones), 0);
         $autores = [];
         $nHoy = $nSemana = 0;
-        // UNA pasada, con el texto de cada evento normalizado una sola vez.
         foreach ($events as $e) {
-            $texto = self::normal($e->tipo ?? '');
-            foreach ($buscados as $valor => $buscado) {
-                if (self::esDeTipo($e, $valor, $texto, $buscado)) $cuenta[$valor]++;
-            }
             $a = (string) $e->autor;
             $autores[$a] ??= ['correo' => $a, 'nombre' => (string) ($e->autor_nombre ?? ''), 'n' => 0];
             $autores[$a]['n']++;
@@ -254,18 +246,12 @@ class HistorialDocumentosController extends Controller
                 if ($e->fecha->gte($hoy)) $nHoy++;
             }
         }
-        $tipos = [];
-        foreach (array_filter($cuenta) as $valor => $n) {
-            $tipos[] = ['valor' => $valor, 'etiqueta' => $acciones[$valor], 'n' => $n];
-        }
-        usort($tipos, fn ($x, $y) => $y['n'] <=> $x['n']);
         usort($autores, fn ($x, $y) => $y['n'] <=> $x['n']);
 
         return [
             'hoy'     => $nHoy,
             'semana'  => $nSemana,
             'desde'   => ['hoy' => $hoy->toDateString(), 'semana' => $semana->toDateString()],
-            'tipos'   => array_slice($tipos, 0, 6),
             'autores' => array_slice($autores, 0, 5),
         ];
     }
