@@ -10,15 +10,14 @@
             <button type="button" class="cpdf-atar-x" onclick="window.cpdfCerrarAtar()" aria-label="Cerrar"><i class="material-icons">close</i></button>
         </div>
         <div class="cpdf-atar-cuerpo">
-            {{-- Lo que se ata, dato a dato (rótulo y valor). Una fila sin valor no sale. La emisión
-                 y el vencimiento del PDF se comparan con los del que ya tiene cada equipo. --}}
-            <dl class="cpdf-atar-datos">
-                <dt>Documento</dt><dd id="cpdfAtarDoc"></dd>
-                <dt>Archivo</dt><dd id="cpdfAtarArchivo"></dd>
-                <dt id="cpdfAtarLeidoEti"></dt><dd id="cpdfAtarLeido" class="cpdf-atar-codigo"></dd>
-                <dt>Emisión</dt><dd id="cpdfAtarEmision"></dd>
-                <dt>Vence</dt><dd id="cpdfAtarVence"></dd>
-            </dl>
+            {{-- Lo que se ata, en dos líneas como mucho: el documento y lo leído; debajo la emisión
+                 y el vencimiento del PDF, que se comparan con los del que ya tiene cada equipo (esa
+                 línea no sale si no trae fechas). Sin el nombre del archivo: ya está en la fila. --}}
+            <div class="cpdf-atar-datos">
+                <div><span id="cpdfAtarDoc"></span> · <span id="cpdfAtarLeidoEti"></span>
+                    <span id="cpdfAtarLeido" class="cpdf-atar-codigo"></span></div>
+                <div id="cpdfAtarFechas"></div>
+            </div>
             <label class="cpdf-atar-buscar">
                 <i class="material-icons">search</i>
                 <input type="search" id="cpdfAtarBuscar" placeholder="Serial, placa o código del equipo" autocomplete="off"

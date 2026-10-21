@@ -161,8 +161,9 @@
     .cpdf-estado { display: inline-block; font-size: 11.5px; font-weight: 700; }
     .cpdf-estado.comprimido { color: #16a34a; }
     /* El ámbar de la tabla (estados que piden mirar y "Falta el VIN"): UNO solo, algo más claro
-       que el de antes (pedido del cliente, 21-10-2026). */
+       que el de antes y sin negrita (pedido del cliente, 21-10-2026). */
     .cpdf-estado.saltado { color: #d97706; cursor: help; }
+    .cpdf-estado.saltado, .cpdf-estado.ilegible, .cpdf-estado.sin_archivo, .cpdf-estado.sin_ficha { font-weight: 400; }
     .cpdf-estado.error { color: #dc2626; cursor: help; }
     .cpdf-vacio { text-align: center; color: #94a3b8; padding: 30px; }
 
@@ -218,16 +219,14 @@
     .cpdf-atar-x { position: absolute; right: 10px; display: flex; padding: 2px; border: none; background: transparent; color: #fff; opacity: .75; cursor: pointer; }
     .cpdf-atar-x:hover { opacity: 1; }
     .cpdf-atar-cuerpo { display: flex; flex-direction: column; gap: 12px; padding: 16px; min-height: 0; }
-    /* Arriba, lo que se ata: un rótulo gris y su valor por fila, sin negritas (pedido del
+    /* Arriba, lo que se ata, en dos líneas como mucho y en negro, sin negritas (pedido del
        cliente, 21-10-2026). Lo leído, en letra de ancho fijo para compararlo con los seriales de
-       abajo. La fila sin valor no sale. */
-    .cpdf-atar-datos { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 0;
-                       padding: 10px 12px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0; font-size: 13px; }
-    .cpdf-atar-datos dt { color: #64748b; }
-    .cpdf-atar-datos dd { margin: 0; color: #0f172a; word-break: break-word; }
-    .cpdf-atar-datos dt:has(+ dd:empty), .cpdf-atar-datos dd:empty { display: none; }
-    .cpdf-atar-datos .cpdf-atar-codigo { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .4px; word-break: break-all; }
-    .cpdf-atar-buscar { display: flex; align-items: center; gap: 6px; height: 42px; padding: 0 12px; border: 1px solid #cbd5e0; border-radius: 10px; background: #fbfcfd; }
+       abajo. La línea de las fechas no sale si el PDF no las trae. */
+    .cpdf-atar-datos { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 10px;
+                       background: #f8fafc; border: 1px solid #e2e8f0; font-size: 13px; color: #0f172a; }
+    .cpdf-atar-datos div:empty { display: none; }
+    .cpdf-atar-codigo { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .4px; word-break: break-all; }
+    .cpdf-atar-buscar { display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 1px solid #cbd5e0; border-radius: 10px; background: #fbfcfd; }
     .cpdf-atar-buscar:focus-within { border-color: #0067b1; background: #fff; box-shadow: 0 0 0 3px rgba(0,103,177,.1); }
     .cpdf-atar-buscar .material-icons { font-size: 18px; color: #94a3b8; }
     .cpdf-atar-buscar input { flex: 1; min-width: 0; height: 100%; border: none; outline: none; background: transparent; font-size: 14px; color: #1e293b; }

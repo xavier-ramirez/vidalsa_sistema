@@ -859,7 +859,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame($b->ID_EQUIPO, $this->servicio()->buscarEquipo($vinBl)[0]['id'] ?? null, 'el parecido sale primero');
         // El panel lo pinta con su boton (los VIN de la pagina se calculan de una vez).
         $panel = fn () => $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => $vinBl]));
-        $panel()->assertOk()->assertSee("Falta el VIN <b>$vinBl</b>", false);
+        $panel()->assertOk()->assertSee("Falta el VIN $vinBl", false);
 
         // Uno que ya esta en ESTE BL no recibe otro VIN.
         $this->postJson(route('historial-documentos.carga-masiva.atar-vin'), ['link' => $p['link'], 'vin' => $vinBl, 'id_equipo' => $a->ID_EQUIPO])
@@ -872,7 +872,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame('LEZDD2CC7SF' . $digitos, $b->fresh()->SERIAL_CHASIS, 'el serial de la ficha no se toca');
         $this->assertSame([], $this->servicio()->vinesSinAtar($p));
         // La MISMA fila sigue en la pagina (dice "Atado a mano"), pero ya sin el boton.
-        $panel()->assertOk()->assertSee('Atado a mano: el VIN ' . $vinBl)->assertDontSee("Falta el VIN <b>$vinBl</b>", false);
+        $panel()->assertOk()->assertSee('Atado a mano: el VIN ' . $vinBl)->assertDontSee("Falta el VIN $vinBl", false);
         $motivo = $this->filaDeLaCarga($p)->MOTIVO;
         $this->assertStringContainsString("Atado a mano: el VIN $vinBl", $motivo);
         $this->assertStringNotContainsString('No se consiguio', $motivo);

@@ -205,7 +205,7 @@
                                         <div class="cpdf-vin-falta">
                                             <span>Sin enlazar</span>
                                             <button type="button" class="cpdf-vin-btn"
-                                                onclick="event.stopPropagation(); window.cpdfAtarDocumento(@js($d->PROPUESTA['link']), @js($d->SERIAL ?: $d->PLACA ?: ''), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js($d->ARCHIVO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))">Atar a un equipo</button>
+                                                onclick="event.stopPropagation(); window.cpdfAtarDocumento(@js($d->PROPUESTA['link']), @js($d->SERIAL ?: $d->PLACA ?: ''), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))">Atar a un equipo</button>
                                         </div>
                                     @endcan
                                 @endif
@@ -216,9 +216,9 @@
                                     @can('docs.carga.masiva')
                                         @foreach ($vinesFaltan[$d->ID_REGISTRO] ?? [] as $vin)
                                             <div class="cpdf-vin-falta">
-                                                <span>Falta el VIN <b>{{ $vin }}</b></span>
+                                                <span>Falta el VIN {{ $vin }}</span>
                                                 <button type="button" class="cpdf-vin-btn"
-                                                    onclick="event.stopPropagation(); window.cpdfAtarVin(@js($d->PROPUESTA['link']), @js($vin), @js($d->ARCHIVO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => null]))">Atar a un equipo</button>
+                                                    onclick="event.stopPropagation(); window.cpdfAtarVin(@js($d->PROPUESTA['link']), @js($vin), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => null]))">Atar a un equipo</button>
                                             </div>
                                         @endforeach
                                     @endcan
@@ -810,12 +810,11 @@
     window.cpdfAbrirAtar = function (o) {
         cpdfAtarEstado.o = o;
         cpdfAtarEl('cpdfAtarDoc').textContent = o.doc;
-        cpdfAtarEl('cpdfAtarArchivo').textContent = o.archivo || '';
-        cpdfAtarEl('cpdfAtarLeidoEti').textContent = o.leidoEti;
+        cpdfAtarEl('cpdfAtarLeidoEti').textContent = o.leidoEti + ':';
         cpdfAtarEl('cpdfAtarLeido').textContent = o.leido || '';
         var f = o.fechas || {};
-        cpdfAtarEl('cpdfAtarEmision').textContent = f.emision ? window.formatearFecha(f.emision) : '';
-        cpdfAtarEl('cpdfAtarVence').textContent = f.vence ? window.formatearFecha(f.vence) : '';
+        cpdfAtarEl('cpdfAtarFechas').textContent = [f.emision && 'Emisión: ' + window.formatearFecha(f.emision),
+            f.vence && 'Vence: ' + window.formatearFecha(f.vence)].filter(Boolean).join(' · ');
         var campo = cpdfAtarEl('cpdfAtarBuscar');
         campo.value = o.inicial || '';
         cpdfAtarEl('cpdfAtarModal').hidden = false;
@@ -839,8 +838,8 @@
     var cpdfAtado = function (r) { window.cpdfCerrarAtar(); window.toast(r.message || 'Atado', 'success'); window.cpdfFiltrar(); };
 
     // Atar un VIN del BL que falta: el buscador arranca con el propio VIN.
-    window.cpdfAtarVin = function (link, vin, archivo, fechas) {
-        window.cpdfAbrirAtar({ doc: 'Documento de embarque (BL)', archivo: archivo, leidoEti: 'VIN que falta', leido: vin, fechas: fechas,
+    window.cpdfAtarVin = function (link, vin, fechas) {
+        window.cpdfAbrirAtar({ doc: 'Documento de embarque (BL)', leidoEti: 'VIN que falta', leido: vin, fechas: fechas,
             inicial: vin, tipo: null, bloquearConBl: true, atar: function (eq, ui) {
                 window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-vin')),
                     { link: link, vin: vin, id_equipo: eq.id }, 'No se pudo atar.')
@@ -851,8 +850,8 @@
 
     // Atar un PDF que no se enlazó solo a la ficha elegida. Si esa ficha ya tiene ese documento,
     // el servidor responde requiere_pisar y se pregunta en la fila antes de reemplazarlo.
-    window.cpdfAtarDocumento = function (link, inicial, tipo, doc, archivo, fechas) {
-        window.cpdfAbrirAtar({ doc: doc, archivo: archivo, leidoEti: 'Se leyó', leido: inicial || 'Ni placa ni serial', fechas: fechas,
+    window.cpdfAtarDocumento = function (link, inicial, tipo, doc, fechas) {
+        window.cpdfAbrirAtar({ doc: doc, leidoEti: 'Se leyó', leido: inicial || 'Ni placa ni serial', fechas: fechas,
             inicial: inicial, tipo: tipo, bloquearConBl: false, atar: function (eq, ui) {
                 var enviar = function (reemplazar) {
                     window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-documento')),
