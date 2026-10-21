@@ -1843,7 +1843,7 @@ class VerificacionDocumentoTest extends MySqlTestCase
 
         // La pantalla vive en Control de Auditoría, con sus tres pestañas.
         $this->actingAs($this->superAdmin())->get(route('historial-documentos.index'))
-            ->assertOk()->assertSee('Documentos', false)->assertSee('Compresión de PDF', false);
+            ->assertOk()->assertSee('Documentos', false)->assertSee('Compresión<span class="hd-pest-mas"> de PDF</span>', false);
 
         $this->actingAs($this->superAdmin())->get(route('historial-documentos.index', ['pestana' => 'documentos']))
             ->assertOk()
