@@ -981,7 +981,11 @@
            (`font-size:34px`), así que ninguno de los seis casaba. Ahora la tarjeta usa
            clases (.alm-cons-*) y se ajusta directo. */
         .alm-cons-card { padding: 9px 11px !important; }
-        .alm-cons-total { min-width: 56px !important; }
+        /* Productos, Con stock y Stock bajo: tres columnas del MISMO ancho (el contenedor
+           de las dos insignias se disuelve en la cuadrícula de la fila). */
+        .alm-cons-row { display: grid; grid-template-columns: repeat(3, 1fr); }
+        .alm-cons-badges { display: contents; }
+        .alm-cons-total { min-width: 0; }
         .alm-cons-total .num { font-size: 24px !important; }
         .alm-cons-badge strong { font-size: 14px !important; }
         .alm-cons-badge .material-icons { font-size: 15px !important; }
