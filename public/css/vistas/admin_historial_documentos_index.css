@@ -301,7 +301,7 @@
             min-height: 100%;
         }
     }
-    /* ── Pestañas de Control de Auditoría: Revisión de documentos · Historial · Compresión ──
+    /* ── Pestañas de Control de Auditoría: Revisión automática · Historial · Compresión ──
        Revisión y Compresión las pinta admin/compresion_pdf/panel.blade.php. La raya de debajo,
        un gris algo más oscuro (#cbd5e1) para que se vea (pedido del cliente, 20-10-2026). */
     .hd-pest-fila { width: 98%; max-width: 1600px; margin: 0 auto 14px; }
