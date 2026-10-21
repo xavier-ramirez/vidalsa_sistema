@@ -155,17 +155,6 @@
         .fdm-res b { font-size: 16px; font-weight: 800; color: var(--fd-ink); }
         .fdm-res-pct { font-size: 12px; font-weight: 600; color: var(--fd-ink-2); }
 
-        .fdm-res-prop {
-            display: flex;
-            height: 8px;
-            margin: -2px 0 10px;
-            gap: 2px;
-            border-radius: 999px;
-            overflow: hidden;
-            background: #eef2f7;
-        }
-        .fdm-res-prop i { display: block; min-width: 4px; }
-
         .fdm-filas { display: flex; flex-direction: column; }
         .fdm-fila {
             display: grid;

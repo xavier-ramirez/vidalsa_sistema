@@ -1272,8 +1272,8 @@
                      pintarPorTipo() (fleet_dashboard.js) en HTML. --}}
                 <div id="fleetChartsGrid" style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px;">
                     <!-- Flota Nueva vs Vieja por Tipo -->
-                    {{-- En la cabecera, el resumen en una línea (total y % de cada grupo) y debajo
-                         la barra de proporción; luego una fila por tipo. Los ids de las cifras no
+                    {{-- En la cabecera, el resumen en una línea (total y % de cada grupo); debajo,
+                         una fila por tipo. Los ids de las cifras no
                          cambian: los llena updateStatCards(); el % y las filas, pintarPorTipo(). --}}
                     <div id="fdm-panel-age" class="fdm-panel">
                         <div class="fdm-panel-head">
@@ -1286,7 +1286,6 @@
                                 <i class="material-icons">photo_camera</i>
                             </button>
                         </div>
-                        <div class="fdm-res-prop"></div>
                         <div id="chartAgeByType" class="fdm-filas"></div>
                     </div>
 
@@ -1305,7 +1304,6 @@
                                 <i class="material-icons">photo_camera</i>
                             </button>
                         </div>
-                        <div class="fdm-res-prop"></div>
                         <div id="chartAuxByType" class="fdm-filas"></div>
                     </div>
 

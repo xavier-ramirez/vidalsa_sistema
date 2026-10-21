@@ -531,8 +531,7 @@ async function loadFleetDashboardData(frenteId) {
  * Gráfico "nuevo vs antiguo por tipo" (equipos y auxiliares), en HTML.
  *
  * En la cabecera de cada panel, el RESUMEN (total de cada grupo, que llena
- * updateStatCards): aquí se le pone su porcentaje y se pinta la barra de proporción;
- * sin datos no se muestra ninguno de los dos. Debajo, UNA FILA POR TIPO, de mayor a
+ * updateStatCards): aquí se le pone su porcentaje; sin datos no se muestra. Debajo, UNA FILA POR TIPO, de mayor a
  * menor y una debajo de otra: nombre | barra | desglose por serie y total. El largo de la
  * barra es relativo al tipo con más unidades, así se comparan los tipos entre sí; los
  * tramos son las series.
@@ -551,7 +550,7 @@ function pintarPorTipo(contId, datos, textoVacio) {
     }).filter(function (f) { return f.total > 0; })
       .sort(function (a, b) { return b.total - a.total || String(a.nombre).localeCompare(String(b.nombre)); });
 
-    // Resumen: porcentaje de cada serie y barra de proporción.
+    // Resumen: porcentaje de cada serie.
     const totSerie = series.map(function (_, k) {
         return filas.reduce(function (a, f) { return a + f.valores[k]; }, 0);
     });
@@ -562,13 +561,6 @@ function pintarPorTipo(contId, datos, textoVacio) {
             const pct = el.querySelector('.fdm-res-pct');
             if (pct) pct.textContent = totGeneral ? Math.round((totSerie[k] || 0) * 100 / totGeneral) + '%' : '—';
         });
-        const prop = panel.querySelector('.fdm-res-prop');
-        if (prop) {
-            prop.innerHTML = totSerie.map(function (v, k) {
-                return v > 0 ? '<i style="flex:' + v + ';background:' + FDM_COLORES[k] + '"></i>' : '';
-            }).join('');
-            prop.style.display = totGeneral ? '' : 'none';
-        }
         const resumen = panel.querySelector('.fdm-resumen');
         if (resumen) resumen.style.display = totGeneral ? '' : 'none';
     }
