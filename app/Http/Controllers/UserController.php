@@ -97,11 +97,12 @@ class UserController extends Controller
             $query->where('ID_ROL', $request->input('id_rol'));
         }
 
-        // FILTER 4: niveles de acceso (Filtros avanzados), uno por eje: 1 = GLOBAL, 2 = LOCAL.
+        // FILTER 4: niveles de acceso (Filtros avanzados), uno por eje (Usuario::NIVELES_ACCESO).
         // Otro valor se ignora en vez de devolver una tabla vacía.
         foreach (['nivel_equipos' => 'NIVEL_ACCESO_EQUIPOS', 'nivel_almacen' => 'NIVEL_ACCESO_ALMACEN'] as $param => $columna) {
-            if (in_array($request->input($param), ['1', '2'], true)) {
-                $query->where($columna, (int) $request->input($param));
+            $nivel = (int) $request->input($param);
+            if (isset(Usuario::NIVELES_ACCESO[$nivel])) {
+                $query->where($columna, $nivel);
             }
         }
 

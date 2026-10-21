@@ -12,6 +12,9 @@ class Usuario extends Authenticatable
 {
     use HasFactory, Notifiable, HasApiTokens;
 
+    /** Valores de NIVEL_ACCESO_EQUIPOS / NIVEL_ACCESO_ALMACEN y su etiqueta. */
+    public const NIVELES_ACCESO = [1 => 'GLOBAL', 2 => 'LOCAL'];
+
 
     protected $table = 'usuarios';
     protected $primaryKey = 'ID_USUARIO';
@@ -429,10 +432,10 @@ class Usuario extends Authenticatable
         return $cualquiera !== null ? (int) $cualquiera : null;
     }
 
-    /** Texto del nivel (1 GLOBAL / 2 LOCAL). Punto único de la etiqueta. */
+    /** Texto del nivel (1 GLOBAL / 2 LOCAL). */
     private function nivelTexto($valor): string
     {
-        return [1 => 'GLOBAL', 2 => 'LOCAL'][(int) $valor] ?? 'Desconocido';
+        return self::NIVELES_ACCESO[(int) $valor] ?? 'Desconocido';
     }
 
     /** Nivel de acceso a EQUIPOS como texto (para vistas/listados). */

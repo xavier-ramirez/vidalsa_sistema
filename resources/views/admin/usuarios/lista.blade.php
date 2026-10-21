@@ -136,11 +136,11 @@
             </div>
 
             {{-- Filtros avanzados, al lado del Rol: el mismo botón de Almacén y Catálogo
-                 (.btn-filtro-avanzado), en rojo cuando hay un nivel elegido. Los dos niveles son independientes (columna
-                 Nivel: EQ y ALM), así que cada uno tiene su desplegable. Abrir/cerrar y "un
-                 desplegable a la vez": usuarios_index.js. --}}
+                 (.btn-filtro-avanzado), en rojo cuando hay un nivel elegido. Los dos niveles
+                 son independientes (columna Nivel: EQ y ALM), así que cada uno tiene su
+                 desplegable. Abrir/cerrar y "un desplegable a la vez": usuarios_index.js. --}}
             @php
-                $nivelesOpciones = ['1' => 'GLOBAL', '2' => 'LOCAL'];
+                $nivelesOpciones = \App\Models\Usuario::NIVELES_ACCESO;
                 $nivelesFiltro = [
                     ['id' => 'usrNivelEqSelect',  'name' => 'nivel_equipos', 'corto' => 'EQ',  'modulo' => 'Equipos'],
                     ['id' => 'usrNivelAlmSelect', 'name' => 'nivel_almacen', 'corto' => 'ALM', 'modulo' => 'Almacén'],

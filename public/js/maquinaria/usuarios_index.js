@@ -44,10 +44,9 @@ window.loadUsuarios = function (url = null) {
     const filters = {
         search: searchInput?.value,
         id_frente: frenteInput?.value,
-        id_rol: rolInput?.value,
-        nivel_equipos: document.querySelector('input[name="nivel_equipos"]')?.value,
-        nivel_almacen: document.querySelector('input[name="nivel_almacen"]')?.value
+        id_rol: rolInput?.value
     };
+    USR_NIVELES.forEach(function (n) { filters[n] = usrNivelElegido(n); });
 
     const params = new URLSearchParams();
 
@@ -265,6 +264,12 @@ window.usrToggleAcciones = function () {
 };
 
 // ── Filtros avanzados (Nivel EQ / ALM) ───────────────────────────────────────
+// Los dos hidden del panel (lista.blade.php); su name es el parámetro con que viajan.
+const USR_NIVELES = ['nivel_equipos', 'nivel_almacen'];
+function usrNivelElegido(nombre) {
+    const i = document.querySelector('input[name="' + nombre + '"]');
+    return i ? i.value : '';
+}
 // Sin stopPropagation: el clic sigue hasta document, donde se cierran Acciones, las
 // sugerencias y Frente/Rol (un desplegable a la vez). El panel se cierra en el bloque de abajo.
 window.usrCerrarAvanzado = function () {
@@ -279,10 +284,7 @@ window.usrToggleAvanzado = function () {
 // Tras elegir un nivel (o quitarlo con la X): botón en rojo si queda alguno puesto y recarga.
 window.usrAvanzadoCambio = function () {
     const btn = document.getElementById('usrAdvBtn');
-    const hay = ['nivel_equipos', 'nivel_almacen'].some(function (n) {
-        const i = document.querySelector('input[name="' + n + '"]');
-        return i && i.value !== '';
-    });
+    const hay = USR_NIVELES.some(function (n) { return usrNivelElegido(n) !== ''; });
     if (btn) btn.classList.toggle('activo', hay);
     window.loadUsuarios();
 };
@@ -296,8 +298,8 @@ window.usrLimpiarAvanzado = function () {
 };
 
 // ── Desplegables del módulo: solo uno abierto a la vez ───────────────────────
-// Sugerencias del buscador, Frente, Rol, Acciones y Filtros avanzados. Con CLIC se cierran entre sí porque
-// todos escuchan en document (Frente/Rol en uicomponents.js); por eso el botón Acciones
+// Sugerencias del buscador, Frente, Rol, Acciones y Filtros avanzados. Con CLIC se cierran
+// entre sí porque todos escuchan en document (Frente/Rol en uicomponents.js); por eso el botón Acciones
 // NO hace stopPropagation. Con FOCO sin clic (Tab, o "siguiente" en el teclado del
 // teléfono) no hay clic: focusin hace el mismo cierre. Frente/Rol ya se cierran entre
 // ellos al enfocarse (focusin de uicomponents.js). Listeners una sola vez (SPA-safe).
