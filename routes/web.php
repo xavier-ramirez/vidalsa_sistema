@@ -576,6 +576,8 @@ Route::middleware(['auth'])->group(function () {
                     ->name('historial-documentos.carga-masiva.atar-vin');
                 Route::post('historial-documentos/carga-masiva/atar-documento', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'atarDocumento'])
                     ->name('historial-documentos.carga-masiva.atar-documento');
+                Route::get('historial-documentos/carga-masiva/equipos-del-pdf', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'equiposDelPdf'])
+                    ->name('historial-documentos.carga-masiva.equipos-del-pdf');
                 Route::post('historial-documentos/carga-masiva/enlazar-ahora', [App\Http\Controllers\CargaMasivaDocumentosController::class, 'enlazarAhora'])
                     ->name('historial-documentos.carga-masiva.enlazar-ahora');
                 // Revisado a mano desde el visor: la persona corrigio la ficha en el panel y da la

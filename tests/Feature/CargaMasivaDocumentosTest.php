@@ -987,7 +987,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         ]);
     }
 
-    /** "Enlazar a los N equipos" enlaza al momento un PDF de varias unidades, sin esperar el reintento. */
+    /** "Enlazar a los N equipos": el modal enseña sus equipos y los enlaza al momento, sin esperar el reintento. */
     public function test_enlazar_ahora_enlaza_un_pdf_de_varias_unidades_a_todas(): void
     {
         $this->actingAs($this->usuario());
@@ -996,6 +996,12 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
 
         $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-ahora.pdf']))
             ->assertOk()->assertSee('cpdfEnlazarAhora(', false)->assertSee('Enlazar a los 2 equipos');
+
+        // El modal enseña sus equipos para comprobarlos antes de enlazar.
+        $this->getJson(route('historial-documentos.carga-masiva.equipos-del-pdf', ['link' => '/storage/google/racda-ahora']))
+            ->assertOk()->assertJsonCount(2, 'equipos')
+            ->assertJsonPath('equipos.0.serial', $a->SERIAL_CHASIS)->assertJsonPath('equipos.1.serial', $b->SERIAL_CHASIS)
+            ->assertJsonPath('equipos.0.distancia', -1)->assertJsonPath('equipos.0.tiene', false);
 
         $this->postJson(route('historial-documentos.carga-masiva.enlazar-ahora'), ['link' => '/storage/google/racda-ahora'])
             ->assertOk()->assertJson(['success' => true, 'message' => 'Enlazado a sus 2 equipos: RACDA.']);
@@ -1008,6 +1014,8 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-ahora.pdf']))
             ->assertOk()->assertDontSee('cpdfEnlazarAhora(', false);
         $this->postJson(route('historial-documentos.carga-masiva.enlazar-ahora'), ['link' => '/storage/google/racda-ahora'])
+            ->assertStatus(422);
+        $this->getJson(route('historial-documentos.carga-masiva.equipos-del-pdf', ['link' => '/storage/google/racda-ahora']))
             ->assertStatus(422);
     }
 

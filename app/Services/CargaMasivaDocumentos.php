@@ -153,6 +153,9 @@ class CargaMasivaDocumentos
      */
     public const ENLAZAR_Y_REVISAR = 'enlazar_y_revisar';
 
+    /** Lo que responden atar, ver sus equipos y enlazar cuando el PDF ya se enlazo o se descarto. */
+    public const YA_NO_POR_ENLAZAR = 'Ese PDF ya no esta por enlazar. Recarga la tabla.';
+
     public function __construct(private LectorDocumentoPdf $lector, private LectorGemini $ia, private ?RotcDeFlota $rotcFlota = null) {}
 
     private function rotcFlota(): RotcDeFlota
@@ -1055,7 +1058,7 @@ class CargaMasivaDocumentos
     {
         $p = $this->propuestaGuardada($link);
         if (!$p || !$this->esPropuestaSinAplicar($link)) {
-            return ['ok' => false, 'mensaje' => 'Ese PDF ya no esta por enlazar. Recarga la tabla.'];
+            return ['ok' => false, 'mensaje' => self::YA_NO_POR_ENLAZAR];
         }
         if (count($p['equipos'] ?? []) < 2) {
             return ['ok' => false, 'mensaje' => 'Este PDF es de un solo equipo: atalo con "Atar a un equipo".'];
@@ -1156,8 +1159,8 @@ class CargaMasivaDocumentos
      */
     /**
      * Fechas que la ficha guarda de cada documento (columnas de documentacion): emision, vence y
-     * cuando se cargo. null donde ese documento no la tiene. Las usa buscarEquipo para enseñar,
-     * al atar, las del documento que la ficha YA tiene.
+     * cuando se cargo. null donde ese documento no la tiene. Las usa el modal de atar
+     * (equipoParaAtar) para enseñar las del documento que la ficha YA tiene.
      */
     private const FECHAS_DEL_DOC = [
         LectorDocumentoPdf::PROPIEDAD => ['emision' => 'd.FECHA_EMISION_PROPIEDAD', 'vence' => null, 'cargado' => 'd.PROPIEDAD_FECHA_SUBIDA'],
@@ -1175,11 +1178,7 @@ class CargaMasivaDocumentos
 
         $serial = self::sqlCodigo('e.SERIAL_CHASIS');
         $placa = self::sqlCodigo('d.PLACA');
-        $filas = $this->consulta()->addSelect('e.CODIGO_PATIO')
-            // Para elegir bien en la lista: de que tipo es y, del documento que ya tiene, sus fechas.
-            ->addSelect(DB::raw('(SELECT t.nombre FROM tipo_equipos t WHERE t.id = e.id_tipo_equipo) as TIPO_EQUIPO'))
-            ->addSelect(DB::raw('(SELECT ee.created_at FROM embarque_equipo ee WHERE ee.ID_EQUIPO = e.ID_EQUIPO) as BL_DESDE'))
-            ->addSelect(array_values(array_unique(array_filter(array_merge(...array_map('array_values', array_values(self::FECHAS_DEL_DOC)))))))
+        $filas = $this->consultaParaAtar()
             ->where(function ($w) use ($cod, $serial, $placa) {
                 $w->whereRaw("$serial LIKE ?", ['%' . $cod . '%'])
                   ->orWhereRaw("$placa LIKE ?", ['%' . $cod . '%'])
@@ -1222,23 +1221,63 @@ class CargaMasivaDocumentos
             ->filter(fn ($par) => $par[1] !== PHP_INT_MAX)
             ->sortBy(fn ($par) => $par[1])
             ->take(8)
-            ->map(fn ($par) => [
-                'id' => (int) $par[0]->ID_EQUIPO, 'serial' => $par[0]->SERIAL_CHASIS, 'placa' => $par[0]->PLACA,
-                'codigo' => $par[0]->CODIGO_PATIO,
-                'nombre' => trim(($par[0]->MARCA ?? '') . ' ' . ($par[0]->MODELO ?? '')) ?: ('Equipo #' . $par[0]->ID_EQUIPO),
-                'tipo' => $par[0]->TIPO_EQUIPO,
-                // -1 igual a lo buscado, 0 lo contiene, 1-3 caracteres distintos. La pantalla
-                // muestra solo los mas cercanos y deja el resto detras de un enlace.
-                'distancia' => $par[1],
-                'bl' => $par[0]->ID_EMBARQUE ? ($nros[$par[0]->ID_EMBARQUE] ?? 'sin numero') : null,
-                'bl_desde' => $this->soloFecha($par[0]->BL_DESDE),
-                // Si ya tiene ESTE documento (al atarlo se pregunta antes de reemplazarlo) y sus
-                // fechas, para ver si el PDF que se ata es el mismo que ya esta.
-                'tiene' => $tiene = $tipo !== null && !empty($this->ficha($par[0])['links'][$tipo]),
-                'actual' => $tiene ? array_map(fn ($col) => $col ? $this->soloFecha($par[0]->{substr($col, 2)}) : null,
-                    self::FECHAS_DEL_DOC[$tipo] ?? []) : null,
-            ])
+            ->map(fn ($par) => $this->equipoParaAtar($par[0], $par[1], $tipo, $nros))
             ->values()->all();
+    }
+
+    /**
+     * Los equipos a los que va un PDF de varias unidades, como los ve el modal de atar (tipo,
+     * marca y modelo, serial, placa y si ya tiene ese documento), para comprobarlos antes de
+     * "Enlazar a los N equipos" (pedido 21-10-2026). Todos con distancia -1: se reconocieron
+     * porque su placa o su serial estan en el PDF. Los auxiliares, con lo que guardo la lectura.
+     * null si el PDF ya no esta por enlazar.
+     */
+    public function equiposDeLaPropuesta(string $link): ?array
+    {
+        $p = $this->propuestaGuardada($link);
+        if (!$p || !$this->esPropuestaSinAplicar($link)) return null;
+
+        $ids = collect($p['equipos'] ?? [])->reject(fn ($f) => !empty($f['auxiliar']))->pluck('id')->all();
+        $filas = $this->consultaParaAtar()->whereIn('e.ID_EQUIPO', $ids ?: [0])->get()->keyBy('ID_EQUIPO');
+        $nros = Embarque::whereIn('ID_EMBARQUE', $filas->pluck('ID_EMBARQUE')->filter()->unique())->pluck('NRO_BL', 'ID_EMBARQUE');
+
+        return collect($p['equipos'] ?? [])->map(fn ($f) => empty($f['auxiliar']) && isset($filas[$f['id']])
+            ? $this->equipoParaAtar($filas[$f['id']], -1, $p['tipo'] ?? null, $nros)
+            : ['id' => (int) $f['id'], 'serial' => $f['serial'] ?? null, 'placa' => $f['placa'] ?? null, 'codigo' => null,
+               'nombre' => $f['nombre'] ?? ('Auxiliar #' . $f['id']), 'tipo' => !empty($f['auxiliar']) ? 'AUXILIAR' : null,
+               'distancia' => -1, 'bl' => null, 'bl_desde' => null, 'tiene' => false, 'actual' => null])
+            ->values()->all();
+    }
+
+    /** La consulta de equipos del modal de atar: la de siempre mas el tipo, el BL y las fechas de cada documento. */
+    private function consultaParaAtar()
+    {
+        return $this->consulta()->addSelect('e.CODIGO_PATIO')
+            // Para elegir bien en la lista: de que tipo es y, del documento que ya tiene, sus fechas.
+            ->addSelect(DB::raw('(SELECT t.nombre FROM tipo_equipos t WHERE t.id = e.id_tipo_equipo) as TIPO_EQUIPO'))
+            ->addSelect(DB::raw('(SELECT ee.created_at FROM embarque_equipo ee WHERE ee.ID_EQUIPO = e.ID_EQUIPO) as BL_DESDE'))
+            ->addSelect(array_values(array_unique(array_filter(array_merge(...array_map('array_values', array_values(self::FECHAS_DEL_DOC)))))));
+    }
+
+    /** Un equipo de consultaParaAtar como lo pinta el modal (ver cpdfAtarFila en panel.blade.php). */
+    private function equipoParaAtar(object $f, int $distancia, ?string $tipo, $nros): array
+    {
+        return [
+            'id' => (int) $f->ID_EQUIPO, 'serial' => $f->SERIAL_CHASIS, 'placa' => $f->PLACA,
+            'codigo' => $f->CODIGO_PATIO,
+            'nombre' => trim(($f->MARCA ?? '') . ' ' . ($f->MODELO ?? '')) ?: ('Equipo #' . $f->ID_EQUIPO),
+            'tipo' => $f->TIPO_EQUIPO,
+            // -1 igual a lo buscado, 0 lo contiene, 1-3 caracteres distintos. La pantalla
+            // muestra solo los mas cercanos y deja el resto detras de un enlace.
+            'distancia' => $distancia,
+            'bl' => $f->ID_EMBARQUE ? ($nros[$f->ID_EMBARQUE] ?? 'sin numero') : null,
+            'bl_desde' => $this->soloFecha($f->BL_DESDE),
+            // Si ya tiene ESTE documento (al atarlo se pregunta antes de reemplazarlo) y sus
+            // fechas, para ver si el PDF que se ata es el mismo que ya esta.
+            'tiene' => $tiene = $tipo !== null && !empty($this->ficha($f)['links'][$tipo]),
+            'actual' => $tiene ? array_map(fn ($col) => $col ? $this->soloFecha($f->{substr($col, 2)}) : null,
+                self::FECHAS_DEL_DOC[$tipo] ?? []) : null,
+        ];
     }
 
     /**
@@ -1331,7 +1370,7 @@ class CargaMasivaDocumentos
         $p = $this->propuestaGuardada($link);
         $tipo = $p['tipo'] ?? null;
         if (!$p || !$this->esPropuestaSinAplicar($link)) {
-            return ['ok' => false, 'mensaje' => 'Ese PDF ya no esta por enlazar. Recarga la tabla.'];
+            return ['ok' => false, 'mensaje' => self::YA_NO_POR_ENLAZAR];
         }
         if ($tipo === self::EMBARQUE) {
             return ['ok' => false, 'mensaje' => 'Un BL se ata VIN por VIN, desde su fila.'];

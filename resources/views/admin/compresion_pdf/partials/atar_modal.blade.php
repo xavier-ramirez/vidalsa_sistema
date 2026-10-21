@@ -2,11 +2,12 @@
      o un VIN del BL. Lo abre window.cpdfAbrirAtar (panel.blade.php) con el documento y lo que se
      leyó; el buscador sugiere equipos al escribir (serial, placa o código, también parecidos) y
      con ↑ ↓ y Enter se elige sin ratón. Si el equipo ya tiene ese documento, se pregunta aquí
-     mismo antes de reemplazarlo. --}}
+     mismo antes de reemplazarlo. Con un PDF de VARIAS unidades (window.cpdfEnlazarAhora) no hay
+     buscador: la lista son sus equipos, para comprobarlos, y el pie los enlaza a todos. --}}
 <div id="cpdfAtarModal" class="cpdf-atar-velo" hidden onclick="if (event.target === this) window.cpdfCerrarAtar()">
     <div class="cpdf-atar-caja" role="dialog" aria-modal="true" aria-labelledby="cpdfAtarTitulo">
         <div class="cpdf-atar-cab">
-            <h3 id="cpdfAtarTitulo"><i class="material-icons">link</i>Atar a un equipo</h3>
+            <h3 id="cpdfAtarTitulo"><i class="material-icons">link</i><span id="cpdfAtarTituloTxt">Atar a un equipo</span></h3>
             <button type="button" class="cpdf-atar-x" onclick="window.cpdfCerrarAtar()" aria-label="Cerrar"><i class="material-icons">close</i></button>
         </div>
         <div class="cpdf-atar-cuerpo">
@@ -18,12 +19,16 @@
                     <span id="cpdfAtarLeido" class="cpdf-atar-codigo"></span></div>
                 <div id="cpdfAtarFechas"></div>
             </div>
-            <label class="cpdf-atar-buscar">
+            <label class="cpdf-atar-buscar" id="cpdfAtarBuscarCaja">
                 <i class="material-icons">search</i>
                 <input type="search" id="cpdfAtarBuscar" placeholder="Serial, placa o código del equipo" autocomplete="off"
                        oninput="window.cpdfAtarEscribe()" onkeydown="window.cpdfAtarTecla(event)">
             </label>
             <div id="cpdfAtarLista" class="cpdf-atar-lista" role="listbox"></div>
+        </div>
+        <div id="cpdfAtarPie" class="cpdf-atar-pie" hidden>
+            <button type="button" class="cpdf-atar-btn gris" onclick="window.cpdfCerrarAtar()">Cancelar</button>
+            <button type="button" class="cpdf-atar-btn" id="cpdfAtarEnlazar" onclick="window.cpdfAtarEnlazarTodos()"><i class="material-icons">link</i><span></span></button>
         </div>
     </div>
 </div>
