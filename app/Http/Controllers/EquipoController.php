@@ -3923,7 +3923,9 @@ class EquipoController extends Controller
             // No excluir ESPECIAL si el usuario está filtrando explícitamente por uno (drill-down).
             $excluirFueraDeFlota = !FrenteTrabajo::esFueraDeFlota($requestedFrenteId);
 
-            // Cache key — v10: el payload trae dos campos nuevos, equipos_gasoil y
+            // Cache key — v11: «Equipos por frente» usa el scope del usuario y quita
+            // los desincorporados (cambia el número, no la forma).
+            // v10: el payload trae dos campos nuevos, equipos_gasoil y
             // equipos_gasolina, para las tarjetas de conteo por combustible.
             // v9: el consumo total descuenta los chutos que andan con lowboy
             // (ProyeccionCombustible), para dar el MISMO numero que el reporte Excel.
@@ -3941,7 +3943,7 @@ class EquipoController extends Controller
             // usar auth()->id()/ID_USUARIO — con $user->id todos caían en 'guest' y compartían
             // caché entre usuarios de distinto alcance (fuga de datos). Se hashea también el
             // scope (isLocal + frentes permitidos) por robustez si cambian los permisos.
-            $cacheKey = 'fleet_stats_v10_u' . ($user?->ID_USUARIO ?? 'guest')
+            $cacheKey = 'fleet_stats_v11_u' . ($user?->ID_USUARIO ?? 'guest')
                       . '_f' . ($requestedFrenteId ?: 'all')
                       . '_s' . md5(($isLocal ? 'L' : 'G') . '|' . implode(',', $frentesPermitidos))
                       . '_b' . md5(implode(',', $frentesBloqueados));
@@ -4016,16 +4018,18 @@ class EquipoController extends Controller
                     ->orderBy('tipo_equipos.nombre')
                     ->get();
 
-                // ── 4. Equipos por Frente (siempre global, sin filtro, sin ESPECIAL) ──
-                $eqByFrenteRaw = Equipo::query()
+                // ── 4. Equipos por Frente ─────────────────────────────────────────
+                // Sale de $baseQuery (permisos, bloqueados y fuera de flota) y sin
+                // DESINCORPORADO, igual que el Σ Equipos: así la suma del panel cuadra con
+                // la tarjeta. Antes era una query global aparte que contaba 17
+                // desincorporados de más y le enseñaba a un usuario local todos los frentes.
+                $eqByFrenteRaw = (clone $baseQuery)
+                    ->where('equipos.ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
                     ->select(
                         'frentes_trabajo.NOMBRE_FRENTE as frente_nombre',
                         DB::raw('COUNT(equipos.ID_EQUIPO) as total')
                     )
-                    ->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE')
-                    ->whereNotNull('equipos.ID_FRENTE_ACTUAL')
-                    ->whereNotNull('frentes_trabajo.NOMBRE_FRENTE')
-                    ->whereNotIn('frentes_trabajo.TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
+                    ->join('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE')
                     ->groupBy('frentes_trabajo.NOMBRE_FRENTE')
                     ->orderByDesc('total')
                     ->get();
