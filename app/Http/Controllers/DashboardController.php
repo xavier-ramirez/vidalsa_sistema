@@ -432,8 +432,8 @@ class DashboardController extends Controller
         // mira, ese papel se llama Certificado igual que el del equipo (la etiqueta de
         // 'filter_adicional' es 'Certificado'), y asi la casilla alertas.ver.certificado
         // gobierna LOS DOS sin necesidad de inventar una clave nueva.
-        // Mismas barreras que los equipos: frentes permitidos, frentes bloqueados, fuera
-        // los ESPECIAL y los FRENTES_FUERA_DE_ALERTAS, y fuera lo desincorporado.
+        // Mismas barreras que los equipos: frentes permitidos, frentes bloqueados, fuera los
+        // frentes fuera de la flota y los FRENTES_FUERA_DE_ALERTAS ($idsFuera), y fuera lo desincorporado.
         $auxQuery = \App\Models\EquipoAuxiliar::query()
             ->whereNotNull('LINK_CERTIFICADO')
             ->whereNotNull('FECHA_VENCIMIENTO_CERT')
