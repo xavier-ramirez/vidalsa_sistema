@@ -209,7 +209,7 @@
                                     @endcan
                                 @endif
                                 {{-- Un VIN del BL que no casó con ninguna ficha (el serial de la ficha
-                                     difiere en algo): se ve aparte y se ata a mano buscando el equipo. --}}
+                                     difiere en algo): se ve aparte y se enlaza a mano buscando el equipo. --}}
                                 @if ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
                                      && $d->TIPO === \App\Services\CargaMasivaDocumentos::EMBARQUE && ($d->PROPUESTA['link'] ?? null))
                                     @can('docs.carga.masiva')

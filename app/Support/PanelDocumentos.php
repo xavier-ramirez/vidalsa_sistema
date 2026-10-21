@@ -218,18 +218,19 @@ class PanelDocumentos
             ->with(['equipo' => fn ($q) => $q->withTrashed()->select('ID_EQUIPO', 'SERIAL_DE_MOTOR')])
             ->paginate(50)->withQueryString();
 
+        // Las filas de la carga masiva de la pagina (las demas, null), por su ID.
+        $deLaCarga = $filas->getCollection()->mapWithKeys(fn ($d) => [$d->ID_REGISTRO =>
+            $d->ORIGEN === VerificacionDocumento::DE_CARGA_MASIVA ? $d : null])->all();
+        $carga = app(\App\Services\CargaMasivaDocumentos::class);
+
         return [
             'docs'           => $filas,
             // Los VIN de cada BL de la carga que no casaron con ninguna ficha, de toda la pagina
-            // de una vez (la vista los pinta con su boton de "Atar a un equipo").
-            'vinesFaltan'    => app(\App\Services\CargaMasivaDocumentos::class)->vinesSinAtarDeVarias(
-                $filas->getCollection()->mapWithKeys(fn ($d) => [$d->ID_REGISTRO =>
-                    $d->ORIGEN === VerificacionDocumento::DE_CARGA_MASIVA ? $d->PROPUESTA : null])->all()),
-            // Y las unidades de cada RACDA, ROTC o poliza de flota que se atan a mano (la placa o
-            // el serial que falta, o un equipo suyo que no entro), cada una con su boton.
-            'unidadesFaltan' => app(\App\Services\CargaMasivaDocumentos::class)->unidadesSinAtar(
-                $filas->getCollection()->mapWithKeys(fn ($d) => [$d->ID_REGISTRO =>
-                    $d->ORIGEN === VerificacionDocumento::DE_CARGA_MASIVA ? $d : null])->all()),
+            // de una vez (la vista los pinta con su boton de "Enlazar a un equipo").
+            'vinesFaltan'    => $carga->vinesSinAtarDeVarias(array_map(fn ($d) => $d?->PROPUESTA, $deLaCarga)),
+            // Y las unidades de cada RACDA, ROTC o poliza de flota que se enlazan a mano (la placa
+            // o el serial que falta, o un equipo suyo que no entro), cada una con su boton.
+            'unidadesFaltan' => $carga->unidadesSinAtar($deLaCarga),
             'resumenDocs'    => VerificacionDocumento::select('ESTADO', DB::raw('COUNT(*) as n'))->groupBy('ESTADO')->pluck('n', 'ESTADO'),
             // Los dos montones que se miran distinto: lo que la tarea todavia pone sola y lo
             // que pide una persona (ilegible, sin archivo, de otro vehiculo o leido a medias).

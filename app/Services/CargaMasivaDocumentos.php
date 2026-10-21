@@ -440,7 +440,7 @@ class CargaMasivaDocumentos
                         (bool) $ficha => VerificacionDocumento::POR_ENGANCHAR,
                         default       => VerificacionDocumento::SIN_FICHA,
                     },
-                    'MOTIVO'      => mb_substr($this->motivoDeLaPropuesta($propuesta), 0, self::MOTIVO_MAX),
+                    'MOTIVO'      => VerificacionDocumento::motivoQueCabe($this->motivoDeLaPropuesta($propuesta)),
                     'A_MANO'      => true,
                     'INTENTOS'    => 0,
                 ]
@@ -694,7 +694,7 @@ class CargaMasivaDocumentos
         // Sin ficha, lo unico que hay que contar es POR QUE no se supo de quien es.
         if (!$ficha) return (string) ($p['aviso'] ?: 'Falta saber de que ficha es.');
 
-        return VerificacionDocumento::motivoQueCabe(trim('Por ' . ($ficha['coincide_por'] ?? 'lo que dice el PDF') . '. ' . ($p['aviso'] ?? '')));
+        return trim('Por ' . ($ficha['coincide_por'] ?? 'lo que dice el PDF') . '. ' . ($p['aviso'] ?? ''));
     }
 
     /** Un BL, o un PDF de varias unidades (RACDA, ROTC o poliza de flota): se enlaza unidad por unidad. */
@@ -1006,11 +1006,10 @@ class CargaMasivaDocumentos
         $fila = VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($propuesta['link']))
             ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->first();
         if (!$fila) return;
-        $motivo = VerificacionDocumento::motivoQueCabe(match (true) {
-            $this->esDeVarias($propuesta) => $this->resumenDeVarias($propuesta, array_sum($pendientes) + $this->faltanDeVarias($propuesta)),
-            !$pendientes                  => trim('Enlazado solo. ' . ($propuesta['aviso'] ?? '')),
-            default                       => 'No se enlazo: ' . array_key_first($pendientes),
-        });
+        $motivo = $this->esDeVarias($propuesta)
+            ? $this->resumenDeVarias($propuesta, array_sum($pendientes) + $this->faltanDeVarias($propuesta))
+            : VerificacionDocumento::motivoQueCabe($pendientes ? 'No se enlazo: ' . array_key_first($pendientes)
+                : trim('Enlazado solo. ' . ($propuesta['aviso'] ?? '')));
         if ($fila->MOTIVO !== $motivo) $fila->update(['MOTIVO' => $motivo]);
         if (!$pendientes) $this->cerrarPropuesta($propuesta['link'], $this->quedaPorRevisar($propuesta));
     }
