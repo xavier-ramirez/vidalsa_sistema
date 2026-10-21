@@ -138,10 +138,11 @@
         }
 
         /* ── "Nuevo vs antiguo por tipo" (pintarPorTipo en fleet_dashboard.js) ──────────
-           En la cabecera el RESUMEN en una línea (cuadro del color de la serie, etiqueta,
-           cifra y %) y debajo la barra de proporción. Debajo, una FILA por tipo: nombre, desglose
-           y total en una línea, y la barra debajo. Barras CUADRADAS (decisión del
-           cliente, 2026-07-30). El color de cada serie llega como --serie (data-serie). */
+           En la cabecera el RESUMEN en una línea (punto del color de la serie, etiqueta,
+           cifra y %) y debajo la barra de proporción. Luego una FILA por tipo, una debajo de
+           otra: nombre | barra | desglose y total. Barras y puntos REDONDEADOS (pedido del
+           cliente, 21-10-2026: "se ve muy cuadrado"). El color de cada serie llega como
+           --serie (data-serie). */
         .fdm-resumen {
             display: flex;
             align-items: baseline;
@@ -149,41 +150,42 @@
             flex-wrap: wrap;
         }
         .fdm-res { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
-        .fdm-res::before { content: ''; width: 10px; height: 10px; align-self: center; background: var(--serie, var(--fd-ink-3)); }
+        .fdm-res::before { content: ''; width: 10px; height: 10px; border-radius: 50%; align-self: center; background: var(--serie, var(--fd-ink-3)); }
         .fdm-res-lbl { font-size: 12px; font-weight: 500; color: var(--fd-ink); }
         .fdm-res b { font-size: 16px; font-weight: 800; color: var(--fd-ink); }
         .fdm-res-pct { font-size: 12px; font-weight: 600; color: var(--fd-ink-2); }
 
         .fdm-res-prop {
             display: flex;
-            height: 6px;
-            margin: -2px 0 8px;
+            height: 8px;
+            margin: -2px 0 10px;
             gap: 2px;
+            border-radius: 999px;
+            overflow: hidden;
             background: #eef2f7;
         }
-        .fdm-res-prop i { display: block; min-width: 3px; }
+        .fdm-res-prop i { display: block; min-width: 4px; }
 
-        /* Dos columnas cuando hay ancho (se leen de arriba abajo, columna por columna):
-           con muchos tipos la lista quedaba el doble de larga. */
-        .fdm-filas { columns: 2 300px; column-gap: 32px; }
-        .fdm-fila { padding: 7px 0; border-bottom: 1px solid #f1f5f9; break-inside: avoid; }
-        .fdm-fila-top {
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 6px;
+        .fdm-filas { display: flex; flex-direction: column; }
+        .fdm-fila {
+            display: grid;
+            grid-template-columns: minmax(130px, 230px) minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 16px;
+            padding: 6px 0;
+            border-bottom: 1px solid #f1f5f9;
         }
-        .fdm-fila-nom { font-size: 12.5px; font-weight: 600; color: var(--fd-ink); text-transform: uppercase; min-width: 0; overflow-wrap: anywhere; }
-        .fdm-fila-cifras { display: flex; align-items: baseline; gap: 12px; flex-shrink: 0; }
+        .fdm-fila:last-child { border-bottom: none; }
+        .fdm-fila-nom { font-size: 12.5px; font-weight: 600; color: var(--fd-ink); text-transform: uppercase; min-width: 0; overflow-wrap: anywhere; line-height: 1.25; }
+        .fdm-fila-cifras { display: flex; align-items: baseline; justify-content: flex-end; gap: 12px; min-width: 96px; }
         .fdm-fila-serie { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--fd-ink); }
-        .fdm-fila-serie i { width: 8px; height: 8px; display: inline-block; }
-        .fdm-fila-cifras b { font-size: 15px; font-weight: 800; color: var(--fd-ink); min-width: 22px; text-align: right; }
-        /* Pista gris a todo el ancho: el tipo con más unidades la llena; los demás, en proporción. */
-        .fdm-fila-pista { height: 10px; background: #f1f5f9; }
-        .fdm-fila-barra { display: flex; height: 100%; gap: 2px; }
-        .fdm-fila-barra i { display: block; min-width: 3px; }
-        .fdm-vacio { column-span: all; margin: 0; padding: 14px 0 6px; text-align: center; font-size: 13px; color: var(--fd-ink-2); }
+        .fdm-fila-serie i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .fdm-fila-cifras b { font-size: 15px; font-weight: 800; color: var(--fd-ink); min-width: 26px; text-align: right; }
+        /* Pista gris: el tipo con más unidades la llena; los demás, en proporción. */
+        .fdm-fila-pista { height: 12px; background: #f1f5f9; border-radius: 999px; }
+        .fdm-fila-barra { display: flex; height: 100%; gap: 2px; border-radius: 999px; overflow: hidden; }
+        .fdm-fila-barra i { display: block; min-width: 4px; }
+        .fdm-vacio { margin: 0; padding: 14px 0 6px; text-align: center; font-size: 13px; color: var(--fd-ink-2); }
 
         .fdm-cam {
             border: none;

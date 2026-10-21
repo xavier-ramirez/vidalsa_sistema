@@ -555,11 +555,10 @@ async function loadFleetDashboardData(frenteId) {
  *
  * En la cabecera de cada panel, el RESUMEN (total de cada grupo, que llena
  * updateStatCards): aquí se le pone su porcentaje y se pinta la barra de proporción;
- * sin datos no se muestra ninguno de los dos. Debajo, UNA FILA POR TIPO, de mayor a menor: nombre, desglose por serie y
- * total en una línea, y la barra debajo. El largo de la barra es relativo al tipo con más
- * unidades, así se comparan los tipos entre sí; los tramos son las series.
- *
- * Barras CUADRADAS por decisión del cliente (2026-07-30): no redondearlas por estilo.
+ * sin datos no se muestra ninguno de los dos. Debajo, UNA FILA POR TIPO, de mayor a
+ * menor y una debajo de otra: nombre | barra | desglose por serie y total. El largo de la
+ * barra es relativo al tipo con más unidades, así se comparan los tipos entre sí; los
+ * tramos son las series.
  */
 function pintarPorTipo(contId, datos, textoVacio) {
     const cont = document.getElementById(contId);
@@ -614,11 +613,9 @@ function pintarPorTipo(contId, datos, textoVacio) {
             return v > 0 ? '<i style="flex:' + v + ';background:' + FDM_COLORES[k] + '"></i>' : '';
         }).join('');
         return '<div class="fdm-fila">' +
-                   '<div class="fdm-fila-top">' +
-                       '<span class="fdm-fila-nom">' + esc(f.nombre) + '</span>' +
-                       '<span class="fdm-fila-cifras">' + desglose + '<b>' + f.total + '</b></span>' +
-                   '</div>' +
+                   '<span class="fdm-fila-nom">' + esc(f.nombre) + '</span>' +
                    '<div class="fdm-fila-pista"><div class="fdm-fila-barra" style="width:' + (f.total * 100 / max).toFixed(2) + '%">' + tramos + '</div></div>' +
+                   '<span class="fdm-fila-cifras">' + desglose + '<b>' + f.total + '</b></span>' +
                '</div>';
     }).join('');
 }
