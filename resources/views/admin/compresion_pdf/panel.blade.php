@@ -1026,18 +1026,30 @@
             var enExtra = {};
             otras.forEach(function (o) { enExtra[o[0]] = true; });
             var lista = cpdfNodo('div', 'cpdf-rev-lista');
+            // Lo que lee la IA va con el nombre del dato, sin "(según la IA)": la tarjeta ya
+            // enseña la ficha y lo leído, que es lo que hace falta para decidir (pedido del
+            // cliente, 21-10-2026). Solo si el mismo dato sale también del documento se le deja
+            // la marca, para no tener dos filas iguales.
+            var etiquetas = Object.keys(dif).filter(function (c) { return !enExtra[c]; })
+                .map(function (c) { return (dif[c] || {}).etiqueta || c; });
+            var sinIa = function (e) { return String(e).replace(/ \(según la IA\)$/, ''); };
             Object.keys(dif).forEach(function (campo) {
                 if (enExtra[campo]) return;
-                var d = dif[campo] || {};
+                var d = dif[campo] || {}, etiqueta = d.etiqueta || campo;
+                if (/^IA_/.test(campo) && etiquetas.indexOf(sinIa(etiqueta)) === -1) etiqueta = sinIa(etiqueta);
                 lista.appendChild(cpdfNodo('div', 'cpdf-rev-dif', [
-                    cpdfNodo('div', 'cpdf-rev-campo', d.etiqueta || campo),
+                    cpdfNodo('div', 'cpdf-rev-campo', etiqueta),
                     cpdfNodo('div', 'cpdf-rev-val', [cpdfValor(d.ficha, 'cpdf-rev-ficha'), cpdfIcono('arrow_forward'), cpdfValor(d.documento, 'cpdf-rev-doc')]),
                 ]));
             });
             // El motivo, corto: "de otro vehiculo" ya trae los dos seriales/placas, que salen en la
-            // lista de abajo; repetirlos alargaba la tarjeta (pedido del cliente, 19-10-2026).
-            var motivo = v.motivo && lista.childNodes.length && /^El documento es de otro vehiculo/.test(v.motivo)
-                ? 'Es de otro vehículo' : v.motivo;
+            // lista de abajo; repetirlos alargaba la tarjeta (pedido del cliente, 19-10-2026). Por
+            // lo mismo se quita "La IA lee distinto: <datos>": esos datos son las filas de abajo.
+            var motivo = v.motivo || '';
+            if (lista.childNodes.length) {
+                if (/^El documento es de otro vehiculo/.test(motivo)) motivo = 'Es de otro vehículo';
+                motivo = motivo.replace(/(^|\.\s*)La IA lee distinto:.*$/, '').trim();
+            }
             if (motivo) aviso.appendChild(cpdfNodo('div', 'cpdf-rev-motivo', motivo));
             if (lista.childNodes.length) aviso.appendChild(lista);
 
