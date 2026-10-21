@@ -4,6 +4,13 @@ echo "=========================================="
 echo "  SFS Maquinaria - Iniciando aplicación  "
 echo "=========================================="
 
+# La versión de PHP no sale en las respuestas (expose_php = Off), así que se deja en el
+# log del despliegue de EasyPanel para poder comprobar que el servidor tiene el parche.
+echo "PHP: $(php -r 'echo PHP_VERSION;') · upload_progress: $(php -r 'echo ini_get("session.upload_progress.enabled") ? "ON" : "OFF";')"
+if php -r 'exit(version_compare(PHP_VERSION, "8.3.36", "<") ? 0 : 1);'; then
+    echo "AVISO: PHP $(php -r 'echo PHP_VERSION;') es vulnerable a PHP2Shell; hace falta 8.3.36 o más." >&2
+fi
+
 # ── PÁGINA DE MANTENIMIENTO PRIMERO ──────────────────────────────────────────
 # Todo lo que viene debajo (esperar la BD, migrar, cachear) tarda cerca de un
 # minuto, y antes NADIE escuchaba en el puerto 80 durante ese rato: el proxy de

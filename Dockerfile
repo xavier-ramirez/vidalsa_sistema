@@ -1,4 +1,7 @@
-FROM php:8.3-fpm
+# Versión EXACTA, no "8.3-fpm": con la etiqueta móvil Docker reusa la imagen que ya tiene
+# guardada en el servidor aunque haya salido una corregida. 8.3.36 = parche de PHP2Shell
+# (CVE-2026-109618 y CVE-2026-109619, 21-10-2026). Para subir de versión, cambiar aquí.
+FROM php:8.3.36-fpm
 
 # Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
