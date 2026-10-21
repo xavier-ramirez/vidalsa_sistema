@@ -1272,19 +1272,19 @@
                      pintarPorTipo() (fleet_dashboard.js) en HTML. --}}
                 <div id="fleetChartsGrid" style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px;">
                     <!-- Flota Nueva vs Vieja por Tipo -->
-                    {{-- Resumen arriba (bloques con total y %, y la barra de proporción) y una
-                         fila por tipo debajo. Los ids de las cifras no cambian: los llena
-                         updateStatCards(); el % y las filas, pintarPorTipo(). --}}
+                    {{-- En la cabecera, el resumen en una línea (total y % de cada grupo) y debajo
+                         la barra de proporción; luego una fila por tipo. Los ids de las cifras no
+                         cambian: los llena updateStatCards(); el % y las filas, pintarPorTipo(). --}}
                     <div id="fdm-panel-age" class="fdm-panel">
                         <div class="fdm-panel-head">
                             <span class="fdm-panel-title">Flota Nueva vs Vieja por Tipo</span>
+                            <div class="fdm-resumen">
+                                <div class="fdm-res" data-serie="0"><span class="fdm-res-lbl">Nueva (&ge;2025)</span><b id="stat_fleet_new">0</b><span class="fdm-res-pct"></span></div>
+                                <div class="fdm-res" data-serie="1"><span class="fdm-res-lbl">Antigua (&lt;2025)</span><b id="stat_fleet_old">0</b><span class="fdm-res-pct"></span></div>
+                            </div>
                             <button onclick="window.descargarPanelHtmlFDM('fdm-panel-age', 'flota_edad_tipo')" title="Descargar imagen" class="fdm-cam">
                                 <i class="material-icons">photo_camera</i>
                             </button>
-                        </div>
-                        <div class="fdm-resumen">
-                            <div class="fdm-res" data-serie="0"><span class="fdm-res-lbl">Nueva (&ge;2025)</span><b id="stat_fleet_new">0</b><span class="fdm-res-pct"></span></div>
-                            <div class="fdm-res" data-serie="1"><span class="fdm-res-lbl">Antigua (&lt;2025)</span><b id="stat_fleet_old">0</b><span class="fdm-res-pct"></span></div>
                         </div>
                         <div class="fdm-res-prop"></div>
                         <div id="chartAgeByType" class="fdm-filas"></div>
@@ -1296,14 +1296,14 @@
                     <div id="fdm-panel-auxiliares" class="fdm-panel">
                         <div class="fdm-panel-head">
                             <span class="fdm-panel-title">Auxiliares Nuevos vs Viejos por Tipo</span>
+                            <div class="fdm-resumen">
+                                <div class="fdm-res" data-serie="0"><span class="fdm-res-lbl">Nueva (&ge;2025)</span><b id="stat_aux_new">0</b><span class="fdm-res-pct"></span></div>
+                                <div class="fdm-res" data-serie="1"><span class="fdm-res-lbl">Antigua (&lt;2025)</span><b id="stat_aux_old">0</b><span class="fdm-res-pct"></span></div>
+                                <div class="fdm-res" data-serie="2" id="stat_aux_sin_key" style="display:none;"><span class="fdm-res-lbl">Sin año</span><b id="stat_aux_sin">0</b><span class="fdm-res-pct"></span></div>
+                            </div>
                             <button onclick="window.descargarPanelHtmlFDM('fdm-panel-auxiliares', 'auxiliares_por_tipo')" title="Descargar imagen" class="fdm-cam">
                                 <i class="material-icons">photo_camera</i>
                             </button>
-                        </div>
-                        <div class="fdm-resumen">
-                            <div class="fdm-res" data-serie="0"><span class="fdm-res-lbl">Nueva (&ge;2025)</span><b id="stat_aux_new">0</b><span class="fdm-res-pct"></span></div>
-                            <div class="fdm-res" data-serie="1"><span class="fdm-res-lbl">Antigua (&lt;2025)</span><b id="stat_aux_old">0</b><span class="fdm-res-pct"></span></div>
-                            <div class="fdm-res" data-serie="2" id="stat_aux_sin_key" style="display:none;"><span class="fdm-res-lbl">Sin año</span><b id="stat_aux_sin">0</b><span class="fdm-res-pct"></span></div>
                         </div>
                         <div class="fdm-res-prop"></div>
                         <div id="chartAuxByType" class="fdm-filas"></div>

@@ -553,9 +553,9 @@ async function loadFleetDashboardData(frenteId) {
 /**
  * Gráfico "nuevo vs antiguo por tipo" (equipos y auxiliares), en HTML.
  *
- * Arriba de cada panel, el RESUMEN (bloques del blade con sus totales, que llena
- * updateStatCards): aquí se le pone a cada bloque su porcentaje y se pinta la barra de
- * proporción. Debajo, UNA FILA POR TIPO, de mayor a menor: nombre, desglose por serie y
+ * En la cabecera de cada panel, el RESUMEN (total de cada grupo, que llena
+ * updateStatCards): aquí se le pone su porcentaje y se pinta la barra de proporción;
+ * sin datos no se muestra ninguno de los dos. Debajo, UNA FILA POR TIPO, de mayor a menor: nombre, desglose por serie y
  * total en una línea, y la barra debajo. El largo de la barra es relativo al tipo con más
  * unidades, así se comparan los tipos entre sí; los tramos son las series.
  *
@@ -593,6 +593,8 @@ function pintarPorTipo(contId, datos, textoVacio) {
             }).join('');
             prop.style.display = totGeneral ? '' : 'none';
         }
+        const resumen = panel.querySelector('.fdm-resumen');
+        if (resumen) resumen.style.display = totGeneral ? '' : 'none';
     }
 
     if (!filas.length) {
