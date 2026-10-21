@@ -85,14 +85,15 @@
     .cpdf-avance-fila:last-child { margin-bottom: 0; }
     .cpdf-avance-fila:hover { opacity: .7; }
     /* .cpdf-caja span pone 12 px gris a todo span: aqui manda la letra de Equipos. */
-    .cpdf-avance .cpdf-avance-nombre { grid-area: 1 / 1; margin: 0; font-size: 12.5px; font-weight: 600; color: #334155; line-height: 1.25; word-break: break-word; }
+    .cpdf-avance .cpdf-avance-nombre { grid-area: 1 / 1; margin: 0; font-size: 12.5px; font-weight: 400; color: #334155; line-height: 1.25; word-break: break-word; }
     .cpdf-avance .cpdf-avance-barra { grid-area: 2 / 1 / 3 / -1; margin-top: 2px; height: 4px; border-radius: 2px;
                                       background: #e2e8f0; overflow: hidden; }
     /* Mismo azul que las barras de distribución de Equipos. */
     .cpdf-avance-barra i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); }
-    .cpdf-avance .cpdf-avance-cifra { grid-area: 1 / 2; justify-self: end; margin: 0 0 2px; font-size: 12.5px; font-weight: 700; color: #1e293b;
+    .cpdf-avance .cpdf-avance-cifra { grid-area: 1 / 2; justify-self: end; margin: 0 0 2px; font-size: 12.5px; font-weight: 400; color: #1e293b;
                                       white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .cpdf-avance-listo { color: #16a34a; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
+    /* Nombre, cifra y «listo» sin negrita (pedido del cliente, 21-10-2026); el título sí la lleva. */
+    .cpdf-avance-listo { color: #16a34a; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; font-weight: 400; }
     /* Revisar a mano en el visor (panel oscuro del visor). Arriba, la tarjeta de la revisión
        (.cpdf-pista-aviso): estado, motivo y, dato a dato, "ficha → documento"; debajo de cada
        campo del panel, lo que tiene la ficha AHORA y lo que dice el documento, cada uno con su
