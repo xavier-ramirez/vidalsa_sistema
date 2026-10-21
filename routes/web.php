@@ -398,6 +398,10 @@ Route::middleware(['auth'])->group(function () {
             // EXACTO sobre CODIGO y SOLO activos (el índice UNIQUE incluye soft-deleted,
             // por eso se filtra). Read-only, sin permiso (igual que la consulta del módulo).
             Route::get   ('almacen/buscar-codigo',                [App\Http\Controllers\AlmacenController::class, 'resolverPorCodigo'])->name('almacen.buscar-codigo');
+            // El teléfono como lector de la PC (App\Services\LectorRemoto): la cámara en modo «En la PC»
+            // manda aquí lo que lee, y la PC lo recoge por /api/lector-remoto (sin sesión).
+            Route::post  ('almacen/lector-remoto',                [App\Http\Controllers\LectorRemotoController::class, 'enviar'])           ->name('almacen.lector-remoto.enviar');
+            Route::post  ('almacen/lector-remoto/estado',         [App\Http\Controllers\LectorRemotoController::class, 'estado'])           ->name('almacen.lector-remoto.estado');
             // Catálogo de productos para el buscador FuzzySearch del cliente. Antes se embebía
             // inline en la página (~500 KB de 1155 productos) → abría lenta. Ahora se carga por
             // AJAX tras renderizar, así el módulo abre de una. Read-only, mismo criterio que el índice.

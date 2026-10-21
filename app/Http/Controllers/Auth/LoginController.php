@@ -78,15 +78,8 @@ class LoginController extends Controller
                     return $this->respuestaLogin($request, false, null, 'Usuario inactivo. Contacte al administrador.');
                 }
 
-                // 4. Token de Sesión Única (Tu lógica personalizada)
-                try {
-                    $sessionToken = bin2hex(random_bytes(32));
-                } catch (\Exception $e) {
-                     $sessionToken = md5(uniqid(rand(), true)); 
-                }
-                
-                $user->SESSION_TOKEN = $sessionToken;
-                $user->save();
+                // 4. Token compartido por las sesiones del usuario (Usuario::tokenDeSesion).
+                $sessionToken = $user->tokenDeSesion();
 
                 // 5. Éxito: Regenerar sesión y limpiar Rate Limiter
                 $request->session()->regenerate();
@@ -291,18 +284,11 @@ class LoginController extends Controller
 
     public function logout(Request $request)
     {
-        // El SESSION_TOKEN NO se borra aquí, a propósito.
-        //
-        // Antes se ponía en null, y eso rompía el mensaje de ValidarSesionUnica: ese
-        // middleware lee un token en null como "la clave cambió" —es el único caso que
-        // lo deja así (Usuario::establecerClave)— y le decía "Tu clave cambió. Inicia
-        // sesión con la nueva." a alguien que lo único que había hecho era cerrar sesión
-        // en otro equipo. Un aviso falso, y encima alarmante.
-        //
-        // Borrarlo tampoco aportaba nada: la sesión de ESTE navegador se invalida abajo,
-        // y como el sistema es de sesión única, cualquier otra sesión viva ya tiene un
-        // token DISTINTO al vigente y el middleware la corta igual — pero ahora con el
-        // motivo correcto ("Sesión iniciada en otro dispositivo").
+        // El SESSION_TOKEN NO se borra aquí, a propósito: lo comparten todas las sesiones del
+        // usuario (Usuario::tokenDeSesion), así que borrarlo sacaría también al teléfono o a la
+        // otra PC donde sigue dentro. Además ValidarSesionUnica lee un token en null como "la
+        // clave cambió" (lo deja así Usuario::establecerClave) y les diría eso, que es falso.
+        // La sesión de ESTE navegador se invalida abajo y con eso basta.
         self::cerrarSesion($request);
 
         return redirect('/')->withHeaders([

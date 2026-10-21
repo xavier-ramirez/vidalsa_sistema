@@ -20,12 +20,17 @@
  *          onProducto: function (p, label) { ...aplicar el filtro... }
  *      });
  *
- * Comportamiento (idéntico al que tenía Inventario):
+ * Comportamiento:
  *   · Teléfono → abre el modal y arranca la cámara (html5-qrcode) pidiendo permiso de una.
+ *                Arriba del recuadro, «Filtrar aquí | En la PC» (se recuerda por teléfono):
+ *                  aquí  → el CODIGO se resuelve contra almacen.buscar-codigo, el modal se
+ *                          cierra y se entrega a onProducto (filtra el teléfono).
+ *                  En la PC → el código va a almacen.lector-remoto y la cámara SIGUE abierta
+ *                          para leer el siguiente; lo filtra la PC (App\Services\LectorRemoto).
  *   · PC       → NO abre el modal (no hay cámara): enfoca el buscador para que el lector
  *                USB teclee ahí. Además un listener global resuelve el escaneo de un lector
- *                USB aunque no haya nada enfocado.
- *   · El CODIGO se resuelve contra almacen.buscar-codigo y se entrega a onProducto.
+ *                USB aunque no haya nada enfocado, y escucharTelefono() recoge lo que mande
+ *                el teléfono del mismo usuario y lo entrega a onProducto.
  */
 (function () {
     'use strict';
@@ -45,12 +50,26 @@
     }
 
     var scanner    = null;    // instancia Html5Qrcode (si la cámara arrancó)
+    var camaraLista = false;  // ya hay video y se está leyendo
     var RESOLUCION = { width: { ideal: 1280 }, height: { ideal: 720 } };   // la que se pide a la cámara
     var busy       = false;   // evita resolver dos veces el mismo código
     var libPromise = null;    // carga de html5-qrcode cacheada
 
     function el(id) { return id ? document.getElementById(id) : null; }
     function esMovil() { return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || ''); }
+    // Cualquier overlay abierto: los de inventario siguen el patrón "clase con
+    // -overlay + .open" (.alm-modal-overlay, .dtm-overlay, .cdir-overlay, .lbr-overlay)
+    // y los globales de estilos_globales.css usan .modal-overlay + .active.
+    function hayModalAbierto() { return !!document.querySelector('[class*="overlay"].open, [class*="overlay"].active'); }
+    function etiqueta(p) { return (p.codigo || '') + (p.codigo && p.nombre ? ' — ' : '') + (p.nombre || ''); }
+    function cabecerasJson() { return { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }; }
+
+    // localStorage puede no estar (modo privado, datos bloqueados): sin él vale "aquí".
+    function leerLocal(clave) { try { return window.localStorage.getItem(clave); } catch (e) { return null; } }
+    function guardarLocal(clave, valor) { try { window.localStorage.setItem(clave, valor); } catch (e) { /* sin almacenamiento */ } }
+
+    // Dónde filtra lo que lee la cámara del teléfono: 'aqui' o 'pc'. Lo elige el botón del modal.
+    var destino = leerLocal('lbrDestino') === 'pc' ? 'pc' : 'aqui';
     // window.toast y window.apiFetch son los helpers centrales de dom_helpers.js, que el
     // layout carga en el <head> (antes que este script): se llaman DIRECTO, sin el guard
     // `typeof === 'function'` ni fallback a fetch que dom_helpers existe para no repetir.
@@ -90,19 +109,55 @@
     // tiene sentido (fallo de arranque/permiso), no cuando es imposible (sin HTTPS).
     function fallback(msg, mostrarBtn) {
         var reader = el('lbrReader'), hint = el('lbrHint'), btn = el('lbrActivar');
-        if (reader) reader.style.display = 'none';
+        if (reader) { reader.style.display = 'none'; reader.classList.remove('lbr-cargando'); }
         if (btn) btn.style.display = mostrarBtn ? '' : 'none';
         if (hint) hint.textContent = msg;
     }
 
+    // El recuadro de la cámara se enseña YA al abrir, con el alto que tuvo la última vez en
+    // este teléfono (lbrAltoCamara): así el modal sale de una en su tamaño final, en vez de
+    // salir encogido y crecer cuando llega el video. La primera vez se reserva un cuadrado.
+    // Mientras tanto, la clase lbr-cargando hace girar la espera dentro del recuadro.
+    function reservarRecuadro() {
+        var reader = el('lbrReader'); if (!reader) return;
+        reader.style.display = '';
+        reader.classList.add('lbr-cargando');
+        var alto = parseInt(leerLocal('lbrAltoCamara'), 10);
+        reader.style.minHeight = (alto > 100 ? alto : reader.clientWidth) + 'px';
+    }
+
+    // Ya hay video: el recuadro toma su alto real y se recuerda para la próxima vez. Se espera
+    // al primer cuadro si todavía no llegó; soltar antes el alto reservado lo encogería.
+    function soltarRecuadro() {
+        var reader = el('lbrReader'); if (!reader) return;
+        var video = reader.querySelector('video');
+        var listo = function () {
+            reader.classList.remove('lbr-cargando');
+            reader.style.minHeight = '';
+            if (reader.offsetHeight > 100) guardarLocal('lbrAltoCamara', String(reader.offsetHeight));
+        };
+        if (!video || video.readyState >= 2) listo();
+        else video.addEventListener('loadeddata', listo, { once: true });
+    }
+
+    function pintarDestino() {
+        var aqui = el('lbrDestAqui'), pc = el('lbrDestPc');
+        if (aqui) aqui.setAttribute('aria-pressed', destino === 'aqui' ? 'true' : 'false');
+        if (pc) pc.setAttribute('aria-pressed', destino === 'pc' ? 'true' : 'false');
+    }
+
+    function textoListo() {
+        return destino === 'pc' ? 'Apunta al código: se filtra en la PC.' : 'Apunta la cámara al código de barras…';
+    }
+
     function iniciarCamara() {
-        var hint = el('lbrHint'), reader = el('lbrReader'), btn = el('lbrActivar');
+        var hint = el('lbrHint'), btn = el('lbrActivar');
         if (hint) hint.textContent = 'Cargando cámara…';
         cargarLib().then(function (cargada) {
             if (!cargada) { fallback('Cámara no disponible en este dispositivo.', false); return; }
             // La cámara requiere contexto seguro (HTTPS/localhost). Si no, lector/tecleo.
             if (!window.isSecureContext) { fallback('La cámara necesita HTTPS para funcionar.', false); return; }
-            if (reader) reader.style.display = '';
+            reservarRecuadro();   // tras un fallback, "Activar cámara" lo vuelve a enseñar
             if (hint) hint.textContent = 'Iniciando cámara…';
             // Recuadro ANCHO y bajo, a la forma de un código de barras (un 90 % del ancho del
             // video y un 40 % de alto). La cámara se pide en HD (RESOLUCION): con la que da por
@@ -117,12 +172,15 @@
                     videoConstraints: Object.assign({}, RESOLUCION, fuente)
                 };
             };
-            var onOk   = function (texto) { resolver(texto); };
+            var onOk   = function (texto) { if (destino === 'pc') enviarAPc(texto); else resolver(texto); };
             var onTick = function () { /* frames sin código: ignorar */ };
             var ok     = function () {
-                if (hint) hint.textContent = 'Apunta la cámara al código de barras…';
+                camaraLista = true;
+                if (hint) hint.textContent = textoListo();
                 if (btn) btn.style.display = 'none';
+                soltarRecuadro();
                 afinarCamara();
+                if (destino === 'pc') avisarPc(true);
             };
             // Si TODO falla mostramos el motivo REAL (NotAllowedError = permiso denegado,
             // NotFoundError = sin cámara, etc.) y dejamos visible "Activar cámara" para
@@ -179,6 +237,7 @@
     }
 
     function detenerCamara() {
+        camaraLista = false;
         if (!scanner) return;
         try {
             scanner.stop()
@@ -207,7 +266,7 @@
                 }
                 var p = j.producto;
                 cerrar();
-                var label = (p.codigo || '') + (p.codigo && p.nombre ? ' — ' : '') + (p.nombre || '');
+                var label = etiqueta(p);
                 if (cfg && typeof cfg.onProducto === 'function') cfg.onProducto(p, label);
                 window.toast('Producto: ' + label, 'success');
             })
@@ -217,7 +276,119 @@
             });
     }
 
+    // ── Teléfono → PC (App\Services\LectorRemoto) ───────────────────────────────
+    // Con la cámara en «En la PC» cada código va al servidor, que comprueba que existe y lo deja
+    // en el buzón del usuario; la cámara sigue abierta para el siguiente. La cámara lee unas 15
+    // veces por segundo, así que mientras la MISMA etiqueta siga delante no se reenvía: cada
+    // lectura repetida corre el plazo (ultimoEnvio.t). Vuelve a salir si se aparta 2,5 s y se
+    // apunta otra vez, o si se lee otro código.
+    var REPETIDO_MS = 2500;
+    var ultimoEnvio = { codigo: '', t: 0 };
+    function enviarAPc(codigo) {
+        codigo = String(codigo || '').trim();
+        var url = ruta('enviar');
+        if (!codigo || busy || !url) return;
+        if (codigo === ultimoEnvio.codigo && Date.now() - ultimoEnvio.t < REPETIDO_MS) { ultimoEnvio.t = Date.now(); return; }
+        busy = true;
+        window.apiFetch(url, { method: 'POST', headers: cabecerasJson(), body: JSON.stringify({ codigo: codigo }) })
+            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+            .then(function (res) {
+                busy = false;
+                ultimoEnvio = { codigo: codigo, t: Date.now() };
+                var j = res.j || {};
+                if (!res.ok || !j.found || !j.producto) {
+                    window.toast(j.message || ('No se encontró el código ' + codigo + '.'), 'error');
+                    return;
+                }
+                if (navigator.vibrate) navigator.vibrate(60);
+                // hay_pc: alguna PC de este usuario preguntó hace poco. Si no, se avisa: el código
+                // quedó enviado pero nadie lo está esperando.
+                if (j.hay_pc) window.toast('Enviado a la PC: ' + etiqueta(j.producto), 'success');
+                else window.toast('Enviado, pero no hay una PC con el inventario abierto: ' + etiqueta(j.producto), 'warning');
+            })
+            .catch(function () {
+                // También cuenta como enviado: sin red, la cámara lo volvería a intentar en cada
+                // cuadro y llenaría la pantalla de avisos. Se reintenta apartando y volviendo.
+                busy = false;
+                ultimoEnvio = { codigo: codigo, t: Date.now() };
+                window.toast('No se pudo enviar el código a la PC.', 'error');
+            });
+    }
+
+    // Avisa al servidor que la cámara se abrió o se cerró en «En la PC»: con la marca puesta la
+    // PC pregunta rápido. La URL del aviso de apertura se guarda (marcaPc) porque el de cierre
+    // puede salir cuando el modal ya no está: init() cierra la cámara al navegar con ella
+    // abierta. keepalive: ese aviso tiene que salir aunque la página cambie.
+    var marcaPc = '';
+    function avisarPc(activo) {
+        var url = activo ? ruta('estado') : marcaPc;
+        if (!url) return;
+        marcaPc = activo ? url : '';
+        window.apiFetch(url, { method: 'POST', keepalive: true, headers: cabecerasJson(), body: JSON.stringify({ activo: activo }) })
+            .catch(function () { /* sin red: la marca caduca sola */ });
+    }
+
+    // La PC pregunta por lo que mandó el teléfono SIN sesión (fetchSinInterceptor y sin
+    // cookies): la llave firmada (data-canal del modal, nueva en cada visita) dice de quién es
+    // el buzón. Así preguntar no renueva la sesión, un fallo no salta el aviso de "Sin
+    // conexión" y un 403 (llave vencida) no manda al login: solo deja de preguntar hasta la
+    // próxima visita a la pantalla. Rápido si el teléfono tiene la cámara abierta en «En la
+    // PC», despacio si no. Una sola ronda viva a la vez (esc.on); se apaga sola cuando la
+    // vista ya no está.
+    var PREGUNTA_RAPIDA_MS = 700, PREGUNTA_LENTA_MS = 2000, PREGUNTA_ERROR_MS = 8000;
+    var esc = { on: false, desde: null };
+    function escucharTelefono() {
+        if (esc.on || esMovil()) return;
+        esc.on = true;
+        esc.desde = null;   // la primera respuesta dice desde dónde seguir: nada viejo se aplica
+        preguntar();
+    }
+    function preguntar() {
+        var url = ruta('pendientes'), canal = ruta('canal');
+        if (!url || !canal || !vistaViva()) { esc.on = false; return; }
+        // Pestaña escondida: no se pregunta; se sigue al volver a ella.
+        if (document.hidden) {
+            document.addEventListener('visibilitychange', function alVolver() {
+                if (document.hidden) return;
+                document.removeEventListener('visibilitychange', alVolver);
+                preguntar();
+            });
+            return;
+        }
+        var u = new URL(url, window.location.origin);
+        if (esc.desde !== null) u.searchParams.set('desde', esc.desde);
+        window.fetchSinInterceptor(u.toString(), {
+            headers: { 'Accept': 'application/json', 'X-Lector-Canal': canal },
+            credentials: 'omit', cache: 'no-store'
+        })
+            .then(function (r) {
+                if (r.status === 403) { esc.on = false; return null; }
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (j) {
+                if (!j) return;
+                esc.desde = j.desde;
+                (j.items || []).forEach(function (it) { aplicarDelTelefono(it.producto); });
+                setTimeout(preguntar, j.activo ? PREGUNTA_RAPIDA_MS : PREGUNTA_LENTA_MS);
+            })
+            .catch(function () { setTimeout(preguntar, PREGUNTA_ERROR_MS); });
+    }
+    // Mismo camino que un escaneo en la PC (onProducto). Con un modal abierto NO se filtra por
+    // detrás —igual que el lector USB, que tampoco intercepta ahí—: se avisa para que lo cierre.
+    function aplicarDelTelefono(p) {
+        if (!p || !vistaViva() || typeof cfg.onProducto !== 'function') return;
+        var label = etiqueta(p);
+        if (hayModalAbierto()) {
+            window.toast('Llegó del teléfono ' + label + '. Cierra la ventana abierta y vuelve a escanearlo.', 'warning');
+            return;
+        }
+        cfg.onProducto(p, label);
+        window.toast('Del teléfono: ' + label, 'success');
+    }
+
     function cerrar() {
+        avisarPc(false);   // si la cámara estaba en «En la PC»; si no, no hace nada
         // El modal se va PRIMERO, la camara despues. Al reves —que es como estaba— la X no
         // respondia hasta que la libreria soltaba el dispositivo: scanner.stop() es asincrono
         // y en un telefono tarda un momento, asi que el usuario pulsaba, no pasaba nada
@@ -267,10 +438,6 @@
             var t = (a.tagName || '').toLowerCase();
             return t === 'input' || t === 'textarea' || t === 'select' || a.isContentEditable;
         }
-        // Cualquier overlay abierto: los de inventario siguen el patrón "clase con
-        // -overlay + .open" (.alm-modal-overlay, .dtm-overlay, .cdir-overlay, .lbr-overlay)
-        // y los globales de estilos_globales.css usan .modal-overlay + .active.
-        function hayModalAbierto() { return !!document.querySelector('[class*="overlay"].open, [class*="overlay"].active'); }
         document.addEventListener('keydown', function (e) {
             // Descarte BARATO primero: un lector solo manda caracteres imprimibles y Enter,
             // así que Shift/Tab/flechas/F-keys se van sin tocar el DOM. Esto deja el
@@ -327,6 +494,7 @@
                 if (typeof requestIdleCallback === 'function') requestIdleCallback(pre, { timeout: 3000 });
                 else setTimeout(pre, 2000);
             }
+            escucharTelefono();   // en PC: recoger lo que mande el teléfono (en el teléfono no hace nada)
         },
 
         /** Re-evalúa el icono de escaneo. Las vistas lo llaman cada vez que cambia su filtro. */
@@ -348,13 +516,28 @@
             var m = el('lbrModal'); if (!m) return;
             busy = false;
             var btn = el('lbrActivar'); if (btn) btn.style.display = 'none';
+            pintarDestino();
             m.classList.add('open');
+            reservarRecuadro();   // en el mismo cuadro que el modal: sale ya de su tamaño
             // El modal es SOLO móvil: la cámara es la única vía y arranca al abrir,
             // pidiendo el permiso de una (la lib se precargó en idle).
             iniciarCamara();
         },
 
         cerrar: cerrar,
+
+        /** Botón «Filtrar aquí | En la PC» del modal. Con la cámara abierta, avisa del cambio. */
+        destino: function (modo) {
+            destino = modo === 'pc' ? 'pc' : 'aqui';
+            guardarLocal('lbrDestino', destino);
+            ultimoEnvio = { codigo: '', t: 0 };
+            pintarDestino();
+            // Si la cámara todavía arranca, de esto se encarga su ok().
+            if (camaraLista) {
+                var hint = el('lbrHint'); if (hint) hint.textContent = textoListo();
+                avisarPc(destino === 'pc');
+            }
+        },
 
         /**
          * Reintenta la cámara con un gesto EXPLÍCITO del usuario (botón "Activar cámara").

@@ -308,7 +308,7 @@ self.addEventListener('fetch', (event) => {
     // NO debemos cachear esa respuesta bajo la clave "/" o sobreescribiríamos el login.
     if (url.pathname === '/' && (request.mode === 'navigate' || (request.headers.get('accept') || '').includes('text/html'))) {
         // Clave de caché SIEMPRE '/' (sin query). El login recibe la raíz con parámetros
-        // —hoy '?aviso=' cuando la sesión se cayó o se abrió en otro dispositivo, mañana
+        // —hoy '?aviso=' cuando la sesión se cayó o la clave cambió, mañana
         // cualquier '?utm='— y con la request completa como clave no había coincidencia:
         // sin red, caches.match fallaba, el fetch también, y el usuario acababa en la
         // página de error del navegador en vez de en el login cacheado. El HTML es el

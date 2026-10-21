@@ -371,6 +371,10 @@ las cabeceras dejan de cuadrar con el cuerpo.
 - El service worker es `resources/sw.js`, servido por la ruta `/sw.js`; su versión de caché se
   invalida sola por commit: no tocarla a mano.
 - La sesión se cierra por inactividad (20 min en producción); `ValidarSesionUnica` excluye auth.
+- Se puede entrar con la misma cuenta en varios equipos a la vez (`Usuario::tokenDeSesion`, token
+  compartido); cambiar la clave cierra todas las sesiones.
+- Lector de inventario: el teléfono puede filtrar en su pantalla o mandar lo leído a la PC
+  (`App\Services\LectorRemoto`; la PC pregunta por `/api/lector-remoto` sin sesión).
 - Migraciones: en local pueden estar desfasadas → usar guardas `hasColumn`; no insertar filas a
   mano en producción, hacerlo con migración o SQL revisado. Los arreglos de datos de una sola
   vez van en `database/sql/` (se pegan en phpMyAdmin; NO son migraciones). Las migraciones de

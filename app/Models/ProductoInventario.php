@@ -98,6 +98,35 @@ class ProductoInventario extends Model
     }
 
     /**
+     * El producto de un código ESCANEADO, con lo que necesita la pantalla para filtrar, o
+     * null si no hay uno activo con ese CODIGO. Match EXACTO y solo activos (el índice UNIQUE
+     * incluye soft-deleted, por eso se filtra). Fuente única del escaneo: la usan el lector
+     * de la misma pantalla (AlmacenController::resolverPorCodigo) y el teléfono que manda el
+     * código a la PC (LectorRemotoController::enviar).
+     */
+    public static function datosDeEscaneo(string $codigo): ?array
+    {
+        $p = static::activos()->where('CODIGO', $codigo)
+            ->first(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA', 'UBICACION']);
+        if (!$p) return null;
+
+        return [
+            'id'        => $p->ID_PRODUCTO,
+            'codigo'    => $p->CODIGO,
+            'nombre'    => $p->NOMBRE,
+            'um'        => $p->UM,
+            'categoria' => $p->CATEGORIA,
+            'ubicacion' => $p->UBICACION,
+        ];
+    }
+
+    /** Lo que se le dice a quien escaneó un código que no está en el catálogo (o ya no está activo). */
+    public static function avisoCodigoInexistente(string $codigo): string
+    {
+        return 'No existe un producto activo con el código ' . $codigo . '.';
+    }
+
+    /**
      * Lista de productos ACTIVOS para el AUTOCOMPLETE de descripciones. Fuente ÚNICA
      * reutilizada por el inventario (AlmacenController::index) y por recepción
      * (TraspasoController::nuevaEntrada) — así el buscador encuentra los FILTROS por su

@@ -261,14 +261,7 @@ class WebAuthnController extends Controller
 
         Auth::login($user);
 
-        try {
-            $sessionToken = bin2hex(random_bytes(32));
-        } catch (\Exception $e) {
-            $sessionToken = md5(uniqid(rand(), true));
-        }
-
-        $user->SESSION_TOKEN = $sessionToken;
-        $user->save();
+        $sessionToken = $user->tokenDeSesion();
 
         $request->session()->regenerate();
         $request->session()->put('current_session_token', $sessionToken);

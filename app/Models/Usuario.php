@@ -163,6 +163,23 @@ class Usuario extends Authenticatable
     }
 
     /**
+     * El token que comparten TODAS las sesiones abiertas del usuario. Se puede entrar en
+     * varios equipos a la vez (la PC y el teléfono que hace de lector): entrar NO cambia el
+     * token, solo lo crea si no hay (cuenta nueva, o la clave cambió y establecerClave lo
+     * dejó en NULL). Lo copian a su sesión LoginController y WebAuthnController, y
+     * ValidarSesionUnica saca a toda sesión que traiga uno distinto: las abiertas antes del
+     * último cambio de clave.
+     */
+    public function tokenDeSesion(): string
+    {
+        if (!$this->SESSION_TOKEN) {
+            $this->SESSION_TOKEN = bin2hex(random_bytes(32));
+            $this->save();
+        }
+        return $this->SESSION_TOKEN;
+    }
+
+    /**
      * Huella corta de la clave ACTUAL. Cambia si y solo si la clave cambia.
      *
      * El teléfono guarda un candado local para entrar sin internet, hecho con la clave que

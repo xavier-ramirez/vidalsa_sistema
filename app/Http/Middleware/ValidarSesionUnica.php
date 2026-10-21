@@ -19,15 +19,13 @@ class ValidarSesionUnica
         // Rutas de AUTENTICACIÓN: quedan FUERA de esta comprobación a propósito.
         // En ellas el usuario está pidiendo justamente una sesión NUEVA (o cerrando la
         // que tiene), así que un SESSION_TOKEN viejo que ya no cuadra no debe cortar la
-        // petición. Sin esta exclusión pasaba esto: quien dejó la sesión abierta en este
-        // equipo y luego entró desde otro dispositivo, al volver aquí y pulsar "Entrar"
-        // con sus credenciales CORRECTAS recibía 401 "Sesión iniciada en otro
-        // dispositivo" — el POST ni siquiera llegaba al LoginController. El logout que
-        // hace este middleware solo surtía efecto para el intento SIGUIENTE, o sea que
-        // había que pulsar Entrar dos veces. Se agrava con la PWA, donde el Service
-        // Worker sirve el login cacheado aunque la sesión siga viva.
-        // No se pierde seguridad: el propio login/webauthn regenera la sesión y reescribe
-        // el SESSION_TOKEN, que es lo que este middleware protege.
+        // petición. Sin esta exclusión, quien tenía en este equipo una sesión de antes de
+        // cambiar la clave, al pulsar "Entrar" con la clave NUEVA recibía el 401 de abajo: el
+        // POST ni siquiera llegaba al LoginController y había que pulsar Entrar dos veces. Se
+        // agrava con la PWA, donde el Service Worker sirve el login cacheado aunque la sesión
+        // siga viva.
+        // No se pierde seguridad: el propio login/webauthn regenera la sesión y le copia el
+        // SESSION_TOKEN vigente, que es lo que este middleware protege.
         if (
             $request->is('logout') ||
             $request->is('refresh-csrf') ||
@@ -43,23 +41,17 @@ class ValidarSesionUnica
             $sessionToken = $request->session()->get('current_session_token');
 
             // Si hay un token en sesión y no coincide con el de la DB
-            // (Si no hay token en sesión, es probable que la sesión haya expirado naturalmente, 
+            // (Si no hay token en sesión, es probable que la sesión haya expirado naturalmente,
             // dejar que el framework maneje la expiración normal en lugar de forzar logout)
             if ($sessionToken && $user->SESSION_TOKEN !== $sessionToken) {
-                // POR QUÉ no cuadra, antes de tocar nada: un SESSION_TOKEN en NULL no es
-                // "entró en otro lado", es una sesión REVOCADA a propósito, y el único que
-                // revoca es un cambio de clave (Usuario::establecerClave). Distinguirlo
-                // cambia un "te entraron en otro dispositivo" —que asusta— por el motivo real.
-                //
-                // Esto SOLO es cierto mientras nadie más ponga el token en null. El cierre
-                // de sesión lo hacía y por eso mandaba a otro equipo el aviso falso "Tu
-                // clave cambió"; se quitó de ahí (ver Auth\LoginController::logout). Si
-                // alguna vez hace falta revocar por otro motivo, hay que traer el motivo
-                // consigo en vez de deducirlo del null.
-                $motivo  = $user->SESSION_TOKEN === null ? 'clave_cambiada' : 'otro_dispositivo';
-                $mensaje = $motivo === 'clave_cambiada'
-                    ? 'Tu clave cambió. Inicia sesión con la nueva.'
-                    : 'Sesión iniciada en otro dispositivo.';
+                // Varias sesiones a la vez SÍ se permiten: todas comparten el mismo token
+                // (Usuario::tokenDeSesion) y entrar en otro equipo no lo cambia. Así que un
+                // token que no cuadra solo puede venir de un cambio de clave: o sigue en NULL
+                // (Usuario::establecerClave) o ya se entró con la clave nueva y hay otro.
+                // Si alguna vez hace falta revocar por otro motivo, hay que traer el motivo
+                // consigo en vez de deducirlo de aquí.
+                $motivo  = 'clave_cambiada';
+                $mensaje = 'Tu clave cambió. Inicia sesión con la nueva.';
 
                 Auth::logout();
                 $request->session()->invalidate();
@@ -69,8 +61,8 @@ class ValidarSesionUnica
                     // `motivo` es el MISMO código que usa la redirección de abajo (?aviso=).
                     // Hace falta porque la app es SPA: casi todo lo que hace el usuario viaja
                     // por fetch y cae aquí, no en la redirección. El interceptor de fetch lo
-                    // lee para llevar al login con el motivo real; sin él, "entraste en otro
-                    // equipo" llegaba como "tu sesión expiró", que es falso.
+                    // lee para llevar al login con el motivo real; sin él, "tu clave cambió"
+                    // llegaba como "tu sesión expiró", que es falso.
                     return response()->json(['message' => $mensaje, 'motivo' => $motivo], 401);
                 }
                 

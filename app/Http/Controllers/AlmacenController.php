@@ -4177,11 +4177,9 @@ class AlmacenController extends Controller
 
     /**
      * Resolver de escaneo: traduce un CODIGO (leído del código de barras por cámara o lector USB,
-     * o tecleado) al producto del catálogo. Match EXACTO sobre CODIGO y SOLO activos
-     * (el índice UNIQUE de CODIGO incluye soft-deleted; por eso se filtra a activos).
-     * Read-only. El saldo NO se calcula aquí: el frontend, tras resolver, reusa el
-     * filtro normal del inventario (almBuscarPick), que ya muestra el saldo del
-     * producto en el almacén seleccionado.
+     * o tecleado) al producto del catálogo (ProductoInventario::datosDeEscaneo). Read-only. El
+     * saldo NO se calcula aquí: el frontend, tras resolver, reusa el filtro normal del
+     * inventario (almBuscarPick), que ya muestra el saldo del producto en el almacén seleccionado.
      *
      *   ?codigo=000123 → { found:true, producto:{id,codigo,nombre,um,categoria,ubicacion} }
      *                    o { found:false, message } si no existe.
@@ -4193,28 +4191,15 @@ class AlmacenController extends Controller
             return response()->json(['found' => false, 'message' => 'Código vacío.'], 422);
         }
 
-        $producto = ProductoInventario::activos()
-            ->where('CODIGO', $codigo)
-            ->first(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA', 'UBICACION']);
-
+        $producto = ProductoInventario::datosDeEscaneo($codigo);
         if (!$producto) {
             return response()->json([
                 'found'   => false,
-                'message' => 'No existe un producto activo con el código ' . $codigo . '.',
+                'message' => ProductoInventario::avisoCodigoInexistente($codigo),
             ]);
         }
 
-        return response()->json([
-            'found'    => true,
-            'producto' => [
-                'id'        => $producto->ID_PRODUCTO,
-                'codigo'    => $producto->CODIGO,
-                'nombre'    => $producto->NOMBRE,
-                'um'        => $producto->UM,
-                'categoria' => $producto->CATEGORIA,
-                'ubicacion' => $producto->UBICACION,
-            ],
-        ]);
+        return response()->json(['found' => true, 'producto' => $producto]);
     }
 
     /**

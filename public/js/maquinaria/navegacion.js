@@ -650,9 +650,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // el servidor cerro la sesion y redirigio a /?aviso=<motivo>. Navegar a la url
                 // PEDIDA tiraba ese motivo: la sesion ya estaba muerta, esa peticion daba 401 y
                 // el interceptor la traducia a "Tu sesion expiro por seguridad". Asi, a quien
-                // lo habian sacado porque entro en OTRO equipo se le decia que su sesion caduco.
-                // Comprobado con dos sesiones: el servidor respondia bien (302 a
-                // /?aviso=otro_dispositivo) y aqui se perdia.
+                // lo habian sacado porque le cambiaron la clave se le decia que su sesion caduco.
                 window.location.href = urlFinal;
                 return;
             }

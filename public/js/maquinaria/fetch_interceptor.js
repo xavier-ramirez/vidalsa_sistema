@@ -101,21 +101,21 @@ window.fetch = async function (...args) {
             // era lo único que se perdía al cortar la petición aquí.
             var _u = String((args[0] && args[0].url) || args[0] || '');
             // El MOTIVO real, si el servidor lo mandó. ValidarSesionUnica responde con
-            // {motivo: 'otro_dispositivo' | 'clave_cambiada'}; antes esto se ignoraba y
-            // cualquier 401 llegaba al login como "Tu sesión expiró por seguridad", así
-            // que quien había entrado en otro equipo leía que su sesión caducó.
+            // {motivo: 'clave_cambiada'}; antes esto se ignoraba y cualquier 401 llegaba
+            // al login como "Tu sesión expiró por seguridad", así que a quien le cambiaron
+            // la clave se le decía que su sesión caducó.
             // Solo se aceptan los códigos conocidos: el valor viaja a la URL.
             //
             // El motivo y lo pendiente son dos cosas y viajan las dos: si lo que falló fue la
             // subida del outbox, el aviso lleva además "_pendientes", que es lo único que le
             // dice al usuario que sus cambios sin subir siguen guardados. Con el motivo
-            // sustituyendo al caso del outbox, quien entraba en otro equipo con cambios en
+            // sustituyendo al caso del outbox, a quien le cambiaban la clave con cambios en
             // cola dejaba de enterarse de que los tenía.
             var _motivo = null;
             if (response.status === 401) {
                 try {
                     var _cuerpo = await response.clone().json();
-                    if (_cuerpo && (_cuerpo.motivo === 'otro_dispositivo' || _cuerpo.motivo === 'clave_cambiada')) {
+                    if (_cuerpo && (_cuerpo.motivo === 'clave_cambiada')) {
                         _motivo = _cuerpo.motivo;
                     }
                 } catch (e) { /* respuesta sin JSON: vale el aviso genérico */ }

@@ -4,9 +4,11 @@
      las rutas que necesita window.LectorBarras (public/js/maquinaria/lector_barras.js, global).
 
      Read-only y SOLO móvil: la cámara (html5-qrcode) arranca en contexto seguro
-     (HTTPS/localhost) pidiendo el permiso de una al abrir, resuelve el CODIGO vía
-     almacen.buscar-codigo y se lo entrega a la vista (onProducto). En PC no se abre:
-     el lector USB escribe en el buscador o lo resuelve el listener global.
+     (HTTPS/localhost) pidiendo el permiso de una al abrir. Con «Filtrar aquí» resuelve el
+     CODIGO vía almacen.buscar-codigo y se lo entrega a la vista (onProducto); con «En la PC»
+     lo manda a almacen.lector-remoto y lo filtra la PC del mismo usuario. En PC no se abre:
+     el lector USB escribe en el buscador o lo resuelve el listener global, y la PC recoge lo
+     del teléfono por /api/lector-remoto con la llave data-canal.
 
      La vista que lo incluye pone el icono en su buscador y engancha el escaneo:
          <i class="lbr-ic icono-barras" id="miScan" title="Escanear código de barras"
@@ -68,15 +70,43 @@
         animation: lbr-laser 1.6s ease-in-out infinite alternate;
     }
     @keyframes lbr-laser { from { transform: translateY(-4px); } to { transform: translateY(calc(100% - 4px)); } }
+
+    /* «Filtrar aquí | En la PC»: dónde se aplica lo que lee la cámara (LectorBarras.destino). */
+    .lbr-destino { display: flex; gap: 4px; padding: 3px; background: #f1f5f9; border-radius: 10px; }
+    .lbr-destino button {
+        flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+        padding: 8px 6px; border: none; border-radius: 8px; background: transparent;
+        color: #475569; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .lbr-destino button .material-icons { font-size: 18px; }
+    .lbr-destino button[aria-pressed="true"] { background: #fff; color: #7c3aed; box-shadow: 0 1px 3px rgba(15,23,42,.15); }
+
+    /* Recuadro reservado mientras arranca la cámara (LectorBarras.reservarRecuadro): el
+       modal sale ya de su tamaño y aquí gira el aviso de espera hasta que llega el video. */
+    #lbrReader { position: relative; }
+    #lbrReader.lbr-cargando::before {
+        content: ''; position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px;
+        border: 3px solid rgba(255,255,255,.25); border-top-color: #fff; border-radius: 50%;
+        animation: lbr-gira .8s linear infinite;
+    }
+    @keyframes lbr-gira { to { transform: rotate(360deg); } }
 </style>
 
-{{-- data-buscar: endpoint que resuelve el CODIGO escaneado. data-lib: copia LOCAL de
+{{-- data-enviar / data-estado: el teléfono manda el código a la PC y avisa si la cámara está
+     abierta en «En la PC». data-pendientes + data-canal: la PC pregunta por lo que llegó, sin
+     sesión, con una llave firmada de 12 h (App\Services\LectorRemoto::canal) que se renueva
+     en cada visita a la pantalla.
+     data-buscar: endpoint que resuelve el CODIGO escaneado. data-lib: copia LOCAL de
      html5-qrcode (public/js/vendor/). LectorBarras las lee del propio modal cuando las necesita
      —no hay <script> de configuración ni, por tanto, orden obligatorio entre este partial y
      el script de la vista. La librería NO se carga con un <script> de página: se inyecta bajo
      demanda (local → CDN). Para (re)descargarla, ver public/js/vendor/README-html5-qrcode.txt. --}}
 <div id="lbrModal" class="lbr-overlay"
      data-buscar="{{ route('almacen.buscar-codigo') }}"
+     data-enviar="{{ route('almacen.lector-remoto.enviar') }}"
+     data-estado="{{ route('almacen.lector-remoto.estado') }}"
+     data-pendientes="{{ route('lector-remoto.pendientes') }}"
+     data-canal="{{ \App\Services\LectorRemoto::canal(auth()->user()) }}"
      data-lib="{{ asset('js/vendor/html5-qrcode.min.js') }}?v={{ @filemtime(public_path('js/vendor/html5-qrcode.min.js')) }}">
     <div class="lbr-modal">
         <div class="lbr-head">
@@ -84,7 +114,15 @@
             <i class="material-icons lbr-x" onclick="window.LectorBarras.cerrar()">close</i>
         </div>
         <div class="lbr-body">
-            {{-- Recuadro de cámara: oculto por defecto. Se muestra cuando la cámara arranca. --}}
+            <div class="lbr-destino" role="group" aria-label="Dónde filtrar">
+                <button type="button" id="lbrDestAqui" aria-pressed="true" onclick="window.LectorBarras.destino('aqui')">
+                    <i class="material-icons">smartphone</i>Filtrar aquí
+                </button>
+                <button type="button" id="lbrDestPc" aria-pressed="false" onclick="window.LectorBarras.destino('pc')">
+                    <i class="material-icons">computer</i>En la PC
+                </button>
+            </div>
+            {{-- Recuadro de cámara: oculto hasta abrir; al abrir se reserva su alto (ver arriba). --}}
             <div id="lbrReader" style="display:none;width:100%;border-radius:10px;overflow:hidden;background:#0f172a;"></div>
             <div id="lbrHint" style="font-size:12px;color:#64748b;text-align:center;"></div>
             {{-- Botón de reintento: aparece SOLO si el arranque/permiso de la cámara falla.

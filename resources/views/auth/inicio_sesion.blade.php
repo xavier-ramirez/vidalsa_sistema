@@ -260,7 +260,7 @@
         const btnOn = document.getElementById('btnOnlineLogin');
         if (btnOn) btnOn.disabled = false;
     };
-    // Avisos que llegan por la URL (?aviso=). Los mandan el middleware de sesión única
+    // Avisos que llegan por la URL (?aviso=). Los mandan el middleware ValidarSesionUnica
     // y los handlers de sesión caducada de bootstrap/app.php. Van en la URL y no en flash
     // porque esta pantalla se sirve desde el caché del Service Worker: un flash se
     // consumía en el servidor sin que nadie lo llegara a pintar. Se muestran por el mismo
@@ -275,7 +275,6 @@
     (function mostrarAvisoDeUrl() {
         const AVISOS = {
             sesion_expirada:  'Tu sesión expiró por seguridad.\nInicia sesión de nuevo.',
-            otro_dispositivo: 'Tu sesión se inició en otro dispositivo.',
             clave_cambiada:   'Tu clave cambió.\nInicia sesión con la nueva.',
             inactividad:      'Tu sesión se cerró por inactividad.\nInicia sesión de nuevo.'
         };
