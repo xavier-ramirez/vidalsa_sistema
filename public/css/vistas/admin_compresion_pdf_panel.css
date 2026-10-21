@@ -373,6 +373,26 @@
         .cpdf-comp tbody td:nth-child(5)::before { content: 'Después'; }
         .cpdf-comp tbody td:nth-child(6)::before { content: 'Ahorro'; }
 
+        /* Última fila de las dos tarjetas (fecha + botones): franja gris de borde a borde, como
+           la de Movimientos (pedido del cliente, 21-10-2026), con lo de dentro centrado en su
+           alto. Los márgenes negativos la llevan hasta el borde (el padding de la tarjeta es
+           10 / 12 px) y las esquinas siguen la curva de la tarjeta (12 px − 1 del borde). En
+           Documentos las columnas van sin hueco, para que la franja no se corte en dos; el
+           estado guarda su separación con su propio margen. */
+        .cpdf-docs tbody tr { column-gap: 0; }
+        .cpdf-docs tbody td:nth-child(4) { margin-left: 8px; }
+        .cpdf-tabla-caja tbody td:first-child:not(.cpdf-vacio),
+        .cpdf-tabla-caja tbody td:last-child:not(.cpdf-vacio) {
+            display: flex; align-items: center; align-self: stretch; margin-top: 6px; margin-bottom: -10px; }
+        /* Una tarjeta elegida (azul entero, arriba) no la lleva. */
+        .cpdf-tabla-caja tbody tr:not(.selected-row-maquinaria) td:first-child:not(.cpdf-vacio),
+        .cpdf-tabla-caja tbody tr:not(.selected-row-maquinaria) td:last-child:not(.cpdf-vacio) { background: #f3f6f9 !important; }
+        .cpdf-tabla-caja tbody td:first-child:not(.cpdf-vacio) {
+            margin-left: -12px; padding: 7px 0 7px 12px !important; border-radius: 0 0 0 11px; }
+        .cpdf-tabla-caja tbody td:last-child:not(.cpdf-vacio) {
+            justify-self: stretch; justify-content: flex-end;
+            margin-right: -12px; padding: 7px 12px 7px 8px !important; border-radius: 0 0 11px 0; }
+
         /* La barra de "Revisado" no tapa la última tarjeta. */
         .cpdf-main { padding-bottom: 60px; }
     }
