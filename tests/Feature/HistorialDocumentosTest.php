@@ -38,6 +38,39 @@ class HistorialDocumentosTest extends MySqlTestCase
         return [$id, $placa];
     }
 
+    /**
+     * La burbuja de cambios se entiende: el PDF se dice con palabras (no su enlace de Drive), y
+     * quién/cuándo se subió no se repite (ya lo dicen las columnas de la fila). Caso real: la
+     * póliza renovada por la carga masiva (20-10-2026).
+     */
+    public function test_los_cambios_de_un_pdf_se_leen_sin_enlaces_ni_datos_repetidos(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        $cuando = now()->subMinutes(5);
+        [$equipo, $placa] = $this->equipoConRacda($yo, $cuando->copy()->subDay());
+        EquipoAuditLog::create([
+            'ID_EQUIPO' => $equipo, 'ID_USUARIO' => $yo->getKey(), 'ACCION' => 'metadata_poliza',
+            'CAMBIOS' => [
+                'LINK_POLIZA_SEGURO'   => ['antes' => '/storage/google/viejoXYZ?v=1', 'despues' => '/storage/google/nuevoXYZ?v=2'],
+                'FECHA_VENC_POLIZA'    => ['antes' => '2026-10-01', 'despues' => '2027-06-09'],
+                'POLIZA_SUBIDO_POR'    => ['antes' => null, 'despues' => $yo->getKey()],
+                'POLIZA_FECHA_SUBIDA'  => ['antes' => null, 'despues' => '2026-10-20T19:19:34.806235Z'],
+            ],
+            'created_at' => $cuando,
+        ]);
+
+        $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'historial', 'search_equipo' => $placa]))
+            ->assertOk()->getContent();
+
+        $this->assertStringContainsString('PDF de la póliza', $html);
+        $this->assertStringContainsString('Se reemplazó por uno nuevo', $html);
+        $this->assertStringNotContainsString('nuevoXYZ', $html, 'Sin el enlace de Drive en la burbuja.');
+        $this->assertStringContainsString('Vencimiento de la póliza', $html);
+        $this->assertStringContainsString('09/06/2027', $html);
+        $this->assertStringNotContainsString('Poliza Subido Por', $html);
+        $this->assertStringNotContainsString('19:19:34.806235Z', $html);
+    }
+
     public function test_la_subida_y_los_datos_guardados_con_ella_van_en_una_sola_fila(): void
     {
         $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
