@@ -366,11 +366,11 @@
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) .tooltip-bubble { display: none !important; }
 
         /* Celda de la nota en la tarjeta RECOGIDA: solo los iconos, en su columna a la derecha
-           ("pdf"), del mismo negro que en escritorio y sin círculo de fondo; la nota ARRIBA y
-           Modificar DEBAJO (pedido del cliente, 07-10-2026). El número, la referencia / OC, el
-           proveedor y el deshacer salen al desplegarla. */
+           ("pdf"), del mismo negro que en escritorio y sin círculo de fondo; la nota y
+           Modificar uno al LADO del otro (pedido del cliente, 21-10-2026). El número, la
+           referencia / OC, el proveedor y el deshacer salen al desplegarla. */
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref {
-            grid-area: pdf !important; position: static !important; flex-direction: column !important;
+            grid-area: pdf !important; position: static !important; flex-direction: row !important;
             justify-content: center !important; align-items: center !important; gap: 2px !important;
         }
         .alm-mov-table tr.alm-mov-row:not(.mv-row-selected) td.mv-td-ref::after { content: none !important; }
