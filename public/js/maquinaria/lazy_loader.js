@@ -81,7 +81,7 @@
     window.lazyBaseUrl = baseUrl;
 
     /**
-     * Garantiza que `Chart` esté disponible. Lo usan el dashboard de flota, el de
+     * Garantiza que `Chart` esté disponible. Lo usan el dashboard de
      * consumo y los gráficos de consumibles; antes chart.umd.min.js (205 KB) iba fijo
      * en el layout aunque no se abriera una sola gráfica.
      *

@@ -1,94 +1,25 @@
-// Fleet Dashboard Modal Manager - Filtered by Frente
-// Uses Chart.js for visualizations + DataLabels Plugin
+// Dashboard de Flota (modal de /admin/equipos), filtrado por frente.
+// Los gráficos por tipo son HTML (filas con barras), no Chart.js: el texto nunca se
+// encima, se lee igual en cualquier ancho y el modal ya no descarga la librería.
 
-// SPA-safe globals
-if (!window.fleetCharts) window.fleetCharts = {};
 if (!window.currentFrenteId) window.currentFrenteId = '';
 
-if (!window.CHART_COLORS) {
-    window.CHART_COLORS = {
-        // 'status' (doughnut Estado Operativo) e 'inoperative' (Inoperatividad por Tipo)
-        // se eliminaron junto con esos gráficos. 'age' lo usan Flota por Tipo y Auxiliares.
-        // [0] Nueva = azul #004a80, [1] Antigua = rojo #911a24. Tonos OSCUROS pedidos
-        // expresamente por el cliente (2026-07-30): NO aclararlos por criterio de estilo.
-        // Validado con scripts/validate_palette.js: separacion para daltonismo holgada
-        // (protan dE 15.3, normal 24.5 — los minimos son 8 y 15) y contraste >= 3:1.
-        // La UNICA comprobacion que no pasa es la banda de luminosidad (L 0.401 y 0.429
-        // frente a un minimo de 0.43): al ser tan oscuros las barras pesan mas sobre el
-        // fondo blanco. Es el intercambio aceptado a cambio del tono pedido.
-        // Referencia: el par mas claro que aprobaba TODO era #005a9c + #a91d28.
-        // FUENTE UNICA de estos colores: los puntos de la cabecera (.fdm-dot) tambien se
-        // pintan desde aqui, no los repite el blade.
-        // [2] Gris = "Sin año", solo lo usa el grafico de auxiliares (los equipos siempre
-        // tienen ANIO). Es neutro a proposito: no compite con los dos tonos del cliente y
-        // se lee como "dato faltante", no como una tercera categoria de flota. Antes este
-        // mismo gris estaba escrito a mano como respaldo en createCharts.
-        age: ['#004a80', '#911a24', '#64748b']
-    };
-}
-
-/**
- * Devuelve la tinta legible ENCIMA de un relleno: blanco o casi negro, la que mas
- * contraste da.
- *
- * Con la paleta ACTUAL (#004a80 9.17:1 y #911a24 8.83:1 en blanco) siempre sale blanco,
- * asi que hoy no cambia nada: es un SEGURO para cuando se toque la paleta. Se anadio
- * porque al probar un ocre #d97a1f el numero blanco dentro del tramo se quedo en 3.11:1
- * — ilegible — y eso paso desapercibido hasta medirlo. Con esto, cambiar CHART_COLORS
- * no puede volver a romper la legibilidad en silencio.
- */
-function tintaSobre(relleno) {
-    const lum = function (hex) {
-        const c = [1, 3, 5].map(function (i) { return parseInt(hex.substr(i, 2), 16) / 255; })
-            .map(function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
-        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-    };
-    const ratio = function (a, b) {
-        const l1 = lum(a), l2 = lum(b);
-        return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-    };
-    return ratio('#ffffff', relleno) >= ratio('#1a1205', relleno) ? '#ffffff' : '#1a1205';
-}
-
-// Shared professional legend style
-const LEGEND_STYLE = {
-    position: 'bottom',
-    labels: {
-        padding: 16,
-        font: { size: 11.5, weight: '500', family: "'Inter', 'Segoe UI', sans-serif" },
-        boxWidth: 9,
-        boxHeight: 9,
-        // Literal y no var(--fd-ink-3): Chart.js pinta en canvas y no resuelve variables CSS.
-        // Equivale a --fd-ink-3 (3.06:1 sobre blanco) — vale porque es mobiliario, no texto.
-        color: '#8a94a6',
-        usePointStyle: true,
-        pointStyle: 'rectRounded'
-    }
-};
-
-// Common tooltip styles
-const TOOLTIP_STYLES = {
-    backgroundColor: 'rgba(15,23,42,0.94)',
-    titleColor: '#ffffff',
-    bodyColor: '#e2e8f0',
-    borderColor: 'transparent',
-    borderWidth: 0,
-    padding: 11,
-    cornerRadius: 10,
-    displayColors: true,
-    boxWidth: 10,
-    boxHeight: 10
-};
+// [0] Nueva = azul #004a80, [1] Antigua = rojo #911a24: tonos OSCUROS pedidos expresamente
+// por el cliente (2026-07-30), NO aclararlos por estilo. [2] Gris = "Sin año" (solo
+// auxiliares): neutro a propósito, se lee como dato
+// faltante y no como una tercera categoría. FUENTE ÚNICA: los puntos y bloques del blade
+// (data-serie) también se pintan desde aquí.
+const FDM_COLORES = ['#004a80', '#911a24', '#64748b'];
 
 /**
  * Update stat cards with data
  */
 function pintarPuntosDeSerie() {
-    // Los puntos de color de la cabecera del grafico de edad salen de CHART_COLORS.age,
-    // no de un hex repetido en el blade: si se cambia la paleta, se cambian solos.
-    document.querySelectorAll('#fleetDashboardModal .fdm-dot[data-serie]').forEach(function (el) {
-        const c = window.CHART_COLORS.age[Number(el.dataset.serie)];
-        if (c) el.style.background = c;
+    // El color de cada serie llega al blade como variable --serie (lo usan los bloques
+    // del resumen), no como un hex repetido allí: si se cambia la paleta, se cambian solos.
+    document.querySelectorAll('#fleetDashboardModal [data-serie]').forEach(function (el) {
+        const c = FDM_COLORES[Number(el.dataset.serie)];
+        if (c) el.style.setProperty('--serie', c);
     });
 }
 
@@ -260,14 +191,6 @@ window.openFleetDashboard = async function () {
     modal.classList.add('active');
     modal.style.display = 'flex';
 
-    // Dispara la carga de Chart.js (+DataLabels) en paralelo con el fetch.
-    // loadFleetDashboardData consulta _fleetChartReady antes de instanciar
-    // `new Chart(...)`, asi el fetch avanza mientras Chart.js se descarga.
-    // Chart.js + DataLabels los trae el cargador compartido (js/maquinaria/lazy_loader.js):
-    // es idempotente, asi que si otra pantalla ya los pidio reusa esa misma descarga.
-    window._fleetChartReady = window.ensureChartJS();
-    const chartReady = window._fleetChartReady;
-
     setupDropdownEvents();
 
     // ── Leer frente con prioridades claras ──
@@ -323,13 +246,7 @@ window.openFleetDashboard = async function () {
         sincronizarDistribucionConFrente(firstFrenteId, firstFrenteName);
     }
 
-    // Ejecutar FETCH y CARGA DE CHART EN PARALELO. loadFleetDashboardData ya
-    // hace fetch a /fleet-stats; mientras llega la respuesta, Chart.js tambien
-    // se esta bajando. Al terminar ambos, los charts se renderizan al instante.
-    await Promise.all([
-        chartReady,
-        loadFleetDashboardData(firstFrenteId)
-    ]);
+    await loadFleetDashboardData(firstFrenteId);
 };
 
 /**
@@ -547,7 +464,6 @@ window.closeFleetDashboard = function () {
         modal.classList.remove('active');
         modal.style.display = 'none';
     }
-    destroyAllCharts();
 };
 
 /**
@@ -600,7 +516,6 @@ async function loadFleetDashboardData(frenteId) {
             throw new Error(data.message || 'El servidor devolvió un error');
         }
 
-        // Render inmediato de lo que NO requiere Chart (stats numericos y panel lateral)
         updateStatCards(data.stats);
         
         // Mostrar 'Equipos Asignados por Frente' SOLO si se seleccionan 'Todos'
@@ -612,12 +527,8 @@ async function loadFleetDashboardData(frenteId) {
             if (panelAssigned) panelAssigned.style.display = 'none';
         }
 
-        // Esperar Chart.js si aun se esta bajando (carga paralela disparada en openFleetDashboard)
-        if (window._fleetChartReady) {
-            try { await window._fleetChartReady; } catch (e) { console.warn('Chart.js no cargo:', e); }
-        }
-
-        createCharts(data);
+        pintarPorTipo('chartAgeByType', data.ageByType, 'Sin equipos registrados para este frente.');
+        pintarPorTipo('chartAuxByType', data.auxByType, 'Sin equipos auxiliares registrados.');
 
         setTimeout(() => {
             if (spinner) spinner.style.display = 'none';
@@ -640,302 +551,74 @@ async function loadFleetDashboardData(frenteId) {
 }
 
 /**
- * Create all charts with data from selected frente
+ * Gráfico "nuevo vs antiguo por tipo" (equipos y auxiliares), en HTML.
+ *
+ * Arriba de cada panel, el RESUMEN (bloques del blade con sus totales, que llena
+ * updateStatCards): aquí se le pone a cada bloque su porcentaje y se pinta la barra de
+ * proporción. Debajo, UNA FILA POR TIPO, de mayor a menor: nombre, desglose por serie y
+ * total en una línea, y la barra debajo. El largo de la barra es relativo al tipo con más
+ * unidades, así se comparan los tipos entre sí; los tramos son las series.
+ *
+ * Barras CUADRADAS por decisión del cliente (2026-07-30): no redondearlas por estilo.
  */
-function createCharts(data) {
-    if (typeof Chart === 'undefined') {
-        throw new Error('Chart.js no está disponible. Verifique que los archivos JS estén instalados en /public/js/.');
-    }
+function pintarPorTipo(contId, datos, textoVacio) {
+    const cont = document.getElementById(contId);
+    if (!cont) return;
+    const panel = cont.closest('.fdm-panel');
+    const esc = window.escapeHtml;
 
-    const canvasAge = document.getElementById('chartAgeByType');
+    const labels = (datos && datos.labels) || [];
+    const series = ((datos && datos.datasets) || []).map(function (ds) { return ds.data || []; });
+    const filas = labels.map(function (nombre, i) {
+        const valores = series.map(function (d) { return Number(d[i]) || 0; });
+        return { nombre: nombre, valores: valores, total: valores.reduce(function (a, b) { return a + b; }, 0) };
+    }).filter(function (f) { return f.total > 0; })
+      .sort(function (a, b) { return b.total - a.total || String(a.nombre).localeCompare(String(b.nombre)); });
 
-    if (!canvasAge) {
-        throw new Error('No se encontraron los contenedores de gráficos en el DOM.');
-    }
-
-    destroyAllCharts();
-
-
-    // Función auxiliar para mostrar mensaje de vacío
-    const showEmptyState = (canvas, emptyText) => {
-        if (canvas) {
-            const parent = canvas.parentElement;
-            const msg = document.createElement('p');
-            // var(--fd-ink-2): es texto, y #94a3b8 daba 2.56:1 sobre blanco.
-            // padding 12px (antes 30px): un panel vacío son 3 renglones de aire arriba y abajo
-            // del mensaje, y dejaba un hueco enorme entre este panel y el de arriba.
-            msg.style.cssText = 'color:var(--fd-ink-2);font-size:13px;text-align:center;padding:12px 0;width:100%;';
-            msg.textContent = emptyText;
-            canvas.style.display = 'none';
-            if (!parent.querySelector('.fleet-empty-msg')) {
-                msg.classList.add('fleet-empty-msg');
-                parent.appendChild(msg);
-            }
-        }
-    };
-
-    // NOTA: los gráficos "Estado Operativo de Equipos" (doughnut) e "Inoperatividad
-    // por Tipo de Equipo" se eliminaron a pedido del cliente; sus canvas ya no existen.
-
-    // 1. Flota Nueva vs Vieja por Tipo - Stacked Horizontal Bar
-    if (canvasAge && data.ageByType && data.ageByType.labels && data.ageByType.labels.length > 0) {
-        window.fleetCharts.ageByType = createStackedBarChart('chartAgeByType', {
-            labels: data.ageByType.labels,
-            // Sin leyenda de Chart.js: la cabecera del panel ya lleva las claves de serie
-            // CON su total (.fdm-keys), asi que repetirla abajo seria decir lo mismo dos
-            // veces. Los DOS graficos van igual, los dos tienen claves en cabecera.
-            sinLeyenda: true,
-            // Solo etiqueta, datos y color: el ASPECTO de la barra (grosor, hueco entre
-            // tramos, redondeo) lo pone createStackedBarChart en un único sitio.
-            datasets: data.ageByType.datasets.map((ds, idx) => ({
-                label: ds.label,
-                data: ds.data,
-                backgroundColor: window.CHART_COLORS.age[idx]
-            }))
-        });
-    } else {
-        showEmptyState(canvasAge, 'Sin equipos registrados para este frente.');
-    }
-
-    // 2. Auxiliares por Tipo, con el MISMO corte de edad que el grafico de arriba
-    //    (nueva >= 2025 / antigua < 2025, y "Sin año" si los hay). Mismos colores, mismas
-    //    claves en cabecera y misma ausencia de leyenda: son dos vistas de lo mismo.
-    const canvasAux = document.getElementById('chartAuxByType');
-    if (canvasAux && data.auxByType && data.auxByType.labels && data.auxByType.labels.length > 0) {
-        window.fleetCharts.auxByType = createStackedBarChart('chartAuxByType', {
-            labels: data.auxByType.labels,
-            sinLeyenda: true,
-            datasets: data.auxByType.datasets.map((ds, idx) => ({
-                label: ds.label,
-                data: ds.data,
-                backgroundColor: window.CHART_COLORS.age[idx]
-            }))
-        });
-    } else if (canvasAux) {
-        showEmptyState(canvasAux, 'Sin equipos auxiliares registrados.');
-    }
-}
-
-/* Partir etiquetas largas para el eje: la implementacion vive en dom_helpers.js como
-   window.wrapLabel, compartida con el Dashboard de Consumo del almacen.
-
-   AQUI NO PUEDE HABER UNA `function wrapLabel()`, NI SIQUIERA UN ENVOLTORIO QUE DELEGUE:
-   este archivo no esta dentro de un IIFE, asi que una funcion suya de nivel superior ES
-   window.wrapLabel. Al cargarse DESPUES de dom_helpers.js pisaba la buena con el
-   envoltorio, y el envoltorio se llamaba a si mismo: recursion infinita y el Dashboard de
-   Flota abria con "Maximum call stack size exceeded". Se llama directo a window.wrapLabel
-   donde se usa (mas abajo, en createStackedBarChart). */
-
-/**
- * Stacked horizontal bar chart.
- * — Valor de cada segmento dentro de la barra (visible para TODO segmento con dato > 0,
- *   sin importar su tamaño, para no tener que pasar el mouse por encima).
- * — Total al final de la barra completa (siempre visible, texto oscuro, fuera de la barra).
- */
-function createStackedBarChart(canvasId, config) {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return null;
-
-    const parent = ctx.parentElement;
-    const emptyMsg = parent.querySelector('.fleet-empty-msg');
-    if (emptyMsg) emptyMsg.remove();
-    ctx.style.display = '';
-
-    const labelCount = config.labels ? config.labels.length : 1;
-    // maxChars más alto = menos cortes a mitad de palabra; Chart.js auto-ensancha el
-    // eje para mostrar la descripción COMPLETA del tipo de equipo (afterFit solo fija
-    // un mínimo). En móvil se subió de 12 a 15 para que no se vean nombres partidos.
-    const maxChars = window.innerWidth < 480 ? 15 : 18;
-    // window.wrapLabel (dom_helpers.js, cargado en el <head>). El respaldo devuelve la
-    // etiqueta cruda: sin partir se lee peor, pero el grafico se dibuja.
-    const wrappedLabels = config.labels.map(function (l) {
-        return window.wrapLabel ? window.wrapLabel(l, maxChars) : l;
+    // Resumen: porcentaje de cada serie y barra de proporción.
+    const totSerie = series.map(function (_, k) {
+        return filas.reduce(function (a, f) { return a + f.valores[k]; }, 0);
     });
-    const totalLines = wrappedLabels.reduce(function (sum, l) {
-        return sum + (Array.isArray(l) ? l.length : 1);
-    }, 0);
-    // Altura dinámica según la cantidad de barras. Se reservan DOS cosas por separado:
-    // el alto de cada LÍNEA de texto del tick y un HUECO entre categorías. El cálculo
-    // anterior usaba un solo "px por línea" (15-20) que hacía de las dos cosas a la vez,
-    // así que con etiquetas de 2+ líneas dos categorías vecinas quedaban pegadas y los
-    // nombres se solapaban en pantalla (p.ej. "CAMION DE SOLDADURA" encima de "CAMION
-    // ELEVADOR 8 TON"). Al separarlos, cada categoría recibe SIEMPRE el alto real de su
-    // etiqueta envuelta más el aire entre barras.
-    const lineH = window.innerWidth < 480 ? 13 : 14;   // alto de línea del tick (fuente 10/11px)
-    const gapPorBarra = labelCount <= 10 ? 14 : 10;    // aire entre barras
-    const dynamicHeight = Math.min(
-        1400,
-        Math.max(120, totalLines * lineH + labelCount * gapPorBarra + 50)
-    );
-    ctx.style.height = dynamicHeight + 'px';
-    ctx.style.maxHeight = dynamicHeight + 'px';
-
-    const lastIdx = config.datasets.length - 1;
-
-    // Config de label de segmento (dentro de la barra)
-    const segmentLabel = {
-        anchor: 'center',
-        align: 'center',
-        // La tinta se decide POR TRAMO segun su relleno (ver tintaSobre): sobre el azul
-        // va blanca, sobre el ocre va oscura. Sin textShadow: con la tinta correcta no
-        // hace falta, y la sombra emborronaba un numero de 9px.
-        color: function (ctx) {
-            const bg = ctx.dataset.backgroundColor;
-            // El respaldo sale de CHART_COLORS, no de un hex suelto: escrito a mano se
-            // quedaba apuntando a un color que ya no estaba en la paleta.
-            return tintaSobre(typeof bg === 'string' ? bg : window.CHART_COLORS.age[0]);
-        },
-        font: { weight: '600', size: 9.5, family: "'Inter', 'Segoe UI', sans-serif" },
-        // Muestra el valor de TODO segmento con dato (> 0), sin importar su tamaño,
-        // para no tener que pasar el mouse por encima para verlo.
-        display: function (ctx) {
-            const v = ctx.dataset.data[ctx.dataIndex] || 0;
-            return v > 0;
-        },
-        formatter: Math.round
-    };
-
-    // Config de label de total al final de la barra (siempre visible)
-    const totalLabel = {
-        anchor: 'end',
-        align: 'right',
-        offset: 5,
-        // Literal y no var(--fd-ink): Chart.js pinta en canvas y no resuelve variables CSS
-        // (mismo motivo que LEGEND_STYLE). Equivale a --fd-ink. Va FUERA de la barra, sobre
-        // el blanco de la tarjeta, asi que el negro es lo que mas contrasta (21:1).
-        color: '#000',
-        textShadowBlur: 0,
-        font: { weight: '600', size: 10.5, family: "'Inter', 'Segoe UI', sans-serif" },
-        display: function (ctx) {
-            const total = ctx.chart.data.datasets.reduce(
-                function (s, d) { return s + (Number(d.data[ctx.dataIndex]) || 0); }, 0
-            );
-            return total > 0;
-        },
-        formatter: function (value, ctx) {
-            return ctx.chart.data.datasets.reduce(
-                function (s, d) { return s + (Number(d.data[ctx.dataIndex]) || 0); }, 0
-            );
+    const totGeneral = totSerie.reduce(function (a, b) { return a + b; }, 0);
+    if (panel) {
+        panel.querySelectorAll('.fdm-res[data-serie]').forEach(function (el) {
+            const k = Number(el.dataset.serie);
+            const pct = el.querySelector('.fdm-res-pct');
+            if (pct) pct.textContent = totGeneral ? Math.round((totSerie[k] || 0) * 100 / totGeneral) + '%' : '—';
+        });
+        const prop = panel.querySelector('.fdm-res-prop');
+        if (prop) {
+            prop.innerHTML = totSerie.map(function (v, k) {
+                return v > 0 ? '<i style="flex:' + v + ';background:' + FDM_COLORES[k] + '"></i>' : '';
+            }).join('');
+            prop.style.display = totGeneral ? '' : 'none';
         }
-    };
-
-    const grafico = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: wrappedLabels,
-            datasets: config.datasets.map(function (ds, idx) {
-                // Separación entre segmentos: un borde de 2px del COLOR DE LA SUPERFICIE
-                // (blanco), no un contorno de color. Se lee como aire entre los tramos y no
-                // como tinta extra; antes los tramos se tocaban y el límite entre azul y rojo
-                // quedaba duro.
-                //
-                // BARRAS CUADRADAS por decisión del cliente (2026-07-30): sin borderRadius.
-                // NO volver a redondearlas "por estilo" — se pidió expresamente así.
-                const base = Object.assign({}, ds, {
-                    maxBarThickness: 18,
-                    categoryPercentage: 0.82,
-                    barPercentage: 0.9,
-                    borderColor: '#fff',
-                    // Solo el lado IZQUIERDO, que es por donde un tramo toca al anterior.
-                    // Con los 4 lados a 2px la barra perdía 4px de grosor (18 -> 14) porque
-                    // Chart.js dibuja el borde DENTRO de la caja de la barra.
-                    borderWidth: { left: 2, top: 0, right: 0, bottom: 0 },
-                    borderSkipped: false,
-                    borderRadius: 0
-                });
-                // Etiquetas SIEMPRE visibles (sin pasar el mouse). chartjs-plugin-datalabels
-                // exige el objeto { labels: {...} } para mostrar varias etiquetas por barra:
-                // un array NO es válido y dejaba el valor sin verse. El último dataset suma
-                // además el total al final de la barra.
-                base.datalabels = (idx === lastIdx)
-                    ? { labels: { value: segmentLabel, total: totalLabel } }
-                    : { labels: { value: segmentLabel } };
-                return base;
-            })
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            // Espacio derecho para la etiqueta de total fuera de la barra
-            layout: { padding: { right: 38 } },
-            plugins: {
-                legend: config.sinLeyenda ? { display: false } : LEGEND_STYLE,
-                tooltip: {
-                    ...TOOLTIP_STYLES,
-                    callbacks: {
-                        title: function (tooltipItems) {
-                            const raw = tooltipItems[0]?.label || '';
-                            return Array.isArray(raw) ? raw.join(' ') : raw;
-                        }
-                    }
-                },
-                // Config base para todos los datasets (sobreescrita por dataset.datalabels)
-                datalabels: segmentLabel
-            },
-            scales: {
-                x: { stacked: true, display: false, grid: { display: false } },
-                y: {
-                    stacked: true,
-                    grid: { display: false },
-                    ticks: {
-                        font: { size: window.innerWidth < 480 ? 10 : 11, weight: '500', family: "'Inter', 'Segoe UI', sans-serif" },
-                        // = --fd-ink, literal porque el canvas no resuelve variables CSS
-                        // (ver LEGEND_STYLE). Antes #8a94a6 (--fd-ink-3), que es mobiliario
-                        // de eje: estos rotulos son los TIPOS DE EQUIPO, texto que se lee.
-                        color: '#000',
-                        maxRotation: 0,
-                        minRotation: 0,
-                        autoSkip: false
-                    },
-                    afterFit: function (scale) {
-                        const minW = window.innerWidth < 480 ? 118 : 150;
-                        if (scale.width < minW) scale.width = minW;
-                    }
-                }
-            }
-        }
-    });
-
-    // Si el panel todavia no tiene alto cuando se crea el grafico —el modal aun
-    // abriendose, o un panel que una media query tiene oculto— Chart.js mide el
-    // contenedor en 0x0 y el canvas se queda EN BLANCO. Y no se recupera solo:
-    // que el panel aparezca despues no basta, hace falta volver a medir. Un
-    // resize() lo arregla, asi que se reintenta hasta que el panel tenga alto.
-    //
-    // Con temporizador y no con ResizeObserver: el observer solo avisa si el
-    // navegador entrega su callback, y aqui hace falta algo que se pueda
-    // comprobar. Son 10 intentos cada 150 ms (1,5 s) y se para en cuanto mide.
-    // OJO: se mira el PANEL, no el canvas. Al medir 0x0 Chart.js le deja al canvas
-    // un height:0px propio, asi que preguntarle a el da 0 para siempre y el
-    // reintento no dispararia nunca. El panel si recupera su alto al aparecer.
-    if (parent.getBoundingClientRect().height === 0) {
-        let intentos = 0;
-        const reintentar = function () {
-            // canvas a null = el grafico ya fue destruido: no hay nada que medir.
-            if (!grafico.canvas) return;
-            if (parent.getBoundingClientRect().height > 0) { grafico.resize(); return; }
-            if (++intentos < 10) grafico._reintentoTamano = setTimeout(reintentar, 150);
-        };
-        grafico._reintentoTamano = setTimeout(reintentar, 150);
     }
 
-    return grafico;
-}
-
-/**
- * Destroy all chart instances
- */
-function destroyAllCharts() {
-    for (const key in window.fleetCharts) {
-        const g = window.fleetCharts[key];
-        if (!g) continue;
-        // El reintento de medida (ver createStackedBarChart) se corta aqui: si el
-        // panel nunca llego a tener alto, seguiria despertando tras destruir el grafico.
-        if (g._reintentoTamano) { clearTimeout(g._reintentoTamano); g._reintentoTamano = null; }
-        if (typeof g.destroy === 'function') g.destroy();
+    if (!filas.length) {
+        cont.innerHTML = '<p class="fdm-vacio">' + esc(textoVacio) + '</p>';
+        return;
     }
-    window.fleetCharts = {};
+
+    const max = filas[0].total;
+    const nombresSerie = ((datos && datos.datasets) || []).map(function (ds) { return ds.label || ''; });
+    cont.innerHTML = filas.map(function (f) {
+        const desglose = f.valores.map(function (v, k) {
+            return v > 0
+                ? '<span class="fdm-fila-serie" title="' + esc(nombresSerie[k]) + '"><i style="background:' + FDM_COLORES[k] + '"></i>' + v + '</span>'
+                : '';
+        }).join('');
+        const tramos = f.valores.map(function (v, k) {
+            return v > 0 ? '<i style="flex:' + v + ';background:' + FDM_COLORES[k] + '"></i>' : '';
+        }).join('');
+        return '<div class="fdm-fila">' +
+                   '<div class="fdm-fila-top">' +
+                       '<span class="fdm-fila-nom">' + esc(f.nombre) + '</span>' +
+                       '<span class="fdm-fila-cifras">' + desglose + '<b>' + f.total + '</b></span>' +
+                   '</div>' +
+                   '<div class="fdm-fila-pista"><div class="fdm-fila-barra" style="width:' + (f.total * 100 / max).toFixed(2) + '%">' + tramos + '</div></div>' +
+               '</div>';
+    }).join('');
 }
 
 /**

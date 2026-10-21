@@ -152,9 +152,7 @@
             }
 
 
-            /* Charts: 1 columna y sin overflow. minmax(0, 1fr) y NO 1fr por lo mismo que en
-               la regla de escritorio: con 1fr el track crece hasta el ancho intrínseco del
-               <canvas> y el panel se sale del modal. */
+            /* Paneles: 1 columna y sin overflow (minmax(0, 1fr): cada panel encoge con el modal). */
             #fleetChartsGrid {
                 grid-template-columns: minmax(0, 1fr) !important;
                 gap: 12px !important;
@@ -186,28 +184,11 @@
                 box-sizing: border-box !important;
             }
 
-            /* El canvas no debe desbordar a lo ancho. OJO: NO poner `height: auto` aqui.
-               La altura del grafico la calcula createStackedBarChart() segun cuantas barras
-               hay (y ya usa una linea mas baja en pantallas < 480px). Con `height: auto` el
-               canvas adoptaba la proporcion de su buffer y se quedaba en ~218px para 17
-               barras = 13px por barra, contra los ~30px de escritorio: barras aplastadas y
-               etiquetas del eje solapadas, justo el problema que se corrigio en escritorio. */
-            #fleetChartsGrid canvas {
-                max-width: 100% !important;
-            }
-
             /* Título de paneles (antes se apuntaba a `h4`, que ya no existe) */
             #fleetDashboardModal .fdm-panel-title {
                 font-size: 13px !important;
             }
 
-            /* Las claves con total bajan a su propia linea para no apretar el titulo. */
-            #fleetDashboardModal .fdm-panel-head {
-                flex-wrap: wrap !important;
-                gap: 8px 12px !important;
-            }
-
-            #fleetDashboardModal .fdm-keys { margin-left: 0 !important; }
 
             /* Card de Distribución mudada aquí desde el sidebar. Pierde su sombra propia
                (ya vive dentro del modal, dos sombras se ven sucias) y se queda solo con el

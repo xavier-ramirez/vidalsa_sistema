@@ -135,45 +135,61 @@
             min-width: 0;
         }
 
-        .fdm-panel-title .material-icons { font-size: 18px; color: var(--fd-ink-3); }
-
-        /* Claves de serie CON su total: hacen de leyenda y de contador a la vez, por eso
-           el grafico de edad lleva la leyenda de Chart.js desactivada (seria repetirla).
-           Aqui viven los totales de flota nueva/antigua, que antes eran dos tarjetas
-           sueltas arriba: pertenecen a este grafico, que es justo lo que desglosan. */
-        .fdm-keys {
+        /* ── "Nuevo vs antiguo por tipo" (pintarPorTipo en fleet_dashboard.js) ──────────
+           Arriba el RESUMEN: un bloque por serie (raya del color de la serie, etiqueta,
+           cifra y %) y la barra de proporción. Debajo, una FILA por tipo: nombre, desglose
+           y total en una línea, y la barra debajo. Barras CUADRADAS (decisión del
+           cliente, 2026-07-30). El color de cada serie llega como --serie (data-serie). */
+        .fdm-resumen {
             display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-left: auto;
+            gap: 10px;
             flex-wrap: wrap;
         }
+        .fdm-res {
+            flex: 1 1 140px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: baseline;
+            column-gap: 8px;
+            padding: 8px 12px;
+            border: 1px solid var(--fd-ring);
+            border-left: 4px solid var(--serie, var(--fd-ink-3));
+            background: #f8fafc;
+        }
+        .fdm-res-lbl { grid-column: 1 / -1; font-size: 11.5px; font-weight: 600; color: var(--fd-ink); }
+        .fdm-res b { font-size: 22px; font-weight: 800; color: var(--fd-ink); letter-spacing: -0.5px; line-height: 1.15; }
+        .fdm-res-pct { font-size: 13px; font-weight: 700; color: var(--serie, var(--fd-ink-2)); }
 
-        .fdm-key {
+        .fdm-res-prop {
             display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 11.5px;
-            font-weight: 500;
-            /* Negro (antes var(--fd-ink-2) = #64748b, gris): son las claves "Nueva
-               (≥2025) / Antigua (<2025) / Sin año" que acompañan a cada gráfico. */
-            color: var(--fd-ink);
-            white-space: nowrap;
+            height: 8px;
+            margin: 10px 0 4px;
+            gap: 2px;
+            background: #eef2f7;
         }
+        .fdm-res-prop i { display: block; min-width: 3px; }
 
-        .fdm-dot {
-            width: 9px;
-            height: 9px;
-            border-radius: 3px;
-            flex-shrink: 0;
+        /* Dos columnas cuando hay ancho (se leen de arriba abajo, columna por columna):
+           con muchos tipos la lista quedaba el doble de larga. */
+        .fdm-filas { columns: 2 300px; column-gap: 32px; }
+        .fdm-fila { padding: 7px 0; border-bottom: 1px solid #f1f5f9; break-inside: avoid; }
+        .fdm-fila-top {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 6px;
         }
-
-        .fdm-key b {
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--fd-ink);
-            letter-spacing: -0.3px;
-        }
+        .fdm-fila-nom { font-size: 12.5px; font-weight: 600; color: var(--fd-ink); text-transform: uppercase; min-width: 0; overflow-wrap: anywhere; }
+        .fdm-fila-cifras { display: flex; align-items: baseline; gap: 12px; flex-shrink: 0; }
+        .fdm-fila-serie { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--fd-ink); }
+        .fdm-fila-serie i { width: 8px; height: 8px; display: inline-block; }
+        .fdm-fila-cifras b { font-size: 15px; font-weight: 800; color: var(--fd-ink); min-width: 22px; text-align: right; }
+        /* Pista gris a todo el ancho: el tipo con más unidades la llena; los demás, en proporción. */
+        .fdm-fila-pista { height: 10px; background: #f1f5f9; }
+        .fdm-fila-barra { display: flex; height: 100%; gap: 2px; }
+        .fdm-fila-barra i { display: block; min-width: 3px; }
+        .fdm-vacio { column-span: all; margin: 0; padding: 14px 0 6px; text-align: center; font-size: 13px; color: var(--fd-ink-2); }
 
         .fdm-cam {
             border: none;
@@ -188,6 +204,7 @@
             flex-shrink: 0;
         }
 
+        .fdm-panel-head .fdm-cam { margin-left: auto; }
         .fdm-cam:hover { background: #f1f5f9; }
         .fdm-cam .material-icons { font-size: 17px; }
 

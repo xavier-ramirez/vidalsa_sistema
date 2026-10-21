@@ -1267,61 +1267,46 @@
                      esté colgado donde esté. En escritorio este hueco queda vacío. --}}
                 <div id="fdmDistribucionSlot"></div>
 
-                {{-- Charts Row — una sola columna (gráficos apilados uno debajo del otro) a
-                     pedido del cliente: a todo el ancho del modal los VALORES de las barras
-                     dejan de solaparse entre sí. Eso resolvió el solape horizontal; el de las
-                     ETIQUETAS del eje Y (nombres de tipo, verticalmente) es otro problema y se
-                     arregla en el cálculo de altura de createStackedBarChart(). --}}
-                {{-- minmax(0, 1fr) y no 1fr: un <canvas> aporta ancho INTRÍNSECO (su atributo
-                     width), así que con 1fr el track de la grilla crecía hasta ese ancho, Chart.js
-                     volvía a medir el contenedor ya ensanchado y lo agrandaba otra vez. El panel
-                     terminaba más ancho que el modal (1068 px dentro de 880) y aparecía scroll
-                     horizontal con las barras cortadas. min-width:0 deja que el panel encoja. --}}
-                {{-- gap 8px (antes 14): apilados en una sola columna, 14px separaba demasiado un
-                     gráfico del siguiente. En móvil la media query lo sube a 12px. --}}
+                {{-- Paneles apilados en una sola columna (pedido del cliente). minmax(0, 1fr)
+                     deja que cada panel encoja con el modal. Los dos de "por tipo" los pinta
+                     pintarPorTipo() (fleet_dashboard.js) en HTML. --}}
                 <div id="fleetChartsGrid" style="display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px;">
                     <!-- Flota Nueva vs Vieja por Tipo -->
+                    {{-- Resumen arriba (bloques con total y %, y la barra de proporción) y una
+                         fila por tipo debajo. Los ids de las cifras no cambian: los llena
+                         updateStatCards(); el % y las filas, pintarPorTipo(). --}}
                     <div id="fdm-panel-age" class="fdm-panel">
                         <div class="fdm-panel-head">
-                            <span class="fdm-panel-title">
-                                <i class="material-icons">bar_chart</i>
-                                Flota Nueva vs Vieja por Tipo
-                            </span>
-                            {{-- Los totales de flota nueva/antigua viven AQUI (antes eran dos
-                                 tarjetas sueltas arriba): son el desglose de este grafico. Los
-                                 ids no cambian, asi que updateStatCards() los sigue llenando. --}}
-                            <span class="fdm-keys">
-                                <span class="fdm-key"><i class="fdm-dot" data-serie="0"></i>Nueva (&ge;2025) <b id="stat_fleet_new">0</b></span>
-                                <span class="fdm-key"><i class="fdm-dot" data-serie="1"></i>Antigua (&lt;2025) <b id="stat_fleet_old">0</b></span>
-                            </span>
+                            <span class="fdm-panel-title">Flota Nueva vs Vieja por Tipo</span>
                             <button onclick="window.descargarPanelHtmlFDM('fdm-panel-age', 'flota_edad_tipo')" title="Descargar imagen" class="fdm-cam">
                                 <i class="material-icons">photo_camera</i>
                             </button>
                         </div>
-                        <canvas id="chartAgeByType"></canvas>
+                        <div class="fdm-resumen">
+                            <div class="fdm-res" data-serie="0"><span class="fdm-res-lbl">Nueva (&ge;2025)</span><b id="stat_fleet_new">0</b><span class="fdm-res-pct"></span></div>
+                            <div class="fdm-res" data-serie="1"><span class="fdm-res-lbl">Antigua (&lt;2025)</span><b id="stat_fleet_old">0</b><span class="fdm-res-pct"></span></div>
+                        </div>
+                        <div class="fdm-res-prop"></div>
+                        <div id="chartAgeByType" class="fdm-filas"></div>
                     </div>
 
                     <!-- Equipos Auxiliares por Tipo (mismo corte de edad que el de arriba) -->
+                    {{-- Mismo diseño. El bloque "Sin año" solo aparece si hay auxiliares sin
+                         ANIO cargado (lo muestra/oculta updateStatCards). --}}
                     <div id="fdm-panel-auxiliares" class="fdm-panel">
                         <div class="fdm-panel-head">
-                            <span class="fdm-panel-title">
-                                <i class="material-icons">construction</i>
-                                Auxiliares Nuevos vs Viejos por Tipo
-                            </span>
-                            {{-- Mismas claves que el panel de equipos: este grafico mide lo
-                                 mismo (edad por tipo), asi que se lee igual. La tercera,
-                                 "Sin año", solo aparece si hay auxiliares sin ANIO cargado
-                                 — la muestra/oculta updateStatCards. --}}
-                            <span class="fdm-keys">
-                                <span class="fdm-key"><i class="fdm-dot" data-serie="0"></i>Nueva (&ge;2025) <b id="stat_aux_new">0</b></span>
-                                <span class="fdm-key"><i class="fdm-dot" data-serie="1"></i>Antigua (&lt;2025) <b id="stat_aux_old">0</b></span>
-                                <span class="fdm-key" id="stat_aux_sin_key" style="display:none;"><i class="fdm-dot" data-serie="2"></i>Sin año <b id="stat_aux_sin">0</b></span>
-                            </span>
+                            <span class="fdm-panel-title">Auxiliares Nuevos vs Viejos por Tipo</span>
                             <button onclick="window.descargarPanelHtmlFDM('fdm-panel-auxiliares', 'auxiliares_por_tipo')" title="Descargar imagen" class="fdm-cam">
                                 <i class="material-icons">photo_camera</i>
                             </button>
                         </div>
-                        <canvas id="chartAuxByType"></canvas>
+                        <div class="fdm-resumen">
+                            <div class="fdm-res" data-serie="0"><span class="fdm-res-lbl">Nueva (&ge;2025)</span><b id="stat_aux_new">0</b><span class="fdm-res-pct"></span></div>
+                            <div class="fdm-res" data-serie="1"><span class="fdm-res-lbl">Antigua (&lt;2025)</span><b id="stat_aux_old">0</b><span class="fdm-res-pct"></span></div>
+                            <div class="fdm-res" data-serie="2" id="stat_aux_sin_key" style="display:none;"><span class="fdm-res-lbl">Sin año</span><b id="stat_aux_sin">0</b><span class="fdm-res-pct"></span></div>
+                        </div>
+                        <div class="fdm-res-prop"></div>
+                        <div id="chartAuxByType" class="fdm-filas"></div>
                     </div>
 
                     <!-- Equipos Asignados por Frente (al final) — DENTRO de #fleetChartsGrid: es un
@@ -1331,11 +1316,10 @@
                     <div id="fdm-panel-assigned" class="fdm-panel">
                         <div class="fdm-panel-head">
                             <span class="fdm-panel-title">
-                                <i class="material-icons">directions_bus</i>
                                 Equipos Asignados por Frente
                                 <span style="font-size:11px; color:var(--fd-ink-2); font-weight:400;">— flota actual en cada frente</span>
                             </span>
-                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-assigned', 'equipos_asignados_por_frente')" title="Descargar imagen" class="fdm-cam" style="margin-left:auto;">
+                            <button onclick="window.descargarPanelHtmlFDM('fdm-panel-assigned', 'equipos_asignados_por_frente')" title="Descargar imagen" class="fdm-cam">
                                 <i class="material-icons">photo_camera</i>
                             </button>
                         </div>
