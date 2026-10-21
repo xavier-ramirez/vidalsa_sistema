@@ -689,7 +689,12 @@
         var ident = el('div', 'cpdf-atar-ident');
         ident.appendChild(l1);
         var marcas = el('div', 'cpdf-atar-marcas');
-        if (eq.distancia === -1) marcas.appendChild(el('span', 'cpdf-atar-et verde', 'Igual a lo leído'));
+        // Igual a lo leído: lo dice la propia tarjeta (antes era un aviso aparte encima de la lista).
+        if (eq.distancia === -1) {
+            var igual = marcas.appendChild(el('span', 'cpdf-atar-et verde'));
+            igual.appendChild(el('i', 'material-icons', 'check_circle'));
+            igual.appendChild(document.createTextNode('Tiene ese mismo dato'));
+        }
         if (bloqueado) marcas.appendChild(el('span', 'cpdf-atar-et rojo', 'Ya está en el BL ' + eq.bl + (eq.bl_desde ? ' desde el ' + window.formatearFecha(eq.bl_desde) : '')));
         else if (eq.tiene) {
             // Ya tiene este documento: sus fechas, para ver si el PDF que se ata es el MISMO.
@@ -762,18 +767,19 @@
                 // para no tener que escoger entre seis tractores casi iguales.
                 var d = equipos[0].distancia;
                 var cerca = equipos.filter(function (eq) { return eq.distancia === d; });
-                var nota = document.createElement('div');
-                nota.className = 'cpdf-atar-nota ' + (d === -1 ? 'verde' : d === 0 ? 'azul' : 'ambar');
-                var ico = document.createElement('i');
-                ico.className = 'material-icons';
-                ico.textContent = d === -1 ? 'check_circle' : d === 0 ? 'search' : 'warning_amber';
-                nota.appendChild(ico);
-                nota.appendChild(document.createTextNode(d === -1
-                    ? (cerca.length === 1 ? 'Este equipo tiene ese mismo dato.' : 'Estos equipos tienen ese mismo dato.')
-                    : d === 0 ? 'Equipos que contienen lo escrito.'
-                    : 'Ninguno es igual. El más parecido cambia ' + d + (d === 1 ? ' carácter' : ' caracteres')
-                      + ' (en rojo): compáralo antes de atar.'));
-                lista.appendChild(nota);
+                // El aviso de arriba solo cuando NO es igual (el igual lo dice su tarjeta).
+                if (d !== -1) {
+                    var nota = document.createElement('div');
+                    nota.className = 'cpdf-atar-nota ' + (d === 0 ? 'azul' : 'ambar');
+                    var ico = document.createElement('i');
+                    ico.className = 'material-icons';
+                    ico.textContent = d === 0 ? 'search' : 'warning_amber';
+                    nota.appendChild(ico);
+                    nota.appendChild(document.createTextNode(d === 0 ? 'Equipos que contienen lo escrito.'
+                        : 'Ninguno es igual. El más parecido cambia ' + d + (d === 1 ? ' carácter' : ' caracteres')
+                          + ' (en rojo): compáralo antes de atar.'));
+                    lista.appendChild(nota);
+                }
                 cerca.forEach(function (eq, n) { lista.appendChild(cpdfAtarFila(eq, n)); });
                 var resto = equipos.slice(cerca.length);
                 if (resto.length) {
@@ -808,8 +814,8 @@
         cpdfAtarEl('cpdfAtarLeidoEti').textContent = o.leidoEti;
         cpdfAtarEl('cpdfAtarLeido').textContent = o.leido || '';
         var f = o.fechas || {};
-        cpdfAtarEl('cpdfAtarFechas').textContent = [f.emision && 'Emisión ' + window.formatearFecha(f.emision), f.vence && 'Vence ' + window.formatearFecha(f.vence)]
-            .filter(Boolean).join(' · ');
+        cpdfAtarEl('cpdfAtarEmision').textContent = f.emision ? window.formatearFecha(f.emision) : '';
+        cpdfAtarEl('cpdfAtarVence').textContent = f.vence ? window.formatearFecha(f.vence) : '';
         var campo = cpdfAtarEl('cpdfAtarBuscar');
         campo.value = o.inicial || '';
         cpdfAtarEl('cpdfAtarModal').hidden = false;
@@ -846,7 +852,7 @@
     // Atar un PDF que no se enlazó solo a la ficha elegida. Si esa ficha ya tiene ese documento,
     // el servidor responde requiere_pisar y se pregunta en la fila antes de reemplazarlo.
     window.cpdfAtarDocumento = function (link, inicial, tipo, doc, archivo, fechas) {
-        window.cpdfAbrirAtar({ doc: doc, archivo: archivo, leidoEti: inicial ? 'Se leyó' : 'No se leyó placa ni serial', leido: inicial, fechas: fechas,
+        window.cpdfAbrirAtar({ doc: doc, archivo: archivo, leidoEti: 'Se leyó', leido: inicial || 'Ni placa ni serial', fechas: fechas,
             inicial: inicial, tipo: tipo, bloquearConBl: false, atar: function (eq, ui) {
                 var enviar = function (reemplazar) {
                     window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-documento')),
