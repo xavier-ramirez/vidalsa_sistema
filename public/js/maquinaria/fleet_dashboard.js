@@ -84,6 +84,7 @@ function renderFleetEquiposAsignados(lista, frenteActual) {
 
     lista = [...lista].sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
     const max = Number(lista[0].total) || 1;
+    const esc = window.escapeHtml;
     const actual = (frenteActual || '').trim().toUpperCase();
 
     // Tarjeta blanca de una línea (puesto · frente · cifra); el color, por tramos según el
@@ -97,7 +98,7 @@ function renderFleetEquiposAsignados(lista, frenteActual) {
         return `
             <div class="fdm-asig ${banda}${esActual ? ' fdm-asig--actual' : ''}">
                 <span class="fdm-asig-pos">${i + 1}</span>
-                <span class="fdm-asig-nom" title="${row.frente}">${row.frente}</span>
+                <span class="fdm-asig-nom" title="${esc(row.frente)}">${esc(row.frente)}</span>
                 <div class="fdm-asig-cifra">
                     <b>${row.total}</b><span>equipo${row.total !== 1 ? 's' : ''}</span>
                 </div>
@@ -107,16 +108,14 @@ function renderFleetEquiposAsignados(lista, frenteActual) {
 }
 
 /**
- * Open Fleet Dashboard Modal
- */
-/**
  * Muestra/quita el aviso de "esto necesita internet" dentro del área de gráficos.
  *
- * Los paneles se OCULTAN, no se borran, y esto NO es un detalle de estilo: createCharts()
- * busca sus <canvas> por id (chartAgeByType, …), así que reemplazar el innerHTML del
- * contenedor los destruye para siempre. Si después vuelve la conexión SIN recargar la
- * página —caso real: el banner de "Conexión restaurada" no recarga si el usuario nunca
- * activó el modo offline— el Dashboard ya no podría dibujar ningún gráfico.
+ * Los paneles se OCULTAN, no se borran, y esto NO es un detalle de estilo: pintarPorTipo()
+ * y renderFleetEquiposAsignados() buscan sus contenedores por id (chartAgeByType,
+ * fleetEqAsigBody, …), así que reemplazar el innerHTML del contenedor los destruye para
+ * siempre. Si después vuelve la conexión SIN recargar la página —caso real: el banner de
+ * "Conexión restaurada" no recarga si el usuario nunca activó el modo offline— el
+ * Dashboard ya no podría pintar nada.
  */
 function avisoSinConexion(activo) {
     const charts = document.getElementById('fleetChartsGrid');

@@ -163,8 +163,8 @@ class EquipoController extends Controller
     /**
      * ¿La card de Distribución va por FRENTE («Ubicación por Frente») en vez de por tipo?
      * Sí cuando se filtra por tipo o por modelo sin frente: la pregunta es «¿dónde están?».
-     * Por modelo, la lista por tipo sale con un solo tipo y no dice nada. La MISMA regla
-     * vive en pintarDistribucion() de equipos-offline.js y en distribution_stats.blade.php.
+     * Por modelo, la lista por tipo sale con un solo tipo y no dice nada. La MISMA regla,
+     * sin conexión, vive en pintarDistribucion() de equipos-offline.js.
      */
     private function distribucionPorFrente(Request $request): bool
     {
