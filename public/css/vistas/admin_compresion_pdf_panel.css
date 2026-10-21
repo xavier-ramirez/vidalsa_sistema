@@ -178,9 +178,10 @@
     .cpdf-estado.aplicado { color: #16a34a; cursor: help; }
     /* Filas que se pueden dar por revisadas: se eligen con un clic en cualquier parte y se
        resaltan con .selected-row-maquinaria, el mismo azul que en Equipos (estilos_globales.css,
-       solo escritorio); el cursor no cambia (pedido del cliente). En teléfono esa regla no aplica: aquí el mismo azul de fondo. */
+       solo escritorio); el cursor no cambia (pedido del cliente). En teléfono esa regla no aplica:
+       el mismo azul y el mismo borde, en la tarjeta ENTERA (las celdas van transparentes). */
     @media (max-width: 768px) {
-        .cpdf-tabla-caja tr.cpdf-fila-sel.selected-row-maquinaria td { background-color: #bae6fd !important; }
+        .cpdf-tabla-caja tr.cpdf-fila-sel.selected-row-maquinaria { background-color: #bae6fd !important; border-color: var(--maquinaria-blue, #0067b1) !important; }
     }
     /* Cada dato que no cuadra, en una linea: etiqueta, lo de la ficha (tachado) y lo del documento.
        La MISMA letra para las tres partes (tamaño y grosor): solo cambia el color (pedido del
@@ -288,7 +289,7 @@
     /* Angosto: una columna. stretch y no flex-start: con flex-start la tarjeta tomaba el
        ancho de la TABLA (816 px en un teléfono de 390) y la página se salía por la derecha;
        así toma el de la pantalla y la tabla se desplaza dentro de .cpdf-tabla-caja. El
-       resumen va ARRIBA (order): debajo quedaba después de 50 filas. */
+       resumen va ARRIBA (order); en el teléfono, debajo (ver el @media de 768 px). */
     @media (max-width: 1024px) {
         .cpdf-layout { flex-direction: column; align-items: stretch; }
         .cpdf-side { order: -1; width: 100%; flex-basis: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -393,6 +394,8 @@
             justify-self: stretch; justify-content: flex-end;
             margin-right: -12px; padding: 7px 12px 7px 8px !important; border-radius: 0 0 11px 0; }
 
-        /* La barra de "Revisado" no tapa la última tarjeta. */
-        .cpdf-main { padding-bottom: 60px; }
+        /* "Por dónde va la revisión", DEBAJO de la tabla (pedido del cliente, 21-10-2026); el
+           hueco del final es para que la barra de "Revisado" no tape lo último. */
+        .cpdf-side { order: 0; }
+        .cpdf-layout { padding-bottom: 60px; }
     }

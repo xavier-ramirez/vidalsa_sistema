@@ -212,10 +212,6 @@
             align-items: center;
             transition: border-color 0.15s, background 0.15s;
         }
-        .table-historial-mobile tbody tr.hd-row-selected {
-            border-color: #0067b1;
-            background: #f0f9ff;
-        }
         .table-historial-mobile tbody td {
             border: none !important;
             padding: 0 !important;

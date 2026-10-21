@@ -250,11 +250,11 @@
             overflow-y: auto;
         }
     }
-    /* Móvil: card completa celeste (mismo patrón que equipos) */
+    /* Móvil: la tarjeta entera con el azul de la PC (pedido del cliente, 21-10-2026). */
     @media (max-width: 768px) {
         #historialDocumentosTable tr.selected-row-maquinaria {
             border: 2px solid var(--maquinaria-blue, #0067b1) !important;
-            background-color: #f0f9ff !important;
+            background-color: #e1effa !important;
             /* La franja de la izquierda, bien marcada: es lo que se ve de un vistazo. */
             box-shadow: inset 7px 0 0 var(--maquinaria-blue, #0067b1), 0 4px 12px rgba(0, 103, 177, 0.15) !important;
         }
@@ -382,14 +382,6 @@ window.hdDeleteRegistro = function (source, id, btn) {
 if (!window._hdInlineClickRegistered) {
     window._hdInlineClickRegistered = true;
 
-    document.addEventListener('click', function (e) {
-        var tr = e.target.closest('.table-historial-mobile tbody tr');
-        if (!tr || tr.classList.contains('hd-has-cambios')) return;
-        document.querySelectorAll('.table-historial-mobile tbody tr.hd-row-selected').forEach(function (o) {
-            if (o !== tr) o.classList.remove('hd-row-selected');
-        });
-        tr.classList.toggle('hd-row-selected');
-    });
     // Abrir y cerrar viven en un punto unico: los usan el raton, el toque y la X.
     // Global porque la X de dentro de la burbuja se pinta en table_rows con un
     // onclick inline: sin exponerla, ese onclick no alcanza a una funcion
