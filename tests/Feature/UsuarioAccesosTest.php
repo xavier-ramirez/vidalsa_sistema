@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Http\Controllers\UserController;
 use App\Models\Role;
+use App\Models\Usuario;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\MySqlTestCase;
@@ -89,6 +90,6 @@ class UsuarioAccesosTest extends MySqlTestCase
         // Reiniciarle la clave sí: la próxima vez que entre, cambia la clave.
         $this->actingAs($admin)->putJson('/admin/usuarios/' . $id, $datos + ['password' => '123456'])->assertOk();
         $this->assertSame(1, $requiere());
-        $this->actingAs(\App\Models\Usuario::find($id))->get('/menu')->assertRedirect(route('password.change'));
+        $this->actingAs(Usuario::find($id))->get('/menu')->assertRedirect(route('password.change'));
     }
 }
