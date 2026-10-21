@@ -158,6 +158,29 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertStringContainsString('window.cpdfDescartarCarga', $html, 'Y descartar.');
     }
 
+    /**
+     * Lo que lee la IA se nombra "Revisión automática" (pedido del cliente, 21-10-2026), también
+     * en las filas guardadas antes con "(según la IA)" / "La IA lee distinto: ".
+     */
+    public function test_lo_que_lee_la_ia_se_nombra_revision_automatica(): void
+    {
+        $marca = 'IAVIEJA-' . strtoupper(Str::random(6));
+        DB::table('verificacion_documento_registro')->insert([
+            'TIPO' => 'propiedad', 'ESTADO' => VerificacionDocumento::DIFIERE, 'ORIGEN' => VerificacionDocumento::DE_LA_NOCHE,
+            'MOTIVO' => 'La IA lee distinto: Serial de chasis (según la IA)', 'PLACA' => $marca,
+            'DIFERENCIAS' => json_encode(['IA_SERIAL_CHASIS' => ['etiqueta' => 'Serial de chasis (según la IA)', 'ficha' => 'AAA111', 'documento' => 'AAA11I']]),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $html = $this->actingAs($this->usuario('super.admin,docs.carga.masiva'))
+            ->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => $marca]))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Revisión automática', $html);
+        $this->assertStringContainsString('La revisión automática lee distinto: Serial de chasis"', $html, 'El motivo viejo, traducido y sin repetir la marca.');
+        $this->assertStringNotContainsString('según la IA', $html);
+        $this->assertStringNotContainsString('La IA lee distinto', $html);
+    }
+
     public function test_sin_ninguno_de_los_dos_no_entra_ni_ve_el_enlace(): void
     {
         $u = $this->usuario('equipos.create');

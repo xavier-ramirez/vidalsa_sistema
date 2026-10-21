@@ -169,7 +169,7 @@
                                 <span class="cpdf-ident">{{ $d->PLACA ?: ($d->SERIAL ?: '—') }}</span>
                                 @if ($d->PLACA && $d->SERIAL) <small class="cpdf-sub">{{ $d->SERIAL }}</small> @endif
                             </td>
-                            <td><span class="cpdf-estado {{ $d->ESTADO }}" @if ($d->MOTIVO) title="{{ $d->MOTIVO }}" @endif>{{ $estadosDoc[$d->ESTADO] ?? $d->ESTADO }}</span></td>
+                            <td><span class="cpdf-estado {{ $d->ESTADO }}" @if ($d->MOTIVO) title="{{ $d->motivoParaVer() }}" @endif>{{ $estadosDoc[$d->ESTADO] ?? $d->ESTADO }}</span></td>
                             {{-- Solo lo que NO cuadra: a la izquierda lo de la ficha (tachado), a la
                                  derecha lo que dice el PDF. Si todo cuadra, lo leido en gris. Lo que
                                  lee distinto la IA (IA_*) no se tacha: puede equivocarse ella, y se
@@ -181,18 +181,18 @@
                                 @forelse ($d->DIFERENCIAS ?? [] as $campo => $dif)
                                     @php $cpdfEsIa = str_starts_with($campo, 'IA_'); @endphp
                                     <div class="cpdf-dif">
-                                        {{-- "(según la IA)" ya lo dice el rótulo del valor propuesto. --}}
-                                        <span class="cpdf-dif-eti">{{ str_replace(' (según la IA)', '', $dif['etiqueta']) }}:</span>
+                                        {{-- "(revisión automática)" ya lo dice el rótulo del valor propuesto. --}}
+                                        <span class="cpdf-dif-eti">{{ str_replace(\App\Models\VerificacionDocumento::MARCA_IA, '', \App\Models\VerificacionDocumento::textoParaVer($dif['etiqueta'])) }}:</span>
                                         {{-- Rótulo y valor van juntos (cpdf-dif-par): al partirse la línea
                                              no se quedaba el rótulo arriba y su valor abajo. --}}
                                         <span class="cpdf-dif-par"><span class="cpdf-dif-rot">Ficha</span>
                                             <span class="cpdf-dif-ficha{{ $cpdfEsIa ? ' ia' : '' }}{{ ($dif['ficha'] ?? '') === '' ? ' vacio' : '' }}">{{ $cpdfVer($dif['ficha'] ?? '') ?: 'vacío' }}</span></span>
                                         <i class="material-icons cpdf-flecha">arrow_forward</i>
-                                        <span class="cpdf-dif-par"><span class="cpdf-dif-rot">{{ $cpdfEsIa ? 'Según la IA' : 'Según el PDF' }}</span>
+                                        <span class="cpdf-dif-par"><span class="cpdf-dif-rot">{{ $cpdfEsIa ? 'Revisión automática' : 'Según el PDF' }}</span>
                                             <span class="cpdf-dif-doc">{{ $cpdfVer($dif['documento'] ?? '') }}</span></span>
                                     </div>
                                 @empty
-                                    <span class="cpdf-motivo">{{ $d->MOTIVO ?: 'Todo coincide con el documento' }}</span>
+                                    <span class="cpdf-motivo">{{ $d->motivoParaVer() ?: 'Todo coincide con el documento' }}</span>
                                 @endforelse
                                 {{-- Un PDF de la carga que no se enlazó solo (no se supo de quién es, lo
                                      leyó la IA, venía con algo que mirar): se ata a mano buscando el
@@ -252,7 +252,7 @@
                                 @elseif ($d->DRIVE_ID)
                                     {{-- Abre el PDF con los campos de la ficha para revisarla (ver cpdfRevisar). --}}
                                     <button type="button" class="pdf-doc-btn" title="Ver el documento y revisar la ficha"
-                                        onclick="window.cpdfRevisar(@js(['id' => $d->ID_REGISTRO, 'equipoId' => (int) $d->ID_EQUIPO, 'tipo' => $d->TIPO, 'dif' => (object) $d->diferenciasParaVer(), 'estado' => $estadosDoc[$d->ESTADO] ?? $d->ESTADO, 'motivo' => $d->MOTIVO, 'inicio' => \App\Models\VerificacionDocumento::inicioDelDocumento($d->LEIDO), 'fiable' => !($d->esLecturaParcial() || $d->sinConfirmar() || $d->esDeOtroVehiculo() || $d->esDocumentoAnterior())]), '/storage/google/{{ $d->DRIVE_ID }}', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')))">
+                                        onclick="window.cpdfRevisar(@js(['id' => $d->ID_REGISTRO, 'equipoId' => (int) $d->ID_EQUIPO, 'tipo' => $d->TIPO, 'dif' => (object) $d->diferenciasParaVer(), 'estado' => $estadosDoc[$d->ESTADO] ?? $d->ESTADO, 'motivo' => $d->motivoParaVer(), 'inicio' => \App\Models\VerificacionDocumento::inicioDelDocumento($d->LEIDO), 'fiable' => !($d->esLecturaParcial() || $d->sinConfirmar() || $d->esDeOtroVehiculo() || $d->esDocumentoAnterior())]), '/storage/google/{{ $d->DRIVE_ID }}', @js(($tiposDoc[$d->TIPO] ?? '') . ' ' . ($d->PLACA ?: $d->SERIAL ?: '')))">
                                         <i class="material-icons">description</i>
                                     </button>
                                 @endif
@@ -964,7 +964,7 @@
                 var esIa = /^IA_/.test(campo), base = esIa ? campo.slice(3) : campo;
                 var input = CAMPO[base] && cont.querySelector('[name="' + CAMPO[base] + '"]');
                 if (esIa && !input) return;
-                var rotDoc = esIa ? 'Según la IA:' : 'Documento:';
+                var rotDoc = esIa ? 'Revisión automática:' : 'Documento:';
                 // La placa y el serial de un PDF "de otro vehiculo" (diferenciasParaVer): sin su
                 // casilla en el panel solo van en la lista de arriba, nunca como campo aparte.
                 if (!input && d.solo_ver) return;
@@ -996,11 +996,11 @@
                 if (cpdfMismo(actual, valor)) {
                     // La ficha ya dice lo del documento. Si al leerse el PDF decia otra cosa (alguien
                     // la corrigio despues), se sigue viendo como estaba, con su "Usar" para volver.
-                    opciones = antes !== '' && !cpdfMismo(antes, valor) ? [['Antes en la ficha:', antes], [esIa ? 'Ficha e IA:' : 'Ficha y documento:', valor]] : null;
+                    opciones = antes !== '' && !cpdfMismo(antes, valor) ? [['Antes en la ficha:', antes], [esIa ? 'Ficha y revisión automática:' : 'Ficha y documento:', valor]] : null;
                 }
                 if (!opciones) {
                     // Coinciden y siempre coincidieron: nada que elegir.
-                    var igual = pista(esIa ? 'Ficha e IA:' : 'Ficha y documento:', valor);
+                    var igual = pista(esIa ? 'Ficha y revisión automática:' : 'Ficha y documento:', valor);
                     igual.appendChild(cpdfNodo('em', 'cpdf-igual', 'iguales'));
                     caja.appendChild(igual);
                 } else {
@@ -1035,17 +1035,19 @@
             var enExtra = {};
             otras.forEach(function (o) { enExtra[o[0]] = true; });
             var lista = cpdfNodo('div', 'cpdf-rev-lista');
-            // Lo que lee la IA va con el nombre del dato, sin "(según la IA)": la tarjeta ya
-            // enseña la ficha y lo leído, que es lo que hace falta para decidir (pedido del
+            // Lo que lee la IA va con el nombre del dato, sin "(revisión automática)": la tarjeta
+            // ya enseña la ficha y lo leído, que es lo que hace falta para decidir (pedido del
             // cliente, 21-10-2026). Solo si el mismo dato sale también del documento se le deja
-            // la marca, para no tener dos filas iguales.
+            // la marca, para no tener dos filas iguales (las etiquetas llegan ya con el nombre de
+            // hoy: VerificacionDocumento::diferenciasParaVer).
             var etiquetas = Object.keys(dif).filter(function (c) { return !enExtra[c]; })
                 .map(function (c) { return (dif[c] || {}).etiqueta || c; });
-            var sinIa = function (e) { return String(e).replace(/ \(según la IA\)$/, ''); };
+            var MARCA_IA = @json(\App\Models\VerificacionDocumento::MARCA_IA);
+            var sinIa = function (e) { return String(e).split(MARCA_IA).join(''); };
             Object.keys(dif).forEach(function (campo) {
                 if (enExtra[campo]) return;
                 var d = dif[campo] || {}, etiqueta = d.etiqueta || campo;
-                if (/^IA_/.test(campo) && etiquetas.indexOf(sinIa(etiqueta)) === -1) etiqueta = sinIa(etiqueta);
+                if (/^IA_/.test(campo)) etiqueta = sinIa(etiqueta) + (etiquetas.indexOf(sinIa(etiqueta)) === -1 ? '' : MARCA_IA);
                 lista.appendChild(cpdfNodo('div', 'cpdf-rev-dif', [
                     cpdfNodo('div', 'cpdf-rev-campo', etiqueta),
                     cpdfNodo('div', 'cpdf-rev-val', [cpdfValor(d.ficha, 'cpdf-rev-ficha'), cpdfIcono('arrow_forward'), cpdfValor(d.documento, 'cpdf-rev-doc')]),
@@ -1053,11 +1055,12 @@
             });
             // El motivo, corto: "de otro vehiculo" ya trae los dos seriales/placas, que salen en la
             // lista de abajo; repetirlos alargaba la tarjeta (pedido del cliente, 19-10-2026). Por
-            // lo mismo se quita "La IA lee distinto: <datos>": esos datos son las filas de abajo.
+            // lo mismo se quita "La revisión automática lee distinto: <datos>" (el de las filas de
+            // antes ya llega traducido, ver motivoParaVer): esos datos son las filas de abajo.
             var motivo = v.motivo || '';
             if (lista.childNodes.length) {
                 if (/^El documento es de otro vehiculo/.test(motivo)) motivo = 'Es de otro vehículo';
-                motivo = motivo.replace(/(^|\.\s*)La IA lee distinto:.*$/, '').trim();
+                motivo = motivo.replace(/(^|\.\s*)La revisión automática lee distinto:.*$/, '').trim();
             }
             if (motivo) aviso.appendChild(cpdfNodo('div', 'cpdf-rev-motivo', motivo));
             if (lista.childNodes.length) aviso.appendChild(lista);

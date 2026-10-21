@@ -433,7 +433,8 @@ class VerificacionDocumento extends Model
      */
     public function diferenciasParaVer(): array
     {
-        $dif = $this->DIFERENCIAS ?? [];
+        $dif = array_map(fn ($d) => is_array($d) && isset($d['etiqueta']) ? ['etiqueta' => self::textoParaVer($d['etiqueta'])] + $d : $d,
+            $this->DIFERENCIAS ?? []);
         if (!$this->esDeOtroVehiculo()) return $dif;
         $limpio = fn ($v) => preg_replace('/[^A-Z0-9]/', '', mb_strtoupper((string) $v));
         foreach (['SERIAL_CHASIS' => ['Serial de chasis', $this->SERIAL, $this->LEIDO['serial'] ?? null],
@@ -497,6 +498,31 @@ class VerificacionDocumento extends Model
     }
 
     /** El motivo de un documento que vence y no tiene fecha ni la deja leer (ver VerificarDocumentos). */
+    /**
+     * Cómo se nombra en pantalla lo que lee la IA (pedido del cliente, 21-10-2026: "revisión
+     * automática" en vez de "la IA"). Lo escribe VerificarDocumentos; las filas de antes llevan
+     * el nombre viejo y se enseñan traducidas (textoParaVer), así la pantalla solo conoce este.
+     */
+    public const MARCA_IA  = ' (revisión automática)';
+    public const MOTIVO_IA = 'La revisión automática lee distinto: ';
+
+    /** Una etiqueta guardada con el nombre de hoy: las filas de antes decían "(según la IA)". */
+    public static function textoParaVer(?string $texto): ?string
+    {
+        return $texto === null ? null : str_replace(' (según la IA)', self::MARCA_IA, $texto);
+    }
+
+    /**
+     * El MOTIVO tal como se enseña: con el nombre de hoy y sin repetir la marca en cada dato
+     * ("La revisión automática lee distinto: Fecha de emisión", no "…: Fecha de emisión
+     * (revisión automática)"). Las filas de antes la llevan; las nuevas ya no (VerificarDocumentos).
+     */
+    public function motivoParaVer(): ?string
+    {
+        return $this->MOTIVO === null ? null
+            : str_replace(['La IA lee distinto: ', ' (según la IA)', self::MARCA_IA], [self::MOTIVO_IA, '', ''], $this->MOTIVO);
+    }
+
     public const MOTIVO_SIN_FECHA = 'No tiene fecha de vencimiento y el documento no la deja leer: ponla en el visor.';
 
     /**

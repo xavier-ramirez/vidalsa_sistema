@@ -250,8 +250,8 @@ class VerificarDocumentos extends Command
                     'DIFERENCIAS' => ($reg->DIFERENCIAS ?? []) + $contra,
                     'ESTADO'      => VerificacionDocumento::DIFIERE,
                     'A_MANO'      => true,
-                    'MOTIVO'      => mb_substr(trim(($reg->MOTIVO ? $reg->MOTIVO . '. ' : '') . 'La IA lee distinto: '
-                        . implode(', ', array_column($contra, 'etiqueta'))), 0, 255),
+                    'MOTIVO'      => mb_substr(trim(($reg->MOTIVO ? $reg->MOTIVO . '. ' : '') . VerificacionDocumento::MOTIVO_IA
+                        . $this->datosDelContraste($contra)), 0, 255),
                 ];
             }
             $reg->update($cambios);
@@ -464,8 +464,8 @@ class VerificarDocumentos extends Command
                     $diferencias += $contra;
                     $leido['revisar_ia'] = true;
                     $estado = VerificacionDocumento::DIFIERE;
-                    $motivo = mb_substr(trim(($motivo ? $motivo . '. ' : '') . 'La IA lee distinto: '
-                        . implode(', ', array_column($contra, 'etiqueta'))), 0, 255);
+                    $motivo = mb_substr(trim(($motivo ? $motivo . '. ' : '') . VerificacionDocumento::MOTIVO_IA
+                        . $this->datosDelContraste($contra)), 0, 255);
                 }
             }
         } elseif ($estado === VerificacionDocumento::ILEGIBLE && !$this->option('sin-ia') && $driveId
@@ -863,6 +863,12 @@ class VerificarDocumentos extends Command
         return is_array($leido) && is_array($leido['ia'] ?? null) ? $leido['ia'] : null;
     }
 
+    /** Los datos de contrasteIa, para el motivo: el nombre de cada uno, sin la marca (ya la dice MOTIVO_IA). */
+    private function datosDelContraste(array $contra): string
+    {
+        return implode(', ', array_map(fn ($d) => str_replace(VerificacionDocumento::MARCA_IA, '', $d['etiqueta']), $contra));
+    }
+
     /**
      * Lo que la IA lee en un TITULO distinto de la ficha: placa, serial, numero, emision y
      * propietario. Solo cuenta si el OCR tampoco respalda a la ficha (su valor no esta en el
@@ -893,7 +899,7 @@ class VerificarDocumentos extends Command
             // "N/A" no es una lectura: es la casilla vacia del formulario (Serial Carroceria: N/A).
             $vacio = fn ($v) => in_array($lector->normalizar($v), ['', 'N A', 'NA', 'NO APLICA'], true);
             if ($vacio($enFicha) || $vacio($dice) || $iguales((string) $enFicha, (string) $dice)) continue;
-            $dif['IA_' . $campo] = ['etiqueta' => $etiqueta . ' (según la IA)', 'ficha' => $enFicha, 'documento' => $dice];
+            $dif['IA_' . $campo] = ['etiqueta' => $etiqueta . VerificacionDocumento::MARCA_IA, 'ficha' => $enFicha, 'documento' => $dice];
         }
         return $dif;
     }
