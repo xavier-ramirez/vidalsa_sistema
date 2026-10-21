@@ -187,6 +187,33 @@
         .fdm-fila-barra i { display: block; min-width: 4px; }
         .fdm-vacio { margin: 0; padding: 14px 0 6px; text-align: center; font-size: 13px; color: var(--fd-ink-2); }
 
+        /* ── Equipos Asignados por Frente (renderFleetEquiposAsignados) ─────────
+           Degradados azules como las tarjetas KPI, del más fuerte al más claro según el
+           puesto; letra blanca. --actual marca el frente elegido en el dashboard. */
+        .fdm-asig-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; }
+        .fdm-asig {
+            display: flex; flex-direction: column; gap: 4px;
+            padding: 11px 13px 10px; border-radius: 14px; color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,.1);
+        }
+        .fdm-asig--b0 { background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%); }
+        .fdm-asig--b1 { background: linear-gradient(135deg, #0a3a7a 0%, #1d5fa8 100%); }
+        .fdm-asig--b2 { background: linear-gradient(135deg, #15569c 0%, #2f78c0 100%); }
+        .fdm-asig--b3 { background: linear-gradient(135deg, #2668ad 0%, #4a8fd0 100%); }
+        .fdm-asig--actual { outline: 3px solid #911a24; outline-offset: 2px; }
+        .fdm-asig-top { display: flex; align-items: flex-start; gap: 7px; min-width: 0; }
+        .fdm-asig-pos {
+            flex-shrink: 0; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box;
+            border-radius: 999px; background: rgba(255,255,255,.22);
+            font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
+        }
+        .fdm-asig-nom { font-size: 11.5px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; padding-top: 2px; }
+        .fdm-asig-cifra { display: flex; align-items: baseline; gap: 6px; margin-top: auto; }
+        .fdm-asig-cifra b { font-size: 24px; font-weight: 800; line-height: 1.1; letter-spacing: -.5px; }
+        .fdm-asig-cifra span { font-size: 14px; font-weight: 600; opacity: .9; }
+        .fdm-asig-prop { height: 5px; border-radius: 999px; background: rgba(255,255,255,.2); overflow: hidden; }
+        .fdm-asig-prop i { display: block; height: 100%; border-radius: 999px; background: #fff; }
+
         .fdm-cam {
             border: none;
             background: transparent;

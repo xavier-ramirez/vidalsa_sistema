@@ -3923,8 +3923,8 @@ class EquipoController extends Controller
             // No excluir ESPECIAL si el usuario está filtrando explícitamente por uno (drill-down).
             $excluirFueraDeFlota = !FrenteTrabajo::esFueraDeFlota($requestedFrenteId);
 
-            // Cache key — v11: «Equipos por frente» usa el scope del usuario y quita
-            // los desincorporados (cambia el número, no la forma).
+            // Cache key — v12: «Equipos por frente» trae todos los frentes aunque se
+            // pida uno. v11: usa el scope del usuario y quita los desincorporados.
             // v10: el payload trae dos campos nuevos, equipos_gasoil y
             // equipos_gasolina, para las tarjetas de conteo por combustible.
             // v9: el consumo total descuenta los chutos que andan con lowboy
@@ -3943,7 +3943,7 @@ class EquipoController extends Controller
             // usar auth()->id()/ID_USUARIO — con $user->id todos caían en 'guest' y compartían
             // caché entre usuarios de distinto alcance (fuga de datos). Se hashea también el
             // scope (isLocal + frentes permitidos) por robustez si cambian los permisos.
-            $cacheKey = 'fleet_stats_v11_u' . ($user?->ID_USUARIO ?? 'guest')
+            $cacheKey = 'fleet_stats_v12_u' . ($user?->ID_USUARIO ?? 'guest')
                       . '_f' . ($requestedFrenteId ?: 'all')
                       . '_s' . md5(($isLocal ? 'L' : 'G') . '|' . implode(',', $frentesPermitidos))
                       . '_b' . md5(implode(',', $frentesBloqueados));
@@ -3956,21 +3956,23 @@ class EquipoController extends Controller
                 // dashboard y lista negra) a cualquier query cuya columna de frente sea
                 // ID_FRENTE_ACTUAL. Lo usan los equipos Y los auxiliares para que el
                 // dashboard filtre AMBOS por el frente seleccionado, sin duplicar lógica.
-                $scopeFrente = function ($q) use ($isLocal, $frentesPermitidos, $frentesBloqueados, $requestedFrenteId) {
+                // $frenteId = 'all' lo pide el panel «Equipos Asignados por Frente», que
+                // sale siempre con todos los frentes del usuario sea cual sea el elegido.
+                $scopeFrente = function ($q, $frenteId) use ($isLocal, $frentesPermitidos, $frentesBloqueados) {
                     if ($isLocal && count($frentesPermitidos) > 0) {
                         // NO aplicar dos where consecutivos — solo whereIn, o where con el frente solicitado.
-                        if ($requestedFrenteId && $requestedFrenteId !== 'all'
-                            && in_array($requestedFrenteId, $frentesPermitidos)
+                        if ($frenteId && $frenteId !== 'all'
+                            && in_array($frenteId, $frentesPermitidos)
                         ) {
-                            $q->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
+                            $q->where('ID_FRENTE_ACTUAL', $frenteId);
                         } else {
                             $q->whereIn('ID_FRENTE_ACTUAL', $frentesPermitidos);
                         }
                     } elseif ($isLocal) {
                         // Usuario local sin frentes permitidos: sin datos
                         $q->whereRaw('1 = 0');
-                    } elseif ($requestedFrenteId && $requestedFrenteId !== 'all') {
-                        $q->where('ID_FRENTE_ACTUAL', $requestedFrenteId);
+                    } elseif ($frenteId && $frenteId !== 'all') {
+                        $q->where('ID_FRENTE_ACTUAL', $frenteId);
                     }
                     // Lista negra: ocultar frentes bloqueados (aplica también a GLOBAL).
                     \App\Models\Usuario::aplicarBloqueoIds($q, $frentesBloqueados, 'ID_FRENTE_ACTUAL');
@@ -3978,7 +3980,7 @@ class EquipoController extends Controller
 
                 // ── Construir la query base de equipos ────────────────────────────
                 $baseQuery = Equipo::query();
-                $scopeFrente($baseQuery);
+                $scopeFrente($baseQuery, $requestedFrenteId);
 
                 // Excluir frentes ESPECIAL del dashboard de flota (salvo drill-down explícito).
                 if ($excluirFueraDeFlota) {
@@ -4019,11 +4021,13 @@ class EquipoController extends Controller
                     ->get();
 
                 // ── 4. Equipos por Frente ─────────────────────────────────────────
-                // Sale de $baseQuery (permisos, bloqueados y fuera de flota) y sin
-                // DESINCORPORADO, igual que el Σ Equipos: así la suma del panel cuadra con
-                // la tarjeta. Antes era una query global aparte que contaba 17
-                // desincorporados de más y le enseñaba a un usuario local todos los frentes.
-                $eqByFrenteRaw = (clone $baseQuery)
+                // SIEMPRE todos los frentes del usuario (permisos y bloqueados), elija el
+                // frente que elija en el dashboard: es la vista de conjunto. Sin
+                // DESINCORPORADO y sin frentes fuera de flota, igual que el Σ Equipos, así
+                // que con «Todos los frentes» la suma del panel cuadra con la tarjeta.
+                $eqPorFrente = Equipo::query()->excludeFueraDeFlota();
+                $scopeFrente($eqPorFrente, 'all');
+                $eqByFrenteRaw = $eqPorFrente
                     ->where('equipos.ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
                     ->select(
                         'frentes_trabajo.NOMBRE_FRENTE as frente_nombre',
@@ -4042,7 +4046,7 @@ class EquipoController extends Controller
                 // ── Auxiliares por Tipo — MISMO filtro de frente que los equipos ─────
                 // (antes era global; ahora respeta el frente seleccionado en el dashboard).
                 $auxBase = EquipoAuxiliar::query();
-                $scopeFrente($auxBase);
+                $scopeFrente($auxBase, $requestedFrenteId);
                 if ($excluirFueraDeFlota) {
                     $idsFuera = FrenteTrabajo::idsFueraDeFlota();
                     if (!empty($idsFuera)) {

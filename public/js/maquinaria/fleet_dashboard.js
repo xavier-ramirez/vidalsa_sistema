@@ -65,9 +65,11 @@ function updateStatCards(stats) {
 }
 
 /**
- * Render Equipos Asignados por Frente panel (cajitas estilo consumibles)
+ * Panel «Equipos Asignados por Frente»: una tarjeta por frente, de mayor a menor. Sale
+ * siempre, elija el frente que elija (el backend manda todos los del usuario); el frente
+ * elegido en el dashboard se resalta con .fdm-asig--actual.
  */
-function renderFleetEquiposAsignados(lista) {
+function renderFleetEquiposAsignados(lista, frenteActual) {
     const loading = document.getElementById('fleetEqAsigLoading');
     const body = document.getElementById('fleetEqAsigBody');
     if (!body) return;
@@ -76,49 +78,34 @@ function renderFleetEquiposAsignados(lista) {
     body.style.display = 'block';
 
     if (!lista || lista.length === 0) {
-        body.innerHTML = '<p style="color:var(--fd-ink-2);font-size:13px;text-align:center;padding:20px;">Sin datos de equipos asignados.</p>';
+        body.innerHTML = '<p class="fdm-vacio">Sin datos de equipos asignados.</p>';
         return;
     }
 
-    // Ordenar de mayor a menor por cantidad de equipos asignados
     lista = [...lista].sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
+    const max = Number(lista[0].total) || 1;
+    const actual = (frenteActual || '').trim().toUpperCase();
 
-    // Con COLOR a pedido del cliente: cada tarjeta lleva un fondo azul y una barra a la
-    // izquierda que se intensifican con el puesto (los frentes con mas equipos, mas fuertes).
-    // Solo azules del brochure (paleta de marca: blanco, azules y grises). Los fondos son los
-    // CLAROS de la escala porque la cifra va en negro (--fd-ink, pedido del 13-ago): sobre
-    // ellos se lee de sobra; sobre los azules oscuros el negro no se veria.
-    const BANDAS = [
-        { fondo: '#B8C3E0', barra: '#122149' },
-        { fondo: '#C6D2DE', barra: '#1B2A57' },
-        { fondo: '#DDE3F0', barra: '#385097' },
-        { fondo: '#EBEEF6', barra: '#6076BE' },
-    ];
-    body.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;">${lista.map((row, i) => {
-        const b = BANDAS[Math.floor(i * BANDAS.length / lista.length)];
+    // Cuatro azules de marca, del más fuerte (los frentes con más equipos) al más claro,
+    // con la letra en blanco como las tarjetas de arriba. La barra de abajo es la
+    // proporción respecto al frente con más equipos.
+    const BANDAS = ['fdm-asig--b0', 'fdm-asig--b1', 'fdm-asig--b2', 'fdm-asig--b3'];
+    body.innerHTML = `<div class="fdm-asig-grid">${lista.map((row, i) => {
+        const banda = BANDAS[Math.floor(i * BANDAS.length / lista.length)];
+        const esActual = actual && String(row.frente).trim().toUpperCase() === actual;
+        const pct = Math.max(4, Math.round((Number(row.total) || 0) * 100 / max));
         return `
-            <div style="
-                background:${b.fondo};
-                border-left:4px solid ${b.barra};
-                border-radius:10px;
-                padding:10px 13px;
-                min-width:150px;
-                flex:1;
-                display:flex;
-                flex-direction:column;
-                gap:3px;
-            ">
-                <div style="display:flex; align-items:baseline; gap:6px; width:100%;">
-                    <span style="font-size:10.5px;font-weight:700;color:${b.barra};flex-shrink:0;">${i + 1}</span>
-                    <span style="font-size:11px;font-weight:600;color:#1B2A57;line-height:1.25;word-break:break-word;flex:1;" title="${row.frente}">${row.frente}</span>
+            <div class="fdm-asig ${banda}${esActual ? ' fdm-asig--actual' : ''}">
+                <div class="fdm-asig-top">
+                    <span class="fdm-asig-pos">${i + 1}</span>
+                    <span class="fdm-asig-nom" title="${row.frente}">${row.frente}</span>
                 </div>
-                <div style="display:flex;align-items:baseline;gap:5px;">
-                    <span style="font-size:21px;font-weight:700;line-height:1.1;color:var(--fd-ink);letter-spacing:-0.5px;">${row.total}</span>
-                    <span style="font-size:11px;font-weight:500;color:#313E61;">equipo${row.total !== 1 ? 's' : ''}</span>
+                <div class="fdm-asig-cifra">
+                    <b>${row.total}</b><span>equipo${row.total !== 1 ? 's' : ''}</span>
                 </div>
+                <div class="fdm-asig-prop"><i style="width:${pct}%"></i></div>
             </div>`;
-    }).join('')
-        }</div>`;
+    }).join('')}</div>`;
 }
 
 /**
@@ -518,14 +505,10 @@ async function loadFleetDashboardData(frenteId) {
 
         updateStatCards(data.stats);
         
-        // Mostrar 'Equipos Asignados por Frente' SOLO si se seleccionan 'Todos'
-        const panelAssigned = document.getElementById('fdm-panel-assigned');
-        if (!frenteId || frenteId === 'all') {
-            if (panelAssigned) panelAssigned.style.display = 'block';
-            renderFleetEquiposAsignados(data.equiposPorFrente || []);
-        } else {
-            if (panelAssigned) panelAssigned.style.display = 'none';
-        }
+        // 'Equipos Asignados por Frente' sale SIEMPRE; con un frente elegido, ese se resalta.
+        const nombreElegido = (!frenteId || frenteId === 'all')
+            ? '' : (document.getElementById('dashboardFrenteSearch') || {}).value;
+        renderFleetEquiposAsignados(data.equiposPorFrente || [], nombreElegido);
 
         pintarPorTipo('chartAgeByType', data.ageByType, 'Sin equipos registrados para este frente.');
         pintarPorTipo('chartAuxByType', data.auxByType, 'Sin equipos auxiliares registrados.');
@@ -670,10 +653,9 @@ window.descargarPanelHtmlFDM = async function(panelId, nombre) {
 
                 // Force column layout for the "Equipos Asignados" panel list to avoid squeezing
                 if (panelId === 'fdm-panel-assigned') {
-                    const asigBody = clonedEl.querySelector('#fleetEqAsigBody > div');
+                    const asigBody = clonedEl.querySelector('#fleetEqAsigBody > .fdm-asig-grid');
                     if (asigBody) {
-                        asigBody.style.flexDirection = 'column';
-                        asigBody.style.flexWrap = 'nowrap';
+                        asigBody.style.gridTemplateColumns = '1fr';
                         
                         // Shrink the card width so the column doesn't stretch weirdly across the screen
                         clonedEl.style.width = '350px';

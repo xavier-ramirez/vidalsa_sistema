@@ -195,6 +195,15 @@
                 box-sizing: border-box !important;
             }
 
+            /* Equipos Asignados por Frente: dos por fila, no una (33 frentes en columna
+               se hacían eternos). */
+            #fleetDashboardModal .fdm-asig-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+            #fleetDashboardModal .fdm-asig { padding: 9px 10px 8px; }
+            #fleetDashboardModal .fdm-asig-cifra b { font-size: 21px; }
+            #fleetDashboardModal .fdm-asig-cifra span { font-size: 13px; }
+            /* El subtítulo partía el título en dos líneas y bajaba la cámara a una tercera. */
+            #fleetDashboardModal .fdm-panel-sub { display: none; }
+
             /* Título de paneles (antes se apuntaba a `h4`, que ya no existe) */
             #fleetDashboardModal .fdm-panel-title {
                 font-size: 13px !important;

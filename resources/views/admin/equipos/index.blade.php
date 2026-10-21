@@ -1317,7 +1317,7 @@
                         <div class="fdm-panel-head">
                             <span class="fdm-panel-title">
                                 Equipos Asignados por Frente
-                                <span style="font-size:11px; color:var(--fd-ink-2); font-weight:400;">— flota actual en cada frente</span>
+                                <span class="fdm-panel-sub" style="font-size:11px; color:var(--fd-ink-2); font-weight:400;">— flota actual en cada frente</span>
                             </span>
                             <button onclick="window.descargarPanelHtmlFDM('fdm-panel-assigned', 'equipos_asignados_por_frente')" title="Descargar imagen" class="fdm-cam">
                                 <i class="material-icons">photo_camera</i>

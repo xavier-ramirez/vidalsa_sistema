@@ -8,7 +8,8 @@ use Tests\MySqlTestCase;
 
 /**
  * Panel «Equipos Asignados por Frente» del Dashboard de Flota: sale del MISMO filtro que el
- * Σ Equipos (sin desincorporados, sin frentes fuera de flota, con los permisos del usuario),
+ * Σ Equipos (sin desincorporados, sin frentes fuera de flota, con los permisos del usuario)
+ * y SIEMPRE con todos los frentes, aunque en el dashboard se elija uno;
  * así que la suma del panel cuadra con la tarjeta y un usuario local solo ve sus frentes.
  */
 class FleetEquiposPorFrenteTest extends MySqlTestCase
@@ -31,6 +32,19 @@ class FleetEquiposPorFrenteTest extends MySqlTestCase
 
         $this->assertNotEmpty($json['equiposPorFrente']);
         $this->assertSame($json['stats']['total'], array_sum(array_column($json['equiposPorFrente'], 'total')));
+    }
+
+    public function test_con_un_frente_elegido_el_panel_sigue_trayendo_todos(): void
+    {
+        $usuario = $this->usuario();
+        $frente = (int) DB::table('equipos')->whereNull('deleted_at')->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
+            ->whereNotNull('ID_FRENTE_ACTUAL')->value('ID_FRENTE_ACTUAL');
+
+        $todos = $this->actingAs($usuario)->getJson('/admin/equipos/fleet-stats?frente_id=all')->assertOk()->json('equiposPorFrente');
+        $uno   = $this->actingAs($usuario)->getJson('/admin/equipos/fleet-stats?frente_id=' . $frente)->assertOk()->json('equiposPorFrente');
+
+        $this->assertGreaterThan(1, count($todos));
+        $this->assertSame($todos, $uno);
     }
 
     public function test_un_usuario_local_solo_ve_sus_frentes(): void
