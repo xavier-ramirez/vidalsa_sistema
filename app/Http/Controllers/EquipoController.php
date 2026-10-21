@@ -4915,7 +4915,7 @@ class EquipoController extends Controller
             'tipo', ...Equipo::conFoto('', true), 'documentacion',
         ])->whereNotNull('ID_ANCLAJE');
         // El modal tambien muestra los equipos con auxiliares anclados (anchorage 1:N): una
-        // sola tarjeta por equipo host con todos sus aux, como en /admin/equipos-auxiliares.
+        // sola tarjeta por equipo host con todos sus aux.
         $auxQuery = \App\Models\EquipoAuxiliar::with([
             'equipoHost.documentacion',
             'equipoHost.tipo',

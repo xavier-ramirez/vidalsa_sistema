@@ -1,6 +1,6 @@
 /* falla_create_modal.js — Modal "Nuevo Reporte de Falla" COMPARTIDO.
  *
- * Lo usan 3 páginas: /admin/fallas, /admin/equipos y /admin/equipos-auxiliares.
+ * Lo usan 2 páginas: /admin/fallas y /admin/equipos (equipos y auxiliares juntos).
  * Cada página define window.FALLA_MODAL_CFG antes de cargar este script:
  *   {
  *     urlSearch: ruta de búsqueda de activos (solo se usa en modo buscador),

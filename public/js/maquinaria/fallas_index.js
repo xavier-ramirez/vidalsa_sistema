@@ -158,7 +158,7 @@
     // ─── Modal "Nuevo Reporte de Falla" ───
     // Su lógica (open/close/setTipo/buscador/select/submit) vive en el módulo
     // COMPARTIDO public/js/maquinaria/falla_create_modal.js (lo usan también
-    // /admin/equipos y /admin/equipos-auxiliares). Aquí solo se configura vía
+    // /admin/equipos, con equipos y auxiliares). Aquí solo se configura vía
     // window.FALLA_MODAL_CFG (en el Blade) con onCreated = recargar el listado.
 
 

@@ -1564,7 +1564,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             // Mapa de detalles de auxiliares: aplica tanto en modo aux (tabla 100% aux) como
             // en el MERGE (filas aux anexadas a la tabla de equipos al filtrar por frente). En
             // ambos el backend manda data.auxData; lo fusionamos para que el modal del ojo
-            // (openAuxDetailsModal) abra instant sin fetch, igual que en /admin/equipos-auxiliares.
+            // (openAuxDetailsModal) abra instant sin fetch.
             if (data.auxData) {
                 window.auxDetailsMap = Object.assign(window.auxDetailsMap || {}, data.auxData);
             }

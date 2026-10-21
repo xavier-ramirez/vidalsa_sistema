@@ -111,7 +111,7 @@ class EquipoAuxiliarController extends Controller
         // la consulta por AJAX para pintar su tabla y sus contadores. Por eso el corte se
         // hace por wantsJson y no borrando la ruta: si alguien abre la URL a pelo —marcador,
         // historial, enlace viejo— se le lleva al modulo unificado en vez de mostrarle una
-        // segunda pantalla de auxiliares que ya no debe existir.
+        // segunda pantalla de auxiliares que ya no debe existir (su vista se borró).
         if (! $request->wantsJson()) {
             return redirect()->route('equipos.index');
         }
@@ -119,7 +119,6 @@ class EquipoAuxiliarController extends Controller
         // Acceso global (NIVEL_ACCESO_EQUIPOS=1) ve todo. Local (NIVEL_ACCESO_EQUIPOS=2) queda
         // limitado a sus frentes asignados; si seleccionara un frente fuera
         // de su scope el filtro se ignora silenciosamente.
-        $user = auth()->user();
         [$isLocalUser, $frentesPermitidos] = $this->userScope();
 
         // Buscar por serial/codigo/marca/modelo bypassa el scope LOCAL: el
@@ -177,40 +176,10 @@ class EquipoAuxiliarController extends Controller
             $auxiliares = collect([]);
         }
 
-        // Frentes para el dropdown: oculta los no visibles (whitelist LOCAL +
-        // blacklist de bloqueados) — un frente bloqueado no aparece como filtro.
-        $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-        if ($user) {
-            $user->aplicarScopeFrentesEquipos($frentesQuery, 'ID_FRENTE');
-        }
-        $frentes = $frentesQuery->get();
-        $estados = EquipoAuxiliar::estadosLabel();
-
-        // Listas para los dropdowns de filtros avanzados.
-        // Barrera por frente: whitelist LOCAL + blacklist de bloqueados (también GLOBAL).
-        $advBaseScope = function ($q) {
-            $this->scopeFrentes($q, 'ID_FRENTE_ACTUAL');
-        };
-
-        // TIPOS para el filtro del listado: solo los que realmente existen en
-        // la BD (scoped al alcance del usuario). Antes se mezclaba el enum
-        // hardcoded de tiposLabel() y aparecian opciones que no filtraban nada
-        // cuando no habia filas de ese tipo. Los labels bonitos del enum se
-        // siguen aplicando si el codigo existe alli; si no, se genera uno
-        // legible a partir del codigo.
+        // TIPOS: solo los que realmente existen en la BD (scoped al alcance del usuario).
+        // Los labels bonitos del enum se aplican si el codigo existe alli; si no, se
+        // genera uno legible a partir del codigo.
         $tipos = $this->buildTiposMap();
-        $availableMarcas = EquipoAuxiliar::select('MARCA')
-            ->whereNotNull('MARCA')->where('MARCA', '!=', '')
-            ->tap($advBaseScope)
-            ->distinct()->orderBy('MARCA')->pluck('MARCA');
-        $availableModelos = EquipoAuxiliar::select('MODELO')
-            ->whereNotNull('MODELO')->where('MODELO', '!=', '')
-            ->tap($advBaseScope)
-            ->distinct()->orderBy('MODELO')->pluck('MODELO');
-        $availableCapacidades = EquipoAuxiliar::select('CAPACIDAD')
-            ->whereNotNull('CAPACIDAD')->where('CAPACIDAD', '!=', '')
-            ->tap($advBaseScope)
-            ->distinct()->orderBy('CAPACIDAD')->pluck('CAPACIDAD');
 
         // Catalogo implicito de FOTO por MARCA|MODEL: si un auxiliar no tiene
         // FOTO propia, el partial cae a la de otro registro con el mismo modelo
@@ -262,35 +231,27 @@ class EquipoAuxiliarController extends Controller
         $distribucion = collect();
         $distribucionFrentes = collect();
 
-        // Las stats y la distribución NO se calculan en la carga inicial de la
-        // página (HTML): así el módulo abre rápido. El sidebar se rellena luego
-        // vía AJAX (cargarAuxiliares() dispara este mismo método con wantsJson).
-        if ($request->wantsJson()) {
-            $stats = [
-                'total'         => (clone $statsBase)->count(),
-                'operativos'    => (clone $statsBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count(),
-                'inoperativos'  => (clone $statsBase)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count(),
-                'en_almacen'    => (clone $statsBase)->where('ESTADO_OPERATIVO', 'EN_ALMACEN')->count(),
-            ];
+        $stats = [
+            'total'         => (clone $statsBase)->count(),
+            'operativos'    => (clone $statsBase)->where('ESTADO_OPERATIVO', 'OPERATIVO')->count(),
+            'inoperativos'  => (clone $statsBase)->where('ESTADO_OPERATIVO', 'INOPERATIVO')->count(),
+            'en_almacen'    => (clone $statsBase)->where('ESTADO_OPERATIVO', 'EN_ALMACEN')->count(),
+        ];
 
-            if ($showFrentes) {
-                $distribucionFrentes = (clone $statsBase)
-                    ->leftJoin('frentes_trabajo', 'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE')
-                    ->selectRaw('equipos_auxiliares.ID_FRENTE_ACTUAL, frentes_trabajo.NOMBRE_FRENTE, COUNT(equipos_auxiliares.ID_AUXILIAR) as total')
-                    ->groupBy('equipos_auxiliares.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE')
-                    ->orderByDesc('total')
-                    ->get();
-            } else {
-                // Distribución por tipo (para el card sidebar inferior): conteo filtrado.
-                $distribucion = (clone $statsBase)
-                    ->selectRaw('TIPO, COUNT(*) as total')
-                    ->groupBy('TIPO')
-                    ->orderByDesc('total')
-                    ->get();
-            }
+        if ($showFrentes) {
+            $distribucionFrentes = (clone $statsBase)
+                ->leftJoin('frentes_trabajo', 'equipos_auxiliares.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE')
+                ->selectRaw('equipos_auxiliares.ID_FRENTE_ACTUAL, frentes_trabajo.NOMBRE_FRENTE, COUNT(equipos_auxiliares.ID_AUXILIAR) as total')
+                ->groupBy('equipos_auxiliares.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE')
+                ->orderByDesc('total')
+                ->get();
         } else {
-            // Placeholders mientras el sidebar carga por AJAX.
-            $stats = ['total' => null, 'operativos' => null, 'inoperativos' => null, 'en_almacen' => null];
+            // Distribución por tipo (para el card sidebar inferior): conteo filtrado.
+            $distribucion = (clone $statsBase)
+                ->selectRaw('TIPO, COUNT(*) as total')
+                ->groupBy('TIPO')
+                ->orderByDesc('total')
+                ->get();
         }
 
         // Mapa pre-calculado de detalles para los auxiliares visibles.
@@ -330,43 +291,34 @@ class EquipoAuxiliarController extends Controller
             }
         }
 
-        if ($request->wantsJson()) {
-            return response()->json([
-                'html'         => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares', 'tipos', 'photoByModel'))->render(),
-                // Scroll infinito: estos campos reemplazan al paginate clasico
-                'pageSize'     => $PAGE_SIZE,
-                'offset'       => $offset,
-                'nextOffset'   => $nextOffset,
-                'hasMore'      => $hasMore,
-                'totalFound'   => $totalFound,
-                'shownCount'   => $auxiliares->count(),
-                'truncated'    => $truncated,
-                'count'        => $totalFound, // back-compat: antes venía $auxiliares->total()
-                'stats'        => $stats,
-                'distribucion' => $distribucion,
-                'distribucionFrentes' => $distribucionFrentes,
-                'showFrentes'  => $showFrentes,
-                'distribucionHtml' => view('admin.equipos_auxiliares.partials.distribucion_stats', compact('distribucion', 'distribucionFrentes', 'showFrentes', 'tipos'))->render(),
-                'hasFilter'    => $hasFilter,
-                // El frontend (cargarAuxiliares) hace Object.assign(window.auxDetailsMap, ...)
-                // para que el modal del ojo siga abriendo instant tras paginacion/filtro.
-                'auxDetailsMap'    => $auxDetailsMap,
-                // Asignaciones especiales: solo presentes cuando el frente es ESPECIAL.
-                'showUbicaciones'      => $frenteFueraDeFlota !== null,
-                'frenteFueraDeFlotaNombre' => $frenteFueraDeFlota ? $frenteFueraDeFlota->NOMBRE_FRENTE : null,
-                'availableUbicaciones' => $availableUbicaciones->values(),
-                'ubicacionesStats'     => $ubicacionesStats,
-                'ubicacionesHtml'      => view('admin.equipos_auxiliares.partials.ubicaciones_stats',
-                                              compact('ubicacionesStats', 'frenteFueraDeFlota'))->render(),
-            ]);
-        }
-
-        return view('admin.equipos_auxiliares.index', compact(
-            'auxiliares', 'frentes', 'tipos', 'estados', 'stats', 'distribucion', 'distribucionFrentes', 'showFrentes', 'hasFilter', 'photoByModel',
-            'availableMarcas', 'availableModelos', 'availableCapacidades', 'auxDetailsMap',
-            'frenteFueraDeFlota', 'availableUbicaciones', 'ubicacionesStats',
-            'PAGE_SIZE', 'offset', 'nextOffset', 'hasMore', 'totalFound', 'truncated'
-        ));
+        return response()->json([
+            'html'         => view('admin.equipos_auxiliares.partials.table_rows', compact('auxiliares', 'tipos', 'photoByModel'))->render(),
+            // Scroll infinito: estos campos reemplazan al paginate clasico
+            'pageSize'     => $PAGE_SIZE,
+            'offset'       => $offset,
+            'nextOffset'   => $nextOffset,
+            'hasMore'      => $hasMore,
+            'totalFound'   => $totalFound,
+            'shownCount'   => $auxiliares->count(),
+            'truncated'    => $truncated,
+            'count'        => $totalFound, // back-compat: antes venía $auxiliares->total()
+            'stats'        => $stats,
+            'distribucion' => $distribucion,
+            'distribucionFrentes' => $distribucionFrentes,
+            'showFrentes'  => $showFrentes,
+            'distribucionHtml' => view('admin.equipos_auxiliares.partials.distribucion_stats', compact('distribucion', 'distribucionFrentes', 'showFrentes', 'tipos'))->render(),
+            'hasFilter'    => $hasFilter,
+            // El frontend (cargarAuxiliares) hace Object.assign(window.auxDetailsMap, ...)
+            // para que el modal del ojo siga abriendo instant tras paginacion/filtro.
+            'auxDetailsMap'    => $auxDetailsMap,
+            // Asignaciones especiales: solo presentes cuando el frente es ESPECIAL.
+            'showUbicaciones'      => $frenteFueraDeFlota !== null,
+            'frenteFueraDeFlotaNombre' => $frenteFueraDeFlota ? $frenteFueraDeFlota->NOMBRE_FRENTE : null,
+            'availableUbicaciones' => $availableUbicaciones->values(),
+            'ubicacionesStats'     => $ubicacionesStats,
+            'ubicacionesHtml'      => view('admin.equipos_auxiliares.partials.ubicaciones_stats',
+                                          compact('ubicacionesStats', 'frenteFueraDeFlota'))->render(),
+        ]);
     }
 
     /**
