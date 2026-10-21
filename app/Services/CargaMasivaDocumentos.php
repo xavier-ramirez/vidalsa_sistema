@@ -1049,9 +1049,10 @@ class CargaMasivaDocumentos
     }
 
     /**
-     * "Enlazar ahora" de un PDF de VARIAS unidades que sigue sin enlazar (pedido 21-10-2026): lo
-     * mismo que el reintento de cada hora (enlazarSolo, con sus puertas), pero de esa fila y al
-     * momento, a nombre de quien lo pulsa. Con el MISMO candado: si se esta leyendo un PDF, espera.
+     * "Enlazar a los N equipos" de un PDF de VARIAS unidades que sigue sin enlazar, tras ver sus
+     * equipos en el modal (equiposDeLaPropuesta; pedido 21-10-2026): lo mismo que el reintento de
+     * cada hora (enlazarSolo, con sus puertas), pero de esa fila y al momento, a nombre de quien lo
+     * pulsa. Con el MISMO candado: si se esta leyendo un PDF, espera.
      * Lo de un solo equipo no va por aqui: se ata (atarDocumento).
      */
     public function enlazarAhora(string $link): array
