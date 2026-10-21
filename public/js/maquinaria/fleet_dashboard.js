@@ -67,7 +67,7 @@ function updateStatCards(stats) {
 /**
  * Panel «Equipos Asignados por Frente»: una tarjeta por frente, de mayor a menor. Sale
  * siempre, elija el frente que elija (el backend manda todos los del usuario); el frente
- * elegido en el dashboard se resalta con .fdm-asig--actual (borde azul).
+ * elegido en el dashboard se resalta con .fdm-asig--actual (borde rojo).
  */
 function renderFleetEquiposAsignados(lista, frenteActual) {
     const loading = document.getElementById('fleetEqAsigLoading');
@@ -87,16 +87,13 @@ function renderFleetEquiposAsignados(lista, frenteActual) {
     const esc = window.escapeHtml;
     const actual = (frenteActual || '').trim().toUpperCase();
 
-    // Tarjeta blanca de una línea (puesto · frente · cifra); el color, por tramos según el
-    // puesto, va solo en el puesto y en la barra (ver .fdm-asig--b*). La barra es la
-    // proporción respecto al frente con más equipos.
-    const BANDAS = ['fdm-asig--b0', 'fdm-asig--b1', 'fdm-asig--b2', 'fdm-asig--b3'];
+    // Tarjeta blanca de una línea (puesto · frente · cifra). La barra es la proporción
+    // respecto al frente con más equipos.
     body.innerHTML = `<div class="fdm-asig-grid">${lista.map((row, i) => {
-        const banda = BANDAS[Math.floor(i * BANDAS.length / lista.length)];
         const esActual = actual && String(row.frente).trim().toUpperCase() === actual;
         const pct = Math.max(4, Math.round((Number(row.total) || 0) * 100 / max));
         return `
-            <div class="fdm-asig ${banda}${esActual ? ' fdm-asig--actual' : ''}">
+            <div class="fdm-asig${esActual ? ' fdm-asig--actual' : ''}">
                 <span class="fdm-asig-pos">${i + 1}</span>
                 <span class="fdm-asig-nom" title="${esc(row.frente)}">${esc(row.frente)}</span>
                 <div class="fdm-asig-cifra">

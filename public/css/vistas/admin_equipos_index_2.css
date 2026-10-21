@@ -189,23 +189,18 @@
 
         /* ── Equipos Asignados por Frente (renderFleetEquiposAsignados) ─────────
            Tarjeta blanca de una línea: puesto · frente · cifra, y una barra fina debajo.
-           El color va SOLO en el puesto y la barra (--c), con los tonos de los gráficos de
-           arriba (FDM_COLORES) por tramos según el puesto: rojo, azul, azul claro, gris.
-           --actual marca el frente elegido en el dashboard. */
+           Un solo color, el azul de los gráficos de arriba, y SOLO en el puesto y la barra.
+           --actual marca en rojo el frente elegido en el dashboard. */
         .fdm-asig-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
         .fdm-asig {
             display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px 8px;
             padding: 7px 10px 6px; border-radius: 10px; background: #fff;
             border: 1px solid #e2e8f0;
         }
-        .fdm-asig--b0 { --c: #911a24; }
-        .fdm-asig--b1 { --c: #004a80; }
-        .fdm-asig--b2 { --c: #3b82c4; }
-        .fdm-asig--b3 { --c: #64748b; }
-        .fdm-asig--actual { border-color: #004a80; box-shadow: 0 0 0 2px #004a80; }
+        .fdm-asig--actual { border-color: #911a24; box-shadow: 0 0 0 2px #911a24; }
         .fdm-asig-pos {
             min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 999px;
-            background: var(--c); color: #fff;
+            background: #004a80; color: #fff;
             font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
         }
         .fdm-asig-nom {
@@ -216,7 +211,7 @@
         .fdm-asig-cifra b { font-size: 18px; font-weight: 800; line-height: 1; color: #1e293b; }
         .fdm-asig-cifra span { font-size: 12px; font-weight: 600; color: #475569; }
         .fdm-asig-prop { grid-column: 1 / -1; height: 3px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
-        .fdm-asig-prop i { display: block; height: 100%; border-radius: 999px; background: var(--c); }
+        .fdm-asig-prop i { display: block; height: 100%; border-radius: 999px; background: #004a80; }
 
         .fdm-cam {
             border: none;
