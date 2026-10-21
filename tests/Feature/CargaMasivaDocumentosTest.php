@@ -1037,6 +1037,37 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertNull($b->documentacion()->first()->LINK_RACDA);
     }
 
+    /** Un equipo que el PDF nombra y no se reconoció se busca, se añade en el modal y se enlaza con los demás. */
+    public function test_enlazar_ahora_con_un_equipo_anadido_a_mano(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $b = $this->equipo(); $c = $this->equipo();
+        $this->racdaDeVarias('racda-mas-uno', [$a, $b]);
+
+        $this->postJson(route('historial-documentos.carga-masiva.enlazar-ahora'), ['link' => '/storage/google/racda-mas-uno', 'extra' => 'x1'])
+            ->assertStatus(422);
+        $this->postJson(route('historial-documentos.carga-masiva.enlazar-ahora'), ['link' => '/storage/google/racda-mas-uno', 'extra' => (string) $c->ID_EQUIPO])
+            ->assertOk()->assertJson(['message' => 'Enlazado a sus 3 equipos: RACDA.']);
+        foreach ([$a, $b, $c] as $e) {
+            $this->assertSame('/storage/google/racda-mas-uno', $e->documentacion()->first()->LINK_RACDA);
+        }
+        $fila = VerificacionDocumento::where('DRIVE_ID', 'racda-mas-uno')->first();
+        $this->assertCount(3, $fila->PROPUESTA['equipos'], 'La fila recuerda el añadido.');
+        $this->assertStringContainsString('Añadido a mano: ' . $c->SERIAL_CHASIS . '.', $fila->MOTIVO);
+    }
+
+    /** A un BL no se le añaden equipos: sus unidades se atan VIN por VIN desde su fila. */
+    public function test_enlazar_ahora_no_anade_equipos_a_un_bl(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $b = $this->equipo(); $c = $this->equipo();
+        $this->racdaDeVarias('bl-sin-anadir', [$a, $b], ['tipo' => CargaMasivaDocumentos::EMBARQUE]);
+
+        $this->postJson(route('historial-documentos.carga-masiva.enlazar-ahora'), ['link' => '/storage/google/bl-sin-anadir', 'extra' => (string) $c->ID_EQUIPO])
+            ->assertStatus(422)->assertJsonFragment(['message' => 'A un BL o a un ROTC de flota no se le añaden equipos: cada unidad se ata desde su fila.']);
+        $this->assertCount(2, VerificacionDocumento::where('DRIVE_ID', 'bl-sin-anadir')->first()->PROPUESTA['equipos']);
+    }
+
     /** Mientras se lee un PDF (el candado del lector) no enlaza: lo dice y no toca nada. */
     public function test_enlazar_ahora_espera_si_se_esta_leyendo_un_pdf(): void
     {

@@ -1053,9 +1053,12 @@ class CargaMasivaDocumentos
      * equipos en el modal (equiposDeLaPropuesta; pedido 21-10-2026): lo mismo que el reintento de
      * cada hora (enlazarSolo, con sus puertas), pero de esa fila y al momento, a nombre de quien lo
      * pulsa. Con el MISMO candado: si se esta leyendo un PDF, espera.
+     * $extra: equipos que el PDF nombra pero no se reconocieron, buscados y añadidos a mano en el
+     * modal; se suman a la propuesta (la fila los recuerda) y el motivo los nombra. No en un BL ni
+     * en un ROTC de flota: esos se atan unidad por unidad (atarVin / la parte de cada una).
      * Lo de un solo equipo no va por aqui: se ata (atarDocumento).
      */
-    public function enlazarAhora(string $link): array
+    public function enlazarAhora(string $link, array $extra = []): array
     {
         $p = $this->propuestaGuardada($link);
         if (!$p || !$this->esPropuestaSinAplicar($link)) {
@@ -1066,6 +1069,21 @@ class CargaMasivaDocumentos
         }
         if (!empty($p['ia']) || !in_array($p['estado'] ?? null, ['listo', self::ENLAZAR_Y_REVISAR], true)) {
             return ['ok' => false, 'mensaje' => 'Este PDF tiene algo que mirar antes: no se enlaza solo.'];
+        }
+        $filaDelPdf = fn () => VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($link))
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->first();
+        $yaEstan = array_map(fn ($f) => (int) $f['id'], array_filter($p['equipos'], fn ($f) => empty($f['auxiliar'])));
+        $extra = array_values(array_diff(array_unique(array_map('intval', $extra)), $yaEstan));
+        if ($extra && (($p['tipo'] ?? null) === self::EMBARQUE || !empty($p['flota_rotc']))) {
+            return ['ok' => false, 'mensaje' => 'A un BL o a un ROTC de flota no se le añaden equipos: cada unidad se ata desde su fila.'];
+        }
+        $sumados = $extra ? $this->consulta()->whereIn('e.ID_EQUIPO', $extra)->get() : collect();
+        if ($sumados->count() !== count($extra)) {
+            return ['ok' => false, 'mensaje' => 'Uno de los equipos añadidos ya no existe. Vuelve a buscarlo.'];
+        }
+        if ($extra) {
+            $p['equipos'] = array_merge($p['equipos'], $this->fichas($sumados));
+            $filaDelPdf()?->update(['PROPUESTA' => $p]);
         }
 
         $candado = Cache::lock(ColaCargaMasiva::CANDADO, ColaCargaMasiva::ABANDONADO_SEG);
@@ -1078,9 +1096,12 @@ class CargaMasivaDocumentos
             $candado->release();
         }
 
-        $fila = VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($link))
-            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->first();
+        $fila = $filaDelPdf();
         if ($fila && $fila->ESTADO === VerificacionDocumento::APLICADO) {
+            if ($extra) {
+                $fila->update(['MOTIVO' => VerificacionDocumento::motivoQueCabe(trim($fila->MOTIVO . ' Añadido a mano: '
+                    . $sumados->map(fn ($f) => $f->SERIAL_CHASIS ?: $f->PLACA ?: ('equipo ' . $f->ID_EQUIPO))->implode(', ') . '.'))]);
+            }
             return ['ok' => true, 'mensaje' => 'Enlazado a sus ' . count($p['equipos']) . ' equipos: ' . (self::NOMBRES[$p['tipo']] ?? 'documento') . '.'];
         }
         return ['ok' => false, 'mensaje' => $fila?->MOTIVO ?: 'No se pudo enlazar.'];

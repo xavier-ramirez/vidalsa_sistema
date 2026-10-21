@@ -162,9 +162,13 @@ class CargaMasivaDocumentosController extends Controller
     public function enlazarAhora(Request $request)
     {
         $this->autorizar();
-        $datos = $request->validate(['link' => 'required|string|starts_with:/storage/google/']);
+        // extra: los equipos añadidos a mano en el modal, "12,34" (ids).
+        $datos = $request->validate([
+            'link'  => 'required|string|starts_with:/storage/google/',
+            'extra' => ['nullable', 'string', 'max:500', 'regex:/^\d+(,\d+)*$/'],
+        ]);
 
-        $r = $this->servicio->enlazarAhora($datos['link']);
+        $r = $this->servicio->enlazarAhora($datos['link'], array_filter(explode(',', $datos['extra'] ?? '')));
         return response()->json(['success' => $r['ok'], 'message' => $r['mensaje']], $r['ok'] ? 200 : 422);
     }
 
