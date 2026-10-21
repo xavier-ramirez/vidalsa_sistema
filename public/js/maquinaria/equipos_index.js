@@ -1580,9 +1580,6 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             // No se activa por categoria=AUXILIARES, para no alterar el panel de filtros.
             document.body.classList.toggle('eq-aux-mode',
                 !!(_tipoInputEl && (_tipoInputEl.value || '').startsWith('tipo_aux:')));
-            // aux-table-active: cualquier path que muestre la tabla de auxiliares.
-            // Controla .eq-hide-in-aux.
-            document.body.classList.toggle('aux-table-active', data.mode === 'aux');
 
             // Stats / distribución / URL: solo en la primera página (offset=0).
             // En lotes subsiguientes (append) los totales ya están correctos y no se tocan.

@@ -1,9 +1,3 @@
-{{-- Permiso de los handlers JS de auxiliares (cambiar estado). Igual al patron de
-     /admin/equipos (window.CAN_ASSIGN_EQUIPOS). --}}
-<script>
-    window.CAN_ASSIGN_AUX = {{ auth()->user() && (auth()->user()->can('equipos.assign') || auth()->user()->can('super.admin')) ? 'true' : 'false' }};
-</script>
-
 {{-- ═══════════════════════════════════════════════════════════
      MODAL DETALLES DE EQUIPO AUXILIAR
      Mismo estilo que /admin/equipos (modal-overlay + modal-content +
@@ -334,21 +328,13 @@
 })();
 </script>
 
-@php
-    // Lo que el JavaScript del modulo necesita de ESTA apertura. El codigo esta en
-    // public/js/maquinaria/maquinaria_listado.js, que el navegador cachea.
-    $maq_cfg = [
-    ];
-@endphp
-<script>
-    window.MAQ_CFG = @json($maq_cfg);
-</script>
+{{-- El codigo esta en public/js/maquinaria/maquinaria_listado.js, que el navegador cachea. --}}
 <script src="{{ asset('js/maquinaria/maquinaria_listado.js') }}?v={{ @filemtime(public_path('js/maquinaria/maquinaria_listado.js')) }}"></script>
 <script>
     // El archivo de arriba se carga UNA vez en toda la sesion; esta llamada es la que
     // monta la pantalla, y corre en cada apertura del modulo (tambien al volver por la
     // navegacion interna, que es cuando el <script src> ya no se re-ejecuta).
-    window.maquinariaArrancar(window.MAQ_CFG);
+    window.maquinariaArrancar();
 </script>
 
 {{-- Seed inicial de window.auxDetailsMap: TODOS los detalles de los auxiliares

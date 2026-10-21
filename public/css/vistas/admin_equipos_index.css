@@ -4,9 +4,6 @@
        documentos solo de equipos (Póliza, ROTC, RACDA, Compraventa).
        NO se activa cuando el usuario filtra por categoria=AUXILIARES (para no cambiar el panel). */
     body.eq-aux-mode .adv-filter-eq-only { display: none !important; }
-    /* aux-table-active: activado cuando la tabla muestra datos de auxiliares (cualquier path).
-       Oculta controles de equipos que no tienen sentido sobre la tabla de auxiliares. */
-    body.aux-table-active .eq-hide-in-aux { display: none !important; }
 
     /* ── Panel de Filtros Avanzados: piezas que se repetían como style="" en cada filtro ──
        (la etiqueta usa la clase común .panel-filtro-avanzado-label de estilos_globales.css)

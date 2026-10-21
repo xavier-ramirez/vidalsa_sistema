@@ -6,12 +6,10 @@
  *
  * Es una FUNCION de arranque, no un bloque suelto, porque el modulo necesita volver a
  * correr en cada apertura para engancharse a la tabla nueva: la SPA no re-ejecuta un
- * <script src> ya cargado, asi que es el Blade quien llama a maquinariaArrancar(CFG)
- * cada vez que se monta la pantalla. Lo que cambia entre una apertura y otra —rutas,
- * permisos y catalogos— llega en ese CFG.
+ * <script src> ya cargado, asi que es el Blade quien llama a maquinariaArrancar()
+ * cada vez que se monta la pantalla.
  */
-window.maquinariaArrancar = function (MAQ_CFG) {
-    MAQ_CFG = MAQ_CFG || {};
+window.maquinariaArrancar = function () {
 (function () {
     // En /admin/equipos, window.cargarAuxiliares (con la que las acciones de aquí refrescan
     // la lista tras cambiar un auxiliar) la define resources/views/admin/equipos/index.blade.php:
@@ -44,12 +42,7 @@ window.maquinariaArrancar = function (MAQ_CFG) {
             };
             tr.classList.add('selected-row-maquinaria');
         }
-        window.auxRefreshBulkBar();
-    };
-
-    // La barra es la de equipos: cuenta los dos.
-    window.auxRefreshBulkBar = function () {
-        if (typeof window.updateSelectionUI === 'function') window.updateSelectionUI();
+        window.updateSelectionUI();
     };
 
     window.auxClearSelection = function () {
@@ -64,7 +57,7 @@ window.maquinariaArrancar = function (MAQ_CFG) {
         if (window._auxSoloSel) {
             document.querySelectorAll('tr[data-aux-id]').forEach(tr => { tr.style.display = 'none'; });
         }
-        window.auxRefreshBulkBar();
+        window.updateSelectionUI();
     };
 
     // Restaurar highlight tras AJAX refresh de la tabla
@@ -75,7 +68,7 @@ window.maquinariaArrancar = function (MAQ_CFG) {
             // Filtro de visibilidad de "solo seleccionados" (lo enciende y apaga la barra).
             tr.style.display = (!window._auxSoloSel || inSel) ? '' : 'none';
         });
-        window.auxRefreshBulkBar();
+        window.updateSelectionUI();
     };
 
     // Delegacion de click en filas (solo con can:equipos.edit via clase)

@@ -1804,16 +1804,13 @@
     'embeddedInEquipos' => true,
 ])
 <script>
-    // En /admin/equipos el refresco de la lista tras mutar un auxiliar (cambiar estado,
-    // movilizar, anclar, borrar) NO usa cargarAuxiliares (atado a los filtros del modulo
-    // aux): reusa loadEquipos, que respeta el tipo aux + frente + busqueda actuales.
+    // Las acciones sobre un auxiliar (cambiar estado, subir o borrar un PDF) refrescan la
+    // lista con cargarAuxiliares: aquí es loadEquipos, que respeta los filtros actuales.
     window.cargarAuxiliares = function () { if (window.loadEquipos) window.loadEquipos(); };
 
-    // Init: marcar clases de modo aux en la carga inicial (antes del primer AJAX).
-    // eq-aux-mode: SOLO cuando tipo_aux: está activo (oculta filtros de equipos).
-    // aux-table-active: cuando cualquier path produce tabla de auxiliares (oculta bulkFloatingBar).
-    document.body.classList.toggle('eq-aux-mode',      {{ ($auxModeByTipo ?? false) ? 'true' : 'false' }});
-    document.body.classList.toggle('aux-table-active', {{ ($auxMode ?? false) ? 'true' : 'false' }});
+    // Init: eq-aux-mode en la carga inicial (antes del primer AJAX), SOLO cuando tipo_aux:
+    // está activo (oculta filtros de equipos).
+    document.body.classList.toggle('eq-aux-mode', {{ ($auxModeByTipo ?? false) ? 'true' : 'false' }});
 </script>
 
 @endsection
