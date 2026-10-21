@@ -943,10 +943,15 @@
                     && !(inicio && fe && fe.value && inicio >= fe.value));
             Object.keys(dif).forEach(function (campo) {
                 var d = dif[campo] || {}, valor = d.documento == null ? '' : String(d.documento);
-                // Lo que lee distinto la IA (IA_*, ver VerificarDocumentos::contrasteIa) solo se
-                // MUESTRA en la lista: ni "Usar" ni campo relleno. Lo decide quien mira el PDF.
-                if (/^IA_/.test(campo)) return;
-                var input = CAMPO[campo] && cont.querySelector('[name="' + CAMPO[campo] + '"]');
+                // Lo que lee distinto la IA (IA_*, ver VerificarDocumentos::contrasteIa): las dos
+                // opciones, la de la ficha y la de la IA, cada una con su "Usar", igual que con lo
+                // del documento (pedido del cliente, 20-10-2026: antes solo se mostraba y no había
+                // cómo elegir). NUNCA viene puesta: la IA se equivoca (A30BA2J: el título dice 14 y
+                // leyó 28) y lo decide quien mira el PDF. Sin casilla en el panel, solo en la lista.
+                var esIa = /^IA_/.test(campo), base = esIa ? campo.slice(3) : campo;
+                var input = CAMPO[base] && cont.querySelector('[name="' + CAMPO[base] + '"]');
+                if (esIa && !input) return;
+                var rotDoc = esIa ? 'Según la IA:' : 'Documento:';
                 // La placa y el serial de un PDF "de otro vehiculo" (diferenciasParaVer): sin su
                 // casilla en el panel solo van en la lista de arriba, nunca como campo aparte.
                 if (!input && d.solo_ver) return;
@@ -957,10 +962,10 @@
                     fila.dataset.valor = v;
                     return fila;
                 };
-                if (anterior) {
+                if (anterior && !esIa) {
                     // Sin boton: es del PDF viejo.
                     var vieja = pista('Documento:', valor);
-                    vieja.appendChild(cpdfNodo('em', '', CAMPO[campo] === 'fecha_vencimiento' ? 'más vieja que la ficha: PDF anterior' : 'del PDF anterior'));
+                    vieja.appendChild(cpdfNodo('em', '', CAMPO[base] === 'fecha_vencimiento' ? 'más vieja que la ficha: PDF anterior' : 'del PDF anterior'));
                     input.insertAdjacentElement('afterend', vieja);
                     return;
                 }
@@ -969,20 +974,20 @@
                 var actual = input.value;
                 // La fecha de emision que la ficha tiene VACIA viene ya puesta: basta con
                 // Guardar (lo pidio el cliente); vaciar el campo = no ponerla.
-                if (CAMPO[campo] === 'fecha_emision' && !input.value) input.value = valor;
+                if (!esIa && CAMPO[base] === 'fecha_emision' && !input.value) input.value = valor;
                 // La aseguradora sin poner llega como "(sin aseguradora)" (ficha_valor null): no es
                 // un valor que se pueda volver a poner en el campo.
                 var caja = cpdfNodo('div', 'cpdf-opciones'),
                     antes = d.ficha == null || d.ficha_valor === null ? '' : String(d.ficha),
-                    opciones = [['Ficha:', actual], ['Documento:', valor]];
+                    opciones = [['Ficha:', actual], [rotDoc, valor]];
                 if (cpdfMismo(actual, valor)) {
                     // La ficha ya dice lo del documento. Si al leerse el PDF decia otra cosa (alguien
                     // la corrigio despues), se sigue viendo como estaba, con su "Usar" para volver.
-                    opciones = antes !== '' && !cpdfMismo(antes, valor) ? [['Antes en la ficha:', antes], ['Ficha y documento:', valor]] : null;
+                    opciones = antes !== '' && !cpdfMismo(antes, valor) ? [['Antes en la ficha:', antes], [esIa ? 'Ficha e IA:' : 'Ficha y documento:', valor]] : null;
                 }
                 if (!opciones) {
                     // Coinciden y siempre coincidieron: nada que elegir.
-                    var igual = pista('Ficha y documento:', valor);
+                    var igual = pista(esIa ? 'Ficha e IA:' : 'Ficha y documento:', valor);
                     igual.appendChild(cpdfNodo('em', 'cpdf-igual', 'iguales'));
                     caja.appendChild(igual);
                 } else {
