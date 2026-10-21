@@ -973,6 +973,79 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de varias unidades: se enlaza solo a cada una; no se ata a una sola.']);
     }
 
+    /** Fila de la carga de un RACDA de varias unidades, sin enlazar, como la deja la lectura. */
+    private function racdaDeVarias(string $driveId, array $equipos, array $propuesta = []): void
+    {
+        VerificacionDocumento::create([
+            'DRIVE_ID' => $driveId, 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA,
+            'TIPO' => 'racda', 'ARCHIVO' => $driveId . '.pdf', 'ESTADO' => VerificacionDocumento::POR_ENGANCHAR,
+            'A_MANO' => true, 'INTENTOS' => 0,
+            'PROPUESTA' => $propuesta + ['tipo' => 'racda', 'link' => '/storage/google/' . $driveId, 'estado' => 'listo',
+                'vence' => '2027-10-10', 'emision' => null, 'ia' => false, 'aviso' => null, 'archivo' => $driveId . '.pdf',
+                'equipos' => array_map(fn ($e) => ['id' => $e->ID_EQUIPO, 'auxiliar' => false, 'placa' => null,
+                    'serial' => $e->SERIAL_CHASIS, 'nombre' => $e->MARCA . ' ' . $e->MODELO], $equipos)],
+        ]);
+    }
+
+    /** "Enlazar a los N equipos" enlaza al momento un PDF de varias unidades, sin esperar el reintento. */
+    public function test_enlazar_ahora_enlaza_un_pdf_de_varias_unidades_a_todas(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $b = $this->equipo();
+        $this->racdaDeVarias('racda-ahora', [$a, $b]);
+
+        $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-ahora.pdf']))
+            ->assertOk()->assertSee('cpdfEnlazarAhora(', false)->assertSee('Enlazar a los 2 equipos');
+
+        $this->postJson(route('historial-documentos.carga-masiva.enlazar-ahora'), ['link' => '/storage/google/racda-ahora'])
+            ->assertOk()->assertJson(['success' => true, 'message' => 'Enlazado a sus 2 equipos: RACDA.']);
+        foreach ([$a, $b] as $e) {
+            $this->assertSame('/storage/google/racda-ahora', $e->documentacion()->first()->LINK_RACDA);
+        }
+        $this->assertSame(VerificacionDocumento::APLICADO, VerificacionDocumento::where('DRIVE_ID', 'racda-ahora')->value('ESTADO'));
+
+        // Ya enlazado: ni botón ni segundo enlace.
+        $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-ahora.pdf']))
+            ->assertOk()->assertDontSee('cpdfEnlazarAhora(', false);
+        $this->postJson(route('historial-documentos.carga-masiva.enlazar-ahora'), ['link' => '/storage/google/racda-ahora'])
+            ->assertStatus(422);
+    }
+
+    /** Lo de un solo equipo se ata; lo leído por la revisión automática se comprueba antes: ninguno va por aquí. */
+    public function test_enlazar_ahora_no_enlaza_lo_de_un_equipo_ni_lo_leido_por_la_ia(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $b = $this->equipo();
+        $this->racdaDeVarias('racda-uno', [$a]);
+        $this->racdaDeVarias('racda-ia', [$a, $b], ['ia' => true]);
+
+        $this->postJson(route('historial-documentos.carga-masiva.enlazar-ahora'), ['link' => '/storage/google/racda-uno'])
+            ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de un solo equipo: atalo con "Atar a un equipo".']);
+        $this->postJson(route('historial-documentos.carga-masiva.enlazar-ahora'), ['link' => '/storage/google/racda-ia'])
+            ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF tiene algo que mirar antes: no se enlaza solo.']);
+        $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-ia.pdf']))
+            ->assertOk()->assertDontSee('cpdfEnlazarAhora(', false);
+        $this->assertNull($a->documentacion()->first()->LINK_RACDA);
+        $this->assertNull($b->documentacion()->first()->LINK_RACDA);
+    }
+
+    /** Mientras se lee un PDF (el candado del lector) no enlaza: lo dice y no toca nada. */
+    public function test_enlazar_ahora_espera_si_se_esta_leyendo_un_pdf(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo(); $b = $this->equipo();
+        $this->racdaDeVarias('racda-candado', [$a, $b]);
+        $lector = \Illuminate\Support\Facades\Cache::lock(\App\Support\ColaCargaMasiva::CANDADO, 60);
+        $this->assertTrue($lector->get());
+        try {
+            $this->postJson(route('historial-documentos.carga-masiva.enlazar-ahora'), ['link' => '/storage/google/racda-candado'])
+                ->assertStatus(422)->assertJsonFragment(['message' => 'Se esta leyendo otro PDF de la carga: prueba en un momento.']);
+            $this->assertNull($a->documentacion()->first()->LINK_RACDA);
+        } finally {
+            $lector->release();
+        }
+    }
+
     /**
      * Al atar, el buscador sugiere tambien por una PLACA mal leida (un caracter distinto), dice el
      * tipo de cada equipo y avisa si ya tiene ese documento (con sus fechas).

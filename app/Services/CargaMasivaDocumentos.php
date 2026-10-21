@@ -910,7 +910,7 @@ class CargaMasivaDocumentos
      * leido por la IA NUNCA: hay que comprobarlo.
      *
      * No hay boton de Aplicar (pedido 01-10-2026): esto es lo que enlaza solo; a mano, atarDocumento
-     * y atarVin. Si la ficha ya tiene ese documento, se reemplaza solo cuando el nuevo vence DESPUES (el viejo va a la
+     * y atarVin, y lo de varias unidades, al momento, enlazarAhora. Si la ficha ya tiene ese documento, se reemplaza solo cuando el nuevo vence DESPUES (el viejo va a la
      * papelera de Drive, se recupera con un clic); si no, se queda el suyo. Lo que no entra
      * —documento anterior, equipo en otro embarque— se queda sin enlazar y la fila dice por que.
      * Si todo entra, queda "Aplicado".
@@ -1043,6 +1043,43 @@ class CargaMasivaDocumentos
             $candado->release();
         }
         return $n;
+    }
+
+    /**
+     * "Enlazar ahora" de un PDF de VARIAS unidades que sigue sin enlazar (pedido 21-10-2026): lo
+     * mismo que el reintento de cada hora (enlazarSolo, con sus puertas), pero de esa fila y al
+     * momento, a nombre de quien lo pulsa. Con el MISMO candado: si se esta leyendo un PDF, espera.
+     * Lo de un solo equipo no va por aqui: se ata (atarDocumento).
+     */
+    public function enlazarAhora(string $link): array
+    {
+        $p = $this->propuestaGuardada($link);
+        if (!$p || !$this->esPropuestaSinAplicar($link)) {
+            return ['ok' => false, 'mensaje' => 'Ese PDF ya no esta por enlazar. Recarga la tabla.'];
+        }
+        if (count($p['equipos'] ?? []) < 2) {
+            return ['ok' => false, 'mensaje' => 'Este PDF es de un solo equipo: atalo con "Atar a un equipo".'];
+        }
+        if (!empty($p['ia']) || !in_array($p['estado'] ?? null, ['listo', self::ENLAZAR_Y_REVISAR], true)) {
+            return ['ok' => false, 'mensaje' => 'Este PDF tiene algo que mirar antes: no se enlaza solo.'];
+        }
+
+        $candado = Cache::lock(ColaCargaMasiva::CANDADO, ColaCargaMasiva::ABANDONADO_SEG);
+        if (!$candado->get()) {
+            return ['ok' => false, 'mensaje' => 'Se esta leyendo otro PDF de la carga: prueba en un momento.'];
+        }
+        try {
+            $this->enlazarSolo($p);
+        } finally {
+            $candado->release();
+        }
+
+        $fila = VerificacionDocumento::where('DRIVE_ID', DocumentoAnexo::driveIdDeLink($link))
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->first();
+        if ($fila && $fila->ESTADO === VerificacionDocumento::APLICADO) {
+            return ['ok' => true, 'mensaje' => 'Enlazado a sus ' . count($p['equipos']) . ' equipos: ' . (self::NOMBRES[$p['tipo']] ?? 'documento') . '.'];
+        }
+        return ['ok' => false, 'mensaje' => $fila?->MOTIVO ?: 'No se pudo enlazar.'];
     }
 
     /** " No se consiguio en el sistema el VIN X." (o los VIN, hasta 5), o '' si no falta ninguno. */

@@ -196,7 +196,7 @@
                                      leyó la IA, venía con algo que mirar): se ata a mano buscando el
                                      equipo por serial, placa o código. El BL va VIN por VIN (abajo),
                                      "otro documento" no se ata (se descarta) y lo de varias unidades
-                                     (un RACDA, un ROTC de flota) se enlaza solo a cada una. --}}
+                                     (un RACDA, un ROTC de flota) se enlaza solo a cada una (abajo). --}}
                                 @if ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
                                      && in_array($d->ESTADO, [\App\Models\VerificacionDocumento::POR_ENGANCHAR, \App\Models\VerificacionDocumento::SIN_FICHA], true)
                                      && $d->TIPO !== \App\Services\CargaMasivaDocumentos::EMBARQUE && ($d->PROPUESTA['link'] ?? null)
@@ -221,6 +221,22 @@
                                                     onclick="event.stopPropagation(); window.cpdfAtarVin(@js($d->PROPUESTA['link']), @js($vin), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => null]))">Atar a un equipo</button>
                                             </div>
                                         @endforeach
+                                    @endcan
+                                @endif
+                                {{-- Lo de varias unidades que sigue sin enlazar (el reintento es cada hora):
+                                     "Enlazar a los N equipos" lo hace al momento, con las mismas reglas
+                                     (CargaMasivaDocumentos::enlazarAhora). Solo lo que se enlazaría solo:
+                                     ni lo leído por la revisión automática ni lo que tiene algo que mirar. --}}
+                                @if ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
+                                     && $d->ESTADO === \App\Models\VerificacionDocumento::POR_ENGANCHAR && ($d->PROPUESTA['link'] ?? null)
+                                     && count($d->PROPUESTA['equipos'] ?? []) > 1 && empty($d->PROPUESTA['ia'])
+                                     && in_array($d->PROPUESTA['estado'] ?? null, ['listo', \App\Services\CargaMasivaDocumentos::ENLAZAR_Y_REVISAR], true))
+                                    @can('docs.carga.masiva')
+                                        <div class="cpdf-vin-falta">
+                                            <span>Sin enlazar</span>
+                                            <button type="button" class="cpdf-vin-btn"
+                                                onclick="event.stopPropagation(); window.cpdfEnlazarAhora(@js($d->PROPUESTA['link']), this)">Enlazar a los {{ count($d->PROPUESTA['equipos']) }} equipos</button>
+                                        </div>
                                     @endcan
                                 @endif
                             </td>
@@ -837,6 +853,18 @@
     }
 
     var cpdfAtado = function (r) { window.cpdfCerrarAtar(); window.toast(r.message || 'Atado', 'success'); window.cpdfFiltrar(); };
+
+    // "Enlazar a los N equipos" de un PDF de varias unidades: sin modal, se enlaza al momento. Lo
+    // que no entre lo dice el aviso y su fila; la tabla se repinta en los dos casos (pudo enlazar
+    // a unos sí y a otros no).
+    window.cpdfEnlazarAhora = function (link, boton) {
+        boton.disabled = true;
+        boton.textContent = 'Enlazando…';
+        window.apiPostForm(@json(route('historial-documentos.carga-masiva.enlazar-ahora')), { link: link }, 'No se pudo enlazar.')
+            .then(function (r) { window.toast(r.message || 'Enlazado', 'success'); })
+            .catch(function (e) { window.toast((e && e.message) || 'No se pudo enlazar.', 'error'); })
+            .then(function () { window.cpdfFiltrar(); });
+    };
 
     // Atar un VIN del BL que falta: el buscador arranca con el propio VIN.
     window.cpdfAtarVin = function (link, vin, fechas) {

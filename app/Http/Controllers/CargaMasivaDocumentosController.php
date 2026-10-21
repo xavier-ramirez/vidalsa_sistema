@@ -19,6 +19,8 @@ use Illuminate\Validation\Rule;
  *   descartar() Borra de Drive el PDF de una propuesta que no se enlazo (super.admin).
  *   buscarEquipo() / atarVin()  Un VIN del BL que no caso con ninguna ficha (su serial difiere
  *               en algo) se ata a mano a la ficha que la persona elige.
+ *   enlazarAhora() Un PDF de varias unidades que sigue sin enlazar se enlaza al momento, sin
+ *               esperar el reintento de cada hora.
  *
  * Permiso: SOLO 'docs.carga.masiva', que es EXCLUSIVO y ni super.admin hereda (ver
  * autorizar(), abajo). Con esa clave basta, sin super.admin: se entra a Auditoría de
@@ -142,6 +144,16 @@ class CargaMasivaDocumentosController extends Controller
         $r = $this->servicio->atarDocumento($datos['link'], (int) $datos['id_equipo'], (bool) ($datos['reemplazar'] ?? false));
         return response()->json(['success' => $r['ok'], 'message' => $r['mensaje'],
             'requiere_pisar' => !empty($r['requiere_pisar'])], $r['ok'] ? 200 : 422);
+    }
+
+    /** Enlaza al momento un PDF de varias unidades que sigue sin enlazar (ver CargaMasivaDocumentos::enlazarAhora). */
+    public function enlazarAhora(Request $request)
+    {
+        $this->autorizar();
+        $datos = $request->validate(['link' => 'required|string|starts_with:/storage/google/']);
+
+        $r = $this->servicio->enlazarAhora($datos['link']);
+        return response()->json(['success' => $r['ok'], 'message' => $r['mensaje']], $r['ok'] ? 200 : 422);
     }
 
     /**
