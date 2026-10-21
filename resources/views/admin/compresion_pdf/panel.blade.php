@@ -172,8 +172,8 @@
                                  derecha lo que dice el PDF. Si todo cuadra, lo leido en gris. Lo que
                                  lee distinto la IA (IA_*) no se tacha: puede equivocarse ella, y se
                                  decide en el visor. Las fechas, dd/mm/aaaa como en todo el sistema.
-                                 Cada valor lleva su rótulo ("Ficha" = lo que hay ahora; "IA" o
-                                 "PDF" = lo propuesto): con solo el color no se sabía cuál era cuál
+                                 Cada valor lleva su rótulo, corto ("Ficha" = lo que hay ahora; "Leído"
+                                 o "PDF" = lo propuesto): con solo el color no se sabía cuál era cuál
                                  (pedido del cliente, 21-10-2026). --}}
                             <td class="cpdf-ancha">
                                 @forelse ($d->DIFERENCIAS ?? [] as $campo => $dif)
@@ -186,7 +186,7 @@
                                         <span class="cpdf-dif-par"><span class="cpdf-dif-rot">Ficha</span>
                                             <span class="cpdf-dif-ficha{{ $cpdfEsIa ? ' ia' : '' }}{{ ($dif['ficha'] ?? '') === '' ? ' vacio' : '' }}">{{ $cpdfVer($dif['ficha'] ?? '') ?: 'vacío' }}</span></span>
                                         <i class="material-icons cpdf-flecha">arrow_forward</i>
-                                        <span class="cpdf-dif-par"><span class="cpdf-dif-rot">{{ $cpdfEsIa ? 'Revisión automática' : 'Según el PDF' }}</span>
+                                        <span class="cpdf-dif-par"><span class="cpdf-dif-rot">{{ $cpdfEsIa ? 'Leído' : 'PDF' }}</span>
                                             <span class="cpdf-dif-doc">{{ $cpdfVer($dif['documento'] ?? '') }}</span></span>
                                     </div>
                                 @empty
