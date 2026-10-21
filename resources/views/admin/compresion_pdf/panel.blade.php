@@ -173,14 +173,23 @@
                             {{-- Solo lo que NO cuadra: a la izquierda lo de la ficha (tachado), a la
                                  derecha lo que dice el PDF. Si todo cuadra, lo leido en gris. Lo que
                                  lee distinto la IA (IA_*) no se tacha: puede equivocarse ella, y se
-                                 decide en el visor. Las fechas, dd/mm/aaaa como en todo el sistema. --}}
+                                 decide en el visor. Las fechas, dd/mm/aaaa como en todo el sistema.
+                                 Cada valor lleva su rótulo ("Ficha" = lo que hay ahora; "IA" o
+                                 "PDF" = lo propuesto): con solo el color no se sabía cuál era cuál
+                                 (pedido del cliente, 21-10-2026). --}}
                             <td class="cpdf-ancha">
                                 @forelse ($d->DIFERENCIAS ?? [] as $campo => $dif)
+                                    @php $cpdfEsIa = str_starts_with($campo, 'IA_'); @endphp
                                     <div class="cpdf-dif">
-                                        <span class="cpdf-dif-eti">{{ $dif['etiqueta'] }}:</span>
-                                        <span class="cpdf-dif-ficha{{ str_starts_with($campo, 'IA_') ? ' ia' : '' }}{{ ($dif['ficha'] ?? '') === '' ? ' vacio' : '' }}">{{ $cpdfVer($dif['ficha'] ?? '') ?: 'vacío' }}</span>
+                                        {{-- "(según la IA)" ya lo dice el rótulo del valor propuesto. --}}
+                                        <span class="cpdf-dif-eti">{{ str_replace(' (según la IA)', '', $dif['etiqueta']) }}:</span>
+                                        {{-- Rótulo y valor van juntos (cpdf-dif-par): al partirse la línea
+                                             no se quedaba el rótulo arriba y su valor abajo. --}}
+                                        <span class="cpdf-dif-par"><span class="cpdf-dif-rot">Ficha</span>
+                                            <span class="cpdf-dif-ficha{{ $cpdfEsIa ? ' ia' : '' }}{{ ($dif['ficha'] ?? '') === '' ? ' vacio' : '' }}">{{ $cpdfVer($dif['ficha'] ?? '') ?: 'vacío' }}</span></span>
                                         <i class="material-icons cpdf-flecha">arrow_forward</i>
-                                        <span class="cpdf-dif-doc">{{ $cpdfVer($dif['documento'] ?? '') }}</span>
+                                        <span class="cpdf-dif-par"><span class="cpdf-dif-rot">{{ $cpdfEsIa ? 'Según la IA' : 'Según el PDF' }}</span>
+                                            <span class="cpdf-dif-doc">{{ $cpdfVer($dif['documento'] ?? '') }}</span></span>
                                     </div>
                                 @empty
                                     <span class="cpdf-motivo">{{ $d->MOTIVO ?: 'Todo coincide con el documento' }}</span>

@@ -184,6 +184,9 @@
        cliente, 20-10-2026: se veían tres tipos de letra distintos). */
     .cpdf-dif { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; line-height: 1.5; }
     .cpdf-dif-eti { color: #64748b; }
+    /* De dónde sale cada valor ("Ficha", "Según la IA", "Según el PDF"): pequeño y en gris. */
+    .cpdf-dif-par { display: inline-flex; align-items: baseline; gap: 4px; }
+    .cpdf-dif-rot { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: #94a3b8; white-space: nowrap; }
     .cpdf-dif-ficha { color: #dc2626; text-decoration: line-through; }
     /* Lo de la IA no tacha la ficha (puede equivocarse ella); vacío, en gris y sin tachar. */
     .cpdf-dif-ficha.ia { color: #0f172a; text-decoration: none; }
