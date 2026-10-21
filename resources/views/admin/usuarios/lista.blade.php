@@ -92,8 +92,8 @@
             </div>
         </div>
 
-        <!-- Rol Filter -->
-        <div class="filter-item aligned-filter responsive-filter-item">
+        <!-- Rol Filter + Filtros avanzados (Nivel EQ / ALM) -->
+        <div class="filter-item aligned-filter responsive-filter-item usr-rol-adv">
             <div class="custom-dropdown" id="rolFilterSelect" data-filter-type="rol_filter" data-default-label="Filtrar Rol..." style="width: 100%;">
                 <input type="hidden" name="id_rol" data-filter-value value="{{ request('id_rol') }}">
 
@@ -134,6 +134,55 @@
                     </div>
                 </div>
             </div>
+
+            {{-- Filtros avanzados, al lado del Rol: el mismo botón de Almacén y Catálogo
+                 (.btn-filtro-avanzado), en rojo cuando hay un nivel elegido. Los dos niveles son independientes (columna
+                 Nivel: EQ y ALM), así que cada uno tiene su desplegable. Abrir/cerrar y "un
+                 desplegable a la vez": usuarios_index.js. --}}
+            @php
+                $nivelesOpciones = ['1' => 'GLOBAL', '2' => 'LOCAL'];
+                $nivelesFiltro = [
+                    ['id' => 'usrNivelEqSelect',  'name' => 'nivel_equipos', 'corto' => 'EQ',  'modulo' => 'Equipos'],
+                    ['id' => 'usrNivelAlmSelect', 'name' => 'nivel_almacen', 'corto' => 'ALM', 'modulo' => 'Almacén'],
+                ];
+                $hayNivel = collect($nivelesFiltro)->contains(fn ($f) => isset($nivelesOpciones[(string) request($f['name'])]));
+            @endphp
+            <div class="usr-adv-wrap">
+                <button type="button" id="usrAdvBtn" class="btn-primary-maquinaria btn-filtro-avanzado {{ $hayNivel ? 'activo' : '' }}"
+                        title="Filtros avanzados" onclick="window.usrToggleAvanzado();">
+                    <i class="material-icons">filter_list</i>
+                </button>
+                <div id="usrAdvPanel" class="panel-filtro-avanzado" style="display: none;">
+                    <h4 class="panel-filtro-avanzado-titulo">
+                        Filtros Avanzados
+                        <span class="panel-filtro-avanzado-limpiar" onclick="window.usrLimpiarAvanzado();">Limpiar Todo</span>
+                    </h4>
+                    @foreach($nivelesFiltro as $f)
+                        @php $sel = (string) request($f['name'], ''); $activo = isset($nivelesOpciones[$sel]); @endphp
+                        <span class="panel-filtro-avanzado-label" style="{{ $loop->first ? '' : 'margin-top: 10px;' }}">Nivel {{ $f['corto'] }} — {{ $f['modulo'] }}</span>
+                        <div class="custom-dropdown" id="{{ $f['id'] }}" data-filter-type="{{ $f['name'] }}">
+                            <input type="hidden" name="{{ $f['name'] }}" data-filter-value value="{{ $activo ? $sel : '' }}">
+                            <div class="dropdown-trigger {{ $activo ? 'filter-active' : '' }}" style="padding: 0; display: flex; align-items: center; background: #fbfcfd; overflow: hidden; border: 1px solid #cbd5e0; border-radius: 8px; height: 38px;">
+                                <input type="text" data-filter-search autocomplete="off" readonly aria-label="Nivel de {{ $f['modulo'] }}"
+                                       placeholder="{{ $activo ? $f['corto'] . ' ' . $nivelesOpciones[$sel] : 'TODOS' }}"
+                                       style="flex: 1; border: none; background: transparent; padding: 8px 10px; color: #0f172a; outline: none; min-width: 0; cursor: pointer;">
+                                <i class="material-icons" data-clear-btn title="Quitar el filtro"
+                                   style="padding: 0 4px; color: #64748b; font-size: 16px; cursor: pointer; transform: none !important; display: {{ $activo ? 'block' : 'none' }};"
+                                   onclick="event.stopPropagation(); selectOption('{{ $f['id'] }}', '', 'TODOS'); window.usrAvanzadoCambio();">close</i>
+                                <i class="material-icons" style="padding: 0 6px; color: #64748b; font-size: 16px; pointer-events: none; transform: none !important;">expand_more</i>
+                            </div>
+                            <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
+                                <div class="dropdown-item-list">
+                                    <div class="dropdown-item {{ $activo ? '' : 'selected' }}" data-value="" onclick="selectOption('{{ $f['id'] }}', '', 'TODOS'); window.usrAvanzadoCambio();">TODOS</div>
+                                    @foreach($nivelesOpciones as $valor => $texto)
+                                        <div class="dropdown-item {{ $sel === (string) $valor ? 'selected' : '' }}" data-value="{{ $valor }}" onclick="selectOption('{{ $f['id'] }}', '{{ $valor }}', '{{ $f['corto'] }} {{ $texto }}'); window.usrAvanzadoCambio();">{{ $f['corto'] }} {{ $texto }}</div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
         </div>
 
         {{-- Acciones (mismo botón desplegable que Equipos/Auxiliares/Historial): Nuevo usuario
@@ -160,8 +209,9 @@
                 <button type="button" class="dropdown-item-custom"
                     onclick="window.usrCerrarAcciones(); window.checkUnusedRoles();"
                     style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; background: transparent; border: none; width: 100%; text-align: left; cursor: pointer;">
-                    <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;">
-                        <i class="material-icons" style="font-size: 18px; color: #c2410c;">delete_sweep</i>
+                    {{-- Mismo ícono que «Eliminar Seleccionados» del menú Acciones de /admin/equipos: también borra. --}}
+                    <div style="background: #fee2e2; padding: 6px; border-radius: 6px; display: flex;">
+                        <i class="material-icons" style="font-size: 18px; color: #dc2626;">delete_outline</i>
                     </div>
                     <span style="font-size: 14px; font-weight: 500;">Limpiar roles inactivos</span>
                 </button>
@@ -191,6 +241,12 @@
             max-width: none !important;
             min-width: 0;
         }
+        /* Rol + botón Filtros avanzados en el mismo bloque: el Rol se estira y el botón queda
+           fijo a su derecha. position:relative → en el teléfono el panel se mide contra este
+           bloque (la regla común lo suelta del botón con div:has(> .panel-filtro-avanzado)). */
+        .usr-rol-adv { position: relative; gap: 8px; }
+        .usr-rol-adv > .custom-dropdown { flex: 1 1 auto; min-width: 0; }
+        .usr-adv-wrap { position: relative; flex: 0 0 auto; }
         @media (min-width: 769px) {
             /* PC (como /admin/equipos): los 3 filtros (Buscar / Frente / Rol) CRECEN por igual
                —flex:1 1 0 vía la regla base— y llenan todo el ancho del contenedor de la tabla;
@@ -224,6 +280,12 @@
             .usr-filter-row > .filter-item.responsive-filter-item {
                 flex: 1 1 100% !important;
                 min-width: 0 !important;
+            }
+            /* La regla global de teléfono pone a lo ancho todo .btn-primary-maquinaria de un
+               .filter-item: el botón partía la fila por la mitad con el Rol. Se queda en 45px. */
+            .usr-filter-row .usr-rol-adv .btn-filtro-avanzado {
+                width: 45px !important;
+                flex: 0 0 45px;
             }
         }
     </style>
@@ -437,7 +499,7 @@
                     html += `
                     <div style="padding: 12px 16px; background: white; border-top: 1px solid #e2e8f0; display: flex; justify-content: center;">
                         <button type="button" onclick="window.deleteUnusedRoles()" class="btn-primary-maquinaria" style="background:#ef4444;padding:8px 16px;border-radius:8px;font-size:13px;height:auto;gap:6px;cursor:pointer;">
-                            <i class="material-icons" style="font-size: 18px;">delete_sweep</i>
+                            <i class="material-icons" style="font-size: 18px;">delete_outline</i>
                             Confirmar Eliminación
                         </button>
                     </div>`;

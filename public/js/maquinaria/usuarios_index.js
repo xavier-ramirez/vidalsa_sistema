@@ -44,7 +44,9 @@ window.loadUsuarios = function (url = null) {
     const filters = {
         search: searchInput?.value,
         id_frente: frenteInput?.value,
-        id_rol: rolInput?.value
+        id_rol: rolInput?.value,
+        nivel_equipos: document.querySelector('input[name="nivel_equipos"]')?.value,
+        nivel_almacen: document.querySelector('input[name="nivel_almacen"]')?.value
     };
 
     const params = new URLSearchParams();
@@ -262,8 +264,39 @@ window.usrToggleAcciones = function () {
     m.style.display = (m.style.display === 'none' || !m.style.display) ? 'block' : 'none';
 };
 
+// ── Filtros avanzados (Nivel EQ / ALM) ───────────────────────────────────────
+// Sin stopPropagation: el clic sigue hasta document, donde se cierran Acciones, las
+// sugerencias y Frente/Rol (un desplegable a la vez). El panel se cierra en el bloque de abajo.
+window.usrCerrarAvanzado = function () {
+    const p = document.getElementById('usrAdvPanel');
+    if (p) p.style.display = 'none';
+};
+window.usrToggleAvanzado = function () {
+    const p = document.getElementById('usrAdvPanel');
+    if (!p) return;
+    p.style.display = p.style.display === 'block' ? 'none' : 'block';
+};
+// Tras elegir un nivel (o quitarlo con la X): botón en rojo si queda alguno puesto y recarga.
+window.usrAvanzadoCambio = function () {
+    const btn = document.getElementById('usrAdvBtn');
+    const hay = ['nivel_equipos', 'nivel_almacen'].some(function (n) {
+        const i = document.querySelector('input[name="' + n + '"]');
+        return i && i.value !== '';
+    });
+    if (btn) btn.classList.toggle('activo', hay);
+    window.loadUsuarios();
+};
+// "Limpiar Todo": sin nada puesto no recarga (la tabla parpadeaba por nada).
+window.usrLimpiarAvanzado = function () {
+    const btn = document.getElementById('usrAdvBtn');
+    if (!btn || !btn.classList.contains('activo')) return;
+    window.selectOption('usrNivelEqSelect', '', 'TODOS');
+    window.selectOption('usrNivelAlmSelect', '', 'TODOS');
+    window.usrAvanzadoCambio();
+};
+
 // ── Desplegables del módulo: solo uno abierto a la vez ───────────────────────
-// Sugerencias del buscador, Frente, Rol y Acciones. Con CLIC se cierran entre sí porque
+// Sugerencias del buscador, Frente, Rol, Acciones y Filtros avanzados. Con CLIC se cierran entre sí porque
 // todos escuchan en document (Frente/Rol en uicomponents.js); por eso el botón Acciones
 // NO hace stopPropagation. Con FOCO sin clic (Tab, o "siguiente" en el teclado del
 // teléfono) no hay clic: focusin hace el mismo cierre. Frente/Rol ya se cierran entre
@@ -274,6 +307,7 @@ if (!window.__usuariosDesplegablesBound) {
     document.addEventListener('click', function (e) {
         if (!e.target.closest) return;
         if (!e.target.closest('.usuarios-action-btns')) window.usrCerrarAcciones();
+        if (!e.target.closest('#usrAdvPanel') && !e.target.closest('#usrAdvBtn')) window.usrCerrarAvanzado();
 
         const item = e.target.closest('#searchSuggest .usuarios-suggest-item');
         if (item) {
@@ -296,6 +330,7 @@ if (!window.__usuariosDesplegablesBound) {
     document.addEventListener('focusin', function (e) {
         if (!e.target.closest || !document.getElementById('usuariosTableBody')) return;
         if (!e.target.closest('.usuarios-action-btns')) window.usrCerrarAcciones();
+        if (!e.target.closest('#usrAdvPanel') && !e.target.closest('#usrAdvBtn')) window.usrCerrarAvanzado();
         if (e.target.closest('#search-form')) {
             window.closeAllDropdowns(null);          // buscador enfocado → cerrar Frente/Rol
         } else if (!e.target.closest('#searchSuggest')) {

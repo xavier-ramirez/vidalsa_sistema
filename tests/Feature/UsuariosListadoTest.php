@@ -11,6 +11,7 @@ use Tests\MySqlTestCase;
 /**
  * /admin/usuarios: filtros y vuelta al listado.
  *  - El filtro de Frente encuentra a los usuarios con VARIOS frentes (ID_FRENTE_ASIGNADO es CSV).
+ *  - Filtros avanzados: nivel EQ y nivel ALM, cada uno por su lado.
  *  - Editar vuelve al listado con los mismos filtros (?return= saneado contra open-redirect).
  *  - Eliminar por AJAX responde JSON (la tabla se recarga sola con sus filtros).
  *  - Una página que ya no existe muestra la última, no una tabla vacía.
@@ -18,15 +19,15 @@ use Tests\MySqlTestCase;
  */
 class UsuariosListadoTest extends MySqlTestCase
 {
-    private function crearUsuario(?string $frentes = null): Usuario
+    private function crearUsuario(?string $frentes = null, int $nivelEquipos = 2, int $nivelAlmacen = 2): Usuario
     {
         $u = new Usuario();
         $u->NOMBRE_COMPLETO = 'PRUEBA LISTADO ' . strtoupper(Str::random(6));
         $u->CORREO_ELECTRONICO = 'prueba.listado.' . strtolower(Str::random(8)) . '@cvidalsa27.com';
         $u->PASSWORD_HASH = Hash::make('Clave#123456');
         $u->ID_ROL = DB::table('roles')->value('ID_ROL');
-        $u->NIVEL_ACCESO_EQUIPOS = 2;
-        $u->NIVEL_ACCESO_ALMACEN = 2;
+        $u->NIVEL_ACCESO_EQUIPOS = $nivelEquipos;
+        $u->NIVEL_ACCESO_ALMACEN = $nivelAlmacen;
         $u->ESTATUS = 'ACTIVO';
         $u->setAttribute('ID_FRENTE_ASIGNADO', $frentes);
         $u->save();
@@ -46,6 +47,27 @@ class UsuariosListadoTest extends MySqlTestCase
                 ->assertOk()->json('html'))->all();
             $this->assertStringContainsString($u->NOMBRE_COMPLETO, $ids[0], "Sale filtrando por el frente $f.");
         }
+    }
+
+    public function test_filtros_avanzados_por_nivel_de_equipos_y_de_almacen(): void
+    {
+        $u = $this->crearUsuario(null, 1, 2);   // EQ GLOBAL, ALM LOCAL
+        $admin = $this->superAdminGlobal();
+        $cuantos = fn (array $f) => $this->actingAs($admin)
+            ->getJson(route('usuarios.index', $f + ['search' => $u->CORREO_ELECTRONICO]))->assertOk()->json('count');
+
+        $this->assertSame(1, $cuantos(['nivel_equipos' => '1']), 'EQ GLOBAL.');
+        $this->assertSame(0, $cuantos(['nivel_equipos' => '2']), 'No es EQ LOCAL.');
+        $this->assertSame(1, $cuantos(['nivel_almacen' => '2']), 'ALM LOCAL.');
+        $this->assertSame(0, $cuantos(['nivel_almacen' => '1']), 'No es ALM GLOBAL.');
+        $this->assertSame(1, $cuantos(['nivel_equipos' => '1', 'nivel_almacen' => '2']), 'Los dos juntos.');
+        $this->assertSame(0, $cuantos(['nivel_equipos' => '1', 'nivel_almacen' => '1']));
+        $this->assertSame(1, $cuantos(['nivel_equipos' => '9']), 'Un valor que no es nivel se ignora.');
+
+        // Al volver con el filtro en la URL, el botón sale en rojo y el desplegable con su valor.
+        $html = (string) $this->actingAs($admin)->get(route('usuarios.index', ['nivel_almacen' => '2']))->assertOk()->getContent();
+        $this->assertStringContainsString('btn-filtro-avanzado activo', $html);
+        $this->assertStringContainsString('name="nivel_almacen" data-filter-value value="2"', $html);
     }
 
     public function test_buscador_no_trata_porcentaje_ni_guion_bajo_como_comodines(): void
