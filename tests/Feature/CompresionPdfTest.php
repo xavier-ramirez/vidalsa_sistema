@@ -222,7 +222,7 @@ class CompresionPdfTest extends MySqlTestCase
         $this->actingAs($admin)->get(route('compresion-pdf.index'))->assertRedirectContains('pestana=compresion');
         $this->actingAs($admin)->get(route('historial-documentos.index', ['pestana' => 'compresion']))
             ->assertOk()
-            ->assertSee('Compresión de PDF')
+            ->assertSee('Compresión<span class="hd-pest-mas"> de PDF</span>', false)
             ->assertSee('Tarea nocturna apagada')
             ->assertSee('Es el PC de desarrollo.');
     }

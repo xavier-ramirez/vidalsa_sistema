@@ -310,11 +310,12 @@
                       padding: 8px 14px; border-bottom: 3px solid transparent; cursor: pointer; }
     .hd-pest button.on { color: #0067b1; border-bottom-color: #0067b1; }
     .hd-pest .hd-pend { background: #fee2e2; color: #b91c1c; border-radius: 999px; padding: 1px 7px; font-size: 12px; font-weight: 800; margin-left: 4px; }
-    /* Teléfono: los nombres no se parten en tres renglones; si no caben, la fila se desliza. */
+    /* Teléfono: los nombres cortos (sin .hd-pest-mas) y sin partirse; si no caben, la fila se desliza. */
     @media (max-width: 768px) {
         .hd-pest { overflow-x: auto; scrollbar-width: none; }
         .hd-pest::-webkit-scrollbar { display: none; }
         .hd-pest button { white-space: nowrap; padding: 8px 10px; font-size: 13.5px; }
+        .hd-pest .hd-pest-mas { display: none; }
     }
 
 /* Contador flotante de filas elegidas (partials/chip_seleccion), el de las tres pestañas.

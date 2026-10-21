@@ -70,8 +70,8 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertStringContainsString('window.cpdfMarcarRevisadas', $html);
         // Nada de eliminar; las otras pestañas, a la vista.
         $this->assertStringNotContainsString('cpdfDescartarCarga(this', $html, 'Descartar borra de Drive: super.admin.');
-        $this->assertStringContainsString('Historial de cambios', $html);
-        $this->assertStringContainsString('Compresión de PDF', $html);
+        $this->assertStringContainsString('Historial<span class="hd-pest-mas"> de cambios</span>', $html);
+        $this->assertStringContainsString('Compresión<span class="hd-pest-mas"> de PDF</span>', $html);
         $this->assertStringNotContainsString('abrirPapelera()', $html);
         $this->assertStringNotContainsString('hdDeleteRegistro(', $html);
         // Y el enlace del menú para llegar.
@@ -123,8 +123,8 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
 
         $html = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'documentos']))->assertOk()->getContent();
         $this->assertStringContainsString($noche, $html, 'Ve las filas de la lectura automática.');
-        $this->assertStringContainsString('Historial de cambios', $html);
-        $this->assertStringContainsString('Compresión de PDF', $html);
+        $this->assertStringContainsString('Historial<span class="hd-pest-mas"> de cambios</span>', $html);
+        $this->assertStringContainsString('Compresión<span class="hd-pest-mas"> de PDF</span>', $html);
         $this->assertStringNotContainsString('window.abrirCargaMasiva', $html, 'Sin la clave no se carga el modal.');
         // Elige filas para verlas (el contador es de todos), pero no revisa: eso va con la carga masiva.
         $this->assertStringContainsString('id="cpdf-selection-chip"', $html);

@@ -687,7 +687,7 @@
         if (eq.placa) l1.appendChild(el('span', 'cpdf-atar-placa')).appendChild(cpdfAtarResaltar(eq.placa, eq.distancia > 0 ? buscado : ''));
         if (eq.codigo) l1.appendChild(el('span', 'cpdf-atar-placa', eq.codigo));
         // Dos columnas: a la izquierda el serial/placa y debajo las etiquetas; a la derecha qué
-        // equipo es (marca y modelo) y debajo su tipo.
+        // equipo es: su tipo y debajo la marca y el modelo.
         var ident = el('div', 'cpdf-atar-ident');
         ident.appendChild(l1);
         var marcas = el('div', 'cpdf-atar-marcas');
@@ -713,8 +713,8 @@
         }
         if (marcas.childNodes.length) ident.insertBefore(marcas, ident.children[1] || null);
         var quien = el('div', 'cpdf-atar-quien');
-        quien.appendChild(el('div', 'cpdf-atar-nombre', eq.nombre));
         if (eq.tipo) quien.appendChild(el('div', 'cpdf-atar-meta', eq.tipo));
+        quien.appendChild(el('div', 'cpdf-atar-nombre', eq.nombre));
         info.appendChild(ident);
         info.appendChild(quien);
         var boton = el('button', 'cpdf-atar-btn');
@@ -778,8 +778,7 @@
                     ico.textContent = d === 0 ? 'search' : 'warning_amber';
                     nota.appendChild(ico);
                     nota.appendChild(document.createTextNode(d === 0 ? 'Equipos que contienen lo escrito.'
-                        : 'Ninguno es igual. El más parecido cambia ' + d + (d === 1 ? ' carácter' : ' caracteres')
-                          + ' (en rojo): compáralo antes de atar.'));
+                        : 'Ninguno es igual: ' + d + (d === 1 ? ' carácter distinto' : ' caracteres distintos') + ' (en rojo).'));
                     lista.appendChild(nota);
                 }
                 cerca.forEach(function (eq, n) { lista.appendChild(cpdfAtarFila(eq, n)); });

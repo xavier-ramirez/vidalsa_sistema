@@ -11,13 +11,14 @@
     {{-- Las tres para quien entra (Usuario::veAuditoriaDocumentos). Con solo la carga masiva,
          el historial y la compresión son de mirar: borrar y la Papelera piden super.admin.
          La revisión va primero y es la que se abre (HistorialDocumentosController::index). --}}
-    {{-- "Revisión automática" (pedido del cliente, 21-10-2026; antes "Revisión de documentos"). --}}
+    {{-- "Revisión automática" (pedido del cliente, 21-10-2026). En el teléfono, cada nombre sin
+         su .hd-pest-mas: "Revisión", "Historial", "Compresión". --}}
     <button type="button" class="{{ $pestana === 'documentos' ? 'on' : '' }}" onclick="window.hdPestana('documentos')">
-        Revisión automática
+        Revisión<span class="hd-pest-mas"> automática</span>
         @if ($docsParaRevisar) <span class="hd-pend" title="Documentos que hay que revisar a mano">{{ $docsParaRevisar }}</span> @endif
     </button>
-    <button type="button" class="{{ $pestana === 'historial' ? 'on' : '' }}" onclick="window.hdPestana('historial')">Historial de cambios</button>
-    <button type="button" class="{{ $pestana === 'compresion' ? 'on' : '' }}" onclick="window.hdPestana('compresion')">Compresión de PDF</button>
+    <button type="button" class="{{ $pestana === 'historial' ? 'on' : '' }}" onclick="window.hdPestana('historial')">Historial<span class="hd-pest-mas"> de cambios</span></button>
+    <button type="button" class="{{ $pestana === 'compresion' ? 'on' : '' }}" onclick="window.hdPestana('compresion')">Compresión<span class="hd-pest-mas"> de PDF</span></button>
     </div>
 </div>
 <script>
