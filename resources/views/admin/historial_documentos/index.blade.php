@@ -144,12 +144,14 @@
             <div class="custom-scrollbar-container">
                 <table class="admin-table table-historial-mobile" id="historialDocumentosTable">
                     <thead>
+                        {{-- Igual que las cabeceras de Revisión y Compresión (compresion_pdf/panel):
+                             sin rayas entre columnas, rótulos cortos y la de los botones sin título. --}}
                         <tr class="tabla-cabecera">
-                            <th class="table-cell-bordered" style="width: 130px;">Fecha y Hora</th>
-                            <th class="table-cell-bordered" style="width: 24%;">Autor</th>
-                            <th class="table-cell-bordered" style="width: 22%;">Tipo de Acción</th>
-                            <th class="table-cell-bordered">Equipo Asociado</th>
-                            <th style="text-align: center; width: 90px;">Ver PDF</th>
+                            <th style="width: 130px;">Fecha</th>
+                            <th style="width: 24%;">Autor</th>
+                            <th style="width: 22%;">Tipo de acción</th>
+                            <th>Equipo</th>
+                            <th style="width: 90px;"></th>
                         </tr>
                     </thead>
                     <tbody id="historialTableBody" style="font-size: 13px;">
