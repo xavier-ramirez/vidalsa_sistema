@@ -309,8 +309,19 @@
            (pedido del cliente, 21-10-2026). */
         .cpdf-side { gap: 0; }
         .cpdf-side > *:not(.cpdf-avance) { display: none !important; }
-        .cpdf-avance { grid-column: 1 / -1; padding: 10px 12px; }
-        .cpdf-avance small { margin-bottom: 8px; }
+        /* Azul, como la tarjeta de cifras de Equipos en el teléfono (.equipos-mobile-stats,
+           estilos_globales.css): letra blanca y el verde claro que Equipos usa sobre ese fondo
+           (pedido del cliente, 21-10-2026). */
+        .cpdf-avance { grid-column: 1 / -1; padding: 10px 12px; border: none; color: #fff;
+                       background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15); }
+        .cpdf-avance small { margin-bottom: 8px; color: #fff; border-bottom-color: rgba(255, 255, 255, 0.15); }
+        .cpdf-avance small .material-icons { color: #93c5fd; }
+        .cpdf-avance-fila { border-bottom-color: rgba(255, 255, 255, 0.12); }
+        .cpdf-avance .cpdf-avance-nombre,
+        .cpdf-avance .cpdf-avance-cifra { color: #fff; }
+        .cpdf-avance .cpdf-avance-barra { background: rgba(255, 255, 255, 0.2); }
+        .cpdf-avance-barra i { background: #93c5fd; }
+        .cpdf-avance-listo { color: #86efac; }
     }
     @media (max-width: 768px) {
         /* El mismo ancho que Equipos y que la pestaña Historial: la tarjeta a todo lo ancho
