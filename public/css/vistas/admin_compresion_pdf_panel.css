@@ -249,14 +249,13 @@
     .cpdf-atar-info { flex: 1; min-width: 0; display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 4px 16px; align-items: center; }
     .cpdf-atar-ident, .cpdf-atar-quien { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
     .cpdf-atar-info > .cpdf-atar-err, .cpdf-atar-info > .cpdf-atar-pisar { grid-column: 1 / -1; }
-    .cpdf-atar-l1 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+    .cpdf-atar-l1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
     /* La tarjeta del equipo: una sola letra (la del sistema) y sin negritas; lo distinto se ve
-       por el carácter marcado en rojo. */
-    /* Serial y placa en la misma línea; la placa baja solo si no caben, y un serial más largo que
-       la columna se parte. */
+       por el carácter marcado en rojo. Serial y placa en la misma línea, la placa como texto
+       suelto en gris (sin recuadro); baja solo si no caben, y un serial más largo que la
+       columna se parte. */
     .cpdf-atar-serial { flex: 0 0 auto; max-width: 100%; font-size: 13px; color: #0f172a; word-break: break-all; }
-    .cpdf-atar-placa { padding: 1px 7px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc;
-                       font-size: 12px; color: #334155; white-space: nowrap; }
+    .cpdf-atar-placa { font-size: 13px; color: #475569; white-space: nowrap; }
     /* El carácter que no coincide con lo leído. */
     .cpdf-atar-l1 mark { background: #fee2e2; color: #b91c1c; border-radius: 3px; padding: 0 1px; }
     .cpdf-atar-nombre { font-size: 13px; color: #0f172a; }
@@ -295,8 +294,7 @@
         .cpdf-atar-info { grid-template-columns: minmax(0, 1fr); }
         /* Serial y placa juntos también aquí: más apretados para que quepan al lado del botón. */
         .cpdf-atar-op { gap: 8px; padding: 10px; }
-        .cpdf-atar-l1 { column-gap: 5px; }
-        .cpdf-atar-placa { padding: 1px 5px; }
+        .cpdf-atar-l1 { column-gap: 8px; }
         .cpdf-atar-op > .cpdf-atar-btn { padding: 7px 10px; }
     }
 
