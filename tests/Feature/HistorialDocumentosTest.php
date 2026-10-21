@@ -111,7 +111,8 @@ class HistorialDocumentosTest extends MySqlTestCase
     public function test_el_resumen_lateral_cuenta_la_lista_de_la_tabla(): void
     {
         $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
-        [, $placa] = $this->equipoConRacda($yo, now()->subMinutes(5));
+        // Hace un rato, pero HOY: pasada la medianoche "hace 5 minutos" era ayer y el "Hoy" daba 0.
+        [, $placa] = $this->equipoConRacda($yo, now()->subMinutes(5)->max(now()->startOfDay()));
 
         $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'historial', 'search_equipo' => $placa]))->getContent();
         $this->assertStringContainsString('id="hdResumen"', $html);
