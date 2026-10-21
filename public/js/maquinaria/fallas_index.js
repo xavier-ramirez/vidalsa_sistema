@@ -63,13 +63,12 @@
             document.getElementById('fallasTableBody').innerHTML = data.html;
             document.getElementById('fallasPagination').innerHTML = data.pagination || '';
             if (data.stats) {
-                // Consolidado: Total / Abiertos / Cerrados (los ids pueden no existir en móvil).
-                const st = document.getElementById('statTotal');
-                const sa = document.getElementById('statAbiertos');
-                const sc = document.getElementById('statCerrados');
-                if (st) st.textContent = data.stats.total_reportes;
-                if (sa) sa.textContent = data.stats.reportes_abiertos;
-                if (sc) sc.textContent = data.stats.reportes_cerrados;
+                // Consolidado: Total / Abiertos / Cerrados, en la tarjeta de la PC y en la del
+                // teléfono (antes la del teléfono no tenía ids y se quedaba con las cifras sin filtrar).
+                document.querySelectorAll('[data-fallas-stat]').forEach(function (el) {
+                    const v = data.stats[el.dataset.fallasStat];
+                    if (v !== undefined) el.textContent = v;
+                });
                 // Gráfico de mantenimiento (dona) — actualiza ambos paneles (móvil + desktop).
                 window.flRenderMantChart(data.stats.preventivo, data.stats.correctivo, data.stats.rapidos);
             }
