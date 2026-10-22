@@ -781,12 +781,6 @@ window.showDetailsImproved = function (target, event) {
         if (btnEmbarque) btnEmbarque.onclick = null;
     }
     if (rowEmbarque && eqId) {
-        // Sin titulo de propiedad, el BL es el papel que acredita el equipo mientras el titulo
-        // llega: entonces la fila sube JUNTO AL TITULO, que es donde se busca. Con titulo se queda
-        // abajo, en su sitio de siempre. Nunca reemplaza al boton de cargar el titulo —ese sigue
-        // donde estaba— ni se pinta bajo el rotulo del titulo: un BL no es un titulo y en una
-        // pantalla donde se auditan documentos confundirlos seria peor que no verlo.
-        const faltaTitulo = !isValid(d.linkPropiedad);
         fetch('/admin/equipos/' + eqId + '/embarque', { headers: { 'Accept': 'application/json' } })
             .then(r => (r.ok ? r.json() : null))
             .then(res => {
@@ -823,19 +817,7 @@ window.showDetailsImproved = function (target, event) {
                         eqId, '', false);
                 };
 
-                // El modal es UNO solo y se reusa entre equipos, asi que la fila se recoloca en
-                // cada apertura: al de al lado puede sobrarle la mudanza.
-                const filaNroDoc = document.getElementById('d_row_nro_doc');
-                const ancla = document.getElementById('d_embarque_ancla');
-                if (faltaTitulo && filaNroDoc) {
-                    filaNroDoc.insertAdjacentElement('afterend', rowEmbarque);
-                } else if (ancla && ancla.parentNode) {
-                    ancla.parentNode.insertBefore(rowEmbarque, ancla);
-                }
-                // Arriba lleva raya abajo (como las demas filas del bloque); abajo, raya arriba,
-                // que es la que lo separa de Compraventa.
-                rowEmbarque.style.borderTop = faltaTitulo ? 'none' : '1px dashed #f1f5f9';
-                rowEmbarque.style.borderBottom = faltaTitulo ? '1px dashed #f1f5f9' : 'none';
+                // Siempre debajo del titulo de propiedad (su sitio en la vista).
                 rowEmbarque.style.display = 'flex';
             })
             .catch(() => {});   // sin embarque la ficha se ve como siempre

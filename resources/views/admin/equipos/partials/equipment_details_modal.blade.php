@@ -101,6 +101,35 @@ Estructura: overlay > modal-content > header + sub-header + body
                                 </div>
                             </div>
 
+                            {{-- Documento de embarque (BL), justo debajo del título de propiedad (pedido del
+                                 cliente, 22-10-2026). Solo se ve si el equipo tiene uno: lo pide
+                                 uicomponents.js al abrir el detalle y lo pone la carga masiva. --}}
+                            <div id="d_row_embarque" class="detail-row-doc"
+                                style="display:none;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px dashed #f1f5f9;">
+                                {{-- El nombre del documento, junto ("Embarque BL": antes el rótulo decía
+                                     "Embarque" y el valor empezaba por "BL", pedido del cliente 30-09-2026).
+                                     uicomponents.js lo cambia a "Certificado de origen" si es uno
+                                     (Embarque::rotulo, según TIPO_DOCUMENTO). --}}
+                                <span id="d_embarque_rotulo" style="color:#64748b;font-size:12px;font-weight:500;white-space:nowrap;">Embarque BL</span>
+                                <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+                                    {{-- El número y la fecha en el renglón de arriba y el BUQUE
+                                         debajo: los tres juntos en una línea no caben en el modal. --}}
+                                    <span style="display:flex;flex-direction:column;align-items:flex-end;min-width:0;">
+                                        <span id="d_embarque_txt" style="color:#333;font-size:13px;text-align:right;"></span>
+                                        <small id="d_embarque_buque"
+                                            style="color:#64748b;font-size:11px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;"></small>
+                                    </span>
+                                    {{-- Botón, no enlace: el BL se abre en el MISMO visor de PDF que el
+                                         resto de los documentos (openPdfPreview). Era un <a target="_blank">
+                                         y se iba a otra pestaña, fuera de la aplicación.
+                                         La clase va en el propio botón —como en el resto del sistema—
+                                         y no en un <span> dentro: ahí el :focus-visible de .pdf-doc-btn
+                                         no llega, porque quien recibe el foco es el botón. --}}
+                                    <button type="button" id="d_btn_embarque" class="pdf-doc-btn"
+                                        title="Ver documento de embarque"><i class="material-icons">description</i></button>
+                                </div>
+                            </div>
+
                             <div class="detail-row-doc"
                                 style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px dashed #f1f5f9;">
                                 <span style="color:#64748b;font-size:12px;">P&oacute;liza de Seguro</span>
@@ -145,43 +174,6 @@ Estructura: overlay > modal-content > header + sub-header + body
                                 <span id="d_label_adicional_2" style="color:#64748b;font-size:12px;font-weight:500;">Compraventa</span>
                                 <div style="display:flex;align-items:center;gap:6px;">
                                     <div id="d_btn_adicional_2"></div>
-                                </div>
-                            </div>
-
-                            {{-- Sitio de siempre de la fila de embarque. Cuando al equipo le FALTA el
-                                 título, uicomponents.js la sube junto al título (ahí es donde se
-                                 busca el papel que acredita el equipo) y la devuelve aquí en cuanto
-                                 abra otro que tenga título y BL; sin esta ancla no habría a dónde
-                                 volver. Un equipo sin BL no la mueve: la deja donde esté, oculta. --}}
-                            <span id="d_embarque_ancla" hidden></span>
-
-                            {{-- Documento de embarque (BL): solo se ve si el equipo tiene uno. Lo pide
-                                 uicomponents.js al abrir el detalle y lo pone la carga masiva. --}}
-                            <div id="d_row_embarque" class="detail-row-doc"
-                                {{-- Sin borde aquí: la raya la pone uicomponents.js en cada apertura,
-                                     arriba o abajo según dónde acabe la fila. --}}
-                                style="display:none;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;">
-                                {{-- El nombre del documento, junto ("Embarque BL": antes el rótulo decía
-                                     "Embarque" y el valor empezaba por "BL", pedido del cliente 30-09-2026).
-                                     uicomponents.js lo cambia a "Certificado de origen" si es uno
-                                     (Embarque::rotulo, según TIPO_DOCUMENTO). --}}
-                                <span id="d_embarque_rotulo" style="color:#64748b;font-size:12px;font-weight:500;white-space:nowrap;">Embarque BL</span>
-                                <div style="display:flex;align-items:center;gap:6px;min-width:0;">
-                                    {{-- El número y la fecha en el renglón de arriba y el BUQUE
-                                         debajo: los tres juntos en una línea no caben en el modal. --}}
-                                    <span style="display:flex;flex-direction:column;align-items:flex-end;min-width:0;">
-                                        <span id="d_embarque_txt" style="color:#333;font-size:13px;text-align:right;"></span>
-                                        <small id="d_embarque_buque"
-                                            style="color:#64748b;font-size:11px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;"></small>
-                                    </span>
-                                    {{-- Botón, no enlace: el BL se abre en el MISMO visor de PDF que el
-                                         resto de los documentos (openPdfPreview). Era un <a target="_blank">
-                                         y se iba a otra pestaña, fuera de la aplicación.
-                                         La clase va en el propio botón —como en el resto del sistema—
-                                         y no en un <span> dentro: ahí el :focus-visible de .pdf-doc-btn
-                                         no llega, porque quien recibe el foco es el botón. --}}
-                                    <button type="button" id="d_btn_embarque" class="pdf-doc-btn"
-                                        title="Ver documento de embarque"><i class="material-icons">description</i></button>
                                 </div>
                             </div>
 
