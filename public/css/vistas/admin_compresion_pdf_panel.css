@@ -219,7 +219,7 @@
        abajo, de dos en dos para que no se alargue (pedidos del cliente, 22-10-2026). En el teléfono
        va debajo del PDF. El panel de datos del visor no se usa aquí. */
     .cpdf-atar-visor #pdfMetadataPanel { display: none !important; }
-    .cpdf-atar-caja { width: 380px; max-width: 45%; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;
+    .cpdf-atar-caja { width: 350px; max-width: 45%; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;
                       background: #282828; border-left: 1px solid #3a3a3a; color: #fff; }
     .cpdf-atar-cuerpo { display: flex; flex-direction: column; gap: 12px; padding: 12px; min-height: 0; flex: 1; overflow-y: auto; }
     .cpdf-atar-tit { margin: 0; padding-bottom: 8px; border-bottom: 1px solid #3a3a3a; font-size: 15px; font-weight: 700; color: #fff; }
@@ -228,6 +228,8 @@
        documento, un error, la pregunta de reemplazar) va a lo ancho. */
     .cpdf-atar-datos, .cpdf-atar-info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; min-width: 0; }
     .cpdf-atar-info > :not(.cpdf-atar-campo) { grid-column: 1 / -1; }
+    /* En la tarjeta el serial va a la izquierda: esa columna, un poco más ancha, para que quepa entero. */
+    .cpdf-atar-info { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
     .cpdf-atar-campo[hidden] { display: none; }
     /* El buscador, como un campo del panel de datos. */
     .cpdf-atar-buscar { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 1px solid #555; border-radius: 4px; background: #282828; }
