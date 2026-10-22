@@ -226,7 +226,8 @@
        fechas no sale si el PDF no las trae. */
     .cpdf-atar-datos { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #0f172a; }
     .cpdf-atar-datos div:empty { display: none; }
-    .cpdf-atar-codigo { word-break: break-all; }
+    /* El código leído no se parte por la mitad: si no cabe en la línea, baja entero. */
+    .cpdf-atar-codigo { white-space: nowrap; }
     .cpdf-atar-buscar { display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 1px solid #cbd5e0; border-radius: 10px; background: #fbfcfd; }
     .cpdf-atar-buscar:focus-within { border-color: #0067b1; background: #fff; box-shadow: 0 0 0 3px rgba(0,103,177,.1); }
     .cpdf-atar-buscar .material-icons { font-size: 18px; color: #94a3b8; }

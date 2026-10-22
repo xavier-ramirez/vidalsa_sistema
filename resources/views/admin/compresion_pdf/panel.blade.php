@@ -870,7 +870,7 @@
 
     // Enlazar un VIN del BL que falta: el buscador arranca con el propio VIN.
     window.cpdfAtarVin = function (link, vin, fechas) {
-        window.cpdfAbrirAtar({ doc: 'Documento de embarque (BL)', leidoEti: 'VIN que falta', leido: vin, fechas: fechas,
+        window.cpdfAbrirAtar({ doc: 'BL', leidoEti: 'VIN', leido: vin, fechas: fechas,
             inicial: vin, tipo: null, bloquearConBl: true, atar: function (eq, ui) {
                 window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-vin')),
                     { link: link, vin: vin, id_equipo: eq.id }, 'No se pudo enlazar.')
