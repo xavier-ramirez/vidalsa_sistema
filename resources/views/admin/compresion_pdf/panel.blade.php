@@ -1265,7 +1265,8 @@
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (!data || !data.success) throw new Error((data && data.message) || 'sin exito');
-                    window.toast('Guardado y revisado: la fila queda como coincide', 'success');
+                    window.toast(e.detail.sinCambios ? 'Revisado: la ficha ya decía eso; la fila queda como coincide'
+                        : 'Guardado y revisado: la fila queda como coincide', 'success');
                     window.closePdfPreview();
                     // La fila se pone al dia EN SU SITIO, sin recargar la lista: recargar llevaba
                     // arriba (y a la primera pagina), y habia que buscar otra vez por donde se iba.

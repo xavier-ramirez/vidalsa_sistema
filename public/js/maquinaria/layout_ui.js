@@ -2493,10 +2493,6 @@ window.saveMetadata = async function (e) {
             body: formData
         });
         const data = await res.json();
-        if (data.success && data.sin_cambios) {
-            window.toast(data.message, 'info');
-            return;
-        }
         if (data.success) {
             // Aviso de "guardado", igual que el de pintado (ver loadMetadata). Se puede CANCELAR:
             // quien lo escuche y se haga cargo (la revision a mano de Control de Auditoria, que
@@ -2506,12 +2502,19 @@ window.saveMetadata = async function (e) {
             // la fila como revisada en otra peticion) deja el boton girando hasta que termine.
             // Sin esto el boton volvia a "Guardar" y el visor se quedaba quieto un buen rato
             // sin decir nada: parecia que no guardaba.
+            // `sinCambios`: la ficha ya decia eso (p. ej. en la revision a mano se dejo la opcion
+            // de la ficha). Tambien se avisa: la revision da la fila por revisada igual.
             const espera = [];
             const seguir = document.dispatchEvent(new CustomEvent('vidalsa:metadata-guardada', {
                 cancelable: true,
                 detail: { equipoId: ctx.equipoId, docType: ctx.docType, module: ctx.module || 'equipo',
-                          esperar: (p) => espera.push(p) },
+                          sinCambios: !!data.sin_cambios, esperar: (p) => espera.push(p) },
             }));
+            if (data.sin_cambios) {
+                if (seguir) window.toast(data.message, 'info');
+                if (espera.length) await Promise.allSettled(espera);
+                return;
+            }
             if (seguir) window.toast('Datos actualizados correctamente', 'success');
             // Modulo auxiliares: refresca la tabla y termina (no aplica el
             // flujo de showDetailsImproved/activeEquipoButton del modulo equipos).
