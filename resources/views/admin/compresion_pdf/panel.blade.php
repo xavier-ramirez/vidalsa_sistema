@@ -573,7 +573,7 @@
         if (eli) { eli.hidden = !m; eli.lastChild.textContent = ' Eliminar' + (m > 1 ? ' (' + m + ')' : ''); }
     };
     // Clic en cualquier parte de la fila la elige o la suelta; los botones y enlaces de la fila
-    // (el PDF, atar, descartar) siguen haciendo lo suyo sin tocar la selección.
+    // (el PDF, enlazar) siguen haciendo lo suyo sin tocar la selección.
     window.cpdfSelFila = function (e, tr) {
         if (e.target.closest('button, a, input')) return;
         var sel = window._cpdfSel, id = tr.dataset.id;
@@ -698,8 +698,8 @@
     @endcan
 
     // ── Carga masiva ──────────────────────────────────────────────────────────────
-    // Lo que coincide se enlaza solo al leerlo (no hay botón de Aplicar). Aquí se descarta y se
-    // ata a mano el VIN de un BL que no casó con ninguna ficha.
+    // Lo que coincide se enlaza solo al leerlo (no hay botón de Aplicar). Aquí se enlaza a mano
+    // lo que no se enlazó solo: un PDF sin enlazar, un VIN del BL o una unidad de un PDF de varias.
     @can('docs.carga.masiva')
     // ── Enlazar a un equipo (caja junto al PDF, partials/atar_modal) ────────────────
     // Lo usan atar un PDF sin enlazar, un VIN del BL y una unidad de un PDF de varias. `o` trae lo que se muestra (doc,
@@ -740,7 +740,8 @@
             if (texto != null) x.textContent = texto;
             return x;
         };
-        // Como el panel de datos del visor: un dato debajo del otro, rótulo arriba y valor abajo.
+        // Como el panel de datos del visor: cada dato con su rótulo arriba y el valor abajo, de dos
+        // en dos (la rejilla .cpdf-atar-info).
         // El serial y la placa, con el carácter que NO coincide con lo buscado en rojo: es lo que
         // hay que comparar antes de enlazar. Solo si no es igual (distancia > 0).
         var buscado = eq.distancia > 0 ? cpdfAtarEl('cpdfAtarBuscar').value : '';
@@ -1255,7 +1256,8 @@
             var id = window._pdfVerif.id, campos = {};
             (window._pdfVerif.extras || []).forEach(function (x) { if (x.input.value.trim() !== '') campos[x.campo] = x.input.value.trim(); });
             window._pdfVerif = null;
-            window.apiFetch(URL_REVISADO.replace(/\/0\/revisado$/, '/' + id + '/revisado'), {
+            // El botón de guardar del visor sigue girando hasta que la fila quede revisada.
+            e.detail.esperar(window.apiFetch(URL_REVISADO.replace(/\/0\/revisado$/, '/' + id + '/revisado'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify({ campos: campos }),
@@ -1272,7 +1274,7 @@
                 .catch(function (err) {
                     window.toast('La ficha se guardó, pero no se pudo marcar la fila como revisada'
                         + (err && err.message && err.message !== 'sin exito' ? ': ' + err.message : ''), 'error');
-                });
+                }));
         });
     }
 </script>

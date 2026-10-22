@@ -2471,7 +2471,9 @@ window.saveMetadata = async function (e) {
     const ctx = window.currentPdfContext;
     const btn = document.getElementById('btnSaveMeta');
     const originalHTML = btn.innerHTML;
-    btn.innerHTML = '<i class="material-icons" style="font-size:16px;">hourglass_empty</i> Guardando...';
+    // Un spinner que gira mientras dura TODO el guardado, también lo que quien escuche
+    // 'vidalsa:metadata-guardada' haga después (ver `esperar` abajo).
+    btn.innerHTML = '<span class="spinner-circle" style="width:14px;height:14px;margin:0;border-width:2px;border-color:rgba(255,255,255,.35);border-top-color:#fff;"></span> Guardando...';
     btn.disabled = true;
     try {
         const formData = new FormData(e.target);
@@ -2500,9 +2502,15 @@ window.saveMetadata = async function (e) {
             // quien lo escuche y se haga cargo (la revision a mano de Control de Auditoria, que
             // da su propio aviso al terminar) llama a preventDefault y aqui no se repite otro.
             // Dos avisos seguidos, uno encima del otro, se veian saltar.
+            // `esperar(promesa)`: quien siga trabajando tras el guardado (la revision a mano marca
+            // la fila como revisada en otra peticion) deja el boton girando hasta que termine.
+            // Sin esto el boton volvia a "Guardar" y el visor se quedaba quieto un buen rato
+            // sin decir nada: parecia que no guardaba.
+            const espera = [];
             const seguir = document.dispatchEvent(new CustomEvent('vidalsa:metadata-guardada', {
                 cancelable: true,
-                detail: { equipoId: ctx.equipoId, docType: ctx.docType, module: ctx.module || 'equipo' },
+                detail: { equipoId: ctx.equipoId, docType: ctx.docType, module: ctx.module || 'equipo',
+                          esperar: (p) => espera.push(p) },
             }));
             if (seguir) window.toast('Datos actualizados correctamente', 'success');
             // Modulo auxiliares: refresca la tabla y termina (no aplica el
@@ -2545,6 +2553,7 @@ window.saveMetadata = async function (e) {
                 showDetailsImproved(window.activeEquipoButton);
             }
             if (typeof window.refreshDashboardAlerts === 'function') window.refreshDashboardAlerts();
+            if (espera.length) await Promise.allSettled(espera);
         } else {
             // El motivo que da el servidor (p.ej. "La fecha de vencimiento es obligatoria."),
             // no uno generico que no dice que corregir.
