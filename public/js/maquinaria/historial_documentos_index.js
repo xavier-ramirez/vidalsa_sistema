@@ -361,6 +361,8 @@ window.addEventListener('spa:contentLoaded', function() {
     if (window._hdSelectedIds) {
         window._hdSelectedIds.clear();
     }
+    // Y lo que se iba a eliminar: si no, «Eliminar» borraba también lo elegido en la visita anterior.
+    if (window._hdBorrables) window._hdBorrables.clear();
     // Resetear "ver solo seleccionados" y quitar el círculo ámbar al cambiar de vista.
     window._hdSoloSel = false;
     const counter = document.querySelector('#hd-selection-chip .selection-counter');

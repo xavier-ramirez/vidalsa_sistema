@@ -212,7 +212,8 @@
     .cpdf-motivo { font-size: 13px; color: #334155; }
     .cpdf-flecha { font-size: 14px; color: #64748b; align-self: center; }
 
-    /* El VIN de un BL que no casó con ninguna ficha, y su buscador para atarlo a mano. */
+    /* Cada línea que se enlaza a mano desde su fila (un PDF sin enlazar, el VIN de un BL que no
+       casó, una unidad de un RACDA, un ROTC o una póliza de flota) y su botón. */
     .cpdf-vin-falta { margin-top: 6px; font-size: 13px; color: #d97706; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
     /* El botón de enlazar de cada línea: el ícono de enlazar y "Equipo" (pedido del cliente, 22-10-2026). */
     .cpdf-vin-btn { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #1e40af; background: #fff; color: #1e40af; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
@@ -252,7 +253,7 @@
     .cpdf-atar-nota .material-icons { font-size: 18px; flex-shrink: 0; }
     .cpdf-atar-nota.azul  { background: rgba(59,130,246,.15); color: #93c5fd; }
     .cpdf-atar-nota.ambar { background: rgba(245,158,11,.15); color: #fcd34d; }
-    /* Un equipo: sus datos uno debajo del otro (rótulo y valor) y abajo el botón, a lo ancho como
+    /* Un equipo: sus datos de dos en dos (rótulo y valor) y abajo el botón, a lo ancho como
        el "Guardar" del panel de datos. El elegido (teclado o clic), con el borde azul. */
     .cpdf-atar-op { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #555; border-radius: 8px;
                     background: rgba(255,255,255,.05); cursor: pointer; transition: border-color .15s; }
@@ -347,7 +348,7 @@
            cliente, 21-10-2026): abajo a la izquierda, con los botones a la derecha. */
         .cpdf-tabla-caja tbody .hd-fecha { flex-direction: row; gap: 5px; font-size: 11.5px; color: #0f172a; }
         .cpdf-tabla-caja tbody .hd-hora { color: inherit; }
-        /* Los botones de la tarjeta (descartar, PDF), juntos a la derecha. */
+        /* El botón del PDF de la tarjeta, a la derecha. */
         .cpdf-tabla-caja tbody td:last-child { justify-self: end; gap: 6px; }
         .cpdf-tabla-caja .cpdf-vacio { grid-column: 1 / -1; padding: 24px 0 !important; }
 

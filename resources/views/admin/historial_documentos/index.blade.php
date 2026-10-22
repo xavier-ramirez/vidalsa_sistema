@@ -341,7 +341,8 @@
 // subida de documento o la creación de un vehículo no llegan aquí. Uno por uno, con una sola
 // pregunta; al terminar, las eliminadas salen de la selección y la tabla se vuelve a pedir.
 window.hdEliminarElegidos = function () {
-    var borrar = Array.from(window._hdBorrables.entries());
+    // Solo los que SIGUEN elegidos (por si algún camino vacía la selección sin vaciar esto).
+    var borrar = Array.from(window._hdBorrables.entries()).filter(function (par) { return window._hdSelectedIds.has(par[0]); });
     if (!borrar.length) return;
     if (!confirm('¿Eliminar ' + (borrar.length === 1 ? 'este registro' : 'estos ' + borrar.length + ' registros') + ' del historial? Esta acción no se puede deshacer.')) return;
     var ok = 0, fallos = [];

@@ -158,8 +158,8 @@ class CargaMasivaDocumentos
      */
     public const ENLAZAR_Y_REVISAR = 'enlazar_y_revisar';
 
-    /** Lo que responden atar, ver sus equipos y enlazar cuando el PDF ya se enlazo o se descarto. */
-    public const YA_NO_POR_ENLAZAR = 'Ese PDF ya no esta por enlazar. Recarga la tabla.';
+    /** Lo que responden atar y enlazar cuando el PDF ya se enlazo o se descarto. */
+    private const YA_NO_POR_ENLAZAR = 'Ese PDF ya no esta por enlazar. Recarga la tabla.';
 
     /** Un BL no se enlaza entero ni por unidades: cada VIN que falta, desde su fila (atarVin). */
     private const BL_VIN_POR_VIN = 'Un BL se enlaza VIN por VIN, desde su fila.';
@@ -807,6 +807,10 @@ class CargaMasivaDocumentos
     private function apoyarConIa(UploadedFile $archivo, string $tipoPedido, ?string $tipo, array $leido, array $equipos): array
     {
         $comoEstaba = [$tipo, $leido, $equipos, false, null];
+        // equiposDeLoLeido() de abajo pisa $this->faltan con lo leido por la IA: si al final
+        // no se acepta, se repone lo del OCR (si no, quedaban «Falta la placa X» de una lectura
+        // descartada).
+        $faltanAntes = $this->faltan;
         $visto = $this->vistoPorIa($archivo, $tipoPedido);
         if (!$visto) return $comoEstaba;
 
@@ -821,7 +825,10 @@ class CargaMasivaDocumentos
         $ayudo = ($equiposIa && !$equipos)
             || (!$tipo && $tipoIa)
             || ($this->faltaVencimiento($tipoIa, $leido) && !$this->faltaVencimiento($tipoIa, $nuevo));
-        if (!$ayudo) return $comoEstaba;
+        if (!$ayudo) {
+            $this->faltan = $faltanAntes;
+            return $comoEstaba;
+        }
 
         // Lo que la IA dice que NO pudo leer bien, tal cual, para que se mire justo eso.
         $nota = !$visto['seguro']
@@ -900,20 +907,22 @@ class CargaMasivaDocumentos
             $impreso[$this->lector->codigo($v)] ??= $v;
         }
         $buscar = array_keys(array_filter($impreso, fn ($v, $c) => $c !== '', ARRAY_FILTER_USE_BOTH));
+        // TODAS las registradas, sin tope: lo que esta en el sistema se decide con la lista
+        // entera (si no, las que pasaban del tope salian como «no estan en el sistema»). El
+        // tope solo recorta lo que se propone enlazar.
         $filas = $buscar
             ? $this->consulta()->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $buscar)
-                ->orderBy('e.ID_EQUIPO')->limit(self::TOPE_UNIDADES + 1)->get()
+                ->orderBy('e.ID_EQUIPO')->get()
             : collect();
-        if ($filas->count() > self::TOPE_UNIDADES) {
-            $filas = $filas->take(self::TOPE_UNIDADES);
-            $this->avisoFichas = 'El BL nombra mas de ' . self::TOPE_UNIDADES . ' unidades registradas: se proponen ' . self::TOPE_UNIDADES . '.';
-        }
-
         $enSistema = $filas->map(fn ($f) => $this->lector->codigo((string) $f->SERIAL_CHASIS))->flip();
         $noEstan = array_values(array_filter($bl['vins'], fn ($v) => !isset($enSistema[$this->lector->codigo($v)])));
         // Las que nombra el BL: las registradas (por VIN, VIN partido o serial de maquina) mas
         // los VIN enteros que no estan en el sistema.
         $unidades = $filas->count() + count($noEstan);
+        if ($filas->count() > self::TOPE_UNIDADES) {
+            $filas = $filas->take(self::TOPE_UNIDADES);
+            $this->avisoFichas = 'El BL nombra mas de ' . self::TOPE_UNIDADES . ' unidades registradas: se proponen ' . self::TOPE_UNIDADES . '.';
+        }
         // Los que ya se ataron a mano a una ficha (atarVin) no faltan: estan en el embarque.
         $noEstan = $this->vinesSinAtar(['tipo' => self::EMBARQUE, 'link' => $link,
             'embarque' => ['nro' => $bl['nro'], 'no_registrados' => $noEstan]]);
@@ -1178,9 +1187,11 @@ class CargaMasivaDocumentos
             if (!$p || $tipo === self::EMBARQUE || !isset(self::NOMBRES[$tipo]) || empty($p['link'])) continue;
             $que = self::queFalta($p);
             $unidades = array_map(fn ($f) => ['codigo' => $f['codigo'], 'que' => $que, 'suyo' => false], $p['faltan'] ?? []);
-            $deVarias = isset($p['faltan']) || count($p['equipos'] ?? []) > 1 || !empty($p['flota_rotc']);
-            if ($deVarias && in_array($fila->ESTADO, VerificacionDocumento::DE_LA_CARGA, true)) {
-                foreach ($this->sinEnlazar($p['link'], $p) as $f) {
+            // El BL ya salio arriba: esDeVarias aqui es un RACDA, un ROTC o una poliza de flota.
+            // El ESTADO de la fila ya dice que la propuesta sigue sin aplicar: sin volver a
+            // preguntarlo a la base por cada fila (sinEnlazar con $comprobada).
+            if ($this->esDeVarias($p) && in_array($fila->ESTADO, VerificacionDocumento::DE_LA_CARGA, true)) {
+                foreach ($this->sinEnlazar($p['link'], $p, true) as $f) {
                     $unidades[] = ['codigo' => ($f[$que] ?? null) ?: ($f['serial'] ?? null) ?: ($f['placa'] ?? null), 'que' => $que, 'suyo' => true];
                 }
             }
@@ -1190,9 +1201,9 @@ class CargaMasivaDocumentos
     }
 
     /** Los equipos reconocidos de la propuesta que aun no tienen el PDF (el enlace solo no los pudo poner). */
-    private function sinEnlazar(string $link, array $p): array
+    private function sinEnlazar(string $link, array $p, bool $comprobada = false): array
     {
-        if (!$this->esPropuestaSinAplicar($link)) return [];
+        if (!$comprobada && !$this->esPropuestaSinAplicar($link)) return [];
         return array_values(array_filter($p['equipos'] ?? [], fn ($f) => empty($f['auxiliar']) && !$this->yaEnlazado($p, $f)));
     }
 
@@ -1282,14 +1293,6 @@ class CargaMasivaDocumentos
     }
 
     /**
-     * Fichas para enlazar a mano un VIN que falta, una unidad o un PDF sin enlazar (lo que se
-     * escriba en la caja de enlazar, junto al PDF): las que contienen lo buscado en su serial, placa o codigo, y las de serial o placa
-     * PARECIDOS —uno o dos caracteres distintos, como un digito de control mal copiado o una
-     * letra mal leida—. Primero la IGUAL a lo buscado, luego lo mas parecido (distancia). Cada
-     * una dice su tipo, si ya esta en un embarque (y desde cuando) y, con $tipo, si ya tiene ese
-     * documento y sus fechas.
-     */
-    /**
      * Fechas que la ficha guarda de cada documento (columnas de documentacion): emision, vence y
      * cuando se cargo. null donde ese documento no la tiene. Las usa la caja de enlazar
      * (equipoParaAtar) para enseñar las del documento que la ficha YA tiene.
@@ -1303,6 +1306,14 @@ class CargaMasivaDocumentos
         self::COMPRAVENTA             => ['emision' => null, 'vence' => null, 'cargado' => 'd.ADICIONAL_2_FECHA_SUBIDA'],
     ];
 
+    /**
+     * Fichas para enlazar a mano un VIN que falta, una unidad o un PDF sin enlazar (lo que se
+     * escriba en la caja de enlazar, junto al PDF): las que contienen lo buscado en su serial, placa o codigo, y las de serial o placa
+     * PARECIDOS —uno o dos caracteres distintos, como un digito de control mal copiado o una
+     * letra mal leida—. Primero la IGUAL a lo buscado, luego lo mas parecido (distancia). Cada
+     * una dice su tipo, si ya esta en un embarque (y desde cuando) y, con $tipo, si ya tiene ese
+     * documento y sus fechas.
+     */
     public function buscarEquipo(string $buscado, ?string $tipo = null): array
     {
         $cod = $this->lector->codigo($buscado);
@@ -1826,7 +1837,8 @@ class CargaMasivaDocumentos
         $fila = $filas->first();
         if (!$fila) return [];
 
-        // Una poliza o un ROTC de FLOTA nombran varias unidades: se propone una (la de ID mas
+        // Un ROTC de FLOTA (o una poliza de flota sin su tabla de unidades leida; con ella va
+        // por equiposDePolizaDeFlota) nombra varias unidades: se propone una (la de ID mas
         // bajo, siempre la misma) y se avisa, en vez de elegir una al azar sin decirlo. En un
         // ROTC el vencimiento es el de SU fila de la tabla (filaRotc, en proponer); el ROTC
         // entero de la flota ni llega aqui (propuestaDeFlota).
@@ -1880,15 +1892,15 @@ class CargaMasivaDocumentos
         $placas = $leido['placas'] ?? [];
         if (!$placas) return [];
 
-        // Uno mas que el tope, para saber si se paso y DECIRLO (antes se cortaba en silencio).
-        $filas = $this->filasPorPlaca($placas, self::TOPE_UNIDADES + 1);
+        // Todas las registradas (sin tope): lo que falta se decide con la lista entera; el
+        // tope solo recorta lo que se propone, y se DICE (antes se cortaba en silencio).
+        $filas = $this->filasPorPlaca($placas);
+        $this->faltan = $this->noEstan($placas, $filas->pluck('PLACA')->all());
         if ($filas->count() > self::TOPE_UNIDADES) {
             $filas = $filas->take(self::TOPE_UNIDADES);
             $this->avisoFichas = 'La providencia nombra mas de ' . self::TOPE_UNIDADES . ' unidades registradas: aqui se proponen '
                 . self::TOPE_UNIDADES . '. Las demas las enlaza la revision de la noche.';
         }
-
-        $this->faltan = $this->noEstan($placas, $filas->pluck('PLACA')->all());
 
         // Cada ficha lleva POR QUE se la eligio: su propia placa, la que la providencia nombra.
         return array_map(
@@ -1904,10 +1916,13 @@ class CargaMasivaDocumentos
      */
     private function equiposDePolizaDeFlota(array $seriales): array
     {
-        $filas = $this->consulta()
-            ->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $this->codigos($seriales))
-            ->orderBy('e.ID_EQUIPO')->limit(self::TOPE_UNIDADES)->get();
+        // Igual que el RACDA: lo que falta, contra todas las registradas; el tope, solo a lo propuesto.
+        $filas = $this->buscarPorSerial($seriales, null);
         $this->faltan = $this->noEstan($seriales, $filas->pluck('SERIAL_CHASIS')->all());
+        if ($filas->count() > self::TOPE_UNIDADES) {
+            $filas = $filas->take(self::TOPE_UNIDADES);
+            $this->avisoFichas = 'La poliza nombra mas de ' . self::TOPE_UNIDADES . ' unidades registradas: se proponen ' . self::TOPE_UNIDADES . '.';
+        }
 
         return array_map(fn ($f) => ['coincide_por' => 'el serial ' . $f['serial']] + $f, $this->fichas($filas));
     }
@@ -1927,16 +1942,17 @@ class CargaMasivaDocumentos
         return array_values($faltan);
     }
 
-    /** Hasta 5 equipos con alguno de esos seriales, siempre en el mismo orden. */
-    private function buscarPorSerial(array $seriales)
+    /** Hasta $tope equipos (5; null = todos) con alguno de esos seriales, siempre en el mismo orden. */
+    private function buscarPorSerial(array $seriales, ?int $tope = 5)
     {
         return $this->consulta()
             ->whereIn(DB::raw(self::sqlCodigo('e.SERIAL_CHASIS')), $this->codigos($seriales))
-            ->orderBy('e.ID_EQUIPO')->limit(5)
+            ->orderBy('e.ID_EQUIPO')
+            ->when($tope, fn ($q) => $q->limit($tope))
             ->get();
     }
 
-    private function filasPorPlaca(array $placas, int $tope)
+    private function filasPorPlaca(array $placas, ?int $tope = null)
     {
         // La placa se compara sin guiones ni espacios ("A50AB1D" en la ficha, "A50-AB1D" en el
         // PDF) y con O/I/S como 0/1/5, igual que el lector (codigo()).
@@ -1947,7 +1963,7 @@ class CargaMasivaDocumentos
             ->whereIn(DB::raw(self::sqlCodigo('d.PLACA')), $limpias)
             // Siempre el mismo orden: sin el, el tope (y "la primera") salian al azar.
             ->orderBy('e.ID_EQUIPO')
-            ->limit($tope)
+            ->when($tope, fn ($q) => $q->limit($tope))
             ->get();
     }
 
