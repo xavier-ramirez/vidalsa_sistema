@@ -69,11 +69,12 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertStringContainsString('cpdfSelFila(', $html);
         $this->assertStringContainsString('window.cpdfMarcarRevisadas', $html);
         // Nada de eliminar; las otras pestañas, a la vista.
-        $this->assertStringNotContainsString('cpdfDescartarCarga(this', $html, 'Descartar borra de Drive: super.admin.');
+        $this->assertStringNotContainsString('id="cpdf-selection-chip-eliminar"', $html, 'Descartar borra de Drive: super.admin.');
+        $this->assertStringNotContainsString('data-descartar=', $html);
         $this->assertStringContainsString('Historial<span class="hd-pest-mas"> de cambios</span>', $html);
         $this->assertStringContainsString('Compresión<span class="hd-pest-mas"> de PDF</span>', $html);
         $this->assertStringNotContainsString('abrirPapelera()', $html);
-        $this->assertStringNotContainsString('hdDeleteRegistro(', $html);
+        $this->assertStringNotContainsString('hdEliminarElegidos', $html);
         // Y el enlace del menú para llegar.
         $this->assertStringContainsString(route('historial-documentos.index'), $html);
     }
@@ -84,12 +85,13 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
 
         $hist = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'historial']))->assertOk()->getContent();
         $this->assertStringContainsString('historialDocumentosTable', $hist, 'Ve el historial.');
-        $this->assertStringNotContainsString('btn-hd-del', $hist, 'Sin borrar registros.');
+        $this->assertStringNotContainsString('id="hd-selection-chip-eliminar"', $hist, 'Sin borrar registros.');
+        $this->assertStringNotContainsString('data-del-source=', $hist);
         $this->assertStringNotContainsString('abrirPapelera()', $hist, 'Ni la Papelera.');
 
         $comp = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'compresion']))->assertOk()->getContent();
         $this->assertStringContainsString('PDF comprimidos', $comp, 'Ve la compresión.');
-        $this->assertStringNotContainsString('btn-hd-del', $comp);
+        $this->assertStringNotContainsString('-chip-eliminar"', $comp);
         $this->assertStringNotContainsString('abrirPapelera()', $comp);
     }
 
@@ -132,9 +134,12 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         // La lectura automática y "Revisar ahora" sí: son de super.admin.
         $this->assertStringContainsString('Lectura automática', $html);
         $this->assertStringContainsString('window.cpdfLeerAhora', $html);
-        // En el historial sí tiene el botón de borrar registros.
+        // En el historial sí elimina registros: el "Eliminar" del contador de selección. En la
+        // Revisión no descarta lo de la carga masiva (va con su clave).
+        $this->assertStringNotContainsString('id="cpdf-selection-chip-eliminar"', $html);
         $hist = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'historial']))->assertOk()->getContent();
-        $this->assertStringContainsString('window.hdDeleteRegistro', $hist);
+        $this->assertStringContainsString('id="hd-selection-chip-eliminar"', $hist);
+        $this->assertStringContainsString('window.hdEliminarElegidos', $hist);
 
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.analizar'), [], $json)->assertForbidden();
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.descartar'), [], $json)->assertForbidden();
@@ -155,7 +160,8 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->assertStringContainsString('Por dónde va la revisión', $html);
         $this->assertStringContainsString('window.abrirCargaMasiva', $html);
         $this->assertStringContainsString('id="cpdf-selection-chip-revisado"', $html);
-        $this->assertStringContainsString('window.cpdfDescartarCarga', $html, 'Y descartar.');
+        $this->assertStringContainsString('id="cpdf-selection-chip-eliminar"', $html, 'Y descartar, desde el contador de selección.');
+        $this->assertStringContainsString('window.cpdfEliminarElegidas', $html);
     }
 
     /**

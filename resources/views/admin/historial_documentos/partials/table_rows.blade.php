@@ -100,7 +100,13 @@
         $hdCambios = array_filter((array) ($event->cambios ?? []),
             fn ($v, $campo) => !$hdOculto($campo) && $v !== null && $v !== '', ARRAY_FILTER_USE_BOTH);
     @endphp
-    <tr class="hd-selectable-row {{ $hdCambios ? 'hd-has-cambios' : '' }}" data-hd-id="{{ md5($event->equipo_id . $event->tipo . $event->fecha->timestamp) }}">
+    {{-- data-del-*: lo que hay que mandar para eliminar el registro (el "Eliminar" del contador de
+         selección). Solo para super.admin y solo los de AUDITORÍA: una subida de documento o la
+         creación de un vehículo no se borran desde aquí (deleteRegistro también los bloquea). --}}
+    <tr class="hd-selectable-row {{ $hdCambios ? 'hd-has-cambios' : '' }}" data-hd-id="{{ md5($event->equipo_id . $event->tipo . $event->fecha->timestamp) }}"
+        @if (auth()->user()->can('super.admin') && !empty($event->del_source) && !in_array($event->del_source, ['doc', 'equipo_creacion'], true))
+            data-del-source="{{ $event->del_source }}" data-del-id="{{ $event->del_id }}"
+        @endif>
         <td>
             <div class="hd-fecha">
                 <span>{{ $event->fecha->format('d/m/Y') }}</span>
@@ -181,15 +187,6 @@
                         <i class="material-icons">description</i>
                     </button>
                 @endif
-                @can('super.admin')
-                    {{-- Eliminar registro del historial. Solo los de AUDITORÍA se borran de verdad;
-                         doc/vehículo el backend (deleteRegistro) los bloquea con un mensaje. --}}
-                    <button type="button" class="btn-hd-del"
-                            onclick="window.hdDeleteRegistro('{{ $event->del_source ?? '' }}', '{{ $event->del_id ?? '' }}', this)"
-                            title="Eliminar registro del historial">
-                        <i class="material-icons" style="font-size: 16px;">delete</i>
-                    </button>
-                @endcan
             </div>
         </td>
     </tr>

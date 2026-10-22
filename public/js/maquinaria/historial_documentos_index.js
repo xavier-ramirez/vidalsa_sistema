@@ -233,6 +233,12 @@ if (!window._hdBusquedaRegistrada) {
 if (!window._hdSelectedIds) {
     window._hdSelectedIds = new Set();
 }
+// De las elegidas, las que se pueden eliminar (data-del-* de su fila: super.admin y registro de
+// auditoría), con lo que pide deleteRegistro. Se guarda al elegir: la fila puede salir de la
+// página y seguir elegida. La usa el "Eliminar" del contador (hdEliminarElegidos).
+if (!window._hdBorrables) {
+    window._hdBorrables = new Map();
+}
 
 // ── Aplica/quita el estilo de selección ──
 window.applyRowStyleHd = function(tr, selected) {
@@ -255,6 +261,11 @@ window.updateChipHd = function() {
         chip.classList.add('active');
     } else {
         chip.classList.remove('active');
+    }
+    const eliminar = document.getElementById('hd-selection-chip-eliminar'), b = window._hdBorrables.size;
+    if (eliminar) {
+        eliminar.hidden = !b;
+        eliminar.lastChild.textContent = ' Eliminar' + (b > 1 ? ' (' + b + ')' : '');
     }
 };
 
@@ -282,9 +293,11 @@ if (!window._hdRowClickRegistered) {
 
         if (window._hdSelectedIds.has(id)) {
             window._hdSelectedIds.delete(id);
+            window._hdBorrables.delete(id);
             window.applyRowStyleHd(tr, false);
         } else {
             window._hdSelectedIds.add(id);
+            if (tr.dataset.delSource) window._hdBorrables.set(id, { source: tr.dataset.delSource, id: tr.dataset.delId });
             window.applyRowStyleHd(tr, true);
         }
         window.updateChipHd();
@@ -321,6 +334,7 @@ window.hdToggleSoloSel = function (e) {
 // ── Limpiar selección ──
 window.hdClearSelection = function() {
     window._hdSelectedIds.clear();
+    window._hdBorrables.clear();
     document.querySelectorAll('.hd-selectable-row.selected-row-maquinaria').forEach(tr => tr.classList.remove('selected-row-maquinaria'));
     // Si estaba "ver solo seleccionados", apagarlo y recargar la vista normal.
     if (window._hdSoloSel) {

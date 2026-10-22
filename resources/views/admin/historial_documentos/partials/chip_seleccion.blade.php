@@ -4,7 +4,10 @@
        $id        id del chip; el número lleva el id "$id-cuenta"
        $alTocar   función de "ver solo las elegidas" (recibe el evento)
        $alLimpiar función de "Limpiar"
-       $revisado  (opcional) con true, el botón "Revisado" de la Revisión automática --}}
+       $revisado  (opcional) con true, el botón "Revisado" de la Revisión automática
+       $eliminar  (opcional) función de "Eliminar" las elegidas; solo para quien puede eliminar
+                  (lo decide la pestaña). Va en lugar de la papelera de cada fila (pedido del
+                  cliente, 22-10-2026) y se ve cuando alguna elegida se puede eliminar. --}}
 <div id="{{ $id }}" class="selection-floating-bar hd-chip-sel">
     <div class="selection-counter" onclick="{{ $alTocar }}(event)" style="cursor: pointer;" title="Ver solo las filas elegidas">
         <div style="background: rgba(255,255,255,0.1); padding: 5px; border-radius: 50%; display: flex;">
@@ -17,6 +20,11 @@
     @if (!empty($revisado))
         <button type="button" class="btn-bulk-action" id="{{ $id }}-revisado" onclick="window.cpdfMarcarRevisadas()" hidden>
             <i class="material-icons">done_all</i> Revisado
+        </button>
+    @endif
+    @if (!empty($eliminar))
+        <button type="button" class="btn-bulk-action btn-bulk-eliminar" id="{{ $id }}-eliminar" onclick="{{ $eliminar }}()" hidden>
+            <i class="material-icons">delete</i> Eliminar
         </button>
     @endif
 </div>

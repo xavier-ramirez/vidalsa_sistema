@@ -7,6 +7,9 @@
 
 
 @php
+    // Eliminar (descartar) lo de la carga masiva: borra de Drive, así que solo super.admin con la carga
+    // masiva, y solo en la Revisión. Va en el contador de selección (partials/chip_seleccion).
+    $puedeDescartar = $pestana === 'documentos' && auth()->user()->can('docs.carga.masiva') && auth()->user()->can('super.admin');
     $mb = fn ($b) => number_format(($b ?? 0) / 1048576, 1, ',', '.');
     $comp = $resumen[\App\Models\CompresionPdf::COMPRIMIDO] ?? null;
     $estados = [
@@ -154,7 +157,14 @@
                                  || ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
                                   && $d->ESTADO === \App\Models\VerificacionDocumento::APLICADO && $d->A_MANO));
                         @endphp
-                        <tr class="cpdf-fila-sel{{ $revisable ? ' cpdf-revisable' : '' }}" data-id="{{ $d->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)">
+                        {{-- data-descartar: el PDF de la carga masiva que se puede descartar (va a la papelera
+                             de Drive y la fila desaparece) con el "Eliminar" del contador de selección. Solo lo
+                             de la carga sin aplicar, y solo super.admin con la carga masiva (borra de Drive). --}}
+                        <tr class="cpdf-fila-sel{{ $revisable ? ' cpdf-revisable' : '' }}" data-id="{{ $d->ID_REGISTRO }}" onclick="window.cpdfSelFila(event, this)"
+                            @if ($puedeDescartar && $d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
+                                 && in_array($d->ESTADO, \App\Models\VerificacionDocumento::DE_LA_CARGA, true) && ($d->PROPUESTA['link'] ?? null))
+                                data-descartar="{{ $d->PROPUESTA['link'] }}"
+                            @endif>
                             <td><div class="hd-fecha"><span>{{ $d->updated_at?->format('d/m/Y') }}</span><span class="hd-hora">{{ $d->updated_at?->format('h:i A') }}</span></div></td>
                             <td>
                                 {{ $tiposDoc[$d->TIPO] ?? ($d->TIPO ?: 'Sin reconocer') }}
@@ -244,18 +254,6 @@
                                 @endif
                             </td>
                             <td>
-                                @can('docs.carga.masiva')
-                                {{-- Descartar: el PDF subido se va a la papelera de Drive y la fila
-                                     desaparece. Sin esto, lo que se sube y no se aplica se queda
-                                     ahí para siempre. Solo en lo de la carga masiva sin aplicar, y
-                                     solo super.admin (borra de Drive, como Eliminar un documento). --}}
-                                @if (auth()->user()->can('super.admin') && in_array($d->ESTADO, \App\Models\VerificacionDocumento::DE_LA_CARGA, true) && ($d->PROPUESTA['link'] ?? null))
-                                    <button type="button" class="pdf-doc-btn cpdf-descartar" title="Descartar este PDF"
-                                        onclick="event.stopPropagation(); window.cpdfDescartarCarga(this, @js($d->PROPUESTA['link']), @js($d->ARCHIVO))">
-                                        <i class="material-icons">delete_outline</i>
-                                    </button>
-                                @endif
-                                @endcan
                                 @if ($d->DRIVE_ID && $d->ORIGEN !== \App\Models\VerificacionDocumento::DE_LA_NOCHE)
                                     {{-- Lo soltado en la carga masiva se MIRA, sin la ficha al lado: todavia no es
                                          el documento de ningun equipo. Con cpdfRevisar el visor tomaba el PDF
@@ -463,7 +461,8 @@
 </div>
 @include('admin.historial_documentos.partials.chip_seleccion', ['id' => 'cpdf-selection-chip',
     'alTocar' => 'window.cpdfSelSolo', 'alLimpiar' => 'window.cpdfSelLimpiar',
-    'revisado' => $pestana === 'documentos' && auth()->user()->can('docs.carga.masiva')])
+    'revisado' => $pestana === 'documentos' && auth()->user()->can('docs.carga.masiva'),
+    'eliminar' => $puedeDescartar ? 'window.cpdfEliminarElegidas' : null])
 @if ($pestana === 'documentos')
     @can('docs.carga.masiva')
         @include('admin.compresion_pdf.partials.atar_modal')
@@ -475,11 +474,12 @@
     // tocarlo muestra SOLO esas (?ids=, lo filtra el servidor) y "Limpiar" las suelta. Aquí cada
     // filtro o página vuelve a pintar la pestaña, así que la selección se guarda en
     // window._cpdfSel mientras se siga en la MISMA pestaña; al cambiar de pestaña o salir del
-    // módulo empieza de cero. `revisables` son las elegidas que se pueden dar por revisadas.
+    // módulo empieza de cero. `revisables` son las elegidas que se pueden dar por revisadas y
+    // `descartables`, las que se pueden eliminar (id → enlace de su PDF, data-descartar).
     (function () {
         var pestana = @json($pestana), url = new URLSearchParams(location.search);
         var sel = window._cpdfSel;
-        if (!sel || sel.pestana !== pestana) sel = window._cpdfSel = { pestana: pestana, ids: new Set(), revisables: new Set(), solo: false };
+        if (!sel || sel.pestana !== pestana) sel = window._cpdfSel = { pestana: pestana, ids: new Set(), revisables: new Set(), descartables: new Map(), solo: false };
         sel.solo = url.has('ids') && sel.ids.size > 0;
         if (!window.__cpdfSelSalida) {
             window.__cpdfSelSalida = true;
@@ -494,12 +494,20 @@
         var sel = window._cpdfSel;
         return sel ? Array.from(sel.ids).filter(function (id) { return sel.revisables.has(id); }) : [];
     };
+    // Las elegidas que se pueden eliminar, con el enlace de su PDF: [[id, enlace], ...].
+    var cpdfDescartables = function () {
+        var sel = window._cpdfSel;
+        return sel ? Array.from(sel.ids).filter(function (id) { return sel.descartables.has(id); })
+            .map(function (id) { return [id, sel.descartables.get(id)]; }) : [];
+    };
     var cpdfSelPintar = function () {
         var sel = window._cpdfSel; if (!sel) return;
         document.querySelectorAll('.cpdf-fila-sel').forEach(function (tr) {
             // Al día con lo que se ve: una fila ya revisada deja de contar para "Revisado".
             if (tr.classList.contains('cpdf-revisable')) sel.revisables.add(tr.dataset.id);
             else sel.revisables.delete(tr.dataset.id);
+            if (tr.dataset.descartar) sel.descartables.set(tr.dataset.id, tr.dataset.descartar);
+            else sel.descartables.delete(tr.dataset.id);
             tr.classList.toggle('selected-row-maquinaria', sel.ids.has(tr.dataset.id));
         });
         var chip = document.getElementById('cpdf-selection-chip');
@@ -509,6 +517,8 @@
         chip.querySelector('.selection-counter').classList.toggle('is-filtering', sel.solo);
         var rev = document.getElementById('cpdf-selection-chip-revisado'), n = cpdfMarcadas().length;
         if (rev) { rev.hidden = !n; rev.lastChild.textContent = ' Revisado' + (n > 1 ? ' (' + n + ')' : ''); }
+        var eli = document.getElementById('cpdf-selection-chip-eliminar'), m = cpdfDescartables().length;
+        if (eli) { eli.hidden = !m; eli.lastChild.textContent = ' Eliminar' + (m > 1 ? ' (' + m + ')' : ''); }
     };
     // Clic en cualquier parte de la fila la elige o la suelta; los botones y enlaces de la fila
     // (el PDF, atar, descartar) siguen haciendo lo suyo sin tocar la selección.
@@ -920,14 +930,25 @@
             atar: cpdfAtarPreguntando(@json(route('historial-documentos.carga-masiva.atar-falta')), { link: link, codigo: codigo }) });
     };
 
-    // Descartar lo subido y no aplicado: el PDF se va a la PAPELERA de Drive (se recupera con
-    // un clic si fue un error) y la fila desaparece de la tabla.
-    window.cpdfDescartarCarga = function (btn, link, archivo) {
-        if (!window.confirm('¿Descartar "' + (archivo || 'este PDF') + '"?\n\nEl archivo se va a la papelera de Drive y la fila desaparece.')) return;
-        btn.disabled = true;
-        window.apiPostForm(@json(route('historial-documentos.carga-masiva.descartar')), { link: link }, 'No se pudo descartar.')
-            .then(function () { window.toast('Descartado', 'success'); window.cpdfFiltrar(); })
-            .catch(function (e) { btn.disabled = false; window.toast((e && e.message) || 'No se pudo descartar', 'error'); });
+    // "Eliminar" del contador de selección: descarta los PDF elegidos que se pueden descartar (lo
+    // subido y no aplicado). Cada PDF se va a la PAPELERA de Drive (se recupera con un clic si fue
+    // un error) y su fila desaparece. Uno por uno, con una sola pregunta.
+    window.cpdfEliminarElegidas = function () {
+        var lista = cpdfDescartables();
+        if (!lista.length) return;
+        if (!window.confirm('¿Descartar ' + (lista.length === 1 ? 'este PDF' : 'estos ' + lista.length + ' PDF') + '?\n\nSe van a la papelera de Drive y sus filas desaparecen.')) return;
+        var ok = 0, fallos = [];
+        lista.reduce(function (cadena, par) {
+            return cadena.then(function () {
+                return window.apiPostForm(@json(route('historial-documentos.carga-masiva.descartar')), { link: par[1] }, 'No se pudo descartar.')
+                    .then(function () { ok++; window._cpdfSel.ids.delete(par[0]); window._cpdfSel.descartables.delete(par[0]); })
+                    .catch(function (e) { fallos.push((e && e.message) || 'No se pudo descartar.'); });
+            });
+        }, Promise.resolve()).then(function () {
+            if (ok) window.toast(ok === 1 ? 'Descartado' : ok + ' descartados', 'success');
+            if (fallos.length) window.toast(fallos[0], 'error');
+            window.cpdfFiltrar();
+        });
     };
     @endcan
 
