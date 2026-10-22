@@ -209,90 +209,74 @@
     .cpdf-vin-falta { margin-top: 6px; font-size: 12px; color: #d97706; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
     .cpdf-vin-btn { border: 1px solid #1e40af; background: #fff; color: #1e40af; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
 
-    /* "Enlazar a un equipo" (partials/atar_modal): una caja al lado del PDF, dentro del visor
-       (.cpdf-atar-visor, ver cpdfAbrirAtar), con el mismo encabezado oscuro que los modales del
-       módulo; arriba el documento y lo leído, el buscador y la lista de equipos. En el teléfono va
-       debajo del PDF. El visor del panel de datos no se usa aquí. */
-    .cpdf-atar-caja { width: 460px; max-width: 45%; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden; background: #fff; }
+    /* "Enlazar a un equipo" (partials/atar_modal): un panel al lado del PDF, dentro del visor
+       (.cpdf-atar-visor, ver cpdfAbrirAtar), con el MISMO aspecto que el panel de datos del visor
+       (#pdfMetadataPanel, layout_ui.js): fondo oscuro y cada dato debajo del otro, rótulo arriba y
+       valor abajo (pedido del cliente, 22-10-2026). En el teléfono va debajo del PDF. El panel de
+       datos del visor no se usa aquí. */
     .cpdf-atar-visor #pdfMetadataPanel { display: none !important; }
-    .cpdf-atar-cab { position: relative; display: flex; align-items: center; justify-content: center; padding: 12px 16px; background: #1e293b; }
-    .cpdf-atar-cab h3 { margin: 0; display: flex; align-items: center; gap: 8px; color: #fff; font-size: 14px; font-weight: 700; }
-    .cpdf-atar-cab h3 .material-icons { font-size: 18px; }
-    .cpdf-atar-cuerpo { display: flex; flex-direction: column; gap: 12px; padding: 16px; min-height: 0; flex: 1; overflow-y: auto; }
-    /* Arriba, lo que se ata, en dos líneas como mucho, en negro, sin negritas ni recuadro, y con
-       la MISMA letra que el resto del modal (pedidos del cliente, 21-10-2026). La línea de las
-       fechas no sale si el PDF no las trae. */
-    .cpdf-atar-datos { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #0f172a; }
+    .cpdf-atar-caja { width: 340px; max-width: 45%; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;
+                      background: #282828; border-left: 1px solid #3a3a3a; color: #fff; }
+    .cpdf-atar-cuerpo { display: flex; flex-direction: column; gap: 12px; padding: 12px; min-height: 0; flex: 1; overflow-y: auto; }
+    .cpdf-atar-tit { margin: 0; padding-bottom: 8px; border-bottom: 1px solid #3a3a3a; font-size: 15px; font-weight: 700; color: #fff; }
+    /* Lo que se enlaza: el documento y lo leído; debajo sus fechas (no sale si no las trae). */
+    .cpdf-atar-datos { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #e2e8f0; }
     .cpdf-atar-datos div:empty { display: none; }
     /* El código leído no se parte por la mitad: si no cabe en la línea, baja entero. */
     .cpdf-atar-codigo { white-space: nowrap; }
-    .cpdf-atar-buscar { display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 1px solid #cbd5e0; border-radius: 10px; background: #fbfcfd; }
-    .cpdf-atar-buscar:focus-within { border-color: #0067b1; background: #fff; box-shadow: 0 0 0 3px rgba(0,103,177,.1); }
+    /* El buscador, como un campo del panel de datos. */
+    .cpdf-atar-buscar { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 1px solid #555; border-radius: 4px; background: #282828; }
+    .cpdf-atar-buscar:focus-within { border-color: #3182ce; }
     .cpdf-atar-buscar .material-icons { font-size: 18px; color: #94a3b8; }
-    .cpdf-atar-buscar input { flex: 1; min-width: 0; height: 100%; border: none; outline: none; background: transparent; font-size: 14px; color: #1e293b; }
-    /* La lista no se desplaza sola: lo hace el cuerpo de la caja, que ocupa el alto del visor. */
-    .cpdf-atar-lista { display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
-    .cpdf-atar-nada { padding: 18px 8px; text-align: center; color: #64748b; font-size: 13px; }
+    .cpdf-atar-buscar input { flex: 1; min-width: 0; height: 100%; border: none; outline: none; background: transparent; font-size: 13px; color: #fff; }
+    /* La lista no se desplaza sola: lo hace el cuerpo del panel, que ocupa el alto del visor. */
+    .cpdf-atar-lista { display: flex; flex-direction: column; gap: 10px; min-height: 60px; }
+    .cpdf-atar-nada { padding: 18px 8px; text-align: center; color: #cbd5e0; font-size: 13px; }
     /* Aviso de la lista: azul (lo que contiene lo escrito), ámbar (solo parecidos). El igual lo dice su tarjeta. */
-    .cpdf-atar-nota { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 10px; font-size: 12.5px; font-weight: 600; line-height: 1.4; }
+    .cpdf-atar-nota { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; line-height: 1.4; }
     .cpdf-atar-nota .material-icons { font-size: 18px; flex-shrink: 0; }
-    .cpdf-atar-nota.azul  { background: #eff6ff; color: #1e40af; }
-    .cpdf-atar-nota.ambar { background: #fffbeb; color: #92400e; }
-    /* Tarjeta de un equipo, en columnas: serial y placa en una línea con sus etiquetas debajo ·
-       tipo, marca y modelo y si ya tiene el documento · botón. La elegida (teclado o clic) con
-       el borde azul. */
-    .cpdf-atar-op { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid #e2e8f0; border-left: 4px solid #e2e8f0;
-                    border-radius: 10px; background: #fff; cursor: pointer; transition: border-color .15s, background .15s; }
-    .cpdf-atar-op:hover { border-color: #cbd5e1; }
-    .cpdf-atar-op.activo { border-color: #93c5fd; border-left-color: #0067b1; background: #f8fbff; }
+    .cpdf-atar-nota.azul  { background: rgba(59,130,246,.15); color: #93c5fd; }
+    .cpdf-atar-nota.ambar { background: rgba(245,158,11,.15); color: #fcd34d; }
+    /* Un equipo: sus datos uno debajo del otro (rótulo y valor) y abajo el botón, a lo ancho como
+       el "Guardar" del panel de datos. El elegido (teclado o clic), con el borde azul. */
+    .cpdf-atar-op { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #555; border-radius: 8px;
+                    background: rgba(255,255,255,.05); cursor: pointer; transition: border-color .15s; }
+    .cpdf-atar-op:hover { border-color: #777; }
+    .cpdf-atar-op.activo { border-color: #3182ce; }
     .cpdf-atar-op.bloqueado { opacity: .6; cursor: default; }
-    /* Una columna: la caja al lado del PDF no da para dos. */
-    .cpdf-atar-info { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px 16px; align-items: center; }
-    .cpdf-atar-ident, .cpdf-atar-quien { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-    .cpdf-atar-info > .cpdf-atar-err, .cpdf-atar-info > .cpdf-atar-pisar { grid-column: 1 / -1; }
-    .cpdf-atar-l1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
-    /* La tarjeta del equipo: una sola letra (la del sistema) y sin negritas; lo distinto se ve
-       por el carácter marcado en rojo. Serial y placa en la misma línea, la placa como texto
-       suelto en gris; baja solo si no caben, y un serial más largo que la
-       columna se parte. */
-    .cpdf-atar-serial { flex: 0 0 auto; max-width: 100%; font-size: 13px; color: #0f172a; word-break: break-all; }
-    .cpdf-atar-placa { font-size: 13px; color: #475569; white-space: nowrap; }
+    .cpdf-atar-info { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .cpdf-atar-campo { display: flex; flex-direction: column; gap: 2px; }
+    .cpdf-atar-rot { font-size: 12px; font-weight: 600; color: #cbd5e0; }
+    .cpdf-atar-val { font-size: 13px; color: #fff; word-break: break-all; }
     /* El carácter que no coincide con lo leído. */
-    .cpdf-atar-l1 mark { background: #fee2e2; color: #b91c1c; border-radius: 3px; padding: 0 1px; }
-    .cpdf-atar-nombre { font-size: 13px; color: #0f172a; }
-    /* El tipo de equipo, encima de la marca y el modelo, en un gris oscuro que se lee (pedido del cliente, 21-10-2026). */
-    .cpdf-atar-meta { font-size: 12px; color: #334155; }
+    .cpdf-atar-val mark { background: rgba(239,68,68,.25); color: #fca5a5; border-radius: 3px; padding: 0 1px; }
     .cpdf-atar-marcas { display: flex; flex-wrap: wrap; gap: 4px; }
-    /* Fechas del documento que el equipo YA tiene (para ver si es el mismo que se va a atar). */
-    .cpdf-atar-actual { font-size: 11.5px; color: #475569; }
+    /* Si ya tiene este documento, y sus fechas (para ver si es el mismo que se va a enlazar). */
+    .cpdf-atar-actual { font-size: 12px; color: #cbd5e0; }
     .cpdf-atar-et { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
     .cpdf-atar-et .material-icons { font-size: 14px; }
-    .cpdf-atar-et.verde { background: #dcfce7; color: #166534; }
-    .cpdf-atar-et.ambar { background: #fef3c7; color: #92400e; }
-    .cpdf-atar-et.rojo  { background: #fee2e2; color: #b91c1c; }
-    .cpdf-atar-ver { align-self: flex-start; padding: 2px 0; border: none; background: none; color: #0067b1; font-family: inherit;
+    .cpdf-atar-et.verde { background: rgba(34,197,94,.15); color: #86efac; }
+    .cpdf-atar-et.ambar { background: rgba(245,158,11,.15); color: #fcd34d; }
+    .cpdf-atar-et.rojo  { background: rgba(239,68,68,.15); color: #fca5a5; }
+    .cpdf-atar-ver { align-self: flex-start; padding: 2px 0; border: none; background: none; color: #93c5fd; font-family: inherit;
                      font-size: 12.5px; font-weight: 700; text-decoration: underline; cursor: pointer; }
-    /* El error y la pregunta de reemplazar van a todo el ancho de la tarjeta (la separación la da la rejilla). */
-    .cpdf-atar-err { font-size: 12px; font-weight: 600; color: #b91c1c; }
-    .cpdf-atar-pisar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border-radius: 8px;
-                       background: #fffbeb; font-size: 12px; color: #92400e; }
-    .cpdf-atar-btn { flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; padding: 7px 14px; border: none; border-radius: 8px;
-                     background: #0067b1; color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .15s; }
+    .cpdf-atar-err { font-size: 12px; font-weight: 600; color: #fca5a5; }
+    .cpdf-atar-pisar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border-radius: 6px;
+                       background: rgba(245,158,11,.12); font-size: 12px; color: #fcd34d; }
+    .cpdf-atar-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border: none; border-radius: 6px;
+                     background: #3182ce; color: #fff; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s; }
+    .cpdf-atar-op > .cpdf-atar-btn { width: 100%; }
     .cpdf-atar-btn .material-icons { font-size: 16px; }
-    .cpdf-atar-btn:hover:not(:disabled) { background: #00548f; }
-    .cpdf-atar-btn:disabled { background: #cbd5e1; cursor: default; }
+    .cpdf-atar-btn:hover:not(:disabled) { background: #2b6cb0; }
+    .cpdf-atar-btn:disabled { background: #4a5568; color: #cbd5e0; cursor: default; }
     .cpdf-atar-btn.rojo { background: #dc2626; padding: 5px 12px; font-size: 12px; }
     .cpdf-atar-btn.rojo:hover:not(:disabled) { background: #b91c1c; }
-    .cpdf-atar-btn.gris { background: #e2e8f0; color: #334155; padding: 5px 12px; font-size: 12px; }
-    .cpdf-atar-btn.gris:hover:not(:disabled) { background: #cbd5e1; }
-    /* Teléfono: la caja va debajo del PDF, a lo ancho. */
+    .cpdf-atar-btn.gris { background: #4a5568; padding: 5px 12px; font-size: 12px; }
+    .cpdf-atar-btn.gris:hover:not(:disabled) { background: #2d3748; }
+    /* Teléfono: el panel va debajo del PDF, a lo ancho. */
     @media (max-width: 640px) {
         .cpdf-atar-visor { flex-direction: column; }
-        .cpdf-atar-caja { width: 100%; max-width: none; height: 58%; }
-        /* Para que el serial y la placa quepan en una línea al lado del botón. */
-        .cpdf-atar-op { gap: 8px; padding: 10px; }
-        .cpdf-atar-l1 { column-gap: 8px; }
-        .cpdf-atar-op > .cpdf-atar-btn { padding: 7px 10px; }
+        .cpdf-atar-caja { width: 100%; max-width: none; height: 58%; border-left: 0; border-top: 1px solid #3a3a3a; }
     }
 
     /* Angosto: una columna. stretch y no flex-start: con flex-start la tarjeta tomaba el

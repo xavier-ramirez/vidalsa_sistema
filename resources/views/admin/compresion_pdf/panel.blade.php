@@ -692,46 +692,44 @@
             if (texto != null) x.textContent = texto;
             return x;
         };
-        // Serial (y placa / código) con el carácter que NO coincide con lo buscado marcado en rojo:
-        // es lo que hay que comparar antes de atar. Solo si no es igual (distancia > 0).
-        var buscado = cpdfAtarEl('cpdfAtarBuscar').value;
+        // Como el panel de datos del visor: un dato debajo del otro, rótulo arriba y valor abajo.
+        // El serial y la placa, con el carácter que NO coincide con lo buscado en rojo: es lo que
+        // hay que comparar antes de enlazar. Solo si no es igual (distancia > 0).
+        var buscado = eq.distancia > 0 ? cpdfAtarEl('cpdfAtarBuscar').value : '';
         var info = el('div', 'cpdf-atar-info');
-        var l1 = el('div', 'cpdf-atar-l1');
-        l1.appendChild(el('span', 'cpdf-atar-serial')).appendChild(cpdfAtarResaltar(eq.serial || ('Equipo #' + eq.id), eq.distancia > 0 ? buscado : ''));
-        if (eq.placa) l1.appendChild(el('span', 'cpdf-atar-placa')).appendChild(cpdfAtarResaltar(eq.placa, eq.distancia > 0 ? buscado : ''));
-        if (eq.codigo) l1.appendChild(el('span', 'cpdf-atar-placa', eq.codigo));
-        // Dos columnas: a la izquierda el serial y la placa en una línea y debajo si coincide con
-        // lo leído (o en qué BL está); a la derecha qué equipo es (tipo, marca y modelo) y si ya
-        // tiene este documento.
-        var ident = el('div', 'cpdf-atar-ident');
-        ident.appendChild(l1);
+        var campo = function (rotulo, valor) {
+            if (valor == null || valor === '') return;
+            var c = info.appendChild(el('div', 'cpdf-atar-campo'));
+            c.appendChild(el('span', 'cpdf-atar-rot', rotulo));
+            c.appendChild(el('span', 'cpdf-atar-val')).append(valor);
+        };
+        campo('Serial', cpdfAtarResaltar(eq.serial || ('Equipo #' + eq.id), buscado));
+        if (eq.placa) campo('Placa', cpdfAtarResaltar(eq.placa, buscado));
+        campo('Código', eq.codigo);
+        campo('Tipo', eq.tipo);
+        campo('Marca y modelo', eq.nombre);
+        // Igual a lo leído, o en qué BL está.
         var marcas = el('div', 'cpdf-atar-marcas');
-        var quien = el('div', 'cpdf-atar-quien');
-        if (eq.tipo) quien.appendChild(el('div', 'cpdf-atar-meta', eq.tipo));
-        quien.appendChild(el('div', 'cpdf-atar-nombre', eq.nombre));
-        // Igual a lo leído: lo dice la propia tarjeta (antes era un aviso aparte encima de la lista).
         if (eq.distancia === -1) {
             var igual = marcas.appendChild(el('span', 'cpdf-atar-et verde'));
             igual.appendChild(el('i', 'material-icons', 'check_circle'));
             igual.appendChild(document.createTextNode('Tiene ese mismo dato'));
         }
         if (bloqueado) marcas.appendChild(el('span', 'cpdf-atar-et rojo', 'Ya está en el BL ' + eq.bl + (eq.bl_desde ? ' desde el ' + window.formatearFecha(eq.bl_desde) : '')));
-        else if (eq.tiene) {
-            // Ya tiene este documento: sus fechas, para ver si el PDF que se ata es el MISMO.
+        if (marcas.childNodes.length) info.appendChild(marcas);
+        if (!bloqueado && eq.tiene) {
+            // Ya tiene este documento: sus fechas, para ver si el PDF que se enlaza es el MISMO.
             var a = eq.actual || {}, f = o.fechas || {};
             var mismo = (a.emision || a.vence) && (a.emision || null) === (f.emision || null) && (a.vence || null) === (f.vence || null);
-            quien.appendChild(el('div', 'cpdf-atar-marcas')).appendChild(el('span', 'cpdf-atar-et ' + (mismo ? 'verde' : 'ambar'), mismo ? 'Ya tiene este mismo documento' : 'Ya tiene este documento'));
+            info.appendChild(el('div', 'cpdf-atar-marcas')).appendChild(el('span', 'cpdf-atar-et ' + (mismo ? 'verde' : 'ambar'), mismo ? 'Ya tiene este mismo documento' : 'Ya tiene este documento'));
             var datos = [a.emision && 'emitido el ' + window.formatearFecha(a.emision), a.vence && 'vence el ' + window.formatearFecha(a.vence),
                          a.cargado && 'cargado el ' + window.formatearFecha(a.cargado)].filter(Boolean).join(' · ');
-            quien.appendChild(el('div', 'cpdf-atar-actual', datos ? 'El que tiene: ' + datos : 'El que tiene no lleva fechas en la ficha.'));
-        } else if (o.tipo) {
-            // Atando un documento (no un VIN): decir también cuando NO lo tiene, para no confundir
+            info.appendChild(el('div', 'cpdf-atar-actual', datos ? 'El que tiene: ' + datos : 'El que tiene no lleva fechas en la ficha.'));
+        } else if (!bloqueado && o.tipo) {
+            // Enlazando un documento (no un VIN): decir también cuando NO lo tiene, para no confundir
             // la falta de fechas con un dato que no se ve.
-            quien.appendChild(el('div', 'cpdf-atar-actual', 'No tiene este documento cargado.'));
+            info.appendChild(el('div', 'cpdf-atar-actual', 'No tiene este documento cargado.'));
         }
-        if (marcas.childNodes.length) ident.appendChild(marcas);
-        info.appendChild(ident);
-        info.appendChild(quien);
         var boton = el('button', 'cpdf-atar-btn');
         boton.type = 'button';
         boton.appendChild(el('i', 'material-icons', 'link'));
