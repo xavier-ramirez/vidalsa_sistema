@@ -475,8 +475,8 @@
     //  · comoServidor: solo letras y cifras, con O/0, I/1 y S/5 iguales, como compara el servidor,
     //    y solo con el mismo largo (un carácter mal leído, no algo escrito a medias).
     //  · si no: carácter a carácter con el mismo largo; con otro largo, lo que queda entre el
-    //    principio y el final que comparten. Global: el visor lo usa desde un escuchador que se
-    //    monta una sola vez.
+    //    principio y el final que comparten; si casi todo difiere, nada. Global: el visor lo usa
+    //    desde un escuchador que se monta una sola vez.
     window.cpdfResaltar = function (texto, otro, comoServidor) {
         var t = String(texto == null ? '' : texto), T = t.toUpperCase(), o = String(otro == null ? '' : otro).toUpperCase();
         var distinto = [];
@@ -500,6 +500,10 @@
                 while (fin < T.length - ini && fin < o.length - ini && T[T.length - 1 - fin] === o[o.length - 1 - fin]) fin++;
                 for (var m = ini; m < T.length - fin; m++) distinto[m] = true;
             }
+            // Si casi todo difiere no son "el mismo dato mal escrito" sino dos distintos: marcarlo
+            // entero en rojo no dice nada.
+            var cuantos = distinto.filter(Boolean).length;
+            if (cuantos > Math.max(3, T.length * 0.4)) distinto = [];
         }
         // Los tramos seguidos, juntos: un <mark> por tramo, no por letra.
         var frag = document.createDocumentFragment(), tramo = '', marcado = false;
