@@ -182,6 +182,7 @@
                         </div>
                     </div>
                 </div>
+            </div>
         </div>
 
         {{-- Acciones (mismo botón desplegable que Equipos/Auxiliares/Historial): Nuevo usuario
