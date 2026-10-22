@@ -226,10 +226,11 @@
     /* Los datos, de dos en dos: lo que se enlaza (documento y lo leído; emisión y vence) y los de
        cada equipo (serial y placa; tipo y marca). Lo que no es un dato (si coincide, si ya tiene el
        documento, un error, la pregunta de reemplazar) va a lo ancho. */
-    .cpdf-atar-datos, .cpdf-atar-info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; min-width: 0; }
-    .cpdf-atar-info > :not(.cpdf-atar-campo) { grid-column: 1 / -1; }
+    .cpdf-atar-datos, .cpdf-atar-info { display: grid; gap: 8px 12px; min-width: 0; }
+    .cpdf-atar-datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     /* En la tarjeta el serial va a la izquierda: esa columna, un poco más ancha, para que quepa entero. */
     .cpdf-atar-info { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+    .cpdf-atar-info > :not(.cpdf-atar-campo) { grid-column: 1 / -1; }
     .cpdf-atar-campo[hidden] { display: none; }
     /* El buscador, como un campo del panel de datos. */
     .cpdf-atar-buscar { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 1px solid #555; border-radius: 4px; background: #282828; }
