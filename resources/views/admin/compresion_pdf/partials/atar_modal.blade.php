@@ -17,7 +17,7 @@
                  ya está en el título del visor y en la fila. --}}
             <div class="cpdf-atar-datos">
                 <div class="cpdf-atar-campo"><span class="cpdf-atar-rot">Documento</span><span class="cpdf-atar-val" id="cpdfAtarDoc"></span></div>
-                <div class="cpdf-atar-campo"><span class="cpdf-atar-rot" id="cpdfAtarLeidoEti"></span><span class="cpdf-atar-val cpdf-atar-codigo" id="cpdfAtarLeido"></span></div>
+                <div class="cpdf-atar-campo"><span class="cpdf-atar-rot" id="cpdfAtarLeidoEti"></span><span class="cpdf-atar-val" id="cpdfAtarLeido"></span></div>
                 <div class="cpdf-atar-campo" id="cpdfAtarEmisionCampo"><span class="cpdf-atar-rot">Emisión</span><span class="cpdf-atar-val" id="cpdfAtarEmision"></span></div>
                 <div class="cpdf-atar-campo" id="cpdfAtarVenceCampo"><span class="cpdf-atar-rot">Vence</span><span class="cpdf-atar-val" id="cpdfAtarVence"></span></div>
             </div>

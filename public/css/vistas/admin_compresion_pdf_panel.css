@@ -211,20 +211,20 @@
 
     /* "Enlazar a un equipo" (partials/atar_modal): un panel al lado del PDF, dentro del visor
        (.cpdf-atar-visor, ver cpdfAbrirAtar), con el MISMO aspecto que el panel de datos del visor
-       (#pdfMetadataPanel, layout_ui.js): fondo oscuro y cada dato debajo del otro, rótulo arriba y
-       valor abajo (pedido del cliente, 22-10-2026). En el teléfono va debajo del PDF. El panel de
-       datos del visor no se usa aquí. */
+       (#pdfMetadataPanel, layout_ui.js): fondo oscuro y cada dato con su rótulo arriba y el valor
+       abajo, de dos en dos para que no se alargue (pedidos del cliente, 22-10-2026). En el teléfono
+       va debajo del PDF. El panel de datos del visor no se usa aquí. */
     .cpdf-atar-visor #pdfMetadataPanel { display: none !important; }
-    .cpdf-atar-caja { width: 340px; max-width: 45%; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;
+    .cpdf-atar-caja { width: 380px; max-width: 45%; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;
                       background: #282828; border-left: 1px solid #3a3a3a; color: #fff; }
     .cpdf-atar-cuerpo { display: flex; flex-direction: column; gap: 12px; padding: 12px; min-height: 0; flex: 1; overflow-y: auto; }
     .cpdf-atar-tit { margin: 0; padding-bottom: 8px; border-bottom: 1px solid #3a3a3a; font-size: 15px; font-weight: 700; color: #fff; }
-    /* Lo que se enlaza, un dato debajo del otro (documento, lo leído, emisión y vencimiento),
-       como los de cada equipo (pedido del cliente, 22-10-2026). */
-    .cpdf-atar-datos { display: flex; flex-direction: column; gap: 8px; }
+    /* Los datos, de dos en dos: lo que se enlaza (documento y lo leído; emisión y vence) y los de
+       cada equipo (serial y placa; tipo y marca). Lo que no es un dato (si coincide, si ya tiene el
+       documento, un error, la pregunta de reemplazar) va a lo ancho. */
+    .cpdf-atar-datos, .cpdf-atar-info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; min-width: 0; }
+    .cpdf-atar-info > :not(.cpdf-atar-campo) { grid-column: 1 / -1; }
     .cpdf-atar-campo[hidden] { display: none; }
-    /* El código leído no se parte por la mitad: si no cabe en la línea, baja entero. */
-    .cpdf-atar-codigo { white-space: nowrap; }
     /* El buscador, como un campo del panel de datos. */
     .cpdf-atar-buscar { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px; border: 1px solid #555; border-radius: 4px; background: #282828; }
     .cpdf-atar-buscar:focus-within { border-color: #3182ce; }
@@ -247,10 +247,10 @@
     .cpdf-atar-op:hover { border-color: #777; }
     .cpdf-atar-op.activo { border-color: #3182ce; }
     .cpdf-atar-op.bloqueado { opacity: .6; cursor: default; }
-    .cpdf-atar-info { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
     .cpdf-atar-campo { display: flex; flex-direction: column; gap: 2px; }
     .cpdf-atar-rot { font-size: 12px; font-weight: 600; color: #cbd5e0; }
-    .cpdf-atar-val { font-size: 13px; color: #fff; word-break: break-all; }
+    /* Un serial o una placa solo se parte si no cabe ni solo en su renglón. */
+    .cpdf-atar-val { font-size: 13px; color: #fff; overflow-wrap: anywhere; }
     /* El carácter que no coincide con lo leído. */
     .cpdf-atar-val mark { background: rgba(239,68,68,.25); color: #fca5a5; border-radius: 3px; padding: 0 1px; }
     .cpdf-atar-marcas { display: flex; flex-wrap: wrap; gap: 4px; }
