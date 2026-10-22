@@ -204,7 +204,7 @@
                                     @can('docs.carga.masiva')
                                         <div class="cpdf-vin-falta">
                                             <button type="button" class="cpdf-vin-btn"
-                                                onclick="event.stopPropagation(); window.cpdfAtarDocumento(@js($d->PROPUESTA['link']), @js($d->SERIAL ?: $d->PLACA ?: ''), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))">Enlazar a un equipo</button>
+                                                onclick="event.stopPropagation(); window.cpdfAtarDocumento(@js($d->PROPUESTA['link']), @js($d->SERIAL ?: $d->PLACA ?: ''), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))" title="Enlazar a un equipo"><i class="material-icons">link</i>Equipo</button>
                                         </div>
                                     @endcan
                                 @endif
@@ -217,7 +217,7 @@
                                             <div class="cpdf-vin-falta">
                                                 <span>Falta el VIN {{ $vin }}</span>
                                                 <button type="button" class="cpdf-vin-btn"
-                                                    onclick="event.stopPropagation(); window.cpdfAtarVin(@js($d->PROPUESTA['link']), @js($vin), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => null]))">Enlazar a un equipo</button>
+                                                    onclick="event.stopPropagation(); window.cpdfAtarVin(@js($d->PROPUESTA['link']), @js($vin), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => null]))" title="Enlazar a un equipo"><i class="material-icons">link</i>Equipo</button>
                                             </div>
                                         @endforeach
                                     @endcan
@@ -232,7 +232,7 @@
                                             <div class="cpdf-vin-falta">
                                                 <span>{{ $u['suyo'] ? 'Sin enlazar' : 'Falta' }} {{ $u['que'] === 'placa' ? 'la placa' : 'el serial' }} {{ $u['codigo'] }}</span>
                                                 <button type="button" class="cpdf-vin-btn"
-                                                    onclick="event.stopPropagation(); window.cpdfAtarFalta(@js($d->PROPUESTA['link']), @js($u['codigo']), @js($u['que']), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))">Enlazar a un equipo</button>
+                                                    onclick="event.stopPropagation(); window.cpdfAtarFalta(@js($d->PROPUESTA['link']), @js($u['codigo']), @js($u['que']), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))" title="Enlazar a un equipo"><i class="material-icons">link</i>Equipo</button>
                                             </div>
                                         @endforeach
                                     @endcan

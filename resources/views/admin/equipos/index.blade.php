@@ -1208,7 +1208,7 @@
                          updateStatCards a partir de aux_new + aux_old + aux_sin_anio, que son
                          las mismas cifras que ya alimentan las claves del panel de auxiliares
                          (así no puede descuadrar respecto a ese gráfico). --}}
-                    <div class="fleet-kpi fleet-kpi--aux">
+                    <div class="fleet-kpi fleet-kpi--gris">
                         <p class="fleet-kpi-lbl">&Sigma; Auxiliares</p>
                         <h3 id="stat_aux_total" class="fleet-kpi-val">0</h3>
                     </div>
@@ -1218,14 +1218,14 @@
                         <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
                     </div>
 
-                    {{-- Cuántos equipos van a gasolina (la de «a gasoil» se quitó a pedido del
-                         cliente, 21-10-2026). Hija DIRECTA del grid, sin un div que la envuelva:
-                         el bloque de teléfono apunta a `.fleet-stats-grid > div` para voltear la
-                         tarjeta (cifra arriba, etiqueta debajo). Cuenta solo la tabla `equipos`
-                         (los auxiliares tienen su tarjeta). --}}
-                    <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Equipos a Gasolina</p>
-                        <h3 id="stat_gasolina_count" class="fleet-kpi-val">0</h3>
+                    {{-- Cuántos equipos van a gasoil (la de «a gasolina» se quitó a pedido del
+                         cliente, 22-10-2026), en gris como Σ Auxiliares. Hija DIRECTA del grid,
+                         sin un div que la envuelva: el bloque de teléfono apunta a
+                         `.fleet-stats-grid > div` para voltear la tarjeta (cifra arriba, etiqueta
+                         debajo). Cuenta solo la tabla `equipos` (los auxiliares tienen su tarjeta). --}}
+                    <div class="fleet-kpi fleet-kpi--gris">
+                        <p class="fleet-kpi-lbl">Equipos a Gasoil</p>
+                        <h3 id="stat_gasoil_count" class="fleet-kpi-val">0</h3>
                     </div>
                 </div>
 

@@ -3934,7 +3934,8 @@ class EquipoController extends Controller
             // No excluir ESPECIAL si el usuario está filtrando explícitamente por uno (drill-down).
             $excluirFueraDeFlota = !FrenteTrabajo::esFueraDeFlota($requestedFrenteId);
 
-            // Cache key — v13: fuera equipos_gasoil (se quitó su tarjeta).
+            // Cache key — v14: vuelve equipos_gasoil y sale equipos_gasolina (se cambió la
+            // tarjeta). v13: fuera equipos_gasoil (se quitó su tarjeta).
             // v12: «Equipos por frente» trae todos los frentes aunque se
             // pida uno. v11: usa el scope del usuario y quita los desincorporados.
             // v10: el payload trae dos campos nuevos, equipos_gasoil y
@@ -3955,7 +3956,7 @@ class EquipoController extends Controller
             // usar auth()->id()/ID_USUARIO — con $user->id todos caían en 'guest' y compartían
             // caché entre usuarios de distinto alcance (fuga de datos). Se hashea también el
             // scope (isLocal + frentes permitidos) por robustez si cambian los permisos.
-            $cacheKey = 'fleet_stats_v13_u' . ($user?->ID_USUARIO ?? 'guest')
+            $cacheKey = 'fleet_stats_v14_u' . ($user?->ID_USUARIO ?? 'guest')
                       . '_f' . ($requestedFrenteId ?: 'all')
                       . '_s' . md5(($isLocal ? 'L' : 'G') . '|' . implode(',', $frentesPermitidos))
                       . '_b' . md5(implode(',', $frentesBloqueados));
@@ -4096,10 +4097,10 @@ class EquipoController extends Controller
 
                 $totalConsumption = (float) $consumoEquipos + (float) $consumoAuxiliares - $descuentoLowboy;
 
-                // Equipos a gasolina, para su tarjeta. Solo la tabla `equipos`: los auxiliares
+                // Equipos a gasoil, para su tarjeta. Solo la tabla `equipos`: los auxiliares
                 // tienen su propia tarjeta. Por eso NO comparte scope con $totalConsumption,
                 // que si suma las dos tablas porque mide litros, no unidades.
-                $equiposGasolina = (clone $baseQuery)->where('equipos.COMBUSTIBLE', 'GASOLINA')->count();
+                $equiposGasoil = (clone $baseQuery)->where('equipos.COMBUSTIBLE', 'GASOIL')->count();
 
                 // Mismo corte de edad que los equipos (>= 2025 = nueva) para que los dos
                 // gráficos del dashboard se lean igual. Antes este se agrupaba por
@@ -4144,7 +4145,7 @@ class EquipoController extends Controller
                         'fleet_new'         => $fleetNew,
                         'fleet_old'         => $fleetOld,
                         'total_consumption' => number_format((float)$totalConsumption, 2),
-                        'equipos_gasolina'  => $equiposGasolina,
+                        'equipos_gasoil'    => $equiposGasoil,
                         // Totales de auxiliares: alimentan las claves de la cabecera de su
                         // panel, igual que fleet_new/fleet_old alimentan las del de equipos.
                         'aux_new'           => array_sum($auxNewData),

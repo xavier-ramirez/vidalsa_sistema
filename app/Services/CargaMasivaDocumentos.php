@@ -1164,7 +1164,7 @@ class CargaMasivaDocumentos
 
     /**
      * Las unidades de cada PDF de varias que se atan a mano desde su fila (la vista pinta una
-     * linea "Falta la placa X · Enlazar a un equipo" por cada una), con las MISMAS claves que $filas:
+     * linea "Falta la placa X" con su boton de enlazar por cada una), con las MISMAS claves que $filas:
      * lo que el PDF nombra y no esta en el sistema y, mientras la fila siga sin enlazar, sus
      * equipos reconocidos que no entraron. Cada una: codigo (lo que se busca), que ('placa' o
      * 'serial') y suyo (es un equipo reconocido: ya esta en el sistema).

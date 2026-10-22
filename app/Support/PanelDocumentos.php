@@ -226,7 +226,7 @@ class PanelDocumentos
         return [
             'docs'           => $filas,
             // Los VIN de cada BL de la carga que no casaron con ninguna ficha, de toda la pagina
-            // de una vez (la vista los pinta con su boton de "Enlazar a un equipo").
+            // de una vez (la vista los pinta con su boton de enlazar a un equipo).
             'vinesFaltan'    => $carga->vinesSinAtarDeVarias(array_map(fn ($d) => $d?->PROPUESTA, $deLaCarga)),
             // Y las unidades de cada RACDA, ROTC o poliza de flota que se enlazan a mano (la placa
             // o el serial que falta, o un equipo suyo que no entro), cada una con su boton.

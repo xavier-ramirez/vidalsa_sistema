@@ -218,7 +218,7 @@
         .fdm-cam .material-icons { font-size: 17px; }
 
         /* ── Tarjetas KPI (Σ Equipos / Σ Auxiliares / Gasoil Máx L/día / Equipos a
-           Gasolina) ─────────────────────────────────────────────────────────
+           Gasoil) ───────────────────────────────────────────────────────────
            Las cuatro son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
            (Flota nueva/antigua ya no son tarjetas: viven como claves de serie dentro de
            #fdm-panel-age.) El estilo vive aquí y no en styles inline: si no, son copias
@@ -236,7 +236,8 @@
            derecha" que se describe aquí es SOLO de escritorio. */
         /* Con COLOR, como las tarjetas "Equipos y Maquinaria" / "Equipos Auxiliares" del
            lateral de Equipos (pedido del cliente, 21-10-2026): el mismo degradado azul y
-           letras blancas; la de auxiliares, en el gris de su tarjeta (.fleet-kpi--aux). */
+           letras blancas; Σ Auxiliares y Equipos a Gasoil, en el gris de la tarjeta de
+           auxiliares (.fleet-kpi--gris). */
         .fleet-kpi {
             background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%);
             border-radius: 10px;
@@ -287,7 +288,7 @@
                el override de móvil, para que no cambie de tamaño entre PC y teléfono. */
             font-size: 12px;
             line-height: 1.25;
-            /* Se parte en dos lineas cuando hace falta (p. ej. "Equipos a Gasolina" en una
+            /* Se parte en dos lineas cuando hace falta (p. ej. "Gasoil Máx L/día" en una
                columna estrecha). Es el texto el que cede, no la cifra. min-width:0 para
                que pueda encogerse de verdad dentro del flex. */
             white-space: normal;
@@ -315,7 +316,7 @@
             font-weight: 700;
             letter-spacing: -0.6px;
         }
-        .fleet-kpi--aux { background: linear-gradient(135deg, #64748b 0%, #475569 100%); }
+        .fleet-kpi--gris { background: linear-gradient(135deg, #64748b 0%, #475569 100%); }
 
         /* Ancho medio (tableta, PC estrecha): las cuatro en UNA fila, cifra arriba y etiqueta
            debajo. En fila "etiqueta | cifra" no cabían: la última quedaba sola abajo (820 px)
