@@ -77,13 +77,14 @@
     #hdCmProgreso { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 9998;
                     width: max-content; min-width: 300px; max-width: min(680px, calc(100vw - 32px));
                     background: #1e293b; color: #e2e8f0; border-radius: 12px; padding: 10px 12px;
-                    box-shadow: 0 10px 25px -5px rgba(0,0,0,.35); font-size: 12.5px; line-height: 1.4; }
-    #hdCmProgreso .hd-cm-p-fila { display: flex; align-items: center; gap: 8px; }
-    #hdCmProgreso .hd-cm-p-fila b { flex: 1; min-width: 0; color: #fff; font-size: 13px; }
+                    box-shadow: 0 10px 25px -5px rgba(0,0,0,.35); font-size: 12.5px; line-height: 1.4; text-align: center; }
+    /* Todo centrado (pedido del cliente, 22-10-2026); la X, en su esquina, sin descentrar el título. */
+    #hdCmProgreso .hd-cm-p-fila { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 24px; }
+    #hdCmProgreso .hd-cm-p-fila b { min-width: 0; color: #fff; font-size: 13px; }
     #hdCmProgreso .material-icons { font-size: 18px; }
     #hdCmProgreso .hd-cm-p-gira { animation: hdCmGira 1s linear infinite; }
     @keyframes hdCmGira { to { transform: rotate(360deg); } }
-    #hdCmProgreso .hd-cm-p-x { background: none; border: none; color: #94a3b8; cursor: pointer; display: flex; padding: 0; }
+    #hdCmProgreso .hd-cm-p-x { position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; display: flex; padding: 0; }
     #hdCmProgreso .hd-cm-p-x:hover { color: #fff; }
     #hdCmProgreso .hd-cm-p-barra { height: 4px; margin: 8px 0 6px; border-radius: 2px; background: #334155; overflow: hidden; }
     #hdCmProgreso .hd-cm-p-barra i { display: block; height: 100%; background: #38bdf8; transition: width .3s; }
