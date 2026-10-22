@@ -284,7 +284,14 @@
         pintarProgreso();
 
         var siguiente = function () {
-            if (t.enviados >= t.total) { t.corriendo = false; pintarProgreso(); return; }
+            if (t.enviados >= t.total) {
+                t.corriendo = false; pintarProgreso();
+                // Si todo subió, el aviso se va solo (pedido del cliente, 22-10-2026): lo que sigue
+                // ya está en Revisión automática. Con alguno que NO se subió se queda hasta su X,
+                // porque esa lista no sale en ningún otro sitio.
+                if (!t.perdidos.length) setTimeout(function () { cerrarAviso(t); }, AVISO_SE_VA_MS);
+                return;
+            }
             var archivo = pdfs[t.enviados++];
             pintarProgreso();
             window.apiPostForm(RUTAS.analizar, { file: archivo, tipo: tipo }, 'No se pudo subir el archivo.')
@@ -301,9 +308,21 @@
         siguiente();
     }
 
+    // Lo que tarda en irse solo el aviso de una tanda que subió entera.
+    var AVISO_SE_VA_MS = 10000;
+
+    // Quita el aviso de ESA tanda; si ya empezó otra (o ya se cerró), no toca nada.
+    function cerrarAviso(t) {
+        if (window.__hdCargaMasiva !== t) return;
+        var caja = document.getElementById('hdCmProgreso');
+        if (caja) caja.remove();
+        window.__hdCargaMasiva = null;
+    }
+
     // El aviso de abajo: por cuál va y, al terminar, cuántos subieron y cuáles no; se cierra con
-    // su X (sin botón a Revisión: pedido del cliente, 20-10-2026). Se reconstruye entero cada vez
-    // (textContent en todo: los nombres de archivo los pone el usuario).
+    // su X o solo (ver siguiente, en encolar) (sin botón a Revisión: pedido del cliente,
+    // 20-10-2026). Se reconstruye entero cada vez (textContent en todo: los nombres de archivo
+    // los pone el usuario).
     function pintarProgreso() {
         var t = tanda(); if (!t) return;
         // Sus estilos, a <head> (una vez): así no se van con la vista al navegar.
@@ -320,7 +339,7 @@
         if (!t.corriendo) {
             var x = el('button', 'hd-cm-p-x'); x.type = 'button'; x.title = 'Cerrar';
             x.appendChild(el('i', 'material-icons', 'close'));
-            x.addEventListener('click', function () { caja.remove(); window.__hdCargaMasiva = null; });
+            x.addEventListener('click', function () { cerrarAviso(t); });
             fila.appendChild(x);
         }
         caja.appendChild(fila);
