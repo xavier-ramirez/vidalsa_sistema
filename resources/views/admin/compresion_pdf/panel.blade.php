@@ -668,12 +668,13 @@
         lista.appendChild(p);
         cpdfAtarEstado.activo = -1;
     };
-    var cpdfAtarMarcar = function (k) {
+    // quieto: sin mover el panel (la primera, al llegar las sugerencias: el panel se queda arriba).
+    var cpdfAtarMarcar = function (k, quieto) {
         var ops = cpdfAtarEl('cpdfAtarLista').querySelectorAll('.cpdf-atar-op');
         if (!ops.length) return;
         cpdfAtarEstado.activo = (k + ops.length) % ops.length;
         ops.forEach(function (op, n) { op.classList.toggle('activo', n === cpdfAtarEstado.activo); });
-        ops[cpdfAtarEstado.activo].scrollIntoView({ block: 'nearest' });
+        if (!quieto) ops[cpdfAtarEstado.activo].scrollIntoView({ block: 'nearest' });
     };
     // `texto` con los caracteres que difieren de `buscado` dentro de <mark>. Solo cuando tienen el
     // mismo largo (un carácter mal leído, no algo escrito a medias); O/0, I/1 y S/5 cuentan
@@ -823,7 +824,7 @@
                     lista.appendChild(ver);
                 }
                 // Queda elegida la primera que SÍ se puede atar (uno de otro BL no): así Enter ata.
-                cpdfAtarMarcar(Math.max(0, cerca.findIndex(function (eq) { return !(cpdfAtarEstado.o.bloquearConBl && eq.bl); })));
+                cpdfAtarMarcar(Math.max(0, cerca.findIndex(function (eq) { return !(cpdfAtarEstado.o.bloquearConBl && eq.bl); })), true);
             })
             .catch(function () { if (mio === cpdfAtarEstado.turno) cpdfAtarAviso('No se pudo buscar. Inténtalo de nuevo.'); });
     };
@@ -855,7 +856,10 @@
         cpdfAtarEl('cpdfAtarVenceCampo').hidden = !f.vence;
         var campo = cpdfAtarEl('cpdfAtarBuscar');
         campo.value = o.inicial || '';
-        campo.focus(); campo.select();
+        // Con ratón, el cursor ya en el buscador (lo leído seleccionado: se reemplaza al escribir).
+        // En el teléfono no: abriría el teclado y taparía el PDF y las sugerencias. preventScroll:
+        // el panel se queda arriba (en el teléfono acostado saltaba y escondía el título).
+        if (!window.matchMedia('(pointer: coarse)').matches) { campo.focus({ preventScroll: true }); campo.select(); }
         cpdfAtarBuscar();
     };
     // La caja vuelve a su casa (o, si la vista ya no está, se va) y el visor queda como siempre.
