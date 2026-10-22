@@ -636,7 +636,7 @@
     @can('docs.carga.masiva')
     // ── Enlazar a un equipo (modal partials/atar_modal) ─────────────────────────────
     // Lo usan atar un PDF sin enlazar, un VIN del BL y una unidad de un PDF de varias. `o` trae lo que se muestra (doc,
-    // lo leído: leidoEti + leido, y las fechas del PDF), el PDF (link, para «Ver PDF»), con qué arranca el buscador (inicial), el tipo de
+    // lo leído: leidoEti + leido, y las fechas del PDF), el PDF (link, que se abre al lado), con qué arranca el buscador (inicial), el tipo de
     // documento (para avisar de las fichas que ya lo tienen), si un equipo de otro BL se bloquea,
     // y atar(eq, ui), que hace el POST. ui deja a quien ata marcar la fila ocupada, avisar un
     // error o pedir reemplazo.
@@ -823,7 +823,14 @@
             if (op) op._elegir();
         }
     };
+    // La caja va al lado del PDF, dentro del visor (#pdfPreviewModal, del layout): se abre el PDF y
+    // se monta ahí. Se queda hasta que el visor se cierra (vidalsa:pdf-cerrado: su X, Esc o al
+    // enlazar), y entonces vuelve a su casa en la vista, escondida.
     window.cpdfAbrirAtar = function (o) {
+        window.openPdfPreview(o.link, o.tipo || @js(\App\Services\CargaMasivaDocumentos::EMBARQUE), o.doc + ' · ' + o.leido, null, '', true);
+        var visor = document.getElementById('pdfVisorIzq').parentNode;
+        visor.classList.add('cpdf-atar-visor');
+        visor.appendChild(cpdfAtarEl('cpdfAtarCaja'));
         cpdfAtarEstado.o = o;
         cpdfAtarEl('cpdfAtarDoc').textContent = o.doc;
         cpdfAtarEl('cpdfAtarLeidoEti').textContent = o.leidoEti + ':';
@@ -833,33 +840,37 @@
             f.vence && 'Vence: ' + window.formatearFecha(f.vence)].filter(Boolean).join(' · ');
         var campo = cpdfAtarEl('cpdfAtarBuscar');
         campo.value = o.inicial || '';
-        cpdfAtarEl('cpdfAtarModal').hidden = false;
         campo.focus(); campo.select();
         cpdfAtarBuscar();
     };
-    // "Ver PDF": el visor (#pdfPreviewModal) va por encima de este modal; al cerrarlo se sigue
-    // aquí con lo buscado. Solo se mira: no es todavía el documento de ningún equipo.
-    window.cpdfAtarVerPdf = function () {
-        var o = cpdfAtarEstado.o;
-        // Un VIN del BL va sin tipo (no hay fichas que avisar de que ya lo tienen): su PDF es un BL.
-        if (o) window.openPdfPreview(o.link, o.tipo || @js(\App\Services\CargaMasivaDocumentos::EMBARQUE), o.doc + ' · ' + o.leido, null, '', true);
-    };
+    // La caja vuelve a su casa (o, si la vista ya no está, se va) y el visor queda como siempre.
     window.cpdfCerrarAtar = function () {
-        var m = cpdfAtarEl('cpdfAtarModal');
-        if (m) m.hidden = true;
+        document.querySelectorAll('.cpdf-atar-visor').forEach(function (v) {
+            v.classList.remove('cpdf-atar-visor');
+            v.querySelectorAll('.cpdf-atar-caja').forEach(function (c) {
+                // A su casa; si la vista ya es otra (y su casa trae su propia caja), se va.
+                var casa = document.getElementById('cpdfAtarCasa');
+                if (casa && !casa.querySelector('.cpdf-atar-caja')) casa.appendChild(c); else c.remove();
+            });
+        });
         cpdfAtarEstado.o = null; cpdfAtarEstado.turno++; clearTimeout(cpdfAtarEstado.espera);
     };
-    // Esc cierra el modal. En document y UNA vez: la vista se vuelve a ejecutar en cada visita.
-    if (!window.__cpdfAtarEscBound) {
-        window.__cpdfAtarEscBound = true;
+    // Una caja que se quedó en el visor de una visita anterior (se navegó con él abierto) se va:
+    // la de esta visita tiene los mismos id.
+    window.cpdfCerrarAtar();
+    // Cerrar el visor cierra la caja; Esc, con la caja montada, cierra el visor. En document y UNA
+    // vez: la vista se vuelve a ejecutar en cada visita.
+    if (!window.__cpdfAtarVisorBound) {
+        window.__cpdfAtarVisorBound = true;
+        document.addEventListener('vidalsa:pdf-cerrado', function () {
+            if (document.querySelector('.cpdf-atar-visor') && window.cpdfCerrarAtar) window.cpdfCerrarAtar();
+        });
         document.addEventListener('keydown', function (e) {
-            var m = document.getElementById('cpdfAtarModal');
-            // Con el visor del PDF abierto encima, Esc cierra solo el visor.
-            if (e.key === 'Escape' && m && !m.hidden && !document.querySelector('#pdfPreviewModal.active')) window.cpdfCerrarAtar();
+            if (e.key === 'Escape' && document.querySelector('.cpdf-atar-visor')) window.closePdfPreview();
         });
     }
 
-    var cpdfAtado = function (r) { window.cpdfCerrarAtar(); window.toast(r.message || 'Enlazado', 'success'); window.cpdfFiltrar(); };
+    var cpdfAtado = function (r) { window.closePdfPreview(); window.toast(r.message || 'Enlazado', 'success'); window.cpdfFiltrar(); };
     // El atar() de lo que puede pisar un documento que la ficha ya tiene: si el servidor responde
     // requiere_pisar, se pregunta en la fila y, con un sí, se manda otra vez con reemplazar.
     var cpdfAtarPreguntando = function (url, datos) {

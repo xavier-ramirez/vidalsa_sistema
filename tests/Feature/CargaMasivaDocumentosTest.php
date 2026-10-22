@@ -1171,7 +1171,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertFalse(collect($this->servicio()->buscarEquipo($mal, 'rotc'))->firstWhere('id', $e->ID_EQUIPO)['tiene']);
     }
 
-    /** El JavaScript del panel (con el modal de atar) no tiene errores de sintaxis. */
+    /** El JavaScript del panel (con la caja de enlazar) no tiene errores de sintaxis. */
     public function test_el_javascript_del_panel_es_valido(): void
     {
         $this->actingAs($this->usuario());
@@ -1179,7 +1179,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         preg_match_all('~<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>~is', $html, $m);
         $js = implode(";\n", array_filter(array_map('trim', $m[1])));
         $this->assertStringContainsString('window.cpdfAbrirAtar', $js);
-        $this->assertStringContainsString('id="cpdfAtarModal"', $html);
+        $this->assertStringContainsString('id="cpdfAtarCaja"', $html);
         $archivo = tempnam(sys_get_temp_dir(), 'cpdf') . '.js';
         file_put_contents($archivo, $js);
         exec('node --check ' . escapeshellarg($archivo) . ' 2>&1', $salida, $codigo);
