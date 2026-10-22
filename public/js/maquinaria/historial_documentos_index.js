@@ -262,11 +262,9 @@ window.updateChipHd = function() {
     } else {
         chip.classList.remove('active');
     }
-    const eliminar = document.getElementById('hd-selection-chip-eliminar'), b = window._hdBorrables.size;
-    if (eliminar) {
-        eliminar.hidden = !b;
-        eliminar.lastChild.textContent = ' Eliminar' + (b > 1 ? ' (' + b + ')' : '');
-    }
+    // "Eliminar", sin cuenta (pedido del cliente, 22-10-2026): solo se ve si alguna elegida se puede eliminar.
+    const eliminar = document.getElementById('hd-selection-chip-eliminar');
+    if (eliminar) eliminar.hidden = !window._hdBorrables.size;
 };
 
 // ── Re-aplica estilos tras carga AJAX ──

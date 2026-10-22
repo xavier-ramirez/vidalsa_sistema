@@ -569,8 +569,9 @@
         chip.querySelector('.selection-counter').classList.toggle('is-filtering', sel.solo);
         var rev = document.getElementById('cpdf-selection-chip-revisado'), n = cpdfMarcadas().length;
         if (rev) { rev.hidden = !n; rev.lastChild.textContent = ' Revisado' + (n > 1 ? ' (' + n + ')' : ''); }
-        var eli = document.getElementById('cpdf-selection-chip-eliminar'), m = cpdfDescartables().length;
-        if (eli) { eli.hidden = !m; eli.lastChild.textContent = ' Eliminar' + (m > 1 ? ' (' + m + ')' : ''); }
+        // "Eliminar", sin cuenta: solo se ve si alguna elegida se puede eliminar.
+        var eli = document.getElementById('cpdf-selection-chip-eliminar');
+        if (eli) eli.hidden = !cpdfDescartables().length;
     };
     // Clic en cualquier parte de la fila la elige o la suelta; los botones y enlaces de la fila
     // (el PDF, enlazar) siguen haciendo lo suyo sin tocar la selección.
