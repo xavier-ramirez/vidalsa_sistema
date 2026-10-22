@@ -67,7 +67,8 @@ function updateStatCards(stats) {
 /**
  * Panel «Equipos Asignados por Frente»: una tarjeta por frente, de mayor a menor. Sale
  * siempre, elija el frente que elija (el backend manda todos los del usuario); el frente
- * elegido en el dashboard se resalta con .fdm-asig--actual (borde rojo).
+ * elegido en el dashboard se resalta con .fdm-asig--actual (borde rojo). Sin frentes (un
+ * usuario local sin frentes asignados) el panel no sale, igual que los de «por tipo».
  */
 function renderFleetEquiposAsignados(lista, frenteActual) {
     const loading = document.getElementById('fleetEqAsigLoading');
@@ -77,8 +78,10 @@ function renderFleetEquiposAsignados(lista, frenteActual) {
     if (loading) loading.style.display = 'none';
     body.style.display = 'block';
 
+    const panel = body.closest('.fdm-panel');
+    if (panel) panel.style.display = (lista && lista.length) ? '' : 'none';
     if (!lista || lista.length === 0) {
-        body.innerHTML = '<p class="fdm-vacio">Sin datos de equipos asignados.</p>';
+        body.innerHTML = '';
         return;
     }
 
@@ -119,8 +122,16 @@ function avisoSinConexion(activo) {
     if (!charts) return;
     const ID = 'fdmAvisoOffline';
 
+    // Al volver, solo se reponen los que ESTE aviso escondió: un panel oculto por no tener
+    // datos (pintarPorTipo, renderFleetEquiposAsignados) se queda oculto.
     Array.prototype.forEach.call(charts.children, (el) => {
-        if (el.id !== ID) el.style.display = activo ? 'none' : '';
+        if (el.id === ID) return;
+        if (activo) {
+            if (el.style.display !== 'none') { el.dataset.ocultoSinConexion = '1'; el.style.display = 'none'; }
+        } else if (el.dataset.ocultoSinConexion) {
+            delete el.dataset.ocultoSinConexion;
+            el.style.display = '';
+        }
     });
 
     const previo = document.getElementById(ID);

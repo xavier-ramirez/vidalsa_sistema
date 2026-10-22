@@ -174,7 +174,6 @@
         .fdm-fila-pista { height: 12px; background: #f1f5f9; border-radius: 999px; }
         .fdm-fila-barra { display: flex; height: 100%; gap: 2px; border-radius: 999px; overflow: hidden; }
         .fdm-fila-barra i { display: block; min-width: 4px; }
-        .fdm-vacio { margin: 0; padding: 14px 0 6px; text-align: center; font-size: 13px; color: var(--fd-ink-2); }
 
         /* ── Equipos Asignados por Frente (renderFleetEquiposAsignados) ─────────
            Tarjeta blanca de una línea: puesto · frente · cifra, y una barra fina debajo.
