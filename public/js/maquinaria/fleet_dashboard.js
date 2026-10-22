@@ -89,7 +89,7 @@ function renderFleetEquiposAsignados(lista, frenteActual) {
                 <span class="fdm-asig-pos">${i + 1}</span>
                 <span class="fdm-asig-nom" title="${esc(row.frente)}">${esc(row.frente)}</span>
                 <div class="fdm-asig-cifra">
-                    <b>${row.total}</b><span>equipo${row.total !== 1 ? 's' : ''}</span>
+                    <b>${row.total}</b><span>Equipo${row.total !== 1 ? 's' : ''}</span>
                 </div>
                 <div class="fdm-asig-prop"><i style="width:${pct}%"></i></div>
             </div>`;
