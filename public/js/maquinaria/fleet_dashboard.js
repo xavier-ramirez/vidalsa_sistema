@@ -187,10 +187,10 @@ window.openFleetDashboard = async function () {
 
     // ── Leer frente con prioridades claras ──
     // Prioridad 1: Filtro activo en la página (?id_frente=16) — aplica para TODOS
-    // Prioridad 2: Campo oculto inyectado por el servidor (Blade) — cubre usuarios locales
+    // Prioridad 2: Campo oculto — 'all' (TODOS LOS FRENTES) que pone el Blade, o el último
+    // frente elegido en este modal (dashboardSelectFrente lo guarda ahí)
     const hiddenId   = document.getElementById('dashboardSelectedFrenteId');
     const hiddenName = document.getElementById('dashboardSelectedFrenteNombre');
-    const isGlobalUser = !!document.getElementById('dashboardFrenteSearch');
 
     // Leer el filtro activo en la URL de la página
     const pageFilterInput = document.querySelector('input[name="id_frente"][data-filter-value]');
@@ -215,7 +215,7 @@ window.openFleetDashboard = async function () {
         if (hiddenId)   hiddenId.value   = firstFrenteId;
         if (hiddenName) hiddenName.value = firstFrenteName;
     } else {
-        // Prioridad 2: Valor pre-inyectado por el servidor (el Blade ya calculó el mejor frente)
+        // Prioridad 2: el campo oculto
         firstFrenteId   = hiddenId?.value   || '';
         firstFrenteName = hiddenName?.value || '';
     }
@@ -228,13 +228,14 @@ window.openFleetDashboard = async function () {
 
     window.currentFrenteId = firstFrenteId;
 
-    // Si el frente NO vino del listado (prioridad 2: se lo eligió el Blade), el Dashboard
-    // arranca enseñando un frente que la tabla no tiene filtrado. En móvil, con la card de
+    // Si el frente NO vino del listado (prioridad 2: el último elegido en el modal), el
+    // Dashboard arranca enseñando un frente que la tabla no tiene filtrado. Con 'all' no
+    // hace falta: la tabla tampoco tiene frente. En móvil, con la card de
     // distribución mudada aquí dentro, eso es justo lo que se veía: cifras de COMOR FASE III
     // arriba y '--' debajo, sin tocar nada. Se alinea el listado con lo que el modal ya está
     // mostrando. Con prioridad 1 no se hace nada: el frente SALIÓ del filtro de la tabla, así
     // que ya están de acuerdo y volver a pedir la lista sería una consulta de más.
-    if (!activeFrenteId && firstFrenteId) {
+    if (!activeFrenteId && firstFrenteId && firstFrenteId !== 'all') {
         sincronizarDistribucionConFrente(firstFrenteId, firstFrenteName);
     }
 
@@ -431,6 +432,10 @@ window.dashboardSelectFrente = async function (id, name, event) {
 
     const hiddenId = document.getElementById('dashboardSelectedFrenteId');
     if (hiddenId) hiddenId.value = id;
+    // El nombre también: al reabrir el modal sin filtro, el buscador muestra este frente y
+    // no el nombre con el que arrancó la página.
+    const hiddenName = document.getElementById('dashboardSelectedFrenteNombre');
+    if (hiddenName) hiddenName.value = name;
 
     const search = document.getElementById('dashboardFrenteSearch');
     if (search) {

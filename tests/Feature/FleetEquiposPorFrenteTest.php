@@ -47,6 +47,20 @@ class FleetEquiposPorFrenteTest extends MySqlTestCase
         $this->assertSame($todos, $uno);
     }
 
+    public function test_sin_filtro_el_dashboard_abre_en_todos_los_frentes_aunque_tenga_frente_asignado(): void
+    {
+        $frente = DB::table('frentes_trabajo')->value('ID_FRENTE');
+        $global = $this->usuario();
+        DB::table('usuarios')->where('ID_USUARIO', $global->ID_USUARIO)->update(['ID_FRENTE_ASIGNADO' => (string) $frente]);
+        $global->refresh();
+
+        $html = (string) $this->actingAs($global)->get('/admin/equipos')->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/id="dashboardSelectedFrenteId" value="all"/', $html);
+
+        $html = (string) $this->actingAs($global)->get('/admin/equipos?id_frente=' . $frente)->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/id="dashboardSelectedFrenteId" value="' . $frente . '"/', $html);
+    }
+
     public function test_un_usuario_local_solo_ve_sus_frentes(): void
     {
         $frente = (int) DB::table('equipos')->whereNull('deleted_at')->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')

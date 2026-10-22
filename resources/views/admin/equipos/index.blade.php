@@ -1090,35 +1090,16 @@
     <link rel="stylesheet" href="{{ asset('css/vistas/admin_equipos_index_2.css') }}?v={{ @filemtime(public_path('css/vistas/admin_equipos_index_2.css')) }}">
     
     @php
-    $dashUser       = auth()->user();
-    $dashIsLocal    = $dashUser && !$dashUser->veTodosLosFrentesEquipos();
-    $dashFrenteIds  = $dashUser ? $dashUser->getFrentesIds() : [];
-
-    // Prioridad 1: frente activo en el filtro de URL (id_frente=16)
-    $activeFrenteId   = request('id_frente');
-    $activeFrenteObj  = ($activeFrenteId && $activeFrenteId !== 'all')
-    ? $frentes->firstWhere('ID_FRENTE', $activeFrenteId)
-    : null;
-
-    // Prioridad 2: primer frente asignado del usuario local
-    $firstAsigFrenteObj = count($dashFrenteIds) > 0
-    ? $frentes->firstWhere('ID_FRENTE', $dashFrenteIds[0])
-    : null;
-
-    // Prioridad 3: primer frente de la lista global
-    $fallbackFrenteObj = $frentes->first();
-
-    // Escoger el mejor frente default
-    if ($activeFrenteObj) {
-    $defaultDashboardId     = $activeFrenteObj->ID_FRENTE;
-    $defaultDashboardNombre = $activeFrenteObj->NOMBRE_FRENTE;
-    } elseif ($firstAsigFrenteObj) {
-    $defaultDashboardId     = $firstAsigFrenteObj->ID_FRENTE;
-    $defaultDashboardNombre = $firstAsigFrenteObj->NOMBRE_FRENTE;
-    } else {
-    $defaultDashboardId     = $fallbackFrenteObj->ID_FRENTE ?? '';
-    $defaultDashboardNombre = $fallbackFrenteObj->NOMBRE_FRENTE ?? '';
-    }
+    // Frente con el que abre el Dashboard: el del filtro de la tabla (?id_frente=16) y, sin
+    // filtro, TODOS LOS FRENTES. Antes, sin filtro, abría en el frente ASIGNADO del usuario
+    // aunque fuera GLOBAL (las cuentas globales con Barcelona asignada abrían en Barcelona sin
+    // haber filtrado nada). Con 'all' el backend ya limita al usuario LOCAL a sus frentes.
+    $activeFrenteId  = request('id_frente');
+    $activeFrenteObj = ($activeFrenteId && $activeFrenteId !== 'all')
+        ? $frentes->firstWhere('ID_FRENTE', $activeFrenteId)
+        : null;
+    $defaultDashboardId     = $activeFrenteObj->ID_FRENTE ?? 'all';
+    $defaultDashboardNombre = $activeFrenteObj->NOMBRE_FRENTE ?? 'TODOS LOS FRENTES';
     @endphp
 
     <div id="fleetDashboardModal" class="modal-overlay">
