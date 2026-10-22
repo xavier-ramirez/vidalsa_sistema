@@ -4,12 +4,10 @@
 
 if (!window.currentFrenteId) window.currentFrenteId = '';
 
-// [0] Nueva = azul #004a80, [1] Antigua = rojo #911a24: tonos OSCUROS pedidos expresamente
-// por el cliente (2026-07-30), NO aclararlos por estilo. [2] Gris = "Sin año" (solo
-// auxiliares): neutro a propósito, se lee como dato
-// faltante y no como una tercera categoría. FUENTE ÚNICA: los puntos y bloques del blade
-// (data-serie) también se pintan desde aquí.
-const FDM_COLORES = ['#004a80', '#911a24', '#64748b'];
+// [0] Nueva = azul #004a80, [1] Antigua = rojo #911a24 (incluye lo que no tiene año):
+// tonos OSCUROS pedidos expresamente por el cliente (2026-07-30), NO aclararlos por estilo.
+// FUENTE ÚNICA: los puntos y bloques del blade (data-serie) también se pintan desde aquí.
+const FDM_COLORES = ['#004a80', '#911a24'];
 
 /**
  * Update stat cards with data
@@ -38,23 +36,18 @@ function updateStatCards(stats) {
     const gasoil = document.getElementById('stat_gasoil_count');
     if (gasoil) gasoil.textContent = stats.equipos_gasoil || 0;
 
-    // Claves del panel de auxiliares. La de "Sin año" solo se muestra si hay alguno:
-    // con el año cargado en todos, la cabecera queda igual que la de equipos.
+    // Claves del panel de auxiliares (lo que no tiene año ya viene sumado en aux_old).
     const auxNew = document.getElementById('stat_aux_new');
     const auxOld = document.getElementById('stat_aux_old');
-    const auxSin = document.getElementById('stat_aux_sin');
-    const auxSinKey = document.getElementById('stat_aux_sin_key');
     if (auxNew) auxNew.textContent = stats.aux_new || 0;
     if (auxOld) auxOld.textContent = stats.aux_old || 0;
-    if (auxSin) auxSin.textContent = stats.aux_sin_anio || 0;
-    if (auxSinKey) auxSinKey.style.display = (stats.aux_sin_anio || 0) > 0 ? '' : 'none';
 
-    // Tarjeta "Σ Auxiliares": el backend no manda un total propio, se suma de las tres
+    // Tarjeta "Σ Auxiliares": el backend no manda un total propio, se suma de las dos
     // cifras de arriba. Se calcula AQUI y no aparte para que salga siempre de los mismos
     // numeros que las claves del panel de auxiliares y no puedan descuadrar entre si.
     const auxTotal = document.getElementById('stat_aux_total');
     if (auxTotal) {
-        auxTotal.textContent = (stats.aux_new || 0) + (stats.aux_old || 0) + (stats.aux_sin_anio || 0);
+        auxTotal.textContent = (stats.aux_new || 0) + (stats.aux_old || 0);
     }
 
     pintarPuntosDeSerie();

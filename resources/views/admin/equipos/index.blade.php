@@ -1205,7 +1205,7 @@
                     </div>
 
                     {{-- Total de auxiliares. No viene como campo propio del backend: se suma en
-                         updateStatCards a partir de aux_new + aux_old + aux_sin_anio, que son
+                         updateStatCards a partir de aux_new + aux_old, que son
                          las mismas cifras que ya alimentan las claves del panel de auxiliares
                          (así no puede descuadrar respecto a ese gráfico). --}}
                     <div class="fleet-kpi fleet-kpi--gris">
@@ -1263,15 +1263,13 @@
                     </div>
 
                     <!-- Equipos Auxiliares por Tipo (mismo corte de edad que el de arriba) -->
-                    {{-- Mismo diseño. El bloque "Sin año" solo aparece si hay auxiliares sin
-                         ANIO cargado (lo muestra/oculta updateStatCards). --}}
+                    {{-- Mismo diseño. Lo que no tiene año cuenta como Antigua. --}}
                     <div id="fdm-panel-auxiliares" class="fdm-panel">
                         <div class="fdm-panel-head">
                             <span class="fdm-panel-title">Auxiliares Nuevos vs Viejos por Tipo</span>
                             <div class="fdm-resumen">
                                 <div class="fdm-res" data-serie="0"><span class="fdm-res-lbl">Nueva (&ge;2025)</span><b id="stat_aux_new">0</b><span class="fdm-res-pct"></span></div>
                                 <div class="fdm-res" data-serie="1"><span class="fdm-res-lbl">Antigua (&lt;2025)</span><b id="stat_aux_old">0</b><span class="fdm-res-pct"></span></div>
-                                <div class="fdm-res" data-serie="2" id="stat_aux_sin_key" style="display:none;"><span class="fdm-res-lbl">Sin año</span><b id="stat_aux_sin">0</b><span class="fdm-res-pct"></span></div>
                             </div>
                             <button onclick="window.descargarPanelHtmlFDM('fdm-panel-auxiliares', 'auxiliares_por_tipo')" title="Descargar imagen" class="fdm-cam">
                                 <i class="material-icons">photo_camera</i>

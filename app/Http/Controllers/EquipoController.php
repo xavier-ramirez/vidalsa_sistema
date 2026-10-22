@@ -3934,7 +3934,8 @@ class EquipoController extends Controller
             // No excluir ESPECIAL si el usuario está filtrando explícitamente por uno (drill-down).
             $excluirFueraDeFlota = !FrenteTrabajo::esFueraDeFlota($requestedFrenteId);
 
-            // Cache key — v14: vuelve equipos_gasoil y sale equipos_gasolina (se cambió la
+            // Cache key — v15: sin año = vieja; fuera aux_sin_anio y la serie «Sin año».
+            // v14: vuelve equipos_gasoil y sale equipos_gasolina (se cambió la
             // tarjeta). v13: fuera equipos_gasoil (se quitó su tarjeta).
             // v12: «Equipos por frente» trae todos los frentes aunque se
             // pida uno. v11: usa el scope del usuario y quita los desincorporados.
@@ -3956,7 +3957,7 @@ class EquipoController extends Controller
             // usar auth()->id()/ID_USUARIO — con $user->id todos caían en 'guest' y compartían
             // caché entre usuarios de distinto alcance (fuga de datos). Se hashea también el
             // scope (isLocal + frentes permitidos) por robustez si cambian los permisos.
-            $cacheKey = 'fleet_stats_v14_u' . ($user?->ID_USUARIO ?? 'guest')
+            $cacheKey = 'fleet_stats_v15_u' . ($user?->ID_USUARIO ?? 'guest')
                       . '_f' . ($requestedFrenteId ?: 'all')
                       . '_s' . md5(($isLocal ? 'L' : 'G') . '|' . implode(',', $frentesPermitidos))
                       . '_b' . md5(implode(',', $frentesBloqueados));
@@ -4006,7 +4007,7 @@ class EquipoController extends Controller
                     ->selectRaw('
                         SUM(CASE WHEN ESTADO_OPERATIVO != \'DESINCORPORADO\' THEN 1 ELSE 0 END) as total,
                         SUM(CASE WHEN ANIO >= 2025 AND ESTADO_OPERATIVO != \'DESINCORPORADO\' THEN 1 ELSE 0 END) as fleet_new,
-                        SUM(CASE WHEN ANIO <  2025 AND ESTADO_OPERATIVO != \'DESINCORPORADO\' THEN 1 ELSE 0 END) as fleet_old
+                        SUM(CASE WHEN COALESCE(ANIO, 0) < 2025 AND ESTADO_OPERATIVO != \'DESINCORPORADO\' THEN 1 ELSE 0 END) as fleet_old
                     ')
                     ->first();
 
@@ -4024,7 +4025,7 @@ class EquipoController extends Controller
                     ->select(
                         'tipo_equipos.nombre as tipo_nombre',
                         DB::raw('SUM(CASE WHEN equipos.ANIO >= 2025 THEN 1 ELSE 0 END) as new_count'),
-                        DB::raw('SUM(CASE WHEN equipos.ANIO <  2025 THEN 1 ELSE 0 END) as old_count')
+                        DB::raw('SUM(CASE WHEN COALESCE(equipos.ANIO, 0) < 2025 THEN 1 ELSE 0 END) as old_count')
                     )
                     ->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id')
                     ->whereNotNull('equipos.id_tipo_equipo')
@@ -4107,36 +4108,23 @@ class EquipoController extends Controller
                 // operativo/no operativo: dos gráficos con la misma pinta pero midiendo
                 // cosas distintas.
                 //
-                // El tercer grupo NO es un capricho: hoy 30 de 160 auxiliares no tienen ANIO
-                // cargado. Con solo dos series (>= 2025 y < 2025) esos 30 no caen en ninguna
-                // y desaparecían del gráfico sin avisar — las barras no sumarían el total real
-                // del tipo y nadie sabría por qué. ANIO = 0 cuenta como sin cargar.
+                // SIN AÑO cargado (NULL o 0) cuenta como VIEJA, igual que en los equipos (pedido
+                // del cliente, 22-10-2026; antes iba aparte como «Sin año»). COALESCE para que
+                // el NULL no se quede fuera de las dos series.
                 $auxByTypeRaw = $auxBase
                     ->select(
                         'TIPO',
                         DB::raw('COUNT(*) as total'),
                         DB::raw('SUM(CASE WHEN ANIO >= 2025 THEN 1 ELSE 0 END) as new_count'),
-                        DB::raw('SUM(CASE WHEN ANIO > 0 AND ANIO < 2025 THEN 1 ELSE 0 END) as old_count'),
-                        DB::raw('SUM(CASE WHEN ANIO IS NULL OR ANIO = 0 THEN 1 ELSE 0 END) as sin_anio_count')
+                        DB::raw('SUM(CASE WHEN COALESCE(ANIO, 0) < 2025 THEN 1 ELSE 0 END) as old_count')
                     )
                     ->groupBy('TIPO')
                     ->orderByDesc('total')
                     ->get();
 
-                $auxLabels      = $auxByTypeRaw->map(fn($r) => ucwords(str_replace('_', ' ', strtolower($r->TIPO))))->toArray();
-                $auxNewData     = $auxByTypeRaw->pluck('new_count')->map(fn($v) => (int)$v)->toArray();
-                $auxOldData     = $auxByTypeRaw->pluck('old_count')->map(fn($v) => (int)$v)->toArray();
-                $auxSinAnioData = $auxByTypeRaw->pluck('sin_anio_count')->map(fn($v) => (int)$v)->toArray();
-
-                // La serie "Sin año" solo viaja si hay alguno: con el año cargado en todos,
-                // el gráfico queda idéntico al de equipos (dos series y ya).
-                $auxDatasets = [
-                    ['label' => 'Nueva (≥2025)',   'data' => $auxNewData],
-                    ['label' => 'Antigua (<2025)', 'data' => $auxOldData],
-                ];
-                if (array_sum($auxSinAnioData) > 0) {
-                    $auxDatasets[] = ['label' => 'Sin año', 'data' => $auxSinAnioData];
-                }
+                $auxLabels  = $auxByTypeRaw->map(fn($r) => ucwords(str_replace('_', ' ', strtolower($r->TIPO))))->toArray();
+                $auxNewData = $auxByTypeRaw->pluck('new_count')->map(fn($v) => (int)$v)->toArray();
+                $auxOldData = $auxByTypeRaw->pluck('old_count')->map(fn($v) => (int)$v)->toArray();
 
                 return [
                     'success' => true,
@@ -4150,7 +4138,6 @@ class EquipoController extends Controller
                         // panel, igual que fleet_new/fleet_old alimentan las del de equipos.
                         'aux_new'           => array_sum($auxNewData),
                         'aux_old'           => array_sum($auxOldData),
-                        'aux_sin_anio'      => array_sum($auxSinAnioData),
                     ],
                     'ageByType' => [
                         'labels'   => $ageLabels,
@@ -4165,7 +4152,10 @@ class EquipoController extends Controller
                     ])->values()->toArray(),
                     'auxByType' => [
                         'labels'   => $auxLabels,
-                        'datasets' => $auxDatasets,
+                        'datasets' => [
+                            ['label' => 'Nueva (≥2025)',   'data' => $auxNewData],
+                            ['label' => 'Antigua (<2025)', 'data' => $auxOldData],
+                        ],
                     ],
                 ];
             });
@@ -4238,7 +4228,7 @@ class EquipoController extends Controller
                 ->select(
                     'id_tipo_equipo',
                     DB::raw('SUM(CASE WHEN ANIO >= 2025 THEN 1 ELSE 0 END) as new_count'),
-                    DB::raw('SUM(CASE WHEN ANIO < 2025 THEN 1 ELSE 0 END) as old_count')
+                    DB::raw('SUM(CASE WHEN COALESCE(ANIO, 0) < 2025 THEN 1 ELSE 0 END) as old_count')
                 )
                 ->with('tipo:id,nombre')
                 ->groupBy('id_tipo_equipo')

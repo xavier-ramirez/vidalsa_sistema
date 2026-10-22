@@ -61,6 +61,21 @@ class FleetEquiposPorFrenteTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/id="dashboardSelectedFrenteId" value="' . $frente . '"/', $html);
     }
 
+    public function test_sin_anio_cuenta_como_flota_vieja(): void
+    {
+        $aux = DB::table('equipos_auxiliares')->whereNull('deleted_at')->where('ANIO', '>=', 2025)
+            ->whereNotIn('ID_FRENTE_ACTUAL', \App\Models\FrenteTrabajo::idsFueraDeFlota() ?: [0])->first();
+        $antes = $this->actingAs($this->usuario())->getJson('/admin/equipos/fleet-stats?frente_id=all')->assertOk()->json();
+
+        DB::table('equipos_auxiliares')->where('ID_AUXILIAR', $aux->ID_AUXILIAR)->update(['ANIO' => null]);
+        $despues = $this->actingAs($this->usuario())->getJson('/admin/equipos/fleet-stats?frente_id=all')->assertOk()->json();
+
+        $this->assertSame($antes['stats']['aux_old'] + 1, $despues['stats']['aux_old'], 'El auxiliar sin año pasa a Antigua.');
+        $this->assertSame($antes['stats']['aux_new'] - 1, $despues['stats']['aux_new']);
+        $this->assertArrayNotHasKey('aux_sin_anio', $despues['stats']);
+        $this->assertCount(2, $despues['auxByType']['datasets'], 'Solo Nueva y Antigua, sin serie «Sin año».');
+    }
+
     public function test_un_usuario_local_solo_ve_sus_frentes(): void
     {
         $frente = (int) DB::table('equipos')->whereNull('deleted_at')->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')
