@@ -774,7 +774,7 @@ window.showDetailsImproved = function (target, event) {
     const rowEmbarque = document.getElementById('d_row_embarque');
     // Se BORRA lo del equipo anterior SIEMPRE, aunque luego no se vaya a preguntar por este: si
     // el reset viviera dentro del if, un equipo sin id dejaria en pantalla la fila del anterior
-    // —visible, recolocada y con su boton armado— y abriria el BL de otro.
+    // —visible y con su boton armado— y abriria el BL de otro.
     if (rowEmbarque) {
         rowEmbarque.style.display = 'none';
         const btnEmbarque = document.getElementById('d_btn_embarque');
