@@ -636,7 +636,7 @@
     @can('docs.carga.masiva')
     // ── Enlazar a un equipo (modal partials/atar_modal) ─────────────────────────────
     // Lo usan atar un PDF sin enlazar, un VIN del BL y una unidad de un PDF de varias. `o` trae lo que se muestra (doc,
-    // lo leído: leidoEti + leido, y las fechas del PDF), el PDF para «Ver PDF» (pdf: link y tipo), con qué arranca el buscador (inicial), el tipo de
+    // lo leído: leidoEti + leido, y las fechas del PDF), el PDF (link, para «Ver PDF»), con qué arranca el buscador (inicial), el tipo de
     // documento (para avisar de las fichas que ya lo tienen), si un equipo de otro BL se bloquea,
     // y atar(eq, ui), que hace el POST. ui deja a quien ata marcar la fila ocupada, avisar un
     // error o pedir reemplazo.
@@ -841,7 +841,8 @@
     // aquí con lo buscado. Solo se mira: no es todavía el documento de ningún equipo.
     window.cpdfAtarVerPdf = function () {
         var o = cpdfAtarEstado.o;
-        if (o) window.openPdfPreview(o.pdf.link, o.pdf.tipo, o.doc + ' · ' + o.leido, null, '', true);
+        // Un VIN del BL va sin tipo (no hay fichas que avisar de que ya lo tienen): su PDF es un BL.
+        if (o) window.openPdfPreview(o.link, o.tipo || @js(\App\Services\CargaMasivaDocumentos::EMBARQUE), o.doc + ' · ' + o.leido, null, '', true);
     };
     window.cpdfCerrarAtar = function () {
         var m = cpdfAtarEl('cpdfAtarModal');
@@ -878,7 +879,7 @@
     // Enlazar un VIN del BL que falta: el buscador arranca con el propio VIN.
     window.cpdfAtarVin = function (link, vin, fechas) {
         window.cpdfAbrirAtar({ doc: 'BL', leidoEti: 'VIN', leido: vin, fechas: fechas,
-            pdf: { link: link, tipo: @js(\App\Services\CargaMasivaDocumentos::EMBARQUE) }, inicial: vin, tipo: null, bloquearConBl: true, atar: function (eq, ui) {
+            link: link, inicial: vin, tipo: null, bloquearConBl: true, atar: function (eq, ui) {
                 window.apiPostForm(@json(route('historial-documentos.carga-masiva.atar-vin')),
                     { link: link, vin: vin, id_equipo: eq.id }, 'No se pudo enlazar.')
                     .then(cpdfAtado)
@@ -890,7 +891,7 @@
     // el servidor responde requiere_pisar y se pregunta en la fila antes de reemplazarlo.
     window.cpdfAtarDocumento = function (link, inicial, tipo, doc, fechas) {
         window.cpdfAbrirAtar({ doc: doc, leidoEti: 'Se leyó', leido: inicial || 'Ni placa ni serial', fechas: fechas,
-            pdf: { link: link, tipo: tipo }, inicial: inicial, tipo: tipo, bloquearConBl: false,
+            link: link, inicial: inicial, tipo: tipo, bloquearConBl: false,
             atar: cpdfAtarPreguntando(@json(route('historial-documentos.carga-masiva.atar-documento')), { link: link }) });
     };
 
@@ -899,7 +900,7 @@
     // El buscador arranca con ella, como con un VIN del BL.
     window.cpdfAtarFalta = function (link, codigo, que, tipo, doc, fechas) {
         window.cpdfAbrirAtar({ doc: doc, leidoEti: que === 'placa' ? 'Placa' : 'Serial', leido: codigo, fechas: fechas,
-            pdf: { link: link, tipo: tipo }, inicial: codigo, tipo: tipo, bloquearConBl: false,
+            link: link, inicial: codigo, tipo: tipo, bloquearConBl: false,
             atar: cpdfAtarPreguntando(@json(route('historial-documentos.carga-masiva.atar-falta')), { link: link, codigo: codigo }) });
     };
 
