@@ -219,8 +219,9 @@
                       background: #282828; border-left: 1px solid #3a3a3a; color: #fff; }
     .cpdf-atar-cuerpo { display: flex; flex-direction: column; gap: 12px; padding: 12px; min-height: 0; flex: 1; overflow-y: auto; }
     .cpdf-atar-tit { margin: 0; padding-bottom: 8px; border-bottom: 1px solid #3a3a3a; font-size: 15px; font-weight: 700; color: #fff; }
-    /* Lo que se enlaza, en dos columnas: documento y lo leído; debajo emisión y vencimiento. */
-    .cpdf-atar-datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+    /* Lo que se enlaza, un dato debajo del otro (documento, lo leído, emisión y vencimiento),
+       como los de cada equipo (pedido del cliente, 22-10-2026). */
+    .cpdf-atar-datos { display: flex; flex-direction: column; gap: 8px; }
     .cpdf-atar-campo[hidden] { display: none; }
     /* El código leído no se parte por la mitad: si no cabe en la línea, baja entero. */
     .cpdf-atar-codigo { white-space: nowrap; }

@@ -1150,12 +1150,14 @@ class CargaMasivaDocumentos
         $porEnlazar = count($nueva['faltan'] ?? []) + count($this->sinEnlazar($link, $nueva));
         $filaDelPdf->update(['MOTIVO' => $this->resumenDeVarias($nueva, $porEnlazar)]);
 
-        // Sin unidades que falten ni equipos sin enlazar, el PDF quedo entero: Aplicado, tambien
-        // la fila que al leerlo no reconocio ninguna ("sin ficha"), que se queda con este equipo.
-        if (!$porEnlazar) {
-            if (!$filaDelPdf->ID_EQUIPO) $filaDelPdf->update(['ID_EQUIPO' => $idEquipo, 'PLACA' => $fila->PLACA, 'SERIAL' => $fila->SERIAL_CHASIS]);
-            $this->cerrarPropuesta($link, $this->quedaPorRevisar($nueva));
+        // La fila que al leerlo no reconocio ninguna ("sin ficha") ya tiene una: se queda con este
+        // equipo y pasa a "Sin enlazar" mientras falten (no "Sin ficha" con unidades enlazadas).
+        // Sin unidades que falten ni equipos sin enlazar, el PDF quedo entero: Aplicado.
+        if ($filaDelPdf->ESTADO === VerificacionDocumento::SIN_FICHA) {
+            $filaDelPdf->update(['ESTADO' => VerificacionDocumento::POR_ENGANCHAR, 'ID_EQUIPO' => $idEquipo,
+                'PLACA' => $fila->PLACA, 'SERIAL' => $fila->SERIAL_CHASIS]);
         }
+        if (!$porEnlazar) $this->cerrarPropuesta($link, $this->quedaPorRevisar($nueva));
 
         return ['ok' => true, 'mensaje' => self::NOMBRES[$tipo] . ' enlazado al equipo de serial ' . ($fila->SERIAL_CHASIS ?: $idEquipo) . '.'];
     }
@@ -1428,14 +1430,13 @@ class CargaMasivaDocumentos
             ->get()
             ->each(fn ($fila) => $fila->update(['MOTIVO' => $this->resumenDeVarias($fila->PROPUESTA, $porEnlazar)]));
 
-        // Sin VIN que falten y con todas sus unidades reconocidas en el embarque, el BL quedo
-        // entero: su fila pasa a Aplicado, tambien la que al leerlo no reconocio ninguna ("sin
-        // ficha"), que se queda con el equipo enlazado para que no diga que no tiene ficha.
-        if (!$porEnlazar) {
-            VerificacionDocumento::where('DRIVE_ID', $driveId)->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
-                ->whereNull('ID_EQUIPO')->update(['ID_EQUIPO' => $idEquipo]);
-            $this->cerrarPropuesta($link, $this->quedaPorRevisar($p));
-        }
+        // La fila que al leerlo no reconocio ninguna ("sin ficha") se queda con el equipo enlazado
+        // y pasa a "Sin enlazar" mientras falten VIN. Sin VIN que falten y con todas sus unidades
+        // reconocidas en el embarque, el BL quedo entero: Aplicado.
+        $suFila = VerificacionDocumento::where('DRIVE_ID', $driveId)->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA);
+        (clone $suFila)->whereNull('ID_EQUIPO')->update(['ID_EQUIPO' => $idEquipo]);
+        (clone $suFila)->where('ESTADO', VerificacionDocumento::SIN_FICHA)->update(['ESTADO' => VerificacionDocumento::POR_ENGANCHAR]);
+        if (!$porEnlazar) $this->cerrarPropuesta($link, $this->quedaPorRevisar($p));
 
         return ['ok' => true, 'mensaje' => "VIN $vin enlazado al equipo de serial $serial."];
     }

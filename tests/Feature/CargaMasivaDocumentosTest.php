@@ -1129,10 +1129,10 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             ->assertStatus(422)->assertJsonFragment(['message' => 'Este PDF es de varias unidades: cada una se enlaza desde su fila.']);
 
         $atar($a, 'QQ111AA')->assertOk();
-        $this->assertSame(VerificacionDocumento::SIN_FICHA, $fila()->ESTADO);
+        $this->assertSame(VerificacionDocumento::POR_ENGANCHAR, $fila()->ESTADO, 'ya no es "sin ficha": tiene una enlazada');
+        $this->assertSame($a->ID_EQUIPO, (int) $fila()->ID_EQUIPO);
         $atar($b, 'QQ222BB')->assertOk();
         $this->assertSame(VerificacionDocumento::APLICADO, $fila()->ESTADO);
-        $this->assertSame($b->ID_EQUIPO, (int) $fila()->ID_EQUIPO);
     }
 
     /** Un BL ata sus VIN por su lado (atarVin): por aqui no. */
