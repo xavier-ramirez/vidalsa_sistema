@@ -159,7 +159,9 @@
     /* Estado: solo la letra de color, sin recuadro de fondo (pedido del cliente, 20-10-2026).
        El verde y el rojo son los MISMOS de las entradas y salidas del historial de Almacén
        (MovimientoInventario: #16a34a y #dc2626), para que en todo el sistema bien/mal se lean igual. */
-    .cpdf-estado { display: inline-block; font-size: 11.5px; font-weight: 700; }
+    /* Letra de las tablas como la del Historial (pedido del cliente, 22-10-2026): 13 px lo principal,
+       12 px lo secundario (estado, nombre del archivo, el botón de cada línea). */
+    .cpdf-estado { display: inline-block; font-size: 12px; font-weight: 700; }
     .cpdf-estado.comprimido { color: #16a34a; }
     /* El ámbar de la tabla (estados que piden mirar y "Falta el VIN"): UNO solo, algo más claro
        que el de antes y sin negrita (pedido del cliente, 21-10-2026). */
@@ -187,7 +189,7 @@
     /* Cada dato que no cuadra, en una linea: etiqueta, lo de la ficha (tachado) y lo del documento.
        La MISMA letra para las tres partes (tamaño y grosor): solo cambia el color (pedido del
        cliente, 20-10-2026: se veían tres tipos de letra distintos). */
-    .cpdf-dif { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+    .cpdf-dif { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; line-height: 1.5; }
     .cpdf-dif-eti { color: #334155; }
     /* De dónde sale cada valor ("Ficha", "Leído", "PDF"): pequeño y en un gris oscuro que se lee. */
     .cpdf-dif-par { display: inline-flex; align-items: baseline; gap: 4px; }
@@ -201,12 +203,12 @@
        la columna del documento, el nombre del archivo en gris debajo. */
     .cpdf-ident { font-weight: 600; color: #0f172a; }
     /* El nombre del archivo y el motivo, en un gris oscuro que se lee (pedido del cliente, 21-10-2026). */
-    .cpdf-sub { display: block; color: #475569; font-weight: 400; font-size: 11.5px; }
-    .cpdf-motivo { font-size: 12px; color: #334155; }
+    .cpdf-sub { display: block; color: #475569; font-weight: 400; font-size: 12px; }
+    .cpdf-motivo { font-size: 13px; color: #334155; }
     .cpdf-flecha { font-size: 14px; color: #64748b; align-self: center; }
 
     /* El VIN de un BL que no casó con ninguna ficha, y su buscador para atarlo a mano. */
-    .cpdf-vin-falta { margin-top: 6px; font-size: 12px; color: #d97706; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .cpdf-vin-falta { margin-top: 6px; font-size: 13px; color: #d97706; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
     /* El botón de enlazar de cada línea: el ícono de enlazar y "Equipo" (pedido del cliente, 22-10-2026). */
     .cpdf-vin-btn { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #1e40af; background: #fff; color: #1e40af; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
     .cpdf-vin-btn .material-icons { font-size: 15px; }
