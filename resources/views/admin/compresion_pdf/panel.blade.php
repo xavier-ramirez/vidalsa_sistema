@@ -469,6 +469,54 @@
     @endcan
 @endif
 <script>
+    // `texto` con los caracteres que difieren de `otro` dentro de <mark> (en rojo): lo que hay que
+    // mirar. Lo usan la caja de enlazar (cada sugerencia frente a lo leído) y el visor de revisión
+    // (la ficha frente al documento). Devuelve un fragmento: textContent, sin HTML (sale de un PDF).
+    //  · comoServidor: solo letras y cifras, con O/0, I/1 y S/5 iguales, como compara el servidor,
+    //    y solo con el mismo largo (un carácter mal leído, no algo escrito a medias).
+    //  · si no: carácter a carácter con el mismo largo; con otro largo, lo que queda entre el
+    //    principio y el final que comparten. Global: el visor lo usa desde un escuchador que se
+    //    monta una sola vez.
+    window.cpdfResaltar = function (texto, otro, comoServidor) {
+        var t = String(texto == null ? '' : texto), T = t.toUpperCase(), o = String(otro == null ? '' : otro).toUpperCase();
+        var distinto = [];
+        if (comoServidor) {
+            var limpio = function (v) { return v.replace(/[^A-Z0-9]/g, ''); };
+            var igual = function (c) { return ({ O: '0', I: '1', S: '5' })[c] || c; };
+            var b = limpio(o), j = 0;
+            if (b !== '' && limpio(T).length === b.length) {
+                for (var i = 0; i < T.length; i++) {
+                    if (!/[A-Z0-9]/.test(T[i])) continue;
+                    if (igual(T[i]) !== igual(b[j])) distinto[i] = true;
+                    j++;
+                }
+            }
+        } else if (o !== '' && T !== o) {
+            if (T.length === o.length) {
+                for (var k = 0; k < T.length; k++) if (T[k] !== o[k]) distinto[k] = true;
+            } else {
+                var ini = 0, fin = 0;
+                while (ini < T.length && ini < o.length && T[ini] === o[ini]) ini++;
+                while (fin < T.length - ini && fin < o.length - ini && T[T.length - 1 - fin] === o[o.length - 1 - fin]) fin++;
+                for (var m = ini; m < T.length - fin; m++) distinto[m] = true;
+            }
+        }
+        // Los tramos seguidos, juntos: un <mark> por tramo, no por letra.
+        var frag = document.createDocumentFragment(), tramo = '', marcado = false;
+        for (var p = 0; p <= t.length; p++) {
+            var d = p < t.length && !!distinto[p];
+            if (p === t.length || d !== marcado) {
+                if (tramo) {
+                    if (marcado) { var mk = document.createElement('mark'); mk.textContent = tramo; frag.appendChild(mk); }
+                    else frag.appendChild(document.createTextNode(tramo));
+                }
+                tramo = ''; marcado = d;
+            }
+            if (p < t.length) tramo += t[p];
+        }
+        return frag;
+    };
+
     // ── Elegir filas (contador común partials/chip_seleccion) ───────────────────────────
     // Igual que en el Historial: un clic elige o suelta la fila, el número cuenta las elegidas,
     // tocarlo muestra SOLO esas (?ids=, lo filtra el servidor) y "Limpiar" las suelta. Aquí cada
@@ -676,26 +724,6 @@
         ops.forEach(function (op, n) { op.classList.toggle('activo', n === cpdfAtarEstado.activo); });
         if (!quieto) ops[cpdfAtarEstado.activo].scrollIntoView({ block: 'nearest' });
     };
-    // `texto` con los caracteres que difieren de `buscado` dentro de <mark>. Solo cuando tienen el
-    // mismo largo (un carácter mal leído, no algo escrito a medias); O/0, I/1 y S/5 cuentan
-    // iguales, como los lee el servidor. Devuelve un fragmento (textContent, sin HTML).
-    var cpdfAtarResaltar = function (texto, buscado) {
-        var frag = document.createDocumentFragment();
-        var limpio = function (v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); };
-        var igual = function (c) { return ({ O: '0', I: '1', S: '5' })[c] || c; };
-        var b = limpio(buscado), t = String(texto || ''), j = 0;
-        var comparar = b !== '' && limpio(t).length === b.length;
-        for (var i = 0; i < t.length; i++) {
-            var c = t[i], alfa = /[A-Za-z0-9]/.test(c);
-            if (comparar && alfa && igual(c.toUpperCase()) !== igual(b[j])) {
-                var m = document.createElement('mark'); m.textContent = c; frag.appendChild(m);
-            } else {
-                frag.appendChild(document.createTextNode(c));
-            }
-            if (alfa) j++;
-        }
-        return frag;
-    };
     var cpdfAtarFila = function (eq, n) {
         var o = cpdfAtarEstado.o, bloqueado = o.bloquearConBl && !!eq.bl;
         var op = document.createElement('div');
@@ -719,8 +747,8 @@
             c.appendChild(el('span', 'cpdf-atar-rot', rotulo));
             c.appendChild(el('span', 'cpdf-atar-val')).append(valor);
         };
-        campo('Serial', cpdfAtarResaltar(eq.serial || ('Equipo #' + eq.id), buscado));
-        if (eq.placa) campo('Placa', cpdfAtarResaltar(eq.placa, buscado));
+        campo('Serial', window.cpdfResaltar(eq.serial || ('Equipo #' + eq.id), buscado, true));
+        if (eq.placa) campo('Placa', window.cpdfResaltar(eq.placa, buscado, true));
         campo('Código', eq.codigo);
         campo('Tipo', eq.tipo);
         campo('Marca y modelo', eq.nombre);
@@ -1009,8 +1037,10 @@
         };
         // Mismo valor sin mirar mayusculas ni espacios de los extremos.
         var cpdfMismo = function (a, b) { return String(a).trim().toUpperCase() === String(b).trim().toUpperCase(); };
-        var cpdfValor = function (v, clase) {
-            return v == null || v === '' ? cpdfNodo('span', clase + ' cpdf-rev-vacio', 'vacío') : cpdfNodo('span', clase, cpdfFecha(v));
+        // Con `otro`, lo que difiere de él en rojo (window.cpdfResaltar).
+        var cpdfValor = function (v, clase, otro) {
+            return v == null || v === '' ? cpdfNodo('span', clase + ' cpdf-rev-vacio', 'vacío')
+                : cpdfNodo('span', clase, window.cpdfResaltar(cpdfFecha(v), otro == null ? '' : cpdfFecha(otro)));
         };
 
         document.addEventListener('vidalsa:metadata-pintada', function (e) {
@@ -1052,8 +1082,10 @@
                 if (!input && d.solo_ver) return;
                 if (!input) { otras.push([campo, d, valor]); return; }
                 // textContent, nunca innerHTML: el valor sale de un PDF.
-                var pista = function (rotulo, v) {
-                    var fila = cpdfNodo('div', 'cpdf-pista', [cpdfNodo('span', '', rotulo), cpdfNodo('b', '', v === '' ? 'vacío' : cpdfFecha(v))]);
+                // Con `otro` (la otra opción), lo que difiere de ella en rojo.
+                var pista = function (rotulo, v, otro) {
+                    var fila = cpdfNodo('div', 'cpdf-pista', [cpdfNodo('span', '', rotulo),
+                        cpdfNodo('b', '', v === '' ? 'vacío' : window.cpdfResaltar(cpdfFecha(v), otro ? cpdfFecha(otro) : ''))]);
                     fila.dataset.valor = v;
                     return fila;
                 };
@@ -1088,8 +1120,8 @@
                 } else {
                     // Las dos, cada una con su boton: decide quien mira el PDF (pedido del cliente,
                     // 19-10-2026). La que esta puesta en el campo sale marcada "En uso".
-                    opciones.forEach(function (op) {
-                        var fila = pista(op[0], op[1]), usar = document.createElement('button');
+                    opciones.forEach(function (op, n) {
+                        var fila = pista(op[0], op[1], opciones[1 - n][1]), usar = document.createElement('button');
                         usar.type = 'button';
                         usar.onclick = function () { input.value = op[1]; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus(); };
                         fila.appendChild(usar);
@@ -1132,7 +1164,7 @@
                 if (/^IA_/.test(campo)) etiqueta = sinIa(etiqueta) + (etiquetas.indexOf(sinIa(etiqueta)) === -1 ? '' : MARCA_IA);
                 lista.appendChild(cpdfNodo('div', 'cpdf-rev-dif', [
                     cpdfNodo('div', 'cpdf-rev-campo', etiqueta),
-                    cpdfNodo('div', 'cpdf-rev-val', [cpdfValor(d.ficha, 'cpdf-rev-ficha'), cpdfIcono('arrow_forward'), cpdfValor(d.documento, 'cpdf-rev-doc')]),
+                    cpdfNodo('div', 'cpdf-rev-val', [cpdfValor(d.ficha, 'cpdf-rev-ficha', d.documento), cpdfIcono('arrow_forward'), cpdfValor(d.documento, 'cpdf-rev-doc', d.ficha)]),
                 ]));
             });
             // El motivo, corto: "de otro vehiculo" ya trae los dos seriales/placas, que salen en la
