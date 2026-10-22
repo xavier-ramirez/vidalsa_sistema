@@ -190,6 +190,8 @@
        La MISMA letra para las tres partes (tamaño y grosor): solo cambia el color (pedido del
        cliente, 20-10-2026: se veían tres tipos de letra distintos). */
     .cpdf-dif { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; line-height: 1.5; }
+    /* Con un valor largo (un titular, una aseguradora), la línea en letra más chica. */
+    .cpdf-dif.largo { font-size: 11px; }
     .cpdf-dif-eti { color: #334155; }
     /* De dónde sale cada valor ("Ficha", "Leído", "PDF"): pequeño y en un gris oscuro que se lee. */
     .cpdf-dif-par { display: inline-flex; align-items: baseline; gap: 4px; }

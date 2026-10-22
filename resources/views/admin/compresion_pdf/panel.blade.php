@@ -177,8 +177,13 @@
                                  (pedido del cliente, 21-10-2026). --}}
                             <td class="cpdf-ancha">
                                 @forelse ($d->DIFERENCIAS ?? [] as $campo => $dif)
-                                    @php $cpdfEsIa = str_starts_with($campo, 'IA_'); @endphp
-                                    <div class="cpdf-dif">
+                                    @php
+                                        $cpdfEsIa = str_starts_with($campo, 'IA_');
+                                        // Un valor largo (un titular, una aseguradora) va en letra más chica:
+                                        // si no, la fila se hacía de cuatro renglones (pedido del cliente, 22-10-2026).
+                                        $cpdfLargo = max(mb_strlen((string) $cpdfVer($dif['ficha'] ?? '')), mb_strlen((string) $cpdfVer($dif['documento'] ?? ''))) > 28;
+                                    @endphp
+                                    <div class="cpdf-dif{{ $cpdfLargo ? ' largo' : '' }}">
                                         {{-- Sin "(revisión automática)": el rótulo del valor propuesto ya dice de dónde sale. --}}
                                         <span class="cpdf-dif-eti">{{ str_replace(\App\Models\VerificacionDocumento::MARCA_IA, '', \App\Models\VerificacionDocumento::textoParaVer($dif['etiqueta'])) }}:</span>
                                         {{-- Rótulo y valor van juntos (cpdf-dif-par): al partirse la línea
