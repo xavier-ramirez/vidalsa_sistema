@@ -831,11 +831,13 @@
         visor.appendChild(cpdfAtarEl('cpdfAtarCaja'));
         cpdfAtarEstado.o = o;
         cpdfAtarEl('cpdfAtarDoc').textContent = o.doc;
-        cpdfAtarEl('cpdfAtarLeidoEti').textContent = o.leidoEti + ':';
+        cpdfAtarEl('cpdfAtarLeidoEti').textContent = o.leidoEti;
         cpdfAtarEl('cpdfAtarLeido').textContent = o.leido || '';
         var f = o.fechas || {};
-        cpdfAtarEl('cpdfAtarFechas').textContent = [f.emision && 'Emisión: ' + window.formatearFecha(f.emision),
-            f.vence && 'Vence: ' + window.formatearFecha(f.vence)].filter(Boolean).join(' · ');
+        cpdfAtarEl('cpdfAtarEmision').textContent = f.emision ? window.formatearFecha(f.emision) : '';
+        cpdfAtarEl('cpdfAtarVence').textContent = f.vence ? window.formatearFecha(f.vence) : '';
+        cpdfAtarEl('cpdfAtarEmisionCampo').hidden = !f.emision;
+        cpdfAtarEl('cpdfAtarVenceCampo').hidden = !f.vence;
         var campo = cpdfAtarEl('cpdfAtarBuscar');
         campo.value = o.inicial || '';
         campo.focus(); campo.select();

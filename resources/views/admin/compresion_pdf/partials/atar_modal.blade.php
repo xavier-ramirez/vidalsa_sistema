@@ -11,13 +11,15 @@
         <div class="cpdf-atar-cuerpo">
             {{-- Sin X propia: la caja se cierra con el visor (su X, arriba). --}}
             <h3 id="cpdfAtarTitulo" class="cpdf-atar-tit">Enlazar a un equipo</h3>
-            {{-- Lo que se enlaza, en dos líneas como mucho: el documento y lo leído; debajo la emisión
-                 y el vencimiento del PDF, que se comparan con los del que ya tiene cada equipo (esa
-                 línea no sale si no trae fechas). Sin el nombre del archivo: ya está en la fila. --}}
+            {{-- Lo que se enlaza, con rótulo y valor como los datos de cada equipo: el documento y lo
+                 leído; debajo la emisión y el vencimiento del PDF, que se comparan con los del que ya
+                 tiene cada equipo (la fecha que el PDF no trae no sale). Sin el nombre del archivo:
+                 ya está en el título del visor y en la fila. --}}
             <div class="cpdf-atar-datos">
-                <div><span id="cpdfAtarDoc"></span> · <span id="cpdfAtarLeidoEti"></span>
-                    <span id="cpdfAtarLeido" class="cpdf-atar-codigo"></span></div>
-                <div id="cpdfAtarFechas"></div>
+                <div class="cpdf-atar-campo"><span class="cpdf-atar-rot">Documento</span><span class="cpdf-atar-val" id="cpdfAtarDoc"></span></div>
+                <div class="cpdf-atar-campo"><span class="cpdf-atar-rot" id="cpdfAtarLeidoEti"></span><span class="cpdf-atar-val cpdf-atar-codigo" id="cpdfAtarLeido"></span></div>
+                <div class="cpdf-atar-campo" id="cpdfAtarEmisionCampo"><span class="cpdf-atar-rot">Emisión</span><span class="cpdf-atar-val" id="cpdfAtarEmision"></span></div>
+                <div class="cpdf-atar-campo" id="cpdfAtarVenceCampo"><span class="cpdf-atar-rot">Vence</span><span class="cpdf-atar-val" id="cpdfAtarVence"></span></div>
             </div>
             <label class="cpdf-atar-buscar">
                 <i class="material-icons">search</i>
