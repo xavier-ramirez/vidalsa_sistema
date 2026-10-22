@@ -1280,8 +1280,8 @@ class CargaMasivaDocumentos
     }
 
     /**
-     * Fichas para atar a mano un VIN que falta o un PDF sin enlazar (lo que se escriba en el
-     * modal): las que contienen lo buscado en su serial, placa o codigo, y las de serial o placa
+     * Fichas para enlazar a mano un VIN que falta, una unidad o un PDF sin enlazar (lo que se
+     * escriba en la caja de enlazar, junto al PDF): las que contienen lo buscado en su serial, placa o codigo, y las de serial o placa
      * PARECIDOS —uno o dos caracteres distintos, como un digito de control mal copiado o una
      * letra mal leida—. Primero la IGUAL a lo buscado, luego lo mas parecido (distancia). Cada
      * una dice su tipo, si ya esta en un embarque (y desde cuando) y, con $tipo, si ya tiene ese
@@ -1289,7 +1289,7 @@ class CargaMasivaDocumentos
      */
     /**
      * Fechas que la ficha guarda de cada documento (columnas de documentacion): emision, vence y
-     * cuando se cargo. null donde ese documento no la tiene. Las usa el modal de atar
+     * cuando se cargo. null donde ese documento no la tiene. Las usa la caja de enlazar
      * (equipoParaAtar) para enseñar las del documento que la ficha YA tiene.
      */
     private const FECHAS_DEL_DOC = [
@@ -1355,7 +1355,7 @@ class CargaMasivaDocumentos
             ->values()->all();
     }
 
-    /** La consulta de equipos del modal de atar: la de siempre mas el tipo, el BL y las fechas de cada documento. */
+    /** La consulta de equipos de la caja de enlazar: la de siempre mas el tipo, el BL y las fechas de cada documento. */
     private function consultaParaAtar()
     {
         return $this->consulta()->addSelect('e.CODIGO_PATIO')
@@ -1365,7 +1365,7 @@ class CargaMasivaDocumentos
             ->addSelect(array_values(array_unique(array_filter(array_merge(...array_map('array_values', array_values(self::FECHAS_DEL_DOC)))))));
     }
 
-    /** Un equipo de consultaParaAtar como lo pinta el modal (ver cpdfAtarFila en panel.blade.php). */
+    /** Un equipo de consultaParaAtar como lo pinta la caja de enlazar (ver cpdfAtarFila en panel.blade.php). */
     private function equipoParaAtar(object $f, int $distancia, ?string $tipo, $nros): array
     {
         return [

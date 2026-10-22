@@ -634,7 +634,7 @@
     // Lo que coincide se enlaza solo al leerlo (no hay botón de Aplicar). Aquí se descarta y se
     // ata a mano el VIN de un BL que no casó con ninguna ficha.
     @can('docs.carga.masiva')
-    // ── Enlazar a un equipo (modal partials/atar_modal) ─────────────────────────────
+    // ── Enlazar a un equipo (caja junto al PDF, partials/atar_modal) ────────────────
     // Lo usan atar un PDF sin enlazar, un VIN del BL y una unidad de un PDF de varias. `o` trae lo que se muestra (doc,
     // lo leído: leidoEti + leido, y las fechas del PDF), el PDF (link, que se abre al lado), con qué arranca el buscador (inicial), el tipo de
     // documento (para avisar de las fichas que ya lo tienen), si un equipo de otro BL se bloquea,
