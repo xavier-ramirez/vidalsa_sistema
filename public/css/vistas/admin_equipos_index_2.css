@@ -217,9 +217,9 @@
         .fdm-cam:hover { background: #f1f5f9; }
         .fdm-cam .material-icons { font-size: 17px; }
 
-        /* ── Tarjetas KPI (Σ Equipos / Σ Auxiliares / Gasoil Máx L/día, y debajo
-           Equipos a Gasoil / Equipos a Gasolina) ─────────────────────────────
-           Las cinco son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
+        /* ── Tarjetas KPI (Σ Equipos / Σ Auxiliares / Gasoil Máx L/día / Equipos a
+           Gasolina) ─────────────────────────────────────────────────────────
+           Las cuatro son IDÉNTICAS salvo etiqueta e id, con el acento azul del proyecto.
            (Flota nueva/antigua ya no son tarjetas: viven como claves de serie dentro de
            #fdm-panel-age.) El estilo vive aquí y no en styles inline: si no, son copias
            byte a byte.
@@ -242,7 +242,7 @@
             border-radius: 10px;
             /* 40px de alto. Nacio para igualar al buscador de frente, que iba en esta misma
                fila; el buscador se mudo a la cabecera, pero el valor se conserva porque es
-               el que mantiene iguales entre si a las CINCO tarjetas.
+               el que mantiene iguales entre si a las CUATRO tarjetas.
                Con la cifra en 20px el contenido pide 6 + 6 de relleno + 22 de la cifra + 2
                de borde = 36, o sea POR DEBAJO de este min-height: hoy manda el min-height y
                ya no hay ningun 6 que recalcular al tocar .fleet-kpi-val. Solo habria que
@@ -307,7 +307,7 @@
             white-space: nowrap;
             /* 20px (antes 24): se pidio la cifra mas pequena. Al bajar de 24 a 20 la caja
                de la cifra pasa de 26 a 22 px, o sea por debajo del min-height:40 de
-               .fleet-kpi, que es el que ahora fija el alto de las cinco tarjetas. */
+               .fleet-kpi, que es el que ahora fija el alto de las cuatro tarjetas. */
             font-size: 20px;
             line-height: 1.1;
             /* Misma tinta que la etiqueta: lo que separa la cifra es el tamaño y el grosor. */
@@ -317,8 +317,8 @@
         }
         .fleet-kpi--aux { background: linear-gradient(135deg, #64748b 0%, #475569 100%); }
 
-        /* Ancho medio (tableta, PC estrecha): las cinco en UNA fila, cifra arriba y etiqueta
-           debajo. En fila "etiqueta | cifra" no cabían: la quinta quedaba sola abajo (820 px)
+        /* Ancho medio (tableta, PC estrecha): las cuatro en UNA fila, cifra arriba y etiqueta
+           debajo. En fila "etiqueta | cifra" no cabían: la última quedaba sola abajo (820 px)
            o "Gasoil Máx L/día" se partía en tres líneas (1024 px). */
         @media (min-width: 769px) and (max-width: 1100px) {
             #fleetDashboardModal .fleet-stats-grid > .fleet-kpi {
@@ -346,8 +346,8 @@
            el buscador de frente y se les concedia un flex-basis en px (620 -> 540), que habia
            que renegociar cada vez que el cliente pedia mas buscador o mas tarjetas. Al subir
            el buscador junto al titulo esa negociacion desaparece: .fleet-topline tiene un
-           solo hijo y este lo ocupa todo, que es justo lo que hace que las CINCO tarjetas
-           entren en una sola fila (5 x 150 de base + 4 huecos de 10 = 790, sobre los ~840
+           solo hijo y este lo ocupa todo, que es justo lo que hace que las CUATRO tarjetas
+           entren en una sola fila (4 x 150 de base + 3 huecos de 10 = 630, sobre los ~840
            utiles del modal). */
         .fleet-topline .fleet-stats-grid {
             flex: 1 1 auto;
@@ -365,8 +365,8 @@
            segunda fila quedo con un HUECO de 200 px a la derecha.
 
            Con `flex-wrap` las tarjetas se reparten el ancho de CADA fila: entran las que
-           quepan y las que sobran pasan abajo ESTIRANDOSE hasta llenarla. Cinco tarjetas dan
-           3 + 2 sin hueco, y agregar o quitar una no obliga a recalcular nada nunca mas.
+           quepan y las que sobran pasan abajo ESTIRANDOSE hasta llenarla. Las filas nunca quedan
+           con hueco, y agregar o quitar una no obliga a recalcular nada nunca mas.
            (El nombre de la clase dice "grid" por historia; se conserva porque lo nombran
            ocho reglas y ningun JS.) */
         .fleet-stats-grid {

@@ -1183,7 +1183,7 @@
 
                 {{-- Fila superior: SOLO los contadores. El buscador de frente estuvo aquí al
                      lado, pero se subió junto al título para dejarle a las tarjetas el ancho
-                     entero del modal, que es lo que permite que las cinco entren en una fila. --}}
+                     entero del modal, que es lo que permite que las cuatro entren en una fila. --}}
                 <div class="fleet-topline">
                 <!-- Stats Cards Row -->
                 {{-- Sin margin aquí: la grid vive dentro de .fleet-topline, que lo anula con
@@ -1197,7 +1197,7 @@
                     {{-- Las tarjetas comparten el MISMO estilo (ver .fleet-kpi*): solo cambian
                          etiqueta e id. Etiqueta + cifra, sin ícono.
                          Σ (sumatoria) en vez de la palabra "Total", a pedido del cliente: ocupa
-                         menos y deja sitio para que quepan las tres de la primera fila juntas,
+                         menos y deja sitio para que las etiquetas quepan en una línea,
                          también en teléfono. --}}
                     <div class="fleet-kpi">
                         <p class="fleet-kpi-lbl">&Sigma; Equipos</p>
@@ -1218,19 +1218,11 @@
                         <h3 id="stat_consumption" class="fleet-kpi-val">0</h3>
                     </div>
 
-                    {{-- Cuántos equipos usa cada combustible. Van como hijas DIRECTAS del
-                         grid, sin un div que las envuelva: el bloque de teléfono apunta a
-                         `.fleet-stats-grid > div` para voltear la tarjeta (cifra arriba,
-                         etiqueta debajo) y bajar el padding, así que dentro de un envoltorio
-                         ese estilo se lo habría quedado el envoltorio y estas dos se habrían
-                         visto con el diseño de escritorio, descuadradas respecto al resto.
-                         Cuentan solo la tabla `equipos` (los auxiliares tienen su tarjeta),
-                         por eso pueden no sumar el Σ Equipos: faltan los eléctricos, los
-                         'NO APLICA' y los que aún no tienen combustible cargado. --}}
-                    <div class="fleet-kpi">
-                        <p class="fleet-kpi-lbl">Equipos a Gasoil</p>
-                        <h3 id="stat_gasoil_count" class="fleet-kpi-val">0</h3>
-                    </div>
+                    {{-- Cuántos equipos van a gasolina (la de «a gasoil» se quitó a pedido del
+                         cliente, 21-10-2026). Hija DIRECTA del grid, sin un div que la envuelva:
+                         el bloque de teléfono apunta a `.fleet-stats-grid > div` para voltear la
+                         tarjeta (cifra arriba, etiqueta debajo). Cuenta solo la tabla `equipos`
+                         (los auxiliares tienen su tarjeta). --}}
                     <div class="fleet-kpi">
                         <p class="fleet-kpi-lbl">Equipos a Gasolina</p>
                         <h3 id="stat_gasolina_count" class="fleet-kpi-val">0</h3>

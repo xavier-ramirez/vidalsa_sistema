@@ -90,12 +90,9 @@
                 width: 100% !important;
             }
 
-            /* Stat cards en teléfono: tres por fila y las que sobren estirándose en la
-               siguiente. Aquí había `repeat(3, 1fr)` con un comentario que decía "SIEMPRE en
-               UNA fila... son 3": dejó de ser cierto al llegar las dos tarjetas de
-               combustible, y las cinco quedaban 3 + 2 con un hueco al final.
-               Ya no se fija el número de columnas: lo resuelve el mismo reparto flexible del
-               escritorio, y aquí solo se ajusta cuánto pide cada tarjeta. */
+            /* Stat cards en teléfono: dos por fila (las cuatro, 2 + 2). No se fija el número
+               de columnas: lo resuelve el mismo reparto flexible del escritorio, y aquí solo
+               se ajusta cuánto pide cada tarjeta. */
             /* margin-bottom 0 (antes 14): en móvil la grid va DENTRO de .fleet-topline, que
                ya aporta su propio margen inferior; los dos se sumaban y dejaban un hueco
                enorme entre los contadores y el primer gráfico. */
@@ -108,7 +105,7 @@
             /* Stat cards: menos padding, fuente más pequeña y APILADAS.
                En teléfono la tarjeta pone la CIFRA ARRIBA y la etiqueta debajo, las dos
                centradas. En escritorio van en fila (etiqueta a la izquierda, cifra a la
-               derecha), pero con tres columnas en una pantalla estrecha esa fila deja el
+               derecha), pero con varias columnas en una pantalla estrecha esa fila deja el
                número pegado al borde y la etiqueta partida; apilado se lee de un vistazo.
 
                column-reverse y NO column: en el HTML la etiqueta va PRIMERO, que es lo
@@ -124,9 +121,9 @@
                 min-width: 0 !important;
                 box-sizing: border-box !important;
                 word-wrap: break-word !important;
-                /* Pide ~un tercio del ancho: entran TRES por fila y las que sobren se
-                   estiran para llenar la siguiente, sin hueco. */
-                flex: 1 1 28% !important;
+                /* Pide ~la mitad del ancho: entran DOS por fila (con tres, la cuarta
+                   quedaba sola abajo ocupando la fila entera). */
+                flex: 1 1 40% !important;
                 flex-direction: column-reverse !important;
                 align-items: center !important;
                 justify-content: center !important;
@@ -144,7 +141,7 @@
             #fleetDashboardModal .fleet-stats-grid p {
                 /* 12px (antes 10.5): a pedido del cliente, en el teléfono se leían muy
                    chicas. Es el MISMO tamaño que en escritorio, así que la etiqueta ya no
-                   encoge al pasar a móvil. Con tres columnas estrechas el texto largo se
+                   encoge al pasar a móvil. Con columnas estrechas el texto largo se
                    reparte en dos líneas, que es justo el comportamiento que se pidió.
                    Ya NO se repite aquí `white-space: normal`: ahora es el comportamiento
                    normal de .fleet-kpi-lbl en todas las pantallas. */
