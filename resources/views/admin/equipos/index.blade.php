@@ -698,9 +698,9 @@
 
                         {{-- Nombre del titular: ventana en el CENTRO de la pantalla que abre la lupa de «Título».
                              Es el mismo filtro de texto con lista que «Detalle» (eqTexto* en equipos_index.js) y vive
-                             DENTRO del panel para que eqFiltrosActivos lo lea con los demás. Elegir un nombre la cierra
-                             (data-cerrar-al-elegir). Solo equipos: los auxiliares no guardan titular. --}}
-                        <div id="titularModal" class="eq-titular-modal adv-filter-eq-only" data-cerrar-al-elegir hidden
+                             DENTRO del panel para que eqFiltrosActivos lo lea con los demás; mientras está abierta, el
+                             panel se esconde. Elegir un nombre la cierra. Solo equipos: los auxiliares no guardan titular. --}}
+                        <div id="titularModal" class="eq-titular-modal adv-filter-eq-only" hidden
                              onclick="if (event.target === this) window.eqTitularCerrar();">
                           <div class="eq-titular-caja" role="dialog" aria-label="Nombre del titular">
                             <div class="eq-titular-head">

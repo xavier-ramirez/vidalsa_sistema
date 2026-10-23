@@ -1380,8 +1380,7 @@ window.eqTextoSugerir = function (inp) {
 };
 window.eqTextoElegir = function (item) {
     if (!_eqTextoMarcar(item.closest('.custom-dropdown'), item.dataset.value)) return;
-    const ventana = item.closest('[data-cerrar-al-elegir]');
-    if (ventana) ventana.hidden = true;
+    if (item.closest('#titularModal')) window.eqTitularCerrar();   // elegir un titular cierra su ventana
     window.loadEquipos();
 };
 window.eqTextoEnter = function (inp) {
@@ -1407,9 +1406,11 @@ window.eqTextosLimpiar = function () {
     window.eqTextoLimpiar('titularAdvFilter', false);
 };
 // La lupa junto a «Título» abre la ventana «Nombre del titular» en el centro de la pantalla, con la
-// lista ya desplegada. Cerrarla NO quita el titular puesto (lo quita su X o «Limpiar»); la lupa
-// queda azul mientras haya uno. El onclick de la lupa corta la propagación: el clic global de
-// uicomponents cierra los desplegables y cerraba la lista recién abierta por el focus.
+// lista ya desplegada, y el panel de Filtros Avanzados se esconde mientras tanto (lo hace el CSS con
+// :has, admin_equipos_index.css). Al cerrarla —X, Esc, clic fuera o elegir un nombre— el panel
+// vuelve a verse. Cerrarla NO quita el titular puesto (lo quita su X o «Limpiar»);
+// la lupa queda azul mientras haya uno. El onclick de la lupa corta la propagación: el clic global
+// de uicomponents cierra los desplegables y cerraba la lista recién abierta por el focus.
 window.eqTitularAbrir = function () {
     const ventana = document.getElementById('titularModal');
     if (!ventana) return;

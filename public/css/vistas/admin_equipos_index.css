@@ -29,6 +29,11 @@
     #advancedFilterPanel .eq-titular-modal { position: fixed; inset: 0; z-index: 2000; background: rgba(15,23,42,.45);
                                              display: flex; align-items: center; justify-content: center; }
     #advancedFilterPanel .eq-titular-modal[hidden] { display: none; }
+    /* Con la ventana abierta el panel se esconde, y vuelve al cerrarla: lo decide SOLO si la ventana
+       está abierta (:has), sin una clase aparte que pudiera quedarse puesta. visibility y no display:
+       la ventana está DENTRO del panel y se vuelve a hacer visible sola. */
+    #advancedFilterPanel:has(.eq-titular-modal:not([hidden])) { visibility: hidden; }
+    #advancedFilterPanel .eq-titular-modal:not([hidden]) { visibility: visible; }
     #advancedFilterPanel .eq-titular-caja { width: min(380px, calc(100vw - 32px)); background: #fff; border-radius: 12px;
                                             padding: 14px; box-shadow: 0 25px 50px -12px rgba(0,0,0,.25); }
     #advancedFilterPanel .eq-titular-head { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px;
