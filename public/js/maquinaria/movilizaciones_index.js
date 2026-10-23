@@ -110,8 +110,13 @@ window._mvFiltrar = function (filas, p) {
 
 // Descarga el historial FILTRADO en XLSX: un POST con los ids que se están viendo (y los
 // filtros, que solo ponen el subtítulo). Un formulario normal deja que el navegador maneje
-// la descarga y el nombre del archivo (Content-Disposition).
+// la descarga y el nombre del archivo (Content-Disposition). El Excel lo arma el servidor:
+// sin conexión el envío sacaría al usuario a la página de error del navegador.
 window._exportarHistorial = function () {
+    if (!navigator.onLine || (window._mvVista && !window._mvVista.estado.conectado)) {
+        window.toast('Para exportar a Excel hace falta conexión a internet.', 'error');
+        return;
+    }
     const params = window._mvFiltrosActuales();
     const filas = window._mvVista ? window._mvFiltrar(window._mvVista.filas('movilizaciones'), params) : [];
     const form = document.createElement('form');

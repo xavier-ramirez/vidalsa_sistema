@@ -47,9 +47,21 @@ const PRECACHE_URLS = [
     // esperándolo por red antes de poder usar el formulario. Pesa 7 KB.
     '/js/maquinaria/dom_helpers.js',
     '/js/webauthn.js',
+    // TODAS las fuentes de fonts.css: el navegador baja cada peso la primera vez que lo
+    // usa, así que sin internet faltaba el que no se hubiera visto todavía (Inter 600 en
+    // los módulos; Material Icons dejaría el NOMBRE del ícono escrito en su lugar).
     '/fonts/Nunito-Regular.woff2',
     '/fonts/Nunito-Bold.woff2',
-    '/fonts/Nunito-SemiBold.woff2'
+    '/fonts/Nunito-SemiBold.woff2',
+    '/fonts/Inter-Regular.woff2',
+    '/fonts/Inter-SemiBold.woff2',
+    '/fonts/Inter-Bold.woff2',
+    '/fonts/Inter-ExtraBold.woff2',
+    '/fonts/Lexend-Regular.woff2',
+    '/fonts/Lexend-Bold.woff2',
+    '/fonts/Lexend-ExtraBold.woff2',
+    '/fonts/Lexend-Black.woff2',
+    '/fonts/MaterialIcons-Regular.woff2'
 ];
 
 self.addEventListener('install', (event) => {

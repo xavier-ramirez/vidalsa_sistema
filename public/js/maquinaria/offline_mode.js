@@ -13,9 +13,9 @@
  * cumple; pero si alguien moviera cualquiera de los dos, esto reventaria con
  * "window.apiFetch is not a function" al cargar CADA pagina.
  *
- * No confundir con los cuatro *-offline.js (almacen/equipos/movilizaciones/
- * movimientos), que son los motores de datos por modulo; esto es el interruptor y el
- * aviso al usuario.
+ * No confundir con los *-offline.js (almacen/equipos/movimientos), que son los motores
+ * de datos por modulo, ni con offline/copia-local.js (Movilizaciones); esto es el
+ * interruptor y el aviso al usuario.
  */
 // ── BANNER DE ESTADO DE RED ──────────────────────────────────────
 // Se engancha a los eventos online/offline del browser para mostrar/ocultar
@@ -119,8 +119,8 @@
     // El botón se ofrece SIEMPRE, tenga o no vista offline el módulo actual. Antes
     // se escondía si no había render registrado, y eso dejaba sin salida el caso
     // normal: entras sin internet, aterrizas en /menu —que no registra vista— y no
-    // tienes botón; para llegar a uno de los cuatro módulos que sí lo registran
-    // (almacen, equipos, movilizaciones, movimientos) dependes de que esa página ya
+    // tienes botón; para llegar a uno de los módulos que sí lo registran
+    // (almacen, equipos, movimientos) dependes de que esa página ya
     // esté en la caché del service worker. En un equipo nuevo no lo está, así que el
     // modo offline era sencillamente inalcanzable.
     //
