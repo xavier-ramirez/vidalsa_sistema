@@ -316,16 +316,13 @@
                         <th class="table-header-custom" style="text-align: center !important;">Estado</th>
                     </tr>
                 </thead>
-                <tbody id="movilizacionesTableBody">
-                    @include('admin.movilizaciones.partials.table_rows')
-                </tbody>
+                {{-- Las filas las pinta movilizaciones_index.js desde la copia local. --}}
+                <tbody id="movilizacionesTableBody" data-super-admin="{{ auth()->user()->can('super.admin') ? 1 : 0 }}"></tbody>
             </table>
         </div>
         
         <!-- Pagination -->
-        <div id="movilizacionesPagination" style="margin-top: 5px; overflow-x: auto; max-width: 100%;">
-            {{ $movilizaciones->links('vendor.pagination.custom-sliding') }}
-        </div>
+        <div id="movilizacionesPagination" style="margin-top: 5px; overflow-x: auto; max-width: 100%;"></div>
 
     </div>
 
@@ -338,11 +335,10 @@
             <div style="position: relative; z-index: 2;">
                 <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px;">Total Operaciones</div>
                 <div style="display: flex; align-items: baseline; gap: 5px;">
-                    <span id="totalTransitoCount" style="font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -1px;">
-                        {{ $totalTransito }}
-                    </span>
+                    <span id="totalTransitoCount" style="font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -1px;">—</span>
                     <span style="font-size: 12px; font-weight: 500;">registros</span>
                 </div>
+                <div id="mvCopiaEstado" style="display: none; margin-top: 6px; font-size: 11px; font-weight: 600; opacity: 0.85;"></div>
             </div>
         </div>
 
@@ -412,6 +408,15 @@
 
 @can('super.admin')
 <script>
+// Tras borrar o deshacer: la copia local pregunta ya por el cambio y la tabla se repinta.
+window._mvRefrescar = function () {
+    window.CopiaLocal.ahora('movilizaciones').then(function () {
+        const preloader = document.getElementById('preloader');
+        if (preloader) preloader.style.display = 'none';
+        window.loadMovilizaciones(window._mvPagina);
+    });
+};
+
 // ── Eliminar Seleccionados (Batch Delete) ──
 // Se define directamente en la vista para evadir caché del .js externo
 window._eliminarSeleccionados = function () {
@@ -440,9 +445,7 @@ window._eliminarSeleccionados = function () {
                     window._mvSelectedIds.clear();
                     if (window.showToast) window.showToast(res.message || 'Registros eliminados correctamente.', 'success');
                     else alert(res.message || 'Todos los registros fueron eliminados correctamente.');
-                    
-                    if (window.loadMovilizaciones) window.loadMovilizaciones();
-                    else window.location.reload();
+                    window._mvRefrescar();
                 } else {
                     if (window.hidePreloader) window.hidePreloader();
                     alert('Error: ' + (res.message || 'Hubo un problema al eliminar los registros.'));
@@ -494,7 +497,7 @@ window.movDeshacer = function (id) {
         .then(function (res) {
             if (res.ok && res.b.success) {
                 window.toast(res.b.message || 'Movilización deshecha.', 'success');
-                if (window.loadMovilizaciones) window.loadMovilizaciones(); else window.location.reload();
+                window._mvRefrescar();
             } else {
                 if (preloader) preloader.style.display = 'none';
                 if (window.showModal) window.showModal({ type: 'warning', title: 'No se pudo deshacer', message: (res.b && res.b.message) || 'Error al deshacer.', hideCancel: true });

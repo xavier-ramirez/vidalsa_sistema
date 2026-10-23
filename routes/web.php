@@ -240,10 +240,9 @@ Route::middleware(['auth'])->group(function () {
             // detalles del listado y se edita en /edit; nadie enlazaba ahi. Ahora es 404.
             Route::resource('equipos', App\Http\Controllers\EquipoController::class)->except(['store', 'show']);
             Route::post('movilizaciones/bulk-delete', [App\Http\Controllers\MovilizacionController::class, 'bulkDestroy'])->name('movilizaciones.bulkDestroy');
-            // Exportacion XLSX del historial. Mismos filtros que la pantalla
-            // (MovilizacionController::aplicarFiltrosHistorial), asi que el archivo trae
-            // exactamente lo que se esta viendo.
-            Route::get('movilizaciones/export', [App\Http\Controllers\MovilizacionController::class, 'export'])->name('movilizaciones.export');
+            // Exportacion XLSX del historial: POST con los ids que dejaron los filtros de la
+            // pantalla, asi que el archivo trae exactamente lo que se esta viendo.
+            Route::post('movilizaciones/export', [App\Http\Controllers\MovilizacionController::class, 'export'])->name('movilizaciones.export');
             Route::get('movilizaciones/subdivisiones/{id}', [App\Http\Controllers\MovilizacionController::class, 'getSubdivisiones'])->name('movilizaciones.subdivisiones');
             Route::get('movilizaciones/{id}/acta-traslado', [App\Http\Controllers\MovilizacionController::class, 'generarActaTraslado'])->name('movilizaciones.actaTraslado');
             // Misma acción vía POST: descarga el acta aplicando las ediciones manuales

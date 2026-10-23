@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Movilizacion;
 use App\Models\FrenteTrabajo;
+use App\Support\Sincronizacion\DominioMovilizaciones;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -23,189 +24,43 @@ class MovilizacionController extends Controller
         $this->middleware('can:super.admin')->only(['bulkDestroy', 'deshacer']);
     }
 
+    /**
+     * La pantalla del historial. Solo el armazón y los combos: la tabla, sus filtros y su
+     * paginación los arma el navegador con la copia local (DominioMovilizaciones, vía
+     * /sync/movilizaciones), con o sin internet.
+     */
     public function index(Request $request)
     {
-        // Sin scope LOCAL: todos los usuarios autenticados ven todo el historial
-        // de movilizaciones. La accion destructiva (borrar) ya esta gateada por
-        // can:super.admin en el middleware del constructor.
+        $usuario = $request->user();
+        abort_unless(DominioMovilizaciones::puede($usuario), 403);
 
-        $query = Movilizacion::with([
-            'equipo.tipo',
-            ...\App\Models\Equipo::conFoto('equipo.'),
-            'equipo.documentacion',
-            // Cargar tambien el aux cuando la movilizacion sea de un auxiliar
-            // (ID_AUXILIAR != null). Asi el listado renderiza vehiculos y
-            // auxiliares en la misma tabla, eligiendo en el partial cual
-            // mostrar segun cual de los dos venga poblado.
-            'auxiliar:ID_AUXILIAR,TIPO,MARCA,MODELO,SERIAL,FOTO',
-            'frenteOrigen',
-            'frenteDestino',
-            'usuario',
-        ]);
-
-        // Eliminada la barrera de seguridad de usuario local. Todos ven todo.
-
-        // â”€â”€â”€ BÃºsqueda de texto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // Usa whereHas() para evitar LEFT JOINs que generan columnas ambiguas
-        // (created_at, updated_at, etc.) y filas duplicadas en la paginaciÃ³n.
-        // Filtros del historial (búsqueda, frente + dirección, tipo y rango de fechas).
-        // Viven en aplicarFiltrosHistorial() porque la exportación a Excel usa EXACTAMENTE
-        // los mismos: copiarlos haría que el archivo acabe mostrando otra cosa que la tabla.
-        $this->aplicarFiltrosHistorial($query, $request);
-
-        // Paginación: ventana deslizante de tamaño FIJO (sin puntos suspensivos);
-        // la cantidad de botones no cambia al navegar (ver vendor.pagination.custom-sliding).
-        $movilizaciones = $query->orderBy('movilizacion_historial.created_at', 'desc')->paginate(16);
-
-        $totalTransito = $movilizaciones->total();
-
-        if ($request->wantsJson()) {
-            $tableHtml = view('admin.movilizaciones.partials.table_rows', compact('movilizaciones'))->render();
-            $paginationHtml = $movilizaciones->appends($request->all())->links('vendor.pagination.custom-sliding')->toHtml();
-
-            return response()->json([
-                'html' => $tableHtml,
-                'pagination' => $paginationHtml,
-                'totalTransito' => $totalTransito
-            ]);
-        }
-
-        // Los combos de los filtros solo hacen falta al pintar la pagina (no en el JSON de
-        // cada filtrado). TODOS los frentes (activos, finalizados y eliminados): se busca
-        // tambien en movilizaciones de frentes antiguos.
-        $frentes = FrenteTrabajo::withTrashed()->orderBy('NOMBRE_FRENTE')->get();
+        // Frentes de cualquier estatus (también finalizados y eliminados: se busca en
+        // movilizaciones de frentes antiguos), menos los bloqueados para el usuario.
+        $frentes = FrenteTrabajo::withTrashed()
+            ->whereNotIn('ID_FRENTE', $usuario->getFrentesBloqueadosIds())
+            ->orderBy('NOMBRE_FRENTE')
+            ->get();
         $allTipos = \App\Models\TipoEquipo::orderBy('nombre')->get();
         $tiposAux = \App\Models\EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')
             ->distinct()->orderBy('TIPO')->pluck('TIPO');
 
-        return view('admin.movilizaciones.index', compact('movilizaciones', 'totalTransito', 'frentes', 'allTipos', 'tiposAux'));
+        return view('admin.movilizaciones.index', compact('frentes', 'allTipos', 'tiposAux'));
     }
 
-
     /**
-     * Filtros del HISTORIAL. Punto ÚNICO: los usan la pantalla (index) y la exportación a
-     * Excel, para que el archivo no pueda traer un universo distinto al que se está viendo.
-     *
-     * Extraído a propósito, siguiendo lo que ya se hizo en equipos (applyEquipoFilters):
-     * allí el export tenía los filtros COPIADOS y se fueron separando de la pantalla sin
-     * que nadie lo notara — el tipo no entendía el prefijo del desplegable y algunos
-     * filtros se ignoraban. Aquí no se repiten.
-     */
-    private function aplicarFiltrosHistorial($query, Request $request): void
-    {
-        if ($request->filled('search')) {
-            $search      = trim($request->search);
-            $searchUpper = strtoupper($search);
-
-            $query->where(function ($q) use ($search, $searchUpper) {
-
-                // PatrÃ³n 1: MV-XXXXX / MVXXXXX â†’ buscar CODIGO_CONTROL
-                if (preg_match('/^MV-?\d+/i', $search)) {
-                    $clean = ltrim(str_replace(['MV-', 'MV'], '', $searchUpper), '0');
-                    $q->where('movilizacion_historial.CODIGO_CONTROL', 'like', "%{$searchUpper}%")
-                      ->orWhere('movilizacion_historial.CODIGO_CONTROL', 'like', "%{$clean}%");
-
-                // PatrÃ³n 2: DD-MM-YYYY â†’ buscar CODIGO_PATIO
-                } elseif (preg_match('/\d{2}-\d{2}-\d{4}/', $search)) {
-                    $q->whereHas('equipo', fn ($qEq) =>
-                        $qEq->where('CODIGO_PATIO', 'like', "%{$search}%")
-                    );
-
-                // PatrÃ³n 3: #NÃšMERO â†’ buscar NUMERO_ETIQUETA
-                } elseif (strpos($search, '#') === 0) {
-                    $tag = ltrim($search, '#');
-                    $q->whereHas('equipo', fn ($qEq) =>
-                        $qEq->where('NUMERO_ETIQUETA', 'like', "%{$tag}%")
-                    );
-
-                // PatrÃ³n por defecto: serial / placa / codigo (equipo) o
-                // serial / marca / modelo (aux). El OR cruzado permite que
-                // movilizaciones de auxiliares aparezcan en busquedas por
-                // texto libre igual que las de equipos.
-                } else {
-                    $q->where(function ($qInner) use ($searchUpper) {
-                        $qInner->whereHas('equipo', function ($qEq) use ($searchUpper) {
-                            $qEq->where('SERIAL_CHASIS', 'like', "%{$searchUpper}%")
-                                ->orWhere('CODIGO_PATIO', 'like', "%{$searchUpper}%");
-                        })->orWhereHas('equipo.documentacion', function ($qDoc) use ($searchUpper) {
-                            $qDoc->where('PLACA', 'like', "%{$searchUpper}%");
-                        })->orWhereHas('auxiliar', function ($qAux) use ($searchUpper) {
-                            $qAux->where('SERIAL', 'like', "%{$searchUpper}%")
-                                 ->orWhere('MARCA', 'like', "%{$searchUpper}%")
-                                 ->orWhere('MODELO', 'like', "%{$searchUpper}%");
-                        });
-                    });
-                }
-            });
-        }
-
-
-        // â”€â”€â”€ SHARED filter logic (applied to both main query and stats query) â”€â”€â”€â”€â”€â”€â”€
-        // Extracted into a closure to eliminate code duplication and ensure both
-        // queries always use identical filtering criteria.
-        $applyFrenteFilter = function ($q) use ($request) {
-            if ($request->filled('id_frente') && $request->id_frente !== 'all') {
-                $direccion = $request->input('direccion_frente');
-                if ($direccion === 'entrada') {
-                    $q->where('ID_FRENTE_DESTINO', $request->id_frente);
-                } elseif ($direccion === 'salida') {
-                    $q->where('ID_FRENTE_ORIGEN', $request->id_frente);
-                } else {
-                    $q->where(function ($inner) use ($request) {
-                        $inner->where('ID_FRENTE_DESTINO', $request->id_frente)
-                              ->orWhere('ID_FRENTE_ORIGEN', $request->id_frente);
-                    });
-                }
-            }
-        };
-
-        // â”€â”€â”€ Apply shared filters to main query â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        $applyFrenteFilter($query);
-
-        if ($request->filled('id_tipo') && $request->id_tipo !== 'all') {
-            $tipoVal = (string) $request->id_tipo;
-            if (str_starts_with($tipoVal, 'tipo_eq:')) {
-                $query->whereNotNull('movilizacion_historial.ID_EQUIPO')
-                      ->whereHas('equipo', fn ($q) => $q->where('id_tipo_equipo', (int) substr($tipoVal, 8)));
-            } elseif (str_starts_with($tipoVal, 'tipo_aux:')) {
-                $query->whereNotNull('movilizacion_historial.ID_AUXILIAR')
-                      ->whereHas('auxiliar', fn ($q) => $q->where('TIPO', substr($tipoVal, 9)));
-            } else {
-                $query->whereHas('equipo', fn ($q) => $q->where('id_tipo_equipo', $tipoVal));
-            }
-        }
-
-        // Date range filter — rangos sobre la columna cruda (NO whereDate: envolver
-        // la columna en DATE() impide usar el índice de created_at). Una fecha
-        // malformada en la URL se IGNORA (try/catch): Carbon::parse revienta con
-        // 500 y el whereDate viejo simplemente no devolvía filas.
-        if ($request->filled('fecha_desde')) {
-            try {
-                $query->where('movilizacion_historial.created_at', '>=', \Carbon\Carbon::parse($request->fecha_desde)->toDateString());
-            } catch (\Throwable $e) { /* fecha inválida → sin filtro */ }
-        }
-        if ($request->filled('fecha_hasta')) {
-            try {
-                $query->where('movilizacion_historial.created_at', '<', \Carbon\Carbon::parse($request->fecha_hasta)->addDay()->toDateString());
-            } catch (\Throwable $e) { /* fecha inválida → sin filtro */ }
-        }
-    }
-
-
-    /**
-     * Exporta a XLSX el historial TAL COMO SE ESTÁ VIENDO.
-     *
-     * Usa aplicarFiltrosHistorial(), los mismos filtros que la pantalla, así que el archivo
-     * no puede traer un universo distinto al de la tabla. Encabezado corporativo igual al
-     * del módulo de equipos (logo + título + EDICIÓN/REVISIÓN/FECHA), con el título propio
-     * de este listado.
+     * Exporta a XLSX el historial TAL COMO SE ESTÁ VIENDO: la pantalla manda los ids que
+     * dejaron sus filtros (`ids[]`), así el archivo no puede traer otro universo. Los filtros
+     * viajan también, pero solo para escribir el subtítulo. Las filas pasan por la misma
+     * visibilidad que la copia local (DominioMovilizaciones::visibles).
      *
      * Sin paginar a propósito: la pantalla muestra de 16 en 16, pero lo que se pide del
      * Excel es el historial filtrado ENTERO, no la página que se esté mirando.
      */
     public function export(Request $request)
     {
-        $query = Movilizacion::with([
+        $ids = array_map('intval', (array) $request->input('ids', []));
+
+        $query = (new DominioMovilizaciones($request->user()))->visibles()->whereIn('ID_MOVILIZACION', $ids)->with([
             // Se traen los TRES identificadores porque la columna SERIAL es el primero que
             // exista de ellos (chasis → placa → motor). CODIGO_PATIO y el usuario ya no se
             // cargan: sus columnas se quitaron del Excel y traerlos sería trabajo de balde.
@@ -217,9 +72,7 @@ class MovilizacionController extends Controller
             'frenteDestino',
         ]);
 
-        $this->aplicarFiltrosHistorial($query, $request);
-
-        $movs = $query->orderBy('movilizacion_historial.created_at', 'desc')->get();
+        $movs = $query->orderByDesc('movilizacion_historial.created_at')->orderByDesc('ID_MOVILIZACION')->get();
 
         $currentDate = date('d/m/Y');
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();

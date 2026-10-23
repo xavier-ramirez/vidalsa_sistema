@@ -206,7 +206,8 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return;
 
-    // Nunca cachear API/acciones, el snapshot offline, ni el manifest (el manifest
+    // Nunca cachear API/acciones, el snapshot offline, la sincronización de la copia local
+    // (/sync/: una respuesta vieja pisaría datos más nuevos), ni el manifest (el manifest
     // debe leerse fresco siempre: si cachea uno viejo, el navegador no detecta cambios
     // en display_override / tab_strip y nunca activa el modo pestañas aunque reinstales
     // el PWA). OJO: /admin/ y /dashboard/ YA NO se excluyen — sus navegaciones se
@@ -216,6 +217,7 @@ self.addEventListener('fetch', (event) => {
         url.pathname.startsWith('/webauthn/') ||
         url.pathname.startsWith('/api/') ||
         url.pathname.startsWith('/offline/') ||
+        url.pathname.startsWith('/sync/') ||
         url.pathname.startsWith('/storage/') ||
         url.pathname.includes('/export') ||
         url.pathname.includes('/acta-traslado') ||

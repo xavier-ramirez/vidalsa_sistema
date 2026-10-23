@@ -7,7 +7,6 @@ use App\Models\Almacen;
 use App\Models\AlmacenStock;
 use App\Models\Equipo;
 use App\Models\FrenteTrabajo;
-use App\Models\Movilizacion;
 use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use App\Services\KitAlmacenService;
@@ -44,8 +43,6 @@ class OfflineController extends Controller
 {
     /** Tope de movimientos históricos que viajan al teléfono (los más recientes). */
     private const MAX_MOVIMIENTOS    = 1500;
-    /** Tope de movilizaciones históricas que viajan al teléfono (las más recientes). */
-    private const MAX_MOVILIZACIONES = 1000;
 
     /**
      * Holgura de la marca de agua, en segundos.
@@ -60,7 +57,7 @@ class OfflineController extends Controller
     private const HOLGURA_SEG = 300;
 
     /**
-     * Holgura de los cursores por ID (movimientos y movilizaciones).
+     * Holgura del cursor por ID de los movimientos.
      *
      * Mismo problema con otra cara: los IDs se reservan al INSERT pero se hacen
      * visibles al COMMIT, así que dos transacciones concurrentes pueden publicarse en
@@ -214,7 +211,6 @@ class OfflineController extends Controller
         $marca         = now()->subSeconds(self::HOLGURA_SEG);
         $desde         = $cursor['t'] ?? null;
         $idMovimientos = max(0, ((int) ($cursor['i']['movimientos'] ?? 0)) - self::HOLGURA_ID);
-        $idMovilizac   = max(0, ((int) ($cursor['i']['movilizaciones'] ?? 0)) - self::HOLGURA_ID);
 
         $datos    = [];
         $borrados = [];
@@ -233,20 +229,17 @@ class OfflineController extends Controller
 
         // ── EQUIPOS ──────────────────────────────────────────────────────────
         if ($modos['equipos'] === 'full') {
-            $datos['equipos']        = $this->consultaEquipos($user, $puedeEquipos);
-            $datos['movilizaciones'] = $this->consultaMovilizaciones($user, $puedeEquipos);
+            $datos['equipos'] = $this->consultaEquipos($user, $puedeEquipos);
         } elseif ($modos['equipos'] === 'delta') {
             [$cambios, $bajas] = $this->deltaEquipos($user, $desde);
 
             // Degradar a completo si el delta dejó de ahorrar.
             if ($cambios->count() + count($bajas) > self::MAX_DELTA) {
-                $modos['equipos']        = 'full';
-                $datos['equipos']        = $this->consultaEquipos($user, $puedeEquipos);
-                $datos['movilizaciones'] = $this->consultaMovilizaciones($user, $puedeEquipos);
+                $modos['equipos'] = 'full';
+                $datos['equipos'] = $this->consultaEquipos($user, $puedeEquipos);
             } else {
-                $datos['equipos']        = $cambios;
-                $borrados['equipos']     = $bajas;
-                $datos['movilizaciones'] = $this->consultaMovilizaciones($user, $puedeEquipos, $desde, $idMovilizac);
+                $datos['equipos']    = $cambios;
+                $borrados['equipos'] = $bajas;
             }
         }
 
@@ -300,8 +293,7 @@ class OfflineController extends Controller
                 'r' => $todas['reset'],
                 't' => $marca->format('Y-m-d H:i:s'),
                 'i' => [
-                    'movimientos'    => $this->maxId($datos['movimientos'] ?? null, (int) ($cursor['i']['movimientos'] ?? 0)),
-                    'movilizaciones' => $this->maxId($datos['movilizaciones'] ?? null, (int) ($cursor['i']['movilizaciones'] ?? 0)),
+                    'movimientos' => $this->maxId($datos['movimientos'] ?? null, (int) ($cursor['i']['movimientos'] ?? 0)),
                 ],
             ],
         ]);
@@ -404,7 +396,6 @@ class OfflineController extends Controller
             'productos'      => $this->consultaProductos($puedeAlmacen),
             'movimientos'    => $this->consultaMovimientos($almIds),
             'equipos'        => $this->consultaEquipos($user, $puedeEquipos),
-            'movilizaciones' => $this->consultaMovilizaciones($user, $puedeEquipos),
             'frentes'        => $this->consultaFrentes($user, $puedeEquipos, $puedeAlmacen),
             'kits'           => $this->consultaKits($puedeAlmacen),
         ];
@@ -723,67 +714,6 @@ class OfflineController extends Controller
                 ? ['desc' => MojibakeFix::fix($e->fallaAbierta->DESCRIPCION_AVERIA), 'resumen' => $e->fallaAbierta->resumen]
                 : null,
         ];
-    }
-
-    /**
-     * MOVILIZACIONES recientes (historial de equipos).
-     *
-     * Lista negra: no exponer movimientos que TOQUEN un frente bloqueado (origen o
-     * destino). Los NULL (recepción inicial) se conservan. Coherente con el resto.
-     *
-     * En delta se piden por ID *y* por updated_at, por lo mismo que los movimientos:
-     * `deshacer` y las correcciones reescriben filas ya existentes.
-     */
-    private function consultaMovilizaciones($user, bool $puedeEquipos, ?string $desde = null, int $desdeId = 0)
-    {
-        if (! $puedeEquipos) return collect();
-
-        $bloqueados = $user ? $user->getFrentesBloqueadosIds() : [];
-
-        return Movilizacion::query()
-            ->with([
-                'equipo:ID_EQUIPO,NUMERO_ETIQUETA,SERIAL_CHASIS,CODIGO_PATIO,id_tipo_equipo',
-                'equipo.tipo:id,nombre',
-                'equipo.documentacion:ID_EQUIPO,PLACA',
-                'auxiliar:ID_AUXILIAR,SERIAL,MARCA,MODELO,TIPO',
-                'frenteOrigen:ID_FRENTE,NOMBRE_FRENTE',
-                'frenteDestino:ID_FRENTE,NOMBRE_FRENTE',
-                'usuario:ID_USUARIO,NOMBRE_COMPLETO,CORREO_ELECTRONICO',
-            ])
-            ->when(!empty($bloqueados), fn ($q) => $q
-                ->where(fn ($w) => $w->whereNotIn('ID_FRENTE_ORIGEN', $bloqueados)->orWhereNull('ID_FRENTE_ORIGEN'))
-                ->where(fn ($w) => $w->whereNotIn('ID_FRENTE_DESTINO', $bloqueados)->orWhereNull('ID_FRENTE_DESTINO')))
-            ->when($desde, fn ($q) => $q->where(fn ($w) => $w
-                ->where('ID_MOVILIZACION', '>', $desdeId)
-                ->orWhere('updated_at', '>=', $desde)))
-            ->orderByDesc('ID_MOVILIZACION')
-            ->limit(self::MAX_MOVILIZACIONES)
-            ->get()
-            ->map(static fn ($mv) => [
-                'id' => (int) $mv->ID_MOVILIZACION,
-                'codigo' => $mv->formatted_codigo_control,
-                'tipo' => $mv->TIPO_MOVIMIENTO,
-                'fecha' => optional($mv->FECHA_DESPACHO)->format('Y-m-d H:i')
-                    ?? optional($mv->created_at)->format('Y-m-d H:i')
-                    ?? (string) $mv->FECHA_DESPACHO,
-                'id_equipo' => $mv->ID_EQUIPO ? (int) $mv->ID_EQUIPO : null,
-                // IDs para los filtros offline del historial (frente origen/destino, tipo de
-                // equipo y tipo de auxiliar) — replican los filtros del index online.
-                'id_origen' => $mv->ID_FRENTE_ORIGEN ? (int) $mv->ID_FRENTE_ORIGEN : null,
-                'id_destino' => $mv->ID_FRENTE_DESTINO ? (int) $mv->ID_FRENTE_DESTINO : null,
-                'id_tipo' => $mv->equipo?->id_tipo_equipo ? (int) $mv->equipo->id_tipo_equipo : null,
-                'aux_tipo' => MojibakeFix::fix($mv->auxiliar?->TIPO),
-                'equipo_tipo' => MojibakeFix::fix($mv->equipo?->tipo?->nombre),
-                'equipo_serial' => MojibakeFix::fix($mv->equipo?->SERIAL_CHASIS),
-                'equipo_placa' => MojibakeFix::fix($mv->equipo?->documentacion?->PLACA),
-                'equipo_codigo' => $mv->equipo?->CODIGO_PATIO,
-                'auxiliar' => $mv->auxiliar ? MojibakeFix::fix(trim($mv->auxiliar->MARCA . ' ' . $mv->auxiliar->MODELO)) : null,
-                'origen' => MojibakeFix::fix($mv->frenteOrigen?->NOMBRE_FRENTE),
-                'destino' => MojibakeFix::fix($mv->frenteDestino?->NOMBRE_FRENTE),
-                'usuario' => MojibakeFix::fix($mv->usuario?->NOMBRE_COMPLETO ?? $mv->USUARIO_REGISTRO),
-                'ubicacion' => MojibakeFix::fix($mv->DETALLE_UBICACION),
-            ])
-            ->values();
     }
 
     /**

@@ -37,7 +37,8 @@
  * API pública (window.OfflineDB):
  *   .ready            Promise que resuelve cuando la BD local está abierta.
  *   .get(tabla)       -> Promise<Array> (stock, productos, movimientos, equipos,
- *                        movilizaciones, almacenes, frentes).
+ *                        almacenes, frentes, kits). Las movilizaciones viven en la
+ *                        copia local nueva (copia-local.js).
  *   .mutar(tabla, fn) -> ÚNICA forma de escribir: lectura+escritura atómica.
  *   .meta()           -> Promise<{version, generado, descargado, c}|null>.
  *   .sync(force)      -> sincroniza ahora; force=true además CANCELA la descarga
@@ -80,7 +81,6 @@
         // Kits del almacén (KitAlmacenService::catalogo): viajan enteros con los catálogos.
         kits:           { dominio: 'catalogos', clave: (f) => txt(f.id), orden: porTexto('nombre') },
         equipos:        { dominio: 'equipos',   clave: (f) => txt(f.id), orden: porTexto('etiqueta') },
-        movilizaciones: { dominio: 'equipos',   clave: (f) => txt(f.id), orden: porIdDesc, tope: 1000 },
         productos:      { dominio: 'almacen',   clave: (f) => txt(f.id), orden: porTexto('nombre') },
         movimientos:    { dominio: 'almacen',   clave: (f) => txt(f.id), orden: porIdDesc, tope: 1500 },
         // stock no tiene id propio: su identidad es el par almacén+producto. El servidor

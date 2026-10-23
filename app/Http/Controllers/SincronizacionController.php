@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\RegistroCambios;
 use App\Support\Sincronizacion\DominioEquipos;
+use App\Support\Sincronizacion\DominioMovilizaciones;
 use Illuminate\Http\Request;
 
 /**
@@ -13,7 +14,7 @@ use Illuminate\Http\Request;
  * Este endpoint le dice qué cambió desde su cursor:
  *
  *   ?desde=<cursor>&firma=<firma>&esquema=<n>
- *   → { dominio, esquema, firma, hasta, completo, datos, borrados, catalogos }
+ *   → { dominio, esquema, firma, espera, hasta, completo, datos, borrados, catalogos }
  *
  *   · completo = true: `datos` es la copia ENTERA; el cliente borra la suya y la reemplaza.
  *   · completo = false: `datos` se fusiona por id y `borrados` se quita.
@@ -29,25 +30,33 @@ use Illuminate\Http\Request;
  */
 class SincronizacionController extends Controller
 {
+    private const ESPERA_SEG          = 15;
+    private const ESPERA_RESPALDO_SEG = 120;
+
     private const DOMINIOS = [
-        'equipos' => DominioEquipos::class,
+        'equipos'        => DominioEquipos::class,
+        'movilizaciones' => DominioMovilizaciones::class,
     ];
 
     public function __invoke(Request $request, string $dominio)
     {
         $clase = self::DOMINIOS[$dominio] ?? abort(404);
-        $d     = new $clase($request->user());
+        abort_unless($clase::puede($request->user()), 403);
+        $d = new $clase($request->user());
 
+        $activo = RegistroCambios::activo();
         $base = [
             'dominio' => $dominio,
             'esquema' => $clase::ESQUEMA,
             'firma'   => $d->firma(),
+            // Segundos hasta la próxima pregunta: en el modo de respaldo cada una arma la copia entera.
+            'espera'  => $activo ? self::ESPERA_SEG : self::ESPERA_RESPALDO_SEG,
         ];
         $desde    = (string) $request->query('desde', '');
         $vigente  = (int) $request->query('esquema') === $clase::ESQUEMA
             && $request->query('firma') === $base['firma'];
 
-        if (! RegistroCambios::activo()) {
+        if (! $activo) {
             $copia  = $d->completo();
             $huella = 'h:' . md5(json_encode($copia));
             if ($vigente && $desde === $huella) {

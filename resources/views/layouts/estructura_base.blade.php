@@ -74,6 +74,9 @@
          AppServiceProvider). --}}
     <meta name="version-vistas" content="{{ $versionVistas ?? '' }}">
     <meta name="base-url" content="{{ url('/') }}">
+    {{-- La copia local (copia-local.js) guarda los datos de cada usuario aparte: en un equipo
+         compartido nadie ve la copia de otro. --}}
+    <meta name="usuario-id" content="{{ Auth::user()?->ID_USUARIO }}">
 
     {{-- Helpers DOM compartidos (window.getCsrf / escapeHtml / escapeAttrJs).
          VAN EN EL <head>, no abajo con el resto de los scripts: los <script> inline
@@ -462,10 +465,12 @@
                         class="nav-dropdown-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}">
                         <i class="material-icons">local_gas_station</i> Consumibles
                     </a>
+                    @if(auth()->user() && \App\Support\Sincronizacion\DominioMovilizaciones::puede(auth()->user()))
                     <a href="{{ route('movilizaciones.index') }}"
                         class="nav-dropdown-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}">
                         <i class="material-icons">local_shipping</i> Historial
                     </a>
+                    @endif
                 </div>
             </div>
 
@@ -637,10 +642,12 @@
                     class="mobile-nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}">
                     <i class="material-icons">local_gas_station</i> Consumibles
                 </a>
+                @if(auth()->user() && \App\Support\Sincronizacion\DominioMovilizaciones::puede(auth()->user()))
                 <a href="{{ route('movilizaciones.index') }}"
                     class="mobile-nav-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}">
                     <i class="material-icons">local_shipping</i> Historial
                 </a>
+                @endif
             </div>
         </div>
         <div class="mobile-nav-group" id="mobileAlmacenGroup">
@@ -1135,6 +1142,9 @@
             src="{{ asset('js/maquinaria/menu.js') }}?v={{ @filemtime(public_path('js/maquinaria/menu.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/equipos_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_index.js')) }}"></script>
+        {{-- Copia local (IndexedDB) de la que pintan las pantallas, con o sin internet. --}}
+        <script
+            src="{{ asset('js/offline/copia-local.js') }}?v={{ @filemtime(public_path('js/offline/copia-local.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/movilizaciones_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/movilizaciones_index.js')) }}"></script>
         {{-- Modal "Nuevo Reporte de Falla" COMPARTIDO (fallas/equipos/auxiliares): global
@@ -1369,7 +1379,6 @@
              porque la SPA omite los <script src> ya cargados). --}}
         <script src="{{ asset('js/maquinaria/almacen-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen-offline.js')) }}" defer></script>
         <script src="{{ asset('js/maquinaria/equipos-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos-offline.js')) }}" defer></script>
-        <script src="{{ asset('js/maquinaria/movilizaciones-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/movilizaciones-offline.js')) }}" defer></script>
         <script src="{{ asset('js/maquinaria/movimientos-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/movimientos-offline.js')) }}" defer></script>
 
         {{-- ── WebAuthn: prompt de registro biométrico tras login con contraseña ── --}}

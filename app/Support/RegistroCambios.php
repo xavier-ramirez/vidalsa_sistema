@@ -198,7 +198,7 @@ class RegistroCambios
     public static function cursorDeCargaCompleta(): int
     {
         $reciente = DB::table(self::TABLA)
-            ->where('created_at', '>=', self::limiteHueco())
+            ->where('created_at', '>=', self::haceSegundos(self::ESPERA_HUECO_SEG))
             ->min('ID_CAMBIO');
 
         return $reciente === null ? self::ultimo() : (int) $reciente - 1;
@@ -241,7 +241,7 @@ class RegistroCambios
             return null;
         }
 
-        $limite = self::limiteHueco();
+        $limite = self::haceSegundos(self::ESPERA_HUECO_SEG);
 
         $nuevo   = $cursor;
         $atascado = false;
@@ -263,10 +263,13 @@ class RegistroCambios
         return [$nuevo, array_map(static fn ($m) => array_keys($m), $ids)];
     }
 
-    /** Lo anotado antes de esto ya no tiene huecos pendientes. Con el reloj de la BASE, el de created_at. */
-    private static function limiteHueco(): string
+    /**
+     * Fecha de hace $seg segundos con el reloj de la BASE, el mismo con el que se escribe
+     * created_at: el de PHP puede ir en otra zona horaria.
+     */
+    private static function haceSegundos(int $seg): string
     {
-        return date('Y-m-d H:i:s', strtotime((string) DB::scalar('SELECT CURRENT_TIMESTAMP')) - self::ESPERA_HUECO_SEG);
+        return date('Y-m-d H:i:s', strtotime((string) DB::scalar('SELECT CURRENT_TIMESTAMP')) - $seg);
     }
 
     /**
@@ -277,7 +280,7 @@ class RegistroCambios
     public static function purgar(int $dias = 30): int
     {
         return DB::transaction(static function () use ($dias) {
-            $viejas = DB::table(self::TABLA)->where('created_at', '<', now()->subDays($dias));
+            $viejas = DB::table(self::TABLA)->where('created_at', '<', self::haceSegundos($dias * 86400));
             $hasta  = (clone $viejas)->max('ID_CAMBIO');
             if ($hasta === null) {
                 return 0;

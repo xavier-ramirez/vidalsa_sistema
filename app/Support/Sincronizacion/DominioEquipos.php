@@ -30,6 +30,12 @@ class DominioEquipos
     {
     }
 
+    /** El listado de equipos lo abre cualquier usuario con sesión; su alcance lo acota visibles(). */
+    public static function puede(Usuario $usuario): bool
+    {
+        return true;
+    }
+
     /**
      * Huella del ALCANCE del usuario. Si cambia, la copia entera deja de valer: los
      * equipos que entran o salen de su visibilidad no quedan anotados como cambios.

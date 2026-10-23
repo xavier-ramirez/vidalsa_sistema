@@ -3,15 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\Usuario;
+use Illuminate\Support\Facades\DB;
 use Tests\MySqlTestCase;
 
 /**
  * El botón "Exportar historial a Excel" del menú Acciones de /admin/movilizaciones.
  *
- * Lo que fijan estas pruebas: que salga un XLSX de verdad, que respete los MISMOS filtros
- * de la pantalla y que exija sesión. Pantalla y archivo comparten el armado del filtro
- * (MovilizacionController::aplicarFiltrosHistorial y window._mvFiltrosActuales), así que el
- * Excel no puede traer un universo distinto al que se está viendo.
+ * Lo que fijan estas pruebas: que salga un XLSX de verdad, que lleve SOLO las filas que la
+ * pantalla le pide por id (las que dejaron sus filtros, que viven en el navegador) y solo
+ * las que el usuario puede ver, y que exija sesión.
  */
 class ExportHistorialMovilizacionesTest extends MySqlTestCase
 {
@@ -35,9 +35,42 @@ class ExportHistorialMovilizacionesTest extends MySqlTestCase
         return (string) ob_get_clean();
     }
 
+    /** La hoja del XLSX descargado. */
+    private function hoja($response): \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'hist') . '.xlsx';
+        file_put_contents($tmp, $this->bytes($response->baseResponse));
+        $hoja = \PhpOffice\PhpSpreadsheet\IOFactory::load($tmp)->getActiveSheet();
+        @unlink($tmp);
+
+        return $hoja;
+    }
+
+    private function exportar(Usuario $usuario, array $ids, array $filtros = [])
+    {
+        return $this->actingAs($usuario)->post('/admin/movilizaciones/export', $filtros + ['ids' => $ids]);
+    }
+
+    /** Ids de las últimas movilizaciones (las de la base real). */
+    private function ultimas(int $n): array
+    {
+        return DB::table('movilizacion_historial')->orderByDesc('ID_MOVILIZACION')->limit($n)->pluck('ID_MOVILIZACION')->all();
+    }
+
+    /** Filas de datos de la hoja: las que traen FECHA (columna B) bajo el encabezado (fila 5). */
+    private function filasDeDatos($hoja): int
+    {
+        $n = 0;
+        for ($fila = 6; $fila <= $hoja->getHighestDataRow(); $fila++) {
+            if ((string) $hoja->getCell('B' . $fila)->getValue() !== '') $n++;
+        }
+
+        return $n;
+    }
+
     public function test_descarga_un_xlsx_de_verdad(): void
     {
-        $resp = $this->actingAs($this->usuarioAdmin())->get('/admin/movilizaciones/export');
+        $resp = $this->exportar($this->usuarioAdmin(), $this->ultimas(3));
         $resp->assertOk();
 
         // Un .xlsx es un ZIP: sus dos primeros bytes son "PK". Se comprueba el CONTENIDO,
@@ -50,36 +83,32 @@ class ExportHistorialMovilizacionesTest extends MySqlTestCase
             $resp->headers->get('content-disposition') ?? '');
     }
 
-    public static function filtrosDeLaPantalla(): array
+    /** Lleva exactamente las filas pedidas, ni una más: el filtro lo decidió la pantalla. */
+    public function test_lleva_solo_los_ids_pedidos(): void
     {
-        return [
-            'búsqueda libre'   => [['search' => 'MV-1']],
-            'rango de fechas'  => [['fecha_desde' => '2020-01-01', 'fecha_hasta' => '2030-01-01']],
-            'frente + entrada' => [['id_frente' => '1', 'direccion_frente' => 'entrada']],
-            'frente + salida'  => [['id_frente' => '1', 'direccion_frente' => 'salida']],
-            'tipo de equipo'   => [['id_tipo' => 'tipo_eq:1']],
-            'tipo de auxiliar' => [['id_tipo' => 'tipo_aux:MARTILLO']],
-            'todo junto'       => [['search' => 'A', 'id_frente' => 'all', 'fecha_desde' => '2024-01-01']],
-        ];
+        $ids = $this->ultimas(2);
+        if (count($ids) < 2) {
+            $this->markTestSkipped('Hacen falta dos movilizaciones.');
+        }
+
+        $hoja = $this->hoja($this->exportar($this->usuarioAdmin(), $ids)->assertOk());
+
+        $this->assertSame(2, $this->filasDeDatos($hoja), 'Debe haber una fila por id pedido.');
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('filtrosDeLaPantalla')]
-    public function test_acepta_los_mismos_filtros_de_la_pantalla(array $filtros): void
+    /** Una movilización que toca un frente bloqueado para el usuario no se exporta aunque se pida. */
+    public function test_no_exporta_lo_que_el_usuario_no_ve(): void
     {
-        $resp = $this->actingAs($this->usuarioAdmin())
-            ->get('/admin/movilizaciones/export?' . http_build_query($filtros));
+        $mov = DB::table('movilizacion_historial')->whereNotNull('ID_FRENTE_DESTINO')->orderByDesc('ID_MOVILIZACION')->first();
+        if (! $mov) {
+            $this->markTestSkipped('No hay movilizaciones con destino.');
+        }
+        $admin = $this->usuarioAdmin();
+        DB::table('usuarios')->where('ID_USUARIO', $admin->ID_USUARIO)->update(['ID_FRENTE_BLOQUEADO' => (string) $mov->ID_FRENTE_DESTINO]);
 
-        $resp->assertOk();
-        $this->assertSame('PK', substr($this->bytes($resp->baseResponse), 0, 2));
-    }
+        $hoja = $this->hoja($this->exportar($admin->fresh(), [$mov->ID_MOVILIZACION])->assertOk());
 
-    /** Una fecha basura en la URL no puede tumbar la exportación con un 500. */
-    public function test_una_fecha_invalida_no_revienta(): void
-    {
-        $resp = $this->actingAs($this->usuarioAdmin())
-            ->get('/admin/movilizaciones/export?fecha_desde=no-es-una-fecha');
-
-        $resp->assertOk();
+        $this->assertSame(0, $this->filasDeDatos($hoja));
     }
 
     /**
@@ -134,20 +163,13 @@ class ExportHistorialMovilizacionesTest extends MySqlTestCase
      */
     public function test_el_archivo_lleva_las_columnas_pedidas(): void
     {
-        $resp = $this->actingAs($this->usuarioAdmin())->get('/admin/movilizaciones/export');
-        $resp->assertOk();
-
-        $tmp = tempnam(sys_get_temp_dir(), 'hist') . '.xlsx';
-        file_put_contents($tmp, $this->bytes($resp->baseResponse));
-
-        $hoja = \PhpOffice\PhpSpreadsheet\IOFactory::load($tmp)->getActiveSheet();
+        $hoja = $this->hoja($this->exportar($this->usuarioAdmin(), $this->ultimas(3))->assertOk());
 
         // Fila 5 = encabezados de la tabla (1-3 logo/titulo, 4 "Exportado por")
         $encabezados = [];
         foreach (range('A', 'H') as $col) {
             $encabezados[] = (string) $hoja->getCell($col . '5')->getValue();
         }
-        @unlink($tmp);
 
         $this->assertSame(
             ['N°', 'FECHA', 'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'ORIGEN', 'DESTINO'],
@@ -164,6 +186,6 @@ class ExportHistorialMovilizacionesTest extends MySqlTestCase
 
     public function test_exige_sesion(): void
     {
-        $this->get('/admin/movilizaciones/export')->assertRedirect();
+        $this->post('/admin/movilizaciones/export', ['ids' => [1]])->assertRedirect();
     }
 }
