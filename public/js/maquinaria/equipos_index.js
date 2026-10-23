@@ -1402,7 +1402,8 @@ window.eqTextosLimpiar = function () {
     window.eqTextoLimpiar('titularAdvFilter', false);
 };
 // La lupa junto a «Título» abre/cierra la casilla del titular; cerrada con un titular puesto,
-// lo suelta (si no, filtraría algo que ya no se ve).
+// lo suelta (si no, filtraría algo que ya no se ve). Su onclick corta la propagación: el clic
+// global de uicomponents cierra los desplegables y cerraba la lista recién abierta por el focus.
 window.eqTitularToggle = function (btn) {
     const fila = document.getElementById('titularFila');
     if (!fila) return;

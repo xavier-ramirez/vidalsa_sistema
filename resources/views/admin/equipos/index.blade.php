@@ -664,7 +664,7 @@
                                 </label>
                                 <button type="button" class="adv-lupa adv-filter-eq-only {{ request('titular') ? 'activo' : '' }}"
                                         title="Buscar por el titular del título" aria-label="Buscar por el titular del título"
-                                        onclick="window.eqTitularToggle(this)"><i class="material-icons">search</i></button>
+                                        onclick="event.stopPropagation(); window.eqTitularToggle(this)"><i class="material-icons">search</i></button>
                             </div>
 
                             <label for="chk_poliza" class="adv-check adv-filter-eq-only">

@@ -21,11 +21,10 @@
     #advancedFilterPanel #titularAdvFilter .dropdown-item { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* «Título» con su lupa al lado (abre la búsqueda por titular, #titularFila). Azul = abierta. */
     #advancedFilterPanel .adv-check-con-lupa { display: flex; align-items: center; gap: 6px; }
-    #advancedFilterPanel .adv-lupa { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0;
-                                     border: 1px solid #cbd5e0; border-radius: 6px; background: #fbfcfd; color: #64748b; cursor: pointer; }
-    #advancedFilterPanel .adv-lupa .material-icons { font-size: 15px; }
+    #advancedFilterPanel .adv-lupa { display: flex; align-items: center; padding: 0; border: none; background: none; color: #64748b; cursor: pointer; }
+    #advancedFilterPanel .adv-lupa .material-icons { font-size: 17px; }
     #advancedFilterPanel .adv-lupa:hover,
-    #advancedFilterPanel .adv-lupa.activo { border-color: var(--maquinaria-blue); color: var(--maquinaria-blue); }
+    #advancedFilterPanel .adv-lupa.activo { color: var(--maquinaria-blue); }
     #advancedFilterPanel #titularFila[hidden] { display: none; }
 
     /* ── Panel de Filtros Avanzados en MOBILE: ancho comodo para ver estatus completo ── */
