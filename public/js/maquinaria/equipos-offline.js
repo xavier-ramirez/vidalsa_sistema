@@ -3,7 +3,6 @@
  * --------------------------------------------------------
  * Llena la tabla (#equiposTableBody) desde IndexedDB, reproduciendo partials/table_rows.
  * NO se activa solo: se registra en OfflineMode y pinta al tocar "Trabajar sin conexión".
- * El botón de detalle abre el HISTORIAL DE MOVILIZACIONES del equipo (también local).
  * La foto no viaja offline (vive en Drive) → ícono placeholder.
  *
  * MISMAS REGLAS QUE ONLINE (EquipoController::index) — la vista sin internet no puede
