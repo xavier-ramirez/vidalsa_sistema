@@ -194,6 +194,7 @@ Route::middleware(['auth'])->group(function () {
                 ->name('equipos.deleteDoc');
             Route::get('equipos/export', [App\Http\Controllers\EquipoController::class, 'export'])->name('equipos.export');
             Route::get('equipos/search-field', [App\Http\Controllers\EquipoController::class, 'searchField'])->name('equipos.searchField');
+            Route::get('equipos/opciones-documento', [App\Http\Controllers\EquipoController::class, 'opcionesDocumentoJson'])->name('equipos.opcionesDocumento');
             Route::get('equipos/search-specs', [App\Http\Controllers\EquipoController::class, 'searchSpecs'])->name('equipos.searchSpecs');
             Route::get('equipos/check-unique', [App\Http\Controllers\EquipoController::class, 'checkUniqueness'])->name('equipos.checkUnique');
             Route::get('equipos/{id}/metadata', [App\Http\Controllers\EquipoController::class, 'metadata'])->name('equipos.metadata');

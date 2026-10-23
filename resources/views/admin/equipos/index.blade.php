@@ -657,7 +657,8 @@
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                             {{-- Las lupas de Título y Póliza abren su ventana de filtro con lista en el centro de la
-                                 pantalla (partials/ventana_filtro_lista, al final de esta sección). --}}
+                                 pantalla (partials/ventana_filtro_lista, al final de esta sección). Debajo, con
+                                 el filtro puesto, el nombre aplicado y una X para quitarlo sin abrir la ventana. --}}
                             <div class="adv-check-con-lupa">
                                 <label for="chk_propiedad" class="adv-check">
                                     <input type="checkbox" id="chk_propiedad" onchange="toggleDocFilter('propiedad')" {{ request('filter_propiedad') == 'true' ? 'checked' : '' }}>
@@ -667,6 +668,10 @@
                                         data-filtro-de="titularAdvFilter"
                                         title="Buscar por el nombre del titular" aria-label="Buscar por el nombre del titular"
                                         onclick="event.stopPropagation(); window.eqVentanaAbrir('titularVentana')"><i class="material-icons">search</i></button>
+                                <span class="adv-filtro-chip adv-filter-eq-only {{ request('titular') ? 'activo' : '' }}" data-filtro-de="titularAdvFilter">
+                                    <span data-filtro-texto title="{{ request('titular') }}">{{ request('titular') }}</span>
+                                    <i class="material-icons" title="Quitar filtro" onclick="event.stopPropagation(); window.eqTextoLimpiar('titularAdvFilter', true)">close</i>
+                                </span>
                             </div>
 
                             <div class="adv-check-con-lupa adv-filter-eq-only">
@@ -678,6 +683,10 @@
                                         data-filtro-de="aseguradoraAdvFilter"
                                         title="Buscar por la aseguradora de la póliza" aria-label="Buscar por la aseguradora de la póliza"
                                         onclick="event.stopPropagation(); window.eqVentanaAbrir('aseguradoraVentana')"><i class="material-icons">search</i></button>
+                                <span class="adv-filtro-chip {{ request('aseguradora') ? 'activo' : '' }}" data-filtro-de="aseguradoraAdvFilter">
+                                    <span data-filtro-texto title="{{ request('aseguradora') }}">{{ request('aseguradora') }}</span>
+                                    <i class="material-icons" title="Quitar filtro" onclick="event.stopPropagation(); window.eqTextoLimpiar('aseguradoraAdvFilter', true)">close</i>
+                                </span>
                             </div>
 
                             <label for="chk_rotc" class="adv-check adv-filter-eq-only">

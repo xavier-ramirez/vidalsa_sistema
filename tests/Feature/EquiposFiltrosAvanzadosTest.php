@@ -145,6 +145,34 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
             'La aseguradora sale en las sugerencias de su ventana.');
     }
 
+    public function test_la_lista_del_titular_se_acota_con_los_demas_filtros(): void
+    {
+        $fila = DB::table('documentacion')->join('equipos', 'equipos.ID_EQUIPO', '=', 'documentacion.ID_EQUIPO')
+            ->whereNull('equipos.deleted_at')->whereNotNull('equipos.id_tipo_equipo')->whereNotNull('equipos.MARCA')
+            ->where('equipos.MARCA', '!=', '')->select('documentacion.ID_EQUIPO', 'equipos.MARCA')->first();
+        DB::table('documentacion')->where('ID_EQUIPO', $fila->ID_EQUIPO)->update(['NOMBRE_DEL_TITULAR' => 'TITULAR PRUEBA-QW8, C.A']);
+
+        $user = $this->superAdminGlobal();
+        $pedir = fn (array $q) => $this->actingAs($user)->getJson(route('equipos.opcionesDocumento', $q))->assertOk()->json();
+        $this->assertContains('TITULAR PRUEBA-QW8, C.A', $pedir(['campo' => 'titular', 'marca' => $fila->MARCA]),
+            'Con la marca de su equipo sale.');
+        $this->assertNotContains('TITULAR PRUEBA-QW8, C.A', $pedir(['campo' => 'titular', 'marca' => 'MARCA-QUE-NO-EXISTE-QW8']),
+            'Con otra marca no: elegirlo daría 0.');
+        $this->assertContains('TITULAR PRUEBA-QW8, C.A', $pedir(['campo' => 'titular', 'titular' => 'OTRO NOMBRE']),
+            'Su propio filtro no la acota (si no, solo quedaría lo aplicado).');
+        $this->actingAs($user)->getJson(route('equipos.opcionesDocumento', ['campo' => 'MARCA']))->assertStatus(422);
+    }
+
+    public function test_el_nombre_aplicado_sale_en_el_panel_con_su_x(): void
+    {
+        $panel = $this->panel((string) $this->actingAs($this->superAdminGlobal())
+            ->get(route('equipos.index', ['titular' => 'CAVA FRESCA']))->assertOk()->getContent());
+        $this->assertMatchesRegularExpression('/class="adv-filtro-chip adv-filter-eq-only activo" data-filtro-de="titularAdvFilter">\s*<span data-filtro-texto title="CAVA FRESCA">CAVA FRESCA<\/span>/', $panel);
+        $this->assertStringContainsString("window.eqTextoLimpiar('titularAdvFilter', true)\">close</i>", $panel);
+        $this->assertMatchesRegularExpression('/class="adv-filtro-chip " data-filtro-de="aseguradoraAdvFilter"/', $panel,
+            'La de aseguradora, sin filtro, no se ve.');
+    }
+
     public function test_ventana_abre_vacia_con_lo_aplicado_de_fondo(): void
     {
         $panel = $this->panel((string) $this->actingAs($this->superAdminGlobal())

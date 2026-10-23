@@ -1375,8 +1375,13 @@ function _eqTextoMarcar(dd, valor) {
         const x = caja.querySelector('[data-clear-btn]');
         if (x) x.style.display = valor !== '' ? 'block' : 'none';
     }
-    // Lo que se marca mientras el filtro esté puesto: su lupa y el «Quitar filtro» de su ventana.
-    document.querySelectorAll('[data-filtro-de="' + dd.id + '"]').forEach(b => b.classList.toggle('activo', valor !== ''));
+    // Lo que se marca mientras el filtro esté puesto: su lupa, el «Quitar filtro» de su ventana y,
+    // en el panel, el nombre aplicado con su X.
+    document.querySelectorAll('[data-filtro-de="' + dd.id + '"]').forEach(b => {
+        b.classList.toggle('activo', valor !== '');
+        const texto = b.querySelector('[data-filtro-texto]');
+        if (texto) { texto.textContent = valor; texto.title = valor; }
+    });
     return inp;
 }
 // Sugerencias: se abren al entrar en la casilla y se filtran con lo que se escribe
@@ -1420,6 +1425,9 @@ window.eqTextosLimpiar = function () {
 // cierra con su X, Esc, un clic fuera o al elegir, y el panel vuelve. Cerrarla NO quita el filtro
 // (lo quita «Quitar filtro» o «Limpiar»). El onclick de las lupas corta la propagación: el clic
 // global de uicomponents cierra los desplegables y cerraba la lista recién abierta por el focus.
+// Al abrir pide la lista a data-url con los filtros de ese momento (opcionesDocumento del
+// controlador): solo los nombres que existen con ellos, para que el filtro se combine con los demás.
+// Mientras llega se ve la anterior; sin conexión (modo offline) se queda esa.
 window.eqVentanaAbrir = function (id) {
     const ventana = document.getElementById(id);
     const inp = ventana?.querySelector('input[type="text"]');
@@ -1427,6 +1435,28 @@ window.eqVentanaAbrir = function (id) {
     ventana.hidden = false;
     inp.value = '';
     inp.focus();
+
+    const lista = ventana.querySelector('.dropdown-item-list');
+    if (!lista || !ventana.dataset.url) return;
+    const params = new URLSearchParams();
+    Object.entries(window.eqFiltrosActivos()).forEach(([k, v]) => { if (v) params.append(k, v); });
+    const pedida = ventana._eqPedida = {};   // si se reabre antes de que llegue, gana la última
+    fetch(ventana.dataset.url + '&' + params.toString(), { headers: { 'Accept': 'application/json' } })
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(nombres => {
+            if (ventana._eqPedida !== pedida || !Array.isArray(nombres)) return;
+            lista.replaceChildren(...nombres.map(n => {
+                const item = document.createElement('div');
+                item.className = 'dropdown-item';
+                item.dataset.value = n;
+                item.title = n;
+                item.textContent = n;
+                item.onclick = function () { window.eqTextoElegir(this); };
+                return item;
+            }));
+            if (!ventana.hidden) window.filterDropdownOptions(inp);   // respeta lo ya escrito
+        })
+        .catch(() => {});
 };
 window.eqVentanaCerrar = function (id) {
     const ventana = document.getElementById(id);

@@ -21,7 +21,14 @@
     #advancedFilterPanel .eq-ventana-filtro .dropdown-item { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* «Título» y «Póliza» con su lupa al lado (abre su ventana, partials/ventana_filtro_lista).
        Azul = ese filtro está puesto. */
-    #advancedFilterPanel .adv-check-con-lupa { display: flex; align-items: center; gap: 6px; }
+    #advancedFilterPanel .adv-check-con-lupa { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    /* Debajo, con el filtro puesto: el nombre aplicado y su X (lo quita sin abrir la ventana). */
+    #advancedFilterPanel .adv-filtro-chip { display: none; flex-basis: 100%; min-width: 0; align-items: center; gap: 2px;
+        padding: 2px 4px 2px 8px; border-radius: 6px; background: #eff6ff; color: var(--maquinaria-blue); font-size: 11px; font-weight: 600; }
+    #advancedFilterPanel .adv-filtro-chip.activo { display: flex; }
+    #advancedFilterPanel .adv-filtro-chip [data-filtro-texto] { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #advancedFilterPanel .adv-filtro-chip .material-icons { font-size: 15px; color: #94a3b8; cursor: pointer; }
+    #advancedFilterPanel .adv-filtro-chip .material-icons:hover { color: #334155; }
     #advancedFilterPanel .adv-lupa { display: flex; align-items: center; padding: 0; border: none; background: none; color: #64748b; cursor: pointer; }
     #advancedFilterPanel .adv-lupa .material-icons { font-size: 17px; }
     #advancedFilterPanel .adv-lupa:hover,

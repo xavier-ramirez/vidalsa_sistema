@@ -1017,17 +1017,9 @@ class EquipoController extends Controller
                 ->orderBy('DETALLE_UBICACION_ACTUAL', 'asc')->pluck('DETALLE_UBICACION_ACTUAL');
         });
 
-        // Sugerencias del filtro «Titular»: los nombres ya escritos en los títulos de equipos que
-        // existen (Equipo::query() deja fuera los eliminados: su titular daría 0 resultados). Sin
-        // caché: son pocas filas y así un titular recién corregido aparece enseguida.
-        $availableTitulares = \App\Models\Documentacion::query()->distinct()
-            ->whereIn('ID_EQUIPO', Equipo::query()->select('ID_EQUIPO'))
-            ->whereNotNull('NOMBRE_DEL_TITULAR')->where('NOMBRE_DEL_TITULAR', '!=', '')
-            ->orderBy('NOMBRE_DEL_TITULAR')->pluck('NOMBRE_DEL_TITULAR');
-        // Y las del filtro «Aseguradora»: las del catálogo que tiene alguna póliza de esos equipos.
-        $availableAseguradoras = \App\Models\CatalogoSeguro::query()
-            ->whereHas('documentaciones', fn ($q) => $q->whereIn('ID_EQUIPO', Equipo::query()->select('ID_EQUIPO')))
-            ->orderBy('NOMBRE_ASEGURADORA')->pluck('NOMBRE_ASEGURADORA');
+        // Listas de las ventanas «Titular» y «Aseguradora», ya acotadas por los filtros de la URL.
+        $availableTitulares = $this->opcionesDocumento('titular', $request);
+        $availableAseguradoras = $this->opcionesDocumento('aseguradora', $request);
 
         $auxMarcas = \Illuminate\Support\Facades\Cache::remember('aux_marcas_dropdown', 1200, function () {
             return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('MARCA')->where('MARCA', '!=', '')->orderBy('MARCA', 'asc')->pluck('MARCA');
@@ -1495,6 +1487,50 @@ class EquipoController extends Controller
             ->get();
 
         return response()->json($results);
+    }
+
+    /**
+     * Nombres que ofrecen las ventanas «Titular» (documentacion.NOMBRE_DEL_TITULAR) y
+     * «Aseguradora» (catalogo_seguros de la póliza): solo los de los equipos que deja la tabla con
+     * los DEMÁS filtros puestos (frente, tipo, marca, búsqueda, el otro de los dos…), para que lo
+     * elegido se combine con ellos y nunca dé 0. Su propio eje no cuenta: si no, la lista se
+     * quedaría con el nombre ya aplicado. Equipo::query() deja fuera los eliminados. Sin caché: un
+     * titular recién corregido aparece enseguida.
+     */
+    private function opcionesDocumento(string $campo, Request $request)
+    {
+        // Con su eje "puesto" (el valor no se usa: va en $exclude) para mirar el mismo universo que
+        // la tabla tendrá al elegir un nombre: un filtro concreto incluye los frentes fuera de la
+        // flota (tieneFiltroEspecifico), y sin esto faltarían los titulares de los vendidos.
+        $request = $request->duplicate();
+        $request->merge([$campo => '*']);
+        $equipos = Equipo::query();
+        $this->applyEquipoFilters($equipos, $request, [$campo]);
+        if (!$request->filled('ids_in')) {
+            $this->applyBusquedaTexto($equipos, $request->input('search_query'));
+        }
+        $ids = $equipos->select('equipos.ID_EQUIPO');
+
+        if ($campo === 'titular') {
+            return \App\Models\Documentacion::query()->distinct()
+                ->whereIn('ID_EQUIPO', $ids)
+                ->whereNotNull('NOMBRE_DEL_TITULAR')->where('NOMBRE_DEL_TITULAR', '!=', '')
+                ->orderBy('NOMBRE_DEL_TITULAR')->pluck('NOMBRE_DEL_TITULAR');
+        }
+        return \App\Models\CatalogoSeguro::query()
+            ->whereHas('documentaciones', fn ($q) => $q->whereIn('ID_EQUIPO', $ids))
+            ->orderBy('NOMBRE_ASEGURADORA')->pluck('NOMBRE_ASEGURADORA');
+    }
+
+    // GET equipos/opciones-documento?campo=titular|aseguradora&<filtros>: la lista de la ventana
+    // al abrirla con la lupa, con los filtros que haya en ese momento (eqVentanaAbrir).
+    public function opcionesDocumentoJson(Request $request)
+    {
+        $campo = $request->input('campo');
+        if (!in_array($campo, ['titular', 'aseguradora'], true)) {
+            return response()->json([], 422);
+        }
+        return response()->json($this->opcionesDocumento($campo, $request)->values());
     }
 
     public function searchField(Request $request)
