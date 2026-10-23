@@ -15,33 +15,44 @@
     #advancedFilterPanel .dropdown-content { padding: 5px; max-height: none; overflow: visible; z-index: 1000; }
     #advancedFilterPanel .adv-check { display: flex; align-items: center; font-size: 13px; color: #334155; cursor: pointer; }
     #advancedFilterPanel .adv-check input { margin-right: 8px; accent-color: var(--maquinaria-blue); }
-    /* Sugerencias del Detalle: textos largos en UNA línea con «…» (el completo, al pasar el mouse);
-       partidos en varias se montaban sobre la sugerencia siguiente. */
+    /* Sugerencias del Detalle y de las ventanas: textos largos en UNA línea con «…» (el completo, al
+       pasar el mouse); partidos en varias se montaban sobre la sugerencia siguiente. */
     #advancedFilterPanel #detalleAdvFilter .dropdown-item,
-    #advancedFilterPanel #titularAdvFilter .dropdown-item { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    /* «Título» con su lupa al lado (abre la ventana #titularModal). Azul = hay un titular puesto. */
+    #advancedFilterPanel .eq-ventana-filtro .dropdown-item { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* «Título» y «Póliza» con su lupa al lado (abre su ventana, partials/ventana_filtro_lista).
+       Azul = ese filtro está puesto. */
     #advancedFilterPanel .adv-check-con-lupa { display: flex; align-items: center; gap: 6px; }
     #advancedFilterPanel .adv-lupa { display: flex; align-items: center; padding: 0; border: none; background: none; color: #64748b; cursor: pointer; }
     #advancedFilterPanel .adv-lupa .material-icons { font-size: 17px; }
     #advancedFilterPanel .adv-lupa:hover,
     #advancedFilterPanel .adv-lupa.activo { color: var(--maquinaria-blue); }
-    /* Ventana «Nombre del titular» (la abre la lupa): en el centro de la pantalla, sobre un velo. */
-    #advancedFilterPanel .eq-titular-modal { position: fixed; inset: 0; z-index: 2000; background: rgba(15,23,42,.45);
-                                             display: flex; align-items: center; justify-content: center; }
-    #advancedFilterPanel .eq-titular-modal[hidden] { display: none; }
-    /* Con la ventana abierta el panel se esconde, y vuelve al cerrarla: lo decide SOLO si la ventana
-       está abierta (:has), sin una clase aparte que pudiera quedarse puesta. visibility y no display:
-       la ventana está DENTRO del panel y se vuelve a hacer visible sola. */
-    #advancedFilterPanel:has(.eq-titular-modal:not([hidden])) { visibility: hidden; }
-    #advancedFilterPanel .eq-titular-modal:not([hidden]) { visibility: visible; }
-    #advancedFilterPanel .eq-titular-caja { width: min(380px, calc(100vw - 32px)); background: #fff; border-radius: 12px;
+    /* Ventana de filtro con lista (la abre una lupa): en el centro de la pantalla, sobre un velo. */
+    #advancedFilterPanel .eq-ventana-filtro { position: fixed; inset: 0; z-index: 2000; background: rgba(15,23,42,.45);
+                                              display: flex; align-items: center; justify-content: center; }
+    #advancedFilterPanel .eq-ventana-filtro[hidden] { display: none; }
+    /* Con una ventana abierta el panel se esconde, y vuelve al cerrarla: lo decide SOLO si hay una
+       abierta (:has), sin una clase aparte que pudiera quedarse puesta. visibility y no display: la
+       ventana está DENTRO del panel y se vuelve a hacer visible sola. */
+    #advancedFilterPanel:has(.eq-ventana-filtro:not([hidden])) { visibility: hidden; }
+    #advancedFilterPanel .eq-ventana-filtro:not([hidden]) { visibility: visible; }
+    #advancedFilterPanel .eq-ventana-caja { width: min(380px, calc(100vw - 32px)); background: #fff; border-radius: 12px;
                                             padding: 14px; box-shadow: 0 25px 50px -12px rgba(0,0,0,.25); }
-    #advancedFilterPanel .eq-titular-head { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px;
+    #advancedFilterPanel .eq-ventana-head { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px;
                                             margin-bottom: 10px; font-size: 14px; font-weight: 700; color: #334155; }
-    #advancedFilterPanel .eq-titular-head .material-icons { font-size: 18px; color: var(--maquinaria-blue); }
-    #advancedFilterPanel .eq-titular-x { position: absolute; right: 0; display: flex; padding: 0; border: none; background: none; cursor: pointer; }
-    #advancedFilterPanel .eq-titular-x .material-icons { color: #94a3b8; }
-    #advancedFilterPanel .eq-titular-x:hover .material-icons { color: #334155; }
+    #advancedFilterPanel .eq-ventana-head .material-icons { font-size: 18px; color: var(--maquinaria-blue); }
+    #advancedFilterPanel .eq-ventana-x { position: absolute; right: 0; display: flex; padding: 0; border: none; background: none; cursor: pointer; }
+    #advancedFilterPanel .eq-ventana-x .material-icons { color: #94a3b8; }
+    #advancedFilterPanel .eq-ventana-x:hover .material-icons { color: #334155; }
+    /* Lo aplicado va de texto de fondo: más oscuro que un «escribe aquí» para que se lea. */
+    #advancedFilterPanel .eq-ventana-filtro .filter-active input[type="text"]::placeholder { color: #334155; font-weight: 600; }
+    /* La X de la casilla solo borra lo escrito: se ve solo con algo escrito. */
+    #advancedFilterPanel .eq-ventana-borrar { padding: 0 5px; color: #94a3b8; font-size: 16px; cursor: pointer; }
+    #advancedFilterPanel .eq-ventana-filtro input[type="text"]:placeholder-shown ~ .eq-ventana-borrar { display: none; }
+    /* «Quitar filtro»: solo con el filtro puesto (lo marca _eqTextoMarcar con .activo). */
+    #advancedFilterPanel .eq-ventana-quitar { display: none; align-items: center; gap: 4px; margin: 10px auto 0; padding: 0;
+                                              border: none; background: none; color: #b91c1c; font-size: 12px; font-weight: 600; cursor: pointer; }
+    #advancedFilterPanel .eq-ventana-quitar.activo { display: flex; }
+    #advancedFilterPanel .eq-ventana-quitar .material-icons { font-size: 16px; }
 
     /* ── Panel de Filtros Avanzados en MOBILE: ancho comodo para ver estatus completo ── */
     @media (max-width: 768px) {

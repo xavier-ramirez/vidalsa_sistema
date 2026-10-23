@@ -101,6 +101,7 @@
             combustible: v('input[name="combustible"]', panel),
             detalle:    v('input[name="detalle"]', panel),
             titular:    v('input[name="titular"]', panel),
+            aseguradora: v('input[name="aseguradora"]', panel),
             confirmado: v('input[name="confirmado"]', panel),
             docs:       ['chk_propiedad', 'chk_poliza', 'chk_rotc', 'chk_racda', 'chk_adicional', 'chk_adicional_2'].filter(chk),
         };
@@ -111,13 +112,13 @@
     // el filled() de Laravel — es la forma de pedir el listado completo a propósito.
     function hayFiltro(f) {
         return !!(f.q || f.frente || f.tipo || f.modelo || f.marca || f.ubicacion || f.anio ||
-                  f.categoria || f.estado || f.gps || f.color || f.combustible || f.detalle || f.titular || f.confirmado || f.docs.length);
+                  f.categoria || f.estado || f.gps || f.color || f.combustible || f.detalle || f.titular || f.aseguradora || f.confirmado || f.docs.length);
     }
 
     // Réplica de tieneFiltroEspecifico(): decide si los frentes ESPECIAL se ocultan. Un TIPO
     // concreto cuenta (no 'all' ni uno de auxiliar), como en el servidor.
     function filtroEspecifico(f) {
-        if (f.q || f.modelo || f.marca || f.ubicacion || f.detalle || f.titular || f.combustible || f.anio || f.categoria || f.estado || f.color) return true;
+        if (f.q || f.modelo || f.marca || f.ubicacion || f.detalle || f.titular || f.aseguradora || f.combustible || f.anio || f.categoria || f.estado || f.color) return true;
         if (f.tipo && f.tipo !== 'all' && f.tipo.indexOf('tipo_aux:') !== 0) return true;
         if (['SI', 'NO'].indexOf(up(f.gps)) >= 0) return true;
         if (['SI', 'NO'].indexOf(up(f.confirmado)) >= 0) return true;
@@ -129,7 +130,7 @@
         return f.tipo.indexOf('tipo_aux:') === 0 || up(f.categoria) === 'AUXILIARES';
     }
 
-    // Ejes que el snapshot no trae (LINK_GPS, los LINK_* de documentos y el titular del título). Se avisan
+    // Ejes que el snapshot no trae (LINK_GPS, los LINK_* de documentos, el titular del título y la aseguradora). Se avisan
     // en vez de ignorarlos calladamente: si no, el listado offline saldría MÁS grande que
     // el online y parecería que el filtro "no hace nada".
     function ejesNoSoportados(f) {
@@ -137,6 +138,7 @@
         if (f.gps) faltan.push('GPS');
         if (f.docs.length) faltan.push('documentos');
         if (f.titular) faltan.push('titular');
+        if (f.aseguradora) faltan.push('aseguradora');
         if (window.__equiposDocPresence && window.__equiposDocPresence !== 'con') faltan.push('documentos');
         return faltan.filter(function (x, i, a) { return a.indexOf(x) === i; });
     }

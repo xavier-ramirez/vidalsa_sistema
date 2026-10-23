@@ -122,7 +122,7 @@ class EquipoController extends Controller
         if ($this->tipoEquipoPedido($request) !== null) {
             return true;
         }
-        foreach (['modelo', 'marca', 'detalle_ubicacion', 'detalle', 'titular', 'combustible', 'anio', 'categoria', 'estado', 'color'] as $p) {
+        foreach (['modelo', 'marca', 'detalle_ubicacion', 'detalle', 'titular', 'aseguradora', 'combustible', 'anio', 'categoria', 'estado', 'color'] as $p) {
             if ($request->filled($p)) {
                 return true;
             }
@@ -263,12 +263,18 @@ class EquipoController extends Controller
             $query->where('DETALLE_UBICACION_ACTUAL', 'like', '%' . addcslashes(trim($request->detalle), '%_\\') . '%');
         }
 
-        // Titular: el nombre escrito en el TÍTULO de propiedad (documentacion.NOMBRE_DEL_TITULAR),
-        // elegido de la lista de los que ya hay (lupa junto a «Título» en el panel). Contiene,
-        // como Detalle. Los auxiliares no guardan titular: es un filtro solo de equipos.
+        // Titular y aseguradora: se eligen de la lista de los que ya hay (lupas de «Título» y
+        // «Póliza» en el panel) y buscan el que CONTENGA lo elegido, como Detalle. El titular es
+        // documentacion.NOMBRE_DEL_TITULAR; la aseguradora, el nombre en catalogo_seguros de la
+        // póliza (documentacion.ID_SEGURO). Los auxiliares no guardan ninguno: solo equipos.
+        $contiene = fn (string $texto) => '%' . addcslashes(trim($texto), '%_\\') . '%';
         if (!in_array('titular', $exclude) && $request->filled('titular') && trim($request->titular) !== '') {
-            $titular = '%' . addcslashes(trim($request->titular), '%_\\') . '%';
+            $titular = $contiene($request->titular);
             $query->whereHas('documentacion', fn ($q) => $q->where('NOMBRE_DEL_TITULAR', 'like', $titular));
+        }
+        if (!in_array('aseguradora', $exclude) && $request->filled('aseguradora') && trim($request->aseguradora) !== '') {
+            $aseguradora = $contiene($request->aseguradora);
+            $query->whereHas('documentacion.seguro', fn ($q) => $q->where('NOMBRE_ASEGURADORA', 'like', $aseguradora));
         }
 
         if (!in_array('anio', $exclude) && $request->filled('anio') && trim($request->anio) !== '') {
@@ -399,7 +405,7 @@ class EquipoController extends Controller
      * True si los filtros apuntan SOLO a equipos → NO se muestran/exportan auxiliares ni su
      * card. El FRENTE no cuenta (agrupa equipos Y auxiliares). Dos motivos de enfoque:
      *  (a) atributo de DISPOSITIVO: tipo, modelo, marca, color, GPS, combustible, detalle
-     *      escrito, titular del título o categoría de flota (el año NO: es eje compartido,
+     *      escrito, titular del título, aseguradora o categoría de flota (el año NO: es eje compartido,
      *      los auxiliares también lo tienen).
      *  (b) documento que SOLO existe en equipos (póliza/ROTC/RACDA/compraventa): un auxiliar
      *      no puede cumplirlo. Se deriva de DOC_FILTER_COLS menos los DOCS COMPARTIDOS
@@ -422,6 +428,7 @@ class EquipoController extends Controller
             || $request->filled('combustible')
             || $request->filled('detalle')
             || $request->filled('titular')
+            || $request->filled('aseguradora')
             || ($categoriaSel !== '' && $categoriaSel !== 'AUXILIARES');
         // Documentos solo-equipos activos = los doc filters activos (detector canónico
         // activeDocFilters, criterio === 'true') MENOS los DOCS COMPARTIDOS (propiedad y
@@ -1017,6 +1024,10 @@ class EquipoController extends Controller
             ->whereIn('ID_EQUIPO', Equipo::query()->select('ID_EQUIPO'))
             ->whereNotNull('NOMBRE_DEL_TITULAR')->where('NOMBRE_DEL_TITULAR', '!=', '')
             ->orderBy('NOMBRE_DEL_TITULAR')->pluck('NOMBRE_DEL_TITULAR');
+        // Y las del filtro «Aseguradora»: las del catálogo que tiene alguna póliza de esos equipos.
+        $availableAseguradoras = \App\Models\CatalogoSeguro::query()
+            ->whereHas('documentaciones', fn ($q) => $q->whereIn('ID_EQUIPO', Equipo::query()->select('ID_EQUIPO')))
+            ->orderBy('NOMBRE_ASEGURADORA')->pluck('NOMBRE_ASEGURADORA');
 
         $auxMarcas = \Illuminate\Support\Facades\Cache::remember('aux_marcas_dropdown', 1200, function () {
             return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('MARCA')->where('MARCA', '!=', '')->orderBy('MARCA', 'asc')->pluck('MARCA');
@@ -1033,7 +1044,7 @@ class EquipoController extends Controller
         // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
         // return JSON), así están disponibles tanto para el AJAX como para esta vista.
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'marcasPorTipo', 'modelosPorTipo', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteFueraDeFlota', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableDetalles', 'availableTitulares', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'marcasPorTipo', 'modelosPorTipo', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteFueraDeFlota', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableDetalles', 'availableTitulares', 'availableAseguradoras', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
     }
 
     public function export(Request $request)

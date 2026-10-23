@@ -126,6 +126,38 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
         $this->assertStringNotContainsString('TITULAR PRUEBA-QW7', $panel, 'Sin sugerencias de equipos eliminados.');
     }
 
+    public function test_filtro_aseguradora_trae_solo_las_polizas_de_esa_aseguradora(): void
+    {
+        $seguro = DB::table('catalogo_seguros')->join('documentacion', 'documentacion.ID_SEGURO', '=', 'catalogo_seguros.ID_SEGURO')
+            ->join('equipos', 'equipos.ID_EQUIPO', '=', 'documentacion.ID_EQUIPO')->whereNull('equipos.deleted_at')
+            ->value('catalogo_seguros.NOMBRE_ASEGURADORA');
+        $this->assertNotNull($seguro, 'Hace falta alguna póliza con aseguradora.');
+
+        $user = $this->superAdminGlobal();
+        $r = $this->actingAs($user)->get(route('equipos.index', ['aseguradora' => $seguro]))->assertOk();
+        $ids = collect($r->viewData('equipos'))->pluck('ID_EQUIPO')->map(fn ($v) => (int) $v)->all();
+        $this->assertNotEmpty($ids);
+        $nombres = DB::table('documentacion')->join('catalogo_seguros', 'catalogo_seguros.ID_SEGURO', '=', 'documentacion.ID_SEGURO')
+            ->whereIn('documentacion.ID_EQUIPO', $ids)->distinct()->pluck('NOMBRE_ASEGURADORA')->all();
+        $this->assertSame([$seguro], $nombres, 'Solo equipos con póliza de esa aseguradora.');
+        $r->assertSee('btn-filtro-avanzado activo', false);
+        $this->assertStringContainsString('onclick="window.eqTextoElegir(this)">' . e($seguro) . '</div>', $this->panel((string) $r->getContent()),
+            'La aseguradora sale en las sugerencias de su ventana.');
+    }
+
+    public function test_ventana_abre_vacia_con_lo_aplicado_de_fondo(): void
+    {
+        $panel = $this->panel((string) $this->actingAs($this->superAdminGlobal())
+            ->get(route('equipos.index', ['titular' => 'CAVA FRESCA']))->assertOk()->getContent());
+        // Como el filtro Frente: casilla vacía y lo aplicado como texto de fondo, para escribir encima.
+        $this->assertStringContainsString('<input type="hidden" name="titular" value="CAVA FRESCA">', $panel);
+        $this->assertStringContainsString('<input type="text" value="" placeholder="CAVA FRESCA"', $panel);
+        $this->assertMatchesRegularExpression('/class="eq-ventana-quitar activo" data-filtro-de="titularAdvFilter"/', $panel,
+            '«Quitar filtro» se ve con el titular puesto.');
+        $this->assertMatchesRegularExpression('/class="eq-ventana-quitar " data-filtro-de="aseguradoraAdvFilter"/', $panel,
+            'y no en la de aseguradora, que no está puesta.');
+    }
+
     public function test_detalle_sugiere_los_textos_escritos_y_se_actualiza_al_guardar_uno(): void
     {
         $user = $this->superAdminGlobal();

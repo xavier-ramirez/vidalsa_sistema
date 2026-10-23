@@ -1320,6 +1320,7 @@ window.eqFiltrosActivos = function () {
         combustible: getVal('input[name="combustible"]', advancedPanel || document),
         detalle: getVal('input[name="detalle"]', advancedPanel || document),
         titular: getVal('input[name="titular"]', advancedPanel || document),
+        aseguradora: getVal('input[name="aseguradora"]', advancedPanel || document),
         confirmado: getVal('input[name="confirmado"]', advancedPanel || document),
         filter_propiedad: document.getElementById("chk_propiedad")?.checked
             ? "true"
@@ -1347,17 +1348,26 @@ window.eqFiltrosActivos = function () {
     };
 };
 
-// Filtros de TEXTO CON LISTA del panel: «Detalle» (#detalleAdvFilter) y «Titular» del título
-// (#titularAdvFilter). Se escribe para buscar en la lista de lo ya escrito y el filtro se aplica
-// SOLO al elegir uno de la lista (clic o Enter = el primero visible). El valor aplicado vive en el
-// input oculto del desplegable (name="detalle" / name="titular", el que leen loadEquipos y el modo
-// offline); la casilla de texto es solo el buscador y, al salir de ella, vuelve a mostrar lo aplicado.
+// Filtros de TEXTO CON LISTA: «Detalle» del panel (#detalleAdvFilter) y los de las ventanas que abren
+// las lupas de «Documentación Cargada» (#titularAdvFilter, #aseguradoraAdvFilter;
+// partials/ventana_filtro_lista). Se escribe para buscar en la lista de lo ya escrito y el filtro se
+// aplica SOLO al elegir uno de la lista (clic o Enter = el primero visible). El valor aplicado vive
+// en el input oculto del desplegable (name="detalle" / "titular" / "aseguradora", el que leen
+// loadEquipos y el modo offline).
+//   · Detalle: la casilla muestra lo aplicado y, al salir de ella sin elegir, vuelve a mostrarlo.
+//   · Ventanas (casilla con data-placeholder): como el filtro Frente, la casilla queda VACÍA y lo
+//     aplicado va de texto de fondo, para escribir encima sin borrar nada.
 function _eqTextoMarcar(dd, valor) {
     const inp = dd && dd.querySelector('input[type="text"]');
     const oculto = dd && dd.querySelector('input[type="hidden"]');
     if (!inp || !oculto) return null;
     oculto.value = valor;
-    inp.value = valor;
+    if (inp.dataset.placeholder !== undefined) {
+        inp.value = '';
+        inp.placeholder = valor || inp.dataset.placeholder;
+    } else {
+        inp.value = valor;
+    }
     dd.classList.remove('active');
     const caja = inp.closest('.adv-trigger');
     if (caja) {
@@ -1365,7 +1375,7 @@ function _eqTextoMarcar(dd, valor) {
         const x = caja.querySelector('[data-clear-btn]');
         if (x) x.style.display = valor !== '' ? 'block' : 'none';
     }
-    // El botón que abre este filtro desde fuera (la lupa de «Título») se marca mientras esté puesto.
+    // Lo que se marca mientras el filtro esté puesto: su lupa y el «Quitar filtro» de su ventana.
     document.querySelectorAll('[data-filtro-de="' + dd.id + '"]').forEach(b => b.classList.toggle('activo', valor !== ''));
     return inp;
 }
@@ -1380,7 +1390,8 @@ window.eqTextoSugerir = function (inp) {
 };
 window.eqTextoElegir = function (item) {
     if (!_eqTextoMarcar(item.closest('.custom-dropdown'), item.dataset.value)) return;
-    if (item.closest('#titularModal')) window.eqTitularCerrar();   // elegir un titular cierra su ventana
+    const ventana = item.closest('.eq-ventana-filtro');
+    if (ventana) window.eqVentanaCerrar(ventana.id);   // elegir en una ventana la cierra
     window.loadEquipos();
 };
 window.eqTextoEnter = function (inp) {
@@ -1388,8 +1399,8 @@ window.eqTextoEnter = function (inp) {
         .find(it => it.style.display !== 'none');
     if (primero) window.eqTextoElegir(primero);
 };
-// Al salir sin elegir, lo escrito no filtra: la casilla vuelve a lo aplicado. Con espera para que
-// el clic en una sugerencia (que llega después del blur) se procese antes.
+// Detalle: al salir sin elegir, lo escrito no filtra y la casilla vuelve a lo aplicado. Con espera
+// para que el clic en una sugerencia (que llega después del blur) se procese antes.
 window.eqTextoRestaurar = function (inp) {
     setTimeout(function () {
         const oculto = inp.closest('.custom-dropdown')?.querySelector('input[type="hidden"]');
@@ -1400,34 +1411,30 @@ window.eqTextoRestaurar = function (inp) {
 window.eqTextoLimpiar = function (id, recargar) {
     if (_eqTextoMarcar(document.getElementById(id), '') && recargar) window.loadEquipos();
 };
-// Los dos a la vez: lo usan «Limpiar» y el paso a modo auxiliar (ninguno de los dos aplica allí).
+// Todos a la vez: lo usan «Limpiar» y el paso a modo auxiliar (ninguno aplica a auxiliares).
 window.eqTextosLimpiar = function () {
-    window.eqTextoLimpiar('detalleAdvFilter', false);
-    window.eqTextoLimpiar('titularAdvFilter', false);
+    ['detalleAdvFilter', 'titularAdvFilter', 'aseguradoraAdvFilter'].forEach(id => window.eqTextoLimpiar(id, false));
 };
-// La lupa junto a «Título» abre la ventana «Nombre del titular» en el centro de la pantalla, con la
-// lista ya desplegada, y el panel de Filtros Avanzados se esconde mientras tanto (lo hace el CSS con
-// :has, admin_equipos_index.css). Al cerrarla —X, Esc, clic fuera o elegir un nombre— el panel
-// vuelve a verse. Cerrarla NO quita el titular puesto (lo quita su X o «Limpiar»);
-// la lupa queda azul mientras haya uno. El onclick de la lupa corta la propagación: el clic global
-// de uicomponents cierra los desplegables y cerraba la lista recién abierta por el focus.
-// Se abre con la casilla VACÍA: con el titular aplicado escrito, la lista salía filtrada a ese solo
-// nombre. Al cerrar, la casilla vuelve a mostrar lo aplicado (como eqTextoRestaurar).
-window.eqTitularAbrir = function () {
-    const ventana = document.getElementById('titularModal');
+// Las lupas de «Documentación Cargada» abren su ventana en el centro de la pantalla con la lista ya
+// desplegada; el panel se esconde mientras tanto (el CSS con :has, admin_equipos_index.css). Se
+// cierra con su X, Esc, un clic fuera o al elegir, y el panel vuelve. Cerrarla NO quita el filtro
+// (lo quita «Quitar filtro» o «Limpiar»). El onclick de las lupas corta la propagación: el clic
+// global de uicomponents cierra los desplegables y cerraba la lista recién abierta por el focus.
+window.eqVentanaAbrir = function (id) {
+    const ventana = document.getElementById(id);
     const inp = ventana?.querySelector('input[type="text"]');
     if (!inp) return;
     ventana.hidden = false;
     inp.value = '';
     inp.focus();
 };
-window.eqTitularCerrar = function () {
-    const ventana = document.getElementById('titularModal');
-    const dd = document.getElementById('titularAdvFilter');
-    if (!ventana || !dd) return;
+window.eqVentanaCerrar = function (id) {
+    const ventana = document.getElementById(id);
+    if (!ventana) return;
     ventana.hidden = true;
-    dd.classList.remove('active');
-    dd.querySelector('input[type="text"]').value = dd.querySelector('input[type="hidden"]').value;
+    ventana.querySelector('.custom-dropdown')?.classList.remove('active');
+    const inp = ventana.querySelector('input[type="text"]');
+    if (inp) inp.value = '';
 };
 
 // Botón de Filtros Avanzados en ROJO (.activo, el componente .btn-filtro-avanzado de
@@ -1438,7 +1445,7 @@ window.eqPintarBotonFiltros = function (filters) {
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (!btnAdv) return;
     const f = filters || window.eqFiltrosActivos();
-    btnAdv.classList.toggle('activo', !!(f.modelo || f.marca || f.anio || f.categoria || f.estado || f.gps || f.color || f.combustible || f.detalle || f.titular || f.confirmado || f.filter_propiedad || f.filter_poliza || f.filter_rotc || f.filter_racda || f.filter_adicional || f.filter_adicional_2));
+    btnAdv.classList.toggle('activo', !!(f.modelo || f.marca || f.anio || f.categoria || f.estado || f.gps || f.color || f.combustible || f.detalle || f.titular || f.aseguradora || f.confirmado || f.filter_propiedad || f.filter_poliza || f.filter_rotc || f.filter_racda || f.filter_adicional || f.filter_adicional_2));
 };
 
 window.loadEquipos = function (url = null, silent = false, opts = {}) {
