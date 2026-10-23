@@ -122,7 +122,7 @@ class EquipoController extends Controller
         if ($this->tipoEquipoPedido($request) !== null) {
             return true;
         }
-        foreach (['modelo', 'marca', 'detalle_ubicacion', 'detalle', 'combustible', 'anio', 'categoria', 'estado', 'color'] as $p) {
+        foreach (['modelo', 'marca', 'detalle_ubicacion', 'detalle', 'titular', 'combustible', 'anio', 'categoria', 'estado', 'color'] as $p) {
             if ($request->filled($p)) {
                 return true;
             }
@@ -263,6 +263,14 @@ class EquipoController extends Controller
             $query->where('DETALLE_UBICACION_ACTUAL', 'like', '%' . addcslashes(trim($request->detalle), '%_\\') . '%');
         }
 
+        // Titular: el nombre escrito en el TÍTULO de propiedad (documentacion.NOMBRE_DEL_TITULAR),
+        // elegido de la lista de los que ya hay (lupa junto a «Título» en el panel). Contiene,
+        // como Detalle. Los auxiliares no guardan titular: es un filtro solo de equipos.
+        if (!in_array('titular', $exclude) && $request->filled('titular') && trim($request->titular) !== '') {
+            $titular = '%' . addcslashes(trim($request->titular), '%_\\') . '%';
+            $query->whereHas('documentacion', fn ($q) => $q->where('NOMBRE_DEL_TITULAR', 'like', $titular));
+        }
+
         if (!in_array('anio', $exclude) && $request->filled('anio') && trim($request->anio) !== '') {
             $query->where('ANIO', $request->anio);
         }
@@ -391,8 +399,8 @@ class EquipoController extends Controller
      * True si los filtros apuntan SOLO a equipos → NO se muestran/exportan auxiliares ni su
      * card. El FRENTE no cuenta (agrupa equipos Y auxiliares). Dos motivos de enfoque:
      *  (a) atributo de DISPOSITIVO: tipo, modelo, marca, color, GPS, combustible, detalle
-     *      escrito o categoría de flota (el año NO: es eje compartido, los auxiliares
-     *      también lo tienen).
+     *      escrito, titular del título o categoría de flota (el año NO: es eje compartido,
+     *      los auxiliares también lo tienen).
      *  (b) documento que SOLO existe en equipos (póliza/ROTC/RACDA/compraventa): un auxiliar
      *      no puede cumplirlo. Se deriva de DOC_FILTER_COLS menos los DOCS COMPARTIDOS
      *      (filter_propiedad y filter_adicional/"Certificado", que los auxiliares también
@@ -413,6 +421,7 @@ class EquipoController extends Controller
             || $request->filled('gps')
             || $request->filled('combustible')
             || $request->filled('detalle')
+            || $request->filled('titular')
             || ($categoriaSel !== '' && $categoriaSel !== 'AUXILIARES');
         // Documentos solo-equipos activos = los doc filters activos (detector canónico
         // activeDocFilters, criterio === 'true') MENOS los DOCS COMPARTIDOS (propiedad y
@@ -1001,6 +1010,12 @@ class EquipoController extends Controller
                 ->orderBy('DETALLE_UBICACION_ACTUAL', 'asc')->pluck('DETALLE_UBICACION_ACTUAL');
         });
 
+        // Sugerencias del filtro «Titular»: los nombres ya escritos en los títulos. Sin caché: son
+        // pocas filas y así un titular recién corregido aparece enseguida.
+        $availableTitulares = \App\Models\Documentacion::query()->distinct()
+            ->whereNotNull('NOMBRE_DEL_TITULAR')->where('NOMBRE_DEL_TITULAR', '!=', '')
+            ->orderBy('NOMBRE_DEL_TITULAR')->pluck('NOMBRE_DEL_TITULAR');
+
         $auxMarcas = \Illuminate\Support\Facades\Cache::remember('aux_marcas_dropdown', 1200, function () {
             return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('MARCA')->where('MARCA', '!=', '')->orderBy('MARCA', 'asc')->pluck('MARCA');
         });
@@ -1016,7 +1031,7 @@ class EquipoController extends Controller
         // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
         // return JSON), así están disponibles tanto para el AJAX como para esta vista.
 
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'marcasPorTipo', 'modelosPorTipo', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteFueraDeFlota', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableDetalles', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
+        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'marcasPorTipo', 'modelosPorTipo', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteFueraDeFlota', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableDetalles', 'availableTitulares', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
     }
 
     public function export(Request $request)

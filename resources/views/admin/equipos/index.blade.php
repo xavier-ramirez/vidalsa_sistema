@@ -285,7 +285,7 @@
             <div style="position: relative; flex-shrink: 0;">
                 @php
                     // Mismo criterio que eqPintarBotonFiltros (JS): los documentos cuentan solo si vienen como 'true'.
-                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado') || request('combustible') || request('detalle')
+                    $hasAnyAdv = request('modelo') || request('anio') || request('marca') || request('categoria') || request('estado') || request('gps') || request('color') || request('confirmado') || request('combustible') || request('detalle') || request('titular')
                         || collect(['filter_propiedad', 'filter_poliza', 'filter_rotc', 'filter_racda', 'filter_adicional', 'filter_adicional_2'])->contains(fn ($d) => request($d) === 'true');
                 @endphp
                 <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria btn-filtro-avanzado {{ $hasAnyAdv ? 'activo' : '' }}" style="flex-shrink: 0;" onclick="const p = document.getElementById('advancedFilterPanel'); const s = document.getElementById('splitDropdownMenu'); if (s) s.style.display='none'; if (window.closeSharedStatusMenu) window.closeSharedStatusMenu(); document.querySelectorAll('.custom-dropdown.active').forEach(function(d){d.classList.remove('active');}); p.style.display = p.style.display === 'block' ? 'none' : 'block'; event.stopPropagation();">
@@ -628,23 +628,23 @@
                                     <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
                                         <i class="material-icons" style="font-size: 16px;">search</i>
                                     </div>
-                                    <input type="hidden" name="detalle" id="detalleAdvValor" value="{{ request('detalle') }}">
+                                    <input type="hidden" name="detalle" value="{{ request('detalle') }}">
                                     <input type="text" id="detalleTextoFilter" value="{{ request('detalle') }}"
                                         placeholder="Lo que tenga escrito..."
                                         aria-label="Filtrar por el detalle escrito"
                                         autocomplete="off"
                                         style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
-                                        onfocus="window.eqDetalleSugerir(this)"
-                                        oninput="window.eqDetalleSugerir(this)"
-                                        onblur="window.eqDetalleRestaurar()"
-                                        onkeydown="if (event.key === 'Enter') { event.preventDefault(); window.eqDetalleEnter(this); }">
+                                        onfocus="window.eqTextoSugerir(this)"
+                                        oninput="window.eqTextoSugerir(this)"
+                                        onblur="window.eqTextoRestaurar(this)"
+                                        onkeydown="if (event.key === 'Enter') { event.preventDefault(); window.eqTextoEnter(this); }">
                                     <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; cursor: pointer; display: {{ request('detalle') ? 'block' : 'none' }};"
-                                       onclick="event.stopPropagation(); window.eqDetalleLimpiar(true);">close</i>
+                                       onclick="event.stopPropagation(); window.eqTextoLimpiar('detalleAdvFilter', true);">close</i>
                                 </div>
                                 <div class="dropdown-content">
                                     <div class="dropdown-item-list" style="max-height: 120px; overflow-y: auto;">
                                         @foreach($availableDetalles ?? [] as $det)
-                                            <div class="dropdown-item" data-value="{{ $det }}" title="{{ $det }}" onclick="window.eqDetalleElegir(this)">{{ $det }}</div>
+                                            <div class="dropdown-item" data-value="{{ $det }}" title="{{ $det }}" onclick="window.eqTextoElegir(this)">{{ $det }}</div>
                                         @endforeach
                                     </div>
                                 </div>
@@ -656,10 +656,16 @@
                         <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px;">Documentación Cargada</span>
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            <label for="chk_propiedad" class="adv-check">
-                                <input type="checkbox" id="chk_propiedad" onchange="toggleDocFilter('propiedad')" {{ request('filter_propiedad') == 'true' ? 'checked' : '' }}>
-                                Título
-                            </label>
+                            {{-- La lupa abre la búsqueda por el NOMBRE del titular (fila #titularFila, debajo). --}}
+                            <div class="adv-check-con-lupa">
+                                <label for="chk_propiedad" class="adv-check">
+                                    <input type="checkbox" id="chk_propiedad" onchange="toggleDocFilter('propiedad')" {{ request('filter_propiedad') == 'true' ? 'checked' : '' }}>
+                                    Título
+                                </label>
+                                <button type="button" class="adv-lupa adv-filter-eq-only {{ request('titular') ? 'activo' : '' }}"
+                                        title="Buscar por el titular del título" aria-label="Buscar por el titular del título"
+                                        onclick="window.eqTitularToggle(this)"><i class="material-icons">search</i></button>
+                            </div>
 
                             <label for="chk_poliza" class="adv-check adv-filter-eq-only">
                                 <input type="checkbox" id="chk_poliza" onchange="toggleDocFilter('poliza')" {{ request('filter_poliza') == 'true' ? 'checked' : '' }}>
@@ -687,6 +693,38 @@
                                 <input type="checkbox" id="chk_adicional_2" onchange="toggleDocFilter('adicional_2')" {{ request('filter_adicional_2') == 'true' ? 'checked' : '' }}>
                                 Compraventa
                             </label>
+                        </div>
+
+                        {{-- Titular del título: el mismo filtro de texto con lista que «Detalle»
+                             (eqTexto* en equipos_index.js). Solo equipos: los auxiliares no guardan titular. --}}
+                        <div id="titularFila" class="adv-filter-eq-only" style="margin-top: 10px;" @unless(request('titular')) hidden @endunless>
+                            <span class="panel-filtro-avanzado-label">Titular del título</span>
+                            <div class="custom-dropdown" id="titularAdvFilter" style="font-size: 12px;">
+                                <div class="adv-trigger {{ request('titular') ? 'filter-active' : '' }}">
+                                    <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
+                                        <i class="material-icons" style="font-size: 16px;">search</i>
+                                    </div>
+                                    <input type="hidden" name="titular" value="{{ request('titular') }}">
+                                    <input type="text" value="{{ request('titular') }}"
+                                        placeholder="Nombre del titular..."
+                                        aria-label="Filtrar por el titular del título"
+                                        autocomplete="off"
+                                        style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
+                                        onfocus="window.eqTextoSugerir(this)"
+                                        oninput="window.eqTextoSugerir(this)"
+                                        onblur="window.eqTextoRestaurar(this)"
+                                        onkeydown="if (event.key === 'Enter') { event.preventDefault(); window.eqTextoEnter(this); }">
+                                    <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; cursor: pointer; display: {{ request('titular') ? 'block' : 'none' }};"
+                                       onclick="event.stopPropagation(); window.eqTextoLimpiar('titularAdvFilter', true);">close</i>
+                                </div>
+                                <div class="dropdown-content">
+                                    <div class="dropdown-item-list" style="max-height: 140px; overflow-y: auto;">
+                                        @foreach($availableTitulares ?? [] as $tit)
+                                            <div class="dropdown-item" data-value="{{ $tit }}" title="{{ $tit }}" onclick="window.eqTextoElegir(this)">{{ $tit }}</div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

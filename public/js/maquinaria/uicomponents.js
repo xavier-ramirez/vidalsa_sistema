@@ -539,8 +539,8 @@ window.clearAdvancedFilters = function () {
     // Detalle (Patio/Subdivisión) es un input oculto controlado por el panel lateral, no un dropdown.
     const detalleUbic = document.getElementById('detalleUbicacionFilter');
     if (detalleUbic) detalleUbic.value = '';
-    // «Detalle» (sin recargar: la recarga va al final).
-    if (window.eqDetalleLimpiar) window.eqDetalleLimpiar(false);
+    // «Detalle» y «Titular» (sin recargar: la recarga va al final).
+    if (window.eqTextosLimpiar) window.eqTextosLimpiar();
 
     // Clear Doc Filters (Equipos + Auxiliares). 'chk_adicional' (Certificado) es compartido.
     ["chk_propiedad", "chk_poliza", "chk_rotc", "chk_racda", "chk_adicional", "chk_adicional_2"].forEach((id) => {

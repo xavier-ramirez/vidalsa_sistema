@@ -68,8 +68,8 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/<div class="adv-filter-eq-only">\s*<span class="panel-filtro-avanzado-label">Categoría Flota<\/span>/', $panel);
         $this->assertStringNotContainsString('filter_display_', $panel);
         $this->assertStringNotContainsString("classList.toggle('active')", $panel);
-        $this->assertSame(10, substr_count($panel, 'class="panel-filtro-avanzado-label"'));
-        $this->assertSame(6, substr_count($panel, 'adv-check'));
+        $this->assertSame(11, substr_count($panel, 'class="panel-filtro-avanzado-label"'));
+        $this->assertSame(6, substr_count($panel, '<label for="chk_'));
     }
 
     public function test_filtro_combustible_trae_solo_ese_combustible(): void
@@ -103,6 +103,24 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
             'Los comodines % y _ se buscan como texto, no como comodines.');
     }
 
+    public function test_filtro_titular_busca_por_el_nombre_del_titulo_y_lo_sugiere(): void
+    {
+        $id = (int) DB::table('documentacion')->join('equipos', 'equipos.ID_EQUIPO', '=', 'documentacion.ID_EQUIPO')
+            ->whereNull('equipos.deleted_at')->whereNotNull('equipos.id_tipo_equipo')->value('documentacion.ID_EQUIPO');
+        DB::table('documentacion')->where('ID_EQUIPO', $id)->update(['NOMBRE_DEL_TITULAR' => 'TITULAR PRUEBA-QW7, C.A']);
+        // la transacción de la prueba lo revierte
+
+        $user = $this->superAdminGlobal();
+        $r = $this->actingAs($user)->get(route('equipos.index', ['titular' => 'prueba-qw']))->assertOk();
+        $ids = collect($r->viewData('equipos'))->pluck('ID_EQUIPO')->all();
+        $this->assertSame([$id], array_map('intval', $ids), 'Encuentra por una parte del nombre, sin distinguir mayúsculas.');
+        $this->assertStringContainsString('onclick="window.eqTextoElegir(this)">TITULAR PRUEBA-QW7, C.A</div>', $this->panel((string) $r->getContent()),
+            'El nombre sale en las sugerencias del titular.');
+
+        $this->assertCount(0, $this->actingAs($user)->get(route('equipos.index', ['titular' => '100%_no_existe']))->assertOk()->viewData('equipos'),
+            'Los comodines % y _ se buscan como texto, no como comodines.');
+    }
+
     public function test_detalle_sugiere_los_textos_escritos_y_se_actualiza_al_guardar_uno(): void
     {
         $user = $this->superAdminGlobal();
@@ -110,7 +128,7 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
         $this->assertNotSame('', $existente, 'Hace falta un equipo con detalle.');
 
         $panel = $this->panel((string) $this->actingAs($user)->get(route('equipos.index'))->assertOk()->getContent());
-        $this->assertStringContainsString('onclick="window.eqDetalleElegir(this)">' . e($existente) . '</div>', $panel);
+        $this->assertStringContainsString('onclick="window.eqTextoElegir(this)">' . e($existente) . '</div>', $panel);
 
         // Guardar un detalle nuevo con «Detalle a resaltar» lo pone en las sugerencias al momento
         // (sin esperar los 20 min del caché).
@@ -134,11 +152,12 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
     private function panel(string $html): string
     {
         $ini = strpos($html, 'id="advancedFilterPanel"');
-        $fin = strpos($html, 'id="chk_adicional_2"', (int) $ini);
+        // Hasta el botón que sigue al panel: así entra la fila del titular, que va al final.
+        $fin = strpos($html, 'id="btnAcciones"', (int) $ini);
         $this->assertNotFalse($ini);
         $this->assertNotFalse($fin);
 
-        return substr($html, $ini, $fin - $ini + 400);
+        return substr($html, $ini, $fin - $ini);
     }
 
     public function test_por_modelo_sin_frente_la_distribucion_va_por_frente(): void

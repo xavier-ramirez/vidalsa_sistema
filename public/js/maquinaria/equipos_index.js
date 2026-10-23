@@ -1319,6 +1319,7 @@ window.eqFiltrosActivos = function () {
         color: getVal('input[name="color"]', advancedPanel || document),
         combustible: getVal('input[name="combustible"]', advancedPanel || document),
         detalle: getVal('input[name="detalle"]', advancedPanel || document),
+        titular: getVal('input[name="titular"]', advancedPanel || document),
         confirmado: getVal('input[name="confirmado"]', advancedPanel || document),
         filter_propiedad: document.getElementById("chk_propiedad")?.checked
             ? "true"
@@ -1346,17 +1347,18 @@ window.eqFiltrosActivos = function () {
     };
 };
 
-// Filtro «Detalle» del panel: se escribe para buscar en la lista de detalles ya escritos y el
-// filtro se aplica SOLO al elegir uno de la lista (clic o Enter = el primero visible). El valor
-// aplicado vive en el oculto #detalleAdvValor (name="detalle", el que leen loadEquipos y el modo
+// Filtros de TEXTO CON LISTA del panel: «Detalle» (#detalleAdvFilter) y «Titular» del título
+// (#titularAdvFilter). Se escribe para buscar en la lista de lo ya escrito y el filtro se aplica
+// SOLO al elegir uno de la lista (clic o Enter = el primero visible). El valor aplicado vive en el
+// input oculto del desplegable (name="detalle" / name="titular", el que leen loadEquipos y el modo
 // offline); la casilla de texto es solo el buscador y, al salir de ella, vuelve a mostrar lo aplicado.
-function _eqDetalleMarcar(valor) {
-    const inp = document.getElementById('detalleTextoFilter');
-    const oculto = document.getElementById('detalleAdvValor');
+function _eqTextoMarcar(dd, valor) {
+    const inp = dd && dd.querySelector('input[type="text"]');
+    const oculto = dd && dd.querySelector('input[type="hidden"]');
     if (!inp || !oculto) return null;
     oculto.value = valor;
     inp.value = valor;
-    inp.closest('.custom-dropdown').classList.remove('active');
+    dd.classList.remove('active');
     const caja = inp.closest('.adv-trigger');
     if (caja) {
         caja.classList.toggle('filter-active', valor !== '');
@@ -1365,35 +1367,50 @@ function _eqDetalleMarcar(valor) {
     }
     return inp;
 }
-// Sugerencias (los detalles ya escritos): se abren al entrar en la casilla y se filtran con lo
-// que se escribe (filterDropdownOptions, el mismo filtro que la lista de Color).
-window.eqDetalleSugerir = function (inp) {
+// Sugerencias: se abren al entrar en la casilla y se filtran con lo que se escribe
+// (filterDropdownOptions, el mismo filtro que la lista de Color).
+window.eqTextoSugerir = function (inp) {
     const lista = inp.closest('.custom-dropdown');
     if (!lista) return;
     window.closeAllDropdowns(lista);
     window.filterDropdownOptions(inp);
     lista.classList.add('active');
 };
-window.eqDetalleElegir = function (item) {
-    if (_eqDetalleMarcar(item.dataset.value)) window.loadEquipos();
+window.eqTextoElegir = function (item) {
+    if (_eqTextoMarcar(item.closest('.custom-dropdown'), item.dataset.value)) window.loadEquipos();
 };
-window.eqDetalleEnter = function (inp) {
+window.eqTextoEnter = function (inp) {
     const primero = Array.from(inp.closest('.custom-dropdown').querySelectorAll('.dropdown-item'))
         .find(it => it.style.display !== 'none');
-    if (primero) window.eqDetalleElegir(primero);
+    if (primero) window.eqTextoElegir(primero);
 };
 // Al salir sin elegir, lo escrito no filtra: la casilla vuelve a lo aplicado. Con espera para que
 // el clic en una sugerencia (que llega después del blur) se procese antes.
-window.eqDetalleRestaurar = function () {
+window.eqTextoRestaurar = function (inp) {
     setTimeout(function () {
-        const inp = document.getElementById('detalleTextoFilter');
-        const oculto = document.getElementById('detalleAdvValor');
-        if (inp && oculto && document.activeElement !== inp) inp.value = oculto.value;
+        const oculto = inp.closest('.custom-dropdown')?.querySelector('input[type="hidden"]');
+        if (oculto && document.activeElement !== inp) inp.value = oculto.value;
     }, 200);
 };
 // recargar=false: quien llama ya recarga la tabla (Limpiar, cambio a modo aux).
-window.eqDetalleLimpiar = function (recargar) {
-    if (_eqDetalleMarcar('') && recargar) window.loadEquipos();
+window.eqTextoLimpiar = function (id, recargar) {
+    if (_eqTextoMarcar(document.getElementById(id), '') && recargar) window.loadEquipos();
+};
+// Los dos a la vez: lo usan «Limpiar» y el paso a modo auxiliar (ninguno de los dos aplica allí).
+window.eqTextosLimpiar = function () {
+    window.eqTextoLimpiar('detalleAdvFilter', false);
+    window.eqTextoLimpiar('titularAdvFilter', false);
+};
+// La lupa junto a «Título» abre/cierra la casilla del titular; cerrada con un titular puesto,
+// lo suelta (si no, filtraría algo que ya no se ve).
+window.eqTitularToggle = function (btn) {
+    const fila = document.getElementById('titularFila');
+    if (!fila) return;
+    const abrir = fila.hidden;
+    fila.hidden = !abrir;
+    btn.classList.toggle('activo', abrir);
+    if (abrir) fila.querySelector('input[type="text"]')?.focus();
+    else if (document.querySelector('#titularAdvFilter input[type="hidden"]')?.value) window.eqTextoLimpiar('titularAdvFilter', true);
 };
 
 // Botón de Filtros Avanzados en ROJO (.activo, el componente .btn-filtro-avanzado de
@@ -1404,7 +1421,7 @@ window.eqPintarBotonFiltros = function (filters) {
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (!btnAdv) return;
     const f = filters || window.eqFiltrosActivos();
-    btnAdv.classList.toggle('activo', !!(f.modelo || f.marca || f.anio || f.categoria || f.estado || f.gps || f.color || f.combustible || f.detalle || f.confirmado || f.filter_propiedad || f.filter_poliza || f.filter_rotc || f.filter_racda || f.filter_adicional || f.filter_adicional_2));
+    btnAdv.classList.toggle('activo', !!(f.modelo || f.marca || f.anio || f.categoria || f.estado || f.gps || f.color || f.combustible || f.detalle || f.titular || f.confirmado || f.filter_propiedad || f.filter_poliza || f.filter_rotc || f.filter_racda || f.filter_adicional || f.filter_adicional_2));
 };
 
 window.loadEquipos = function (url = null, silent = false, opts = {}) {
@@ -1462,7 +1479,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             ['modeloAdvFilter', 'marcaAdvFilter', 'anioAdvFilter', 'categoriaAdvFilter', 'gpsAdvFilter', 'colorAdvFilter', 'combustibleAdvFilter'].forEach(function(id) {
                 window.clearDropdownFilter(id);
             });
-            window.eqDetalleLimpiar(false);
+            window.eqTextosLimpiar();
             ['chk_poliza', 'chk_rotc', 'chk_racda', 'chk_adicional_2'].forEach(function(id) {
                 const chk = document.getElementById(id);
                 if (chk) chk.checked = false;
