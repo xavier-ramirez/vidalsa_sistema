@@ -305,7 +305,7 @@
                                 <i class="material-icons" style="font-size: 14px;">playlist_add_check</i>
                                 Lote
                             </button>
-                            <span style="font-size: 12.5px; color: #64748b; font-weight: 400; text-decoration: underline; cursor: pointer;" onclick="clearAdvancedFilters()">Limpiar Todo</span>
+                            <span style="font-size: 12.5px; color: #64748b; font-weight: 400; text-decoration: underline; cursor: pointer;" onclick="clearAdvancedFilters()">Limpiar</span>
                         </span>
                     </h4>
 
@@ -658,7 +658,7 @@
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                             <label for="chk_propiedad" class="adv-check">
                                 <input type="checkbox" id="chk_propiedad" onchange="toggleDocFilter('propiedad')" {{ request('filter_propiedad') == 'true' ? 'checked' : '' }}>
-                                Propiedad
+                                Título
                             </label>
 
                             <label for="chk_poliza" class="adv-check adv-filter-eq-only">

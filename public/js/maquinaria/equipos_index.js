@@ -1391,7 +1391,7 @@ window.eqDetalleRestaurar = function () {
         if (inp && oculto && document.activeElement !== inp) inp.value = oculto.value;
     }, 200);
 };
-// recargar=false: quien llama ya recarga la tabla (Limpiar Todo, cambio a modo aux).
+// recargar=false: quien llama ya recarga la tabla (Limpiar, cambio a modo aux).
 window.eqDetalleLimpiar = function (recargar) {
     if (_eqDetalleMarcar('') && recargar) window.loadEquipos();
 };

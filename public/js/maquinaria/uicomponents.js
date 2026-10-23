@@ -520,7 +520,7 @@ window.filterDropdownOptions = function (input) {
     }
 };
 
-// EQUIPOS: «Limpiar Todo» del panel Filtros Avanzados (onclick en admin/equipos/index.blade.php).
+// EQUIPOS: «Limpiar» del panel Filtros Avanzados (onclick en admin/equipos/index.blade.php).
 window.clearAdvancedFilters = function () {
     if (window.searchTimeout) clearTimeout(window.searchTimeout);
 
