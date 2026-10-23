@@ -656,15 +656,16 @@
                         <span style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px;">Documentación Cargada</span>
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            {{-- La lupa abre la búsqueda por el NOMBRE del titular (fila #titularFila, debajo). --}}
+                            {{-- La lupa abre la búsqueda por el NOMBRE del titular (ventana #titularModal, en el centro de la pantalla). --}}
                             <div class="adv-check-con-lupa">
                                 <label for="chk_propiedad" class="adv-check">
                                     <input type="checkbox" id="chk_propiedad" onchange="toggleDocFilter('propiedad')" {{ request('filter_propiedad') == 'true' ? 'checked' : '' }}>
                                     Título
                                 </label>
                                 <button type="button" class="adv-lupa adv-filter-eq-only {{ request('titular') ? 'activo' : '' }}"
-                                        title="Buscar por el titular del título" aria-label="Buscar por el titular del título"
-                                        onclick="event.stopPropagation(); window.eqTitularToggle(this)"><i class="material-icons">search</i></button>
+                                        data-filtro-de="titularAdvFilter"
+                                        title="Buscar por el nombre del titular" aria-label="Buscar por el nombre del titular"
+                                        onclick="event.stopPropagation(); window.eqTitularAbrir()"><i class="material-icons">search</i></button>
                             </div>
 
                             <label for="chk_poliza" class="adv-check adv-filter-eq-only">
@@ -695,10 +696,18 @@
                             </label>
                         </div>
 
-                        {{-- Titular del título: el mismo filtro de texto con lista que «Detalle»
-                             (eqTexto* en equipos_index.js). Solo equipos: los auxiliares no guardan titular. --}}
-                        <div id="titularFila" class="adv-filter-eq-only" style="margin-top: 10px;" @unless(request('titular')) hidden @endunless>
-                            <span class="panel-filtro-avanzado-label">Titular del título</span>
+                        {{-- Nombre del titular: ventana en el CENTRO de la pantalla que abre la lupa de «Título».
+                             Es el mismo filtro de texto con lista que «Detalle» (eqTexto* en equipos_index.js) y vive
+                             DENTRO del panel para que eqFiltrosActivos lo lea con los demás. Elegir un nombre la cierra
+                             (data-cerrar-al-elegir). Solo equipos: los auxiliares no guardan titular. --}}
+                        <div id="titularModal" class="eq-titular-modal adv-filter-eq-only" data-cerrar-al-elegir hidden
+                             onclick="if (event.target === this) window.eqTitularCerrar();">
+                          <div class="eq-titular-caja" role="dialog" aria-label="Nombre del titular">
+                            <div class="eq-titular-head">
+                                <i class="material-icons">badge</i>
+                                <span>Nombre del titular</span>
+                                <button type="button" class="eq-titular-x" title="Cerrar" aria-label="Cerrar" onclick="window.eqTitularCerrar()"><i class="material-icons">close</i></button>
+                            </div>
                             <div class="custom-dropdown" id="titularAdvFilter" style="font-size: 12px;">
                                 <div class="adv-trigger {{ request('titular') ? 'filter-active' : '' }}">
                                     <div style="padding: 0 8px; display: flex; align-items: center; color: #94a3b8;">
@@ -707,24 +716,25 @@
                                     <input type="hidden" name="titular" value="{{ request('titular') }}">
                                     <input type="text" value="{{ request('titular') }}"
                                         placeholder="Nombre del titular..."
-                                        aria-label="Filtrar por el titular del título"
+                                        aria-label="Filtrar por el nombre del titular"
                                         autocomplete="off"
                                         style="width: 100%; min-width: 0; border: none; background: transparent; padding: 6px 5px; font-size: 12px; outline: none;"
                                         onfocus="window.eqTextoSugerir(this)"
                                         oninput="window.eqTextoSugerir(this)"
                                         onblur="window.eqTextoRestaurar(this)"
-                                        onkeydown="if (event.key === 'Enter') { event.preventDefault(); window.eqTextoEnter(this); }">
+                                        onkeydown="if (event.key === 'Enter') { event.preventDefault(); window.eqTextoEnter(this); } else if (event.key === 'Escape') { window.eqTitularCerrar(); }">
                                     <i class="material-icons" data-clear-btn style="padding: 0 5px; color: #94a3b8; font-size: 16px; cursor: pointer; display: {{ request('titular') ? 'block' : 'none' }};"
                                        onclick="event.stopPropagation(); window.eqTextoLimpiar('titularAdvFilter', true);">close</i>
                                 </div>
                                 <div class="dropdown-content">
-                                    <div class="dropdown-item-list" style="max-height: 140px; overflow-y: auto;">
+                                    <div class="dropdown-item-list" style="max-height: 260px; overflow-y: auto;">
                                         @foreach($availableTitulares ?? [] as $tit)
                                             <div class="dropdown-item" data-value="{{ $tit }}" title="{{ $tit }}" onclick="window.eqTextoElegir(this)">{{ $tit }}</div>
                                         @endforeach
                                     </div>
                                 </div>
                             </div>
+                          </div>
                         </div>
                     </div>
 

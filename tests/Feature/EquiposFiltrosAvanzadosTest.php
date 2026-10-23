@@ -68,7 +68,7 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/<div class="adv-filter-eq-only">\s*<span class="panel-filtro-avanzado-label">Categoría Flota<\/span>/', $panel);
         $this->assertStringNotContainsString('filter_display_', $panel);
         $this->assertStringNotContainsString("classList.toggle('active')", $panel);
-        $this->assertSame(11, substr_count($panel, 'class="panel-filtro-avanzado-label"'));
+        $this->assertSame(10, substr_count($panel, 'class="panel-filtro-avanzado-label"'));
         $this->assertSame(6, substr_count($panel, '<label for="chk_'));
     }
 

@@ -1365,6 +1365,8 @@ function _eqTextoMarcar(dd, valor) {
         const x = caja.querySelector('[data-clear-btn]');
         if (x) x.style.display = valor !== '' ? 'block' : 'none';
     }
+    // El botón que abre este filtro desde fuera (la lupa de «Título») se marca mientras esté puesto.
+    document.querySelectorAll('[data-filtro-de="' + dd.id + '"]').forEach(b => b.classList.toggle('activo', valor !== ''));
     return inp;
 }
 // Sugerencias: se abren al entrar en la casilla y se filtran con lo que se escribe
@@ -1377,7 +1379,10 @@ window.eqTextoSugerir = function (inp) {
     lista.classList.add('active');
 };
 window.eqTextoElegir = function (item) {
-    if (_eqTextoMarcar(item.closest('.custom-dropdown'), item.dataset.value)) window.loadEquipos();
+    if (!_eqTextoMarcar(item.closest('.custom-dropdown'), item.dataset.value)) return;
+    const ventana = item.closest('[data-cerrar-al-elegir]');
+    if (ventana) ventana.hidden = true;
+    window.loadEquipos();
 };
 window.eqTextoEnter = function (inp) {
     const primero = Array.from(inp.closest('.custom-dropdown').querySelectorAll('.dropdown-item'))
@@ -1401,17 +1406,21 @@ window.eqTextosLimpiar = function () {
     window.eqTextoLimpiar('detalleAdvFilter', false);
     window.eqTextoLimpiar('titularAdvFilter', false);
 };
-// La lupa junto a «Título» abre/cierra la casilla del titular; cerrada con un titular puesto,
-// lo suelta (si no, filtraría algo que ya no se ve). Su onclick corta la propagación: el clic
-// global de uicomponents cierra los desplegables y cerraba la lista recién abierta por el focus.
-window.eqTitularToggle = function (btn) {
-    const fila = document.getElementById('titularFila');
-    if (!fila) return;
-    const abrir = fila.hidden;
-    fila.hidden = !abrir;
-    btn.classList.toggle('activo', abrir);
-    if (abrir) fila.querySelector('input[type="text"]')?.focus();
-    else if (document.querySelector('#titularAdvFilter input[type="hidden"]')?.value) window.eqTextoLimpiar('titularAdvFilter', true);
+// La lupa junto a «Título» abre la ventana «Nombre del titular» en el centro de la pantalla, con la
+// lista ya desplegada. Cerrarla NO quita el titular puesto (lo quita su X o «Limpiar»); la lupa
+// queda azul mientras haya uno. El onclick de la lupa corta la propagación: el clic global de
+// uicomponents cierra los desplegables y cerraba la lista recién abierta por el focus.
+window.eqTitularAbrir = function () {
+    const ventana = document.getElementById('titularModal');
+    if (!ventana) return;
+    ventana.hidden = false;
+    ventana.querySelector('input[type="text"]')?.focus();
+};
+window.eqTitularCerrar = function () {
+    const ventana = document.getElementById('titularModal');
+    if (!ventana) return;
+    ventana.hidden = true;
+    document.getElementById('titularAdvFilter')?.classList.remove('active');
 };
 
 // Botón de Filtros Avanzados en ROJO (.activo, el componente .btn-filtro-avanzado de

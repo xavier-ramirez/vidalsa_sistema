@@ -19,13 +19,24 @@
        partidos en varias se montaban sobre la sugerencia siguiente. */
     #advancedFilterPanel #detalleAdvFilter .dropdown-item,
     #advancedFilterPanel #titularAdvFilter .dropdown-item { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    /* «Título» con su lupa al lado (abre la búsqueda por titular, #titularFila). Azul = abierta. */
+    /* «Título» con su lupa al lado (abre la ventana #titularModal). Azul = hay un titular puesto. */
     #advancedFilterPanel .adv-check-con-lupa { display: flex; align-items: center; gap: 6px; }
     #advancedFilterPanel .adv-lupa { display: flex; align-items: center; padding: 0; border: none; background: none; color: #64748b; cursor: pointer; }
     #advancedFilterPanel .adv-lupa .material-icons { font-size: 17px; }
     #advancedFilterPanel .adv-lupa:hover,
     #advancedFilterPanel .adv-lupa.activo { color: var(--maquinaria-blue); }
-    #advancedFilterPanel #titularFila[hidden] { display: none; }
+    /* Ventana «Nombre del titular» (la abre la lupa): en el centro de la pantalla, sobre un velo. */
+    #advancedFilterPanel .eq-titular-modal { position: fixed; inset: 0; z-index: 2000; background: rgba(15,23,42,.45);
+                                             display: flex; align-items: center; justify-content: center; }
+    #advancedFilterPanel .eq-titular-modal[hidden] { display: none; }
+    #advancedFilterPanel .eq-titular-caja { width: min(380px, calc(100vw - 32px)); background: #fff; border-radius: 12px;
+                                            padding: 14px; box-shadow: 0 25px 50px -12px rgba(0,0,0,.25); }
+    #advancedFilterPanel .eq-titular-head { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px;
+                                            margin-bottom: 10px; font-size: 14px; font-weight: 700; color: #334155; }
+    #advancedFilterPanel .eq-titular-head .material-icons { font-size: 18px; color: var(--maquinaria-blue); }
+    #advancedFilterPanel .eq-titular-x { position: absolute; right: 0; display: flex; padding: 0; border: none; background: none; cursor: pointer; }
+    #advancedFilterPanel .eq-titular-x .material-icons { color: #94a3b8; }
+    #advancedFilterPanel .eq-titular-x:hover .material-icons { color: #334155; }
 
     /* ── Panel de Filtros Avanzados en MOBILE: ancho comodo para ver estatus completo ── */
     @media (max-width: 768px) {
