@@ -6,9 +6,9 @@
      Como el filtro Frente: abre con la casilla VACÍA y lo aplicado como texto de fondo, así se
      escribe encima sin borrar nada; la X de la casilla solo borra lo escrito (no toca el filtro ni
      la tabla) y «Quitar filtro» —solo visible con uno puesto— lo suelta. Elegir un nombre de la
-     lista lo aplica y cierra la ventana. La lista llega con la página y, al abrir, se pide de nuevo a
-     data-url con los filtros de ese momento (solo nombres que existen con ellos). JS: eqVentanaAbrir/eqVentanaCerrar y eqTexto* de
-     equipos_index.js.
+     lista lo aplica y cierra la ventana. La lista llega con la página y, al abrir, se pide de nuevo
+     a data-url con los filtros de ese momento (solo nombres que existen con ellos). JS:
+     eqVentanaAbrir/eqVentanaCerrar y eqTexto* de equipos_index.js.
 
      Variables: $ventanaId, $ddId, $nombre (parámetro de la URL), $titulo, $icono, $placeholder,
      $opciones (lista de textos). Solo equipos: los auxiliares no guardan ni titular ni póliza. --}}

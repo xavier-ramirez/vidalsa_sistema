@@ -169,7 +169,9 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
             ->get(route('equipos.index', ['titular' => 'CAVA FRESCA']))->assertOk()->getContent());
         $this->assertMatchesRegularExpression('/class="adv-filtro-chip adv-filter-eq-only activo" data-filtro-de="titularAdvFilter">\s*<span data-filtro-texto title="CAVA FRESCA">CAVA FRESCA<\/span>/', $panel);
         $this->assertStringContainsString("window.eqTextoLimpiar('titularAdvFilter', true)\">close</i>", $panel);
-        $this->assertMatchesRegularExpression('/class="adv-filtro-chip " data-filtro-de="aseguradoraAdvFilter"/', $panel,
+        $this->assertMatchesRegularExpression('/class="adv-lupa adv-filter-eq-only activo"\s+data-filtro-de="titularAdvFilter"/', $panel,
+            'Y su lupa en azul.');
+        $this->assertMatchesRegularExpression('/class="adv-filtro-chip\s+" data-filtro-de="aseguradoraAdvFilter"/', $panel,
             'La de aseguradora, sin filtro, no se ve.');
     }
 
