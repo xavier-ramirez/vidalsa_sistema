@@ -1010,9 +1010,11 @@ class EquipoController extends Controller
                 ->orderBy('DETALLE_UBICACION_ACTUAL', 'asc')->pluck('DETALLE_UBICACION_ACTUAL');
         });
 
-        // Sugerencias del filtro «Titular»: los nombres ya escritos en los títulos. Sin caché: son
-        // pocas filas y así un titular recién corregido aparece enseguida.
+        // Sugerencias del filtro «Titular»: los nombres ya escritos en los títulos de equipos que
+        // existen (Equipo::query() deja fuera los eliminados: su titular daría 0 resultados). Sin
+        // caché: son pocas filas y así un titular recién corregido aparece enseguida.
         $availableTitulares = \App\Models\Documentacion::query()->distinct()
+            ->whereIn('ID_EQUIPO', Equipo::query()->select('ID_EQUIPO'))
             ->whereNotNull('NOMBRE_DEL_TITULAR')->where('NOMBRE_DEL_TITULAR', '!=', '')
             ->orderBy('NOMBRE_DEL_TITULAR')->pluck('NOMBRE_DEL_TITULAR');
 

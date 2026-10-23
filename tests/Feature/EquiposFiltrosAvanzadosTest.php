@@ -119,6 +119,11 @@ class EquiposFiltrosAvanzadosTest extends MySqlTestCase
 
         $this->assertCount(0, $this->actingAs($user)->get(route('equipos.index', ['titular' => '100%_no_existe']))->assertOk()->viewData('equipos'),
             'Los comodines % y _ se buscan como texto, no como comodines.');
+
+        // El titular de un equipo ELIMINADO no se sugiere: elegirlo daría 0 resultados.
+        DB::table('equipos')->where('ID_EQUIPO', $id)->update(['deleted_at' => now()]);
+        $panel = $this->panel((string) $this->actingAs($user)->get(route('equipos.index'))->assertOk()->getContent());
+        $this->assertStringNotContainsString('TITULAR PRUEBA-QW7', $panel, 'Sin sugerencias de equipos eliminados.');
     }
 
     public function test_detalle_sugiere_los_textos_escritos_y_se_actualiza_al_guardar_uno(): void

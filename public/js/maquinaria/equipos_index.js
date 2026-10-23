@@ -1411,17 +1411,23 @@ window.eqTextosLimpiar = function () {
 // vuelve a verse. Cerrarla NO quita el titular puesto (lo quita su X o «Limpiar»);
 // la lupa queda azul mientras haya uno. El onclick de la lupa corta la propagación: el clic global
 // de uicomponents cierra los desplegables y cerraba la lista recién abierta por el focus.
+// Se abre con la casilla VACÍA: con el titular aplicado escrito, la lista salía filtrada a ese solo
+// nombre. Al cerrar, la casilla vuelve a mostrar lo aplicado (como eqTextoRestaurar).
 window.eqTitularAbrir = function () {
     const ventana = document.getElementById('titularModal');
-    if (!ventana) return;
+    const inp = ventana?.querySelector('input[type="text"]');
+    if (!inp) return;
     ventana.hidden = false;
-    ventana.querySelector('input[type="text"]')?.focus();
+    inp.value = '';
+    inp.focus();
 };
 window.eqTitularCerrar = function () {
     const ventana = document.getElementById('titularModal');
-    if (!ventana) return;
+    const dd = document.getElementById('titularAdvFilter');
+    if (!ventana || !dd) return;
     ventana.hidden = true;
-    document.getElementById('titularAdvFilter')?.classList.remove('active');
+    dd.classList.remove('active');
+    dd.querySelector('input[type="text"]').value = dd.querySelector('input[type="hidden"]').value;
 };
 
 // Botón de Filtros Avanzados en ROJO (.activo, el componente .btn-filtro-avanzado de
