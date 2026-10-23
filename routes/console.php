@@ -90,6 +90,11 @@ Schedule::call(function () {
     } while ($borradas === 20);
 })->hourly()->name('cache:purgar-caducadas')->withoutOverlapping();
 
+// Registro de cambios de la copia local (RegistroCambios): lo de más de 30 días ya no hace
+// falta; un dispositivo que lleve más tiempo sin conectarse recarga su copia entera.
+Schedule::call(fn () => \App\Support\RegistroCambios::purgar())
+    ->dailyAt('03:30')->name('cambios:purgar')->withoutOverlapping();
+
 // Control de Auditoría: la lista del historial siempre hecha. Armarla cuesta 2-4 s y la paga
 // quien abre la pantalla si no está en caché; se rehace sola tras cada cambio
 // (HistorialDocumentosController::programarCalentado), pero no tras un despliegue ni cuando

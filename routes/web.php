@@ -137,6 +137,9 @@ Route::middleware(['auth'])->group(function () {
         // del controller; ruta WEB (sesión + CSRF), no la API Sanctum del APK.
         Route::post('/offline/sync', [App\Http\Controllers\OfflineSyncController::class, 'sync'])->name('offline.sync');
 
+        // Copia local de cada dispositivo (ver SincronizacionController).
+        Route::get('/sync/{dominio}', App\Http\Controllers\SincronizacionController::class)->name('sync');
+
         Route::prefix('admin')->group(function () {
             // Ruta de perfil propio (disponible para TODOS los usuarios autenticados)
             Route::get('usuarios/mi-perfil', [App\Http\Controllers\UserController::class, 'miPerfil'])->name('usuarios.miPerfil');
