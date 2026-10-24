@@ -35,7 +35,7 @@
     function $(id) { return document.getElementById(id); }
     function modal() { return $('almKitsModal'); }
     function esc(s) { return window.escapeHtml(String(s == null ? '' : s)); }
-    function fmt(n) { return (parseFloat(n) || 0).toLocaleString('es-ES', { maximumFractionDigits: 3 }); }
+    function fmt(n) { return window.AlmacenLocal.fmt(n); }
     function toast(m, t) { window.toast(m, t || 'success'); }
     function puede(clave) { var m = modal(); return !!m && m.dataset[clave] === '1'; }
     function sinAcento(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }

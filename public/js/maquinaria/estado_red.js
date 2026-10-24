@@ -51,7 +51,10 @@
     let sinConexion = false;
 
     // ── DUEÑO ÚNICO de "se fue la red" (lo llama también el interceptor de fetch) ──
+    // Ya avisado no se repinta: cada petición fallida (la copia local pregunta cada 15 s) lo
+    // volvería a medir y animar.
     function mostrarOffline() {
+        if (sinConexion) return;
         sinConexion = true;
         showBanner('Sin internet · trabajando con la copia de este equipo', 'cloud_off', '#b45309', 0);
         ajustarResondeo();   // a partir de aqui hay que vigilar si vuelve
@@ -136,7 +139,7 @@
 
     // Se publica ANTES de la primera comprobación: así el interceptor ya lo
     // encuentra si esa misma petición falla.
-    window.netStatus = { showOffline: mostrarOffline, hide: hideBanner, comprobar: comprobarConexion };
+    window.netStatus = { showOffline: mostrarOffline };
 
     comprobarConexion();
 })();

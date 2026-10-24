@@ -27,7 +27,6 @@ class Movilizacion extends Model
         'FECHA_DESPACHO',
         'TIPO_MOVIMIENTO',         // DESPACHO, RECEPCION_DIRECTA
         'USUARIO_REGISTRO',
-        'client_uuid',             // Idempotencia offline (Fase 2): UUID del lote creado sin internet
     ];
 
     /**
