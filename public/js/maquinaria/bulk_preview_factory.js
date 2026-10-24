@@ -80,7 +80,8 @@
                 .catch(err => {
                     if (window.hidePreloader) window.hidePreloader();
                     console.error(err);
-                    modal('error', 'Error de red', 'No se pudo subir el archivo.', 'Cerrar');
+                    if (sinRed(err)) modal('error', 'Sin conexión', SIN_RED + ' Mientras tanto, registra uno por uno con el formulario: se guarda y sube solo al volver la conexión.', 'Cerrar');
+                    else modal('error', 'Error', 'No se pudo subir el archivo.', 'Cerrar');
                 })
                 .finally(() => { el.file.value = ''; });
             }
@@ -323,7 +324,8 @@
                 .catch(err => {
                     if (window.hidePreloader) window.hidePreloader();
                     console.error(err);
-                    modal('error', 'Error de red', 'No se pudo guardar.', 'Cerrar');
+                    if (sinRed(err)) modal('error', 'Sin conexión', SIN_RED + ' Las filas siguen aquí: guarda de nuevo cuando vuelva la conexión.', 'Cerrar');
+                    else modal('error', 'Error', 'No se pudo guardar.', 'Cerrar');
                 });
             });
 
@@ -337,6 +339,11 @@
                 el.table.innerHTML = '';
                 el.header.innerHTML = '';
             }
+
+            // La carga por Excel la procesa el servidor: sin red no hay bandeja que valga. Un
+            // fetch que no llega lanza TypeError; una respuesta que no es JSON (un 500), no.
+            const SIN_RED = 'La carga por Excel necesita internet.';
+            function sinRed(err) { return err instanceof TypeError; }
 
             function modal(type, title, message, confirmText) {
                 window.showModal && window.showModal({

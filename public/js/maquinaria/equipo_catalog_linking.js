@@ -160,6 +160,8 @@
             })
             .catch(err => {
                 console.error('❌ Search Error:', err);
+                // Sin red: que la próxima vez (ya con conexión) se pregunte de nuevo.
+                lastSearchKey = '';
                 hideWidget();
             });
     }

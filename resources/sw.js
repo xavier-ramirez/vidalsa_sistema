@@ -62,6 +62,7 @@ const PRECACHE_URLS = [
 const PAGINAS_SIN_RED = [
     '/menu',
     '/admin/equipos',
+    '/admin/equipos/create',
     '/admin/movilizaciones',
     '/admin/almacen',
     '/admin/almacen/movimientos',
@@ -111,11 +112,13 @@ function guardarPaginasSinRed(soloFaltantes) {
     )));
 }
 
+// Tambien los que la pagina pide despues por JS ('/js/...?v=' entre comillas simples: los
+// del ModuleManager del layout, como el selector de tipo y equipo vinculado del auxiliar).
 function guardarArchivosDe(cache, html) {
     const urls = new Set();
-    for (const m of html.matchAll(/(?:href|src)="([^"]+\?v=[^"]+)"/g)) {
+    for (const m of html.matchAll(/(?:href|src)="([^"]+\?v=[^"]+)"|'(\/(?:css|js)\/[^']+\?v=[^']+)'/g)) {
         try {
-            const u = new URL(m[1].replace(/&amp;/g, '&'), self.location.origin);
+            const u = new URL((m[1] || m[2]).replace(/&amp;/g, '&'), self.location.origin);
             if (u.origin === self.location.origin && /^\/(css|js)\//.test(u.pathname)) urls.add(u.toString());
         } catch (e) { /* URL rara: se salta */ }
     }

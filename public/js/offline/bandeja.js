@@ -8,9 +8,10 @@
  * red con la respuesta en camino y se manda otra vez, el servidor no la aplica dos veces.
  *
  *   Bandeja.enviar(url, { method, body }, meta) → Promise<{ ok, status, b, enBandeja }>
- *       body = objeto (va como JSON). meta = { titulo, tipo, datos }: lo que se ve en el panel
- *       y lo que las pantallas ponen encima de su copia mientras no suba (datos).
- *       Con conexión responde el servidor; sin ella resuelve { enBandeja: true }.
+ *       body = objeto (va como JSON) o FormData (va como formulario, con sus archivos: los
+ *       PDF quedan guardados en el equipo hasta que suben). meta = { titulo, tipo, datos }: lo
+ *       que se ve en el panel y lo que las pantallas ponen encima de su copia mientras no suba
+ *       (datos). Con conexión responde el servidor; sin ella resuelve { enBandeja: true }.
  *   Bandeja.pendientes() → array (síncrono): lo que todavía no subió.
  *   Bandeja.subir() → manda lo pendiente ya.
  *   Bandeja.sinConexion() → sin red, o la copia local no llegó al servidor la última vez.
@@ -37,7 +38,8 @@
     const usuario = () => (document.querySelector('meta[name="usuario-id"]') || {}).content || '';
     const toast = (m, t) => window.toast && window.toast(m, t);
 
-    // ── IndexedDB: items { clave, u, url, metodo, cuerpo, titulo, tipo, datos, creado, estado, motivo }
+    // ── IndexedDB: items { clave, u, url, metodo, cuerpo, formulario, titulo, tipo, datos, creado, estado, motivo }
+    //    formulario = pares [nombre, valor] de un FormData (los File se guardan tal cual); cuerpo, si no.
     let dbPromesa = null;
     function db() {
         if (!dbPromesa) {
@@ -88,19 +90,32 @@
     }
 
     function mandar(it) {
-        return window.apiFetch(it.url, {
-            method: it.metodo,
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', [CABECERA]: it.clave },
-            body: JSON.stringify(it.cuerpo || {}),
-        }).then((r) => r.json().catch(() => ({})).then((b) => ({ r, b })));
+        const cabeceras = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', [CABECERA]: it.clave };
+        let cuerpo;
+        if (it.formulario) {
+            // Sin Content-Type: el navegador pone el multipart con su separador.
+            cuerpo = new FormData();
+            it.formulario.forEach(([k, v]) => cuerpo.append(k, v));
+        } else {
+            cabeceras['Content-Type'] = 'application/json';
+            cuerpo = JSON.stringify(it.cuerpo || {});
+        }
+        return window.apiFetch(it.url, { method: it.metodo, headers: cabeceras, body: cuerpo })
+            .then((r) => r.json().catch(() => ({})).then((b) => ({ r, b })));
     }
 
     // ── Enviar: al servidor si hay red; si no, a la bandeja ──────────────────
     async function enviar(url, opciones, meta) {
         meta = meta || {};
+        const body = opciones && opciones.body;
+        const esFormulario = typeof FormData !== 'undefined' && body instanceof FormData;
         const it = {
             clave: clave(), u: usuario(), url, metodo: String((opciones && opciones.method) || 'POST').toUpperCase(),
-            cuerpo: (opciones && opciones.body) || {}, titulo: meta.titulo || url, tipo: meta.tipo || '',
+            cuerpo: esFormulario ? {} : (body || {}),
+            // El _token del formulario se queda fuera: cuando suba ya será otro, y apiFetch
+            // manda el vigente en la cabecera.
+            formulario: esFormulario ? Array.from(body.entries()).filter(([k]) => k !== '_token') : null,
+            titulo: meta.titulo || url, tipo: meta.tipo || '',
             datos: meta.datos || null, creado: Date.now(), estado: 'pendiente', motivo: '',
         };
         // Lo de antes va primero: si quedó algo en la bandeja, esto espera su turno.

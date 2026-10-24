@@ -1,10 +1,11 @@
 /**
- * equipos_form.js - Logic for Create/Edit Equipo Forms
+ * equipos_form.js - Formulario de EDICION de equipos (#editEquipoForm).
+ * El alta va por /admin/equipos/create, que tiene su propio envio (create.blade.php).
  * SPA-Compatible via ModuleManager
  */
 
 function initEquiposForm() {
-    const form = document.getElementById('createEquipoForm') || document.getElementById('editEquipoForm'); // Support both
+    const form = document.getElementById('editEquipoForm');
     if (!form) return;
 
     // --- HELPER FUNCTIONS (Unified Validation Engine) ---
@@ -310,90 +311,25 @@ function initEquiposForm() {
             })
             .then(({ status, body }) => {
                 if (status === 200 || status === 201) {
-                    const isEdit = form.querySelector('input[name="_method"][value="PUT"]');
+                    // UX: mantener el preloader activo y navegar INMEDIATO al listado.
+                    // El toast se muestra en la pagina destino via sessionStorage + hook
+                    // de estructura_base. Evita el parpadeo "form visible con toast" antes
+                    // del redirect que causaba el setTimeout(1200ms).
+                    try {
+                        sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({
+                            message: body.message || 'Equipo actualizado correctamente.',
+                            type: 'success',
+                        }));
+                    } catch (_) { /* silencioso si sessionStorage no disponible */ }
 
-                    if (isEdit) {
-                        // UX: mantener el preloader activo y navegar INMEDIATO al listado.
-                        // El toast se muestra en la pagina destino via sessionStorage + hook
-                        // de estructura_base. Evita el parpadeo "form visible con toast" antes
-                        // del redirect que causaba el setTimeout(1200ms).
-                        try {
-                            sessionStorage.setItem('vidalsa_flash_toast', JSON.stringify({
-                                message: body.message || 'Equipo actualizado correctamente.',
-                                type: 'success',
-                            }));
-                        } catch (_) { /* silencioso si sessionStorage no disponible */ }
-
-                        const backUrl = body.redirect || '/admin/equipos';
-                        window.__vidalsaRedirecting = true;
-                        if (typeof window.navigateTo === 'function') {
-                            window.navigateTo(backUrl);
-                        } else {
-                            window.location.href = backUrl;
-                        }
-                        return;
+                    const backUrl = body.redirect || '/admin/equipos';
+                    window.__vidalsaRedirecting = true;
+                    if (typeof window.navigateTo === 'function') {
+                        window.navigateTo(backUrl);
                     } else {
-                        if (window.hidePreloader) window.hidePreloader();
-                        // CREATE MODE: Reset form
-                        form.reset();
-
-                        form.querySelectorAll('.custom-dropdown').forEach(dropdown => {
-                            const input = dropdown.querySelector('input[type="hidden"]');
-                            const label = dropdown.querySelector('[data-filter-label]');
-                            if (input) input.value = '';
-                            if (label) label.innerText = 'SELECCIONE';
-                            dropdown.classList.remove('active', 'is-invalid');
-                        });
-
-                        form.querySelectorAll('.custom-form-autocomplete input[type="text"]').forEach(input => {
-                            input.value = '';
-                        });
-
-                        form.querySelectorAll('input[type="text"], input[type="number"], textarea').forEach(input => {
-                            input.value = '';
-                        });
-
-                        form.querySelectorAll('.error-message-inline').forEach(el => el.remove());
-                        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-
-                        form.querySelectorAll('.flatpickr-input').forEach(input => {
-                            if (input._flatpickr) input._flatpickr.clear();
-                        });
-
-                        form.querySelectorAll('[id^="file_"]').forEach(el => el.style.display = 'none');
-
-                        form.querySelectorAll('input[type="file"]').forEach(input => {
-                            if (window.updatePdfBtn && input.dataset.metaTarget) {
-                                input.dispatchEvent(new Event('change'));
-                            }
-                        });
-
-                        const imgPreview = document.getElementById('preview_equipo');
-                        if (imgPreview) {
-                            imgPreview.innerHTML = '<i class="material-icons" style="font-size: 16px; color: #cbd5e0;">photo_camera</i>';
-                            imgPreview.style.borderColor = '#cbd5e0';
-                        }
-
-                        // Restore button after successful create
-                        restoreBtn();
-
-                        form.querySelectorAll('[data-last-checked]').forEach(input => {
-                            delete input.dataset.lastChecked;
-                            delete input.dataset.isDuplicate;
-                        });
-
-                        if (typeof window.catalogReset === 'function') {
-                            window.catalogReset();
-                        } else if (typeof window.ignoreCatalogSuggestion === 'function') {
-                            window.ignoreCatalogSuggestion();
-                        }
-
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-
-                        if (typeof window.showToast === 'function') {
-                            window.showToast(body.message || '¡Equipo registrado correctamente!', 'success');
-                        }
+                        window.location.href = backUrl;
                     }
+                    return;
                 } else if (status === 422) {
                     if (window.hidePreloader) window.hidePreloader();
                     restoreBtn();
@@ -494,8 +430,7 @@ function initEquiposForm() {
         }
 
         // 0. Permission Check
-        const isEdit = form.querySelector('input[name="_method"][value="PUT"]');
-        const canSubmit = isEdit ? window.CAN_UPDATE_INFO : window.CAN_CREATE_EQUIPOS;
+        const canSubmit = window.CAN_UPDATE_INFO;
 
         if (typeof canSubmit === 'undefined' || canSubmit === false) {
             if (window.hidePreloader) window.hidePreloader();
@@ -508,7 +443,7 @@ function initEquiposForm() {
                 window.showModal({
                     type: 'error',
                     title: 'Acceso Denegado',
-                    message: isEdit ? 'No tienes permisos para actualizar esta información.' : 'No tienes permisos para registrar equipos.',
+                    message: 'No tienes permisos para actualizar esta información.',
                     confirmText: 'Entendido',
                     hideCancel: true
                 });
@@ -550,7 +485,7 @@ function initEquiposForm() {
 // Register with Module Manager if available
 if (typeof ModuleManager !== 'undefined') {
     ModuleManager.register('equipos_form',
-        () => document.getElementById('createEquipoForm') !== null || document.getElementById('editEquipoForm') !== null,
+        () => document.getElementById('editEquipoForm') !== null,
         initEquiposForm
     );
 }
@@ -564,7 +499,7 @@ if (document.readyState === 'loading') {
 
 // SPA navigation listener
 window.addEventListener('spa:contentLoaded', function () {
-    const form = document.getElementById('createEquipoForm') || document.getElementById('editEquipoForm');
+    const form = document.getElementById('editEquipoForm');
     if (form) {
         // Reset flag para permitir reinicialización.
         // Usar delete (no = null): el setter de dataset convierte null a la string "null", que es truthy

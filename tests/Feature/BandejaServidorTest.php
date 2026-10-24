@@ -142,6 +142,43 @@ class BandejaServidorTest extends MySqlTestCase
         $this->assertSame(10.0, $this->saldo($alm, $p));
     }
 
+    /**
+     * El alta de /admin/equipos/create sin internet sube como formulario (multipart) con su
+     * clave: si la respuesta se pierde y la bandeja la manda otra vez, el equipo o el auxiliar
+     * se registra UNA vez y la segunda recibe la misma respuesta.
+     */
+    public function test_el_alta_de_equipo_o_auxiliar_repetida_se_registra_una_sola_vez(): void
+    {
+        $u = Usuario::all()->first(fn ($u) => $u->can('equipos.create') && $u->veTodosLosFrentesEquipos());
+        $this->assertNotNull($u, 'Hace falta un usuario con equipos.create que vea todos los frentes.');
+        $serial = 'BANDEJA-' . strtoupper(Str::random(8));
+        $alta = fn (array $datos, string $clave) => $this->actingAs($u)
+            ->withHeaders(['Accept' => 'application/json', OperacionUnica::CABECERA => $clave])
+            ->post(route('equipos.storeUnified'), $datos);
+
+        $equipo = [
+            '__modo' => 'equipo', 'CATEGORIA_FLOTA' => 'FLOTA LIVIANA', 'TIPO_EQUIPO' => DB::table('tipo_equipos')->value('nombre'),
+            'MARCA' => $this->marca, 'MODELO' => 'M1', 'ANIO' => 2020, 'SERIAL_CHASIS' => $serial, 'ESTADO_OPERATIVO' => 'OPERATIVO',
+        ];
+        $clave = (string) Str::uuid();
+        $alta($equipo, $clave)->assertOk();
+        $alta($equipo, $clave)->assertOk()->assertHeader('X-Operacion-Repetida', '1');
+        $this->assertSame(1, DB::table('equipos')->where('SERIAL_CHASIS', $serial)->count());
+
+        $auxiliar = [
+            '__modo' => 'auxiliar', 'TIPO' => 'COMPRESOR', 'MARCA' => $this->marca, 'MODELO' => 'M1', 'SERIAL' => $serial,
+            'ESTADO_OPERATIVO' => 'OPERATIVO',
+            'ID_FRENTE_ACTUAL' => DB::table('frentes_trabajo')->whereNull('deleted_at')->where('ESTATUS_FRENTE', 'ACTIVO')->value('ID_FRENTE'),
+        ];
+        $clave = (string) Str::uuid();
+        $alta($auxiliar, $clave)->assertOk();
+        $alta($auxiliar, $clave)->assertOk()->assertHeader('X-Operacion-Repetida', '1');
+        $this->assertSame(1, DB::table('equipos_auxiliares')->where('SERIAL', $serial)->count());
+
+        // Con OTRA clave ya no es una repetición: es un serial ocupado, y se rechaza (422).
+        $alta($equipo, (string) Str::uuid())->assertStatus(422)->assertJsonValidationErrors('SERIAL_CHASIS');
+    }
+
     public function test_lo_que_espera_en_la_bandeja_ya_se_descuenta_en_pantalla(): void
     {
         [$alm, $p] = $this->almacenConStock();

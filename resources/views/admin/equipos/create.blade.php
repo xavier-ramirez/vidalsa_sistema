@@ -92,7 +92,8 @@
 @endcan
 
 <div id="formUnificadoCard" class="admin-card" style="max-width: 95%; margin: 0 auto;">
-    <form id="createUnifiedForm" action="{{ route('equipos.storeUnified') }}" method="POST" enctype="multipart/form-data" novalidate>
+    <form id="createUnifiedForm" action="{{ route('equipos.storeUnified') }}" method="POST" enctype="multipart/form-data" novalidate
+          data-max-pdf-kb="{{ \App\Services\GoogleDriveService::MAX_PDF_KB }}">
         @csrf
         <input type="hidden" name="__modo" id="__modo" value="equipo">
         <input type="hidden" name="CATEGORIA_FLOTA" id="__categoriaFlota" value="">
@@ -803,15 +804,21 @@
             window.switchUnifiedMode(modo);
             limpiarErroresForm();
             // form.reset() vacía el hidden ID_ESPEC, pero el widget de catálogo guarda su
-            // propio `linkedId` y seguiría mostrándose vinculado al equipo anterior.
-            // ignoreCatalogSuggestion() es su limpieza oficial (hidden + estado + ocultar).
-            if (typeof window.ignoreCatalogSuggestion === 'function') window.ignoreCatalogSuggestion();
+            // propio `linkedId` y seguiría mostrándose vinculado al equipo anterior. Se limpia
+            // entero con catalogReset() (hidden + estado + última búsqueda): con solo
+            // ignoreCatalogSuggestion() el siguiente equipo del MISMO modelo, año y tipo —lo
+            // normal al cargar en tanda— ya no volvía a preguntar y no salía la sugerencia.
+            if (typeof window.catalogReset === 'function') window.catalogReset();
             var card = document.getElementById('formUnificadoCard');
             if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
             // Sin focus() automático en el campo "Tipo": su onfocus abre el desplegable
             // (showFormDropdown / auxTipoOpen), así que enfocarlo tras guardar dejaba una
             // lista desplegada sola, encima del toast y mientras la página aún hace scroll.
         }
+        // Con o sin internet, el mismo camino: primero se revisa aquí lo que rechazaría el
+        // servidor (equipos_alta_sin_red.js; sus errores salen igual que los de un 422) y luego
+        // se manda por la bandeja (bandeja.js). Con red responde el servidor; sin ella el
+        // registro, con sus PDF, queda guardado en este dispositivo y sube solo al volver.
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             if (form.dataset.submitting === '1') return;
@@ -822,12 +829,21 @@
 
             limpiarErroresForm();
 
-            var formData = new FormData(form);
-            window.apiFetch(form.action, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                method: 'POST',
-                body: formData})
-            .then(function (r) { return r.json().then(function (body) { return { status: r.status, body: body }; }); })
+            var esAux = document.getElementById('__modo').value === 'auxiliar';
+            var alta = window.EquiposAltaSinRed;
+            alta.revisar(form, esAux).then(function (errores) {
+                if (Object.keys(errores).length) return { status: 422, body: { errors: errores } };
+                return window.Bandeja.enviar(form.action, { method: 'POST', body: new FormData(form) }, alta.meta(esAux))
+                    .then(function (r) { return { enBandeja: r.enBandeja, status: r.status, body: r.b || {} }; });
+            })
             .then(function (res) {
+                if (res.enBandeja) {
+                    if (typeof window.hidePreloader === 'function') window.hidePreloader();
+                    liberarSubmit();
+                    prepararOtroRegistro();
+                    window.toast('Sin internet: quedó guardado en este dispositivo y se registrará solo al volver la conexión. Puedes registrar otro.', 'success');
+                    return;
+                }
                 if (res.status === 200 || res.status === 201) {
                     // El backend sigue devolviendo `redirect` (lo usan otros clientes); aquí se
                     // ignora a propósito: nos quedamos para registrar el siguiente equipo.
@@ -877,13 +893,19 @@
                 var errMsg = res.body.message || 'No se pudo registrar.';
                 if (window.showModal) window.showModal({ type: 'error', title: 'Error', message: errMsg, confirmText: 'Entendido', hideCancel: true });
             })
-            .catch(function (err) {
+            .catch(function () {
+                // La red caída no llega aquí (va a la bandeja): esto es no poder guardarlo en el
+                // equipo (sin espacio, por ejemplo).
                 if (typeof window.hidePreloader === 'function') window.hidePreloader();
                 liberarSubmit();
-                if (window.showModal) window.showModal({ type: 'error', title: 'Error de red', message: 'No se pudo contactar el servidor.', confirmText: 'Entendido', hideCancel: true });
+                if (window.showModal) window.showModal({ type: 'error', title: 'Error', message: 'No se pudo guardar el registro. Inténtalo de nuevo.', confirmText: 'Entendido', hideCancel: true });
             });
         });
     }
+    // Copia local de equipos para los repetidos sin internet (equipos_alta_sin_red.js). La
+    // primera vez la abre el propio archivo al cargar; al volver por la SPA, que ya no lo
+    // ejecuta, aquí.
+    if (form && window.EquiposAltaSinRed) window.EquiposAltaSinRed.preparar(form);
 
     // ── Validación en vivo de unicidad (segundo plano) ──
     // El form de EDIT usa equipos_form.js; este form es 'createUnifiedForm' (que
@@ -932,17 +954,22 @@
             if (input.dataset.lastChecked === key) return;
             input.dataset.lastChecked = key;
 
+            function marcar(existe) {
+                if (input.dataset.lastChecked !== key) return;   // ya se escribió otra cosa
+                if (existe) { setErr(input, 'Este valor ya está registrado.'); input.dataset.isDuplicate = 'true'; }
+                else { clrErr(input); input.dataset.isDuplicate = 'false'; }
+            }
+            // Sin internet: contra la copia local y lo que espera en la bandeja.
+            function sinRed() { window.EquiposAltaSinRed.repetido(input, isAux).then(marcar); }
+            if (window.Bandeja.sinConexion()) { sinRed(); return; }
+
             var ctrl = new AbortController();
             var to = setTimeout(function () { ctrl.abort(); }, 8000);
             window.apiFetch(m.url + '?field=' + encodeURIComponent(m.field) + '&value=' + encodeURIComponent(val), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 signal: ctrl.signal})
             .then(function (r) { return r.json(); })
-            .then(function (d) {
-                clearTimeout(to);
-                if (d && d.exists) { setErr(input, 'Este valor ya está registrado.'); input.dataset.isDuplicate = 'true'; }
-                else { clrErr(input); input.dataset.isDuplicate = 'false'; }
-            })
-            .catch(function () { clearTimeout(to); }); // timeout/red: silencioso (el server revalida al enviar)
+            .then(function (d) { clearTimeout(to); marcar(d && d.exists); })
+            .catch(function () { clearTimeout(to); sinRed(); });   // timeout o red: la copia local
         }
 
         FIELDS.forEach(function (id) {
@@ -979,7 +1006,10 @@
      vista: aqui dentro quedaria muerto al entrar por navegacion SPA. El motivo entero
      esta explicado en el partial equipos_auxiliares/partials/form_fields.blade.php,
      que carga el mismo archivo por el mismo camino. --}}
-<script>window.AUX_HOST_SEARCH_URL = '{{ route("equipos-auxiliares.searchHosts") }}';</script>
+<script>window.AUX_HOST_SEARCH_URL = '{{ route("equipos-auxiliares.searchHosts") }}'; window.AUX_HOST_MAX = {{ \App\Models\EquipoAuxiliar::ANCHOR_MAX_PER_HOST }};</script>
+
+{{-- Revisión previa y repetidos sin internet (el envío va por la bandeja). --}}
+<script src="{{ asset('js/maquinaria/equipos_alta_sin_red.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_alta_sin_red.js')) }}"></script>
 
 {{-- Carga por Excel de equipos y auxiliares, en este orden (la fabrica primero). Una sola vez aqui y no en bulk_upload_card, que se incluye dos veces. La SPA lo ejecuta una vez por pestaña. --}}
 <script src="{{ asset('js/maquinaria/bulk_preview_factory.js') }}?v={{ @filemtime(public_path('js/maquinaria/bulk_preview_factory.js')) }}"></script>

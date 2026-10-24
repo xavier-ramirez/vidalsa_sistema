@@ -412,4 +412,4 @@
      Ahora lo pide el layout con ModuleManager + cargarScriptUnaVez en cuanto ve
      #auxTipoCombo, que es el detector que comparten esta ficha y /admin/equipos/create.
      La URL con ?v= la sigue poniendo el layout, asi que el cache-busting no cambia. --}}
-<script>window.AUX_HOST_SEARCH_URL = '{{ route("equipos-auxiliares.searchHosts") }}';</script>
+<script>window.AUX_HOST_SEARCH_URL = '{{ route("equipos-auxiliares.searchHosts") }}'; window.AUX_HOST_MAX = {{ \App\Models\EquipoAuxiliar::ANCHOR_MAX_PER_HOST }};</script>

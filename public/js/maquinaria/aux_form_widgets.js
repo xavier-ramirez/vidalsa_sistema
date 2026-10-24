@@ -12,7 +12,8 @@
  * que exista: cada pagina solo tiene uno.
  *
  * La URL de busqueda la deja el Blade en window.AUX_HOST_SEARCH_URL, porque un
- * .js no puede resolver route().
+ * .js no puede resolver route(), y el tope de auxiliares por equipo en
+ * window.AUX_HOST_MAX (EquipoAuxiliar::ANCHOR_MAX_PER_HOST).
  */
 (function () {
     'use strict';
@@ -52,18 +53,47 @@
         const q = (input.value || '').trim();
         if (q.length < 2) {
             document.getElementById('hostResultsBox').style.display = 'none';
+            // Se olvida la última: borrar una letra y volver a escribirla tiene que buscar otra
+            // vez (antes «PA» → «P» → «PA» dejaba la lista escondida).
+            _hostLastQuery = '';
             return;
         }
         if (q === _hostLastQuery) return;
         _hostLastQuery = q;
         clearTimeout(_hostDebounce);
         _hostDebounce = setTimeout(() => {
-            window.apiFetch(window.AUX_HOST_SEARCH_URL + '?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(r => r.json())
-            .then(data => window.auxHostRender(data))
-            .catch(err => console.error('searchHosts:', err));
+            const enRed = () => window.apiFetch(window.AUX_HOST_SEARCH_URL + '?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json());
+            const enCopia = () => hostsDeLaCopia(q);
+            (window.Bandeja && window.Bandeja.sinConexion() ? enCopia() : enRed().catch(enCopia))
+                .then(data => { if (q === _hostLastQuery) window.auxHostRender(data); })
+                .catch(err => console.error('searchHosts:', err));
         }, 280);
     };
+
+    // Sin internet: la misma búsqueda (EquipoAuxiliarController::searchHosts) sobre la copia
+    // local de equipos (copia-local.js), que ya trae solo los frentes de este usuario.
+    function hostsDeLaCopia(q) {
+        const t = q.toUpperCase();
+        return window.CopiaLocal.usar('equipos').then((v) => {
+            const anclados = {};
+            v.filas('auxiliares').forEach((a) => {
+                const h = a.det && a.det.host_id;
+                if (h) anclados[h] = (anclados[h] || 0) + 1;
+            });
+            return v.filas('equipos')
+                .filter((e) => [e.codigo, e.chasis, e.motorSerial, e.marca, e.modelo, e.placaReal]
+                    .some((x) => x && String(x).toUpperCase().indexOf(t) !== -1))
+                .sort((a, b) => String(a.codigo || '').localeCompare(String(b.codigo || '')))
+                .slice(0, 20)
+                .map((e) => ({
+                    id: e.id, codigo: e.codigo, placa: e.placaReal, serial_chasis: e.chasis,
+                    tipo: e.tipo, marca: e.marca, foto: e.foto,
+                    auxiliares_anclados: anclados[e.id] || 0,
+                    disponible: (anclados[e.id] || 0) < window.AUX_HOST_MAX,
+                }));
+        });
+    }
 
     window.auxHostRender = function (rows) {
         const box = document.getElementById('hostResultsBox');
@@ -82,7 +112,7 @@
             const dis = r.disponible ? '' : 'opacity:0.55; pointer-events:none;';
             const badge = r.disponible
                 ? `<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Disponible</span>`
-                : `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Lleno (${r.auxiliares_anclados}/2)</span>`;
+                : `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">Lleno (${r.auxiliares_anclados}/${window.AUX_HOST_MAX})</span>`;
             // Identificacion principal: placa > codigo de patio > serial de chasis > #id.
             // Misma regla que el render inicial de la tarjeta (ver $hostTitulo arriba).
             const idPrincipal = r.placa || r.codigo || r.serial_chasis || ('#' + r.id);
