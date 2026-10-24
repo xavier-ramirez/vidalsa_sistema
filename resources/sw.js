@@ -4,12 +4,12 @@
  * resto de HTML (la app es dinámica), cache-first para assets estáticos
  * (/img, /css, /js, /fonts, /images) que ya vienen con cache-busting via ?v=filemtime.
  *
- * MODO OFFLINE (Fase 1): las navegaciones (incluidas /admin/ y /dashboard/) son
- * network-first y se CACHEAN; offline se sirve el cascarón cacheado para que el
- * módulo cargue igual. Online no cambia: siempre se intenta la red primero, el
- * cache solo se usa cuando NO hay internet. Los datos frescos los repone el JS
- * desde IndexedDB (ver /js/offline/offline-sync.js). Las rutas de API/acciones y
- * el snapshot (/offline/) NUNCA se cachean para no servir datos viejos.
+ * SIN INTERNET: las navegaciones (incluidas /admin/ y /dashboard/) son network-first y se
+ * CACHEAN; sin red se sirve el cascarón guardado para que el módulo cargue igual. Online no
+ * cambia: siempre se intenta la red primero, el cache solo se usa cuando NO hay internet. Los
+ * datos los pone el JS desde la copia local de IndexedDB (ver /js/offline/copia-local.js). Las
+ * rutas de API/acciones, la copia (/sync/) y el sondeo de conexión (/up) NUNCA se cachean
+ * para no servir datos viejos.
  *
  * CACHE_VERSION es inyectado por la ruta Laravel que sirve este archivo; el placeholder
  * __CACHE_VERSION__ se reemplaza con filemtime en cada response para que todo cambio
@@ -64,6 +64,15 @@ const PRECACHE_URLS = [
     '/fonts/MaterialIcons-Regular.woff2'
 ];
 
+const PAGINAS_SIN_RED = [
+    '/menu',
+    '/admin/equipos',
+    '/admin/movilizaciones',
+    '/admin/almacen',
+    '/admin/almacen/movimientos',
+    '/admin/almacen/notas',
+];
+
 self.addEventListener('install', (event) => {
     self.skipWaiting();
     event.waitUntil(
@@ -82,15 +91,17 @@ self.addEventListener('install', (event) => {
                     return caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', response));
                 }
             }).catch(() => {}),
-            // Y el MENU, si hay sesion (sin sesion redirige al login: no se guarda). Es a
-            // donde lleva "Entrar sin conexion": si faltaba —recien actualizada la app y sin
-            // haber vuelto a abrir el menu con red— ese boton devolvia al login una y otra
-            // vez ("no me deja iniciar sesion").
-            fetch('/menu', { credentials: 'same-origin' }).then((response) => {
+            // Y el MENU y los módulos que trabajan con la copia local, si hay sesion (sin
+            // sesion redirigen al login; sin permiso, 403: no se guardan). El menu es a donde
+            // lleva "Entrar sin conexion": si faltaba —recien actualizada la app y sin haber
+            // vuelto a abrirlo con red— ese boton devolvia al login una y otra vez. Los
+            // módulos, para que abran sin internet aunque en este equipo nunca se hayan
+            // abierto con red.
+            ...PAGINAS_SIN_RED.map((ruta) => fetch(ruta, { credentials: 'same-origin' }).then((response) => {
                 if (response && response.status === 200 && !response.redirected) {
-                    return caches.open(RUNTIME_CACHE).then((cache) => cache.put('/menu', response));
+                    return caches.open(RUNTIME_CACHE).then((cache) => cache.put(ruta, response));
                 }
-            }).catch(() => {})
+            }).catch(() => {}))
         ])
     );
 });
@@ -218,17 +229,17 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return;
 
-    // Nunca cachear API/acciones, el snapshot offline, la sincronización de la copia local
-    // (/sync/: una respuesta vieja pisaría datos más nuevos), ni el manifest (el manifest
+    // Nunca cachear API/acciones, la sincronización de la copia local (/sync/: una respuesta
+    // vieja pisaría datos más nuevos), el sondeo de conexión (/up), ni el manifest (el manifest
     // debe leerse fresco siempre: si cachea uno viejo, el navegador no detecta cambios
     // en display_override / tab_strip y nunca activa el modo pestañas aunque reinstales
     // el PWA). OJO: /admin/ y /dashboard/ YA NO se excluyen — sus navegaciones se
     // cachean (network-first) para que los módulos carguen offline; los datos viejos
-    // del HTML cacheado los reemplaza el JS leyendo de IndexedDB.
+    // del HTML cacheado los reemplaza el JS leyendo la copia local.
     if (
         url.pathname.startsWith('/webauthn/') ||
         url.pathname.startsWith('/api/') ||
-        url.pathname.startsWith('/offline/') ||
+        url.pathname === '/up' ||
         url.pathname.startsWith('/sync/') ||
         url.pathname.startsWith('/storage/') ||
         url.pathname.includes('/export') ||

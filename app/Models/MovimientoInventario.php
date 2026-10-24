@@ -98,6 +98,17 @@ class MovimientoInventario extends Model
      */
     public static function generarNumeroNota(): string
     {
+        return static::apartarNumerosNota(1)[0];
+    }
+
+    /**
+     * Aparta $cuantos números de Nota seguidos del contador del año (el mismo candado que
+     * generarNumeroNota). Los usa también NotasReservadas para el bloque de un dispositivo.
+     *
+     * @return list<string>
+     */
+    public static function apartarNumerosNota(int $cuantos): array
+    {
         $year = (int) date('Y');
 
         // RECONCILIAR con el máximo número REAL ya usado en movimientos del año. Si el
@@ -112,11 +123,11 @@ class MovimientoInventario extends Model
             ->value('m');
 
         $sql = 'UPDATE numero_nota_counter
-                   SET SIGUIENTE = LAST_INSERT_ID(GREATEST(SIGUIENTE, ?) + 1),
+                   SET SIGUIENTE = LAST_INSERT_ID(GREATEST(SIGUIENTE, ?) + ?),
                        updated_at = ?
                  WHERE ANIO = ?';
 
-        if (\DB::update($sql, [$maxReal, now(), $year]) === 0) {
+        if (\DB::update($sql, [$maxReal, $cuantos, now(), $year]) === 0) {
             // Primera nota del año: la fila todavía no existe. insertOrIgnore por si dos
             // peticiones la crean a la vez (una gana, la otra la ignora) y se repite el
             // UPDATE, que es quien asigna el folio. Este camino corre UNA vez al año.
@@ -126,12 +137,12 @@ class MovimientoInventario extends Model
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-            \DB::update($sql, [$maxReal, now(), $year]);
+            \DB::update($sql, [$maxReal, $cuantos, now(), $year]);
         }
 
-        $siguiente = (int) \DB::selectOne('SELECT LAST_INSERT_ID() AS n')->n;
+        $ultimo = (int) \DB::selectOne('SELECT LAST_INSERT_ID() AS n')->n;
 
-        return sprintf('NE-%d-%04d', $year, $siguiente);
+        return array_map(fn ($n) => sprintf('NE-%d-%04d', $year, $n), range($ultimo - $cuantos + 1, $ultimo));
     }
 
     /**

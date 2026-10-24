@@ -66,6 +66,12 @@ trait AlmacenLocal
         return $this->correrAlmacenLocal($usuario, ['accion' => 'listaProductos']);
     }
 
+    /** Filas de stock de la copia con lo que espera en la bandeja sin internet encima. */
+    protected function stockLocal(Usuario $usuario, array $pendientes): array
+    {
+        return $this->correrAlmacenLocal($usuario, ['accion' => 'stock', 'pendientes' => $pendientes]);
+    }
+
     private function correrAlmacenLocal(Usuario $usuario, array $entrada): mixed
     {
         $node = (new ExecutableFinder())->find('node');

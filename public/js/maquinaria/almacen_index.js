@@ -417,6 +417,8 @@
         if (e.detail.cambio) almRepintar();
         else window.pintarEstadoCopia('almCopiaEstado', e.detail.estado);
     });
+    // Guardar, subir o descartar algo sin internet cambia el stock que se ve (va encima de la copia).
+    window.addEventListener('bandeja', function () { if (el('almTableBody')) almRepintar(); });
     document.addEventListener('focusout', function (e) {
         if (!_almRepintarPendiente || !e.target.closest || !e.target.closest('#almTableBody')) return;
         setTimeout(function () { var b = el('almTableBody'); if (b && !b.contains(document.activeElement)) almRepintar(); }, 0);
@@ -2453,10 +2455,9 @@
                 // Reparto por proyecto: viene vacío en los almacenes que no separan.
                 var proyectos = d.proyectos || [];
                 // Mismo formato de cantidad que el panel lateral, que pinta ESTE MISMO dato
-                // desde PHP: OfflineMode.fmt es la réplica exacta de number_format(n,3,',','.')
-                // (toLocaleString no agrupa los miles de 4 dígitos y "1663" desentonaría con
-                // el "1.663" del panel). formatNum queda de reserva por si el global no cargó.
-                var fmtQty = (window.OfflineMode && window.OfflineMode.fmt) || formatNum;
+                // (almacen_local.js): toLocaleString no agrupa los miles de 4 dígitos y "1663"
+                // desentonaría con el "1.663" del panel.
+                var fmtQty = window.AlmacenLocal.fmt;
                 if (proyectos.length && proyBox && proyWrap) {
                     proyBox.innerHTML = proyectos.map(function (p) {
                         // La bolsa común va en cursiva y gris: es saldo real, pero de nadie
@@ -2832,6 +2833,7 @@
         if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return;
         var m = el('almAjusteModal');
         m.dataset.idProducto = idProducto;
+        m.dataset.nombre = nombre || '';
         // Mostrar el saldo actual (sistema) para que el usuario sepa desde qué valor ajusta.
         var sv = el('almAjSaldoActual');
         if (sv) { var s = parseFloat(saldo); sv.textContent = (isNaN(s) ? '—' : formatNum(s)) + (um ? ' ' + um : ''); }
@@ -2874,19 +2876,18 @@
 
         pre();
         // Endpoint unificado de lote: la Auditoría se registra como un lote de 1 línea con
-        // tipo=AJUSTE. El backend ignora los campos de Nota de Entrega para AJUSTE.
-        window.apiFetch(ROUTE_LOTE, {
+        // tipo=AJUSTE. El backend ignora los campos de Nota de Entrega para AJUSTE. Sin
+        // internet queda en la bandeja y el saldo contado ya se ve en la tabla.
+        var lineas = [{ id_producto: parseInt(m.dataset.idProducto, 10), cantidad: ns }];
+        window.Bandeja.enviar(ROUTE_LOTE, {
             method: 'POST',
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                id_almacen: idAlm,
-                tipo: 'AJUSTE',
-                motivo: 'Auditoría de Inventario',
-                lineas: [{ id_producto: m.dataset.idProducto, cantidad: ns }]
-            })
-        }).then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
-          .then(function (res) {
+            body: { id_almacen: idAlm, tipo: 'AJUSTE', motivo: 'Auditoría de Inventario', lineas: lineas },
+        }, {
+            titulo: 'Auditoría · ' + (m.dataset.nombre || ('Producto #' + m.dataset.idProducto)) + ' → ' + ns,
+            tipo: 'ajuste', datos: { id_almacen: parseInt(idAlm, 10), lineas: lineas },
+        }).then(function (res) {
               unpre();
+              if (res.enBandeja) { almCerrar('almAjusteModal'); toast('Auditoría guardada. Se registra al volver internet.'); return; }
               // Error: se recarga para ver el dato vigente (conservando "Ver todo"), pero SIN el
               // resalte de "cambiado", porque no cambió nada.
               if (!res.ok) { showErr('almAjError', (res.b && res.b.message) || 'No se pudo registrar la auditoría.'); almCargar({ verTodo: almVerTodoActivo }); return; }
@@ -3800,6 +3801,8 @@
     // Todo lo que sigue solo tiene sentido con permiso para mover material: su HTML (los
     // modales de salida y de vista previa) tampoco se pinta sin el. Antes este trozo ni
     // siquiera se enviaba al navegador: lo envolvia un condicional de Blade.
+    // Números de Nota para registrar salidas si se va el internet (bandeja.js los repone).
+    window.Bandeja.apartarNumeros();
     // ── Modal "Registrar salida" unificado ─────────────────────────────────────
     //  Un solo formulario para ambos casos: salida para consumo (mismo almacén) o
     //  salida hacia otro proyecto (TRASPASO). El backend decide qué hacer según el
@@ -3903,6 +3906,7 @@
         var payload = almSalidaConstruirPayload();
         if (!payload) return;
         almSalidaDraft = payload;
+        if (window.Bandeja.sinConexion()) { almSalidaPreviaSinInternet(payload); return; }
 
         pre();
         window.apiFetch(ROUTE_PREVIEW_SALIDA, {
@@ -3953,6 +3957,32 @@
         });
     };
 
+    // Sin internet no hay PDF: el preview muestra lo que sale. La Nota toma, al registrar, uno
+    // de los números apartados para este equipo (Bandeja.apartarNumeros, al abrir el módulo con
+    // internet); sin ninguno no se puede, porque el número tiene que ser el definitivo.
+    function almSalidaPreviaSinInternet(payload) {
+        if (!window.Bandeja.numerosLibres()) {
+            showErr('almSalidaError', 'Sin internet y sin números de Nota apartados en este equipo: conéctate una vez para apartarlos.');
+            return;
+        }
+        almCerrar('almSalidaModal');
+        var avisoBox = el('almPreviewAviso');
+        if (avisoBox) avisoBox.style.display = 'none';
+        var frame = el('almPreviewFrame'); if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
+        var cont = el('almPreviewCanvas');
+        if (cont) {
+            cont.style.display = 'block';
+            cont.innerHTML = '<div style="background:#fff;border-radius:8px;padding:18px 20px;max-width:560px;margin:0 auto;color:#0f172a;font-size:13px;">'
+                + '<div style="display:flex;gap:8px;align-items:center;font-weight:700;font-size:14px;margin-bottom:10px;"><i class="material-icons" style="color:#b45309;">cloud_off</i>Sin internet</div>'
+                + '<p style="margin:0 0 10px;color:#475569;">La salida queda guardada en este equipo y se registra sola al volver internet; entonces se descarga el PDF de la Nota.</p>'
+                + '<ul style="margin:0;padding-left:18px;">' + payload.lineas.map(function (l) {
+                    var s = almSeleccion[l.id_producto] || {};
+                    return '<li>' + window.escapeHtml(s.nombre || ('#' + l.id_producto)) + ' — <b>' + l.cantidad + '</b></li>';
+                }).join('') + '</ul></div>';
+        }
+        almOpen('almPreviewModal');
+    }
+
     // "Editar" del modal preview: vuelve al modal de salida con todos los datos
     // intactos (los inputs no se destruyen, solo se ocultan via .open). El usuario
     // puede cambiar campos del formulario o salir, modificar la seleccion en la
@@ -3989,17 +4019,20 @@
         if (window._almConfirmando) return;
         window._almConfirmando = true;
         var payload = almSalidaDraft;
+        // Sin internet sale con un número apartado: es el definitivo, el que tendrá la Nota.
+        if (window.Bandeja.sinConexion() && !payload.numero_nota_reservado) {
+            payload.numero_nota_reservado = window.Bandeja.tomarNumeroNota();
+        }
 
         pre();
-        window.apiFetch(ROUTE_LOTE, {
-            method: 'POST',
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
+        window.Bandeja.enviar(ROUTE_LOTE, { method: 'POST', body: payload }, {
+            titulo: 'Salida' + (payload.numero_nota_reservado ? ' · Nota ' + payload.numero_nota_reservado : ''),
+            tipo: 'salida',
+            datos: { id_almacen: Number(payload.id_almacen), id_frente_destino: Number(payload.id_frente_destino) || null, lineas: payload.lineas },
         })
-        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
             unpre();
-            if (res.ok) {
+            if (res.ok || res.enBandeja) {
                 // Exito: cerramos ambos modales, limpiamos seleccion y el draft, recargamos
                 // la tabla y DESCARGAMOS el PDF al disco (NO abrimos el visor in-page —
                 // el usuario ya aprobo la vista previa, ese segundo visor sobra).
@@ -4012,7 +4045,9 @@
                 window.AlmSalidaNota.recordarDepto(almSalidaDraft && almSalidaDraft.departamento);
                 almSalidaDraft = null;
                 if (window.almSelClear) window.almSelClear();
-                toast(res.b.message || 'Movimiento registrado.');
+                toast(res.enBandeja
+                    ? 'Salida guardada' + (payload.numero_nota_reservado ? ' (Nota ' + payload.numero_nota_reservado + ')' : '') + '. Se registra al volver internet.'
+                    : (res.b.message || 'Movimiento registrado.'));
                 almCargar();
                 if (res.b && res.b.nota_url) {
                     // Como archivo, sin abrir otro visor (dom_helpers.js).

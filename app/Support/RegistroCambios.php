@@ -14,8 +14,7 @@ use Illuminate\Support\Facades\Log;
  * QUÉ cambió (TABLA = el agregado que ve el cliente, ID_FILA = su id). La escriben
  * TRIGGERS de la base, no el código PHP: así no se escapa nada, venga el cambio de la
  * app, de un update masivo sin eventos, de un comando artisan o de un SQL pegado a mano en
- * phpMyAdmin. Es lo que reemplaza al juego de huellas, contadores y TTL de OfflineVersion,
- * que tenía que adivinar qué había cambiado.
+ * phpMyAdmin. No hay que adivinar qué cambió: queda escrito.
  *
  * Un cambio en una tabla HIJA se anota con el id del agregado al que pertenece: la placa
  * (documentacion) o un reporte de falla cambian lo que muestra el EQUIPO, así que se
@@ -57,6 +56,9 @@ class RegistroCambios
         'correcciones_nota'      => [['correcciones', 'ID_CORRECCION']],
         'almacenes'              => [['almacenes', 'ID_ALMACEN']],
         'almacen_frentes'        => [['almacenes', 'ID_ALMACEN']],
+        'almacen_kits'           => [['kits', 'ID_KIT']],
+        'almacen_kit_items'      => [['kits', 'ID_KIT']],
+        'almacen_kit_modelos'    => [['kits', 'ID_KIT']],
     ];
 
     private const EVENTOS = ['INSERT' => 'ai', 'UPDATE' => 'au', 'DELETE' => 'ad'];

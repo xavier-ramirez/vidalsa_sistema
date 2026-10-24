@@ -1,9 +1,10 @@
 // Corre public/js/maquinaria/almacen_local.js en Node para las pruebas (Tests\AlmacenLocal).
 // Entrada (stdin, JSON): { copia, accion, filtros, offset, cuantos, pagina, porDefecto, puede,
-//   mini, conBusqueda, idProducto, idAlmacen }
+//   mini, conBusqueda, idProducto, idAlmacen, pendientes }
 //   copia  → la respuesta completa de GET /sync/almacen
 //   accion → 'inventario' | 'ids' | 'panelOtros' | 'movimientos' | 'consumo' | 'notas'
-//            | 'notasFiltro' | 'listaProductos'
+//            | 'notasFiltro' | 'listaProductos' | 'stock'
+//   pendientes → lo que espera en la bandeja sin internet (forma de window.Bandeja.pendientes())
 // Salida (stdout, JSON): lo que devuelve esa función de window.AlmacenLocal.
 const fs = require('fs');
 const path = require('path');
@@ -15,6 +16,7 @@ eval(fs.readFileSync(path.join(js, 'dom_helpers.js'), 'utf8'));
 eval(fs.readFileSync(path.join(js, 'almacen_local.js'), 'utf8'));
 
 const e = JSON.parse(fs.readFileSync(0, 'utf8'));
+window.Bandeja = { pendientes: () => e.pendientes || [] };
 const vista = {
     filas: (t) => e.copia.datos[t] || [],
     catalogo: (n) => e.copia.catalogos[n] || [],
@@ -31,5 +33,6 @@ const acciones = {
     notas: () => L.notas(vista, f, e.pagina || 1, e.porDefecto),
     notasFiltro: () => L.notasFiltro(vista),
     listaProductos: () => L.listaProductos(vista),
+    stock: () => L.stockConPendientes(vista),
 };
 process.stdout.write(JSON.stringify(acciones[e.accion]()));

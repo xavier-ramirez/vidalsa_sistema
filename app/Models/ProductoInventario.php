@@ -16,17 +16,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class ProductoInventario extends Model
 {
-    /**
-     * Snapshot offline de los kits (dominio "catalogos"): cada kit lleva el nombre de sus
-     * productos (KitAlmacenService::catalogo), así que editar un producto lo deja viejo.
-     */
-    protected static function booted(): void
-    {
-        $marcar = static fn () => \App\Support\OfflineVersion::invalidar('catalogos');
-        static::saved($marcar);
-        static::deleted($marcar);
-    }
-
     use SoftDeletes;
 
     protected $table      = 'productos_inventario';

@@ -213,7 +213,7 @@ window.almMovArrancar = function (CFG) {
 
     // ¿Hay filtro de producto puesto? Texto tecleado O IDs elegidos por clic (que pueden venir
     // de la URL con el cuadro vacío). Criterio ÚNICO: lo consultan el estado visual de abajo,
-    // el icono de escaneo (cfg.activo de LectorBarras) y el modo offline.
+    // el icono de escaneo (cfg.activo de LectorBarras) y el filtro de la copia local.
     function almMovProdActivo() {
         var i = el('almMovSearch');
         return !!((i && i.value.trim()) || window.almMovPickedIds);

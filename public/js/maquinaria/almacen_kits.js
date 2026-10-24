@@ -9,9 +9,9 @@
    window.almKitCargarEnSalida (inline del inventario): los materiales quedan seleccionados
    con la cantidad × kits y se sigue con el "Registrar salida" de siempre.
 
-   Sin conexión: los kits vienen de la copia offline (tabla `kits`, el MISMO catálogo que da el
-   servidor) y la existencia de su tabla `stock`, así que se ven igual. Cargar en la salida y
-   editar necesitan conexión (la salida no se registra offline) y se avisa.
+   Con o sin internet, los kits y la existencia salen de la copia local del almacén (catálogo
+   `kits` y saldos), así que se ven igual. Cargar en la salida también funciona sin conexión (la
+   salida queda en la bandeja); armar o cambiar un kit necesita conexión y se avisa.
 
    Vive en window y sobrevive a la navegación SPA: el DOM se vuelve a buscar en cada llamada.
    ════════════════════════════════════════════════════════════════════════════ */
@@ -20,7 +20,7 @@
     if (window.AlmKits) return;
 
     var S = {
-        kits: [],            // KitAlmacenService::catalogo()
+        kits: [],            // KitAlmacenService::catalogo(), de la copia local
         existencias: {},     // { id_producto: cantidad } del almacén del inventario
         idAlmacen: '',
         q: '',
@@ -37,7 +37,6 @@
     function esc(s) { return window.escapeHtml(String(s == null ? '' : s)); }
     function fmt(n) { return (parseFloat(n) || 0).toLocaleString('es-ES', { maximumFractionDigits: 3 }); }
     function toast(m, t) { window.toast(m, t || 'success'); }
-    function offline() { return !!(window.OfflineMode && window.OfflineMode.estaActivo()); }
     function puede(clave) { var m = modal(); return !!m && m.dataset[clave] === '1'; }
     function sinAcento(s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }
     function alfanum(s) { return sinAcento(s).replace(/[^A-Z0-9]/g, ''); }
@@ -65,36 +64,19 @@
     function kitPorId(id) { return S.kits.filter(function (k) { return k.id === id; })[0] || null; }
 
     // ── datos ────────────────────────────────────────────────────────────────
+    // La existencia, sumando los proyectos del almacén del inventario como los suma la salida
+    // (KitAlmacenService::existencias), con lo que espera en la bandeja encima. Tras guardar o
+    // borrar un kit se espera a que la copia lo traiga (alDia).
     function cargar() {
         S.idAlmacen = almacenActual();
-        if (offline()) return cargarOffline();
-        var u = new URL(modal().dataset.urlIndex, window.location.origin);
-        if (S.idAlmacen) u.searchParams.set('id_almacen', S.idAlmacen);
-        return pedir(u.toString()).then(function (b) {
-            S.kits = b.kits || [];
-            S.existencias = b.existencias || {};
-        });
-    }
-    // Sin conexión: el catálogo de kits de la copia offline (tabla `kits`) y la existencia de la
-    // copia local del almacén (saldos sumados por almacén, como los del servidor). De ella sale
-    // también el nombre vigente del producto (la tabla de kits solo se reenvía cuando cambian
-    // los catálogos).
-    function cargarOffline() {
-        return Promise.all([
-            window.OfflineMode.conOfflineDB(function () { return window.OfflineDB.get('kits'); }),
-            window.CopiaLocal.usar('almacen', modal()),
-        ]).then(function (r) {
-            var vista = r[1], ex = {}, prod = {};
-            vista.filas('productos').forEach(function (p) { prod[p.id] = p; });
-            vista.filas('stock').forEach(function (f) {
+        return window.CopiaLocal.alDia('almacen').then(function () {
+            return window.CopiaLocal.usar('almacen', modal());
+        }).then(function (vista) {
+            var ex = {};
+            window.AlmacenLocal.stockConPendientes(vista).forEach(function (f) {
                 if (String(f.alm) === S.idAlmacen) ex[f.prod] = (ex[f.prod] || 0) + f.cant;
             });
-            S.kits = (r[0] || []).map(function (k) {
-                return Object.assign({}, k, { items: k.items.map(function (i) {
-                    var p = prod[i.id_producto];
-                    return p ? Object.assign({}, i, { codigo: p.codigo, nombre: p.nombre, um: p.um }) : i;
-                }) });
-            });
+            S.kits = vista.catalogo('kits');
             S.existencias = ex;
         });
     }
@@ -214,9 +196,7 @@
         }).join('');
 
         var aviso, clase, bloqueado = true;
-        if (offline()) {
-            aviso = 'Sin conexión no se registran salidas: podrás cargarlo al volver la conexión.'; clase = 'gris';
-        } else if (!S.idAlmacen) {
+        if (!S.idAlmacen) {
             aviso = 'Elige el almacén en el inventario para ver lo que alcanza.'; clase = 'gris';
         } else if (!k.items.length) {
             aviso = 'Este kit no tiene materiales activos.'; clase = 'no';
@@ -280,7 +260,7 @@
         if (caja) caja.classList.toggle('akit-editando', !!editor);
     }
     function puedeEditar() {
-        if (offline()) { toast('Sin conexión no se pueden armar ni cambiar kits.', 'error'); return false; }
+        if (window.Bandeja.sinConexion()) { toast('Sin conexión no se pueden armar ni cambiar kits.', 'error'); return false; }
         if (!puede('puedeProductos')) { toast('No tienes permiso para armar kits (almacen.productos).', 'error'); return false; }
         return true;
     }
@@ -406,7 +386,6 @@
         },
         cargarEnSalida: function () {
             var k = kitPorId(S.sel); if (!k) return;
-            if (offline()) { toast('Sin conexión no se registran salidas.', 'error'); return; }
             if (!puede('puedeMover')) { toast('No tienes permiso para registrar salidas (almacen.movimiento).', 'error'); return; }
             var n = alcanza(k);
             if (!n) return;
@@ -539,10 +518,13 @@
     // Las listas de sugerencias del editor se cierran al tocar fuera (una a la vez, sin
     // stopPropagation: el mismo criterio que el resto de desplegables del sistema).
     document.addEventListener('click', cerrarSugerencias);
-    // Cambiar de almacén en el inventario con el modal abierto no pasa (el modal lo tapa),
-    // pero pasar a modo sin conexión sí: se vuelve a leer de la copia local.
-    window.addEventListener('offline-datos-actualizados', function () {
+    // La copia se puso al día o cambió lo que espera en la bandeja: con el modal abierto (y sin
+    // estar editando) se vuelve a leer, así lo que alcanza es siempre lo vigente.
+    function releer(e) {
         var m = modal();
-        if (m && m.classList.contains('open') && !S.ed && offline()) cargar().then(pintar);
-    });
+        if (e.type === 'copia-local' && (e.detail.dominio !== 'almacen' || !e.detail.cambio)) return;
+        if (m && m.classList.contains('open') && !S.ed) cargar().then(pintar);
+    }
+    window.addEventListener('copia-local', releer);
+    window.addEventListener('bandeja', releer);
 })();

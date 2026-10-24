@@ -124,6 +124,19 @@ class SincronizacionAlmacenTest extends MySqlTestCase
         $this->assertSame(['id' => $id, 'nota' => 'NE-2099-0001', 'prod' => $idProd], $c);
     }
 
+    public function test_un_kit_nuevo_llega_en_los_catalogos(): void
+    {
+        $usuario = $this->usuario(1);
+        $idProd = (int) DB::table('productos_inventario')->whereNull('deleted_at')->where('ESTATUS', 'ACTIVO')->value('ID_PRODUCTO');
+        $primera = $this->sync($usuario)->json();
+
+        $id = DB::table('almacen_kits')->insertGetId(['NOMBRE' => 'KIT SYNC ' . uniqid(), 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('almacen_kit_items')->insert(['ID_KIT' => $id, 'ID_PRODUCTO' => $idProd, 'CANTIDAD' => 2, 'ORDEN' => 0, 'created_at' => now(), 'updated_at' => now()]);
+
+        $kit = collect($this->sync($usuario, $primera)->assertJson(['completo' => false])->json('catalogos.kits'))->firstWhere('id', $id);
+        $this->assertSame([$idProd], array_column($kit['items'], 'id_producto'));
+    }
+
     private function sync(Usuario $usuario, ?array $previa = null)
     {
         $q = $previa ? '?' . http_build_query(['desde' => $previa['hasta'], 'firma' => $previa['firma'], 'esquema' => $previa['esquema']]) : '';

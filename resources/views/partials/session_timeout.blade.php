@@ -64,8 +64,7 @@
             const SESSION_LIFETIME_MS   = {{ config('session.lifetime') ?? 10 }} * 60 * 1000;
             // Avisar en el último 33% del tiempo (mín 15s, máx 60s)
             const WARNING_DURATION_SEC  = Math.max(15, Math.min(60, Math.floor(SESSION_LIFETIME_MS / 1000 * 0.33)));
-            // Cada cuánto como máximo se guarda la actividad en localStorage (la lee también
-            // offline-sync.js para no sincronizar con el usuario ausente).
+            // Cada cuánto como máximo se guarda la actividad en localStorage.
             const ACTIVITY_THROTTLE_MS  = Math.max(5000, Math.min(30000, Math.floor(SESSION_LIFETIME_MS * 0.25)));
             // Con actividad, se avisa al servidor como mucho cada 10% de la vida de la sesión
             // (mín 30 s, máx 5 min): con 20 min, cada 2 min. Una petición de ~60 bytes.

@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const js = path.join(__dirname, '..', 'public', 'js', 'maquinaria');
-global.window = { addEventListener() {} };
+global.window = { addEventListener() {}, Bandeja: { pendientes: () => [], sinConexion: () => false } };
 global.document = { querySelector: () => null, getElementById: () => null };
 eval(fs.readFileSync(path.join(js, 'dom_helpers.js'), 'utf8'));
 eval(fs.readFileSync(path.join(js, 'equipos_local.js'), 'utf8'));

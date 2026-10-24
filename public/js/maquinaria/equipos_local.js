@@ -28,8 +28,9 @@
  *     igualdad ignora los espacios del final.
  *   · La búsqueda respeta los frentes del usuario: la copia solo trae lo que puede ver.
  *
- * Sin conexión, el cambio de estado y la movilización se encolan (window.OfflineOutbox) y se
- * ven al instante: lo que aún no subió se aplica encima de la copia (encima()).
+ * Sin conexión, el cambio de estado y la movilización van a la bandeja (window.Bandeja), a los
+ * mismos endpoints de siempre, y se ven al instante: lo que aún no subió se aplica encima de la
+ * copia (encima()).
  */
 (function () {
     'use strict';
@@ -539,15 +540,15 @@
     });
 
     // ── Lo que aún no subió (sin conexión) va encima de la copia ──────────────
-    let pendientes = [];
     function encima(filas, ctx) {
+        const pendientes = window.Bandeja.pendientes().filter((it) => it.estado === 'pendiente' && it.datos);
         if (!pendientes.length) return filas;
         const cambios = new Map();
         pendientes.forEach((it) => {
-            const p = it.payload || {};
-            if (it.action === 'estado') {
+            const p = it.datos;
+            if (it.tipo === 'estado') {
                 cambios.set(Number(p.id_equipo), Object.assign(cambios.get(Number(p.id_equipo)) || {}, { estado: p.status }));
-            } else if (it.action === 'movilizar') {
+            } else if (it.tipo === 'movilizar') {
                 const destino = ctx.frentes.get(Number(p.id_frente_destino));
                 (p.ids || []).forEach((id) => cambios.set(Number(id), Object.assign(cambios.get(Number(id)) || {}, {
                     frenteId: Number(p.id_frente_destino), ubicacion: destino ? destino.nombre : 'Sin Asignar', confirmado: 0,
@@ -555,12 +556,6 @@
             }
         });
         return filas.map((e) => (cambios.has(e.id) ? Object.assign({}, e, cambios.get(e.id)) : e));
-    }
-    function leerPendientes() {
-        if (!window.OfflineDB || !window.OfflineDB.outboxList) return Promise.resolve();
-        return window.OfflineDB.outboxList().then((todos) => {
-            pendientes = (todos || []).filter((it) => it.status === 'pending' || it.status === 'error');
-        }).catch(() => {});
     }
 
     // ── Consulta completa: lo que pinta loadEquipos ───────────────────────────
@@ -657,28 +652,23 @@
         return Array.from(vistos.values()).sort((a, b) => orden.compare(a, b));
     }
 
-    // Sin red, o con red pero sin llegar al servidor en la última sincronización: lo que se
-    // guarde va al outbox en vez de al servidor.
-    function sinConexion() {
-        return !navigator.onLine || !!(window._eqVista && !window._eqVista.estado.conectado);
-    }
+    // Sin red, o con red pero sin llegar al servidor la última vez: lo que se guarde va a la bandeja.
+    const sinConexion = () => window.Bandeja.sinConexion();
 
-    window.EquiposLocal = { consultar, idsExportar, opcionesDocumento, hayFiltro, leerPendientes, sinConexion };
+    window.EquiposLocal = { consultar, idsExportar, opcionesDocumento, hayFiltro, sinConexion };
 
     // ── Sin conexión: cambio de estado y movilización ─────────────────────────
-    // Encolan en el outbox; la tabla los muestra al instante (encima()) y los sube al volver
-    // la red. Los llaman changeStatusLite y openBulkModal (equipos_index.js) si sinConexion().
+    // Van a la bandeja con los mismos endpoints de siempre; la tabla los muestra al instante
+    // (encima()) y suben al volver la red. Los llaman changeStatusLite y openBulkModal
+    // (equipos_index.js) si sinConexion().
     function repintar() {
-        leerPendientes().then(() => { if (document.getElementById('equiposTableBody') && window.loadEquipos) window.loadEquipos(null, true); });
+        if (document.getElementById('equiposTableBody') && window.loadEquipos) window.loadEquipos(null, true);
     }
 
     window.eqOffSetEstado = function (id, status, label) {
-        if (!window.OfflineOutbox) return;
-        window.OfflineOutbox.add({
-            client_uuid: window.OfflineOutbox.uuid(), action: 'estado',
-            payload: { id_equipo: Number(id), status: status },
-            status: 'pending', created: Date.now(),
-            label: 'Estado · ' + (label || ('Equipo #' + id)) + ' → ' + status,
+        window.Bandeja.enviar('/admin/equipos/' + Number(id) + '/status', { method: 'PATCH', body: { status: status } }, {
+            titulo: 'Estado · ' + (label || ('Equipo #' + id)) + ' → ' + status,
+            tipo: 'estado', datos: { id_equipo: Number(id), status: status },
         });
         window.toast('Cambio guardado. Se subirá al volver internet.', 'success');
     };
@@ -697,7 +687,7 @@
                 + '<i class="material-icons" style="color:#f59e0b;font-size:20px;">cloud_off</i><h2 style="margin:0;font-size:15px;font-weight:700;">Movilizar sin conexión</h2>'
                 + '<button type="button" data-cerrar style="position:absolute;right:12px;background:transparent;border:none;color:white;cursor:pointer;opacity:.8;"><i class="material-icons">close</i></button></div>'
                 + '<div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">'
-                + '<div style="font-size:13px;color:#475569;"><strong>' + seleccion.length + '</strong> equipo(s) a un frente <strong>existente</strong>. El acta estará disponible al sincronizar.</div>'
+                + '<div style="font-size:13px;color:#475569;"><strong>' + seleccion.length + '</strong> equipo(s) a un frente <strong>existente</strong>. Se registra al volver internet.</div>'
                 + '<div><label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">Frente de destino *</label>'
                 + '<input type="text" data-buscar placeholder="Buscar frente..." autocomplete="off" style="width:100%;box-sizing:border-box;border:2px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;outline:none;">'
                 + '<div data-lista style="margin-top:6px;max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;"></div></div>'
@@ -729,21 +719,21 @@
             ok.onclick = () => {
                 if (!elegido) return;
                 const ids = seleccion.map((s) => Number(s.id));
-                window.OfflineOutbox.add({
-                    client_uuid: window.OfflineOutbox.uuid(), action: 'movilizar',
-                    payload: { ids: ids, id_frente_destino: elegido.id },
-                    status: 'pending', created: Date.now(),
-                    label: 'Movilizar ' + ids.length + ' equipo(s) → ' + elegido.nombre,
+                window.Bandeja.enviar('/admin/equipos/bulk-mobilize', {
+                    method: 'POST', body: { ids: ids, destination: elegido.nombre, generar_pdf: false },
+                }, {
+                    titulo: 'Movilizar ' + ids.length + ' equipo(s) → ' + elegido.nombre,
+                    tipo: 'movilizar', datos: { ids: ids, id_frente_destino: elegido.id },
                 });
                 window.selectedEquipos = {};
                 const barra = document.getElementById('bulkFloatingBar');
                 if (barra) barra.classList.remove('active');
-                window.toast('Movilización guardada. El acta estará disponible al sincronizar.', 'success');
+                window.toast('Movilización guardada. Se registra al volver internet.', 'success');
                 overlay.remove();
             };
         });
     };
 
-    // Encolar, subir o descartar algo cambia lo que va encima de la copia: se repinta.
-    window.addEventListener('outbox-actualizado', repintar);
+    // Guardar, subir o descartar algo cambia lo que va encima de la copia: se repinta.
+    window.addEventListener('bandeja', repintar);
 })();

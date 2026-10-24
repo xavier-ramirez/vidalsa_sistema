@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Almacen;
 use App\Models\AlmacenKit;
 use App\Services\KitAlmacenService;
 use Illuminate\Http\Request;
@@ -14,8 +13,9 @@ use InvalidArgumentException;
  * App\Services\KitAlmacenService; aquí solo se valida la forma y se contesta JSON.
  *
  * Permisos:
- *   ver los kits y lo que alcanza  → cualquiera con el módulo (grupo 'auth'); la existencia
- *                                    solo se da de un almacén que el usuario puede ver.
+ *   ver los kits y lo que alcanza  → no pasa por aquí: viajan en la copia local del almacén
+ *                                    (DominioAlmacen), con la existencia de lo que el
+ *                                    usuario ve.
  *   crear, editar, borrar          → almacen.productos (es parte del catálogo).
  *   cargar un kit en la salida     → no pasa por aquí: lo hace la pantalla, y la salida
  *                                    exige almacen.movimiento como siempre.
@@ -25,24 +25,6 @@ class AlmacenKitController extends Controller
     public function __construct(private KitAlmacenService $kits)
     {
         $this->middleware('can:almacen.productos')->only(['modelos', 'sugeridos', 'store', 'update', 'destroy']);
-    }
-
-    /**
-     * GET almacen/kits?id_almacen=N → { kits, existencias }. `existencias` es cuánto hay de
-     * cada material en ese almacén ([id_producto => cantidad]); sin almacén va vacío.
-     */
-    public function index(Request $request)
-    {
-        $kits = $this->kits->catalogo();
-        $existencias = [];
-        $idAlmacen = (int) $request->query('id_almacen', 0);
-        if ($idAlmacen > 0) {
-            abort_unless(Almacen::visiblesPara($request->user())->whereKey($idAlmacen)->exists(), 403, 'No tienes acceso a ese almacén.');
-            $ids = $kits->flatMap(fn ($k) => collect($k['items'])->pluck('id_producto'))->unique()->values()->all();
-            $existencias = $this->kits->existencias($idAlmacen, $ids);
-        }
-        // Objeto siempre ({} y no [] cuando está vacío): la pantalla lo lee por id de producto.
-        return response()->json(['kits' => $kits, 'existencias' => (object) $existencias]);
     }
 
     /** GET almacen/kits/modelos → los modelos de equipo para elegir en el editor. */

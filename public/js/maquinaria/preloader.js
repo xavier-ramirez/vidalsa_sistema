@@ -2,8 +2,8 @@
  * Preloader global CON CONTADOR DE REFERENCIAS (window.showPreloader / hidePreloader).
  *
  * Extraido del <script> inline de estructura_base.blade.php (2026-08-24) junto con
- * offline_mode.js y global_handlers.js, que eran el MISMO bloque; se separaron porque
- * un archivo llamado "preloader" no puede esconder el modo offline entero. Los tres se
+ * estado_red.js y global_handlers.js, que eran el MISMO bloque; se separaron porque
+ * un archivo llamado "preloader" no puede esconder el aviso de conexión. Los tres se
  * cargan seguidos y EN ESTE ORDEN en el layout, sincronos y sin defer, en el punto
  * exacto que ocupaba el bloque inline.
  *

@@ -21,7 +21,7 @@ use Tests\MySqlTestCase;
 /**
  * Kits del almacén (AlmacenKitController / KitAlmacenService): recetas de materiales por modelo
  * de equipo que cargan la salida de un golpe. Se prueba armarlos, lo que se ve (modelos
- * agrupados, placas, existencia), los permisos, la copia offline y el camino completo: la
+ * agrupados, placas, existencia) desde la copia local del almacén, los permisos y el camino completo: la
  * salida de 3 kits con su Nota de Entrega en los dos formatos y su renglón en el historial.
  * Todo corre en la transacción de la prueba y se revierte al terminar.
  */
@@ -96,6 +96,19 @@ class KitsAlmacenTest extends MySqlTestCase
         return collect($kits)->firstWhere('id', $id);
     }
 
+    /** Los kits como los pinta la pantalla: del catálogo de la copia local del almacén. */
+    private function kitsDeLaCopia(?Usuario $usuario = null): array
+    {
+        return $this->actingAs($usuario ?? $this->usuario())->getJson('/sync/almacen')->assertOk()->json('catalogos.kits');
+    }
+
+    /** Existencia de un producto en un almacén como la suma la pantalla (todos sus proyectos). */
+    private function existencia(Almacen $alm, ProductoInventario $p): float
+    {
+        return array_sum(array_column(array_filter($this->stockLocal($this->usuario(), []),
+            fn ($s) => $s['alm'] === $alm->ID_ALMACEN && $s['prod'] === $p->ID_PRODUCTO), 'cant'));
+    }
+
     public function test_armar_un_kit_por_modelo_y_verlo_con_su_existencia_y_sus_placas(): void
     {
         [$refs, $placa, $tipo, $modelo] = $this->modeloConEquipo();
@@ -113,16 +126,15 @@ class KitsAlmacenTest extends MySqlTestCase
         $this->assertSame(2, AlmacenKitModelo::where('ID_KIT', $id)->count());
         $this->assertSame("KIT 250H {$this->marca}", AlmacenKit::find($id)->NOMBRE);
 
-        $r = $this->actingAs($this->usuario())->getJson(route('almacen.kits.index', ['id_almacen' => $alm->ID_ALMACEN]))->assertOk();
-        $kit = $this->kitDe($r->json('kits'), $id);
+        $kit = $this->kitDe($this->kitsDeLaCopia(), $id);
         $this->assertNotNull($kit);
         $this->assertCount(1, $kit['modelos'], 'Las fichas de un mismo modelo se ven como UN modelo.');
         $this->assertSame([$tipo, $modelo], [$kit['modelos'][0]['tipo'], $kit['modelos'][0]['modelo']]);
         $this->assertEqualsCanonicalizing($refs, $kit['modelos'][0]['refs']);
         $this->assertContains($placa, $kit['placas'], 'La placa del equipo de ese modelo viaja con el kit (buscarlo por placa).');
         $this->assertSame([2.0, 1.0], array_map('floatval', array_column($kit['items'], 'cantidad')));
-        $this->assertEquals(10, $r->json("existencias.{$aceite->ID_PRODUCTO}"));
-        $this->assertEquals(3, $r->json("existencias.{$aire->ID_PRODUCTO}"));
+        $this->assertEquals(10, $this->existencia($alm, $aceite));
+        $this->assertEquals(3, $this->existencia($alm, $aire));
     }
 
     public function test_lo_que_no_se_puede_guardar_se_dice_claro(): void
@@ -176,7 +188,7 @@ class KitsAlmacenTest extends MySqlTestCase
         $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->can('almacen.productos'));
         $this->assertNotNull($sinPermiso, 'Hace falta un usuario sin almacen.productos.');
 
-        $this->actingAs($sinPermiso)->getJson(route('almacen.kits.index'))->assertOk();
+        $this->assertNotNull($this->kitsDeLaCopia($sinPermiso));
         $this->actingAs($sinPermiso)->postJson(route('almacen.kits.store'), [
             'nombre' => "KIT PERMISO {$this->marca}", 'items' => [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]],
         ])->assertForbidden();
@@ -199,18 +211,6 @@ class KitsAlmacenTest extends MySqlTestCase
         $this->assertEqualsCanonicalizing($refs, $modelos->firstWhere('clave', 'modelo|TIPO KIT ' . $this->marca . '|MARCAKIT MK-' . $this->marca)['refs'] ?? []);
     }
 
-    public function test_la_copia_offline_lleva_los_kits_igual_que_online(): void
-    {
-        $p = $this->producto('FILTRO OFFLINE');
-        $id = $this->guardarKit(['nombre' => "KIT OFFLINE {$this->marca}", 'items' => [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]]])
-            ->assertOk()->json('id');
-
-        $online  = $this->kitDe($this->actingAs($this->usuario())->getJson(route('almacen.kits.index'))->json('kits'), $id);
-        $offline = $this->kitDe($this->actingAs($this->usuario())->getJson(route('offline.snapshot'))->assertOk()->json('kits'), $id);
-        $this->assertNotNull($offline, 'La copia offline trae los kits.');
-        $this->assertSame($online, $offline, 'Sin conexión el kit se ve igual que con conexión.');
-    }
-
     /**
      * Lo que hace la pantalla al "Cargar a la salida" 3 kits: marca cada material con su
      * cantidad × 3 y la observación del kit, y se registra la salida de siempre. Se comprueba
@@ -229,7 +229,7 @@ class KitsAlmacenTest extends MySqlTestCase
                 'nombre' => $nombre, 'modelos' => [['origen' => 'modelo', 'refs' => $refs]],
                 'items' => [['id_producto' => $aceite->ID_PRODUCTO, 'cantidad' => 2], ['id_producto' => $aire->ID_PRODUCTO, 'cantidad' => 1]],
             ])->assertOk()->json('id');
-            $kit = $this->kitDe($this->actingAs($this->usuario())->getJson(route('almacen.kits.index', ['id_almacen' => $alm->ID_ALMACEN]))->json('kits'), $id);
+            $kit = $this->kitDe($this->kitsDeLaCopia(), $id);
 
             $kits = 3;
             $motivo = "{$nombre} × {$kits} · {$tipo} {$modelo}";   // la observación que arma la pantalla

@@ -5,8 +5,7 @@ namespace App\Support;
 /**
  * De-duplica una acción para que ocurra UNA sola vez por request y por clave.
  *
- * Lo usan las dos clases de versionado de caché del proyecto (CacheVersion y
- * OfflineVersion). El motivo es el mismo en ambas: una operación masiva llama a
+ * Lo usa el versionado de caché del proyecto (CacheVersion): una operación masiva llama a
  * "marcar como obsoleto" una vez POR FILA — un bulk de 200 equipos, una carga
  * masiva por Excel, un borrado en lote— y cada llamada escribe en el caché. Como
  * la versión solo necesita CAMBIAR, no contar, con una vez basta: medido en

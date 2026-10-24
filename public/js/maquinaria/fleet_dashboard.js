@@ -102,9 +102,8 @@ function renderFleetEquiposAsignados(lista, frenteActual) {
  * Los paneles se OCULTAN, no se borran, y esto NO es un detalle de estilo: pintarPorTipo()
  * y renderFleetEquiposAsignados() buscan sus contenedores por id (chartAgeByType,
  * fleetEqAsigBody, …), así que reemplazar el innerHTML del contenedor los destruye para
- * siempre. Si después vuelve la conexión SIN recargar la página —caso real: el banner de
- * "Conexión restaurada" no recarga si el usuario nunca activó el modo offline— el
- * Dashboard ya no podría pintar nada.
+ * siempre. Si después vuelve la conexión SIN recargar la página —el banner de "Conexión
+ * restaurada" no recarga— el Dashboard ya no podría pintar nada.
  */
 function avisoSinConexion(activo) {
     const charts = document.getElementById('fleetChartsGrid');

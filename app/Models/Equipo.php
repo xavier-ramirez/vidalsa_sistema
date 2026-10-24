@@ -120,7 +120,7 @@ class Equipo extends Model
     /**
      * El color se guarda normalizado (CatalogoColor::normalizar: "roja " → ROJO), venga del
      * formulario, de la importación o de donde sea. Así el filtro Color de la tabla (igualdad
-     * en SQL), su lista, la copia offline y la foto del color hablan del mismo valor.
+     * en SQL), su lista, la copia local y la foto del color hablan del mismo valor.
      */
     public function setCOLORAttribute($valor): void
     {

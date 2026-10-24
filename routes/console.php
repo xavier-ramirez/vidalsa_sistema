@@ -101,3 +101,6 @@ Schedule::call(fn () => \App\Support\RegistroCambios::purgar())
 // caduca. Esto la deja lista en esos casos; si ya está al día no hace nada.
 Schedule::call(fn () => app(\App\Http\Controllers\HistorialDocumentosController::class)->calentar())
     ->everyFiveMinutes()->name('historial-documentos:calentar')->withoutOverlapping(10);
+
+// Claves de la bandeja sin internet de más de 30 días: ya no se van a repetir.
+Schedule::call(fn () => \App\Http\Middleware\OperacionUnica::purgar())->daily()->name('purgar-operaciones-cliente');

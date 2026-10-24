@@ -9,6 +9,7 @@ use App\Models\FrenteTrabajo;
 use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use App\Models\Usuario;
+use App\Services\KitAlmacenService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -25,6 +26,10 @@ use Illuminate\Support\Facades\DB;
  *                   las notas vigentes y los préstamos entre bolsas los calcula el navegador
  *                   con estas mismas filas.
  *   · correcciones: qué producto de qué nota se corrigió (el botón «Corregida»).
+ *   · catálogo kits: las recetas de «Kits por equipo» (KitAlmacenService::catalogo). Llevan el
+ *                   nombre de sus productos y las placas de los equipos de sus modelos, así
+ *                   que se reenvían enteros (pocos KB) si cambia un kit, un producto, un
+ *                   equipo, una ficha de modelo o un tipo.
  *
  * El nombre y el correo del usuario que registró van copiados en el movimiento y la tabla de
  * usuarios no se anota en el registro de cambios: un cambio de nombre llega con la próxima
@@ -33,7 +38,7 @@ use Illuminate\Support\Facades\DB;
 class DominioAlmacen
 {
     /** Súbelo cuando cambie la forma de las filas: los clientes recargan su copia. */
-    public const ESQUEMA = 1;
+    public const ESQUEMA = 2;
 
     public function __construct(private Usuario $usuario)
     {
@@ -105,11 +110,13 @@ class DominioAlmacen
             if ($fuera) $borrados[$tabla] = $fuera;
         }
 
-        return [
-            'datos'     => $datos,
-            'borrados'  => $borrados,
-            'catalogos' => ! empty($agregados['frentes']) ? ['frentes' => $this->catalogoFrentes()] : [],
-        ];
+        $catalogos = [];
+        if (! empty($agregados['frentes'])) $catalogos['frentes'] = $this->catalogoFrentes();
+        if (array_intersect_key($agregados, array_flip(['kits', 'productos', 'equipos', 'fichas', 'tipos']))) {
+            $catalogos['kits'] = $this->catalogoKits();
+        }
+
+        return ['datos' => $datos, 'borrados' => $borrados, 'catalogos' => $catalogos];
     }
 
     /**
@@ -256,7 +263,13 @@ class DominioAlmacen
                     'frentes' => $a->frentes->pluck('ID_FRENTE')->map('intval')->values()->all(),
                 ])->all(),
             'frentes' => $this->catalogoFrentes(),
+            'kits'    => $this->catalogoKits(),
         ];
+    }
+
+    private function catalogoKits(): array
+    {
+        return app(KitAlmacenService::class)->catalogo()->all();
     }
 
     private function catalogoFrentes(): array

@@ -13,18 +13,6 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AlmacenKit extends Model
 {
-    /**
-     * Los kits viajan con los catálogos de la copia offline (OfflineController): cualquier
-     * cambio los marca obsoletos. KitAlmacenService toca el kit también cuando solo cambian
-     * sus materiales o modelos, así que esto cubre todo.
-     */
-    protected static function booted(): void
-    {
-        $marcar = static fn () => \App\Support\OfflineVersion::invalidar('catalogos');
-        static::saved($marcar);
-        static::deleted($marcar);
-    }
-
     protected $table      = 'almacen_kits';
     protected $primaryKey = 'ID_KIT';
 

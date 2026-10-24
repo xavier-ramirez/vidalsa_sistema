@@ -323,7 +323,7 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     const oldStatus = triggerEl.dataset.status;
     if (oldStatus === newStatus) return;
 
-    // ── Sin conexión: se encola en el outbox y la tabla lo muestra al instante
+    // ── Sin conexión: va a la bandeja y la tabla lo muestra al instante
     // (equipos_local.js · eqOffSetEstado). ──
     if (window.EquiposLocal.sinConexion()) {
         // INOPERATIVO y EN MANTENIMIENTO exigen crear un reporte de falla (modal no
@@ -1351,7 +1351,7 @@ window.eqFiltrosActivos = function () {
 // partials/ventana_filtro_lista). Se escribe para buscar en la lista de lo ya escrito y el filtro se
 // aplica SOLO al elegir uno de la lista (clic o Enter = el primero visible). El valor aplicado vive
 // en el input oculto del desplegable (name="detalle" / "titular" / "aseguradora", el que leen
-// loadEquipos y el modo offline).
+// loadEquipos y equipos_local.js).
 //   · Detalle: la casilla muestra lo aplicado y, al salir de ella sin elegir, vuelve a mostrarlo.
 //   · Ventanas (casilla con data-placeholder): como el filtro Frente, la casilla queda VACÍA y lo
 //     aplicado va de texto de fondo, para escribir encima sin borrar nada.
@@ -2174,9 +2174,9 @@ window.openBulkModal = function (event) {
 
     // ── Sin conexión: el modal online crea frentes, pide ubicación y genera acta
     // (todo en el servidor). Sin internet se abre un modal SIMPLE que solo mueve a un
-    // frente EXISTENTE y encola la acción. El acta queda disponible al sincronizar.
+    // frente EXISTENTE y lo deja en la bandeja; se registra al volver internet.
     if (window.EquiposLocal.sinConexion()) {
-        // Sin internet solo se encolan equipos.
+        // Sin internet solo van equipos.
         if (auxSel.length) {
             window.toast('Los auxiliares se movilizan con conexión. Quítalos de la selección para seguir sin internet.', 'error');
             return;

@@ -25,7 +25,6 @@
     $akitMover     = auth()->user()?->can('almacen.movimiento') ? '1' : '0';
 @endphp
 <div id="almKitsModal" class="alm-modal-overlay"
-     data-url-index="{{ route('almacen.kits.index') }}"
      data-url-modelos="{{ route('almacen.kits.modelos') }}"
      data-url-sugeridos="{{ route('almacen.kits.sugeridos') }}"
      data-url-store="{{ route('almacen.kits.store') }}"

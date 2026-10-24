@@ -127,16 +127,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard/export-documents-pdf', [App\Http\Controllers\DashboardController::class, 'exportDocumentsPDF'])->name('dashboard.exportDocumentsPDF');
         Route::get('/dashboard/export-documents-excel', [App\Http\Controllers\DashboardController::class, 'exportDocumentsExcel'])->name('dashboard.exportDocumentsExcel');
 
-        // ── Modo OFFLINE (Fase 1: consulta sin internet) ──────────────────────────
-        // version(): huella barata para que el teléfono sepa si hay datos nuevos.
-        // snapshot(): copia de solo lectura, acotada a los almacenes visibles del usuario.
-        Route::get('/offline/version',  [App\Http\Controllers\OfflineController::class, 'version'])->name('offline.version');
-        Route::get('/offline/snapshot', [App\Http\Controllers\OfflineController::class, 'snapshot'])->name('offline.snapshot');
-        // Fase 2 (escritura offline): el outbox de la PWA sube aquí las acciones
-        // hechas sin internet (movilizar/estado/recepción). Gates por acción dentro
-        // del controller; ruta WEB (sesión + CSRF), no la API Sanctum del APK.
-        Route::post('/offline/sync', [App\Http\Controllers\OfflineSyncController::class, 'sync'])->name('offline.sync');
-
         // Copia local de cada dispositivo (ver SincronizacionController).
         Route::get('/sync/{dominio}', App\Http\Controllers\SincronizacionController::class)->name('sync');
 
@@ -425,9 +415,8 @@ Route::middleware(['auth'])->group(function () {
             Route::post  ('almacen/productos/{id}/equipos',         [App\Http\Controllers\AlmacenController::class, 'vincularEquipo'])->whereNumber('id')->name('almacen.productos.equipos.store');
             Route::delete('almacen/productos/{id}/equipos',         [App\Http\Controllers\AlmacenController::class, 'desvincularEquipo'])->whereNumber('id')->name('almacen.productos.equipos.destroy');
             // Kits (Acciones → Kits): recetas de materiales por modelo de equipo que cargan la
-            // salida de un golpe. Verlos: cualquiera con el módulo; armarlos: almacen.productos
-            // (en el constructor de AlmacenKitController). Ver App\Services\KitAlmacenService.
-            Route::get   ('almacen/kits',           [App\Http\Controllers\AlmacenKitController::class, 'index'])    ->name('almacen.kits.index');
+            // salida de un golpe. Se ven desde la copia local del almacén; armarlos exige
+            // almacen.productos (en el constructor de AlmacenKitController). Ver App\Services\KitAlmacenService.
             Route::get   ('almacen/kits/modelos',   [App\Http\Controllers\AlmacenKitController::class, 'modelos'])  ->name('almacen.kits.modelos');
             Route::get   ('almacen/kits/sugeridos', [App\Http\Controllers\AlmacenKitController::class, 'sugeridos'])->name('almacen.kits.sugeridos');
             Route::post  ('almacen/kits',           [App\Http\Controllers\AlmacenKitController::class, 'store'])    ->name('almacen.kits.store');
@@ -443,6 +432,8 @@ Route::middleware(['auth'])->group(function () {
             // Maneja ENTRADA (Recepción → entrada directa), SALIDA (selección de filas → Nota de
             // Entrega) y AJUSTE (Auditoría de Inventario del modal de detalles).
             Route::post  ('almacen/movimientos-lote',             [App\Http\Controllers\AlmacenController::class, 'registrarMovimientoLote'])->name('almacen.movimientos.lote');
+            // Números de Nota apartados para el dispositivo: salidas sin internet.
+            Route::post  ('almacen/notas-reservadas',             App\Http\Controllers\NotasReservadasController::class)->name('almacen.notas-reservadas');
             // Preview PDF de la Nota de Entrega ANTES de confirmar la salida — genera
             // el documento sin tocar BD para que el usuario lo revise antes de guardar.
             // Si aprieta "Confirmar" se llama el endpoint regular movimientos-lote.

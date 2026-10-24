@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\ValidarSesionUnica::class,
             \App\Http\Middleware\VaryNavegacionSpa::class,
+            // Lo que la bandeja sin internet vuelve a mandar se aplica una sola vez.
+            \App\Http\Middleware\OperacionUnica::class,
         ]);
 
         // Global (web, api y /up): toda respuesta sale con sus cabeceras de seguridad.

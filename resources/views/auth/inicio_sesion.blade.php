@@ -268,7 +268,7 @@
     // recargar o al volver atrás.
     //
     // Cualquier aviso puede llegar con "_pendientes" detrás (lo añade el interceptor de
-    // fetch cuando lo que falló fue la subida de lo hecho sin conexión): se muestra el
+    // fetch cuando queda algo en la bandeja sin internet): se muestra el
     // motivo y además que esos cambios siguen guardados. Una sola frase para lo pendiente,
     // en vez de un texto entero repetido por cada motivo. Cada frase va en su línea (\n +
     // white-space:pre-line en #offlineLoginMsg): qué pasó arriba, qué hacer abajo.

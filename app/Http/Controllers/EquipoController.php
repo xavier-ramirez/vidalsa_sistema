@@ -1246,7 +1246,7 @@ class EquipoController extends Controller
      * su color o la del modelo (Equipo::fotoParaMostrar). Lo usa el doble clic en la foto
      * de /admin/equipos, cuando la unidad no encontró sola su ficha (otro modelo escrito,
      * otro año, varias fichas). Solo super.admin (constructor). EquipoObserver deja el
-     * cambio en la auditoría y refresca la copia offline y el dashboard.
+     * cambio en la auditoría y refresca el dashboard; la copia local lo trae sola.
      */
     public function vincularFicha(Request $request, $id)
     {

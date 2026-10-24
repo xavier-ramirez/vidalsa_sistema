@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\AlmacenKit;
 use App\Models\AlmacenKitItem;
 use App\Models\AlmacenKitModelo;
-use App\Models\AlmacenStock;
 use App\Models\ProductoInventario;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -35,8 +34,8 @@ class KitAlmacenService
     }
 
     /**
-     * Todos los kits como los pinta la pantalla —online y en la copia offline, que recibe
-     * EXACTAMENTE esto (OfflineController)—:
+     * Todos los kits como los pinta la pantalla —viajan EXACTAMENTE así en los catálogos de
+     * la copia local del almacén (App\Support\Sincronizacion\DominioAlmacen)—:
      *   id, nombre, descripcion
      *   items   [{id_producto, codigo, nombre, um, cantidad}]  (cantidad POR kit)
      *   modelos [{origen, clave, refs, tipo, modelo}]           (agrupados como en la ficha)
@@ -112,24 +111,6 @@ class KitAlmacenService
     }
 
     /**
-     * Existencia de cada producto en un almacén, sumando todos sus proyectos: es lo que la
-     * salida puede tomar (en cascada, ver InventarioService::aplicarSalidaConCascada). La
-     * copia offline suma igual (OfflineController::consultaStock).
-     *
-     * @return array<int, float>  [id_producto => cantidad]
-     */
-    public function existencias(int $idAlmacen, array $idsProducto): array
-    {
-        if (! $idsProducto) {
-            return [];
-        }
-        return AlmacenStock::where('ID_ALMACEN', $idAlmacen)->whereIn('ID_PRODUCTO', $idsProducto)
-            ->groupBy('ID_PRODUCTO')->selectRaw('ID_PRODUCTO, SUM(CANTIDAD) as CANTIDAD')
-            ->pluck('CANTIDAD', 'ID_PRODUCTO')
-            ->map(fn ($q) => (float) $q)->all();
-    }
-
-    /**
      * Crea ($kit null) o reemplaza un kit: nombre, descripción, materiales y modelos. La
      * forma de los datos ya viene validada por el controlador; aquí se comprueba contra la
      * base (productos activos, modelos que existen) y se guarda todo en una transacción.
@@ -155,13 +136,7 @@ class KitAlmacenService
                 'NOMBRE'      => mb_strtoupper(trim($datos['nombre'])),
                 'DESCRIPCION' => trim((string) ($datos['descripcion'] ?? '')) ?: null,
             ]);
-            // Si solo cambian materiales o modelos, touch(): el kit también tiene que quedar
-            // "cambiado", que es lo que avisa a la copia offline (AlmacenKit::booted).
-            if ($kit->exists && ! $kit->isDirty()) {
-                $kit->touch();
-            } else {
-                $kit->save();
-            }
+            $kit->save();
 
             AlmacenKitItem::where('ID_KIT', $kit->ID_KIT)->delete();
             foreach ($items->values() as $orden => $i) {

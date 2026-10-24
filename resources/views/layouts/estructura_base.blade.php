@@ -354,7 +354,7 @@
          ?v=filemtime) o el navegador baja el archivo dos veces. --}}
     @foreach ([
         'js/maquinaria/layout_ui.js',
-        'js/maquinaria/offline_mode.js',
+        'js/maquinaria/estado_red.js',
         'js/maquinaria/fetch_interceptor.js',
         'js/maquinaria/global_handlers.js',
         'js/maquinaria/preloader.js',
@@ -386,11 +386,10 @@
         } catch (e) {}
     </script>
 
-    {{-- Banner global de estado de red. Se muestra cuando window.addEventListener('offline')
-         dispara o cuando navigator.onLine === false al cargar la app. Persiste hasta que vuelva
-         la conexion (no se auto-oculta). Cuando vuelve la red, muestra brevemente "Conexion
-         restaurada" en verde y luego desaparece. La logica vive en
-         public/js/maquinaria/offline_mode.js (antes era un <script> inline aqui mismo). --}}
+    {{-- Banner global de estado de red, solo informativo: sin servidor avisa que se trabaja con
+         la copia de este equipo y persiste hasta que vuelva; entonces muestra brevemente
+         "Conexion restaurada" en verde y desaparece. La logica vive en
+         public/js/maquinaria/estado_red.js. --}}
     <div id="netStatusBanner" role="status" aria-live="polite"
          style="position:fixed;top:0;left:0;right:0;z-index:1000001;display:none;
                 align-items:center;justify-content:center;gap:8px;
@@ -400,19 +399,12 @@
                 transform:translateY(-100%);transition:transform 0.3s ease;
                 font-family:'Inter','Segoe UI',sans-serif;">
         <i class="material-icons" id="netStatusIcon" style="font-size:18px;">wifi_off</i>
-        <span id="netStatusText" style="white-space:nowrap;">Sin conexión a internet</span>
-        {{-- Botón que OFRECE pasar a la versión offline (no se cambia solo). Solo
-             aparece sin conexión y si el módulo actual tiene render offline. --}}
-        <button id="netStatusAction" type="button"
-                style="display:none;margin-left:10px;background:#fff;color:#dc2626;border:none;border-radius:6px;padding:4px 12px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;">
-            Trabajar sin conexión
-        </button>
+        <span id="netStatusText" style="white-space:nowrap;">Sin internet</span>
     </div>
 
-    {{-- ── Bandeja de cambios sin conexión (Fase 2) ──────────────────────────────
-         Badge flotante visible cuando hay acciones en el outbox (por subir o con
-         error). Click → panel con la lista; permite Reintentar / Descartar /
-         Subir ahora. Se refresca con el evento 'outbox-actualizado'. --}}
+    {{-- ── Bandeja de lo hecho sin internet (public/js/offline/bandeja.js) ─────────
+         Badge flotante visible mientras quede algo por subir o rechazado. Click → panel con
+         la lista: Reintentar / Descartar lo rechazado y Subir ahora. --}}
     <div id="outboxTray" style="position:fixed;left:16px;bottom:16px;z-index:1000002;display:none;font-family:'Inter','Segoe UI',sans-serif;">
         <button id="outboxTrayBtn" type="button" title="Cambios sin conexión pendientes de subir"
                 style="display:flex;align-items:center;gap:7px;background:#0067b1;color:#fff;border:none;border-radius:999px;padding:9px 14px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,0.22);">
@@ -1105,7 +1097,7 @@
         <script
             src="{{ asset('js/maquinaria/preloader.js') }}?v={{ @filemtime(public_path('js/maquinaria/preloader.js')) }}"></script>
         <script
-            src="{{ asset('js/maquinaria/offline_mode.js') }}?v={{ @filemtime(public_path('js/maquinaria/offline_mode.js')) }}"></script>
+            src="{{ asset('js/maquinaria/estado_red.js') }}?v={{ @filemtime(public_path('js/maquinaria/estado_red.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/global_handlers.js') }}?v={{ @filemtime(public_path('js/maquinaria/global_handlers.js')) }}"></script>
 
@@ -1133,7 +1125,7 @@
              Lo piden con window.ensureChartJS() — ver js/maquinaria/lazy_loader.js. --}}
 
         {{-- JS de modulo que se queda GLOBAL: lo llaman otras pantallas (equipos_index,
-             fleet_dashboard, movilizaciones, historial...) o el modo offline lo parchea.
+             fleet_dashboard, movilizaciones, historial...).
              El JS que solo usa SU pantalla va al final de esa vista (fallas, usuarios,
              frentes, catalogo, consumibles, carga por Excel): la navegacion SPA ejecuta
              los <script src> del contenido, en orden y UNA vez por pestaña (navegacion.js
@@ -1145,6 +1137,9 @@
         {{-- Copia local (IndexedDB) de la que pintan las pantallas, con o sin internet. --}}
         <script
             src="{{ asset('js/offline/copia-local.js') }}?v={{ @filemtime(public_path('js/offline/copia-local.js')) }}"></script>
+        {{-- Lo que se guarda sin internet espera aquí y sube solo al volver la red. --}}
+        <script
+            src="{{ asset('js/offline/bandeja.js') }}?v={{ @filemtime(public_path('js/offline/bandeja.js')) }}"></script>
         {{-- /admin/equipos se filtra, cuenta y pinta desde esa copia (sin ir al servidor). --}}
         <script
             src="{{ asset('js/maquinaria/equipos_local.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_local.js')) }}"></script>
@@ -1296,91 +1291,12 @@
              internas una recarga forzada por actualización perdería trabajo del usuario. Aquí el
              SW nuevo se aplica sin interrumpir (pwa-install.js hace SKIP_WAITING). --}}
 
-        {{-- ===== OFFLINE (Fase 1): baja la copia de datos a IndexedDB para consultar sin internet ===== --}}
-        <script src="{{ asset('js/offline/offline-sync.js') }}?v={{ @filemtime(public_path('js/offline/offline-sync.js')) }}" defer></script>
         {{-- offline-auth.js NO se carga aquí a propósito: solo tiene trabajo en la pantalla
              de login (preparar y confirmar el verificador de acceso sin conexión, y el botón
              "Entrar sin conexión"). Antes se cargaba para "confirmar" un verificador que
              quedaba pendiente en localStorage, y eso ascendía a bueno el de un intento
              FALLIDO cuando se llegaba al menú por otra vía (huella, o el cambio de clave
              obligatorio). Ahora el pendiente vive en memoria y lo resuelve el propio login. --}}
-        {{-- Fase 2: motor de sincronización del outbox (sube acciones hechas sin internet). --}}
-        <script src="{{ asset('js/offline/outbox-sync.js') }}?v={{ @filemtime(public_path('js/offline/outbox-sync.js')) }}" defer></script>
-        {{-- Fase 2: bandeja de pendientes (badge flotante #outboxTray). --}}
-        <script>
-            (function () {
-                function $(id) { return document.getElementById(id); }
-                var esc = window.escapeHtml;   // helper central (dom_helpers.js)
-                function razon(k) { return (window.OfflineOutbox && window.OfflineOutbox.razon) ? window.OfflineOutbox.razon(k) : (k || ''); }
-
-                function refrescar() {
-                    var tray = $('outboxTray'); if (!tray || !window.OfflineDB) return;
-                    window.OfflineDB.outboxList().then(function (items) {
-                        if (!items.length) {
-                            tray.style.display = 'none';
-                            var p0 = $('outboxTrayPanel'); if (p0) p0.style.display = 'none';
-                            return;
-                        }
-                        tray.style.display = 'block';
-                        $('outboxTrayCount').textContent = items.length;
-                        var hayErr = items.some(function (i) { return i.status === 'error'; });
-                        $('outboxTrayBtn').style.background = hayErr ? '#dc2626' : '#0067b1';
-
-                        var list = $('outboxTrayList');
-                        list.innerHTML = items.map(function (it) {
-                            var esErr = it.status === 'error';
-                            var color = esErr ? '#dc2626' : '#0067b1';
-                            var estado = esErr ? ('Error · ' + razon(it.reason)) : 'Por subir';
-                            var acciones = esErr
-                                ? '<div style="display:flex;gap:8px;margin-top:6px;">' +
-                                      '<button data-retry="' + esc(it.client_uuid) + '" style="background:#0067b1;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Reintentar</button>' +
-                                      '<button data-discard="' + esc(it.client_uuid) + '" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Descartar</button>' +
-                                  '</div>'
-                                : '';
-                            return '<div style="padding:11px 14px;border-bottom:1px solid #f1f5f9;">' +
-                                       '<div style="font-size:12.5px;font-weight:700;color:#1e293b;">' + esc(it.label || it.action) + '</div>' +
-                                       '<div style="font-size:11.5px;font-weight:700;color:' + color + ';margin-top:3px;">' + esc(estado) + '</div>' +
-                                       acciones +
-                                   '</div>';
-                        }).join('');
-                    });
-                }
-
-                document.addEventListener('click', function (e) {
-                    var t = e.target;
-                    if (t.closest && t.closest('#outboxTrayBtn')) {
-                        var p = $('outboxTrayPanel'); if (p) p.style.display = (p.style.display === 'none' ? 'block' : 'none');
-                        refrescar(); return;
-                    }
-                    if (t.closest && t.closest('#outboxTraySubir')) {
-                        if (window.OfflineOutbox) window.OfflineOutbox.drain(); return;
-                    }
-                    var rt = t.closest && t.closest('[data-retry]');
-                    if (rt) {
-                        window.OfflineDB.outboxUpdate(rt.getAttribute('data-retry'), { status: 'pending', reason: '' })
-                            .then(function () { if (window.OfflineOutbox) window.OfflineOutbox.drain(); refrescar(); });
-                        return;
-                    }
-                    var dc = t.closest && t.closest('[data-discard]');
-                    if (dc) {
-                        // Descartar: sale del outbox y se re-baja el snapshot para corregir
-                        // cualquier cambio optimista que no llegó a aplicarse en el servidor.
-                        window.OfflineDB.outboxRemove(dc.getAttribute('data-discard'))
-                            .then(function () { if (window.OfflineDB.sync) window.OfflineDB.sync(true); refrescar(); });
-                        return;
-                    }
-                    // Click fuera del tray cierra el panel.
-                    var panel = $('outboxTrayPanel');
-                    if (panel && panel.style.display === 'block' && !(t.closest && t.closest('#outboxTray'))) panel.style.display = 'none';
-                });
-
-                window.addEventListener('outbox-actualizado', refrescar);
-                window.addEventListener('online', refrescar);
-                if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refrescar);
-                else refrescar();
-            })();
-        </script>
-
         {{-- ── WebAuthn: prompt de registro biométrico tras login con contraseña ── --}}
         @if(session('webauthn_prompt'))
         <script src="{{ asset('js/webauthn.js') }}?v={{ @filemtime(public_path('js/webauthn.js')) }}"></script>

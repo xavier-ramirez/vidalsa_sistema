@@ -154,11 +154,10 @@
     // ── ¿Hay SERVIDOR de verdad? ────────────────────────────────────────────────
     // navigator.onLine MIENTE: dice "online" con el wifi levantado y el servidor caído,
     // que es justo el caso que este botón existe para cubrir. El resto de la app ya dejó
-    // de confiar en él (comprobarConexion() en offline_mode.js) y aquí se hace lo mismo:
-    // se sondea /offline/version y SOLO un fallo de red cuenta como sin conexión —
-    // cualquier respuesta HTTP significa servidor vivo, incluida la redirección a /login
-    // que devuelve por no haber sesión todavía (la ruta va detrás del middleware auth).
-    // El service worker nunca cachea /offline/, así que el sondeo siempre va a la red.
+    // de confiar en él (comprobarConexion() en estado_red.js) y aquí se hace lo mismo:
+    // se sondea /up (la ruta de salud de Laravel, sin sesión ni base de datos) y SOLO un
+    // fallo de red cuenta como sin conexión — cualquier respuesta HTTP significa servidor vivo.
+    // El service worker nunca cachea /up, así que el sondeo siempre va a la red.
     // Se arranca en `!navigator.onLine` para no ofrecer el botón antes de saber nada: si
     // el navegador ya se declara sin red, no hace falta preguntar.
     let sinServidor = !navigator.onLine;
@@ -183,7 +182,7 @@
         // botón de acceso local sin aparecer nunca.
         const corta = (typeof AbortController === 'function') ? new AbortController() : null;
         const tope = corta ? setTimeout(function () { corta.abort(); }, 4000) : null;
-        fetch('/offline/version', {
+        fetch('/up', {
             method: 'GET', cache: 'no-store', credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             signal: corta ? corta.signal : undefined

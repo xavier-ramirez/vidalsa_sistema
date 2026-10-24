@@ -9,6 +9,7 @@ use App\Models\ProductoEquivalencia;
 use App\Models\ProductoInventario;
 use App\Models\Traspaso;
 use App\Services\InventarioService;
+use App\Support\NotasReservadas;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -2196,7 +2197,7 @@ class AlmacenController extends Controller
             // del PDF al frontend (pre-open tab inmediata, sin segunda búsqueda).
             $result = DB::transaction(function () use ($data, $opts, $bolsaPorProducto) {
                 if ($data['tipo'] === 'SALIDA') {
-                    $opts['numero_nota'] = MovimientoInventario::generarNumeroNota();
+                    $opts['numero_nota'] = NotasReservadas::tomar($data['numero_nota_reservado'] ?? null, $opts['id_usuario']);
                 }
                 $ids = [];
 
@@ -2391,7 +2392,7 @@ class AlmacenController extends Controller
                     'motivo'            => $data['motivo'] ?? null,
                     'id_usuario'        => $idUsuario,
                     'permitir_negativo' => false,
-                    'numero_nota'       => MovimientoInventario::generarNumeroNota(),
+                    'numero_nota'       => NotasReservadas::tomar($data['numero_nota_reservado'] ?? null, $idUsuario),
                     '_frente_saldo'     => $bolsa,
                 ] + $this->datosNotaSalida($data) + $transporte;
                 foreach ($lineas as $l) {
@@ -2502,7 +2503,7 @@ class AlmacenController extends Controller
     private function crearYEnviarTraspaso(array $data, int $idFrenteDestino, int $idAlmacenDestino, ?int $idUsuario, array $lineas, array $bolsaPorProducto, array $transporte): array
     {
         return DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $bolsaPorProducto, $transporte) {
-            $numeroNota = MovimientoInventario::generarNumeroNota();
+            $numeroNota = NotasReservadas::tomar($data['numero_nota_reservado'] ?? null, $idUsuario);
 
             $traspaso = $this->traspasos->crearBorrador(
                 datos: [
@@ -2549,6 +2550,8 @@ class AlmacenController extends Controller
             'solicitante'     => 'nullable|string|max:200',
             'departamento'    => 'nullable|string|max:150',
             'motivo'          => 'nullable|string|max:200',
+            // Nº apartado para este dispositivo: la salida se hizo sin internet (NotasReservadas).
+            'numero_nota_reservado' => 'nullable|string|max:20',
         ] + $this->reglasTransporte();
     }
 

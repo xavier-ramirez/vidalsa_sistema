@@ -37,20 +37,10 @@ class EquipoObserver
         \App\Http\Controllers\HistorialDocumentosController::bumpDataVersion();
     }
 
-    /**
-     * Snapshot offline del almacén (dominio "catalogos"): cada kit lleva las placas de sus
-     * equipos (KitAlmacenService::catalogo), así que una edición del equipo lo deja viejo.
-     */
-    private function bustOffline(): void
-    {
-        \App\Support\OfflineVersion::invalidar('catalogos');
-    }
-
     public function created(Equipo $equipo): void
     {
         $this->bustTipoCategoriaMap();
         $this->bustHistorialDocs();
-        $this->bustOffline();
         \App\Http\Controllers\DashboardController::bumpDataVersion();
     }
 
@@ -58,7 +48,6 @@ class EquipoObserver
     {
         $this->bustTipoCategoriaMap();
         $this->bustHistorialDocs();
-        $this->bustOffline();
         \App\Http\Controllers\DashboardController::bumpDataVersion();
     }
 
@@ -70,7 +59,6 @@ class EquipoObserver
      */
     public function updated(Equipo $equipo): void
     {
-        $this->bustOffline();
 
         if ($equipo->wasChanged(['id_tipo_equipo', 'CATEGORIA_FLOTA'])) {
             $this->bustTipoCategoriaMap();

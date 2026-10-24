@@ -228,10 +228,51 @@
     }
 
     // ── Contexto: catálogos y saldos de la copia ──────────────────────────────
+    // ── Lo que aún no subió (sin internet) va encima del stock de la copia ────
+    // Una salida resta sus líneas de la bolsa elegida (sin elegir: la del destino o, si no
+    // tiene, la que más tiene); una auditoría deja el total del producto en lo contado (la
+    // diferencia va a la bolsa común). Al subir, la copia trae el saldo real del servidor.
+    function stockConPendientes(vista) {
+        const filas = vista.filas('stock');
+        const pend = window.Bandeja
+            ? window.Bandeja.pendientes().filter((it) => it.estado === 'pendiente' && (it.tipo === 'salida' || it.tipo === 'ajuste'))
+            : [];
+        if (!pend.length) return filas;
+        const out = filas.map((s) => Object.assign({}, s));
+        const delProducto = (alm, prod) => out.filter((s) => s.alm === alm && s.prod === prod);
+        const bolsa = (alm, prod, frente) => {
+            let f = out.find((s) => s.alm === alm && s.prod === prod && s.frente === frente);
+            if (!f) { f = { id: null, alm, prod, frente, cant: 0, min: null, fecha: null }; out.push(f); }
+            return f;
+        };
+        pend.forEach((it) => {
+            const alm = Number(it.datos.id_almacen);
+            it.datos.lineas.forEach((l) => {
+                const prod = Number(l.id_producto), cant = Number(l.cantidad);
+                if (it.tipo === 'ajuste') {
+                    const total = delProducto(alm, prod).reduce((t, s) => t + s.cant, 0);
+                    const f = bolsa(alm, prod, 0);
+                    f.cant = r3(f.cant + cant - total);
+                    return;
+                }
+                let frente = l.id_frente_saldo;
+                if (frente == null) {
+                    const conSaldo = delProducto(alm, prod).filter((s) => s.cant > 0).sort((a, b) => b.cant - a.cant);
+                    const delDestino = conSaldo.find((s) => s.frente === Number(it.datos.id_frente_destino));
+                    frente = (delDestino || conSaldo[0] || { frente: 0 }).frente;
+                }
+                const f = bolsa(alm, prod, Number(frente));
+                f.cant = r3(f.cant - cant);
+            });
+        });
+        return out;
+    }
+
     function contexto(vista) {
         const almacenes = vista.catalogo('almacenes');
         return {
             vista,
+            stock: stockConPendientes(vista),
             almacenes,
             visibles: almacenes.filter((a) => a.visible),
             almById: new Map(almacenes.map((a) => [a.id, a])),
@@ -246,7 +287,7 @@
     // Saldo de un almacén agregado por producto: suma de sus proyectos, mayor mínimo, última fecha.
     function saldos(ctx, idAlmacen) {
         const m = new Map();
-        ctx.vista.filas('stock').forEach((s) => {
+        ctx.stock.forEach((s) => {
             if (s.alm !== idAlmacen) return;
             const a = m.get(s.prod) || { cant: 0, min: null, filas: [] };
             a.cant += s.cant;
@@ -524,7 +565,7 @@
         idProducto = Number(idProducto);
         const actual = idAlmacen ? ctx.almById.get(Number(idAlmacen)) || null : null;
         const de = (alm) => {
-            const filas = vista.filas('stock').filter((s) => s.alm === alm.id && s.prod === idProducto);
+            const filas = ctx.stock.filter((s) => s.alm === alm.id && s.prod === idProducto);
             let min = null;
             filas.forEach((s) => { if (s.min !== null && (min === null || s.min > min)) min = s.min; });
             return { cant: r3(filas.reduce((t, s) => t + s.cant, 0)), min, filas };
@@ -907,5 +948,5 @@
             }));
     }
 
-    window.AlmacenLocal = { inventario, idsInventario, panelOtros, movimientos, consumo, notas, notasFiltro, listaProductos };
+    window.AlmacenLocal = { inventario, idsInventario, panelOtros, movimientos, consumo, notas, notasFiltro, listaProductos, stockConPendientes, fmt };
 })();

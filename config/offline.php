@@ -4,11 +4,11 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Store de caché para las versiones del snapshot offline
+    | Store de caché de la copia local
     |--------------------------------------------------------------------------
     |
-    | Las versiones por dominio (App\Support\OfflineVersion) se consultan en CADA
-    | sondeo de CADA cliente, así que deben leerse SIN tocar MySQL. Con el store
+    | Si los triggers del registro de cambios están creados (RegistroCambios::activo)
+    | se pregunta en CADA sondeo de CADA cliente, así que debe leerse SIN tocar MySQL. Con el store
     | por defecto del proyecto (CACHE_STORE=database) cada lectura sería una
     | consulta, justo lo que se quiere evitar; por eso aquí se usa 'file'.
     |

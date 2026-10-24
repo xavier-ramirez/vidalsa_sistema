@@ -18,10 +18,9 @@ const originalFetch = window.fetch;
  * El fetch del navegador SIN este interceptor, para quien necesite preguntar por la red
  * sin que un fallo dispare el aviso global "Sin conexión".
  *
- * Lo usa el sondeo de offline_mode.js: mientras se trabaja sin conexión pregunta cada 15 s
- * si volvió el servidor, y esa pregunta TIENE que poder fallar en silencio. Pasando por el
- * interceptor, cada fallo llamaba a showOffline() y le borraba al usuario el botón
- * "Reintentar conexión" que volverOnline() acababa de ofrecerle.
+ * Lo usa el sondeo de estado_red.js: sin conexión pregunta cada 15 s si volvió el servidor,
+ * y esa pregunta TIENE que poder fallar en silencio. Pasando por el interceptor, cada fallo
+ * llamaba a showOffline() y repintaba el banner.
  *
  * No es un atajo para saltarse el manejo de sesión: quien haga peticiones de VERDAD debe
  * usar window.apiFetch, que es el que atrapa 401/419 y avisa de la caída de red.
@@ -92,25 +91,20 @@ window.fetch = async function (...args) {
             // DUEÑO ÚNICO de "la sesión murió". Corta aquí y devuelve una promesa
             // que no resuelve nunca, así que NINGÚN módulo llega a ver un 401/419:
             // por eso ya no existen las ramas de "sesión expirada" que tenían
-            // equipos_index, form_logic y outbox-sync — no podían ejecutarse.
+            // equipos_index y form_logic — no podían ejecutarse.
             //
             // Con ?aviso= el login explica POR QUÉ se cerró la sesión (un flash no
             // serviría: esa pantalla se sirve desde el caché del Service Worker).
-            // Y si lo que falló fue la subida del outbox, es que HABÍA cambios sin
-            // subir (drain() solo llama con la cola llena): el aviso lo dice, que
-            // era lo único que se perdía al cortar la petición aquí.
-            var _u = String((args[0] && args[0].url) || args[0] || '');
             // El MOTIVO real, si el servidor lo mandó. ValidarSesionUnica responde con
             // {motivo: 'clave_cambiada'}; antes esto se ignoraba y cualquier 401 llegaba
             // al login como "Tu sesión expiró por seguridad", así que a quien le cambiaron
             // la clave se le decía que su sesión caducó.
             // Solo se aceptan los códigos conocidos: el valor viaja a la URL.
             //
-            // El motivo y lo pendiente son dos cosas y viajan las dos: si lo que falló fue la
-            // subida del outbox, el aviso lleva además "_pendientes", que es lo único que le
-            // dice al usuario que sus cambios sin subir siguen guardados. Con el motivo
-            // sustituyendo al caso del outbox, a quien le cambiaban la clave con cambios en
-            // cola dejaba de enterarse de que los tenía.
+            // El motivo y lo pendiente son dos cosas y viajan las dos: si queda algo en la
+            // bandeja sin internet (bandeja.js), el aviso lleva además "_pendientes", que es lo
+            // único que le dice al usuario que sus cambios sin subir siguen guardados y suben
+            // al volver a entrar.
             var _motivo = null;
             if (response.status === 401) {
                 try {
@@ -121,24 +115,18 @@ window.fetch = async function (...args) {
                 } catch (e) { /* respuesta sin JSON: vale el aviso genérico */ }
             }
             var _aviso = _motivo || 'sesion_expirada';
-            if (_u.indexOf('/offline/sync') !== -1) _aviso += '_pendientes';
+            if (window.Bandeja && window.Bandeja.pendientes().some(function (it) { return it.estado === 'pendiente'; })) _aviso += '_pendientes';
             window.location.href = '/?aviso=' + _aviso;
             return new Promise(() => { }); // Promesa pendiente eterna
         }
         // AQUÍ NO SE ANUNCIA QUE VOLVIÓ LA RED, aunque la petición haya salido bien.
         //
-        // Se intentó y estaba mal por dos motivos:
-        //   · Una respuesta resuelta NO prueba que haya red. El service worker sirve las
-        //     navegaciones SPA y los estáticos desde su caché (ver resources/sw.js), así
-        //     que moverse entre módulos SIN conexión devolvía 200 y el aviso cantaba
-        //     "Conexión restaurada" con el teléfono todavía incomunicado.
-        //   · Pisaba el trabajo de volverOnline(): ese sondea /offline/version mientras
-        //     muestra "Volviendo al modo con internet · sincronizando…", y el gancho, al
-        //     ver esa misma respuesta, repintaba el banner y volvía a mostrar el botón —
-        //     que el usuario podía pulsar otra vez y arrancar una segunda sincronización
-        //     con su propia recarga, compitiendo con la primera.
+        // Se intentó y estaba mal: una respuesta resuelta NO prueba que haya red. El
+        // service worker sirve las navegaciones SPA y los estáticos desde su caché (ver
+        // resources/sw.js), así que moverse entre módulos SIN conexión devolvía 200 y el
+        // aviso cantaba "Conexión restaurada" con el teléfono todavía incomunicado.
         //
-        // El único que decide que la red volvió es el sondeo de offline_mode.js, que
+        // El único que decide que la red volvió es el sondeo de estado_red.js, que
         // pregunta de verdad al servidor y no puede confundirse con una copia cacheada.
         // "Se fue la red" sí se decide aquí (ver el catch de abajo): un fallo de fetch
         // contra nuestro origen es concluyente, un éxito no.

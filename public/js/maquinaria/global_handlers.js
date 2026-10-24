@@ -5,7 +5,7 @@
  * Equipos los abren sus onclick y los cierra equipos_index.js (clic fuera).
  *
  * Extraido del <script> inline de estructura_base.blade.php (2026-08-24), cola del
- * mismo bloque que preloader.js y offline_mode.js. Se carga DESPUES de los dos,
+ * mismo bloque que preloader.js y estado_red.js. Se carga DESPUES de los dos,
  * sincrono y sin defer, conservando el orden original.
  */
 // Utilidad Global para Mostrar/Ocultar Contraseñas
