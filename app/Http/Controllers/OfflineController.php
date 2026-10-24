@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use App\Casts\MojibakeFix;
 use App\Models\Almacen;
 use App\Models\AlmacenStock;
-use App\Models\Equipo;
-use App\Models\FrenteTrabajo;
 use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use App\Services\KitAlmacenService;
@@ -16,7 +14,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Snapshot OFFLINE — copia de solo lectura de los datos que el teléfono necesita
- * para CONSULTAR los módulos sin internet.
+ * para CONSULTAR el almacén sin internet. Equipos, auxiliares y movilizaciones van
+ * aparte, en la copia local (SincronizacionController, /sync/equipos).
  *
  * NO toca nada del flujo online: solo hace SELECT (jamás INSERT/UPDATE/DELETE), y
  * el alcance se acota a los almacenes VISIBLES del usuario (Almacen::visiblesPara),
@@ -25,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  * central del proyecto) para que los acentos lleguen correctos al snapshot.
  *
  * ── Dos modos de respuesta ─────────────────────────────────────────────────
- *   · SIN `?c=` → carga completa con la forma HISTÓRICA (claves `stock`, `equipos`…
+ *   · SIN `?c=` → carga completa con la forma HISTÓRICA (claves `stock`, `productos`…
  *     en la raíz). Es lo que sigue pidiendo un cliente con el JS viejo en caché, y
  *     por eso no se puede cambiar esa forma.
  *   · CON `?c=<cursor>` → forma NUEVA: `modos` dice qué hacer con cada dominio
@@ -85,8 +84,7 @@ class OfflineController extends Controller
      *
      * Se conserva por COMPATIBILIDAD: un cliente con el offline-sync.js viejo en caché
      * sigue leyendo `version` y funcionando igual que antes. El cliente nuevo usa el
-     * mapa por dominio de `v`, que es lo que evita que un cambio de almacén invalide la
-     * copia de quien solo usa equipos.
+     * mapa por dominio de `v`.
      *
      * Ya no consulta la BD: las huellas vienen cacheadas de OfflineVersion.
      */
@@ -106,41 +104,27 @@ class OfflineController extends Controller
      */
     private function versionesVisibles($user): array
     {
+        // Sin el módulo de almacén no viaja nada: ni siquiera la huella de `catalogos`, que
+        // le haría bajar el snapshot cada vez que alguien toca un kit... para recibir
+        // listas vacías.
+        if (! $this->puedeAlmacen($user)) return [];
+
         $todas = OfflineVersion::todas();
-        [$puedeEquipos, $puedeAlmacen] = $this->alcanceDe($user);
 
-        $v = [];
-        if ($puedeEquipos) $v['equipos'] = $todas['equipos'];
-        if ($puedeAlmacen) $v['almacen'] = $todas['almacen'];
-
-        // `catalogos` (frentes + almacenes) SOLO si el usuario recibe alguno de los dos
-        // modulos: snapshot() ya deja `frentes` vacio cuando no tiene ninguno, asi que
-        // incluir su huella aqui haria que un usuario sin permisos se descargase el
-        // snapshot cada vez que alguien toca un frente... para recibir listas vacias.
-        if ($v !== []) $v['catalogos'] = $todas['catalogos'];
-
-        return $v;
+        return ['almacen' => $todas['almacen'], 'catalogos' => $todas['catalogos']];
     }
 
     /**
-     * Alcance por permisos — snapshot ADITIVO: cada módulo viaja al teléfono solo si el
-     * usuario realmente lo usa, para no inflar el caché con datos ajenos.
-     *   · Equipos (flota): requiere alguna clave equipos.* (super.admin la hereda).
-     *   · Almacén: requiere alguna clave almacen.* o super.admin. NO basta con que el
-     *     almacén sea "visible": un usuario GLOBAL (NIVEL_ACCESO_ALMACEN=1) ve todos los
-     *     almacenes, así que la visibilidad solo ACOTA cuáles viajan, no DA acceso al
-     *     módulo offline (si no, todo GLOBAL bajaría almacén aunque no lo use).
-     *
-     * @return array{0:bool,1:bool} [puedeEquipos, puedeAlmacen]
+     * ¿Viaja el almacén a este teléfono? Requiere alguna clave almacen.* o super.admin. NO
+     * basta con que el almacén sea "visible": un usuario GLOBAL (NIVEL_ACCESO_ALMACEN=1) ve
+     * todos los almacenes, así que la visibilidad solo ACOTA cuáles viajan, no DA acceso al
+     * módulo offline (si no, todo GLOBAL bajaría almacén aunque no lo use).
      */
-    private function alcanceDe($user): array
+    private function puedeAlmacen($user): bool
     {
-        return [
-            $user->can('equipos.create') || $user->can('equipos.edit') || $user->can('equipos.assign'),
-            $user->can('almacen.productos') || $user->can('almacen.movimiento')
-                || $user->can('almacen.nota.eliminar') || $user->can('almacen.nota.corregir')
-                || $user->can('super.admin'),
-        ];
+        return $user->can('almacen.productos') || $user->can('almacen.movimiento')
+            || $user->can('almacen.nota.eliminar') || $user->can('almacen.nota.corregir')
+            || $user->can('super.admin');
     }
 
     /**
@@ -150,17 +134,15 @@ class OfflineController extends Controller
      *
      * Se calcula SOLO con atributos ya cargados del usuario — cero consultas, que es lo
      * que permite responder `sin_cambios` sin tocar MySQL. Basta porque todo el scope
-     * del proyecto sale de columnas: los niveles de acceso, el CSV de frentes asignados
+     * del proyecto sale de columnas: el nivel de acceso, el CSV de frentes asignados
      * y el CSV de frentes bloqueados. Lo único que NO es una columna suya es qué
      * almacenes ve (depende de la pivote almacen_frentes), y eso se cubre aparte con un
      * resetear('almacen') en AlmacenController::sincronizarFrentes.
      */
-    private function firmaAlcance($user, bool $puedeEquipos, bool $puedeAlmacen): string
+    private function firmaAlcance($user, bool $puedeAlmacen): string
     {
         return substr(md5(implode('|', [
-            (int) $puedeEquipos,
             (int) $puedeAlmacen,
-            (int) ($user->NIVEL_ACCESO_EQUIPOS ?? 0),
             (int) ($user->NIVEL_ACCESO_ALMACEN ?? 0),
             (string) ($user->getAttributes()['ID_FRENTE_ASIGNADO'] ?? ''),
             (string) ($user->getAttributes()['ID_FRENTE_BLOQUEADO'] ?? ''),
@@ -188,7 +170,7 @@ class OfflineController extends Controller
     {
         $user  = $request->user();
         $todas = OfflineVersion::todas();
-        [$puedeEquipos, $puedeAlmacen] = $this->alcanceDe($user);
+        $puedeAlmacen = $this->puedeAlmacen($user);
 
         $cursor = $this->leerCursor($request);
 
@@ -199,12 +181,12 @@ class OfflineController extends Controller
                     'version'  => $this->calcularVersion($request),
                     'generado' => now()->toIso8601String(),
                 ],
-                $this->cargaCompleta($user, $puedeEquipos, $puedeAlmacen)
+                $this->cargaCompleta($user, $puedeAlmacen)
             ));
         }
 
         $visibles = $this->versionesVisibles($user);
-        $firma    = $this->firmaAlcance($user, $puedeEquipos, $puedeAlmacen);
+        $firma    = $this->firmaAlcance($user, $puedeAlmacen);
         $modos    = $this->decidirModos($cursor, $visibles, $todas, $firma, $user?->getAuthIdentifier());
 
         // La marca de agua se toma ANTES de consultar y con holgura hacia atrás.
@@ -226,22 +208,6 @@ class OfflineController extends Controller
             }
             return $almIds;
         };
-
-        // ── EQUIPOS ──────────────────────────────────────────────────────────
-        if ($modos['equipos'] === 'full') {
-            $datos['equipos'] = $this->consultaEquipos($user, $puedeEquipos);
-        } elseif ($modos['equipos'] === 'delta') {
-            [$cambios, $bajas] = $this->deltaEquipos($user, $desde);
-
-            // Degradar a completo si el delta dejó de ahorrar.
-            if ($cambios->count() + count($bajas) > self::MAX_DELTA) {
-                $modos['equipos'] = 'full';
-                $datos['equipos'] = $this->consultaEquipos($user, $puedeEquipos);
-            } else {
-                $datos['equipos']    = $cambios;
-                $borrados['equipos'] = $bajas;
-            }
-        }
 
         // ── ALMACÉN ──────────────────────────────────────────────────────────
         if ($modos['almacen'] === 'full') {
@@ -266,12 +232,11 @@ class OfflineController extends Controller
         }
 
         // ── CATÁLOGOS ────────────────────────────────────────────────────────
-        // Pesan pocos KB y los usan los dos módulos: cuando cambian viajan ENTEROS. Eso
-        // los libra de tener que detectar borrados, que es la parte cara del delta.
+        // Pesan pocos KB: cuando cambian viajan ENTEROS. Eso los libra de tener que
+        // detectar borrados, que es la parte cara del delta.
         if ($modos['catalogos'] === 'full') {
             $verAlm();
             $datos['almacenes'] = $this->mapearAlmacenes($almacenes);
-            $datos['frentes']   = $this->consultaFrentes($user, $puedeEquipos, $puedeAlmacen);
             $datos['kits']      = $this->consultaKits($puedeAlmacen);
         }
 
@@ -330,7 +295,7 @@ class OfflineController extends Controller
             || (string) ($cursor['u'] ?? '') !== (string) $userId;
 
         $modos = [];
-        foreach (['equipos', 'almacen', 'catalogos'] as $d) {
+        foreach (['almacen', 'catalogos'] as $d) {
             if (! isset($visibles[$d])) {
                 $modos[$d] = 'sin_cambios';   // fuera de su alcance: ni se mira
                 continue;
@@ -385,7 +350,7 @@ class OfflineController extends Controller
     }
 
     /** Carga completa con la forma HISTÓRICA (cliente sin cursor). */
-    private function cargaCompleta($user, bool $puedeEquipos, bool $puedeAlmacen): array
+    private function cargaCompleta($user, bool $puedeAlmacen): array
     {
         $almacenes = $this->almacenesVisibles($user, $puedeAlmacen);
         $almIds    = $almacenes->pluck('ID_ALMACEN');
@@ -395,8 +360,6 @@ class OfflineController extends Controller
             'stock'          => $this->consultaStock($almIds),
             'productos'      => $this->consultaProductos($puedeAlmacen),
             'movimientos'    => $this->consultaMovimientos($almIds),
-            'equipos'        => $this->consultaEquipos($user, $puedeEquipos),
-            'frentes'        => $this->consultaFrentes($user, $puedeEquipos, $puedeAlmacen),
             'kits'           => $this->consultaKits($puedeAlmacen),
         ];
     }
@@ -601,154 +564,5 @@ class OfflineController extends Controller
             ->values();
     }
 
-    /**
-     * EQUIPOS (no se acotan por almacén; consulta de flota).
-     *
-     * Trae lo que muestra la tabla de /admin/equipos: tipo, frente actual (+ si está
-     * FINALIZADO), seriales, placa (de documentacion) y código de patio. La FOTO no
-     * viaja: vive en Drive (/storage/google) y no sirve offline → se muestra ícono.
-     * Misma barrera por frente que online (whitelist LOCAL + blacklist de bloqueados):
-     * el snapshot offline no debe exponer frentes que el usuario no ve en pantalla.
-     */
-    private function consultaEquipos($user, bool $puedeEquipos)
-    {
-        if (! $puedeEquipos) return collect();
 
-        return $this->baseEquipos()
-            ->when($user, fn ($q) => $user->aplicarScopeFrentesEquipos($q, 'ID_FRENTE_ACTUAL'))
-            ->orderBy('NUMERO_ETIQUETA')
-            ->get($this->columnasEquipo())
-            ->map(fn ($e) => $this->filaEquipo($e))
-            ->values();
-    }
-
-    /**
-     * Delta de EQUIPOS, partido en cambios y bajas.
-     *
-     * La consulta va SIN el scope por frente y CON withTrashed(), y el reparto se hace
-     * en PHP. Si se filtrara en SQL, un equipo que se mueve a un frente que el usuario
-     * NO ve desaparecería de la respuesta en vez de llegar como borrado, y el teléfono
-     * lo mostraría para siempre en un frente donde ya no está — el caso que más fácil
-     * se escapa de todo el diseño.
-     *
-     * @return array{0:\Illuminate\Support\Collection,1:array<int>}
-     */
-    private function deltaEquipos($user, ?string $desde): array
-    {
-        $filas = $this->baseEquipos()
-            ->withTrashed()
-            ->where('updated_at', '>=', $desde)
-            ->get(array_merge($this->columnasEquipo(), ['deleted_at']));
-
-        $visibles   = $user ? $user->frentesVisiblesEquiposIds() : null;   // null = ve todos
-        $bloqueados = $user ? array_map('intval', $user->getFrentesBloqueadosIds()) : [];
-
-        $puedeVer = static function ($e) use ($visibles, $bloqueados) {
-            $f = $e->ID_FRENTE_ACTUAL !== null ? (int) $e->ID_FRENTE_ACTUAL : null;
-            if ($f !== null && in_array($f, $bloqueados, true)) return false;
-            if ($visibles === null) return true;
-            // Sin frente asignado no lo ve un usuario LOCAL, igual que en aplicarScopeIds.
-            return $f !== null && in_array($f, array_map('intval', $visibles), true);
-        };
-
-        $cambios = $filas->filter(static fn ($e) => $e->deleted_at === null && $puedeVer($e))
-            ->map(fn ($e) => $this->filaEquipo($e))
-            ->values();
-
-        $bajas = $filas->filter(static fn ($e) => $e->deleted_at !== null || ! $puedeVer($e))
-            ->map(static fn ($e) => (int) $e->ID_EQUIPO)
-            ->values()
-            ->all();
-
-        return [$cambios, $bajas];
-    }
-
-    private function baseEquipos()
-    {
-        return Equipo::query()->with([
-            'tipo:id,nombre',
-            'frenteActual:ID_FRENTE,NOMBRE_FRENTE,ESTATUS_FRENTE',
-            'documentacion:ID_EQUIPO,PLACA',
-            // El reporte de falla abierto: la fila offline lo muestra sobre el estado.
-            'fallaAbierta:ID_FALLA,ACTIVO_ID,ACTIVO_TIPO,ESTADO_REPORTE,CODIGO_REPORTE,FECHA_EMISION,DESCRIPCION_AVERIA,NOMBRE_REPORTA',
-        ]);
-    }
-
-    private function columnasEquipo(): array
-    {
-        return [
-            'ID_EQUIPO', 'NUMERO_ETIQUETA', 'CATEGORIA_FLOTA', 'MARCA', 'MODELO', 'ANIO', 'COLOR',
-            'ESTADO_OPERATIVO', 'DETALLE_UBICACION_ACTUAL', 'SERIAL_CHASIS', 'SERIAL_DE_MOTOR',
-            'CODIGO_PATIO', 'ID_FRENTE_ACTUAL', 'id_tipo_equipo', 'ID_ESPEC',
-            'CONFIRMADO_EN_SITIO', 'COMBUSTIBLE',
-        ];
-    }
-
-    private function filaEquipo($e): array
-    {
-        return [
-            'id' => (int) $e->ID_EQUIPO,
-            'etiqueta' => MojibakeFix::fix($e->NUMERO_ETIQUETA),
-            'tipo' => MojibakeFix::fix($e->tipo?->nombre),
-            'categoria' => MojibakeFix::fix($e->CATEGORIA_FLOTA),
-            'marca' => MojibakeFix::fix($e->MARCA),
-            'modelo' => MojibakeFix::fix($e->MODELO),
-            'anio' => $e->ANIO,
-            // Color ya normalizado: la fila offline lo escribe igual que partials/table_rows.
-            'color' => \App\Models\CatalogoColor::normalizar($e->COLOR),
-            'serial_chasis' => MojibakeFix::fix($e->SERIAL_CHASIS),
-            'serial_motor' => MojibakeFix::fix($e->SERIAL_DE_MOTOR),
-            'placa' => MojibakeFix::fix($e->documentacion?->PLACA),
-            'codigo_patio' => $e->CODIGO_PATIO,
-            'estado' => MojibakeFix::fix($e->ESTADO_OPERATIVO),
-            'ubicacion' => MojibakeFix::fix($e->DETALLE_UBICACION_ACTUAL),
-            'combustible' => $e->COMBUSTIBLE,
-            'frente' => MojibakeFix::fix($e->frenteActual?->NOMBRE_FRENTE),
-            'frente_finalizado' => $e->frenteActual && $e->frenteActual->ESTATUS_FRENTE === 'FINALIZADO',
-            'id_frente' => $e->ID_FRENTE_ACTUAL ? (int) $e->ID_FRENTE_ACTUAL : null,
-            'id_tipo' => $e->id_tipo_equipo ? (int) $e->id_tipo_equipo : null,
-            'confirmado' => (int) ($e->CONFIRMADO_EN_SITIO ?? 0),
-            // Reporte de falla abierto (o null): lo mismo que partials/table_rows pone en la
-            // celda del estado (data-falla-desc / data-falla-resumen).
-            'falla' => $e->fallaAbierta
-                ? ['desc' => MojibakeFix::fix($e->fallaAbierta->DESCRIPCION_AVERIA), 'resumen' => $e->fallaAbierta->resumen]
-                : null,
-        ];
-    }
-
-    /**
-     * FRENTES activos (para etiquetas/filtros) — oculta los no visibles (whitelist LOCAL
-     * + blacklist de bloqueados), igual que los dropdowns online.
-     *
-     * Esta lista la consumen los DOS módulos offline (equipos y almacén). Por eso se
-     * scopea con la UNIÓN de ambos niveles: acotarla con uno solo escondería frentes que
-     * el otro módulo necesita (un GLOBAL-equipos + LOCAL-almacén perdería frentes de
-     * equipos).
-     *
-     * `fuera_de_flota` marca los frentes ESPECIAL, VENDIDO y TRÁMITE DE VENTA (FrenteTrabajo::TIPOS_FUERA_DE_FLOTA).
-     * Lo necesita el listado offline de equipos para reproducir el
-     * excludeFueraDeFlota() del backend: sin él la tabla sin internet mostraba ~180 equipos
-     * que la web esconde en el listado general. Va en catálogos (pocos KB) y no en cada
-     * equipo para no tocar el esquema del snapshot grande: los teléfonos con una copia
-     * anterior no traen la marca y siguen como hasta ahora hasta que entre la siguiente
-     * copia de catálogos, que es cualquier alta o edición de frente.
-     * `venta` ('vendido' | 'tramite' | null, FrenteTrabajo::avisoVentaDe): con él la vista sin
-     * conexión resta esos equipos del TOTAL y los pinta en rojo en la distribución, como la web.
-     */
-    private function consultaFrentes($user, bool $puedeEquipos, bool $puedeAlmacen)
-    {
-        if (! ($puedeEquipos || $puedeAlmacen)) return collect();
-
-        return FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
-            ->when($user, fn ($q) => $user->aplicarScopeFrentesUnion($q, 'ID_FRENTE'))
-            ->orderBy('NOMBRE_FRENTE')
-            ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'TIPO_FRENTE'])
-            ->map(static fn ($f) => [
-                'id' => (int) $f->ID_FRENTE,
-                'nombre' => MojibakeFix::fix($f->NOMBRE_FRENTE),
-                'fuera_de_flota' => in_array($f->TIPO_FRENTE, FrenteTrabajo::TIPOS_FUERA_DE_FLOTA, true),
-                'venta' => FrenteTrabajo::avisoVentaDe($f->TIPO_FRENTE)['clase'] ?? null,
-            ])
-            ->values();
-    }
 }

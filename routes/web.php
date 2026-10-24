@@ -195,18 +195,14 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('equipos/{id}/delete-doc', [App\Http\Controllers\EquipoController::class, 'deleteDoc'])
                 ->middleware('can:super.admin')
                 ->name('equipos.deleteDoc');
-            Route::get('equipos/export', [App\Http\Controllers\EquipoController::class, 'export'])->name('equipos.export');
+            Route::post('equipos/export', [App\Http\Controllers\EquipoController::class, 'export'])->name('equipos.export');
             Route::get('equipos/search-field', [App\Http\Controllers\EquipoController::class, 'searchField'])->name('equipos.searchField');
-            Route::get('equipos/opciones-documento', [App\Http\Controllers\EquipoController::class, 'opcionesDocumentoJson'])->name('equipos.opcionesDocumento');
             Route::get('equipos/search-specs', [App\Http\Controllers\EquipoController::class, 'searchSpecs'])->name('equipos.searchSpecs');
             Route::get('equipos/check-unique', [App\Http\Controllers\EquipoController::class, 'checkUniqueness'])->name('equipos.checkUnique');
             Route::get('equipos/{id}/metadata', [App\Http\Controllers\EquipoController::class, 'metadata'])->name('equipos.metadata');
             Route::post('equipos/{id}/update-metadata', [App\Http\Controllers\EquipoController::class, 'updateMetadata'])->name('equipos.updateMetadata');
             Route::get('equipos/{id}/responsables', [App\Http\Controllers\EquipoController::class, 'getResponsables'])->name('equipos.getResponsables');
             Route::post('equipos/{id}/responsables', [App\Http\Controllers\EquipoController::class, 'storeResponsable'])->name('equipos.storeResponsable');
-            // Movilizaciones de UN equipo (modal del detalle). whereNumber para que no
-            // choque con las rutas literales de arriba (equipos/export, equipos/fleet-stats...).
-            Route::get('equipos/{id}/movilizaciones', [App\Http\Controllers\EquipoController::class, 'getMovilizaciones'])->whereNumber('id')->name('equipos.movilizaciones');
 
             Route::get('equipos/fleet-stats', [App\Http\Controllers\EquipoController::class, 'fleetStats'])->name('equipos.fleetStats');
             Route::get('equipos/fleet-export', [App\Http\Controllers\EquipoController::class, 'fleetExport'])->name('equipos.fleetExport');
@@ -315,7 +311,6 @@ Route::middleware(['auth'])->group(function () {
             // real si requiere edit.
             Route::get   ('equipos-auxiliares',                [App\Http\Controllers\EquipoAuxiliarController::class, 'index'])  ->name('equipos-auxiliares.index');
             Route::get   ('equipos-auxiliares/{id}/details',   [App\Http\Controllers\EquipoAuxiliarController::class, 'details'])->name('equipos-auxiliares.details');
-            Route::get   ('equipos-auxiliares/export',         [App\Http\Controllers\EquipoAuxiliarController::class, 'export']) ->name('equipos-auxiliares.export');
             Route::get   ('equipos-auxiliares/by-host/{id}',   [App\Http\Controllers\EquipoAuxiliarController::class, 'byHost']) ->name('equipos-auxiliares.byHost');
             Route::get   ('equipos-auxiliares/search',         [App\Http\Controllers\EquipoAuxiliarController::class, 'search']) ->name('equipos-auxiliares.search');
             Route::get   ('equipos-auxiliares/hosts/search',   [App\Http\Controllers\EquipoAuxiliarController::class, 'searchHosts'])->name('equipos-auxiliares.searchHosts');

@@ -5,18 +5,22 @@ namespace App\Support\Sincronizacion;
 use App\Models\CatalogoColor;
 use App\Models\Documentacion;
 use App\Models\Equipo;
+use App\Models\EquipoAuxiliar;
 use App\Models\Falla;
 use App\Models\FrenteTrabajo;
 use App\Models\TipoEquipo;
 use App\Models\Usuario;
 
 /**
- * Dominio EQUIPOS de la copia local: qué equipos ve el usuario, cómo es cada fila y qué
- * filas toca cada cambio del registro (App\Support\RegistroCambios).
+ * Dominio EQUIPOS de la copia local: qué equipos y auxiliares ve el usuario, cómo es cada
+ * fila y qué filas toca cada cambio del registro (App\Support\RegistroCambios).
  *
- * La fila es el payload del modal (Equipo::toDetailsPayload, fuente única) más los campos
- * con los que la pantalla pinta y filtra la tabla. El navegador arma la tabla y los
- * filtros SOLO con estas filas, con o sin internet: no hay otra lógica.
+ * La pantalla /admin/equipos arma la tabla, el Consolidado, la Distribución y los filtros
+ * SOLO con estas filas (equipos_local.js), con o sin internet: no hay otra lógica.
+ *   · equipos:    el payload del modal (Equipo::toDetailsPayload) más los campos con los
+ *                 que la tabla se pinta y se filtra (los "*Real" son el valor de la columna,
+ *                 sin el 'N/A' que pone el modal).
+ *   · auxiliares: lo que pinta y filtra su fila, más `det` (EquipoAuxiliar::toDetailsPayload).
  *
  * Visibilidad: la misma barrera que el listado (Usuario::aplicarScopeFrentesEquipos), también
  * al buscar.
@@ -24,7 +28,7 @@ use App\Models\Usuario;
 class DominioEquipos
 {
     /** Súbelo cuando cambie la forma de las filas: los clientes recargan su copia. */
-    public const ESQUEMA = 1;
+    public const ESQUEMA = 2;
 
     public function __construct(private Usuario $usuario)
     {
@@ -55,7 +59,10 @@ class DominioEquipos
     public function completo(): array
     {
         return [
-            'datos'     => ['equipos' => $this->filas($this->visibles()->pluck('ID_EQUIPO')->all())],
+            'datos' => [
+                'equipos'    => $this->filas($this->visibles()->pluck('ID_EQUIPO')->all()),
+                'auxiliares' => $this->filasAux($this->auxVisibles()->pluck('ID_AUXILIAR')->all()),
+            ],
             'catalogos' => $this->catalogos(),
         ];
     }
@@ -72,16 +79,24 @@ class DominioEquipos
         $ids = $this->expandir($agregados);
         $ver = $ids ? $this->visibles()->whereIn('ID_EQUIPO', $ids)->pluck('ID_EQUIPO')->all() : [];
 
+        $aux    = $this->expandirAux($agregados, $ids);
+        $verAux = $aux ? $this->auxVisibles()->whereIn('ID_AUXILIAR', $aux)->pluck('ID_AUXILIAR')->all() : [];
+
+        $datos = array_filter([
+            'equipos'    => $ver ? $this->filas($ver) : [],
+            'auxiliares' => $verAux ? $this->filasAux($verAux) : [],
+        ]);
+        $borrados = array_filter([
+            'equipos'    => array_values(array_diff($ids, $ver)),
+            'auxiliares' => array_values(array_diff($aux, $verAux)),
+        ]);
+
         $catalogos = [];
-        if (! empty($agregados['frentes']) || ! empty($agregados['tipos'])) {
+        if (! empty($agregados['frentes']) || ! empty($agregados['tipos']) || ! empty($agregados['auxiliares'])) {
             $catalogos = $this->catalogos();
         }
 
-        return [
-            'datos'     => $ver ? ['equipos' => $this->filas($ver)] : [],
-            'borrados'  => ($fuera = array_values(array_diff($ids, $ver))) ? ['equipos' => $fuera] : [],
-            'catalogos' => $catalogos,
-        ];
+        return ['datos' => $datos, 'borrados' => $borrados, 'catalogos' => $catalogos];
     }
 
     /**
@@ -118,9 +133,42 @@ class DominioEquipos
         return array_values(array_unique($ids));
     }
 
+    /**
+     * Ids de los auxiliares cuya FILA cambia: los anotados, los de un frente que cambió, los
+     * montados en un equipo cuya fila cambió ($equipos: su modal muestra datos del anfitrión)
+     * y los de la misma marca y modelo que uno anotado (de ahí sale la foto del que no tiene).
+     *
+     * @param  array<int>  $equipos
+     * @return array<int>
+     */
+    private function expandirAux(array $agregados, array $equipos): array
+    {
+        $ids = array_map('intval', $agregados['auxiliares'] ?? []);
+
+        if ($ids) {
+            $modelos = EquipoAuxiliar::withTrashed()->whereIn('ID_AUXILIAR', $ids)->get(['MARCA', 'MODELO']);
+            foreach ($modelos->unique(fn ($a) => $a->MARCA . '|' . $a->MODELO) as $m) {
+                $ids = array_merge($ids, EquipoAuxiliar::where('MARCA', $m->MARCA)->where('MODELO', $m->MODELO)->pluck('ID_AUXILIAR')->all());
+            }
+        }
+        if (! empty($agregados['frentes'])) {
+            $ids = array_merge($ids, EquipoAuxiliar::whereIn('ID_FRENTE_ACTUAL', $agregados['frentes'])->pluck('ID_AUXILIAR')->all());
+        }
+        if ($equipos) {
+            $ids = array_merge($ids, EquipoAuxiliar::whereIn('ID_EQUIPO_HOST', $equipos)->pluck('ID_AUXILIAR')->all());
+        }
+
+        return array_values(array_unique(array_map('intval', $ids)));
+    }
+
     private function visibles()
     {
         return $this->usuario->aplicarScopeFrentesEquipos(Equipo::query(), 'ID_FRENTE_ACTUAL');
+    }
+
+    private function auxVisibles()
+    {
+        return $this->usuario->aplicarScopeFrentesEquipos(EquipoAuxiliar::query(), 'ID_FRENTE_ACTUAL');
     }
 
     /** @param  array<int>  $ids */
@@ -152,8 +200,9 @@ class DominioEquipos
     private function fila(Equipo $e): array
     {
         $falla = $e->fallaAbierta;
+        $doc   = $e->documentacion;
 
-        return $e->toDetailsPayload() + [
+        return ['id' => (int) $e->ID_EQUIPO] + $e->toDetailsPayload() + [
             'etiqueta'          => $e->NUMERO_ETIQUETA,
             'idTipo'            => $e->id_tipo_equipo ? (int) $e->id_tipo_equipo : null,
             'idEspec'           => $e->ID_ESPEC ? (int) $e->ID_ESPEC : null,
@@ -161,6 +210,11 @@ class DominioEquipos
             'confirmado'        => (int) ($e->CONFIRMADO_EN_SITIO ?? 0),
             'capacidad'         => $e->CAPACIDAD,
             'color'             => CatalogoColor::normalizar($e->COLOR),
+            'colorReal'         => $e->COLOR,
+            'placaReal'         => $doc?->PLACA,
+            'titularReal'       => $doc?->NOMBRE_DEL_TITULAR,
+            'aseguradoraReal'   => $doc?->seguro?->NOMBRE_ASEGURADORA,
+            'combustibleReal'   => $e->COMBUSTIBLE,
             'fotoId'            => $e->fotoDriveId(),
             'falla'             => $falla ? [
                 'id'      => (int) $falla->ID_FALLA,
@@ -172,10 +226,62 @@ class DominioEquipos
         ];
     }
 
+    /** @param  array<int>  $ids */
+    private function filasAux(array $ids): array
+    {
+        if (! $ids) return [];
+
+        // Foto de respaldo por MARCA|MODELO: la del auxiliar más nuevo de ese modelo que
+        // tenga una (cualquier frente: es la foto del modelo, no del activo).
+        $fotoModelo = null;
+        $clave = fn ($a) => mb_strtoupper(trim(($a->MARCA ?? '') . '|' . ($a->MODELO ?? '')));
+
+        $filas = [];
+        foreach (array_chunk($ids, 500) as $tanda) {
+            $auxs = EquipoAuxiliar::whereIn('ID_AUXILIAR', $tanda)->with(EquipoAuxiliar::conDetalles())->get();
+
+            if ($fotoModelo === null && $auxs->contains(fn ($a) => ! $a->FOTO)) {
+                $fotoModelo = [];
+                EquipoAuxiliar::whereNotNull('FOTO')->where('FOTO', '!=', '')
+                    ->orderByDesc('ID_AUXILIAR')->get(['MARCA', 'MODELO', 'FOTO'])
+                    ->each(function ($a) use (&$fotoModelo, $clave) {
+                        if ($clave($a) !== '|') $fotoModelo[$clave($a)] ??= $a->FOTO;
+                    });
+            }
+
+            foreach ($auxs as $a) {
+                $foto = $a->FOTO ?: ($fotoModelo[$clave($a)] ?? null);
+                $filas[] = [
+                    'id'          => (int) $a->ID_AUXILIAR,
+                    'tipo'        => $a->TIPO,
+                    'marca'       => $a->MARCA,
+                    'modelo'      => $a->MODELO,
+                    'serial'      => $a->SERIAL,
+                    'codigo'      => $a->CODIGO_INTERNO,
+                    'capacidad'   => $a->CAPACIDAD,
+                    'anio'        => $a->ANIO,
+                    'estado'      => $a->ESTADO_OPERATIVO,
+                    'idFrente'    => $a->ID_FRENTE_ACTUAL ? (int) $a->ID_FRENTE_ACTUAL : null,
+                    'detalle'     => $a->DETALLE_UBICACION_ACTUAL,
+                    'confirmado'  => (int) ($a->CONFIRMADO_EN_SITIO ?? 0),
+                    'fotoId'      => $foto ? basename((string) parse_url($foto, PHP_URL_PATH)) : null,
+                    'propiedad'   => $a->LINK_DOC_PROPIEDAD,
+                    'certificado' => $a->LINK_CERTIFICADO,
+                    'creado'      => $a->created_at?->format('Y-m-d H:i:s'),
+                    'det'         => $a->toDetailsPayload(),
+                ];
+            }
+        }
+
+        return $filas;
+    }
+
     /**
-     * Frentes y tipos, enteros: pocos KB, el cliente los reemplaza cada vez que llegan.
-     * Frentes: los que el usuario ve, de cualquier estatus (un equipo puede seguir en un
-     * frente FINALIZADO), con lo que la tabla necesita para pintarlos y filtrarlos.
+     * Catálogos enteros (pocos KB; el cliente los reemplaza cada vez que llegan):
+     *   · frentes: los que el usuario ve, de cualquier estatus (un equipo puede seguir en un
+     *     frente FINALIZADO), con lo que la tabla necesita para pintarlos y filtrarlos.
+     *   · tipos de equipo y tiposAux (código → rótulo) de los auxiliares que ve.
+     *   · alcance: si es LOCAL y sus frentes (el filtro de frente de los auxiliares los usa).
      */
     private function catalogos(): array
     {
@@ -188,7 +294,7 @@ class DominioEquipos
                 'estatus'      => $f->ESTATUS_FRENTE,
                 'tipo'         => $f->TIPO_FRENTE,
                 'fueraDeFlota' => in_array($f->TIPO_FRENTE, FrenteTrabajo::TIPOS_FUERA_DE_FLOTA, true),
-                'venta'        => FrenteTrabajo::avisoVentaDe($f->TIPO_FRENTE)['clase'] ?? null,
+                'venta'        => FrenteTrabajo::avisoVentaDe($f->TIPO_FRENTE),
             ])
             ->all();
 
@@ -197,6 +303,17 @@ class DominioEquipos
             ->map(static fn ($t) => ['id' => (int) $t->id, 'nombre' => $t->nombre, 'rol' => $t->ROL_ANCLAJE])
             ->all();
 
-        return ['frentes' => $frentes, 'tipos' => $tipos];
+        $tiposAux = $this->auxVisibles()->whereNotNull('TIPO')->where('TIPO', '!=', '')
+            ->distinct()->pluck('TIPO')
+            ->map(static fn ($t) => ['id' => $t, 'nombre' => EquipoAuxiliar::etiquetaTipo($t)])
+            ->sortBy('nombre')->values()->all();
+
+        $alcance = [[
+            'id'      => 1,
+            'local'   => ! $this->usuario->veTodosLosFrentesEquipos(),
+            'frentes' => array_map('intval', $this->usuario->getFrentesIds()),
+        ]];
+
+        return ['frentes' => $frentes, 'tipos' => $tipos, 'tiposAux' => $tiposAux, 'alcance' => $alcance];
     }
 }

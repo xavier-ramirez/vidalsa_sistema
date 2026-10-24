@@ -23,7 +23,7 @@ use App\Models\Usuario;
 class DominioMovilizaciones
 {
     /** Súbelo cuando cambie la forma de las filas: los clientes recargan su copia. */
-    public const ESQUEMA = 1;
+    public const ESQUEMA = 2;
 
     public function __construct(private Usuario $usuario)
     {
@@ -139,6 +139,9 @@ class DominioMovilizaciones
                     'origen'    => $m->nombre_origen,
                     'destino'   => $m->nombre_destino,
                     'usuario'   => $m->usuario->NOMBRE_COMPLETO ?? $m->USUARIO_REGISTRO,
+                    // Para el modal «Movilizaciones» del detalle del equipo (uicomponents.js).
+                    'idEquipo'  => $m->ID_EQUIPO ? (int) $m->ID_EQUIPO : null,
+                    'detalle'   => $m->DETALLE_UBICACION,
                     'equipo'    => $e ? [
                         'idTipo'   => $e->id_tipo_equipo ? (int) $e->id_tipo_equipo : null,
                         'tipo'     => $e->tipo->nombre ?? null,

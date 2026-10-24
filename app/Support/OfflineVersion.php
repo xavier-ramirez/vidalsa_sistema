@@ -6,8 +6,6 @@ use App\Models\Almacen;
 use App\Models\AlmacenKit;
 use App\Models\AlmacenStock;
 use App\Models\Equipo;
-use App\Models\FrenteTrabajo;
-use App\Models\Movilizacion;
 use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use Illuminate\Support\Facades\Cache;
@@ -24,12 +22,12 @@ use Illuminate\Support\Facades\Cache;
  * de almacén. Con versiones por dominio, a ese usuario un cambio de almacén le es
  * literalmente invisible.
  *
- * ── Tres dominios ──────────────────────────────────────────────────────────
- *   equipos    → equipos + movilizaciones
+ * ── Dos dominios ───────────────────────────────────────────────────────────
  *   almacen    → stock + productos + movimientos
- *   catalogos  → almacenes + frentes (los usan LOS DOS módulos y pesan pocos KB,
- *                por eso viajan enteros cuando cambian: así no hace falta detectar
- *                borrados en ellos)
+ *   catalogos  → almacenes + kits (pesan pocos KB, por eso viajan enteros cuando
+ *                cambian: así no hace falta detectar borrados en ellos)
+ * Equipos, auxiliares y movilizaciones ya no viajan aquí: los lleva la copia local
+ * (copia-local.js, /sync/equipos).
  *
  * ── Por qué el caché va en el store 'file' y no en el de por defecto ────────
  * CACHE_STORE=database: cada lectura de caché sería UNA CONSULTA a MySQL, que es
@@ -42,9 +40,7 @@ use Illuminate\Support\Facades\Cache;
  * ── Por qué hay TTL además de invalidación explícita ───────────────────────
  * Los bumps se disparan desde observers, pero hay rutas que escriben SIN eventos
  * de modelo y por tanto no los disparan:
- *   · EquipoController: Equipo::whereIn(...)->update(...) (bulk de ubicación,
- *     estado, etc.) — sí toca updated_at, pero no emite eventos.
- *   · MovilizacionController: Movilizacion::insert(...)
+ *   · InventarioService y AlmacenController: updates de stock por query builder.
  *   · Comandos artisan que borran/cargan por query builder.
  * El TTL corto es el PISO que garantiza que un cambio así se detecte en ≤5 min
  * aunque nadie llame a invalidar(). No lo quites pensando que los bumps bastan.
@@ -72,11 +68,12 @@ class OfflineVersion
      *   v5 → reporte de falla abierto de cada equipo (aviso sobre su estado)
      *   v6 → kits del almacén (tabla `kits`, dominio catalogos)
      *   v7 → combustible de cada equipo (filtro Combustible sin conexión)
+     *   v8 → sin equipos ni frentes (los lleva la copia local de /sync/equipos)
      */
-    public const ESQUEMA = 7;
+    public const ESQUEMA = 8;
 
     /** Dominios válidos. El orden no importa; valida el argumento de invalidar(). */
-    public const DOMINIOS = ['equipos', 'almacen', 'catalogos'];
+    public const DOMINIOS = ['almacen', 'catalogos'];
 
     /**
      * Dominios que admiten reseteo (recarga completa).
@@ -84,7 +81,7 @@ class OfflineVersion
      * `catalogos` queda fuera porque ya viaja ENTERO cada vez que cambia: no hay nada
      * que "recargar completo" en él, sería un modo que no significa nada.
      */
-    private const DOMINIOS_RESETEABLES = ['equipos', 'almacen'];
+    private const DOMINIOS_RESETEABLES = ['almacen'];
 
     private const CLAVE_VERSIONES = 'offline_versiones';
     private const TTL_SEGUNDOS    = 300;
@@ -97,12 +94,12 @@ class OfflineVersion
     }
 
     /**
-     * Huellas de los tres dominios + los tokens de reseteo.
+     * Huellas de los dos dominios + los tokens de reseteo.
      *
      * Cacheado: la comprobación de frescura NO debe tocar MySQL. El recálculo solo
      * ocurre cuando alguien invalida o al vencer el TTL.
      *
-     * @return array{equipos:string, almacen:string, catalogos:string, reset:array<string,int>}
+     * @return array{almacen:string, catalogos:string, reset:array<string,int>}
      */
     public static function todas(): array
     {
@@ -127,11 +124,9 @@ class OfflineVersion
     private static function calcular(): array
     {
         $reset = [
-            'equipos' => (int) (self::store()->get('offline_reset_equipos') ?? 0),
             'almacen' => (int) (self::store()->get('offline_reset_almacen') ?? 0),
         ];
         $pulso = [
-            'equipos'   => (int) (self::store()->get('offline_pulso_equipos') ?? 0),
             'almacen'   => (int) (self::store()->get('offline_pulso_almacen') ?? 0),
             'catalogos' => (int) (self::store()->get('offline_pulso_catalogos') ?? 0),
         ];
@@ -143,27 +138,14 @@ class OfflineVersion
         );
 
         return [
-            'equipos' => $huella([
-                self::ESQUEMA,
-                $reset['equipos'],
-                $pulso['equipos'],
-                Equipo::withTrashed()->max('updated_at'),
-                Movilizacion::max('ID_MOVILIZACION'),
-                // MAX(ID) detecta ALTAS; updated_at detecta EDICIONES. Hacen falta los
-                // dos: `deshacer` y `anular` reescriben filas ya existentes (115 de 1198
-                // filas están editadas), y con solo el ID esos cambios eran invisibles
-                // hasta que vencía el TTL. Al revés tampoco basta: Movilizacion::insert()
-                // (MovilizacionController:434) escribe en crudo y deja updated_at nulo.
-                Movilizacion::max('updated_at'),
-            ]),
             'almacen' => $huella([
                 self::ESQUEMA,
                 $reset['almacen'],
                 $pulso['almacen'],
                 MovimientoInventario::max('ID_MOVIMIENTO'),
-                // Mismo motivo que en movilizaciones: recalcularSaldoProducto reescribe
-                // CANTIDAD_ANTERIOR/RESULTANTE de filas viejas y anular una nota vacía su
-                // NUMERO_NOTA, todo sin tocar el ID.
+                // MAX(ID) detecta ALTAS; updated_at detecta EDICIONES: recalcularSaldoProducto
+                // reescribe CANTIDAD_ANTERIOR/RESULTANTE de filas viejas y anular una nota
+                // vacía su NUMERO_NOTA, todo sin tocar el ID.
                 MovimientoInventario::max('updated_at'),
                 // updated_at y NO FECHA_ULT_MOVIMIENTO (que era lo que miraba la huella
                 // global anterior): el snapshot lleva tambien CANTIDAD_MINIMA, y editar
@@ -177,7 +159,6 @@ class OfflineVersion
                 self::ESQUEMA,
                 $pulso['catalogos'],
                 Almacen::withTrashed()->max('updated_at'),
-                FrenteTrabajo::max('updated_at'),
                 // Kits: altas y ediciones. El BORRADO de un kit no mueve este MAX: lo avisa el
                 // pulso (AlmacenKit::booted llama a invalidar en deleted). Cada kit lleva además
                 // el nombre de sus productos y las placas de sus equipos (KitAlmacenService::
@@ -208,11 +189,11 @@ class OfflineVersion
      * aquí y el único aviso es el recálculo al vencer el TTL.
      *
      * El pulso es POR DOMINIO a propósito: uno global reintroduciría justo el problema
-     * que todo esto viene a resolver — que un movimiento de almacén invalide la copia de
-     * quien solo usa equipos.
+     * que todo esto viene a resolver — que un movimiento de almacén re-baje también los
+     * catálogos.
      *
      * De-duplicado por request igual que CacheVersion::bump — sin esto, una carga masiva
-     * de 200 equipos haría 200 escrituras de caché para el mismo efecto.
+     * de 200 productos haría 200 escrituras de caché para el mismo efecto.
      *
      * @param string $dominio uno de self::DOMINIOS
      */
@@ -233,7 +214,7 @@ class OfflineVersion
      * Fuerza que un dominio se re-baje ENTERO en todos los clientes.
      *
      * Para los borrados que un delta no puede detectar por sí solo: borrado duro de
-     * movimientos, borrado masivo de movilizaciones, o forceDelete de un producto
+     * movimientos o forceDelete de un producto
      * (que cascadea almacen_stock). En esos casos el cliente no tiene forma de saber
      * qué filas desaparecieron, así que se le pide la copia completa de ese dominio.
      */

@@ -6,6 +6,7 @@ use App\Http\Controllers\EquipoController;
 use App\Models\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Tests\EquiposLocal;
 use Tests\MySqlTestCase;
 
 /**
@@ -13,10 +14,13 @@ use Tests\MySqlTestCase;
  *
  * Un tipo es un filtro concreto, como la marca o el modelo: trae TODOS los equipos de ese
  * tipo, también los de frentes ESPECIAL (asignaciones especiales). Si no, la tabla y su TOTAL
- * no cuadraban con la tarjeta "Ubicación por Frente", que sí los contaba.
+ * no cuadraban con la tarjeta "Ubicación por Frente", que sí los contaba. La tabla y la tarjeta
+ * salen de la copia local (equipos_local.js).
  */
 class EquiposFiltroTipoTest extends MySqlTestCase
 {
+    use EquiposLocal;
+
     private function usuarioGlobal(): Usuario
     {
         $u = Usuario::where('ESTATUS', 'ACTIVO')->get()
@@ -26,13 +30,10 @@ class EquiposFiltroTipoTest extends MySqlTestCase
         return $u;
     }
 
-    /** IDs de los equipos que pinta la tabla (el botón de detalle de cada fila). */
+    /** IDs de los equipos que pinta la tabla. */
     private function filas(array $q): array
     {
-        $html = $this->actingAs($this->usuarioGlobal())->get('/admin/equipos?' . http_build_query($q))
-            ->assertOk()->getContent();
-        preg_match_all('/<button type="button"\s+data-equipo-id="(\d+)"[^>]*onclick="showDetailsImproved/s', $html, $m);
-        $ids = array_map('intval', array_unique($m[1]));
+        $ids = array_map('intval', array_keys($this->consultaLocal($this->usuarioGlobal(), $q)['equiposData']));
         sort($ids);
         return $ids;
     }
@@ -53,17 +54,14 @@ class EquiposFiltroTipoTest extends MySqlTestCase
 
         $todos = DB::table('equipos')->where('id_tipo_equipo', $tipo)->whereNull('deleted_at')
             ->pluck('ID_EQUIPO')->map(fn ($v) => (int) $v)->sort()->values()->all();
-        $this->assertSame($todos, $this->filas(['id_tipo' => $tipo]), 'Filtrar por tipo debe traer TODOS los equipos de ese tipo.');
+        $this->assertSame($todos, $this->filas(['id_tipo' => (string) $tipo]), 'Filtrar por tipo debe traer TODOS los equipos de ese tipo.');
         // El desplegable combinado manda el mismo tipo como 'tipo_eq:N'.
         $this->assertSame($todos, $this->filas(['id_tipo' => "tipo_eq:$tipo"]));
 
-        // La tarjeta de tipos y la de frentes cuentan lo mismo que la tabla. En la de tipos, 'total'
-        // es lo DISPONIBLE y lo de frentes vendidos / en trámite va aparte (vendidos, en_tramite).
-        $vista = $this->actingAs($this->usuarioGlobal())->get('/admin/equipos?id_tipo=' . $tipo)->assertOk();
-        $fila = $vista->viewData('tiposStats')->firstWhere('id_tipo_equipo', $tipo);
-        $this->assertSame(count($todos), (int) $fila->total + (int) $fila->vendidos + (int) $fila->en_tramite);
+        // La tarjeta "Ubicación por Frente" cuenta lo mismo que la tabla (menos los sin frente).
+        $frentes = $this->filasDistribucion($this->consultaLocal($this->usuarioGlobal(), ['id_tipo' => (string) $tipo])['distribution']);
         $sinFrente = DB::table('equipos')->where('id_tipo_equipo', $tipo)->whereNull('deleted_at')->whereNull('ID_FRENTE_ACTUAL')->count();
-        $this->assertSame(count($todos) - $sinFrente, (int) $vista->viewData('frentesStats')->sum('total'));
+        $this->assertSame(count($todos) - $sinFrente, array_sum(array_column($frentes, 'total')));
     }
 
     /** Pares del modal de anclajes con los filtros del listado. */
@@ -123,18 +121,15 @@ class EquiposFiltroTipoTest extends MySqlTestCase
     {
         $c = app(EquipoController::class);
         $pedido = fn (string $v) => (fn () => $this->tipoEquipoPedido(new Request(['id_tipo' => $v])))->call($c);
-        $especifico = fn (string $v) => (fn () => $this->tieneFiltroEspecifico(new Request(['id_tipo' => $v])))->call($c);
 
-        // Un tipo de equipo: filtra y cuenta como filtro concreto (no oculta los ESPECIAL).
+        // El listado de anclados entiende el tipo igual que la tabla.
         $this->assertSame(25, $pedido('25'));
         $this->assertSame(25, $pedido('tipo_eq:25'));
-        $this->assertTrue($especifico('25'));
         // Un valor que no es un número no coincide con ningún equipo (como antes).
         $this->assertSame(0, $pedido('abc'));
         // TODOS LOS TIPOS, vacío o un tipo de AUXILIAR: no es un tipo de equipo concreto.
         foreach (['', 'all', 'tipo_aux:3'] as $v) {
             $this->assertNull($pedido($v), "'$v' no es un tipo de equipo");
-            $this->assertFalse($especifico($v), "'$v' no debe mostrar los frentes ESPECIAL");
         }
     }
 }

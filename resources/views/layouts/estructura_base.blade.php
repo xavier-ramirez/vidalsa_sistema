@@ -1145,6 +1145,9 @@
         {{-- Copia local (IndexedDB) de la que pintan las pantallas, con o sin internet. --}}
         <script
             src="{{ asset('js/offline/copia-local.js') }}?v={{ @filemtime(public_path('js/offline/copia-local.js')) }}"></script>
+        {{-- /admin/equipos se filtra, cuenta y pinta desde esa copia (sin ir al servidor). --}}
+        <script
+            src="{{ asset('js/maquinaria/equipos_local.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_local.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/movilizaciones_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/movilizaciones_index.js')) }}"></script>
         {{-- Modal "Nuevo Reporte de Falla" COMPARTIDO (fallas/equipos/auxiliares): global
@@ -1378,7 +1381,6 @@
              su propio listener 'spa:contentLoaded'; en @section('content') NO se ejecutaban
              porque la SPA omite los <script src> ya cargados). --}}
         <script src="{{ asset('js/maquinaria/almacen-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen-offline.js')) }}" defer></script>
-        <script src="{{ asset('js/maquinaria/equipos-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos-offline.js')) }}" defer></script>
         <script src="{{ asset('js/maquinaria/movimientos-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/movimientos-offline.js')) }}" defer></script>
 
         {{-- ── WebAuthn: prompt de registro biométrico tras login con contraseña ── --}}

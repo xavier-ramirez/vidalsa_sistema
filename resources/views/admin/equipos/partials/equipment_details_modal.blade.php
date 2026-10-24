@@ -304,13 +304,12 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
-                {{-- Movilizaciones del equipo.
-                     BOTON y no un <details> como los bloques de arriba a proposito: los
-                     acordeones pintan datos que YA vienen en la fila de la tabla, mientras
-                     que esto exige ir a la BD. Con un <details> la consulta saldria (o el
-                     bloque quedaria vacio) cada vez que se abre un equipo, aunque nadie
-                     mire el historial; con el boton solo se paga cuando se pide.
+                {{-- Movilizaciones del equipo: solo para quien ve Movilizaciones (permisos de
+                     equipos, DominioMovilizaciones::puede). BOTON y no un <details> como los
+                     bloques de arriba: abre su propio modal con el historial, que sale de la
+                     copia local de Movilizaciones (uicomponents.js).
                      El id del equipo lo pone showDetailsImproved en data-equipo-id. --}}
+                @if(\App\Support\Sincronizacion\DominioMovilizaciones::puede(auth()->user()))
                 <button type="button" id="btn_ver_movilizaciones" data-equipo-id=""
                     onclick="window.abrirMovilizacionesEquipo(this.dataset.equipoId)"
                     {{-- Mismos valores que la cabecera de los acordeones de arriba (padding,
@@ -326,6 +325,7 @@ Estructura: overlay > modal-content > header + sub-header + body
                     <i class="material-icons" style="font-size: 20px; color: #64748b;">local_shipping</i>
                     <span>Movilizaciones</span>
                 </button>
+                @endif
 
             </div>
         </div>{{-- /BODY --}}
@@ -335,9 +335,8 @@ Estructura: overlay > modal-content > header + sub-header + body
 
 {{-- ═══════════════════════════════════════════════════════════
 MODAL MOVILIZACIONES DEL EQUIPO
-Lo abre el boton "Movilizaciones" del modal de detalles. Los datos se piden a
-equipos.movilizaciones al pulsar el boton (nunca al abrir el detalle) y los pinta el
-bloque "MODAL MOVILIZACIONES DEL EQUIPO" del final de uicomponents.js.
+Lo abre el boton "Movilizaciones" del modal de detalles. Lo pinta el bloque
+"MODAL MOVILIZACIONES DEL EQUIPO" del final de uicomponents.js desde la copia local.
 
 z-index 10002: uicomponents.js sube #detailsModal a 10000 al abrirlo, y el visor de
 PDF (.modal-overlay-front) usa 10001. Este sale DESDE detalles, asi que tiene que
@@ -347,8 +346,8 @@ taparlo todo. NO se hereda el 2000 de .modal-overlay: quedaria por detras.
 <div id="movilizacionesModal" class="modal-overlay" style="z-index: 10002;">
     <div class="modal-content"
         {{-- max-height en dvh, no vh: en telefono vh NO descuenta la barra de URL, asi que
-             el modal quedaba mas alto que lo que se ve y el final de la lista (con el aviso
-             de "mostrando las N mas recientes") caia debajo del borde. Se deja 90vh delante
+             el modal quedaba mas alto que lo que se ve y el final de la lista caia debajo
+             del borde. Se deja 90vh delante
              como respaldo para navegadores sin dvh. Es la misma unidad que usan las reglas
              mobile de #detailsModal, de donde sale este modal. --}}
         style="width: 90%; max-width: 460px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden; background: #f8fafc; margin: auto; max-height: 90vh; max-height: 90dvh; display: flex; flex-direction: column;">
@@ -398,9 +397,6 @@ taparlo todo. NO se hereda el 2000 de .modal-overlay: quedaria por detras.
             <div id="mov_lista" style="display: none; flex-direction: column; gap: 8px;">
                 {{-- Llenado por JS --}}
             </div>
-
-            {{-- Aviso de recorte: solo si el backend informa hay_mas --}}
-            <p id="mov_truncado" style="display: none; margin: 12px 0 0 0; font-size: 12px; color: #64748b; text-align: center;"></p>
 
         </div>
     </div>{{-- /modal-content --}}

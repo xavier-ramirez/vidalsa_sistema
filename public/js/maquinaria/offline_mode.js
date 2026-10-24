@@ -13,8 +13,8 @@
  * cumple; pero si alguien moviera cualquiera de los dos, esto reventaria con
  * "window.apiFetch is not a function" al cargar CADA pagina.
  *
- * No confundir con los *-offline.js (almacen/equipos/movimientos), que son los motores
- * de datos por modulo, ni con offline/copia-local.js (Movilizaciones); esto es el
+ * No confundir con los *-offline.js (almacen/movimientos), que son los motores
+ * de datos por modulo, ni con offline/copia-local.js (Equipos, Movilizaciones); esto es el
  * interruptor y el aviso al usuario.
  */
 // ── BANNER DE ESTADO DE RED ──────────────────────────────────────
@@ -120,7 +120,7 @@
     // se escondía si no había render registrado, y eso dejaba sin salida el caso
     // normal: entras sin internet, aterrizas en /menu —que no registra vista— y no
     // tienes botón; para llegar a uno de los módulos que sí lo registran
-    // (almacen, equipos, movimientos) dependes de que esa página ya
+    // (almacen, movimientos) dependes de que esa página ya
     // esté en la caché del service worker. En un equipo nuevo no lo está, así que el
     // modo offline era sencillamente inalcanzable.
     //
@@ -334,13 +334,7 @@
     // Si baja una copia nueva mientras se trabaja offline, repintar el módulo
     // visible. (La re-pintada al navegar por SPA la hace cada módulo en su
     // propio init sobre 'spa:contentLoaded', no aquí, para no duplicar.)
-    // El segundo evento no sobra: los datos del servidor llegan primero y
-    // encima de ellos outbox-sync repone (de forma asíncrona) los cambios que
-    // todavía no han subido. Repintando solo con el primero, el usuario vería
-    // su propio cambio desaparecer un instante y volver.
-    ['offline-datos-actualizados', 'offline-optimistas-reaplicados'].forEach(function (ev) {
-        window.addEventListener(ev, function () { if (offlineActivo) correrRenders(); });
-    });
+    window.addEventListener('offline-datos-actualizados', function () { if (offlineActivo) correrRenders(); });
 
     // ── Detección de conexión REAL ──────────────────────────────────
     // navigator.onLine NO es confiable: en el navegador suele decir "online"
@@ -436,8 +430,8 @@
             return neg + (p[1] ? p[0] + ',' + p[1] : p[0]);
         },
         // ── Pintado POR LOTES (scroll infinito) ────────────────────────
-        // Las tablas online paginan (150 equipos / 120 productos por lote) y las
-        // offline volcaban TODAS las filas de una sola vez: con ~1.200 equipos el
+        // Las tablas online paginan (120 productos por lote) y las
+        // offline volcaban TODAS las filas de una sola vez: con miles de filas el
         // teléfono construía megas de HTML y se quedaba trabado, además de verse
         // distinto de la web. Aquí se inyecta el primer lote y se observa la
         // última fila para traer el siguiente, igual que el IntersectionObserver

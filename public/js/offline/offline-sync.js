@@ -27,8 +27,9 @@
  *   · nada cambió           → ~0,5 KB
  *   · cambió un equipo      → ~20 KB
  *   · copia completa        → ~1.500 KB (solo la primera vez o si el servidor lo pide)
- * El servidor decide por DOMINIO (equipos / almacen / catalogos), así que a quien solo
- * usa equipos un movimiento de almacén no le cuesta ni un byte.
+ * El servidor decide por DOMINIO (almacen / catalogos). Solo viaja a quien tiene el
+ * módulo de almacén: equipos, auxiliares y movilizaciones van en la copia local nueva
+ * (copia-local.js).
  *
  * Si el cursor no vale (cambió el esquema, el usuario o sus permisos) el servidor
  * responde con la copia completa y todo se repara solo: no hay que migrar IndexedDB ni
@@ -36,9 +37,8 @@
  *
  * API pública (window.OfflineDB):
  *   .ready            Promise que resuelve cuando la BD local está abierta.
- *   .get(tabla)       -> Promise<Array> (stock, productos, movimientos, equipos,
- *                        almacenes, frentes, kits). Las movilizaciones viven en la
- *                        copia local nueva (copia-local.js).
+ *   .get(tabla)       -> Promise<Array> (stock, productos, movimientos, almacenes,
+ *                        kits).
  *   .mutar(tabla, fn) -> ÚNICA forma de escribir: lectura+escritura atómica.
  *   .meta()           -> Promise<{version, generado, descargado, c}|null>.
  *   .sync(force)      -> sincroniza ahora; force=true además CANCELA la descarga
@@ -60,16 +60,16 @@
     const OUTBOX     = 'outbox';  // cola de acciones hechas sin internet (keyPath: client_uuid)
     const CHECK_CADA_MS = 10 * 60 * 1000; // revisar si hay datos nuevos cada 10 min (online)
 
-    // ── Las 7 tablas y CÓMO se fusiona cada una ────────────────────────────────
+    // ── Las 5 tablas y CÓMO se fusiona cada una ────────────────────────────────
     // Cada tabla se guarda como UN array bajo su clave en el store 'kv' (sin keyPath):
     // los consumidores leen el array entero y los KPIs dependen de que esté completo,
     // así que un delta se fusiona EN MEMORIA y se reescribe la clave.
     //
-    //   dominio → de qué versión del servidor depende (equipos | almacen | catalogos)
+    //   dominio → de qué versión del servidor depende (almacen | catalogos)
     //   clave   → identidad de una fila, para fusionar sin duplicar
     //   orden   → debe reproducir el ORDER BY del servidor; si no, la lista se ve en
     //             distinto orden que online en cuanto entra el primer delta
-    //   tope    → ventana histórica. SIN tope en stock/productos/equipos: recortarlos
+    //   tope    → ventana histórica. SIN tope en stock/productos: recortarlos
     //             haría mentir a los KPIs (que cuentan sobre el array completo)
     const txt = (v) => String(v == null ? '' : v);
     const porTexto = (campo) => (a, b) => txt(a[campo]).localeCompare(txt(b[campo]), 'es', { sensitivity: 'base' });
@@ -77,10 +77,8 @@
 
     const TABLAS = {
         almacenes:      { dominio: 'catalogos', clave: (f) => txt(f.id) },
-        frentes:        { dominio: 'catalogos', clave: (f) => txt(f.id) },
         // Kits del almacén (KitAlmacenService::catalogo): viajan enteros con los catálogos.
         kits:           { dominio: 'catalogos', clave: (f) => txt(f.id), orden: porTexto('nombre') },
-        equipos:        { dominio: 'equipos',   clave: (f) => txt(f.id), orden: porTexto('etiqueta') },
         productos:      { dominio: 'almacen',   clave: (f) => txt(f.id), orden: porTexto('nombre') },
         movimientos:    { dominio: 'almacen',   clave: (f) => txt(f.id), orden: porIdDesc, tope: 1500 },
         // stock no tiene id propio: su identidad es el par almacén+producto. El servidor
@@ -88,6 +86,9 @@
         stock:          { dominio: 'almacen',   clave: (f) => f.id_almacen + ':' + f.id_producto },
     };
     const NOMBRES_TABLAS = Object.keys(TABLAS);
+    // Tablas que ya no viajan (equipos y frentes, ahora en copia-local.js): se borran de
+    // la copia de quien las bajó antes, para no dejar ~1 MB muerto en el teléfono.
+    const RETIRADAS = ['equipos', 'frentes'];
 
     let dbPromise = null;
 
@@ -107,7 +108,12 @@
                     os.createIndex('created', 'created', { unique: false });
                 }
             };
-            req.onsuccess = () => resolve(req.result);
+            req.onsuccess = () => {
+                const db = req.result;
+                const t = db.transaction(STORE, 'readwrite');
+                RETIRADAS.forEach((k) => t.objectStore(STORE).delete(k));
+                resolve(db);
+            };
             req.onerror   = () => reject(req.error);
             // Otra pestaña tiene la BD abierta en v1 y bloquea el upgrade: avisar en consola.
             // La copia 'kv' se conserva igual; el outbox quedará disponible al cerrar esa pestaña.

@@ -6,16 +6,19 @@ use App\Models\Equipo;
 use App\Models\FrenteTrabajo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Tests\EquiposLocal;
 use Tests\MySqlTestCase;
 
 /**
  * Frentes VENDIDO y TRÁMITE DE VENTA: como ESPECIAL, quedan FUERA de la flota
  * (FrenteTrabajo::TIPOS_FUERA_DE_FLOTA) y, en Equipos, se resaltan: etiqueta junto al nombre
- * del frente (también al buscar un equipo por serial) y aviso al entrar al frente.
- * Corre en la transacción de la prueba.
+ * del frente (también al buscar un equipo por serial) y aviso al entrar al frente. La tabla, las
+ * cifras y el aviso salen de la copia local (equipos_local.js). Corre en la transacción de la prueba.
  */
 class FrentesVentaTest extends MySqlTestCase
 {
+    use EquiposLocal;
+
     /** Frente del tipo dado, creado por el formulario, con un equipo real movido adentro. */
     private function frenteConEquipo(string $tipo): array
     {
@@ -51,14 +54,11 @@ class FrentesVentaTest extends MySqlTestCase
         [$frente, $equipo] = $this->frenteConEquipo(FrenteTrabajo::TIPO_VENDIDO);
         $admin = $this->superAdminGlobal();
 
-        $json = $this->actingAs($admin)->getJson('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk();
-        $this->assertSame('vendido', $json->json('frenteVenta.clase'));
-        $this->assertSame($frente->NOMBRE_FRENTE, $json->json('frenteVenta.nombre'));
-        $this->assertSame('Frente de activos vendidos', $json->json('frenteVenta.titulo'));
-        $this->assertStringContainsString('etiqueta-venta--vendido">VENDIDO<', (string) $json->json('html'));
-
-        $html = (string) $this->actingAs($admin)->get('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk()->getContent();
-        $this->assertMatchesRegularExpression('/id="eqAvisoVenta" class="aviso-venta aviso-venta--vendido" role="status"\s*>/', $html, 'Aviso visible, en rojo.');
+        $r = $this->consultaLocal($admin, ['id_frente' => (string) $frente->ID_FRENTE]);
+        $this->assertSame('vendido', $r['frenteVenta']['clase'], 'Aviso visible, en rojo.');
+        $this->assertSame($frente->NOMBRE_FRENTE, $r['frenteVenta']['nombre']);
+        $this->assertSame('Frente de activos vendidos', $r['frenteVenta']['titulo']);
+        $this->assertStringContainsString('etiqueta-venta--vendido">VENDIDO<', $r['html']);
     }
 
     public function test_al_entrar_a_un_frente_en_tramite_se_ve_el_aviso_amarillo_y_la_etiqueta(): void
@@ -66,22 +66,21 @@ class FrentesVentaTest extends MySqlTestCase
         [$frente] = $this->frenteConEquipo(FrenteTrabajo::TIPO_TRAMITE_VENTA);
         $admin = $this->superAdminGlobal();
 
-        $json = $this->actingAs($admin)->getJson('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk();
-        $this->assertSame('tramite', $json->json('frenteVenta.clase'));
-        $this->assertSame('Frente en trámite de venta', $json->json('frenteVenta.titulo'));
-        $this->assertStringContainsString('etiqueta-venta--tramite">EN TRÁMITE DE VENTA<', (string) $json->json('html'));
+        $r = $this->consultaLocal($admin, ['id_frente' => (string) $frente->ID_FRENTE]);
+        $this->assertSame('tramite', $r['frenteVenta']['clase']);
+        $this->assertSame('Frente en trámite de venta', $r['frenteVenta']['titulo']);
+        $this->assertStringContainsString('etiqueta-venta--tramite">EN TRÁMITE DE VENTA<', $r['html']);
     }
 
     public function test_buscar_por_serial_muestra_la_etiqueta_del_frente(): void
     {
         [, $equipo] = $this->frenteConEquipo(FrenteTrabajo::TIPO_VENDIDO);
 
-        $json = $this->actingAs($this->superAdminGlobal())
-            ->getJson('/admin/equipos?search_query=' . urlencode($equipo->SERIAL_CHASIS))->assertOk();
+        $r = $this->consultaLocal($this->superAdminGlobal(), ['search_query' => $equipo->SERIAL_CHASIS]);
 
-        $this->assertStringContainsString('etiqueta-venta--vendido">VENDIDO<', (string) $json->json('html'),
+        $this->assertStringContainsString('etiqueta-venta--vendido">VENDIDO<', $r['html'],
             'Buscando por serial (todos los frentes), la fila dice que el equipo está VENDIDO.');
-        $this->assertNull($json->json('frenteVenta'), 'Sin frente elegido no hay aviso de frente.');
+        $this->assertNull($r['frenteVenta'], 'Sin frente elegido no hay aviso de frente.');
     }
 
     public function test_en_otro_frente_el_aviso_queda_escondido(): void
@@ -89,9 +88,10 @@ class FrentesVentaTest extends MySqlTestCase
         $normal = FrenteTrabajo::whereNotIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)->value('ID_FRENTE');
         $admin = $this->superAdminGlobal();
 
-        $this->assertNull($this->actingAs($admin)->getJson('/admin/equipos?id_frente=' . $normal)->assertOk()->json('frenteVenta'));
+        $this->assertNull($this->consultaLocal($admin, ['id_frente' => (string) $normal])['frenteVenta']);
+        // La página llega con el aviso escondido; lo muestra loadEquipos si el frente está en venta.
         $html = (string) $this->actingAs($admin)->get('/admin/equipos?id_frente=' . $normal)->assertOk()->getContent();
-        $this->assertMatchesRegularExpression('/id="eqAvisoVenta" class="aviso-venta aviso-venta--tramite" role="status"\s+hidden/', $html);
+        $this->assertMatchesRegularExpression('/id="eqAvisoVenta" class="aviso-venta aviso-venta--tramite" role="status" hidden>/', $html);
     }
 
     public function test_el_formulario_ofrece_las_dos_opciones_con_su_nombre(): void
@@ -189,7 +189,7 @@ class FrentesVentaTest extends MySqlTestCase
     {
         [$frente, $equipo] = $this->frenteConEquipo(FrenteTrabajo::TIPO_VENDIDO);
         $admin = $this->superAdminGlobal();
-        $totalAux = fn () => (int) $this->actingAs($admin)->getJson('/admin/equipos?id_frente=all')->assertOk()->json('auxConsolidado.total');
+        $totalAux = fn () => (int) $this->consultaLocal($admin, ['id_frente' => 'all'])['auxConsolidado']['total'];
 
         $antes = $totalAux();
         $serial = 'AUXVENTA' . strtoupper(Str::random(6));
@@ -199,17 +199,16 @@ class FrentesVentaTest extends MySqlTestCase
         ]);
         $this->assertSame($antes, $totalAux(), 'Con "todos los frentes" el auxiliar del frente vendido no cuenta.');
 
-        $html = (string) $this->actingAs($admin)->getJson('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk()->json('html');
+        $html = $this->consultaLocal($admin, ['id_frente' => (string) $frente->ID_FRENTE])['html'];
         $this->assertStringContainsString($serial, $html, 'Dentro del frente sí sale.');
         $this->assertSame(2, substr_count($html, 'etiqueta-venta--vendido">VENDIDO<'), 'Etiqueta en el equipo y en el auxiliar.');
 
-        $this->assertStringContainsString($serial, (string) $this->actingAs($admin)
-            ->getJson('/admin/equipos?search_query=' . $serial)->assertOk()->json('html'), 'Buscándolo también sale.');
+        $this->assertStringContainsString($serial, $this->consultaLocal($admin, ['search_query' => $serial])['html'], 'Buscándolo también sale.');
 
-        $soloAux = $this->actingAs($admin)->getJson('/admin/equipos?id_frente=' . $frente->ID_FRENTE . '&id_tipo=tipo_aux:PRUEBAVENTA')->assertOk();
-        $this->assertSame('aux', $soloAux->json('mode'));
-        $this->assertSame('vendido', $soloAux->json('frenteVenta.clase'), 'Solo auxiliares: el aviso también sale.');
-        $this->assertStringContainsString('etiqueta-venta--vendido">VENDIDO<', (string) $soloAux->json('html'));
+        $soloAux = $this->consultaLocal($admin, ['id_frente' => (string) $frente->ID_FRENTE, 'id_tipo' => 'tipo_aux:PRUEBAVENTA']);
+        $this->assertSame('aux', $soloAux['mode']);
+        $this->assertSame('vendido', $soloAux['frenteVenta']['clase'], 'Solo auxiliares: el aviso también sale.');
+        $this->assertStringContainsString('etiqueta-venta--vendido">VENDIDO<', $soloAux['html']);
 
         // Anclajes (el modal de Equipos, que trae también los auxiliares): lo mismo (sin frente,
         // fuera; con su frente, dentro).
@@ -236,23 +235,21 @@ class FrentesVentaTest extends MySqlTestCase
 
         $esperado = $admin->aplicarScopeFrentesEquipos(Equipo::where('id_tipo_equipo', $tipo))
             ->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->excludeEnVenta()->count();
-        $j = $this->actingAs($admin)->getJson('/admin/equipos?id_tipo=' . $tipo)->assertOk();
-        $this->assertSame($esperado, $j->json('stats.total'), 'El TOTAL es lo disponible: sin el vendido.');
+        $j = $this->consultaLocal($admin, ['id_tipo' => (string) $tipo]);
+        $this->assertSame($esperado, $j['stats']['total'], 'El TOTAL es lo disponible: sin el vendido.');
 
-        $html = (string) $j->json('distribution');
+        $html = (string) $j['distribution'];
         $fila = '/<li class="dist-fila"[^>]*>\s*<div class="dist-cab">\s*<span class="dist-nombre">\s*<small class="dist-rotulo">VENDIDO:<\/small> '
             . preg_quote(e($frente->NOMBRE_FRENTE), '/') . '.*?<span class="dist-cant">1<\/span>.*?<div class="dist-barra-roja"/s';
         $this->assertMatchesRegularExpression($fila, $html, 'El frente vendido: "VENDIDO: NOMBRE" en una línea, su cantidad y la barra en rojo.');
 
         // Dentro del frente vendido, a propósito: sus cifras normales, y sus filas por TIPO sin el
-        // rótulo ni la barra roja (la página completa tiene su propio $venta, el del aviso: el
-        // include de la fila lo heredaba y ponía "VENDIDO" en todos los tipos).
-        $this->assertSame(1, $this->actingAs($admin)->getJson('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk()->json('stats.total'));
-        $pagina = (string) $this->actingAs($admin)->get('/admin/equipos?id_frente=' . $frente->ID_FRENTE)->assertOk()->getContent();
-        $card = substr($pagina, strpos($pagina, 'id="distributionStatsContainer"'), 4000);
-        $this->assertStringContainsString('dist-fila', $card);
-        $this->assertStringNotContainsString('dist-rotulo', $card);
-        $this->assertStringNotContainsString('dist-barra-roja', $card);
+        // rótulo ni la barra roja.
+        $dentro = $this->consultaLocal($admin, ['id_frente' => (string) $frente->ID_FRENTE]);
+        $this->assertSame(1, $dentro['stats']['total']);
+        $this->assertStringContainsString('dist-fila', $dentro['distribution']);
+        $this->assertStringNotContainsString('dist-rotulo', $dentro['distribution']);
+        $this->assertStringNotContainsString('dist-barra-roja', $dentro['distribution']);
     }
 
     public function test_auxiliares_por_tipo_el_total_no_cuenta_lo_vendido_pero_la_lista_si(): void
@@ -265,11 +262,11 @@ class FrentesVentaTest extends MySqlTestCase
                 'ESTADO_OPERATIVO' => 'OPERATIVO', 'ID_FRENTE_ACTUAL' => $idFrente,
             ]);
         }
-        $j = $this->actingAs($this->superAdminGlobal())->getJson('/admin/equipos?id_tipo=tipo_aux:PRUEBAVENTA2')->assertOk();
-        $this->assertSame(2, $j->json('stats.total'), 'TOTAL: los 2 disponibles, sin el vendido.');
-        $this->assertSame(2, $j->json('stats.activos'));
-        $this->assertSame(3, $j->json('totalFound'), 'La lista (y su paginación) sí los trae a los 3.');
-        $this->assertStringContainsString('<small class="dist-rotulo">VENDIDO:</small>', (string) $j->json('distribution'));
+        $j = $this->consultaLocal($this->superAdminGlobal(), ['id_tipo' => 'tipo_aux:PRUEBAVENTA2']);
+        $this->assertSame(2, $j['stats']['total'], 'TOTAL: los 2 disponibles, sin el vendido.');
+        $this->assertSame(2, $j['stats']['activos']);
+        $this->assertCount(3, $j['auxData'], 'La lista sí los trae a los 3.');
+        $this->assertStringContainsString('<small class="dist-rotulo">VENDIDO:</small>', (string) $j['distribution']);
     }
 
     public function test_un_tipo_que_no_existe_no_se_acepta(): void

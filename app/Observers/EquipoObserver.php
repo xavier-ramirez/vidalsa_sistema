@@ -38,13 +38,12 @@ class EquipoObserver
     }
 
     /**
-     * Snapshot offline (dominio "equipos"). SIN gate por columna, a diferencia del
-     * bump del dashboard: el offline pinta casi todos los campos del equipo, asi que
-     * cualquier edicion es relevante para el telefono.
+     * Snapshot offline del almacén (dominio "catalogos"): cada kit lleva las placas de sus
+     * equipos (KitAlmacenService::catalogo), así que una edición del equipo lo deja viejo.
      */
     private function bustOffline(): void
     {
-        \App\Support\OfflineVersion::invalidar('equipos');
+        \App\Support\OfflineVersion::invalidar('catalogos');
     }
 
     public function created(Equipo $equipo): void

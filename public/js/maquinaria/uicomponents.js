@@ -1508,10 +1508,10 @@ window.toggleConfirmacionSitioAux = function (el) {
    perezoso: es parte del mismo flujo, y traerlo al pulsar solo anadiria un viaje de
    red JUSTO cuando el usuario acaba de hacer clic y esta mirando el spinner.
 
-   Los datos NO se piden al abrir el detalle, sino al pulsar el boton: el historial
-   exige ir a la BD y la mayoria de las veces que se abre un equipo nadie lo mira.
-   Tampoco se cachean entre aperturas — son movimientos, y el criterio del proyecto
-   es que los movimientos se ven siempre frescos.
+   Las filas salen de la copia local de Movilizaciones (copia-local.js, dominio
+   'movilizaciones'), la misma que pinta /admin/movilizaciones: con o sin internet y sin
+   tope. Al abrir se pinta lo que hay y la copia pregunta al servidor; si llega algo
+   nuevo con el modal abierto, se repinta.
 
    SPA: la navegacion reemplaza el DOM de la vista, asi que #movilizacionesModal y sus
    botones son nodos NUEVOS en cada entrada. Por eso los listeners van DELEGADOS en
@@ -1529,11 +1529,10 @@ window.toggleConfirmacionSitioAux = function (el) {
 
     var ID_MODAL = 'movilizacionesModal';
 
-    // AbortController de la peticion en vuelo. Abrir otro equipo (o cerrar) mientras la
-    // anterior sigue viajando la CANCELA: sin esto, una respuesta lenta del equipo A
-    // podia llegar despues de haber abierto el B y pintar el historial equivocado.
-    var enVuelo = null;
-    var ultimoEquipoId = null;   // lo reusa el boton "Reintentar"
+    // Turno de la apertura: abrir otro equipo (o cerrar) mientras la copia aun se abre
+    // descarta lo que llegue tarde, para no pintar el historial equivocado.
+    var turno = 0;
+    var ultimoEquipoId = null;   // lo reusan "Reintentar" y el repintado
 
     function $(id) { return document.getElementById(id); }
 
@@ -1543,11 +1542,6 @@ window.toggleConfirmacionSitioAux = function (el) {
             var el = $(id);
             if (el) el.style.display = (id === visible) ? 'flex' : 'none';
         });
-        // El aviso de recorte solo tiene sentido acompanando a la lista.
-        if (visible !== 'mov_lista') {
-            var t = $('mov_truncado');
-            if (t) t.style.display = 'none';
-        }
     }
 
     /* Tarjeta de un movimiento, con TODO centrado (pedido del cliente).
@@ -1556,7 +1550,7 @@ window.toggleConfirmacionSitioAux = function (el) {
        se daba por Despacho todo lo que no fuera RECEPCION_DIRECTA. Antes que arreglar un
        rotulo que el cliente no queria ver, se quita: el codigo ya distingue los casos
        (MV-000NN cuando hay acta, "R.D." cuando no). */
-    function pintarLista(filas, hayMas, maximo) {
+    function pintarLista(filas) {
         var cont = $('mov_lista');
         if (!cont) return;
         var esc = window.escapeHtml;   // helper central (dom_helpers.js)
@@ -1613,16 +1607,6 @@ window.toggleConfirmacionSitioAux = function (el) {
                 + '</div>';
         }).join('');
         mostrarEstado('mov_lista');
-
-        var t = $('mov_truncado');
-        if (t) {
-            if (hayMas) {
-                t.textContent = 'Mostrando las ' + maximo + ' mas recientes. El historial completo esta en Movilizaciones.';
-                t.style.display = 'block';
-            } else {
-                t.style.display = 'none';
-            }
-        }
     }
     function pintarError(mensaje) {
         var txt = $('mov_error_texto');
@@ -1630,44 +1614,53 @@ window.toggleConfirmacionSitioAux = function (el) {
         mostrarEstado('mov_error');
     }
 
-    /** Pide los datos y pinta. Separada de abrir() para que "Reintentar" la reuse. */
+    // Fecha del acta como dd/mm/aaaa (la copia la trae 'Y-m-d H:i:s').
+    function fechaCorta(f) {
+        return f ? f.slice(8, 10) + '/' + f.slice(5, 7) + '/' + f.slice(0, 4) : null;
+    }
+
+    /** Las del equipo, la mas reciente primero (mismo orden que /admin/movilizaciones). */
+    function pintarDesdeCopia(vista, equipoId) {
+        if (!vista.estado.listo) {
+            pintarError('No hay copia de las movilizaciones en este equipo. Conéctate a internet una vez para bajarla.');
+            return;
+        }
+        var id = Number(equipoId);
+        var filas = vista.filas('movilizaciones')
+            .filter(function (m) { return m.idEquipo === id; })
+            .sort(function (x, y) { return x.fecha === y.fecha ? y.id - x.id : (x.fecha < y.fecha ? 1 : -1); });
+        if (!filas.length) { mostrarEstado('mov_vacio'); return; }
+        pintarLista(filas.map(function (m) {
+            return {
+                // MV-000NN si hay acta, el codigo tal cual si no trae numeros, "R.D." si es
+                // una recepcion directa sin codigo (Movilizacion::formatted_codigo_control).
+                codigo:  m.mv || m.codigo || (m.tipoMov === 'RECEPCION_DIRECTA' ? 'R.D.' : null),
+                fecha:   fechaCorta(m.fecha),
+                origen:  m.origen,
+                destino: m.destino,
+                detalle: m.detalle,
+                usuario: m.usuario,
+            };
+        }));
+    }
+
+    /** Abre la copia y pinta. Separada de abrir() para que "Reintentar" la reuse. */
     function cargar(equipoId) {
         if (!equipoId) { pintarError('No se pudo identificar el equipo.'); return; }
 
-        if (enVuelo) enVuelo.abort();
-        enVuelo = new AbortController();
-        var miPeticion = enVuelo;
-
+        var miTurno = ++turno;
         mostrarEstado('mov_cargando');
-
-        // window.lazyBaseUrl() (lazy_loader.js, cargado en el <head>) es el punto unico
-        // que lee el <meta name="base-url">. Aqui se llamaba al querySelector a mano,
-        // que es la misma lectura escrita otra vez.
-        var url = window.lazyBaseUrl()
-            + '/admin/equipos/' + encodeURIComponent(equipoId) + '/movilizaciones';
-
-        window.apiFetch(url, {
-            headers: { 'Accept': 'application/json' },
-            signal: miPeticion.signal
-        })
-            .then(function (r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return r.json();
-            })
-            .then(function (j) {
-                // Llego tarde: ya se abrio otro equipo o se cerro el modal. Se descarta.
-                if (miPeticion !== enVuelo) return;
-                if (!j || !j.success) throw new Error('Respuesta inesperada');
-                if (!j.data || j.data.length === 0) { mostrarEstado('mov_vacio'); return; }
-                pintarLista(j.data, !!j.hay_mas, j.maximo);
-            })
-            .catch(function (e) {
-                if (e && e.name === 'AbortError') return;      // cancelada a proposito
-                if (miPeticion !== enVuelo) return;
-                pintarError('No se pudieron cargar las movilizaciones. Revisa tu conexion.');
-                console.error('[movilizaciones] ' + (e && e.message ? e.message : e));
-            });
+        window.CopiaLocal.usar('movilizaciones').then(function (vista) {
+            if (miTurno === turno) pintarDesdeCopia(vista, equipoId);
+        });
     }
+
+    // Llegaron movilizaciones nuevas con el modal abierto: se repinta.
+    window.addEventListener('copia-local', function (e) {
+        var modal = $(ID_MODAL);
+        if (e.detail.dominio !== 'movilizaciones' || !e.detail.cambio || !modal || !modal.classList.contains('active')) return;
+        window.CopiaLocal.usar('movilizaciones').then(function (vista) { pintarDesdeCopia(vista, ultimoEquipoId); });
+    });
 
     window.abrirMovilizacionesEquipo = function (equipoId) {
         var modal = $(ID_MODAL);
@@ -1716,8 +1709,8 @@ window.toggleConfirmacionSitioAux = function (el) {
                 if (!modal.classList.contains('active')) modal.style.display = 'none';
             }, ms);
         }
-        // Se corta lo que siga viajando: el usuario ya no lo esta mirando.
-        if (enVuelo) { enVuelo.abort(); enVuelo = null; }
+        // Lo que siga abriendose ya no se pinta: el usuario ya no lo esta mirando.
+        turno++;
     };
 
     // ── Listeners DELEGADOS (ver cabecera: el DOM de la vista se reemplaza en SPA) ──

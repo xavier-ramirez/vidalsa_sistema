@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CatalogoColor;
 use Illuminate\Support\Facades\DB;
+use Tests\EquiposLocal;
 use Tests\MySqlTestCase;
 
 /**
@@ -13,21 +14,23 @@ use Tests\MySqlTestCase;
  */
 class EquiposAbrenVaciosTest extends MySqlTestCase
 {
+    use EquiposLocal;
+
     public function test_al_abrir_sin_filtros_no_sale_ningun_equipo(): void
     {
-        $r = $this->actingAs($this->superAdminGlobal())->get(route('equipos.index'))->assertOk();
+        $r = $this->consultaLocal($this->superAdminGlobal());
 
-        $this->assertCount(0, $r->viewData('equipos'));
-        $r->assertSee('SELECCIONE UN FILTRO PARA VER LOS EQUIPOS');
+        $this->assertSame([], $r['equiposData']);
+        $this->assertStringContainsString('SELECCIONE UN FILTRO PARA VER LOS EQUIPOS', $r['html']);
     }
 
     public function test_con_un_filtro_si_salen_equipos(): void
     {
         $tipo = (int) DB::table('equipos')->whereNull('deleted_at')->whereNotNull('id_tipo_equipo')->value('id_tipo_equipo');
 
-        $r = $this->actingAs($this->superAdminGlobal())->get(route('equipos.index', ['id_tipo' => $tipo]))->assertOk();
+        $r = $this->consultaLocal($this->superAdminGlobal(), ['id_tipo' => (string) $tipo]);
 
-        $this->assertGreaterThan(0, count($r->viewData('equipos')));
+        $this->assertNotEmpty($r['equiposData']);
     }
 
     public function test_el_color_sale_sin_la_muestra_redonda(): void
@@ -40,9 +43,9 @@ class EquiposAbrenVaciosTest extends MySqlTestCase
             $this->markTestSkipped('No hay equipos con color y serial.');
         }
 
-        $r = $this->actingAs($this->superAdminGlobal())->get(route('equipos.index', ['search_query' => $e->SERIAL_CHASIS]))->assertOk();
+        $html = $this->consultaLocal($this->superAdminGlobal(), ['search_query' => $e->SERIAL_CHASIS])['html'];
 
-        $r->assertSee(CatalogoColor::normalizar($e->COLOR));
-        $r->assertDontSee('eq-color-muestra');
+        $this->assertStringContainsString(e(CatalogoColor::normalizar($e->COLOR)), $html);
+        $this->assertStringNotContainsString('eq-color-muestra', $html);
     }
 }

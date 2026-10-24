@@ -142,6 +142,12 @@ window.fetch = async function (...args) {
         // pregunta de verdad al servidor y no puede confundirse con una copia cacheada.
         // "Se fue la red" sí se decide aquí (ver el catch de abajo): un fallo de fetch
         // contra nuestro origen es concluyente, un éxito no.
+
+        // Algo se GUARDÓ (cualquier método que no sea GET/HEAD, con 2xx): las copias locales
+        // en uso (copia-local.js) preguntan ya, y la pantalla muestra el cambio sin esperar
+        // al siguiente sondeo de 15 s.
+        const _metodo = String((args[1] && args[1].method) || (args[0] && args[0].method) || 'GET').toUpperCase();
+        if (response.ok && _metodo !== 'GET' && _metodo !== 'HEAD' && window.CopiaLocal) window.CopiaLocal.alGuardar();
         return response;
     } catch (err) {
         // Conexión rechazada (servidor caído, sin red, etc.).

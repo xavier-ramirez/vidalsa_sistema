@@ -10,6 +10,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\DriveFalso;
+use Tests\EquiposLocal;
 use Tests\MySqlTestCase;
 
 /**
@@ -19,6 +20,8 @@ use Tests\MySqlTestCase;
  */
 class CatalogoColoresTest extends MySqlTestCase
 {
+    use EquiposLocal;
+
     private string $modelo;
 
     protected function setUp(): void
@@ -214,9 +217,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $f->colores()->create(['COLOR' => 'DORADO', 'FOTO' => '/storage/google/dorado-foto']);
         $e = $this->equipo($f->ID_ESPEC, 'DORADA');
 
-        $html = $this->actingAs($this->superAdminGlobal())
-            ->getJson(route('equipos.index', ['search_query' => $e->SERIAL_CHASIS]), ['X-Requested-With' => 'XMLHttpRequest'])
-            ->assertOk()->json('html');
+        $html = $this->consultaLocal($this->superAdminGlobal(), ['search_query' => $e->SERIAL_CHASIS])['html'];
         $this->assertStringContainsString('DORADO', $html);
         $this->assertStringContainsString('dorado-foto', $html);
     }
@@ -226,9 +227,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $e = $this->equipo(null, '  roja ');
         $this->assertSame('ROJO', $e->fresh()->COLOR, 'Equipo::setCOLORAttribute normaliza al guardar.');
 
-        $html = $this->actingAs($this->superAdminGlobal())
-            ->getJson(route('equipos.index', ['color' => 'ROJO', 'search_query' => $e->SERIAL_CHASIS]), ['X-Requested-With' => 'XMLHttpRequest'])
-            ->assertOk()->json('html');
+        $html = $this->consultaLocal($this->superAdminGlobal(), ['color' => 'ROJO', 'search_query' => $e->SERIAL_CHASIS])['html'];
         $this->assertStringContainsString($e->SERIAL_CHASIS, $html);
     }
 
@@ -240,9 +239,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $admin = $this->superAdminGlobal();
 
         // La tabla solo le da el doble clic a super.admin.
-        $html = $this->actingAs($admin)
-            ->getJson(route('equipos.index', ['search_query' => $e->SERIAL_CHASIS]), ['X-Requested-With' => 'XMLHttpRequest'])
-            ->assertOk()->json('html');
+        $html = $this->consultaLocal($admin, ['search_query' => $e->SERIAL_CHASIS])['html'];
         $this->assertStringContainsString('data-vincular="' . $e->ID_EQUIPO . '"', $html);
 
         // El modal busca por lo que contiene el modelo y trae los colores de la ficha.
@@ -337,9 +334,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->actingAs($u)->postJson(route('equipos.vincularFicha', $e->ID_EQUIPO), ['ID_ESPEC' => $f->ID_ESPEC])->assertForbidden();
         $this->assertNull($e->fresh()->ID_ESPEC);
 
-        $html = $this->actingAs($u)
-            ->getJson(route('equipos.index', ['search_query' => $e->SERIAL_CHASIS]), ['X-Requested-With' => 'XMLHttpRequest'])
-            ->assertOk()->json('html');
+        $html = $this->consultaLocal($u, ['search_query' => $e->SERIAL_CHASIS])['html'];
         $this->assertStringNotContainsString('data-vincular=', $html);
     }
 

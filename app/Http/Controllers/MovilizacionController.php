@@ -1161,13 +1161,6 @@ class MovilizacionController extends Controller
 
             DB::commit();
 
-            // Un borrado duro NO se detecta por huella: si la fila borrada no era la
-            // última, MAX(ID) y MAX(updated_at) siguen igual y el cliente offline se
-            // quedaría con la movilización deshecha para siempre. El reseteo le pide la
-            // copia completa del dominio. Va tras el commit para no resetear un rollback.
-            \App\Support\OfflineVersion::resetear('equipos');
-
-
             return response()->json(['success' => true, 'message' => 'Movilización deshecha: el equipo volvió a su frente de origen.']);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1186,9 +1179,6 @@ class MovilizacionController extends Controller
 
         try {
             Movilizacion::whereIn('ID_MOVILIZACION', $request->ids)->delete();
-            // Borrado masivo por query builder: no dispara eventos de modelo y el delta
-            // no puede detectar filas que desaparecen. Se pide la copia completa.
-            \App\Support\OfflineVersion::resetear('equipos');
             return response()->json(['success' => true, 'message' => count($request->ids) . ' registros eliminados con exito.']);
         } catch (\Exception $e) {
             Log::error('bulkDestroy movilizacion error: ' . $e->getMessage());

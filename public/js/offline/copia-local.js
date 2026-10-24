@@ -10,7 +10,9 @@
  *       pantalla) siga en la página: pregunta cada `espera` segundos que manda el servidor
  *       (15 s), al volver a la pestaña y al recuperar la red.
  *       vista.filas(tabla) → array · vista.catalogo(nombre) → array · vista.estado
- *   CopiaLocal.ahora(dominio) → Promise. Pregunta ya (después de guardar algo).
+ *   CopiaLocal.ahora(dominio) → Promise. Pregunta ya por ese dominio.
+ *   CopiaLocal.alGuardar() → Promise. Pregunta ya por todos los dominios en uso; lo llaman
+ *       fetch_interceptor.js (tras cada guardado que sale bien) y outbox-sync.js.
  *   Evento 'copia-local' en window, detail { dominio, cambio, estado }: cambio = true si
  *       llegaron datos nuevos (la pantalla se repinta); con false solo cambió el estado.
  *   estado = { listo, conectado, actualizado (ms) }.
@@ -231,6 +233,14 @@
         });
     }
 
+    // Si ya había una pregunta en curso se repite al terminar: pudo salir antes del guardado.
+    function alGuardar() {
+        return Promise.all(enUso().map((d) => {
+            const c = copias[d];
+            return c.enCurso ? c.enCurso.then(() => sincronizar(d)) : sincronizar(d);
+        }));
+    }
+
     setInterval(() => revisar(false), TICK_MS);
     window.addEventListener('focus', () => revisar(true));
     window.addEventListener('online', () => revisar(true));
@@ -248,5 +258,6 @@
             });
         },
         ahora: sincronizar,
+        alGuardar,
     };
 })();

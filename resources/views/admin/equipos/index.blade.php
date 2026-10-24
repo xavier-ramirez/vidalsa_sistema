@@ -399,7 +399,7 @@
                     </div>
 
                     {{-- Filtro Detalle (Patio/Subdivisión): NO es un filtro avanzado visible.
-                         Se activa desde el panel lateral "Detalles" (partials/ubicaciones_stats),
+                         Se activa desde el panel lateral "Detalles" (equipos_local.js: ubicaciones),
                          solo presente en frentes fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA). El input queda aquí (dentro del
                          panel avanzado) para que loadEquipos()/export lo lean junto al resto de filtros. --}}
                     <input type="hidden" name="detalle_ubicacion" id="detalleUbicacionFilter" value="{{ request('detalle_ubicacion') }}">
@@ -702,12 +702,10 @@
                         @include('admin.equipos.partials.ventana_filtro_lista', [
                             'ventanaId' => 'titularVentana', 'ddId' => 'titularAdvFilter', 'nombre' => 'titular',
                             'titulo' => 'Nombre del titular', 'icono' => 'badge', 'placeholder' => 'Nombre del titular...',
-                            'opciones' => $availableTitulares ?? [],
                         ])
                         @include('admin.equipos.partials.ventana_filtro_lista', [
                             'ventanaId' => 'aseguradoraVentana', 'ddId' => 'aseguradoraAdvFilter', 'nombre' => 'aseguradora',
                             'titulo' => 'Aseguradora de la póliza', 'icono' => 'health_and_safety', 'placeholder' => 'Nombre de la aseguradora...',
-                            'opciones' => $availableAseguradoras ?? [],
                         ])
                     </div>
 
@@ -806,68 +804,35 @@
         <!-- Advanced Filter Logic migrated to equipos_index.js -->
     </div>
 
-    {{-- $hasFilter llega del controlador (EquipoController::index, fuente única) para no
-         duplicar la lista de filtros ni desincronizarse. Disponible en bloque móvil y sidebar. --}}
-    @php
-        // ── Consolidado: modo "Con / Sin documento" ──
-        // La LISTA sigue filtrada por documento como siempre. Cuando hay filtros
-        // de documento activos, SOLO el Consolidado cambia: los dos bloques
-        // verde/rojo pasan a "Con [doc]" / "Sin [doc]" y el TOTAL pasa a ser el
-        // universo del frente IGNORANDO el filtro de doc (doc_total), de modo que
-        // con + sin = total. El JS replica esta lógica al refrescar vía AJAX.
-        $docMode    = $stats['doc_mode'] ?? false;
-        $docLabel   = $stats['doc_label'] ?? '';
-        // Dirección activa de los bloques clicables (con/sin/all). En carga dura viene
-        // del request; default 'con'. El JS la sincroniza al refrescar vía AJAX.
-        $docPresence = in_array(request('doc_presence'), ['con', 'sin', 'all'], true) ? request('doc_presence') : 'con';
-        $operLabel  = $docMode ? 'Con ' . $docLabel : 'Operativo';
-        $inopLabel  = $docMode ? 'Sin ' . $docLabel : 'Inoperativo';
-        $totalVal   = $hasFilter ? ($docMode ? ($stats['doc_total'] ?? 0) : $stats['total']) : '--';
-        $operVal    = $hasFilter ? ($docMode ? ($stats['doc_con'] ?? 0) : $stats['activos']) : '--';
-        $inopVal    = $hasFilter ? ($docMode ? ($stats['doc_sin'] ?? 0) : $stats['inactivos']) : '--';
-    @endphp
-
+    {{-- Las cifras, la tabla, la Distribución y el aviso de venta llegan vacíos: los pinta
+         loadEquipos() desde la copia local (equipos_local.js) en cuanto abre, con o sin internet. --}}
     {{-- ── Stats compactas solo en móvil ── --}}
     <div id="equiposConsolidadoCardMobile" class="equipos-mobile-stats">
 
         <div class="mobstat-header" onclick="window.toggleMobileStatsCard && window.toggleMobileStatsCard('equiposConsolidadoCardMobile')" style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
             <i class="material-icons" style="font-size: 13px;">pie_chart</i>
-            <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Equipos Auxiliares' : 'Equipos y Maquinaria' }}</span>
+            <span class="consolidado-scope">Equipos y Maquinaria</span>
             <i class="material-icons mobstat-chevron" style="font-size: 16px;">expand_more</i>
         </div>
         <div class="mobstat-row" style="display: flex; gap: 8px; justify-content: space-between;">
             <div onclick="filterByStatus('')" class="eq-mobile-stat-block eq-block-total" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15); box-shadow:0 2px 4px rgba(0,0,0,0.1);">
                 <span style="font-size:10px; font-weight:700; margin-bottom:2px;">TOTAL</span>
-                <span id="mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $totalVal }}</span>
+                <span id="mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">--</span>
             </div>
             <div onclick="filterByStatus('OPERATIVO')" class="eq-mobile-stat-block eq-block-oper" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.28); border:1px solid rgba(34,197,94,0.3);">
-                <span style="font-size:10px; font-weight:700; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> <span id="mobile_oper_label">{{ $docMode ? 'CON' : 'OPER.' }}</span></span>
-                <span id="mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $operVal }}</span>
+                <span style="font-size:10px; font-weight:700; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> <span id="mobile_oper_label">OPER.</span></span>
+                <span id="mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">--</span>
             </div>
             <div onclick="filterByStatus('INOPERATIVO')" class="eq-mobile-stat-block eq-block-inop" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.28); border:1px solid rgba(239,68,68,0.3);">
-                <span style="font-size:10px; font-weight:700; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> <span id="mobile_inop_label">{{ $docMode ? 'SIN' : 'INOP.' }}</span></span>
-                <span id="mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $inopVal }}</span>
+                <span style="font-size:10px; font-weight:700; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> <span id="mobile_inop_label">INOP.</span></span>
+                <span id="mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">--</span>
             </div>
         </div>
     </div>
 
     {{-- Consolidado de Auxiliares en móvil (en móvil el sidebar desktop se oculta).
          Mismo color teal que la card del sidebar para distinguirlo del de equipos. --}}
-    @if(!empty($auxConsolidado))
-    @php
-        // Modo documento de la card AUX (espejo de equipos): con un doc compartido
-        // (propiedad/certificado) los bloques verde/rojo pasan a "Con/Sin [doc]" y el conteo a
-        // doc_con/doc_sin (TOTAL = doc_total). Calculado UNA vez aquí, usado por la card móvil
-        // y la de escritorio. El JS reaplica esto en cada AJAX.
-        $auxDocMode   = $auxConsolidado['doc_mode'] ?? false;
-        $auxDocLabel  = $auxConsolidado['doc_label'] ?? '';
-        $auxOperLabel = $auxDocMode ? 'Con ' . $auxDocLabel : 'Operativo';
-        $auxInopLabel = $auxDocMode ? 'Sin ' . $auxDocLabel : 'Inoperativo';
-        $auxTotalVal  = $hasFilter ? ($auxDocMode ? $auxConsolidado['doc_total'] : $auxConsolidado['total'])     : '--';
-        $auxOperVal   = $hasFilter ? ($auxDocMode ? $auxConsolidado['doc_con']   : $auxConsolidado['activos'])   : '--';
-        $auxInopVal   = $hasFilter ? ($auxDocMode ? $auxConsolidado['doc_sin']   : $auxConsolidado['inactivos']) : '--';
-    @endphp
-    <div id="auxConsolidadoCardMobile" class="equipos-mobile-stats mobstat-collapsed" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%);{{ $showAuxConsolidado ? '' : ' display: none;' }}">
+    <div id="auxConsolidadoCardMobile" class="equipos-mobile-stats mobstat-collapsed" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); display: none;">
         <div class="mobstat-header" onclick="window.toggleMobileStatsCard && window.toggleMobileStatsCard('auxConsolidadoCardMobile')" style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;">
             <i class="material-icons" style="font-size: 13px;">pie_chart</i>
             Equipos Auxiliares
@@ -876,29 +841,27 @@
         <div class="mobstat-row" style="display: flex; gap: 8px; justify-content: space-between;">
             <div id="aux_mobile_block_total" onclick="filterAuxByStatus('')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15);">
                 <span style="font-size:10px; font-weight:700; margin-bottom:2px;">TOTAL</span>
-                <span id="aux_mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">{{ $auxTotalVal }}</span>
+                <span id="aux_mobile_stats_total" style="font-size:22px; font-weight:800; line-height:1;">--</span>
             </div>
             <div id="aux_mobile_block_oper" onclick="filterAuxByStatus('OPERATIVO')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.28); border:1px solid rgba(34,197,94,0.3);">
-                <span style="font-size:10px; font-weight:700; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> <span id="aux_mobile_oper_label">{{ $auxDocMode ? 'CON' : 'OPER.' }}</span></span>
-                <span id="aux_mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $auxOperVal }}</span>
+                <span style="font-size:10px; font-weight:700; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> <span id="aux_mobile_oper_label">OPER.</span></span>
+                <span id="aux_mobile_stats_activos" style="color:white; font-size:22px; font-weight:800; line-height:1;">--</span>
             </div>
             <div id="aux_mobile_block_inop" onclick="filterAuxByStatus('INOPERATIVO')" style="cursor:pointer; flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.28); border:1px solid rgba(239,68,68,0.3);">
-                <span style="font-size:10px; font-weight:700; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> <span id="aux_mobile_inop_label">{{ $auxDocMode ? 'SIN' : 'INOP.' }}</span></span>
-                <span id="aux_mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $auxInopVal }}</span>
+                <span style="font-size:10px; font-weight:700; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">cancel</i> <span id="aux_mobile_inop_label">INOP.</span></span>
+                <span id="aux_mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">--</span>
             </div>
         </div>
     </div>
-    @endif
 
     {{-- Aviso al entrar a un frente VENDIDO o en TRÁMITE DE VENTA (textos y color de
          FrenteTrabajo::avisoVenta). Lo cambia loadEquipos() con data.frenteVenta en cada filtrado. --}}
-    @php $venta = ($frenteFueraDeFlota ?? null)?->avisoVenta(); @endphp
-    <div id="eqAvisoVenta" class="aviso-venta aviso-venta--{{ $venta['clase'] ?? 'tramite' }}" role="status" @unless($venta) hidden @endunless>
+    <div id="eqAvisoVenta" class="aviso-venta aviso-venta--tramite" role="status" hidden>
         <i class="material-icons">sell</i>
         {{-- title: el aviso va en UNA línea; si se corta con «…», al pasar el ratón se lee entero. --}}
-        <div data-completo title="{{ $venta ? $venta['titulo'] . ': ' . $frenteFueraDeFlota->NOMBRE_FRENTE . '. ' . $venta['texto'] : '' }}">
-            <strong><span data-titulo>{{ $venta['titulo'] ?? '' }}</span>: <span data-nombre>{{ $frenteFueraDeFlota->NOMBRE_FRENTE ?? '' }}</span></strong>
-            <span data-texto>{{ $venta['texto'] ?? '' }}</span>
+        <div data-completo>
+            <strong><span data-titulo></span>: <span data-nombre></span></strong>
+            <span data-texto></span>
         </div>
     </div>
 
@@ -915,22 +878,11 @@
                     <th class="table-cell-center" style="width: 44px;"></th> {{-- Acciones --}}
                 </tr>
             </thead>
-            <tbody id="equiposTableBody" style="font-size: 15px;">
-                {{-- Modo aux (tipo auxiliar elegido): la tabla muestra las filas de
-                     auxiliares (equipos_auxiliares/partials/table_rows). En carga
-                     inicial por URL ya vienen renderizadas; la navegacion AJAX las
-                     intercambia via loadEquipos (data.mode === 'aux'). --}}
-                @if($auxMode ?? false)
-                    {!! ($auxEmbed['html'] ?? '') !!}
-                @else
-                    {{-- Merge: filas de equipos + (al filtrar por frente) separador + filas
-                         de auxiliares. Si el frente no tiene equipos pero sí auxiliares,
-                         se omite el empty-state de equipos. --}}
-                    @unless($equipos->isEmpty() && !empty($mergeAuxHtml ?? ''))
-                        @include('admin.equipos.partials.table_rows')
-                    @endunless
-                    {!! $mergeAuxHtml ?? '' !!}
-                @endif
+            {{-- Permisos de quien mira: los botones de las filas que arma equipos_local.js. --}}
+            <tbody id="equiposTableBody" style="font-size: 15px;"
+                   data-editar="{{ auth()->user()->can('equipos.edit') ? 1 : 0 }}"
+                   data-super="{{ auth()->user()->can('super.admin') ? 1 : 0 }}"
+                   data-subir-pdf="{{ auth()->user()->can('user.edit') ? 1 : 0 }}">
             </tbody>
         </table>
     </div>
@@ -953,35 +905,31 @@
 
         <div style="position: relative; z-index: 2;">
             <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                <span class="consolidado-scope">{{ ($auxMode ?? false) ? 'Equipos Auxiliares' : 'Equipos y Maquinaria' }}</span>
+                <span class="consolidado-scope">Equipos y Maquinaria</span>
             </div>
 
             {{-- 3 columnas iguales en UNA sola línea, sin iconos (el color del bloque
                  ya indica el estado). Mismo tamaño de número en los tres. --}}
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
                 <div id="block_total" onclick="filterByStatus('')" title="Ver todos los equipos" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.15); padding: 6px 4px; border-radius: 8px;">
-                    <span id="stats_total" style="font-size: 20px; font-weight: 800; line-height: 1;">{{ $totalVal }}</span>
+                    <span id="stats_total" style="font-size: 20px; font-weight: 800; line-height: 1;">--</span>
                     <span class="consolidado-stat-label" style="margin-top: 4px;">TOTAL</span>
                 </div>
-                <div id="block_oper" onclick="filterByStatus('OPERATIVO')" title="{{ $docMode ? 'Ver solo los que tienen ' . $docLabel : 'Filtrar: Operativos' }}" class="eq-block-oper" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
-                    <strong id="stats_activos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $operVal }}</strong>
-                    <span id="stats_oper_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}" style="margin-top: 4px;">{{ $operLabel }}</span>
+                <div id="block_oper" onclick="filterByStatus('OPERATIVO')" title="Filtrar: Operativos" class="eq-block-oper" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
+                    <strong id="stats_activos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">--</strong>
+                    <span id="stats_oper_label" class="consolidado-stat-label" style="margin-top: 4px;">Operativo</span>
                 </div>
-                <div id="block_inop" onclick="filterByStatus('INOPERATIVO')" title="{{ $docMode ? 'Ver solo los que NO tienen ' . $docLabel : 'Filtrar: Inoperativos' }}" class="eq-block-inop" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
-                    <strong id="stats_inactivos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $inopVal }}</strong>
-                    <span id="stats_inop_label" class="consolidado-stat-label{{ $docMode ? ' is-doc' : '' }}" style="margin-top: 4px;">{{ $inopLabel }}</span>
+                <div id="block_inop" onclick="filterByStatus('INOPERATIVO')" title="Filtrar: Inoperativos" class="eq-block-inop" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
+                    <strong id="stats_inactivos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">--</strong>
+                    <span id="stats_inop_label" class="consolidado-stat-label" style="margin-top: 4px;">Inoperativo</span>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Consolidado de Equipos Auxiliares — refleja el filtro de FRENTE. Se muestra
-         junto al de equipos cuando NO se filtra por un tipo concreto (ver
-         $showAuxConsolidado). Permanece en el DOM (toggle por JS al filtrar). --}}
-    @if(!empty($auxConsolidado))
-    {{-- $auxDocMode/$auxOperLabel/$auxInopLabel/$auxTotalVal/$auxOperVal/$auxInopVal se calcularon
-         arriba (card móvil), reutilizados aquí para la card de escritorio. --}}
-    <div id="auxConsolidadoCard" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); border-radius: 12px; padding: 8px 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden;{{ $showAuxConsolidado ? '' : ' display: none;' }}">
+    {{-- Consolidado de Equipos Auxiliares: junto al de equipos cuando NO se filtra por algo solo
+         de equipos (showAuxConsolidado de equipos_local.js). Lo muestra/esconde loadEquipos(). --}}
+    <div id="auxConsolidadoCard" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); border-radius: 12px; padding: 8px 12px; color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: relative; overflow: hidden; display: none;">
         <i class="material-icons" style="position: absolute; right: -15px; bottom: -15px; font-size: 72px; opacity: 0.1; transform: rotate(-15deg);">construction</i>
         <div style="position: relative; z-index: 2;">
             <div style="font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -992,66 +940,34 @@
                  bloques verde/rojo filtran por PRESENCIA (Con/Sin) en vez de por estado. --}}
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
                 <div id="aux_block_total" onclick="filterAuxByStatus('')" title="Ver todos los auxiliares" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.15); padding: 6px 4px; border-radius: 8px; transition: background 0.2s;">
-                    <span id="aux_stats_total" style="font-size: 20px; font-weight: 800; line-height: 1;">{{ $auxTotalVal }}</span>
+                    <span id="aux_stats_total" style="font-size: 20px; font-weight: 800; line-height: 1;">--</span>
                     <span class="consolidado-stat-label" style="margin-top: 4px;">TOTAL</span>
                 </div>
                 <div id="aux_block_oper" onclick="filterAuxByStatus('OPERATIVO')" title="Filtrar auxiliares" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25); transition: background 0.2s;">
-                    <strong id="aux_stats_activos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $auxOperVal }}</strong>
-                    <span id="aux_oper_label" class="consolidado-stat-label{{ $auxDocMode ? ' is-doc' : '' }}" style="margin-top: 4px;">{{ $auxOperLabel }}</span>
+                    <strong id="aux_stats_activos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">--</strong>
+                    <span id="aux_oper_label" class="consolidado-stat-label" style="margin-top: 4px;">Operativo</span>
                 </div>
                 <div id="aux_block_inop" onclick="filterAuxByStatus('INOPERATIVO')" title="Filtrar auxiliares" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.28); padding: 6px 4px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25); transition: background 0.2s;">
-                    <strong id="aux_stats_inactivos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">{{ $auxInopVal }}</strong>
-                    <span id="aux_inop_label" class="consolidado-stat-label{{ $auxDocMode ? ' is-doc' : '' }}" style="margin-top: 4px;">{{ $auxInopLabel }}</span>
+                    <strong id="aux_stats_inactivos" style="font-weight: 800; font-size: 20px; color: white; line-height: 1;">--</strong>
+                    <span id="aux_inop_label" class="consolidado-stat-label" style="margin-top: 4px;">Inoperativo</span>
                 </div>
             </div>
         </div>
-    </div>
-    @endif
-
-    {{-- Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo frentes fuera de la flota (ESPECIAL, VENDIDO o TRÁMITE DE VENTA). Ya NO es
-         una card aparte: su HTML se captura aquí (fuente oculta) y se apila como una SECCIÓN más
-         ("Detalles", que arranca recogida) dentro de la lista unificada de la card de Distribución. --}}
-    <div id="ubicacionesStatsSource" style="display: none;">
-        @if(isset($frenteFueraDeFlota) && $frenteFueraDeFlota && !($auxMode ?? false))
-            @include('admin.equipos.partials.ubicaciones_stats')
-        @endif
     </div>
 
     <!-- Breakdown by Type or Front (Dynamic) -->
     {{-- La card muestra TODAS las secciones disponibles (Equipos y Maquinaria, Auxiliares y,
          al final, Detalles) apiladas en UNA sola lista. El CLIC fuera de una fila (onDistribucionCardClick)
          hace SCROLL a la siguiente sección (no intercambia contenido); los clics sobre una fila
-         (li) conservan su acción de filtrar. La sección Auxiliares solo se agrega cuando hay
-         distribución de auxiliares (con filtro — ver $auxDistributionHtml). --}}
+         (li) conservan su acción de filtrar. Las pinta loadEquipos() (_eqRenderDistribucion). --}}
     {{-- Ancla del sitio de ESCRITORIO de la card de abajo: en teléfono la card se muda al
          Dashboard de Flota y hay que saber dónde devolverla al volver a pantalla ancha.
          Se usa un ancla y no "el último hijo del sidebar" para que no se rompa si algún día
          se agrega otra card debajo. Ver colocarDistribucionMovil() en equipos_index.js. --}}
     <div id="eqDistribHome" style="display: none;"></div>
     <div id="distribucionCard" onclick="onDistribucionCardClick(event)" style="background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden;">
-        <div id="distributionStatsContainer">
-            {{-- Modo aux: usamos el HTML ya renderizado por buildEmbedPayload (mismo que
-                 el AJAX via data.distribution) → así el render inicial también respeta la
-                 vista por-frente cuando hay un tipo aux sin frente. En modo equipos, la
-                 distribucion normal por tipo/frente. --}}
-            @if($auxMode ?? false)
-                {!! $auxEmbed['distribucionHtml'] ?? '' !!}
-            @else
-                @include('admin.equipos.partials.distribution_stats')
-            @endif
-        </div>
+        <div id="distributionStatsContainer"></div>
     </div>
-    <script>
-        // HTML de la sección "Auxiliares" de la lista unificada de Distribución (vacío si no aplica).
-        window.__distribAuxHtml = @json($auxDistributionHtml ?? '');
-        // HTML de la sección "Detalles" (DETALLE_UBICACION_ACTUAL) de la lista unificada,
-        // capturado de la fuente oculta (vacío si el frente no está fuera de la flota).
-        (function () {
-            var src = document.getElementById('ubicacionesStatsSource');
-            window.__distribUbiHtml = (src && src.innerHTML.trim()) ? src.innerHTML : '';
-        })();
-        if (typeof window.eqSyncDistribToggle === 'function') window.eqSyncDistribToggle();
-    </script>
 </div>
 
 </div> <!-- End Page Layout Grid -->
@@ -1386,16 +1302,6 @@
     window.equiposAnclajesArrancar(window.EQANC_CFG);
 </script>
 
-{{-- Seed window.equiposData en carga inicial (hard-refresh / primera visita).
-     En cargas AJAX, loadEquipos() lo rellena desde data.equiposData.
-     Aquí lo hacemos para que el modal del ojo funcione sin necesitar hacer
-     una búsqueda primero. --}}
-@if(!empty($jsonPayload))
-<script>
-    window.equiposData = Object.assign(window.equiposData || {}, @json($jsonPayload));
-</script>
-@endif
-
 {{-- ═══════════════════════════════════════════════════════════
      PAPELERA DE EQUIPOS — soft-delete con auditoria de quien borro.
      El boton "Eliminar Seleccionados" del dropdown es siempre visible:
@@ -1411,24 +1317,10 @@
      en su PERMISOS. Por eso aqui basta con preguntar `can('user.delete')`.
      ═══════════════════════════════════════════════════════════ --}}
 <script>
-    // Estado inicial del Consolidado (modo "Con / Sin documento") en carga dura.
-    // En cargas AJAX, loadEquipos() lo actualiza. Sin esto, clicar los bloques
-    // verde/rojo antes del primer AJAX podría filtrar por estado por error.
-    window.__equiposDocMode = {{ ($stats['doc_mode'] ?? false) ? 'true' : 'false' }};
-    // Dirección activa de los bloques clicables del Consolidado: 'con' | 'sin' | 'all'.
-    window.__equiposDocPresence = '{{ $docPresence }}';
-    // Resaltar el bloque activo en carga dura (en AJAX lo hace loadEquipos()).
-    // Igual que en la ficha de usuario: por navegacion SPA este evento ya paso
-    // cuando el <script> se reinyecta, asi que el resaltado del lado activo
-    // (Con/Sin documento) no se pintaba al entrar.
-    function pintarPresenciaDeDocumento() {
-        if (window.__updateDocPresenceUI) window.__updateDocPresenceUI();
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', pintarPresenciaDeDocumento);
-    } else {
-        pintarPresenciaDeDocumento();
-    }
+    // Consolidado "Con / Sin documento": arranca apagado (lo enciende loadEquipos() si hay un
+    // documento tildado) y con la dirección de los bloques clicables que traiga la URL.
+    window.__equiposDocMode = false;
+    window.__equiposDocPresence = '{{ in_array(request('doc_presence'), ['con', 'sin', 'all'], true) ? request('doc_presence') : 'con' }}';
 </script>
 <script>
     window.CAN_DELETE_EQUIPOS = {{ auth()->user() && auth()->user()->can('user.delete') ? 'true' : 'false' }};
@@ -1768,12 +1660,11 @@
      MAQUINARIA DE EQUIPOS AUXILIARES (equipos_auxiliares/partials/_machinery).
      Da vida a las filas aux cuando el dropdown de Tipo esta en modo AUXILIAR:
      modal de detalles, menu de estado, seleccion masiva, anclar y movilizar.
-     Recibe los tipos aux (labels) y el mapa de detalles inicial; $frentes ya
-     esta en scope (lo usa el modal de movilizacion).
+     Recibe los tipos aux (labels); $frentes ya esta en scope (lo usa el modal de
+     movilizacion). Los detalles del modal llegan con cada consulta (data.auxData).
      ═══════════════════════════════════════════════════════════ --}}
 @include('admin.equipos_auxiliares.partials._machinery', [
     'tipos'             => $tiposAux ?? [],
-    'auxDetailsMap'     => ($auxInitDetailsMap ?? $auxEmbed['auxDetailsMap'] ?? []),
     // En /admin/equipos NO se ofrece el boton "Anclar" para auxiliares (solo Asignar/Detalle).
     'embeddedInEquipos' => true,
 ])
@@ -1782,9 +1673,8 @@
     // lista con cargarAuxiliares: aquí es loadEquipos, que respeta los filtros actuales.
     window.cargarAuxiliares = function () { if (window.loadEquipos) window.loadEquipos(); };
 
-    // Init: eq-aux-mode en la carga inicial (antes del primer AJAX), SOLO cuando tipo_aux:
-    // está activo (oculta filtros de equipos).
-    document.body.classList.toggle('eq-aux-mode', {{ ($auxModeByTipo ?? false) ? 'true' : 'false' }});
+    // eq-aux-mode desde el primer pintado, SOLO cuando tipo_aux: está activo (oculta filtros de equipos).
+    document.body.classList.toggle('eq-aux-mode', {{ str_starts_with((string) request('id_tipo', ''), 'tipo_aux:') ? 'true' : 'false' }});
 </script>
 
 @endsection

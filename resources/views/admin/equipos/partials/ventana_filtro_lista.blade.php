@@ -6,15 +6,15 @@
      Como el filtro Frente: abre con la casilla VACÍA y lo aplicado como texto de fondo, así se
      escribe encima sin borrar nada; la X de la casilla solo borra lo escrito (no toca el filtro ni
      la tabla) y «Quitar filtro» —solo visible con uno puesto— lo suelta. Elegir un nombre de la
-     lista lo aplica y cierra la ventana. La lista llega con la página y, al abrir, se pide de nuevo
-     a data-url con los filtros de ese momento (solo nombres que existen con ellos). JS:
-     eqVentanaAbrir/eqVentanaCerrar y eqTexto* de equipos_index.js.
+     lista lo aplica y cierra la ventana. La lista se arma al abrir, de la copia local y con los
+     filtros de ese momento (solo nombres que existen con ellos). JS: eqVentanaAbrir/eqVentanaCerrar
+     y eqTexto* de equipos_index.js.
 
-     Variables: $ventanaId, $ddId, $nombre (parámetro de la URL), $titulo, $icono, $placeholder,
-     $opciones (lista de textos). Solo equipos: los auxiliares no guardan ni titular ni póliza. --}}
+     Variables: $ventanaId, $ddId, $nombre (parámetro de la URL), $titulo, $icono, $placeholder.
+     Solo equipos: los auxiliares no guardan ni titular ni póliza. --}}
 @php($aplicado = (string) request($nombre))
 <div id="{{ $ventanaId }}" class="eq-ventana-filtro adv-filter-eq-only" hidden
-     data-url="{{ route('equipos.opcionesDocumento', ['campo' => $nombre]) }}"
+     data-campo="{{ $nombre }}"
      onclick="if (event.target === this) window.eqVentanaCerrar('{{ $ventanaId }}');">
     <div class="eq-ventana-caja" role="dialog" aria-label="{{ $titulo }}">
         <div class="eq-ventana-head">
@@ -41,11 +41,7 @@
                    onclick="event.stopPropagation(); const i = this.parentNode.querySelector('input[type=text]'); i.value = ''; window.eqTextoSugerir(i); i.focus();">close</i>
             </div>
             <div class="dropdown-content">
-                <div class="dropdown-item-list" style="max-height: 260px; overflow-y: auto;">
-                    @foreach($opciones as $op)
-                        <div class="dropdown-item" data-value="{{ $op }}" title="{{ $op }}" onclick="window.eqTextoElegir(this)">{{ $op }}</div>
-                    @endforeach
-                </div>
+                <div class="dropdown-item-list" style="max-height: 260px; overflow-y: auto;"></div>
             </div>
         </div>
         <button type="button" class="eq-ventana-quitar {{ $aplicado !== '' ? 'activo' : '' }}" data-filtro-de="{{ $ddId }}"

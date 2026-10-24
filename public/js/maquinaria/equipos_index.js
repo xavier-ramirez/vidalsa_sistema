@@ -236,7 +236,6 @@ const STATUS_CONFIG = {
         caja.append(titulo, resumen, texto);
         caja.title = desc;   // en el menú, el texto entero si pasa de 5 líneas
     }
-    // También lo usa el menú de estado sin conexión (equipos-offline.js · eqOffEstadoMenu).
     window.eqPintarFallaAviso = pintarFallaAviso;
 
     // ── Aviso del reporte de falla al pasar el mouse por la fila ──
@@ -324,9 +323,9 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     const oldStatus = triggerEl.dataset.status;
     if (oldStatus === newStatus) return;
 
-    // ── OFFLINE (Fase 2): delega en el módulo offline (encola + copia local +
-    // repinta). Lógica única en equipos-offline.js (window.eqOffSetEstado). ──
-    if (window.OfflineMode && window.OfflineMode.estaActivo()) {
+    // ── Sin conexión: se encola en el outbox y la tabla lo muestra al instante
+    // (equipos_local.js · eqOffSetEstado). ──
+    if (window.EquiposLocal.sinConexion()) {
         // INOPERATIVO y EN MANTENIMIENTO exigen crear un reporte de falla (modal no
         // disponible offline).
         if (newStatus === 'INOPERATIVO' || newStatus === 'EN MANTENIMIENTO') {
@@ -558,8 +557,7 @@ window.toggleEquiposSoloSel = function (e) {
     if (counter) counter.classList.toggle('is-filtering', window._equiposSoloSel);
     if (typeof window.auxRestoreSelection === 'function') window.auxRestoreSelection();
 
-    // Capa 1: filtro cliente-side instantáneo para feedback visual inmediato.
-    // No espera al AJAX — el usuario ve el cambio en el mismo frame del click.
+    // Capa 1: ocultar las filas ya pintadas en el mismo frame del clic.
     const tbody = document.getElementById('equiposTableBody');
     if (tbody) {
         tbody.querySelectorAll('tr').forEach(tr => {
@@ -573,8 +571,8 @@ window.toggleEquiposSoloSel = function (e) {
         });
     }
 
-    // Capa 2: recarga AJAX con ids_in para que la paginación y el backend
-    // sean coherentes con el filtro activo (especialmente si hay más de una página).
+    // Capa 2: consulta con ids_in para que la paginación y las cifras sigan al filtro
+    // (especialmente si hay más de una página).
     // Con solo auxiliares elegidos basta la capa 1 (no hay equipos que pedir).
     if (ids.length) window.loadEquipos(null, false, { offset: 0 });
     if (window._equiposSoloSel && tbody) {
@@ -1425,9 +1423,8 @@ window.eqTextosLimpiar = function () {
 // cierra con su X, Esc, un clic fuera o al elegir, y el panel vuelve. Cerrarla NO quita el filtro
 // (lo quita «Quitar filtro» o «Limpiar»). El onclick de las lupas corta la propagación: el clic
 // global de uicomponents cierra los desplegables y cerraba la lista recién abierta por el focus.
-// Al abrir pide la lista a data-url con los filtros de ese momento (opcionesDocumento del
-// controlador): solo los nombres que existen con ellos, para que el filtro se combine con los demás.
-// Mientras llega se ve la anterior; sin conexión (modo offline) se queda esa.
+// Al abrir arma la lista con los filtros de ese momento (EquiposLocal.opcionesDocumento): solo los
+// nombres que existen con ellos, para que el filtro se combine con los demás.
 window.eqVentanaAbrir = function (id) {
     const ventana = document.getElementById(id);
     const inp = ventana?.querySelector('input[type="text"]');
@@ -1437,26 +1434,17 @@ window.eqVentanaAbrir = function (id) {
     inp.focus();
 
     const lista = ventana.querySelector('.dropdown-item-list');
-    if (!lista || !ventana.dataset.url) return;
-    const params = new URLSearchParams();
-    Object.entries(window.eqFiltrosActivos()).forEach(([k, v]) => { if (v) params.append(k, v); });
-    const pedida = ventana._eqPedida = {};   // si se reabre antes de que llegue, gana la última
-    fetch(ventana.dataset.url + '&' + params.toString(), { headers: { 'Accept': 'application/json' } })
-        .then(r => r.ok ? r.json() : Promise.reject(r.status))
-        .then(nombres => {
-            if (ventana._eqPedida !== pedida || !Array.isArray(nombres)) return;
-            lista.replaceChildren(...nombres.map(n => {
-                const item = document.createElement('div');
-                item.className = 'dropdown-item';
-                item.dataset.value = n;
-                item.title = n;
-                item.textContent = n;
-                item.onclick = function () { window.eqTextoElegir(this); };
-                return item;
-            }));
-            if (!ventana.hidden) window.filterDropdownOptions(inp);   // respeta lo ya escrito
-        })
-        .catch(() => {});
+    if (!lista || !window._eqVista) return;
+    const nombres = window.EquiposLocal.opcionesDocumento(window._eqVista, window.eqFiltrosActivos(), ventana.dataset.campo);
+    lista.replaceChildren(...nombres.map(n => {
+        const item = document.createElement('div');
+        item.className = 'dropdown-item';
+        item.dataset.value = n;
+        item.title = n;
+        item.textContent = n;
+        item.onclick = function () { window.eqTextoElegir(this); };
+        return item;
+    }));
 };
 window.eqVentanaCerrar = function (id) {
     const ventana = document.getElementById(id);
@@ -1468,9 +1456,8 @@ window.eqVentanaCerrar = function (id) {
 };
 
 // Botón de Filtros Avanzados en ROJO (.activo, el componente .btn-filtro-avanzado de
-// estilos_globales.css) si hay algún filtro del panel activo. Lo llaman loadEquipos y el pintado
-// offline (equipos-offline.js), que no pasa por loadEquipos. Mismo criterio que $hasAnyAdv del
-// Blade, que pone la clase al cargar la página.
+// estilos_globales.css) si hay algún filtro del panel activo. Lo llama loadEquipos; mismo criterio
+// que $hasAnyAdv del Blade, que pone la clase al cargar la página.
 window.eqPintarBotonFiltros = function (filters) {
     const btnAdv = document.getElementById('btnAdvancedFilter');
     if (!btnAdv) return;
@@ -1505,12 +1492,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         if (typeof window.eqSyncMarcaModeloTipo === 'function') window.eqSyncMarcaModeloTipo();
     }
 
-    // Cancelar cualquier petición anterior en vuelo antes de iniciar una nueva.
-    if (window._loadEquiposAbortController) {
-        window._loadEquiposAbortController.abort();
-    }
-    const abortController = new AbortController();
-    window._loadEquiposAbortController = abortController;
+    // Una consulta más nueva deja obsoleta a esta (si la copia aún no abrió, terminan en desorden).
+    const turno = window._eqTurno = (window._eqTurno || 0) + 1;
+    const vigente = () => turno === window._eqTurno;
 
     // Limpiar la cola de imágenes: los nodos viejos serán reemplazados por los nuevos.
     if (window._resetImageLoader) window._resetImageLoader();
@@ -1561,9 +1545,6 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         }
     });
 
-    // Paginación server-side: enviar offset para lotes subsiguientes (infinite scroll)
-    if (offset > 0) params.append('offset', String(offset));
-
     // NOTE: reApplySelections() is NOT called here because the table
     // shows a "no filters" message with no real rows to highlight.
 
@@ -1572,63 +1553,38 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         ? baseUrl + (baseUrl.includes('?') ? '&' : '?') + paramStr
         : baseUrl;
 
-    // "Ver solo seleccionados": ids_in es estado EFÍMERO del contador. Va en la
-    // PETICIÓN (para que el backend filtre por whitelist) pero NO en finalUrl, que
-    // es lo que se empuja a la URL con pushState — así un refresh no deja pegado un
-    // filtro de IDs que ya no están seleccionados (la selección es solo de cliente).
-    let fetchUrl = finalUrl;
+    // "Ver solo seleccionados": ids_in es estado EFÍMERO del contador. Filtra la consulta pero NO
+    // va en finalUrl, que es lo que se empuja a la URL con pushState — así un refresh no deja
+    // pegado un filtro de IDs que ya no están seleccionados (la selección es solo de cliente).
     if (window._equiposSoloSel) {
         const selIds = Object.keys(window.selectedEquipos || {});
-        if (selIds.length) {
-            fetchUrl += (fetchUrl.includes('?') ? '&' : '?') + 'ids_in=' + encodeURIComponent(selIds.join(','));
-        } else {
-            window._equiposSoloSel = false; // sin selección → modo apagado
-        }
+        if (selIds.length) filters.ids_in = selIds;
+        else window._equiposSoloSel = false; // sin selección → modo apagado
     }
     tableBody.style.opacity = "0.5";
 
-    // ¿Esta llamada mostró el preloader? Solo las no-silent lo muestran. Guardamos el
-    // flag para que el .finally cierre EXACTAMENTE lo que abrió (el show y el hide deben
-    // ser simétricos: antes el show era !silent pero el hide no, y las silent bajaban el
-    // ref de otra operación en curso — spinner apagado antes de tiempo).
-    const _didShowPreloader = !silent && !!window.showPreloader;
+    // El preloader solo se ve mientras la copia local no está lista (la primera descarga):
+    // con copia, la consulta es inmediata. La llamada que lo abre es la que lo cierra.
+    const _didShowPreloader = !silent && !!window.showPreloader && !window._eqVista;
     if (_didShowPreloader) window.showPreloader();
 
-    return window.apiFetch(fetchUrl, {
-        signal: abortController.signal,
-        headers: { 'Accept': "application/json", 'X-Requested-With': 'XMLHttpRequest', 
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache"
-        }
-    })
-        .then((response) => {
-            // Si fue abortada por una nueva petición, ignorar silenciosamente
-            if (abortController.signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
-            // Los 401/419 NO llegan hasta aquí: los ataja el interceptor global de fetch
-            // (fetch_interceptor.js) y manda al login con su motivo. La rama que había aquí no
-            // podía ejecutarse, y la comprobación de la URL final que la acompañaba
-            // tampoco: /login redirige a /, así que esa URL nunca lo contiene.
-            // Lo que SÍ puede pasar es recibir HTML en vez del JSON esperado: la página de
-            // mantenimiento de un despliegue (503) o un error del proxy. Eso NO es una sesión
-            // vencida —esa llega como 401 y la atiende el interceptor—, así que no se manda al
-            // login: se avisa que el servidor no respondió y el usuario puede reintentar.
-            const contentType = response.headers.get("content-type");
-            if (!contentType || !contentType.includes("application/json")) {
-                const err = new Error("Respuesta inválida del servidor (" + response.status + ").");
-                err.servidorNoResponde = true;
-                return Promise.reject(err);
-            }
-            if (!response.ok) throw new Error("Network response was not ok");
-            return response.json();
+    // Permisos de quien mira (los pone el Blade en el <tbody>): botones de las filas.
+    const puede = {
+        editar: tableBody.dataset.editar === '1',
+        superAdmin: tableBody.dataset.super === '1',
+        subirPdf: tableBody.dataset.subirPdf === '1',
+    };
+
+    return window.CopiaLocal.usar('equipos', tableBody)
+        .then((vista) => {
+            window._eqVista = vista;
+            if (!vigente() || !document.contains(tableBody)) return null;
+            // Al repintar porque llegó la copia nueva se rehace todo lo que ya estaba cargado.
+            return window.EquiposLocal.consultar(vista, filters, offset, puede, opts.cuantos);
         })
         .then((data) => {
             if (!data) return;
-
-            // Guards defensivos: si red mala devuelve respuesta parcial,
-            // evitamos TypeErrors que rompan la cadena y dejen filtros mudos.
-            data.stats = data.stats || {};
-            if (typeof data.html !== "string") data.html = "";
-            if (typeof data.distribution !== "string") data.distribution = "";
+            window._eqHasta = data.nextOffset;   // filas cargadas: las que rehace un repintado
 
             // Cargar datos en memoria ANTES de tocar el DOM
             if (data.equiposData) {
@@ -1641,7 +1597,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
 
             // Mapa de detalles de auxiliares: aplica tanto en modo aux (tabla 100% aux) como
             // en el MERGE (filas aux anexadas a la tabla de equipos al filtrar por frente). En
-            // ambos el backend manda data.auxData; lo fusionamos para que el modal del ojo
+            // ambos la consulta trae data.auxData; lo fusionamos para que el modal del ojo
             // (openAuxDetailsModal) abra instant sin fetch.
             if (data.auxData) {
                 window.auxDetailsMap = Object.assign(window.auxDetailsMap || {}, data.auxData);
@@ -1787,7 +1743,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                     detalleUbicEl.value = '';
                 }
 
-                window.history.pushState(null, '', finalUrl);
+                if (!opts.sinHistorial) window.history.pushState(null, '', finalUrl);
             }
 
             // ── RENDERIZADO PROGRESIVO ───────────────────────────────────────
@@ -1802,7 +1758,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             }
             tableBody.style.opacity = '1';
 
-            const CHUNK_SIZE = 30; // filas por lote
+            // Filas por lote. Un repintado las pone todas de una vez: con la tabla vaciada y
+            // rellenada en la misma tarea, el navegador no llega a pintar el hueco ni salta el scroll.
+            const CHUNK_SIZE = opts.cuantos ? Math.max(1, allRows.length) : 30;
             let index = 0;
             let scrollObserver = null;
             let pausedResumeHandler = null;
@@ -1814,8 +1772,8 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 // Desconectar el observador viejo para evitar fugas de memoria
                 if (observer) observer.disconnect();
 
-                // Guard #1: nueva petición canceló esta → no insertar filas obsoletas
-                if (abortController.signal.aborted) return;
+                // Guard #1: una consulta más nueva reemplazó a esta → no insertar filas obsoletas
+                if (!vigente()) return;
                 // Guard #2: tabla quitada del DOM (nav SPA) → cancelar loop
                 if (!document.contains(tableBody)) return;
 
@@ -1847,8 +1805,8 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                     if (hayFilasAux && typeof window.auxRestoreSelection === 'function') {
                         window.auxRestoreSelection();
                     }
-                    // Infinite scroll: si el backend dice que hay más, observar la última fila
-                    // del conjunto actual y disparar nuevo fetch con offset = nextOffset.
+                    // Infinite scroll: si la consulta dice que hay más, observar la última fila
+                    // del conjunto actual y pedir el lote siguiente (offset = nextOffset).
                     if (data && data.hasMore && typeof data.nextOffset === 'number') {
                         const lastRow = tableBody.lastElementChild;
                         if (lastRow && !lastRow.dataset.infiniteObserved) {
@@ -1912,43 +1870,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             // Iniciar la inyección del primer chunk
             renderNextChunk();
         })
-        .catch((error) => {
-            // Si esta peticion fue ABORTADA por una mas nueva, no tocar el DOM —
-            // la nueva ya hizo su propio tableBody.style.opacity = '0.5' al arrancar
-            // y va a setearlo en 1 cuando termine. Si pisamos opacity=1 aca, se ve
-            // un flicker visual (0.5 → 1 → 0.5 → 1) durante busquedas encadenadas.
-            // Tambien evitamos loguear: AbortError es normal en este flujo.
-            if (abortController.signal.aborted) return;
-            console.error('Error loading equipos:', error);
-            tableBody.style.opacity = '1';
-            if (error && error.servidorNoResponde && window.showToast) {
-                window.showToast('El servidor no respondió como se esperaba. Intenta de nuevo en un momento.', 'error');
-            }
-
-            // El aviso "Sin conexión" con su botón lo saca el interceptor global de fetch
-            // (fetch_interceptor.js) para CUALQUIER petición de la app, no solo para esta.
-        })
         .finally(() => {
-            // Solo cierra el preloader la llamada que lo ABRIÓ (no-silent). Las silent no
-            // mostraron → no deben ocultar (antes bajaban el ref de otra operación en vuelo:
-            // scroll infinito / descarga de acta / export → spinner apagado a mitad).
-            if (!_didShowPreloader) return;
-
-            // Abortada por una petición más nueva: bajamos el ref DE INMEDIATO. El preloader
-            // es un CONTADOR (_preloaderRefs), así que el spinner NO desaparece antes de
-            // tiempo — la petición GANADORA mantiene su propio ref hasta que trae y pinta los
-            // datos. (Antes se retornaba sin ocultar, fugando el ref → spinner colgado hasta
-            // el watchdog de 8s. El comentario viejo asumía un preloader booleano, no contador.)
-            if (abortController.signal.aborted) {
-                if (window.hidePreloader) window.hidePreloader();
-                return;
-            }
-
-            // Doble rAF (PWA chromium standalone): el .finally corre como microtask tras el
-            // .then; renderNextChunk ya insertó la 1ª fila pero el navegador aún no commiteó
-            // el paint. El 2º rAF agenda el fade-out para DESPUÉS del paint que ya tiene la
-            // fila → garantiza "fila visible → spinner se va".
-            if (window.hidePreloader) {
+            if (_didShowPreloader && window.hidePreloader) {
+                // Doble rAF: el spinner se va DESPUÉS del paint que ya tiene la primera fila.
                 requestAnimationFrame(() => requestAnimationFrame(() => window.hidePreloader()));
             }
         });
@@ -2248,10 +2172,10 @@ window.openBulkModal = function (event) {
         return;
     }
 
-    // ── OFFLINE (Fase 2): el modal online crea frentes, pide ubicación y genera
-    // acta (todo server-side). Sin internet abrimos un modal SIMPLE que solo mueve
-    // a un frente EXISTENTE y encola la acción. El acta queda disponible al sincronizar.
-    if (window.OfflineMode && window.OfflineMode.estaActivo() && typeof window.abrirModalMovilizarOffline === 'function') {
+    // ── Sin conexión: el modal online crea frentes, pide ubicación y genera acta
+    // (todo en el servidor). Sin internet se abre un modal SIMPLE que solo mueve a un
+    // frente EXISTENTE y encola la acción. El acta queda disponible al sincronizar.
+    if (window.EquiposLocal.sinConexion()) {
         // Sin internet solo se encolan equipos.
         if (auxSel.length) {
             window.toast('Los auxiliares se movilizan con conexión. Quítalos de la selección para seguir sin internet.', 'error');
@@ -3488,43 +3412,8 @@ window.updateLocalStats = function (oldStatus, newStatus) {
 };
 
 window.exportEquipos = function () {
-    // Modo aux (se eligio un tipo AUXILIAR): exportar AUXILIARES, no equipos. Reusa la
-    // exportacion del modulo de auxiliares (equipos-auxiliares/export) con el tipo +
-    // frente + busqueda actuales. Descarga directa (el server responde el xlsx adjunto).
-    const _tipoAuxEl = document.querySelector('input[name="id_tipo"]');
-    const _tipoAuxVal = ((_tipoAuxEl && _tipoAuxEl.value) || '').trim();
-    if (_tipoAuxVal.indexOf('tipo_aux:') === 0) {
-        const ap = new URLSearchParams();
-        ap.append('tipo', _tipoAuxVal.slice(9));
-        const _frAux = ((document.querySelector('input[name="id_frente"]') || {}).value || '').trim();
-        if (_frAux) ap.append('id_frente', _frAux);
-        const _sAux = ((document.getElementById('searchInput') || {}).value || '').trim();
-        if (_sAux) ap.append('search', _sAux);
-        if (window.showPreloader) window.showPreloader();
-        window.location.href = '/admin/equipos-auxiliares/export?' + ap.toString();
-        setTimeout(function () { if (window.hidePreloader) window.hidePreloader(); }, 1500);
-        return;
-    }
-
-    // Los MISMOS filtros que la tabla (window.eqFiltrosActivos): el Excel tiene que traer
-    // justo lo que se está viendo. Antes este bloque releía los inputs por su cuenta y se
-    // le habían quedado fuera GPS y doc_presence, así que al filtrar por GPS el archivo
-    // salía con toda la flota.
-    const params = new URLSearchParams();
-    let hasAnyFilter = false;
-
-    Object.entries(window.eqFiltrosActivos()).forEach(([clave, valor]) => {
-        const v = (valor == null ? "" : String(valor)).trim();
-        if (v === "") return;
-        // 'all' no recorta nada... salvo en id_frente, donde es la elección explícita
-        // "Todos los Frentes" (y de ahí sale además el título de la hoja).
-        if (v === "all" && clave !== "id_frente") return;
-        params.append(clave, v);
-        hasAnyFilter = true;
-    });
-
-    // Validate: At least one filter must be active
-    if (!hasAnyFilter) {
+    const filtros = window.eqFiltrosActivos();
+    if (!window._eqVista || !window.EquiposLocal.hayFiltro(filtros)) {
         window.showModal({
             type: "warning",
             title: "Filtro Requerido",
@@ -3535,27 +3424,35 @@ window.exportEquipos = function () {
         });
         return;
     }
+    if (!navigator.onLine || !window._eqVista.estado.conectado) {
+        window.toast('El Excel se genera en el servidor: hace falta conexión.', 'error');
+        return;
+    }
+
+    // El Excel trae justo lo que lista la tabla (todas las filas, no solo el lote pintado), en su
+    // orden: los ids salen de la MISMA consulta (EquiposLocal.idsExportar). El servidor solo arma
+    // el archivo y vuelve a comprobar que el usuario puede verlos.
+    const ids = window.EquiposLocal.idsExportar(window._eqVista, filtros);
+    const cuerpo = new FormData();
+    ids.equipos.forEach((id) => cuerpo.append('ids[]', id));
+    ids.auxiliares.forEach((id) => cuerpo.append('aux_ids[]', id));
+    if (ids.modoAux) cuerpo.append('modo_aux', '1');
+    if (filtros.id_frente) cuerpo.append('id_frente', filtros.id_frente);   // título de la hoja
 
     // Descargar vía fetch → blob (NO form.submit()): así se puede MOSTRAR el spinner
-    // mientras el backend genera el Excel y ocultarlo al terminar. Un form.submit()
-    // descarga en segundo plano sin avisar cuándo acaba, por eso no salía el spinner.
-    const url = '/admin/equipos/export?' + params.toString();
+    // mientras el servidor genera el Excel y ocultarlo al terminar.
     if (window.showPreloader) window.showPreloader();
 
     var pad = function (n) { return (n < 10 ? '0' : '') + n; };
     var d = new Date();
     var fname = 'Listado_Maquinarias_Equipos_' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '.xlsx';
 
-    window.apiFetch(url, {
-        headers: { 'X-Requested-With': 'XMLHttpRequest',  'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }})
+    window.apiFetch('/admin/equipos/export', {
+        method: 'POST',
+        body: cuerpo,
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }})
         .then(function (r) {
             if (!r.ok) throw new Error('No se pudo generar el Excel.');
-            // Si el backend respondió HTML (p.ej. redirect por falta de filtro) en vez del
-            // archivo, no lo descargamos como .xlsx corrupto.
-            var ct = (r.headers.get('Content-Type') || '').toLowerCase();
-            if (ct.indexOf('spreadsheet') === -1 && ct.indexOf('octet-stream') === -1) {
-                throw new Error('Aplica al menos un filtro antes de exportar.');
-            }
             return r.blob();
         })
         .then(function (blob) {
@@ -3668,14 +3565,8 @@ function initEquipos() {
     // valor real del buscador (evita "azul con el campo vacío" si algo quedó desincronizado).
     window.syncSearchHighlight();
 
-    // Registrar las imágenes de las filas renderizadas SERVER-SIDE (carga inicial /
-    // hard-reload / navegación SPA). El path AJAX (renderNextChunk) ya las registra al
-    // insertar chunks, pero en la carga directa por URL las filas vienen del Blade y
-    // nadie las observaba → las fotos quedaban en opacity:0 (data-src nunca pasaba a src).
-    const tableBody = document.getElementById("equiposTableBody");
-    if (tableBody && window._registerLazyImages) {
-        window._registerLazyImages(tableBody);
-    }
+    // Primera consulta, con los filtros de la URL (el Blade los deja puestos en los inputs).
+    window.loadEquipos(null, false, { sinHistorial: true });
 
     updateSelectionUI();
 }
@@ -3683,6 +3574,12 @@ function initEquipos() {
 // window-level listeners — UNA sola vez aunque el script se re-ejecute en SPA
 if (!window._equiposWindowListenersReady) {
     window._equiposWindowListenersReady = true;
+
+    // La copia local se puso al día: se rehace lo que se ve, con las mismas filas cargadas.
+    window.addEventListener('copia-local', function (e) {
+        if (e.detail.dominio !== 'equipos' || !e.detail.cambio || !document.getElementById('equiposTableBody')) return;
+        window.loadEquipos(null, true, { sinHistorial: true, cuantos: Math.max(150, window._eqHasta || 0) });
+    });
 
     // Reinicializar módulo al navegar A equipos, limpiar al salir
     window.addEventListener("spa:contentLoaded", function () {

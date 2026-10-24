@@ -35,8 +35,7 @@ class SpaDevuelveHtmlTest extends MySqlTestCase
         '/admin/almacen/notas',
         '/admin/equipos',
         // /admin/equipos-auxiliares NO va: dejo de ser pantalla a proposito y su index
-        // redirige a /admin/equipos salvo que se pida con wantsJson (es endpoint de datos
-        // del partial _machinery). Ver EquipoAuxiliarController::index.
+        // redirige a /admin/equipos. Ver EquipoAuxiliarController::index.
         '/admin/catalogo',
         '/admin/movilizaciones',
         '/admin/usuarios',
@@ -93,13 +92,14 @@ class SpaDevuelveHtmlTest extends MySqlTestCase
 
     /**
      * La contraparte: con Accept: application/json esos MISMOS endpoints siguen
-     * devolviendo JSON (la paginacion y los filtros dependen de eso).
+     * devolviendo JSON (la paginacion y los filtros dependen de eso). /admin/equipos ya no:
+     * filtra y pagina en el navegador desde la copia local (equipos_local.js).
      */
     public function test_con_accept_json_siguen_devolviendo_json(): void
     {
         $user = $this->admin();
 
-        foreach (['/admin/almacen', '/admin/equipos'] as $ruta) {
+        foreach (['/admin/almacen'] as $ruta) {
             $res = $this->actingAs($user)->get($ruta, [
                 'X-Requested-With' => 'XMLHttpRequest',
                 'Accept'           => 'application/json',

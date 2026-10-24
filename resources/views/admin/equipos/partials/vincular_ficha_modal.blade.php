@@ -1,6 +1,6 @@
 {{--
     Modal "Vincular a una ficha del catálogo" de /admin/equipos. Se abre con doble clic en la
-    foto de un equipo (table_rows: data-vincular) y solo para super.admin: se elige la ficha
+    foto de un equipo (equipos_local.js: data-vincular) y solo para super.admin: se elige la ficha
     (caracteristicas_modelo) y el equipo queda con su ID_ESPEC, así que toma la foto de su
     color o la del modelo (Equipo::fotoParaMostrar). Sirve para las unidades que no
     encontraron solas su ficha (el modelo escrito distinto, otro año, varias fichas).

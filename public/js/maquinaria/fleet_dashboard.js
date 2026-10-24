@@ -146,15 +146,14 @@ window.openFleetDashboard = async function () {
     // No se puede simplemente bloquearlo: en TELÉFONO la tarjeta de Distribución
     // ("Equipos y Maquinaria" / "Ubicación por Frente") se muda DENTRO de este modal
     // (colocarDistribucionMovil), así que cerrarlo dejaba sin acceso a una lista que sí
-    // se calcula de la copia local — la pinta equipos-offline.js.
+    // se calcula de la copia local — la pinta loadEquipos (equipos_local.js).
     //
     // Lo que sí necesita servidor son las cifras de /admin/equipos/fleet-stats (Σ
-    // Auxiliares y el gasoil ni siquiera viajan en el snapshot) y los gráficos. Antes se
+    // Auxiliares y el gasoil no viajan en la copia local) y los gráficos. Antes se
     // intentaba el fetch igual, fallaba y quedaba encima un segundo modal de error con el
     // detalle técnico ("Failed to fetch"). Ahora esas partes se marcan como no disponibles
-    // y el resto del modal queda usable.
-    const OM = window.OfflineMode;
-    if (OM && (OM.estaActivo() || (OM.pendienteActivar && OM.pendienteActivar()))) {
+    // y el resto del modal queda usable. "Sin conexión" es el mismo criterio de la tabla.
+    if (window.EquiposLocal && window.EquiposLocal.sinConexion()) {
         modal.classList.add('active');
         modal.style.display = 'flex';
         const spinner = document.getElementById('fleetDashboardSpinner');

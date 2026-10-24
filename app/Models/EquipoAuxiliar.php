@@ -47,6 +47,16 @@ class EquipoAuxiliar extends Model
         ];
     }
 
+    /**
+     * Rótulo de un TIPO en /admin/equipos (filas, distribución y filtro): el nombre bonito del
+     * enum o, para un tipo creado a mano, el código sin guiones bajos; en MAYÚSCULAS como los
+     * tipos de vehículo.
+     */
+    public static function etiquetaTipo(string $tipo): string
+    {
+        return mb_strtoupper(static::tiposLabel()[$tipo] ?? str_replace('_', ' ', $tipo));
+    }
+
     public static function tiposIcono(): array
     {
         return [
@@ -132,6 +142,74 @@ class EquipoAuxiliar extends Model
     public function creador()
     {
         return $this->belongsTo(Usuario::class, 'CREADO_POR', 'ID_USUARIO');
+    }
+
+    /**
+     * Datos del modal de detalles (window.auxDetailsMap): fuente única para la copia local
+     * (DominioEquipos) y para el endpoint details(). Lo que depende de quién mira (permisos,
+     * enlace de edición) no va aquí: lo pone la página. Necesita cargados frente, creador y
+     * equipoHost con su documentación, tipo, foto y frente.
+     */
+    public function toDetailsPayload(): array
+    {
+        $host = $this->equipoHost;
+        $doc  = $host?->documentacion;
+
+        return [
+            'id'             => $this->ID_AUXILIAR,
+            'tipo'           => $this->TIPO,
+            'tipo_label'     => $this->TIPO ? static::etiquetaTipo($this->TIPO) : $this->TIPO,
+            'marca'          => $this->MARCA,
+            'modelo'         => $this->MODELO,
+            'serial'         => $this->SERIAL,
+            'codigo_interno' => $this->CODIGO_INTERNO,
+            'capacidad'      => $this->CAPACIDAD,
+            'combustible'    => $this->COMBUSTIBLE,
+            'consumo'        => Equipo::consumoFormateado($this->CONSUMO_PROMEDIO),
+            'anio'           => $this->ANIO,
+            'estado'         => $this->ESTADO_OPERATIVO,
+            'estado_label'   => static::estadosLabel()[$this->ESTADO_OPERATIVO] ?? $this->ESTADO_OPERATIVO,
+            'observaciones'  => $this->OBSERVACIONES,
+            'foto'           => $this->FOTO,
+            'foto_drive_id'  => $this->FOTO ? basename(str_replace('/storage/google/', '', $this->FOTO)) : null,
+            'link_doc_propiedad'     => $this->LINK_DOC_PROPIEDAD ?? null,
+            'link_certificado'       => $this->LINK_CERTIFICADO ?? null,
+            'fecha_vencimiento_cert' => $this->FECHA_VENCIMIENTO_CERT?->format('Y-m-d'),
+            'frente'             => $this->frente?->NOMBRE_FRENTE,
+            'host_id'            => $this->ID_EQUIPO_HOST,
+            'host_codigo'        => $host?->CODIGO_PATIO,
+            'host_placa'         => $doc?->PLACA,
+            'host_serial_chasis' => $host?->SERIAL_CHASIS,
+            'host_tipo'          => $host?->tipo?->nombre,
+            'host_marca'         => $host?->MARCA,
+            'host_modelo'        => $host?->MODELO,
+            'host_foto'          => $host?->foto,   // Equipo::fotoParaMostrar
+            'host_frente'        => $host?->frenteActual?->NOMBRE_FRENTE,
+            // Documentos del equipo anfitrión: se ven (desplegables) en la sección "Vinculación"
+            // del modal, sin ir a buscar el equipo aparte.
+            'host_link_propiedad' => $doc?->LINK_DOC_PROPIEDAD ?: null,
+            'host_link_seguro'    => $doc?->LINK_POLIZA_SEGURO ?: null,
+            'host_link_rotc'      => $doc?->LINK_ROTC ?: null,
+            'host_link_racda'     => $doc?->LINK_RACDA ?: null,
+            'creado_por'          => $this->creador?->NOMBRE_COMPLETO,
+            'created_at'          => $this->created_at?->format('d/m/Y H:i'),
+            // Ubicación dentro del frente (pre-carga el modal de asignación).
+            'detalle_ubicacion'   => $this->DETALLE_UBICACION_ACTUAL ?? '',
+            'confirmado_en_sitio' => (int) $this->CONFIRMADO_EN_SITIO,
+        ];
+    }
+
+    /** Relaciones que necesita toDetailsPayload(). */
+    public static function conDetalles(): array
+    {
+        return [
+            'frente',
+            'equipoHost.documentacion',
+            'equipoHost.tipo',
+            ...Equipo::conFoto('equipoHost.', true),
+            'equipoHost.frenteActual',
+            'creador',
+        ];
     }
 
     /**

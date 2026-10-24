@@ -75,10 +75,9 @@
             return;
         }
 
-        // Data pre-cargada en window.auxDetailsMap por el controller (seed
-        // inicial) y por loadEquipos (data.auxData, al paginar/filtrar). El modal
-        // abre INSTANTANEO sin fetch ni preloader — todos los datos del
-        // auxiliar visible ya estan en memoria.
+        // Data pre-cargada en window.auxDetailsMap por loadEquipos (data.auxData de la
+        // copia local). El modal abre INSTANTANEO sin fetch ni preloader — todos los
+        // datos del auxiliar visible ya estan en memoria.
         const map = window.auxDetailsMap || {};
         const data = map[id] || map[String(id)];
         if (data) {
@@ -337,12 +336,3 @@
     window.maquinariaArrancar();
 </script>
 
-{{-- Seed inicial de window.auxDetailsMap: TODOS los detalles de los auxiliares
-     visibles en esta pagina. El modal del ojo abre instantaneamente porque la
-     data ya esta en memoria. Al paginar/filtrar, loadEquipos (equipos_index.js)
-     le suma con Object.assign los de data.auxData. --}}
-@if(!empty($auxDetailsMap))
-<script>
-    window.auxDetailsMap = Object.assign(window.auxDetailsMap || {}, @json($auxDetailsMap));
-</script>
-@endif

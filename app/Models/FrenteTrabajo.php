@@ -84,9 +84,6 @@ class FrenteTrabajo extends Model
             // que el generador de la plantilla no nota ningún cambio.
             \App\Support\CacheVersion::bump('bulk_template_gen');
             \App\Http\Controllers\DashboardController::bumpDataVersion();
-            // Los frentes viajan en el snapshot offline (dominio "catalogos"): al
-            // cambiarlos hay que marcar esa version como obsoleta.
-            \App\Support\OfflineVersion::invalidar('catalogos');
         };
         static::saved($bust);
         static::deleted($bust);

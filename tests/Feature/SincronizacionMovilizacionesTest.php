@@ -11,7 +11,8 @@ use Tests\MySqlTestCase;
 /**
  * Copia local del historial de MOVILIZACIONES (GET /sync/movilizaciones) sobre la base real.
  * Decisión del usuario: la ve quien tiene permisos de equipos, sin las movilizaciones que
- * tocan un frente bloqueado para él. Igual la pantalla /admin/movilizaciones.
+ * tocan un frente bloqueado para él. Igual la pantalla /admin/movilizaciones y el modal
+ * «Movilizaciones» del detalle del equipo.
  *
  * No escribe nada permanente: MySqlTestCase revierte la transacción al terminar.
  */
@@ -32,6 +33,9 @@ class SincronizacionMovilizacionesTest extends MySqlTestCase
 
         $this->actingAs($usuario)->getJson('/sync/movilizaciones')->assertForbidden();
         $this->actingAs($usuario)->get('/admin/movilizaciones')->assertForbidden();
+        $this->actingAs($usuario)->get('/admin/equipos')->assertOk()->assertDontSee('id="btn_ver_movilizaciones"', false);
+        $this->actingAs($this->usuario('equipos.assign'))->get('/admin/equipos')->assertOk()
+            ->assertSee('id="btn_ver_movilizaciones"', false);
     }
 
     public function test_la_carga_completa_trae_todo_menos_lo_que_toca_un_frente_bloqueado(): void
@@ -57,6 +61,9 @@ class SincronizacionMovilizacionesTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/^MV-\d{5,}$/', $f['mv']);
         $this->assertSame($mov->created_at->format('Y-m-d H:i:s'), $f['fecha']);
         $this->assertArrayHasKey('placa', $f['equipo']);
+        // El modal «Movilizaciones» del detalle del equipo las busca y pinta con esto.
+        $this->assertSame((int) $mov->ID_EQUIPO, $f['idEquipo']);
+        $this->assertSame($mov->DETALLE_UBICACION, $f['detalle']);
     }
 
     public function test_cambiar_la_placa_del_equipo_reenvia_sus_movilizaciones(): void

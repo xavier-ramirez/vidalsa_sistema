@@ -4,15 +4,19 @@ namespace Tests\Feature;
 
 use App\Models\Documentacion;
 use App\Models\Equipo;
+use Tests\EquiposLocal;
 use Tests\MySqlTestCase;
 
 /**
  * Excel del listado de /admin/equipos: las columnas de documentos llevan el número del
  * título y la fecha de EMISIÓN de cada documento junto a su vencimiento, cada valor bajo
- * su encabezado (las letras se calculan; si se corrieran, el archivo abriría igual).
+ * su encabezado (las letras se calculan; si se corrieran, el archivo abriría igual). La pantalla
+ * manda los ids que filtró (equipos_local.js) y el servidor arma el libro.
  */
 class ExportEquiposDocumentosTest extends MySqlTestCase
 {
+    use EquiposLocal;
+
     public function test_el_excel_trae_numero_del_titulo_y_las_emisiones(): void
     {
         $serial = 'TESTXLS' . strtoupper(substr(uniqid(), -9));
@@ -25,7 +29,11 @@ class ExportEquiposDocumentosTest extends MySqlTestCase
             'LINK_RACDA' => '/storage/google/racda', 'FECHA_EMISION_RACDA' => '2025-07-14', 'FECHA_RACDA' => '2027-07-14',
         ]);
 
-        $resp = $this->actingAs($this->superAdminGlobal())->get(route('equipos.export', ['search_query' => $serial]));
+        $admin = $this->superAdminGlobal();
+        $ids = $this->idsExportarLocal($admin, ['search_query' => $serial]);
+        $this->assertSame([$equipo->ID_EQUIPO], $ids['equipos']);
+
+        $resp = $this->actingAs($admin)->post(route('equipos.export'), ['ids' => $ids['equipos']]);
         $resp->assertOk();
         $hoja = \PhpOffice\PhpSpreadsheet\IOFactory::load($resp->baseResponse->getFile()->getPathname())->getSheetByName('Equipos');
 

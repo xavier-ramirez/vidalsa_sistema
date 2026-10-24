@@ -19,11 +19,7 @@ class EquipoController extends Controller
 {
     use \App\Traits\ExcelLogoCorporativo;
 
-    /**
-     * Filtros de documento → columna LINK_* en `documentacion`.
-     * Fuente única para: (a) detectar qué filtros de doc están activos y
-     * (b) construir el desglose "Con / Sin documento" del Consolidado.
-     */
+    /** Documentos del equipo: parámetro del filtro → columna LINK_* en `documentacion`. */
     private const DOC_FILTER_COLS = [
         'filter_propiedad'   => 'LINK_DOC_PROPIEDAD',
         'filter_poliza'      => 'LINK_POLIZA_SEGURO',
@@ -33,7 +29,7 @@ class EquipoController extends Controller
         'filter_adicional_2' => 'LINK_DOC_ADICIONAL_2',
     ];
 
-    /** Etiqueta corta por filtro de doc (para el label del Consolidado). */
+    /** Nombre corto de cada documento. */
     private const DOC_FILTER_LABELS = [
         'filter_propiedad'   => 'Propiedad',
         'filter_poliza'      => 'Póliza',
@@ -88,65 +84,9 @@ class EquipoController extends Controller
     }
 
     /**
-     * ¿Pidió el usuario ALGÚN filtro? Lo usan el listado (para decidir si pinta filas y
-     * stats) y la exportación (que sin filtros no deja bajar la base entera). Frente y tipo
-     * cuentan aunque valgan 'all' (es una elección explícita), y también GPS / Confirmación
-     * con cualquier valor; el resto, con el mismo criterio que tieneFiltroEspecifico
-     * (los documentos solo si llegan como 'true').
-     */
-    private function hayFiltroAplicado(Request $request): bool
-    {
-        return $request->filled('id_frente')
-            || $request->filled('id_tipo')
-            || $request->filled('confirmado')
-            || $request->filled('gps')
-            || $this->tieneFiltroEspecifico($request);
-    }
-
-    /**
-     * True si el request trae un filtro de BÚSQUEDA o de ATRIBUTO concreto
-     * (serial/placa/etiqueta, TIPO, modelo, marca, año, categoría, estado, ubicación,
-     * GPS o documentación). NO cuenta `id_frente` (el frente decide aparte). Cuando esto
-     * es true, el listado NO oculta los frentes ESPECIAL: si el usuario pide algo
-     * concreto, debe ver todo lo que coincide (incluida la flota de asignaciones especiales).
-     *
-     * El TIPO cuenta (tipoEquipoPedido): si no, al filtrar por un tipo la tabla y su TOTAL
-     * dejaban fuera los de ASIGNACIONES ESPECIALES mientras la tarjeta "Ubicación por Frente"
-     * sí los contaba, y afinar con una marca traía MÁS equipos que el tipo solo.
-     */
-    private function tieneFiltroEspecifico(Request $request): bool
-    {
-        if ($request->filled('search_query')) {
-            return true;
-        }
-        if ($this->tipoEquipoPedido($request) !== null) {
-            return true;
-        }
-        foreach (['modelo', 'marca', 'detalle_ubicacion', 'detalle', 'titular', 'aseguradora', 'combustible', 'anio', 'categoria', 'estado', 'color'] as $p) {
-            if ($request->filled($p)) {
-                return true;
-            }
-        }
-        if (in_array(strtoupper(trim((string) $request->input('gps', ''))), ['SI', 'NO'], true)) {
-            return true;
-        }
-        if (in_array(strtoupper(trim((string) $request->input('confirmado', ''))), ['SI', 'NO'], true)) {
-            return true;
-        }
-        foreach (['filter_propiedad', 'filter_poliza', 'filter_rotc', 'filter_racda', 'filter_adicional', 'filter_adicional_2'] as $p) {
-            if ($request->input($p) === 'true') {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * El TIPO de equipo concreto que pide el request (id_tipo=N o 'tipo_eq:N'), o null si no
-     * pide ninguno: vacío, 'all' (TODOS LOS TIPOS) o 'tipo_aux:X' (un tipo de auxiliar, que
-     * no filtra la tabla de equipos). Un valor que no es un número da 0: no coincide con
-     * ningún equipo, como antes. UNA definición: la usan el filtro (applyEquipoFilters),
-     * tieneFiltroEspecifico y el listado de anclados.
+     * pide ninguno: vacío, 'all' (TODOS LOS TIPOS) o 'tipo_aux:X' (un tipo de auxiliar). Un valor
+     * que no es un número da 0: no coincide con ningún equipo. Lo usa el listado de anclados.
      */
     private function tipoEquipoPedido(Request $request): ?int
     {
@@ -160,784 +100,17 @@ class EquipoController extends Controller
         return ctype_digit($v) ? (int) $v : 0;
     }
 
-    /**
-     * ¿La card de Distribución va por FRENTE («Ubicación por Frente») en vez de por tipo?
-     * Sí cuando se filtra por tipo o por modelo sin frente: la pregunta es «¿dónde están?».
-     * Por modelo, la lista por tipo sale con un solo tipo y no dice nada. La MISMA regla,
-     * sin conexión, vive en pintarDistribucion() de equipos-offline.js.
-     */
-    private function distribucionPorFrente(Request $request): bool
-    {
-        $hayFrente = $request->filled('id_frente') && $request->id_frente !== 'all';
-        $hayTipo   = $request->filled('id_tipo') && $request->id_tipo !== 'all';
-        return !$hayFrente && ($hayTipo || $request->filled('modelo'));
-    }
-
-    /**
-     * Aplica al query los filtros activos del request. `$exclude` permite omitir ejes
-     * específicos para que los stats de una dimensión no queden limitados por su propio filtro.
-     */
-    private function applyEquipoFilters($query, Request $request, array $exclude = []): void
-    {
-        $user = auth()->user();
-        // trim: una búsqueda de solo espacios cuenta como VACÍA → se aplica el scope
-        // por frente (sin esto, "  " saltaría la barrera de visibilidad del usuario LOCAL).
-        $search = trim((string) $request->input('search_query', ''));
-
-        // Barrera de acceso por jurisdicción: lista blanca (LOCAL → solo sus frentes)
-        // + lista negra de bloqueados (aplica TAMBIÉN a GLOBAL). aplicarScopeFrentes
-        // combina ambas; closure reutilizable entre "solo seleccionados" y filtrado normal.
-        $aplicarAccesoLocal = function ($q) use ($user) {
-            if ($user) {
-                $user->aplicarScopeFrentesEquipos($q, 'ID_FRENTE_ACTUAL');
-            }
-        };
-
-        // ── "Solo seleccionados" (whitelist por IDs) ────────────────────────────
-        // Cuando llega ids_in (lo manda el contador de la barra de selección al
-        // togglear "ver solo seleccionados"), mostramos EXACTAMENTE esos equipos
-        // ignorando los demás filtros de contenido y la búsqueda — mismo patrón
-        // que el "solo seleccionados" del módulo Almacén. Se MANTIENE la barrera
-        // de acceso por frente para usuarios locales. Se hace short-circuit:
-        // la whitelist es la única condición de contenido.
-        $idsIn = $request->input('ids_in');
-        if (!in_array('ids_in', $exclude) && is_string($idsIn) && trim($idsIn) !== '') {
-            $ids = collect(explode(',', $idsIn))
-                ->map(fn ($v) => (int) trim($v))
-                ->filter()
-                ->take(2000)
-                ->values()
-                ->all();
-            $aplicarAccesoLocal($query);
-            $query->whereIn('equipos.ID_EQUIPO', $ids ?: [0]);
-            return;
-        }
-
-        if (empty($search)) {
-            $aplicarAccesoLocal($query);
-        }
-
-        if (!in_array('id_frente', $exclude)) {
-            $raw = trim((string) $request->input('id_frente', ''));
-            if ($raw === 'none') {
-                // Sentinel "SIN ASIGNAR": equipos sin ID_FRENTE_ACTUAL en BD.
-                $query->whereNull('ID_FRENTE_ACTUAL');
-            } elseif ($raw !== '' && $raw !== 'all') {
-                // Frente específico seleccionado: respeta el filtro exacto (aunque sea ESPECIAL).
-                $query->where('ID_FRENTE_ACTUAL', $raw);
-            } elseif (!$this->tieneFiltroEspecifico($request)) {
-                // "TODOS LOS FRENTES" y SIN búsqueda ni filtro concreto: ocultar los frentes
-                // fuera de la flota (ESPECIAL, VENDIDO y TRÁMITE DE VENTA). Si el usuario busca por
-                // serial/placa/etc. o filtra por tipo/modelo/marca/año/..., SÍ se incluyen.
-                $query->excludeFueraDeFlota();
-            }
-        }
-
-        // Dropdown combinado (patron /admin/movilizaciones): 'tipo_eq:N' o N filtran equipos;
-        // 'tipo_aux:X' es de AUXILIAR y no aplica a esta tabla (se listan aparte en index()).
-        if (!in_array('id_tipo', $exclude) && ($tipoId = $this->tipoEquipoPedido($request)) !== null) {
-            $query->where('id_tipo_equipo', $tipoId);
-        }
-
-        if (!in_array('modelo', $exclude) && $request->filled('modelo') && trim($request->modelo) !== '') {
-            $query->where('MODELO', $request->modelo);
-        }
-
-        if (!in_array('marca', $exclude) && $request->filled('marca') && trim($request->marca) !== '') {
-            $query->where('MARCA', $request->marca);
-        }
-
-        if (!in_array('detalle_ubicacion', $exclude) && $request->filled('detalle_ubicacion') && trim($request->detalle_ubicacion) !== '') {
-            $query->where('DETALLE_UBICACION_ACTUAL', $request->detalle_ubicacion);
-        }
-
-        // Combustible: valor exacto de equipos.COMBUSTIBLE (Equipo::COMBUSTIBLES).
-        if (!in_array('combustible', $exclude) && $request->filled('combustible') && trim($request->combustible) !== '') {
-            $query->where('COMBUSTIBLE', trim($request->combustible));
-        }
-
-        // Detalle: TEXTO LIBRE que contenga lo escrito en «Detalle a resaltar»
-        // (DETALLE_UBICACION_ACTUAL). Es otro filtro que detalle_ubicacion de arriba, que es la
-        // coincidencia EXACTA que pone el panel lateral de ubicaciones de un frente fuera de la flota.
-        if (!in_array('detalle', $exclude) && $request->filled('detalle') && trim($request->detalle) !== '') {
-            $query->where('DETALLE_UBICACION_ACTUAL', 'like', '%' . addcslashes(trim($request->detalle), '%_\\') . '%');
-        }
-
-        // Titular y aseguradora: se eligen de la lista de los que ya hay (lupas de «Título» y
-        // «Póliza» en el panel) y buscan el que CONTENGA lo elegido, como Detalle. El titular es
-        // documentacion.NOMBRE_DEL_TITULAR; la aseguradora, el nombre en catalogo_seguros de la
-        // póliza (documentacion.ID_SEGURO). Los auxiliares no guardan ninguno: solo equipos.
-        $contiene = fn (string $texto) => '%' . addcslashes(trim($texto), '%_\\') . '%';
-        if (!in_array('titular', $exclude) && $request->filled('titular') && trim($request->titular) !== '') {
-            $titular = $contiene($request->titular);
-            $query->whereHas('documentacion', fn ($q) => $q->where('NOMBRE_DEL_TITULAR', 'like', $titular));
-        }
-        if (!in_array('aseguradora', $exclude) && $request->filled('aseguradora') && trim($request->aseguradora) !== '') {
-            $aseguradora = $contiene($request->aseguradora);
-            $query->whereHas('documentacion.seguro', fn ($q) => $q->where('NOMBRE_ASEGURADORA', 'like', $aseguradora));
-        }
-
-        if (!in_array('anio', $exclude) && $request->filled('anio') && trim($request->anio) !== '') {
-            $query->where('ANIO', $request->anio);
-        }
-
-        if (!in_array('categoria', $exclude) && $request->filled('categoria') && trim($request->categoria) !== '' && strtoupper(trim($request->categoria)) !== 'AUXILIARES') {
-            $query->where('CATEGORIA_FLOTA', $request->categoria);
-        }
-
-        if (!in_array('estado', $exclude) && $request->filled('estado') && trim($request->estado) !== '') {
-            $query->where('ESTADO_OPERATIVO', $request->estado);
-        }
-
-        if (!in_array('gps', $exclude) && $request->filled('gps') && trim($request->gps) !== '') {
-            $val = strtoupper(trim($request->gps));
-            if ($val === 'SI') {
-                $query->whereNotNull('LINK_GPS')->where('LINK_GPS', '!=', '');
-            } elseif ($val === 'NO') {
-                $query->where(function($q) {
-                    $q->whereNull('LINK_GPS')->orWhere('LINK_GPS', '=', '');
-                });
-            }
-        }
-
-        if (!in_array('color', $exclude) && $request->filled('color') && trim($request->color) !== '') {
-            $query->where('COLOR', $request->color);
-        }
-
-        // Confirmación de presencia en sitio (CONFIRMADO_EN_SITIO): SI=confirmado, NO=pendiente.
-        if (!in_array('confirmado', $exclude) && $request->filled('confirmado') && trim($request->confirmado) !== '') {
-            $val = strtoupper(trim($request->confirmado));
-            if ($val === 'SI') {
-                $query->where('CONFIRMADO_EN_SITIO', 1);
-            } elseif ($val === 'NO') {
-                $query->where('CONFIRMADO_EN_SITIO', 0);
-            }
-        }
-
-        // Filtros de documentacion (Propiedad/Poliza/ROTC/RACDA/Certificado/
-        // Compraventa): RESTRINGEN el listado (y los stats que comparten esta
-        // base). Varios activos = AND (el equipo debe tener TODOS). El parámetro
-        // $exclude permite omitirlos para calcular el universo "Con / Sin
-        // documento" del Consolidado (ver index()). La presencia real del PDF
-        // (!=null Y !='') la resuelve applyDocPresence().
-        $docFilters = array_diff_key($this->activeDocFilters($request), array_flip($exclude));
-        // La dirección con/sin/all la fija el usuario clicando los bloques del
-        // Consolidado (param doc_presence). El desglose doc_con/doc_sin se calcula
-        // aparte en index() siempre con 'con', así que no se ve afectado.
-        $this->applyDocPresence($query, $docFilters, $this->docPresenceMode($request));
-    }
-
-    /**
-     * Filtros de documento activos en el request (param => columna LINK_*).
-     * Soporta varios activos a la vez.
-     */
-    private function activeDocFilters(Request $request): array
-    {
-        $active = [];
-        foreach (self::DOC_FILTER_COLS as $param => $col) {
-            if ($request->input($param) === 'true') {
-                $active[$param] = $col;
-            }
-        }
-        return $active;
-    }
-
-    /**
-     * Restringe $query según la PRESENCIA de los documentos de $docFilters
-     * (param => columna LINK_*), según $mode:
-     *   - 'con' (default): equipos que TIENEN cargados TODOS los docs (AND).
-     *   - 'sin'          : equipos a los que les FALTA cada doc (AND de ausencias).
-     *   - 'all'          : sin recorte de presencia (universo Con+Sin).
-     * !=null Y !='': el LINK_* puede quedar como string vacío tras un borrado, por
-     * eso "tener" = whereNotNull Y !='' y "faltar" = su negación (whereDoesntHave).
-     */
-    private function applyDocPresence($query, array $docFilters, string $mode = 'con'): void
-    {
-        if ($mode === 'all') {
-            return; // el universo completo: no se restringe por presencia
-        }
-        foreach ($docFilters as $col) {
-            if ($mode === 'sin') {
-                // Le FALTA el doc: col null/'' o sin fila documentacion.
-                $query->whereDoesntHave('documentacion', function ($q) use ($col) {
-                    $q->whereNotNull($col)->where($col, '!=', '');
-                });
-            } else { // 'con': lo TIENE cargado
-                $query->whereHas('documentacion', function ($q) use ($col) {
-                    $q->whereNotNull($col)->where($col, '!=', '');
-                });
-            }
-        }
-    }
-
-    /**
-     * Dirección del filtro de documento en la LISTA (controlada por los bloques
-     * clicables del Consolidado): 'con' | 'sin' | 'all'. Default 'con' (histórico:
-     * tildar un doc muestra los que lo tienen). El desglose del Consolidado
-     * (doc_con/doc_sin) NO depende de esto — siempre muestra ambos lados.
-     */
-    private function docPresenceMode(Request $request): string
-    {
-        $m = (string) $request->input('doc_presence', 'con');
-        return in_array($m, ['con', 'sin', 'all'], true) ? $m : 'con';
-    }
-
-    /** Etiqueta del desglose: "Propiedad" si hay uno solo, "Documentos" si varios. */
-    private function docFilterLabel(array $docFilters): string
-    {
-        if (count($docFilters) === 1) {
-            return self::DOC_FILTER_LABELS[array_key_first($docFilters)] ?? 'Documento';
-        }
-        return 'Documentos';
-    }
-
-    /**
-     * Modo AUXILIAR de /admin/equipos: la tabla es 100% auxiliares. Lo activa elegir un
-     * tipo auxiliar en el dropdown (id_tipo='tipo_aux:X') o categoria=AUXILIARES.
-     */
-    private function esModoAux(Request $request): bool
-    {
-        return str_starts_with((string) $request->input('id_tipo', ''), 'tipo_aux:')
-            || strtoupper(trim((string) $request->input('categoria', ''))) === 'AUXILIARES';
-    }
-
-    /**
-     * True si los filtros apuntan SOLO a equipos → NO se muestran/exportan auxiliares ni su
-     * card. El FRENTE no cuenta (agrupa equipos Y auxiliares). Dos motivos de enfoque:
-     *  (a) atributo de DISPOSITIVO: tipo, modelo, marca, color, GPS, combustible, detalle
-     *      escrito, titular del título, aseguradora o categoría de flota (el año NO: es eje compartido,
-     *      los auxiliares también lo tienen).
-     *  (b) documento que SOLO existe en equipos (póliza/ROTC/RACDA/compraventa): un auxiliar
-     *      no puede cumplirlo. Se deriva de DOC_FILTER_COLS menos los DOCS COMPARTIDOS
-     *      (filter_propiedad y filter_adicional/"Certificado", que los auxiliares también
-     *      tienen) para no desincronizarse. Ver self::SHARED_DOC_FILTERS.
-     * Fuente ÚNICA: la usan el merge y la card en index() y la hoja aux de export().
-     */
-    private function esFocoSoloEquipos(Request $request): bool
-    {
-        $categoriaSel = strtoupper(trim((string) $request->input('categoria', '')));
-        // NOTA: 'anio' NO entra aquí — es un EJE COMPARTIDO (los auxiliares también tienen ANIO),
-        // así que filtrar por año muestra equipos Y auxiliares de ese año (ver auxFiltroCompartidoActivo
-        // y auxSharedRequest). marca/modelo/color/gps/categoría/tipo siguen siendo solo-equipos.
-        $equipoDeviceFilter =
-               ($request->filled('id_tipo') && $request->input('id_tipo') !== 'all')
-            || $request->filled('modelo')
-            || $request->filled('marca')
-            || $request->filled('color')
-            || $request->filled('gps')
-            || $request->filled('combustible')
-            || $request->filled('detalle')
-            || $request->filled('titular')
-            || $request->filled('aseguradora')
-            || ($categoriaSel !== '' && $categoriaSel !== 'AUXILIARES');
-        // Documentos solo-equipos activos = los doc filters activos (detector canónico
-        // activeDocFilters, criterio === 'true') MENOS los DOCS COMPARTIDOS (propiedad y
-        // certificado, que los auxiliares también tienen). Reutiliza la fuente única para no
-        // divergir del filtrado real.
-        $equipoOnlyDocFilter = !empty(array_diff(
-            array_keys($this->activeDocFilters($request)),
-            self::SHARED_DOC_FILTERS
-        ));
-        return $equipoDeviceFilter || $equipoOnlyDocFilter;
-    }
-
-    /**
-     * Doc filters COMPARTIDOS equipo↔auxiliar: el auxiliar tiene la misma clase de documento,
-     * así que tildarlos NO enfoca solo-equipos y se reenvían al módulo aux (con_propiedad /
-     * con_certificado). El resto de docs (póliza/ROTC/RACDA/compraventa) son solo-equipos.
-     *   filter_propiedad → LINK_DOC_PROPIEDAD (equipo) / LINK_DOC_PROPIEDAD (aux)
-     *   filter_adicional ("Certificado") → LINK_DOC_ADICIONAL (equipo) / LINK_CERTIFICADO (aux)
-     */
-    private const SHARED_DOC_FILTERS = ['filter_propiedad', 'filter_adicional'];
-
     /** Clave de caché de las sugerencias del filtro «Detalle» (index la llena, bulkUbicacion la borra). */
     private const CACHE_DETALLES = 'equipos_detalles_dropdown';
 
     /**
-     * ¿Hay algún EJE COMPARTIDO activo (frente, búsqueda o doc compartido) que los auxiliares
-     * también puedan satisfacer? Gobierna por igual el merge de filas aux y la card en index(),
-     * y la hoja aux de export(), para que la tabla, la card y el Excel coincidan EXACTAMENTE.
+     * La página de /admin/equipos con sus desplegables. La tabla, las cifras y la Distribución
+     * NO salen de aquí: las calcula el navegador desde la copia local (equipos_local.js,
+     * alimentada por /sync/equipos), con o sin internet.
      */
-    private function auxFiltroCompartidoActivo(Request $request): bool
+    public function index()
     {
-        if ($request->filled('id_frente')) return true;
-        if (trim((string) $request->input('search_query', '')) !== '') return true;
-        if ($request->filled('anio')) return true; // los auxiliares también tienen ANIO
-        foreach (self::SHARED_DOC_FILTERS as $param) {
-            if ($request->input($param) === 'true') return true;
-        }
-        return false;
-    }
-
-    /**
-     * Request con los ejes COMPARTIDOS (aplican a equipos Y auxiliares) mapeados a los
-     * nombres del módulo aux. Lo consumen el merge de la tabla, el consolidado y la hoja de
-     * exportación, así los tres filtran idéntico. Los atributos de vehículo no se reenvían.
-     */
-    private function auxSharedRequest(Request $request): Request
-    {
-        return new Request([
-            'id_frente'         => $request->input('id_frente'),
-            'estado'            => $request->input('estado'),
-            'search'            => $request->input('search_query'),
-            'detalle_ubicacion' => $request->input('detalle_ubicacion'),
-            'confirmado'        => $request->input('confirmado'),
-            'anio'              => $request->input('anio'), // eje compartido: aux también tienen ANIO
-            // Doc filters COMPARTIDOS: criterio === 'true' (igual que activeDocFilters y el blade).
-            // "Certificado" del panel (filter_adicional) → con_certificado del aux (LINK_CERTIFICADO).
-            'con_propiedad'     => $request->input('filter_propiedad') === 'true' ? '1' : null,
-            'con_certificado'   => $request->input('filter_adicional') === 'true' ? '1' : null,
-            // Dirección de presencia del doc (Con/Sin/Todos) para que el merge y el conteo del
-            // card aux filtren igual que la lista de equipos al clicar los bloques del Consolidado.
-            'doc_presence'      => $request->input('doc_presence'),
-        ]);
-    }
-
-    /**
-     * Request del modo AUXILIAR (se eligió un tipo aux en el dropdown) mapeado al módulo aux.
-     * Lo consumen la tabla aux embebida (index) y la hoja de exportación.
-     */
-    private function auxModeRequest(Request $request): Request
-    {
-        return new Request([
-            'tipo'              => substr((string) $request->input('id_tipo', ''), 9),
-            'id_frente'         => $request->input('id_frente'),
-            'search'            => $request->input('search_query'),
-            'detalle_ubicacion' => $request->input('detalle_ubicacion'),
-            'confirmado'        => $request->input('confirmado'),
-            'marca'             => $request->input('marca'),
-            'modelo'            => $request->input('modelo'),
-            'estado'            => $request->input('estado'),
-            'anio'              => $request->input('anio'),
-            // Doc filters COMPARTIDOS: criterio === 'true' (igual que activeDocFilters y el blade).
-            // "Certificado" del panel (filter_adicional) → con_certificado del aux (LINK_CERTIFICADO).
-            'con_propiedad'     => $request->input('filter_propiedad') === 'true' ? '1' : null,
-            'con_certificado'   => $request->input('filter_adicional') === 'true' ? '1' : null,
-            'offset'            => $request->input('offset', 0),
-        ]);
-    }
-
-    /**
-     * Aplica la búsqueda de texto (serial chasis/motor, código de patio, etiqueta y placa)
-     * a $query. FUENTE ÚNICA: la usan TANTO la tabla como los stats/Distribución para que el
-     * resumen lateral coincida con lo que se ve. Antes la búsqueda solo afectaba a la tabla y
-     * el Consolidado/Distribución seguían mostrando la flota completa (tabla=1, lado=1091).
-     * Usa whereHas para la PLACA (no leftJoin) → seguro para COUNT/GROUP BY (no duplica filas).
-     * La ambigüedad O↔0 se aplica SOLO a la placa.
-     */
-    private function applyBusquedaTexto($query, ?string $search): void
-    {
-        $searchUpper = strtoupper(trim((string) $search));
-        if ($searchUpper === '') return;
-
-        // Etiqueta: #NÚMERO → NUMERO_ETIQUETA
-        if (strpos($searchUpper, '#') !== false) {
-            $tag = str_replace('#', '', $searchUpper);
-            $query->where('equipos.NUMERO_ETIQUETA', 'like', "%{$tag}%");
-            return;
-        }
-
-        $placaVariants = collect([
-            $searchUpper,
-            str_replace('O', '0', $searchUpper),
-            str_replace('0', 'O', $searchUpper),
-            str_replace(['O', '0'], ['0', 'O'], $searchUpper),
-        ])->unique()->values()->all();
-
-        $query->where(function ($q) use ($searchUpper, $placaVariants) {
-            $q->where('equipos.SERIAL_CHASIS', 'like', "%{$searchUpper}%")
-              ->orWhere('equipos.SERIAL_DE_MOTOR', 'like', "%{$searchUpper}%")
-              ->orWhere('equipos.CODIGO_PATIO', 'like', "%{$searchUpper}%")
-              ->orWhere('equipos.NUMERO_ETIQUETA', 'like', "%{$searchUpper}%")
-              ->orWhereHas('documentacion', function ($d) use ($placaVariants) {
-                  $d->where(function ($pq) use ($placaVariants) {
-                      foreach ($placaVariants as $v) {
-                          $pq->orWhere('PLACA', 'like', "%{$v}%");
-                      }
-                  });
-              });
-        });
-    }
-
-    public function index(Request $request)
-    {
-        $search = $request->input('search_query');
-        $equipos = Equipo::query();
-
         $user = auth()->user();
-
-        // Dropdown combinado de Tipo (VEHICULOS / AUXILIARES), patron /admin/movilizaciones.
-        // Si el tipo elegido es de auxiliar ('tipo_aux:X'), la TABLA, el Consolidado y la
-        // Distribucion pasan a reflejar AUXILIARES, todo desde un solo payload
-        // (EquipoAuxiliarController::buildEmbedPayload): mas abajo $stats y la distribucion
-        // se reemplazan por los del payload aux. Por eso el trabajo propio de EQUIPOS
-        // (paginacion de la tabla, jsonPayload del modal, frentesStats) se omite en modo aux.
-        // $auxModeByTipo: activado SOLO por el dropdown de tipo (tipo_aux:X).
-        // Controla el panel de filtros (eq-aux-mode en body vía JS/blade).
-        // $auxMode: incluye también categoria=AUXILIARES. Controla qué tabla se muestra.
-        $auxModeByTipo = str_starts_with((string) $request->input('id_tipo', ''), 'tipo_aux:');
-        $auxMode = $this->esModoAux($request);
-
-        // Filtros principales (todos los ejes activos)
-        $this->applyEquipoFilters($equipos, $request);
-
-        // En modo "solo seleccionados" (ids_in) la whitelist es la única condición:
-        // applyEquipoFilters ya hizo short-circuit, así que ignoramos la búsqueda.
-        // trim()!=='' (no truthy): un serial/código exacto '0' es falsy en PHP y se perdería.
-        // Búsqueda de texto (serial/motor/código/etiqueta/placa) — FUENTE ÚNICA reusada por
-        // la tabla Y los stats/Distribución (applyBusquedaTexto), para que el resumen lateral
-        // coincida con la tabla. En modo "ver solo seleccionados" (ids_in) la búsqueda se omite.
-        if (!$request->filled('ids_in')) {
-            $this->applyBusquedaTexto($equipos, $search);
-        }
-
-        // Filtros de documentacion (propiedad, póliza, ROTC, RACDA, certificado, compraventa) ya
-        // estan unificados dentro de applyEquipoFilters() — se aplican via
-        // whereHas a $equipos Y a todos los stats queries automaticamente.
-
-        $equipos->select('equipos.*')
-            ->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id')
-            ->with([
-                'documentacion.seguro',
-                // Foto de la fila (Equipo::fotoParaMostrar): ficha del modelo + sus colores.
-                ...Equipo::conFoto(),
-                'tipo',
-                'frenteActual',
-                // Reporte abierto: permite abrir el modal de cierre al instante al
-                // pasar un INOPERATIVO a OPERATIVO (sin round-trip al 409), y su
-                // descripción sale sobre el estado (aviso al pasar el mouse y el menú).
-                'fallaAbierta:ID_FALLA,ACTIVO_ID,ACTIVO_TIPO,ESTADO_REPORTE,CODIGO_REPORTE,TIPO_REPORTE,FECHA_EMISION,DESCRIPCION_AVERIA,NOMBRE_REPORTA',
-                'ancladoA.tipo',
-                'ancladoA.documentacion',
-                'ancladoA.frenteActual',
-                // Foto del equipo anclado (seccion "Equipo Anclado" del modal de detalles).
-                ...Equipo::conFoto('ancladoA.'),
-            ])
-            ->withCount('equiposAuxiliares')
-            ->orderBy('tipo_equipos.nombre', 'asc')
-            ->orderBy('equipos.CODIGO_PATIO', 'asc')
-            // Desempate por ID: sin el, el orden NO es total -1.113 de 1.211 equipos no
-            // tienen CODIGO_PATIO, asi que casi todos empatan- y con LIMIT/OFFSET MySQL
-            // puede devolver el mismo equipo en dos lotes del scroll y saltarse otro.
-            ->orderBy('equipos.ID_EQUIPO', 'asc');
-
-        // Check if any filter is applied (with non-empty values)
-        $hasFilter = $this->hayFiltroAplicado($request);
-
-        // Paginación server-side con cap por página.
-        // La tabla carga 150 filas por request; al final el frontend pide el siguiente lote
-        // (offset += 150) con IntersectionObserver para scroll infinito.
-        $PAGE_SIZE = 150;
-        $offset    = max(0, (int) $request->input('offset', 0));
-        $totalFound = 0;
-        $truncated  = false;
-        $nextOffset = 0;
-        $hasMore    = false;
-        // En modo aux la tabla NO sale de la query de equipos (sale del payload aux),
-        // asi que no paginamos equipos aqui; las stats de abajo SI corren (sobre equipos).
-        if ($hasFilter && !$auxMode) {
-            $totalFound = (clone $equipos)->count();
-            $equipos->offset($offset)->limit($PAGE_SIZE);
-            $allResults = $equipos->get();
-            $equipos    = $allResults;
-            $nextOffset = $offset + $allResults->count();
-            $hasMore    = $nextOffset < $totalFound;
-            $truncated  = $totalFound > $PAGE_SIZE; // legacy flag para compatibilidad
-        } else {
-            // Sin filtros la tabla abre VACÍA, con el aviso "Seleccione un filtro para ver los
-            // equipos": al abrir el módulo no debe salir ningún equipo (pedido del cliente,
-            // 15-09-2026). En modo aux la tabla sale del payload aux.
-            $allResults = collect([]);
-            $equipos    = collect([]);
-        }
-        $stats = ['total' => 0, 'activos' => 0, 'inactivos' => 0, 'mantenimiento' => 0];
-        $tiposStats  = collect([]);
-        $frentesStats = [];
-        $ubicacionesStats = collect([]);
-        $frenteFueraDeFlota = null;
-
-        // Stats, tiposStats, frentesStats, ubicacionesStats usan queries independientes del
-        // cap de la tabla: siempre muestran los TOTALES completos según los filtros activos.
-        // En modo aux se omiten: el Consolidado y la Distribucion los aporta el payload aux
-        // (mas abajo $stats se reemplaza por $auxEmbed['stats']), asi no se malgastan COUNTs.
-        if ($hasFilter && !$auxMode) {
-            // Stats: UN solo agregado SUM(CASE) con los mismos filtros, sin offset/limit
-            // (antes 5 COUNTs secuenciales; en enlaces lentos la latencia por round-trip
-            // domina). Mismo patrón que fleetStats y AlmacenController::statsInventario.
-            // Con "todos los frentes" y una búsqueda o filtro concreto, el listado trae también
-            // los de frentes EN VENTA (vendidos / en trámite): el Consolidado cuenta solo lo
-            // DISPONIBLE y la distribución los marca en rojo. Dentro de un frente concreto (aunque
-            // sea de venta, a propósito) las cifras son las de ese frente.
-            $restarVenta = !ctype_digit(trim((string) $request->input('id_frente', '')));
-            $ventaSql = fn (string $tipo) => $restarVenta ? FrenteTrabajo::sqlEnVenta('equipos.ID_FRENTE_ACTUAL', $tipo) : '1 = 0';
-
-            $statsBase = Equipo::query();
-            $this->applyEquipoFilters($statsBase, $request);
-            $this->applyBusquedaTexto($statsBase, $search); // Consolidado refleja la búsqueda
-            if ($restarVenta) {
-                $statsBase->excludeEnVenta();
-            }
-            $agg = $statsBase->selectRaw("
-                COUNT(*) as total_all,
-                SUM(CASE WHEN ESTADO_OPERATIVO != 'DESINCORPORADO' THEN 1 ELSE 0 END) as total_activa,
-                SUM(CASE WHEN ESTADO_OPERATIVO = 'OPERATIVO' THEN 1 ELSE 0 END) as activos,
-                SUM(CASE WHEN ESTADO_OPERATIVO = 'INOPERATIVO' THEN 1 ELSE 0 END) as inactivos,
-                SUM(CASE WHEN ESTADO_OPERATIVO = 'EN MANTENIMIENTO' THEN 1 ELSE 0 END) as mantenimiento,
-                SUM(CASE WHEN ESTADO_OPERATIVO = 'DESINCORPORADO' THEN 1 ELSE 0 END) as desincorporados
-            ")->first();
-            // El "total" excluye DESINCORPORADO por defecto, PERO si el usuario filtra
-            // explícitamente por estado=DESINCORPORADO el total refleja esos equipos.
-            $filtroEstado = strtoupper(trim((string) $request->input('estado', '')));
-            $stats['total']           = (int) ($filtroEstado === 'DESINCORPORADO' ? $agg->total_all : $agg->total_activa);
-            $stats['activos']         = (int) $agg->activos;
-            $stats['inactivos']       = (int) $agg->inactivos;
-            $stats['mantenimiento']   = (int) $agg->mantenimiento;
-            $stats['desincorporados'] = (int) $agg->desincorporados;
-
-            // Desglose "Con / Sin documento" para el Consolidado.
-            // La LISTA sigue filtrada por documento (no se toca). Aquí solo
-            // calculamos, sobre el universo del frente/estado IGNORANDO el filtro
-            // de documento (docFreeBase), cuántos equipos tienen el/los doc(s)
-            // (= lo que muestra la lista) y cuántos no. doc_con + doc_sin = doc_total.
-            $docFilters = $this->activeDocFilters($request);
-            if (!empty($docFilters)) {
-                $docFreeBase = Equipo::query();
-                $this->applyEquipoFilters($docFreeBase, $request, array_keys(self::DOC_FILTER_COLS));
-                $this->applyBusquedaTexto($docFreeBase, $search); // "con/sin doc" refleja la búsqueda
-                if ($restarVenta) {
-                    $docFreeBase->excludeEnVenta();
-                }
-                if ($filtroEstado !== 'DESINCORPORADO') {
-                    $docFreeBase->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO');
-                }
-                $conDoc = (clone $docFreeBase);
-                $this->applyDocPresence($conDoc, $docFilters);
-
-                $stats['doc_mode']  = true;
-                $stats['doc_label'] = $this->docFilterLabel($docFilters);
-                $stats['doc_total'] = (clone $docFreeBase)->count();
-                $stats['doc_con']   = $conDoc->count();
-                $stats['doc_sin']   = max(0, $stats['doc_total'] - $stats['doc_con']);
-            }
-
-            // Ubicaciones (DETALLE_UBICACION_ACTUAL) — solo si el frente filtrado es ESPECIAL;
-            // se listan TODAS las ubicaciones del frente (excluyendo el filtro detalle_ubicacion)
-            if ($request->filled('id_frente') && $request->id_frente !== 'all') {
-                $frenteFueraDeFlota = FrenteTrabajo::where('ID_FRENTE', $request->id_frente)
-                    ->whereIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
-                    ->first();
-                if ($frenteFueraDeFlota) {
-                    $ubicQuery = Equipo::query();
-                    $this->applyEquipoFilters($ubicQuery, $request, ['detalle_ubicacion']);
-                    $this->applyBusquedaTexto($ubicQuery, $search); // ubicaciones reflejan la búsqueda
-                    $rawUbicaciones = $ubicQuery
-                        ->select(
-                            DB::raw("COALESCE(NULLIF(TRIM(DETALLE_UBICACION_ACTUAL), ''), '__SIN_ASIGNAR__') as ubi_key"),
-                            DB::raw('COUNT(*) as total')
-                        )
-                        ->groupBy('ubi_key')
-                        ->orderBy('total', 'desc')
-                        ->get();
-                    $ubicacionesStats = $rawUbicaciones->map(fn($r) => (object) [
-                        'detalle' => $r->ubi_key === '__SIN_ASIGNAR__' ? 'Sin Especificación' : $r->ubi_key,
-                        'total'   => $r->total,
-                    ]);
-                }
-            }
-        }
-        // else: $stats queda en ceros => la vista muestra '--' (comportamiento original)
-
-        // ── Distribución (card lateral / Dashboard en teléfono) ─────────────────────────
-        // Solo con FILTRO activo, igual que $stats. Estuvo un tiempo calculandose siempre,
-        // para que la card sirviera de punto de partida (tocar un tipo aplica su filtro), y
-        // el comentario de entonces daba por hecho que "el coste es bajo". Medido, no lo es:
-        // el GROUP BY por tipo tarda ~259 ms y su HTML pesa ~60 KB con 49 tipos. Eso se
-        // pagaba en CADA apertura de /admin/equipos, y encima con la tabla vacia porque sin
-        // filtro no se vuelca ninguna fila: se calculaba y se enviaba un bloque que el
-        // usuario no habia pedido, antes de que pidiera nada.
-        // Decision del cliente: al abrir, la card no muestra nada; aparece al filtrar.
-        // Sigue omitiendose en modo aux: alli la Distribucion la aporta el payload auxiliar.
-        if ($hasFilter && !$auxMode) {
-            // Tipos Stats — siempre muestra todos los tipos (sin filtro por id_tipo) para no autolimitarse.
-            // Los frentes ESPECIAL se ocultan o no igual que en la tabla (tieneFiltroEspecifico
-            // mira el request, no `$exclude`): la suma de la card es el TOTAL de la tabla.
-            $tiposQuery = Equipo::query()->leftJoin('tipo_equipos', 'equipos.id_tipo_equipo', '=', 'tipo_equipos.id');
-            $this->applyEquipoFilters($tiposQuery, $request, ['id_tipo']);
-            $this->applyBusquedaTexto($tiposQuery, $search); // Distribución por tipo refleja la búsqueda
-            // Por tipo: 'total' = lo DISPONIBLE (sin los de frentes en venta) y aparte, para
-            // pintarlos en rojo, cuántos están vendidos y cuántos en trámite.
-            $tiposStats = $tiposQuery
-                ->select('equipos.id_tipo_equipo', 'tipo_equipos.nombre',
-                    DB::raw('SUM(CASE WHEN ' . $ventaSql(FrenteTrabajo::TIPO_VENDIDO) . ' THEN 1 ELSE 0 END) as vendidos'),
-                    DB::raw('SUM(CASE WHEN ' . $ventaSql(FrenteTrabajo::TIPO_TRAMITE_VENTA) . ' THEN 1 ELSE 0 END) as en_tramite'),
-                    DB::raw('COUNT(*) as total'))
-                ->groupBy('equipos.id_tipo_equipo', 'tipo_equipos.nombre')
-                ->orderBy('tipo_equipos.nombre', 'asc')
-                ->get()
-                ->each(function ($t) { $t->total -= (int) $t->vendidos + (int) $t->en_tramite; });
-
-            // Frentes Stats — solo cuando la card va por frente (distribucionPorFrente); listamos TODOS los frentes que coinciden (sin filtro id_frente)
-            if ($this->distribucionPorFrente($request)) {
-                $frentesQuery = Equipo::query()->leftJoin('frentes_trabajo', 'equipos.ID_FRENTE_ACTUAL', '=', 'frentes_trabajo.ID_FRENTE');
-                $this->applyEquipoFilters($frentesQuery, $request, ['id_frente']);
-                $this->applyBusquedaTexto($frentesQuery, $search); // frentes stats reflejan la búsqueda
-                // Con su tipo, para marcar en rojo los frentes en venta; esos van al final.
-                $frentesStats = $frentesQuery
-                    ->whereNotNull('equipos.ID_FRENTE_ACTUAL')
-                    ->select('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE', 'frentes_trabajo.TIPO_FRENTE', DB::raw('COUNT(*) as total'))
-                    ->groupBy('equipos.ID_FRENTE_ACTUAL', 'frentes_trabajo.NOMBRE_FRENTE', 'frentes_trabajo.TIPO_FRENTE')
-                    ->orderBy('frentes_trabajo.NOMBRE_FRENTE', 'asc')
-                    ->get();
-                $frentesStats = FrenteTrabajo::enVentaAlFinal($frentesStats);
-            }
-        }
-
-        // Build JSON payload (needed for AJAX response AND initial page load script tag)
-        // En modo aux la tabla es de auxiliares: el payload de modal de equipos no aplica.
-        $jsonPayload = [];
-        if (!$auxMode) {
-            // El mapeo del payload vive en UN solo lugar: Equipo::toDetailsPayload()
-            // (reusado por el panel de Alertas en /menu para que el modal sea idéntico).
-            foreach ($equipos as $eq) {
-                $jsonPayload[$eq->ID_EQUIPO] = $eq->toDetailsPayload();
-            }
-        }
-
-        // Modo aux: la TABLA y su modal de detalles vienen del modulo de auxiliares,
-        // filtrados con los params mapeados al módulo aux
-        // (tipo, id_frente, search, detalle_ubicacion, confirmado, marca, modelo, estado, anio, con_propiedad, con_certificado, offset).
-        $auxEmbed = null;
-        if ($auxMode) {
-            $auxReq = $this->auxModeRequest($request);
-            $auxEmbed = app(\App\Http\Controllers\EquipoAuxiliarController::class)->buildEmbedPayload($auxReq);
-            // El Consolidado en modo aux refleja AUXILIARES (no equipos): se reemplazan
-            // las stats que pintan la vista y el JS (mismas claves total/activos/inactivos).
-            $stats = $auxEmbed['stats'];
-            // El aviso de frente VENDIDO / EN TRÁMITE DE VENTA también cuando solo se ven
-            // auxiliares (arriba solo se calcula fuera del modo aux).
-            $idFrenteAux = trim((string) $request->input('id_frente', ''));
-            if (ctype_digit($idFrenteAux)) {
-                $frenteFueraDeFlota = FrenteTrabajo::where('ID_FRENTE', $idFrenteAux)
-                    ->whereIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
-                    ->first();
-            }
-        }
-
-        // ¿El filtro apunta SOLO a equipos? (atributo de vehículo o documento solo-equipos).
-        // Gobierna por igual el merge de filas y la visibilidad de la card (ver esFocoSoloEquipos).
-        $focusEquiposOnly = $this->esFocoSoloEquipos($request);
-
-        // Request con los ejes COMPARTIDOS mapeados al módulo aux: lo consumen TANTO las filas
-        // aux anexadas a la tabla (merge) COMO el consolidado, así filtran EXACTAMENTE igual que
-        // la tabla de equipos (buscar un serial/placa, subzona, estatus, confirmación o "con
-        // propiedad" filtra los aux como si fueran la misma tabla). Ver auxSharedRequest.
-        $auxSharedReq = $this->auxSharedRequest($request);
-
-        // ── MERGE de auxiliares en la tabla de equipos ──────────────────────────
-        // Cuando hay un EJE COMPARTIDO activo (frente, búsqueda de serial/placa/código, o un doc
-        // compartido propiedad/certificado) — sin enfoque solo-equipos y fuera del modo aux-only —
-        // la tabla lista los equipos y, al final del ÚLTIMO lote del scroll infinito, anexa las
-        // filas de AUXILIARES que coinciden con los MISMOS filtros (filas funcionales: reutilizan
-        // el partial y la maquinaria aux ya cargada). Así un serial buscado o un auxiliar con
-        // certificado/propiedad sale DIRECTO en la tabla, no en un banner aparte. Reutiliza
-        // buildEmbedPayload (sin duplicar el filtrado/cap) y SOLO se agrega cuando !$hasMore para
-        // que los auxiliares aparezcan UNA sola vez, al final. auxFiltroCompartidoActivo es la
-        // MISMA condición que usa la hoja aux de export() → tabla, card y Excel coinciden.
-        $mergeAux = $hasFilter && !$auxMode
-            && !$focusEquiposOnly
-            && $this->auxFiltroCompartidoActivo($request);
-        $mergeAuxHtml = '';
-        $mergeAuxData = [];
-        if ($mergeAux && !$hasMore) {
-            $auxMergePayload = app(\App\Http\Controllers\EquipoAuxiliarController::class)->buildEmbedPayload($auxSharedReq);
-            if (($auxMergePayload['totalFound'] ?? 0) > 0) {
-                // Sin separador: los auxiliares se anexan directamente a la tabla de
-                // equipos (el cliente no quiere la fila divisoria "Equipos Auxiliares (n)").
-                $mergeAuxHtml = $auxMergePayload['html'];
-                $mergeAuxData = $auxMergePayload['auxDetailsMap'];
-            }
-        }
-        // Mapa de detalles aux para el render INICIAL (lo consume el partial _machinery):
-        // en modo aux-only sale del payload aux; en merge, de los auxiliares anexados.
-        $auxInitDetailsMap = $auxMode ? ($auxEmbed['auxDetailsMap'] ?? []) : $mergeAuxData;
-
-        // Consolidado de AUXILIARES (TOTAL/Operativos/Inoperativos) del frente filtrado,
-        // para el panel que va DEBAJO del consolidado de equipos. Se calcula SIEMPRE y
-        // ANTES del return JSON (el filtrado AJAX retorna aquí). Visibilidad de la card:
-        //  - sin filtro o filtro por FRENTE         → las DOS cards (equipos + auxiliares)
-        //  - enfoque solo-equipos ($focusEquiposOnly) → solo equipos (se oculta esta card):
-        //    atributo de vehículo (tipo, modelo, marca, color, GPS, combustible, detalle, categoría flota) o
-        //    documento solo-equipos (póliza, ROTC, RACDA, compraventa) — ver esFocoSoloEquipos
-        //  - modo aux (tipo/categoría auxiliar)     → la card principal de arriba ya es de
-        //    auxiliares, así que esta se oculta para no duplicar el conteo.
-        // Mismo $auxSharedReq que el merge → el conteo de la card coincide EXACTAMENTE con
-        // los auxiliares mostrados en la tabla.
-        $auxConsolidado = app(\App\Http\Controllers\EquipoAuxiliarController::class)->consolidadoStats($auxSharedReq);
-        // $focusEquiposOnly ya se calculó arriba (gobierna también el merge de la tabla).
-        $showAuxConsolidado = !$auxMode && !$focusEquiposOnly;
-
-        // Distribución de AUXILIARES para la sección "Auxiliares" de la card de Distribución
-        // (lista unificada). Requiere $hasFilter, IGUAL que la distribución de equipos (que oculta
-        // sus filas sin filtro): así al abrir el módulo SIN filtrar la card no muestra datos de
-        // auxiliares (antes se veían todos al no tener este gate). Con filtro sí se calcula. Vacío
-        // en cualquier otro caso → el front no agrega la sección. Mismos ejes compartidos
-        // ($auxSharedReq) que la tabla y el consolidado.
-        $auxDistributionHtml = ($showAuxConsolidado && $hasFilter)
-            ? app(\App\Http\Controllers\EquipoAuxiliarController::class)->distribucionHtml($auxSharedReq)
-            : '';
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'mode'         => $auxMode ? 'aux' : 'equipos',
-                // En merge, anexamos las filas de auxiliares al HTML de equipos. Si el frente
-                // no tiene equipos pero sí auxiliares, omitimos el empty-state de equipos para
-                // no mostrar "no hay equipos" encima de la sección de auxiliares.
-                'html'         => $auxMode
-                    ? $auxEmbed['html']
-                    : (($equipos->isEmpty() && $mergeAuxHtml !== '')
-                        ? $mergeAuxHtml
-                        : view('admin.equipos.partials.table_rows', compact('equipos'))->render() . $mergeAuxHtml),
-                'equiposData'  => $jsonPayload,
-                // Mapa de detalles de auxiliares (modal del ojo): en aux-only del payload aux;
-                // en merge, de los auxiliares anexados (vacío si no hay merge en este lote).
-                'auxData'      => $auxMode ? $auxEmbed['auxDetailsMap'] : $mergeAuxData,
-                'pagination'   => '',
-                'stats'        => $stats,
-                'auxConsolidado'     => $auxConsolidado,
-                'showAuxConsolidado' => $showAuxConsolidado,
-                'truncated'         => $truncated,
-                'totalFound'        => $auxMode ? $auxEmbed['totalFound'] : $totalFound,
-                'shownCount'        => $auxMode ? $auxEmbed['shownCount'] : $allResults->count(),
-                'hardCap'           => $PAGE_SIZE,
-                'pageSize'          => $PAGE_SIZE,
-                'offset'            => $offset,
-                'nextOffset'        => $auxMode ? $auxEmbed['nextOffset'] : $nextOffset,
-                'hasMore'           => $auxMode ? $auxEmbed['hasMore'] : $hasMore,
-                'distribution'      => $auxMode
-                    ? $auxEmbed['distribucionHtml']
-                    : view('admin.equipos.partials.distribution_stats', [
-                        'frentesStats' => $frentesStats,
-                        'tiposStats'   => $tiposStats,
-                        'hasFilter'    => $hasFilter,
-                        'showFrentes'  => $this->distribucionPorFrente($request),
-                    ])->render(),
-                'ubicaciones'       => view('admin.equipos.partials.ubicaciones_stats', compact('ubicacionesStats'))->render(),
-                'showUbicaciones'   => !$auxMode && $frenteFueraDeFlota !== null,
-                // Frente VENDIDO o en TRÁMITE DE VENTA: textos del aviso de arriba de la tabla
-                // (FrenteTrabajo::avisoVenta) + nombre. null = aviso escondido.
-                'frenteVenta'       => ($venta = $frenteFueraDeFlota?->avisoVenta())
-                    ? $venta + ['nombre' => $frenteFueraDeFlota->NOMBRE_FRENTE]
-                    : null,
-                // HTML de la distribución de auxiliares para el toggle de la card (vacío si la card
-                // aux no aplica → el front desactiva el toggle).
-                'auxDistribution'   => $auxDistributionHtml,
-            ])->withHeaders([
-                // Evita que el browser sirva respuestas JSON cacheadas con stats obsoletas
-                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-                'Pragma'        => 'no-cache',
-                'Expires'       => '0',
-            ]);
-        }
 
         // El dropdown de frentes oculta los que el usuario no puede ver (lista blanca
         // LOCAL + lista negra de bloqueados): un frente bloqueado no aparece como filtro.
@@ -1017,10 +190,6 @@ class EquipoController extends Controller
                 ->orderBy('DETALLE_UBICACION_ACTUAL', 'asc')->pluck('DETALLE_UBICACION_ACTUAL');
         });
 
-        // Listas de las ventanas «Titular» y «Aseguradora», ya acotadas por los filtros de la URL.
-        $availableTitulares = $this->opcionesDocumento('titular', $request);
-        $availableAseguradoras = $this->opcionesDocumento('aseguradora', $request);
-
         $auxMarcas = \Illuminate\Support\Facades\Cache::remember('aux_marcas_dropdown', 1200, function () {
             return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('MARCA')->where('MARCA', '!=', '')->orderBy('MARCA', 'asc')->pluck('MARCA');
         });
@@ -1031,22 +200,25 @@ class EquipoController extends Controller
             return \App\Models\EquipoAuxiliar::distinct()->whereNotNull('ANIO')->orderBy('ANIO', 'desc')->pluck('ANIO');
         });
 
-        $showFrentes = !$auxMode && $this->distribucionPorFrente($request);
-
-        // $auxConsolidado y $showAuxConsolidado ya se calcularon arriba (antes del
-        // return JSON), así están disponibles tanto para el AJAX como para esta vista.
-
-        return view('admin.equipos.index', compact('equipos', 'stats', 'frentes', 'allTipos', 'tiposPorFrente', 'marcasPorTipo', 'modelosPorTipo', 'tiposStats', 'frentesStats', 'ubicacionesStats', 'frenteFueraDeFlota', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableDetalles', 'availableTitulares', 'availableAseguradoras', 'auxMarcas', 'auxModelos', 'auxAnios', 'jsonPayload', 'showFrentes', 'auxMode', 'auxModeByTipo', 'auxEmbed', 'tiposAux', 'auxConsolidado', 'showAuxConsolidado', 'auxDistributionHtml', 'mergeAuxHtml', 'auxInitDetailsMap', 'hasFilter'));
+        return view('admin.equipos.index', compact('frentes', 'allTipos', 'tiposPorFrente', 'marcasPorTipo', 'modelosPorTipo', 'availableModelos', 'availableMarcas', 'availableAnios', 'availableColores', 'availableDetalles', 'auxMarcas', 'auxModelos', 'auxAnios', 'tiposAux'));
     }
 
+    /**
+     * Excel de lo que lista /admin/equipos. La pantalla filtra en el navegador (equipos_local.js)
+     * y manda aquí los ids, en el orden de la tabla: ids[] (equipos) y aux_ids[] (auxiliares).
+     * Se vuelven a recortar al alcance del usuario por si alguien manda ids ajenos. id_frente
+     * solo da el título; modo_aux = la tabla era de auxiliares (el libro lleva solo esa hoja).
+     */
     public function export(Request $request)
     {
-        // CRITICAL: Prevent exporting entire database without filters.
-        $hasFilter = $this->hayFiltroAplicado($request);
-
-        if (!$hasFilter) {
-            return redirect()->back()->with('error', 'Debe aplicar al menos un filtro antes de exportar los datos.');
-        }
+        $request->validate([
+            'ids'       => 'array',
+            'ids.*'     => 'integer',
+            'aux_ids'   => 'array',
+            'aux_ids.*' => 'integer',
+        ]);
+        $ids    = array_map('intval', $request->input('ids', []));
+        $auxIds = array_map('intval', $request->input('aux_ids', []));
 
         $fileName = 'Listado_Maquinarias_Equipos_' . date('Y-m-d_H-i') . '.xlsx';
 
@@ -1056,30 +228,8 @@ class EquipoController extends Controller
             'MARCA', 'MODELO', 'ANIO', 'ESTADO_OPERATIVO', 'CATEGORIA_FLOTA',
             'SERIAL_CHASIS', 'SERIAL_DE_MOTOR',
             'CODIGO_PATIO', 'NUMERO_ETIQUETA', 'LINK_GPS',
-        ]);
-
-        // Mismos filtros que el listado (frente/tipo/atributos/gps/color/confirmado/
-        // documentación) reutilizando applyEquipoFilters() en vez de reimplementarlos.
-        // Antes estaban DUPLICADOS aquí, y este bloque además tenía un bug: el id_tipo
-        // no manejaba el prefijo 'tipo_eq:'/'tipo_aux:' del dropdown, y los doc filters
-        // ignoraban doc_presence (sin/all). Ahora el export coincide 1:1 con la tabla.
-        $this->applyEquipoFilters($equipos, $request);
-
-        // En modo AUXILIAR (tipo aux elegido o categoria=AUXILIARES) la pantalla muestra SOLO
-        // auxiliares, así que la hoja "Equipos" sale vacía (espejo de index(), que deja la
-        // lista de equipos vacía en modo aux). El export = lo que se ve en pantalla.
-        if ($this->esModoAux($request)) {
-            $equipos->whereRaw('1 = 0');
-        }
-
-        // Búsqueda de texto: la MISMA de la tabla (applyBusquedaTexto). Antes este método
-        // tenía su propia copia y se le había quedado atrás: sin la ambigüedad O↔0 de la
-        // placa, buscar "OOACOBL" mostraba el equipo en pantalla y lo dejaba fuera del Excel.
-        // Además usa whereHas en vez de leftJoin, así el SELECT angosto de arriba se respeta.
-        // Mismo guard que index(): con ids_in la whitelist es la única condición.
-        if (!$request->filled('ids_in')) {
-            $this->applyBusquedaTexto($equipos, $request->input('search_query'));
-        }
+        ])->whereIn('ID_EQUIPO', $ids);
+        $request->user()->aplicarScopeFrentesEquipos($equipos, 'ID_FRENTE_ACTUAL');
 
         // Eager load solo los campos necesarios para el export (evitar SELECT * en relaciones pesadas).
         $colsDoc = 'ID_EQUIPO,PLACA,NRO_DE_DOCUMENTO,LINK_DOC_PROPIEDAD,NOMBRE_DEL_TITULAR,FECHA_EMISION_PROPIEDAD,'
@@ -1096,7 +246,9 @@ class EquipoController extends Controller
             'ancladoA:ID_EQUIPO,ID_FRENTE_ACTUAL',
             'ancladoA.frenteActual:ID_FRENTE,NOMBRE_FRENTE',
         ]);
-        $equiposList = $equipos->get();
+        // En el orden en que llegaron, que es el de la tabla.
+        $orden = array_flip($ids);
+        $equiposList = $equipos->get()->sortBy(fn ($e) => $orden[$e->ID_EQUIPO])->values();
 
         // Determinar nombre del frente para el encabezado
         $nombreFrente = 'TODOS LOS FRENTES';
@@ -1407,25 +559,15 @@ class EquipoController extends Controller
         // Bordes a toda la tabla de datos
         $sheet->getStyle('A5:'.$lastCol.$rowNum)->applyFromArray($headerBorders);
 
-        // Hoja 2: Equipos Auxiliares — MISMA regla que la pantalla (index): se incluyen los
-        // auxiliares cuando estamos en modo aux, o cuando NO hay enfoque solo-equipos y hay un eje
-        // compartido activo (frente, búsqueda o doc compartido) — auxFiltroCompartidoActivo, el
-        // MISMO gate del merge. La hoja se agrega si hay auxiliares que exportar; y TAMBIÉN en modo
-        // aux aunque esté vacía, porque ahí la hoja aux es la PRINCIPAL (espejo de la pantalla, que
-        // muestra la tabla de auxiliares aunque salga vacía) y debe quedar al menos una hoja con la
-        // etiqueta correcta. Fuera de modo aux, una hoja aux sin filas NO se crea. El filtrado se
-        // delega a EquipoAuxiliarController::exportQuery (reutiliza applyAuxiliarFilters), sin duplicar.
-        $auxMode    = $this->esModoAux($request);
-        $incluirAux = $auxMode
-            || (!$this->esFocoSoloEquipos($request) && $this->auxFiltroCompartidoActivo($request));
-        if ($incluirAux) {
-            $auxReqExport = $auxMode ? $this->auxModeRequest($request) : $this->auxSharedRequest($request);
-            $auxQuery = app(\App\Http\Controllers\EquipoAuxiliarController::class)
-                ->exportQuery($auxReqExport)
-                ->with('frente:ID_FRENTE,NOMBRE_FRENTE');
-            if ($auxMode || (clone $auxQuery)->exists()) {
-                $this->appendAuxSheet($spreadsheet, $auxQuery, $nombreFrente);
-            }
+        // Hoja 2: Equipos Auxiliares, los que lista la tabla. En modo aux es la hoja PRINCIPAL y va
+        // aunque esté vacía (la pantalla muestra la tabla de auxiliares aunque salga vacía); fuera de
+        // él, sin auxiliares no se crea.
+        if ($request->boolean('modo_aux') || $auxIds) {
+            $auxQuery = EquipoAuxiliar::whereIn('ID_AUXILIAR', $auxIds)
+                ->with('frente:ID_FRENTE,NOMBRE_FRENTE')
+                ->orderByRaw('FIELD(ID_AUXILIAR, ' . implode(',', $auxIds ?: [0]) . ')');
+            $request->user()->aplicarScopeFrentesEquipos($auxQuery, 'ID_FRENTE_ACTUAL');
+            $this->appendAuxSheet($spreadsheet, $auxQuery, $nombreFrente);
         }
 
         // Si el listado de equipos quedó vacío (p.ej. modo auxiliar: la pantalla solo muestra
@@ -1487,50 +629,6 @@ class EquipoController extends Controller
             ->get();
 
         return response()->json($results);
-    }
-
-    /**
-     * Nombres que ofrecen las ventanas «Titular» (documentacion.NOMBRE_DEL_TITULAR) y
-     * «Aseguradora» (catalogo_seguros de la póliza): solo los de los equipos que deja la tabla con
-     * los DEMÁS filtros puestos (frente, tipo, marca, búsqueda, el otro de los dos…), para que lo
-     * elegido se combine con ellos y nunca dé 0. Su propio eje no cuenta: si no, la lista se
-     * quedaría con el nombre ya aplicado. Equipo::query() deja fuera los eliminados. Sin caché: un
-     * titular recién corregido aparece enseguida.
-     */
-    private function opcionesDocumento(string $campo, Request $request)
-    {
-        // Con su eje "puesto" (el valor no se usa: va en $exclude) para mirar el mismo universo que
-        // la tabla tendrá al elegir un nombre: un filtro concreto incluye los frentes fuera de la
-        // flota (tieneFiltroEspecifico), y sin esto faltarían los titulares de los vendidos.
-        $request = $request->duplicate();
-        $request->merge([$campo => '*']);
-        $equipos = Equipo::query();
-        $this->applyEquipoFilters($equipos, $request, [$campo]);
-        if (!$request->filled('ids_in')) {
-            $this->applyBusquedaTexto($equipos, $request->input('search_query'));
-        }
-        $ids = $equipos->select('equipos.ID_EQUIPO');
-
-        if ($campo === 'titular') {
-            return \App\Models\Documentacion::query()->distinct()
-                ->whereIn('ID_EQUIPO', $ids)
-                ->whereNotNull('NOMBRE_DEL_TITULAR')->where('NOMBRE_DEL_TITULAR', '!=', '')
-                ->orderBy('NOMBRE_DEL_TITULAR')->pluck('NOMBRE_DEL_TITULAR');
-        }
-        return \App\Models\CatalogoSeguro::query()
-            ->whereHas('documentaciones', fn ($q) => $q->whereIn('ID_EQUIPO', $ids))
-            ->orderBy('NOMBRE_ASEGURADORA')->pluck('NOMBRE_ASEGURADORA');
-    }
-
-    // GET equipos/opciones-documento?campo=titular|aseguradora&<filtros>: la lista de la ventana
-    // al abrirla con la lupa, con los filtros que haya en ese momento (eqVentanaAbrir).
-    public function opcionesDocumentoJson(Request $request)
-    {
-        $campo = $request->input('campo');
-        if (!in_array($campo, ['titular', 'aseguradora'], true)) {
-            return response()->json([], 422);
-        }
-        return response()->json($this->opcionesDocumento($campo, $request)->values());
     }
 
     public function searchField(Request $request)
@@ -2668,13 +1766,6 @@ class EquipoController extends Controller
 
                 $equipo->forceDelete();
             });
-
-            // Borrado DURO: al desaparecer las filas, MAX(updated_at) puede quedar IGUAL
-            // (o incluso bajar), así que la huella no distingue "se borró un equipo" de
-            // "no pasó nada" y el cliente offline conservaría el equipo fantasma. Las
-            // movilizaciones de arriba se borran por query builder, que ni siquiera emite
-            // eventos de modelo. El reseteo fuerza la recarga completa del dominio.
-            \App\Support\OfflineVersion::resetear('equipos');
         } catch (\Throwable $e) {
             Log::error("forceDeleteEquipo: fallo al borrar equipo {$id}: " . $e->getMessage());
             return response()->json([
@@ -5731,113 +4822,6 @@ class EquipoController extends Controller
         return response()->json(['success' => true, 'data' => $responsables]);
     }
 
-    /**
-     * Tope de movilizaciones que devuelve el modal "Movilizaciones" del detalle.
-     * No es un limite de negocio (el historial completo vive en /admin/movilizaciones):
-     * es para que un equipo con cientos de movimientos no dispare una respuesta enorme
-     * ni un modal imposible de recorrer. Se pide UNA fila de mas que este tope para
-     * saber si hubo recorte, sin pagar un COUNT(*) aparte.
-     */
-    private const MOVILIZACIONES_MODAL_MAX = 100;
-
-    /**
-     * Movilizaciones de UN equipo, para el modal del detalle en /admin/equipos.
-     *
-     * QUE FECHA SE USA. `created_at`, no `FECHA_DESPACHO`. Esta ultima solo se rellena
-     * cuando el movimiento genera acta: la fila nace como `$generarPdf ? 'DESPACHO' :
-     * 'ACT.'` (MovilizacionController y EquipoAuxiliarController) y las ACT. se guardan
-     * sin fecha — 786 de 1.265 filas, el 62%. Ordenar por ahi tenia dos efectos: se leia
-     * "Sin fecha" en la mayoria de las filas, y como MySQL manda los NULL AL FINAL en un
-     * DESC, la movilizacion MAS RECIENTE aparecia la ULTIMA, debajo de otras dos meses
-     * mas viejas. `created_at` no tiene ni un nulo y es la que ya usa el listado de
-     * /admin/movilizaciones (partials/table_rows.blade.php), asi que el modal y la
-     * pantalla grande cuentan lo mismo.
-     *
-     * Rendimiento (lo caro aqui es la tabla, no el PHP):
-     *  - Se apoya en el indice `idx_mov_hist_equipo_creado (ID_EQUIPO, created_at)`.
-     *    Sin un indice que empiece por ID_EQUIPO, MySQL escanea la tabla entera y encima
-     *    ordena a mano (type: ALL, rows: 1265, Using filesort).
-     *  - SELECT explicito: sin `select *` no se arrastran columnas que el modal no pinta
-     *    (client_uuid, ID_FRENTE_RECEPCION, FECHA_DESPACHO...).
-     *  - Los nombres de frente salen del SNAPSHOT congelado en la propia fila, asi que el
-     *    caso normal NO toca `frentes_trabajo`. Solo las filas viejas anteriores a esa
-     *    columna necesitan el nombre en vivo, y se resuelven con UN load() para toda la
-     *    coleccion — nunca una consulta por fila (N+1).
-     *
-     * Desempate por ID_MOVILIZACION DESC: created_at es un timestamp y un lote entero se
-     * guarda en el mismo segundo; sin desempate MySQL no garantiza un orden estable y la
-     * lista se barajaba entre una carga y otra.
-     */
-    public function getMovilizaciones($id)
-    {
-        $movs = \App\Models\Movilizacion::query()
-            ->where('ID_EQUIPO', $id)
-            ->select([
-                'ID_MOVILIZACION',
-                'CODIGO_CONTROL',
-                // No se pinta, pero lo necesita el accesor formatted_codigo_control para
-                // saber si una fila sin codigo es una recepcion directa ("R.D.") o un
-                // movimiento sin acta (sin rotulo). Sin esta columna ni las recepciones
-                // directas de verdad saldrian marcadas.
-                'TIPO_MOVIMIENTO',
-                'created_at',
-                'DETALLE_UBICACION',
-                'USUARIO_REGISTRO',
-                // Las dos FK hacen falta aunque casi nunca se usen: son las que permiten
-                // el load() de abajo cuando una fila vieja no trae snapshot.
-                'ID_FRENTE_ORIGEN',
-                'ID_FRENTE_DESTINO',
-                'NOMBRE_FRENTE_ORIGEN_SNAPSHOT',
-                'NOMBRE_FRENTE_DESTINO_SNAPSHOT',
-            ])
-            // El nombre de quien registro: la relacion enlaza por CORREO_ELECTRONICO
-            // (USUARIO_REGISTRO guarda el correo, no el id). Se carga en bloque para no
-            // disparar una consulta por fila.
-            ->with('usuario:ID_USUARIO,CORREO_ELECTRONICO,NOMBRE_COMPLETO')
-            ->orderByDesc('created_at')
-            ->orderByDesc('ID_MOVILIZACION')
-            ->limit(self::MOVILIZACIONES_MODAL_MAX + 1)
-            ->get();
-
-        $hayMas = $movs->count() > self::MOVILIZACIONES_MODAL_MAX;
-        $movs   = $movs->take(self::MOVILIZACIONES_MODAL_MAX);
-
-        // Filas anteriores a las columnas de snapshot: se les completa el nombre en vivo.
-        // Un load() por relacion y solo si hace falta => 0 consultas extra en el caso normal.
-        if ($movs->contains(fn ($m) => $m->NOMBRE_FRENTE_ORIGEN_SNAPSHOT === null)) {
-            $movs->load('frenteOrigen:ID_FRENTE,NOMBRE_FRENTE');
-        }
-        if ($movs->contains(fn ($m) => $m->NOMBRE_FRENTE_DESTINO_SNAPSHOT === null)) {
-            $movs->load('frenteDestino:ID_FRENTE,NOMBRE_FRENTE');
-        }
-
-        return response()->json([
-            'success' => true,
-            'hay_mas' => $hayMas,
-            'maximo'  => self::MOVILIZACIONES_MODAL_MAX,
-            // El payload se arma aqui y no en el front: los accesores del modelo
-            // (nombre_origen / formatted_codigo_control) son la fuente unica de esos
-            // valores y ya los usa el resto del modulo.
-            'data'    => $movs->map(fn ($m) => [
-                'id'      => $m->ID_MOVILIZACION,
-                // MV-000NN si hay acta, "R.D." si es una recepcion directa, null en lo
-                // demas. Ese reparto lo decide el accesor y aqui no se repite: durante un
-                // tiempo esta linea llevaba su propio `$m->CODIGO_CONTROL ? ... : null`
-                // para esquivar el "R.D." que el accesor devolvia a todo el que no tuviera
-                // codigo — ya corregido en el modelo, asi que el parche sobra.
-                'codigo'  => $m->formatted_codigo_control,
-                'fecha'   => optional($m->created_at)->format('d/m/Y'),
-                'origen'  => $m->nombre_origen,
-                'destino' => $m->nombre_destino,
-                'detalle' => $m->DETALLE_UBICACION,
-                // NOMBRE del que registro, no su correo: en el modal se lee de un
-                // vistazo y no obliga a traducir mentalmente una direccion. Si esa
-                // cuenta ya no existe queda el correo, que es lo unico que hay.
-                'usuario' => optional($m->usuario)->NOMBRE_COMPLETO ?: $m->USUARIO_REGISTRO,
-            ])->values(),
-        ]);
-    }
-
     public function storeResponsable(Request $request, $id)
     {
         // Registrar responsable = escritura de ficha, requiere user.edit.
@@ -6528,8 +5512,8 @@ class EquipoController extends Controller
 
     /**
      * Agrega una segunda hoja "Equipos Auxiliares" al spreadsheet de exportación. Recibe la
-     * query YA filtrada y con scope aplicado (la arma export() vía exportQuery, con la misma
-     * regla que la pantalla), por lo que aquí no se reimplementa el filtrado: solo se pinta.
+     * query YA recortada a los ids pedidos y al alcance del usuario (la arma export()): aquí
+     * solo se pinta.
      * $auxQuery debe traer la relación 'frente' eager-loaded.
      */
     private function appendAuxSheet(\PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet, $auxQuery, string $nombreFrente): void
