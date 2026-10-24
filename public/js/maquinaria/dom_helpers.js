@@ -431,4 +431,83 @@
             })
             .catch(function () {});
     };
+
+    /**
+     * Pide un archivo por POST y lo DESCARGA (fetch → blob → <a download>) con el preloader
+     * puesto mientras el servidor lo genera. El nombre sale del Content-Disposition; si no
+     * viene, `nombre`. Lo usan los Excel del almacén, que mandan los ids que resolvió la copia.
+     */
+    window.descargarArchivo = function (url, cuerpo, nombre, errMsg) {
+        if (window.showPreloader) window.showPreloader();
+        return window.apiFetch(url, { method: 'POST', body: cuerpo })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                var m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(r.headers.get('Content-Disposition') || '');
+                if (m) nombre = decodeURIComponent(m[1]);
+                return r.blob();
+            })
+            .then(function (blob) {
+                var burl = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = burl; a.download = nombre; a.style.display = 'none';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
+                window.toast('Excel descargado.', 'success');
+            })
+            .catch(function () { window.toast(errMsg, 'error'); })
+            .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
+    };
+
+    /**
+     * Paginador de las tablas que se pintan desde la copia local (Movilizaciones, la bitácora
+     * del almacén, sus Notas y el historial de un producto). El mismo dibujo que
+     * vendor/pagination/custom-sliding: ventana de tamaño FIJO, 11 números en PC y 5 en el
+     * teléfono (los demás llevan .pag-far, ocultos por CSS). Cada enlace lleva su página en
+     * data-page; '' si hay una sola.
+     */
+    window.paginadorHtml = function (actual, ultima) {
+        if (ultima <= 1) return '';
+        var caja = 'display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px;';
+        var apagado = function (html) {
+            return '<li><span style="' + caja + ' border:1px solid #e2e8f0; background:#f8fafc; color:#94a3b8; cursor:not-allowed;">' + html + '</span></li>';
+        };
+        var enlace = function (pag, html, color, clase) {
+            return '<li' + (clase ? ' class="' + clase + '"' : '') + '><a href="#" data-page="' + pag + '" class="page-link" style="' + caja
+                + ' border:1px solid #cbd5e1; background:#fff; color:' + color + '; text-decoration:none; transition:all 0.2s;"'
+                + ' onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fff\'">' + html + '</a></li>';
+        };
+        var ventana = function (lado) {
+            var inicio = Math.max(1, Math.min(actual - lado, ultima - lado * 2));
+            return [inicio, Math.min(ultima, inicio + lado * 2)];
+        };
+        var pc = ventana(5), movil = ventana(2);
+
+        var html = actual === 1 ? apagado('&laquo; <span class="pag-nav-text">Anterior</span>')
+            : enlace(actual - 1, '&laquo; <span class="pag-nav-text">Anterior</span>', '#475569');
+        for (var i = pc[0]; i <= pc[1]; i++) {
+            html += i === actual
+                ? '<li class="pag-num"><span style="' + caja + ' font-weight:700; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8;">' + i + '</span></li>'
+                : enlace(i, String(i), '#0f172a', 'pag-num' + (i < movil[0] || i > movil[1] ? ' pag-far' : ''));
+        }
+        html += actual === ultima ? apagado('<span class="pag-nav-text">Siguiente</span> &raquo;')
+            : enlace(actual + 1, '<span class="pag-nav-text">Siguiente</span> &raquo;', '#475569');
+
+        return '<nav role="navigation" aria-label="Pagination Navigation" style="display:flex; justify-content:center; align-items:center;">'
+            + '<ul class="pag-sliding" style="display:flex; flex-wrap:wrap; list-style:none; padding:0; margin:0; justify-content:center; gap:6px;">'
+            + html + '</ul></nav>';
+    };
+
+    /**
+     * Línea de estado de una pantalla que pinta desde la copia local (copia-local.js): solo dice
+     * algo cuando NO hay conexión, y entonces de cuándo son los datos que se están viendo.
+     */
+    window.pintarEstadoCopia = function (id, estado) {
+        var el = document.getElementById(id);
+        if (!el || !estado) return;
+        var cuando = estado.actualizado
+            ? new Date(estado.actualizado).toLocaleString('es-VE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : '';
+        el.textContent = estado.conectado ? '' : (cuando ? 'Sin conexión · datos del ' + cuando : 'Sin conexión');
+        el.style.display = el.textContent ? 'block' : 'none';
+    };
 })();

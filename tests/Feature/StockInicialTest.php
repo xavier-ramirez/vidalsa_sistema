@@ -10,8 +10,8 @@ use Tests\MySqlTestCase;
 /**
  * Crear un producto con "Cantidad inicial" registra una ENTRADA con REFERENCIA
  * MovimientoInventario::REF_STOCK_INICIAL y SIN motivo: en una ENTRADA el kardex pinta el
- * motivo como proveedor, y un stock inicial no tiene. Los kardex la reconocen con
- * esStockInicial() y la muestran en dos líneas ("STOCK INICIAL" + "Nuevo material").
+ * motivo como proveedor, y un stock inicial no tiene. El kardex la reconoce por esa
+ * REFERENCIA y la muestra en dos líneas ("STOCK INICIAL" + "Nuevo material").
  */
 class StockInicialTest extends MySqlTestCase
 {
@@ -44,7 +44,6 @@ class StockInicialTest extends MySqlTestCase
         $this->assertSame(MovimientoInventario::TIPO_ENTRADA, $m->TIPO);
         $this->assertSame(MovimientoInventario::REF_STOCK_INICIAL, $m->REFERENCIA);
         $this->assertNull($m->MOTIVO, 'El stock inicial no lleva motivo: el kardex lo mostraría como proveedor.');
-        $this->assertTrue($m->esStockInicial());
     }
 
     public function test_sin_cantidad_inicial_no_registra_movimiento(): void

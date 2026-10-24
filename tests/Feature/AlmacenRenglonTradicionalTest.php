@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Almacen;
 use Illuminate\Support\Facades\DB;
+use Tests\AlmacenLocal;
 use Tests\MySqlTestCase;
 
 /**
@@ -15,6 +16,8 @@ use Tests\MySqlTestCase;
  */
 class AlmacenRenglonTradicionalTest extends MySqlTestCase
 {
+    use AlmacenLocal;
+
     public function test_un_producto_repartido_en_varios_proyectos_trae_el_reparto_para_el_modal(): void
     {
         [$almacen, $codigo, $idProducto] = $this->productoConBolsas('> 1');
@@ -87,9 +90,6 @@ class AlmacenRenglonTradicionalTest extends MySqlTestCase
 
     private function tabla(Almacen $almacen, string $codigo): string
     {
-        return (string) $this->actingAs($this->superAdminGlobal())
-            ->getJson('/admin/almacen?' . http_build_query(['id_almacen' => $almacen->ID_ALMACEN, 'search' => $codigo]))
-            ->assertOk()
-            ->json('html');
+        return $this->inventarioLocal($this->superAdminGlobal(), ['id_almacen' => $almacen->ID_ALMACEN, 'search' => $codigo])['html'];
     }
 }

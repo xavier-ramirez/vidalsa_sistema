@@ -3,18 +3,21 @@
 namespace Tests\Feature;
 
 use App\Models\Usuario;
+use Tests\AlmacenLocal;
 use Tests\MySqlTestCase;
 
 /**
  * El botón "Exportar a Excel" del menú Acciones de /admin/almacen/movimientos.
  *
  * Lo que fijan estas pruebas: que salga un XLSX de verdad, que acepte los MISMOS filtros
- * de la pantalla y que exija sesión. Pantalla y archivo comparten el armado de la consulta
- * (AlmacenController::queryMovimientosFiltrada y buildParams() en la vista), así que el
- * Excel no puede traer un universo distinto al que se está viendo.
+ * de la pantalla y que exija sesión. La bitácora filtra en la copia local y el botón manda
+ * los ids que está viendo (AlmacenLocal.movimientos().ids), así que el Excel no puede traer
+ * un universo distinto al de la pantalla.
  */
 class ExportMovimientosAlmacenTest extends MySqlTestCase
 {
+    use AlmacenLocal;
+
     private const RUTA = '/admin/almacen/movimientos/export';
 
     private function usuarioAdmin(): Usuario
@@ -23,6 +26,15 @@ class ExportMovimientosAlmacenTest extends MySqlTestCase
         $this->assertNotNull($user, 'Hace falta un usuario con super.admin.');
 
         return $user;
+    }
+
+    /** Lo que manda el botón: los filtros (para el encabezado) y los ids que filtra la copia. */
+    private function descargar(array $filtros = [])
+    {
+        $user = $this->usuarioAdmin();
+        $ids  = $this->movimientosLocal($user, $filtros)['ids'];
+
+        return $this->actingAs($user)->post(self::RUTA, $filtros + ['ids' => implode(',', $ids)]);
     }
 
     /**
@@ -39,7 +51,7 @@ class ExportMovimientosAlmacenTest extends MySqlTestCase
 
     public function test_descarga_un_xlsx_de_verdad(): void
     {
-        $resp = $this->actingAs($this->usuarioAdmin())->get(self::RUTA);
+        $resp = $this->descargar();
         $resp->assertOk();
 
         // Un .xlsx es un ZIP: sus dos primeros bytes son "PK". Se comprueba el CONTENIDO,
@@ -52,7 +64,7 @@ class ExportMovimientosAlmacenTest extends MySqlTestCase
             $resp->headers->get('content-disposition') ?? '');
     }
 
-    /** Los mismos parámetros que manda buildParams() desde la vista. */
+    /** Los mismos filtros que usa la pantalla (filtrosMov() en almacen_movimientos.js). */
     public static function filtrosDeLaPantalla(): array
     {
         return [
@@ -71,7 +83,7 @@ class ExportMovimientosAlmacenTest extends MySqlTestCase
     #[\PHPUnit\Framework\Attributes\DataProvider('filtrosDeLaPantalla')]
     public function test_acepta_los_mismos_filtros_de_la_pantalla(array $filtros): void
     {
-        $resp = $this->actingAs($this->usuarioAdmin())->get(self::RUTA . '?' . http_build_query($filtros));
+        $resp = $this->descargar($filtros);
 
         $resp->assertOk();
         $this->assertSame('PK', substr($this->bytes($resp->baseResponse), 0, 2),
@@ -80,7 +92,7 @@ class ExportMovimientosAlmacenTest extends MySqlTestCase
 
     public function test_exige_sesion(): void
     {
-        $this->get(self::RUTA)->assertRedirect();
+        $this->post(self::RUTA)->assertRedirect();
     }
 
     /**
@@ -92,7 +104,7 @@ class ExportMovimientosAlmacenTest extends MySqlTestCase
      */
     public function test_el_archivo_lleva_las_columnas_pedidas(): void
     {
-        $resp = $this->actingAs($this->usuarioAdmin())->get(self::RUTA);
+        $resp = $this->descargar();
         $resp->assertOk();
 
         $tmp = tempnam(sys_get_temp_dir(), 'mov') . '.xlsx';

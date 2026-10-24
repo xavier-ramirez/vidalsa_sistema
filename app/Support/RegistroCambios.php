@@ -47,6 +47,16 @@ class RegistroCambios
         'catalogo_seguros'       => [['seguros', 'ID_SEGURO']],
         'caracteristicas_modelo' => [['fichas', 'ID_ESPEC']],
         'catalogo_colores'       => [['fichas', 'ID_ESPEC']],
+        // Almacén (DominioAlmacen). Los nºs de parte y los modelos que usan un producto son
+        // parte de su fila.
+        'productos_inventario'   => [['productos', 'ID_PRODUCTO']],
+        'producto_equivalencias' => [['productos', 'ID_PRODUCTO']],
+        'modelo_filtro'          => [['productos', 'ID_PRODUCTO']],
+        'almacen_stock'          => [['stock', 'ID_STOCK']],
+        'movimientos_inventario' => [['movimientos', 'ID_MOVIMIENTO']],
+        'correcciones_nota'      => [['correcciones', 'ID_CORRECCION']],
+        'almacenes'              => [['almacenes', 'ID_ALMACEN']],
+        'almacen_frentes'        => [['almacenes', 'ID_ALMACEN']],
     ];
 
     private const EVENTOS = ['INSERT' => 'ai', 'UPDATE' => 'au', 'DELETE' => 'ad'];

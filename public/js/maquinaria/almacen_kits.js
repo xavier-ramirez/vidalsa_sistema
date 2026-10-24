@@ -75,25 +75,27 @@
             S.existencias = b.existencias || {};
         });
     }
-    // Copia offline: el mismo catálogo (tabla `kits`) y la existencia de la tabla `stock`, que
-    // ya viene sumada por almacén como la del servidor. De `stock` también se toma el nombre
-    // vigente del producto (la tabla de kits solo se reenvía cuando cambian los catálogos).
+    // Sin conexión: el catálogo de kits de la copia offline (tabla `kits`) y la existencia de la
+    // copia local del almacén (saldos sumados por almacén, como los del servidor). De ella sale
+    // también el nombre vigente del producto (la tabla de kits solo se reenvía cuando cambian
+    // los catálogos).
     function cargarOffline() {
-        return window.OfflineMode.conOfflineDB(function () {
-            return Promise.all([window.OfflineDB.get('kits'), window.OfflineDB.get('stock')]).then(function (r) {
-                var ex = {}, prod = {};
-                (r[1] || []).forEach(function (f) {
-                    prod[f.id_producto] = f;
-                    if (String(f.id_almacen) === S.idAlmacen) ex[f.id_producto] = f.cantidad;
-                });
-                S.kits = (r[0] || []).map(function (k) {
-                    return Object.assign({}, k, { items: k.items.map(function (i) {
-                        var p = prod[i.id_producto];
-                        return p ? Object.assign({}, i, { codigo: p.codigo, nombre: p.nombre, um: p.um }) : i;
-                    }) });
-                });
-                S.existencias = ex;
+        return Promise.all([
+            window.OfflineMode.conOfflineDB(function () { return window.OfflineDB.get('kits'); }),
+            window.CopiaLocal.usar('almacen', modal()),
+        ]).then(function (r) {
+            var vista = r[1], ex = {}, prod = {};
+            vista.filas('productos').forEach(function (p) { prod[p.id] = p; });
+            vista.filas('stock').forEach(function (f) {
+                if (String(f.alm) === S.idAlmacen) ex[f.prod] = (ex[f.prod] || 0) + f.cant;
             });
+            S.kits = (r[0] || []).map(function (k) {
+                return Object.assign({}, k, { items: k.items.map(function (i) {
+                    var p = prod[i.id_producto];
+                    return p ? Object.assign({}, i, { codigo: p.codigo, nombre: p.nombre, um: p.um }) : i;
+                }) });
+            });
+            S.existencias = ex;
         });
     }
 
@@ -294,7 +296,7 @@
         $('almKitProdSug').hidden = true;
         mostrarVista(true);
         pintarEditor();
-        if (typeof window.almCargarProductos === 'function') window.almCargarProductos();
+        window.almCargarProductos();
         if (!S.modelos) {
             pedir(modal().dataset.urlModelos)
                 .then(function (b) { S.modelos = b.modelos || []; })

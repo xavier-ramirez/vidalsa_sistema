@@ -15,6 +15,7 @@ use App\Services\InventarioService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
+use Tests\AlmacenLocal;
 use Tests\MySqlTestCase;
 
 /**
@@ -26,6 +27,8 @@ use Tests\MySqlTestCase;
  */
 class KitsAlmacenTest extends MySqlTestCase
 {
+    use AlmacenLocal;
+
     private string $marca;
 
     protected function setUp(): void
@@ -258,7 +261,7 @@ class KitsAlmacenTest extends MySqlTestCase
             }
 
             // El historial de movimientos del almacén muestra la operación con su nota.
-            $hist = $this->actingAs($this->usuario())->getJson(route('almacen.movimientos', ['id_almacen' => $alm->ID_ALMACEN]))->assertOk()->json('html');
+            $hist = $this->movimientosLocal($this->usuario(), ['id_almacen' => $alm->ID_ALMACEN])['html'];
             $this->assertStringContainsString($numero, $hist);
             $this->assertStringContainsString($aceite->NOMBRE, $hist);
         }

@@ -22,14 +22,13 @@
  * los disparadores automáticos esperan inactividad (requestIdleCallback) para no
  * competir por red ni CPU con lo que el usuario esté haciendo.
  *
- * SINCRONIZACIÓN INCREMENTAL: no se re-descarga todo cada vez. El cliente guarda un
- * CURSOR (meta.c) y se lo manda al servidor, que responde solo con lo que cambió:
- *   · nada cambió           → ~0,5 KB
- *   · cambió un equipo      → ~20 KB
- *   · copia completa        → ~1.500 KB (solo la primera vez o si el servidor lo pide)
- * El servidor decide por DOMINIO (almacen / catalogos). Solo viaja a quien tiene el
- * módulo de almacén: equipos, auxiliares y movilizaciones van en la copia local nueva
- * (copia-local.js).
+ * Lo único que queda aquí son los KITS del almacén (dominio catalogos). El inventario, la
+ * bitácora y las notas van en la copia local del almacén, y equipos, auxiliares y
+ * movilizaciones en la de equipos (copia-local.js). Solo viaja a quien tiene el módulo
+ * de almacén.
+ *
+ * El cliente guarda un CURSOR (meta.c) y se lo manda al servidor: si nada cambió la
+ * respuesta pesa medio KB; si cambió, los kits llegan enteros (pocos KB).
  *
  * Si el cursor no vale (cambió el esquema, el usuario o sus permisos) el servidor
  * responde con la copia completa y todo se repara solo: no hay que migrar IndexedDB ni
@@ -37,9 +36,7 @@
  *
  * API pública (window.OfflineDB):
  *   .ready            Promise que resuelve cuando la BD local está abierta.
- *   .get(tabla)       -> Promise<Array> (stock, productos, movimientos, almacenes,
- *                        kits).
- *   .mutar(tabla, fn) -> ÚNICA forma de escribir: lectura+escritura atómica.
+ *   .get(tabla)       -> Promise<Array> (kits).
  *   .meta()           -> Promise<{version, generado, descargado, c}|null>.
  *   .sync(force)      -> sincroniza ahora; force=true además CANCELA la descarga
  *                        en curso para tomar prioridad (botón "Actualizar datos").
@@ -56,39 +53,25 @@
 
     const DB_NAME    = 'vidalsa_offline';
     const DB_VERSION = 2; // v2: añade el store 'outbox' (Fase 2: escritura offline)
-    const STORE      = 'kv';      // object store clave→valor: 'meta','stock','productos',...
+    const STORE      = 'kv';      // object store clave→valor: 'meta', 'kits'
     const OUTBOX     = 'outbox';  // cola de acciones hechas sin internet (keyPath: client_uuid)
     const CHECK_CADA_MS = 10 * 60 * 1000; // revisar si hay datos nuevos cada 10 min (online)
 
-    // ── Las 5 tablas y CÓMO se fusiona cada una ────────────────────────────────
-    // Cada tabla se guarda como UN array bajo su clave en el store 'kv' (sin keyPath):
-    // los consumidores leen el array entero y los KPIs dependen de que esté completo,
-    // así que un delta se fusiona EN MEMORIA y se reescribe la clave.
-    //
-    //   dominio → de qué versión del servidor depende (almacen | catalogos)
-    //   clave   → identidad de una fila, para fusionar sin duplicar
-    //   orden   → debe reproducir el ORDER BY del servidor; si no, la lista se ve en
-    //             distinto orden que online en cuanto entra el primer delta
-    //   tope    → ventana histórica. SIN tope en stock/productos: recortarlos
-    //             haría mentir a los KPIs (que cuentan sobre el array completo)
+    // ── Las tablas ─────────────────────────────────────────────────────────────
+    // Cada tabla se guarda como UN array bajo su clave en el store 'kv' (sin keyPath).
+    //   dominio → de qué versión del servidor depende
+    //   orden   → debe reproducir el ORDER BY del servidor
     const txt = (v) => String(v == null ? '' : v);
     const porTexto = (campo) => (a, b) => txt(a[campo]).localeCompare(txt(b[campo]), 'es', { sensitivity: 'base' });
-    const porIdDesc = (a, b) => Number(b.id) - Number(a.id);
 
     const TABLAS = {
-        almacenes:      { dominio: 'catalogos', clave: (f) => txt(f.id) },
         // Kits del almacén (KitAlmacenService::catalogo): viajan enteros con los catálogos.
-        kits:           { dominio: 'catalogos', clave: (f) => txt(f.id), orden: porTexto('nombre') },
-        productos:      { dominio: 'almacen',   clave: (f) => txt(f.id), orden: porTexto('nombre') },
-        movimientos:    { dominio: 'almacen',   clave: (f) => txt(f.id), orden: porIdDesc, tope: 1500 },
-        // stock no tiene id propio: su identidad es el par almacén+producto. El servidor
-        // tampoco le pone ORDER BY, así que aquí no hay orden que reproducir.
-        stock:          { dominio: 'almacen',   clave: (f) => f.id_almacen + ':' + f.id_producto },
+        kits: { dominio: 'catalogos', orden: porTexto('nombre') },
     };
     const NOMBRES_TABLAS = Object.keys(TABLAS);
-    // Tablas que ya no viajan (equipos y frentes, ahora en copia-local.js): se borran de
-    // la copia de quien las bajó antes, para no dejar ~1 MB muerto en el teléfono.
-    const RETIRADAS = ['equipos', 'frentes'];
+    // Tablas que ya no viajan (ahora en copia-local.js): se borran de la copia de quien las
+    // bajó antes, para no dejar megas muertos en el teléfono.
+    const RETIRADAS = ['equipos', 'frentes', 'almacenes', 'productos', 'movimientos', 'stock'];
 
     let dbPromise = null;
 
@@ -182,25 +165,6 @@
     let cadena      = Promise.resolve(); // serializa las descargas: NUNCA corren dos a la vez
     let abortActual = null;              // AbortController de la descarga en curso (para cancelarla)
 
-    /**
-     * Aplica un delta sobre una tabla ya guardada.
-     *
-     * El recorte va DESPUÉS de ordenar, no antes: al revés se tirarían filas al azar en
-     * vez de las más viejas, y el kardex offline quedaría con huecos.
-     */
-    async function fusionar(tabla, cambios, bajas) {
-        const cfg   = TABLAS[tabla];
-        const mapa  = new Map();
-        for (const f of (await idbGet(tabla)) || []) mapa.set(cfg.clave(f), f);
-        for (const f of cambios) mapa.set(cfg.clave(f), f);
-        for (const k of bajas)   mapa.delete(txt(k));
-
-        let salida = Array.from(mapa.values());
-        if (cfg.orden) salida.sort(cfg.orden);
-        if (cfg.tope && salida.length > cfg.tope) salida = salida.slice(0, cfg.tope);
-        await idbPut(tabla, salida);
-    }
-
     // Descarga real. Si `signal` se aborta (porque una forzada la canceló), los
     // fetch lanzan AbortError y la copia anterior queda intacta.
     // Devuelve si HUBO cambios, o LANZA si la sincronización no se pudo completar. Que el
@@ -212,10 +176,10 @@
         const meta = await idbGet('meta');
 
         // SIEMPRE se manda un cursor, aunque no tengamos uno bueno: `{e:0}` significa
-        // "hablo delta, pero mi cursor no vale" y el servidor responde con la copia
+        // "hablo con cursor, pero el mío no vale" y el servidor responde con la copia
         // completa MÁS un cursor fresco. Sin esto, un cliente recién instalado recibiría
         // la forma histórica (que no lleva cursor), y al no tener cursor volvería a
-        // pedirla la vez siguiente: se quedaría bajando 1,5 MB para siempre.
+        // pedirla la vez siguiente: se quedaría bajando la copia entera para siempre.
         // La ruta sin `?c=` queda SOLO para los clientes con el JS viejo en caché.
         //
         // Tampoco se consulta /offline/version antes: con cursor, el propio snapshot ya
@@ -227,8 +191,7 @@
         const snap   = await fetchJson(url, signal);
         if (!snap || !snap.version) throw new Error('respuesta inválida del servidor');
 
-        // Servidor sin delta (despliegue a medias, o primera carga sin cursor): forma
-        // histórica, se sustituye todo. Es también la vía por la que una copia vieja se
+        // Respuesta sin `modos` (despliegue a medias): forma histórica, se sustituye todo. Es también la vía por la que una copia vieja se
         // repara sola y estrena cursor.
         if (!snap.modos) {
             for (const tabla of NOMBRES_TABLAS) {
@@ -239,28 +202,17 @@
             return true;
         }
 
-        const datos    = snap.datos || {};
-        const borrados = snap.borrados || {};
-        let   hubo     = false;
+        const datos = snap.datos || {};
+        let   hubo  = false;
 
         for (const tabla of NOMBRES_TABLAS) {
-            const modo = snap.modos[TABLAS[tabla].dominio];
-
-            if (modo === 'full') {
-                // Ojo: solo si la tabla VIENE. Un dominio en 'full' manda todas sus
-                // tablas, pero si alguna faltara, sustituirla por [] borraría datos
-                // buenos.
-                if (!Array.isArray(datos[tabla])) continue;
-                await idbPut(tabla, datos[tabla]);
-                hubo = true;
-            } else if (modo === 'delta') {
-                const cambios = Array.isArray(datos[tabla]) ? datos[tabla] : [];
-                const bajas   = Array.isArray(borrados[tabla]) ? borrados[tabla] : [];
-                if (!cambios.length && !bajas.length) continue;
-                await fusionar(tabla, cambios, bajas);
-                hubo = true;
-            }
-            // 'sin_cambios' → ni se toca.
+            // 'full' trae la tabla entera; 'sin_cambios' ni se toca. Ojo: solo si la tabla
+            // VIENE — sustituirla por [] borraría datos buenos.
+            if (snap.modos[TABLAS[tabla].dominio] !== 'full' || !Array.isArray(datos[tabla])) continue;
+            const filas = datos[tabla].slice();
+            if (TABLAS[tabla].orden) filas.sort(TABLAS[tabla].orden);
+            await idbPut(tabla, filas);
+            hubo = true;
         }
 
         // El cursor se guarda SIEMPRE, aunque no haya cambiado ni una fila: es lo que
@@ -309,36 +261,10 @@
         return corre;
     }
 
-    /**
-     * Lee-modifica-escribe una tabla SIN que una fusión se cuele en medio.
-     *
-     * Es la forma correcta de hacer una escritura optimista. Con get()+put() sueltos
-     * hay una ventana entre ambos: si justo ahí entra un delta, uno de los dos cambios
-     * se pierde — y con sincronizaciones frecuentes esa ventana se abre a menudo. Al ir
-     * por la MISMA `cadena` que serializa las descargas, la fusión espera su turno.
-     *
-     * `fn(arr)` recibe el array actual y devuelve el nuevo (o nada, para dejarlo igual).
-     */
-    function mutar(tabla, fn) {
-        const corre = cadena.then(async () => {
-            const arr    = (await idbGet(tabla)) || [];
-            const salida = await fn(arr);
-            await idbPut(tabla, Array.isArray(salida) ? salida : arr);
-            return true;
-        });
-        cadena = corre.catch(() => {});
-        return corre;
-    }
-
     // ── API pública ───────────────────────────────────────────────────────────
     window.OfflineDB = {
         ready: abrirDB().then(() => true).catch(() => false),
         get:   (tabla) => idbGet(tabla).then((v) => v || []),
-        // No hay `put` suelto a propósito: escribir una tabla sin pasar por la cadena
-        // deja una ventana en la que una sincronización pisa el cambio. mutar() es la
-        // ÚNICA forma de escribir, y así no se puede reintroducir esa carrera por
-        // descuido.
-        mutar: (tabla, fn) => mutar(tabla, fn),
         meta:  () => idbGet('meta').then((m) => m || null),
         sync:  (force) => sync(!!force),
         estaListo: () => idbGet('meta').then((m) => !!(m && m.version)),
@@ -362,8 +288,7 @@
         }
     }
 
-    // ¿Conexión demasiado lenta para el snapshot (varios MB)? En 2G una descarga
-    // de REFRESCO acapararía el ancho de banda de la página que el usuario está
+    // ¿Conexión demasiado lenta? En 2G una descarga de REFRESCO acapararía el ancho de banda de la página que el usuario está
     // abriendo; se salta y quedan los reintentos del intervalo/evento 'online'.
     function conexionMuyLenta() {
         const t = navigator.connection && navigator.connection.effectiveType;

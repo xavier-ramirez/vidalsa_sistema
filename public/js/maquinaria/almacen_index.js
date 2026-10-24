@@ -59,25 +59,25 @@
     // para que el usuario vea como quedaria la Nota y pueda editar/confirmar.
     var ROUTE_PREVIEW_SALIDA = CFG.rutas.salidaPreview;
     var ROUTE_PROD  = CFG.rutas.productosStore;
+    // La COPIA LOCAL del almacén (window.CopiaLocal, dominio 'almacen'): de ella salen la tabla,
+    // el Consolidado, el panel lateral, el historial de un producto y el catálogo de los
+    // buscadores (almacen_local.js), con o sin internet. Tras un guardado se espera a que la
+    // copia lo traiga (alDia): el stock nunca se pinta con el dato de antes.
+    var POR_DEFECTO = CFG.almacenPorDefecto;
+    function almVista() {
+        return window.CopiaLocal.usar('almacen', el('almTableBody'))
+            .then(function (v) { return window.CopiaLocal.alDia('almacen').then(function () { window._almVista = v; return v; }); });
+    }
     // Catálogo de productos (CODIGO/NOMBRE/UM/PARTE) — lo usan el buscador FuzzySearch y los
-    // selects de los modales. ANTES se embebía inline aquí (~500 KB de los 1155 productos) y el
-    // módulo abría lento. AHORA arranca vacío y se carga por AJAX apenas la página queda lista
-    // (no bloquea el render → abre de una). El buscador "tipear + Enter" del servidor sigue como
-    // fallback mientras carga. La sincronización al crear/editar producto (más abajo) opera sobre
-    // esta misma lista una vez cargada.
+    // selects de los modales. Sale de la copia y se rehace cada vez que ella cambia.
     window.almProductosLista = [];
     window.almProductosCargados = false;
     window.almCargarProductos = function () {
-        if (window.almProductosCargados || window._almProductosCargando) return Promise.resolve();
-        window._almProductosCargando = true;
-        return window.apiFetch(CFG.rutas.productosAutocomplete, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (lista) {
-            window.almProductosLista = Array.isArray(lista) ? lista : [];
+        return almVista().then(function (v) {
+            if (!v.estado.listo) return;
+            window.almProductosLista = window.AlmacenLocal.listaProductos(v);
             window.almProductosCargados = true;
-        })
-        .catch(function () { /* silencioso: el buscador tipear+Enter del servidor sigue como fallback */ })
-        .finally(function () { window._almProductosCargando = false; });
+        });
     };
     window.almCargarProductos();
     // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
@@ -182,26 +182,6 @@
     // buscador, la sección de equivalencias del modal y el guardado.
     var esCatFiltro = window.ProductoSuggest.esCategoriaFiltro;   // recibe la CATEGORIA
     var esFiltroCat = window.ProductoSuggest.esFiltro;            // recibe el PRODUCTO
-    // Construye una entry del autocomplete con la MISMA forma que listaAutocomplete (backend):
-    // ID_PRODUCTO, CODIGO, NOMBRE, UM, CATEGORIA, EQUIV, PARTE, PARTES. Punto ÚNICO para que el
-    // producto creado/editado/restaurado se cachee completo — antes solo se guardaba
-    // {ID,CODIGO,NOMBRE,UM} y tras editar dejaba de reconocerse como filtro / por nº de parte
-    // hasta recargar. `equivs` (opcional) = nºs de parte conocidos en el cliente (los del modal).
-    function almProdEntry(p, equivs) {
-        var parts = Array.isArray(equivs) ? equivs.slice()
-                  : (Array.isArray(p.PARTES) ? p.PARTES.slice() : []);
-        return {
-            ID_PRODUCTO: p.ID_PRODUCTO,
-            CODIGO:      p.CODIGO,
-            NOMBRE:      p.NOMBRE,
-            UM:          p.UM,
-            CATEGORIA:   p.CATEGORIA || '',
-            EQUIV:       parts.join(' '),
-            PARTE:       parts[0] || '',
-            PARTES:      parts
-        };
-    }
-
     // Resuelve el valor "real" de un filtro con patron placeholder-background:
     //   - Si el usuario tipeo algo → ese texto GANA y se promueve a data-active
     //     (clear el value y poner el typed como placeholder, asi sigue visible
@@ -272,39 +252,34 @@
         return p;
     }
 
-    // ── Carga AJAX de la tabla + sidebar — con SCROLL INFINITO PEREZOSO ──────────
-    // almCargar(opts?) acepta { offset, append, gen, verTodo, mostrar }:
+    // ── Tabla + sidebar desde la copia local — con SCROLL INFINITO PEREZOSO ──────────
+    // almCargar(opts?) acepta { offset, append, gen, verTodo, mostrar, repintar }:
     //   • Sin args (o offset=0)    → reemplaza la tabla, refresca stats + distribución
     //                                y actualiza la URL para compartir.
-    //   • { offset>0, append }     → trae la siguiente página y la appendea al tbody.
+    //   • { offset>0, append }     → pinta el siguiente lote y lo appendea al tbody.
     //   • { verTodo }              → enciende "Ver todo el stock" (cualquier otra recarga lo apaga).
     //   • { mostrar: idProducto }  → al terminar deja ese producto a la vista y resaltado
     //                                (ver almRecargarMostrando).
+    //   • { repintar: true }       → la copia cambió: rehace lo que se ve con los MISMOS
+    //                                filtros y las mismas filas cargadas (ver almRepintar).
     // El siguiente lote NO se auto-encadena: lo dispara un IntersectionObserver sobre la
-    // última fila cuando el usuario se acerca (mismo patrón que /admin/equipos). Antes se
-    // encadenaban TODAS las páginas de golpe, lo que causaba el lag al llegar al final y
-    // que el navegador quedara congelado al volver de otra pestaña (los lotes pendientes
-    // se procesaban todos juntos). El observer no dispara con la pestaña oculta.
+    // última fila cuando el usuario se acerca (mismo patrón que /admin/equipos). El observer no
+    // dispara con la pestaña oculta.
     //
     // Generación de carga: cada recarga completa (offset 0) la incrementa. Cada lote lleva
-    // su generación; si el usuario filtra/recarga mientras baja el resto, los lotes viejos
-    // se descartan (no pintan datos obsoletos ni siguen trayendo).
+    // su generación; si el usuario filtra/recarga mientras tanto, los lotes viejos se descartan.
     var almLoadGen = 0;
-    var almFiltrosVigentes = null; // filtros congelados de la carga fresca; los append los reusan
+    var almFiltrosVigentes = null; // filtros congelados de la carga fresca; los append y el repintado los reusan
     window.almCargar = function (opts) {
-        // back-compat: si llaman almCargar() sin args o almCargar('url-string') se trata
-        // como recarga completa (offset=0). Si se pasa un objeto, respetamos sus opciones.
         if (typeof opts === 'string' || opts == null) opts = {};
         var offset = Math.max(0, parseInt(opts.offset || 0, 10));
         var append = !!opts.append && offset > 0;
         // ver_todo solo lo activa almVerTodo({verTodo:true}); cualquier otra recarga lo
-        // apaga. En la auto-carga (append) NO se toca, para conservar "ver todo".
-        if (!append) almVerTodoActivo = !!opts.verTodo;
+        // apaga. En la auto-carga (append) y en el repintado NO se toca.
+        if (!append && !opts.repintar) almVerTodoActivo = !!opts.verTodo;
         var body = el('almTableBody'); if (!body) return;
         var loadMore = el('almLoadingMore');
 
-        // Generación: una recarga completa invalida la cadena de auto-carga en vuelo;
-        // cada append hereda la suya y se aborta si ya cambió (ver comentario arriba).
         var gen;
         if (!append) {
             gen = ++almLoadGen;
@@ -313,124 +288,97 @@
             if (gen !== almLoadGen) return; // una recarga nueva ya reemplazó esta cadena
         }
 
-        // Construir URL preservando los filtros activos + offset.
-        // En una carga fresca (!append) calculamos los filtros con filtros() —que TIENE efectos
-        // secundarios (valActive vacía el input y lo promueve a data-active)— y CONGELAMOS el
-        // resultado. En los append del scroll infinito NO volvemos a llamar filtros(): reusamos
-        // los congelados. Antes filtros() corría en cada append y, si un lote llegaba mientras
-        // el usuario tecleaba, le borraba lo escrito; además garantiza que la paginación use
-        // exactamente los mismos filtros que la carga inicial.
+        // En una carga fresca calculamos los filtros con filtros() —que TIENE efectos
+        // secundarios (valActive vacía el input y lo promueve a data-active)— y los CONGELAMOS.
+        // Los append del scroll y el repintado reusan los congelados: si no, un repintado que
+        // llegara mientras el usuario teclea le borraría lo escrito.
         var f;
-        if (!append) {
+        if (!append && !opts.repintar) {
             f = filtros();
             almFiltrosVigentes = f.toString();
         } else {
             f = new URLSearchParams(almFiltrosVigentes || '');
         }
-        f.set('offset', String(offset));
-        var finalUrl = ROUTE_INDEX + '?' + f.toString();
-        if (append) {
-            if (loadMore) loadMore.style.display = 'block';
-        } else {
-            body.style.opacity = '0.5';
-            pre();
-        }
-        window.apiFetch(finalUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                // Si una recarga nueva cambió la generación mientras volaba este fetch,
-                // descartamos el resultado para no pintar datos obsoletos.
-                if (gen !== almLoadGen) return;
-                if (data.html !== undefined) {
-                    if (append) {
-                        var tmp = document.createElement('tbody');
-                        tmp.innerHTML = data.html;
-                        var _nuevasRows = [];
-                        // La fila que almMostrarProducto fijó arriba (a lo sumo una) no se repite
-                        // cuando llega su lote. Se busca UNA vez por lote, no por fila: el tbody
-                        // crece a miles de filas.
-                        var _fijada = body.querySelector('tr.alm-row[data-fijada="1"]');
-                        var _idFijada = _fijada ? _fijada.getAttribute('data-id-producto') : null;
-                        while (tmp.firstElementChild) {
-                            var _r = tmp.firstElementChild;
-                            if (_idFijada && _r.getAttribute('data-id-producto') === _idFijada) {
-                                _r.remove();
-                                continue;
-                            }
-                            body.appendChild(_r);
-                            if (_r.nodeType === 1 && _r.classList.contains('alm-row')) _nuevasRows.push(_r);
-                        }
-                        // SOLO las filas nuevas (no re-itera todo el tbody en cada lote → evita el freeze).
-                        almSelApplyToRows(_nuevasRows);
-                    } else {
-                        body.innerHTML = data.html;
-                        almSelApplyToVisible();
-                        if (opts.mostrar) almMostrarProducto(opts.mostrar, gen);
-                    }
+        if (append && loadMore) loadMore.style.display = 'block';
+        // El preloader solo se ve mientras la copia no está (la primera descarga): con copia la
+        // consulta es inmediata.
+        var conPre = !append && !window._almVista;
+        if (conPre) pre();
+        almVista()
+            .then(function (vista) {
+                if (gen !== almLoadGen || !document.contains(body)) return;
+                window.pintarEstadoCopia('almCopiaEstado', vista.estado);
+                if (!vista.estado.listo) {
+                    body.innerHTML = '<tr><td colspan="6" class="alm-vacio"><i class="material-icons">cloud_off</i>Sin conexión: este equipo todavía no tiene el inventario guardado.</td></tr>';
+                    return;
                 }
-                // El aviso se repinta SOLO en la primera pagina. El backend manda la
-                // bandera siempre (va en $resp, fuera del if que omite stats en el scroll),
-                // pero repintarlo en cada lote del scroll borraria el aviso de la busqueda
-                // que se esta viendo.
+                var cuantos = opts.repintar ? body.querySelectorAll('tr.alm-row:not([data-fijada])').length : 0;
+                var data = window.AlmacenLocal.inventario(vista, Object.fromEntries(f), offset, POR_DEFECTO, cuantos);
+                if (append) {
+                    var tmp = document.createElement('tbody');
+                    tmp.innerHTML = data.html;
+                    var _nuevasRows = [];
+                    // La fila que almMostrarProducto fijó arriba (a lo sumo una) no se repite
+                    // cuando llega su lote. Se busca UNA vez por lote, no por fila.
+                    var _fijada = body.querySelector('tr.alm-row[data-fijada="1"]');
+                    var _idFijada = _fijada ? _fijada.getAttribute('data-id-producto') : null;
+                    while (tmp.firstElementChild) {
+                        var _r = tmp.firstElementChild;
+                        if (_idFijada && _r.getAttribute('data-id-producto') === _idFijada) {
+                            _r.remove();
+                            continue;
+                        }
+                        body.appendChild(_r);
+                        if (_r.nodeType === 1 && _r.classList.contains('alm-row')) _nuevasRows.push(_r);
+                    }
+                    // SOLO las filas nuevas (no re-itera todo el tbody en cada lote → evita el freeze).
+                    almSelApplyToRows(_nuevasRows);
+                } else {
+                    body.innerHTML = data.html;
+                    almSelApplyToVisible();
+                    if (opts.mostrar) almMostrarProducto(opts.mostrar);
+                }
+                // El aviso se repinta SOLO en la primera página. El término sale de los filtros
+                // CONGELADOS, que son los que se consultaron de verdad.
                 if (!append) {
-                    // El termino sale de los filtros CONGELADOS, que son los que se
-                    // consultaron de verdad. Leerlo del input aqui daria el texto de ahora:
-                    // si el usuario siguio tecleando mientras volaba la peticion, el aviso
-                    // nombraria una palabra distinta de la que hay en la tabla. (Y valActive
-                    // ademas vacia el input, que es justo lo que este .then() no debe tocar.)
-                    almPintarAvisoBusqueda(
-                        data.aproximada,
-                        new URLSearchParams(almFiltrosVigentes || '').get('search') || ''
-                    );
-                    // Si esta busqueda salio aproximada, se marca en los filtros congelados
-                    // que reusan las paginas del scroll: asi cada una va DIRECTA al modo
-                    // tolerante en vez de repetir la consulta exacta que ya se sabe vacia.
+                    almPintarAvisoBusqueda(data.aproximada, f.get('search') || '');
+                    // Si esta búsqueda salió aproximada, los lotes siguientes van DIRECTOS al
+                    // modo tolerante en vez de repetir la búsqueda exacta que ya se sabe vacía.
                     if (data.aproximada) {
                         var _fa = new URLSearchParams(almFiltrosVigentes || '');
                         _fa.set('aprox', '1');
                         almFiltrosVigentes = _fa.toString();
                     }
-                }
-                // Stats + distribución solo en la primera página (el backend ya las omite
-                // cuando offset>0; aquí evitamos rebajar a "—" lo que ya pintamos).
-                if (!append && data.stats) {
                     var num = function (id, v) {
                         var e = el(id); if (!e) return;
-                        // KPIs (conteos): miles con punto (formato latino). '—' cuando no hay valor.
-                        var f = parseFloat(v);
-                        e.textContent = (v == null) ? '—' : (isNaN(f) ? v : f.toLocaleString('es-ES'));
+                        // KPIs (conteos): miles con punto (formato latino).
+                        e.textContent = Number(v).toLocaleString('es-ES');
                     };
                     num('almStatsTotal',    data.stats.total);
                     num('almStatsConSaldo', data.stats.con_saldo);
                     num('almStatsBajo',     data.stats.stock_bajo);
-                }
-                if (!append && data.distribucionHtml !== undefined) {
-                    // Un clic en una fila que aún no respondió ya no debe pisar este panel.
-                    _almOtrosPedido++;
-                    var dc = el('almDistribucionContainer'); if (dc) dc.innerHTML = data.distribucionHtml;
+                    // Al repintar, si el panel enseñaba un producto tocado se rehace ese producto.
+                    if (opts.repintar && _almOtrosId) almPanelOtros(_almOtrosId);
+                    else {
+                        _almOtrosId = null;
+                        var dc = el('almDistribucionContainer'); if (dc) dc.innerHTML = data.distribucionHtml;
+                    }
                 }
                 // URL para compartir — solo en recarga completa (offset no va a la URL).
-                // id_producto_in queda EXCLUIDO porque es estado efimero del bulk counter
-                // (la seleccion vive solo en memoria JS; meterla en la URL confundiria a
-                // quien abra el link: veria los productos pero sin badge de seleccion).
-                if (!append) {
+                // id_producto_in (selección efímera) y ver_todo (acción transitoria) NO van a la
+                // URL: no se honran al recargar y solo confundirían.
+                if (!append && !opts.repintar) {
                     try {
                         var cleanU = new URL(ROUTE_INDEX, window.location.origin);
-                        filtros().forEach(function (v, k) {
-                            // id_producto_in (selección efímera) y ver_todo (acción transitoria)
-                            // NO van a la URL: no se honran al recargar y solo confundirían.
+                        f.forEach(function (v, k) {
                             if (k === 'id_producto_in' || k === 'ver_todo') return;
                             cleanU.searchParams.set(k, v);
                         });
                         window.history.replaceState({}, '', cleanU.toString());
                     } catch (e) {}
                 }
-                // Scroll infinito PEREZOSO (mismo patrón que /admin/equipos): en vez de
-                // auto-encadenar TODAS las páginas de golpe (causaba el lag al llegar al final
-                // y el congelamiento del navegador al volver de otra pestaña), observamos la
-                // ÚLTIMA fila y traemos el siguiente lote SOLO cuando el usuario se acerca.
-                // El IntersectionObserver NO dispara con la pestaña oculta → al volver no se
-                // acumula un atasco de lotes pendientes.
+                // Scroll infinito PEREZOSO: se observa la ÚLTIMA fila y el siguiente lote se pinta
+                // SOLO cuando el usuario se acerca.
                 if (data.hasMore && typeof data.nextOffset === 'number') {
                     var _rows = body.querySelectorAll('tr.alm-row');
                     var lastRow = _rows.length ? _rows[_rows.length - 1] : null;
@@ -447,21 +395,32 @@
                     }
                 }
             })
-            .catch(function () {
-                toast('No se pudo cargar el inventario.', 'error');
-                // El aviso "Sin conexión" con su botón lo saca el interceptor global de
-                // fetch (estructura_base) para CUALQUIER petición de la app.
-            })
             .finally(function () {
-                if (append) {
-                    // Carga perezosa: el spinner de "cargando más" se oculta al terminar cada lote
-                    // (el siguiente lo dispara el IntersectionObserver al acercarse a la última fila).
-                    if (loadMore) loadMore.style.display = 'none';
-                } else {
-                    body.style.opacity = '1'; unpre();
-                }
+                if (append && loadMore) loadMore.style.display = 'none';
+                if (conPre) unpre();
             });
     };
+
+    // La copia se puso al día: se rehace lo que se ve (tabla, Consolidado, panel y catálogo de
+    // los buscadores). Si el usuario está escribiendo una cantidad en la tabla se espera a que
+    // salga del campo, para no quitarle el foco a media cifra.
+    var _almRepintarPendiente = false;
+    function almRepintar() {
+        var body = el('almTableBody'); if (!body) return;
+        if (body.contains(document.activeElement)) { _almRepintarPendiente = true; return; }
+        _almRepintarPendiente = false;
+        window.almCargarProductos();
+        window.almCargar({ repintar: true });
+    }
+    window.addEventListener('copia-local', function (e) {
+        if (e.detail.dominio !== 'almacen' || !el('almTableBody')) return;
+        if (e.detail.cambio) almRepintar();
+        else window.pintarEstadoCopia('almCopiaEstado', e.detail.estado);
+    });
+    document.addEventListener('focusout', function (e) {
+        if (!_almRepintarPendiente || !e.target.closest || !e.target.closest('#almTableBody')) return;
+        setTimeout(function () { var b = el('almTableBody'); if (b && !b.contains(document.activeElement)) almRepintar(); }, 0);
+    });
 
     // ── Tras operar sobre UN producto (Auditoría, Stock mínimo, Ubicación, Editar, Crear) ──
     // La tabla se recarga para confirmar con el dato fresco, pero SIN perder el contexto y
@@ -476,36 +435,23 @@
         almCargar({ verTodo: almVerTodoActivo, mostrar: idProducto ? String(idProducto) : null });
     }
 
-    // Lo llama almCargar al terminar una recarga completa con opts.mostrar. `gen` es la
-    // generación de esa recarga: si mientras volaba la fila suelta el usuario ya filtró de
-    // nuevo, se descarta para no meter una fila en una tabla que ya es otra.
-    function almMostrarProducto(idProducto, gen) {
-        var body = el('almTableBody'); if (!body) return;
+    // Lo llama almCargar al terminar una recarga completa con opts.mostrar: si los filtros ya no
+    // traen ese producto, su fila sola se fija arriba (data-fijada) y se resalta.
+    function almMostrarProducto(idProducto) {
+        var body = el('almTableBody'); if (!body || !window._almVista) return;
         var tr = body.querySelector('tr.alm-row[data-id-producto="' + idProducto + '"]');
         if (tr) { almResaltarFila(tr); return; }
-        // solo_filas: el servidor no calcula KPIs ni distribución (aquí solo sirve la fila).
-        var url = ROUTE_INDEX + '?id_almacen=' + encodeURIComponent(val('almSelAlmacen')) + '&id_producto=' + encodeURIComponent(idProducto) + '&solo_filas=1';
-        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (gen !== almLoadGen || !data || !data.html) return;
-                // Mientras volaba esta petición pudo llegar el lote del scroll que la trae
-                // (la recarga deja la página abajo y el observador pide el siguiente al
-                // instante): entonces ya está en su sitio y solo se resalta, sin fijar otra.
-                var yaEsta = body.querySelector('tr.alm-row[data-id-producto="' + idProducto + '"]');
-                if (yaEsta) { almResaltarFila(yaEsta); return; }
-                var tmp = document.createElement('tbody');
-                tmp.innerHTML = data.html;
-                var nueva = tmp.querySelector('tr.alm-row');
-                if (!nueva) return;
-                // Tabla en estado vacío ("usa los filtros" / "sin coincidencias"): se quita el aviso.
-                if (!body.querySelector('tr.alm-row')) body.innerHTML = '';
-                nueva.dataset.fijada = '1';
-                body.insertBefore(nueva, body.firstChild);
-                almSelApplyToRows([nueva]);
-                almResaltarFila(nueva);
-            })
-            .catch(function () { /* la tabla ya quedó recargada; solo falta el resalte */ });
+        var tmp = document.createElement('tbody');
+        tmp.innerHTML = window.AlmacenLocal.inventario(window._almVista,
+            { id_almacen: val('almSelAlmacen'), id_producto: idProducto, solo_filas: '1' }, 0, POR_DEFECTO).html;
+        var nueva = tmp.querySelector('tr.alm-row');
+        if (!nueva) return;
+        // Tabla en estado vacío ("usa los filtros" / "sin coincidencias"): se quita el aviso.
+        if (!body.querySelector('tr.alm-row')) body.innerHTML = '';
+        nueva.dataset.fijada = '1';
+        body.insertBefore(nueva, body.firstChild);
+        almSelApplyToRows([nueva]);
+        almResaltarFila(nueva);
     }
 
     function almResaltarFila(tr) {
@@ -645,9 +591,8 @@
         // finally no correría y el modal se quedaría mudo hasta recargar la página. Al
         // reabrir el módulo no hay ninguna alta en vuelo, así que soltarlo es seguro.
         window._almGuardandoProducto = false;
-        // Si la URL trae un filtro (?search=, ?categoria=…), aplicarlo: el arranque lo hace una
-        // sola vez, así que al llegar por el menú o un enlace interno la tabla quedaba vacía.
-        almCargarSiHayFiltro();
+        // Pintar con el filtro de la URL nueva: el arranque lo hace una sola vez.
+        window.almCargar();
     };
     // Pintar al inicio para reflejar el estado leido de la URL.
     almPintarBadges();
@@ -794,9 +739,8 @@
         );
 
         if (!matches.length) {
-            // Si el catálogo async aún no cargó, mostramos "Cargando…" en vez de "Sin
-            // coincidencias" (que sugeriría por error que el producto no existe → riesgo de
-            // crear duplicados). El fallback "teclear + Enter" contra el servidor sigue vivo.
+            // Mientras la copia no ha llegado se dice "Cargando…" y no "Sin coincidencias"
+            // (que sugeriría por error que el producto no existe → riesgo de crear duplicados).
             var vacioHtml = (!window.almProductosCargados)
                 ? '<div class="alm-suggest-empty">Cargando productos…</div>'
                 : '<div class="alm-suggest-empty">Sin coincidencias.</div>';
@@ -874,9 +818,8 @@
     //       texto — porque ya quiere algo distinto.
     //   (b) Clic en una sugerencia [almBuscarPick] → fija id_producto = match EXACTO
     //       (solo aparece esa fila en la tabla).
-    //   (c) Enter, o tocar la lupa del campo [almBuscarEnter] → similitudes via LIKE %term%
-    //       del backend (sin id_producto), ordenadas de la mas parecida a la mas lejana
-    //       (AlmacenController::ordenarInventarioPorRelevancia).
+    //   (c) Enter, o tocar la lupa del campo [almBuscarEnter] → similitudes (sin id_producto),
+    //       ordenadas de la mas parecida a la mas lejana (AlmacenLocal.inventario).
     //   (d) Limpiar [almBuscarLimpiar] → quita texto + id_producto, recarga sin filtro.
     window.almBuscarInput = function () {
         // Si el texto ya no coincide con la última sugerencia elegida, el id pegado deja
@@ -888,10 +831,8 @@
     // Buscar por código o descripción: el foco solo abre sugerencias; los atajos "Stock
     // bajo"/"Con stock" se sueltan al aplicar la búsqueda (ver almResetBadges).
     window.almBuscarFocus = function () {
-        // Reintenta cargar el catálogo async si la 1ª carga falló (blip de red): al hacer foco
-        // en el buscador se vuelve a intentar. almCargarProductos está guardado (no re-fetchea
-        // si ya cargó o está en curso), así que es seguro llamarlo aquí.
-        if (!window.almProductosCargados && typeof window.almCargarProductos === 'function') window.almCargarProductos();
+        // Si la copia aún no estaba al entrar, el catálogo se arma ahora (sale de la copia, sin pedir nada).
+        if (!window.almProductosCargados) window.almCargarProductos();
         window.almBuscarSuggest();
     };
     // Se llama de dos sitios: la tecla del teclado (con evento) y el clic en la lupa del
@@ -952,7 +893,7 @@
         almBuscarPickedIds = null;
         // Un "Stock bajo"/"Con stock" pegado del almacén anterior podía ocultar este
         // producto puntual en el nuevo almacén (solo_bajo/solo_con_saldo NO se
-        // exceptúan para id_producto — ver inventarioBaseQuery en el backend). Igual la unidad.
+        // exceptúan para id_producto — ver filtrarInventario en almacen_local.js). Igual la unidad.
         almSoltarUm();
         almResetBadges();
         window.LectorBarras.iconToggle();
@@ -1540,15 +1481,13 @@
         if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return Promise.reject(new Error('permiso'));
         var idAlm = almSelAlmacenActual();
         if (!idAlm) { toast('Elige primero el almacén del que sale el material.', 'error'); return Promise.reject(new Error('almacen')); }
-        var p = new URLSearchParams({
-            id_almacen: idAlm, solo_filas: '1',
-            id_producto_in: lineas.map(function (l) { return l.id_producto; }).join(','),
-        });
-        return window.apiFetch(ROUTE_INDEX + '?' + p.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-            .then(function (b) {
+        return almVista()
+            .then(function (vista) {
                 var filas = document.createElement('tbody');
-                filas.innerHTML = b.html || '';
+                filas.innerHTML = window.AlmacenLocal.inventario(vista, {
+                    id_almacen: idAlm, solo_filas: '1',
+                    id_producto_in: lineas.map(function (l) { return l.id_producto; }).join(','),
+                }, 0, POR_DEFECTO).html;
                 var res = { sinParte: 0, noEstan: 0 };
                 lineas.forEach(function (l) {
                     var id = String(l.id_producto);
@@ -1598,33 +1537,16 @@
     };
     // Panel lateral "En otros almacenes" del producto de la fila tocada, sin recargar la tabla:
     // con varias filas de búsqueda es la forma de saber si ese producto hay en otro almacén.
-    // Solo pinta la respuesta del ÚLTIMO pedido (una anterior que llegue tarde se descarta).
-    var ROUTE_OTROS = CFG.rutas.productosOtros;
-    var _almOtrosPedido = 0;
+    // _almOtrosId = el producto que enseña el panel (null = la distribución por categoría).
+    var _almOtrosId = null;
     function almPanelOtros(idProducto) {
         var dc = el('almDistribucionContainer'); if (!dc || !idProducto) return;
-        var pedido = ++_almOtrosPedido, idAlm = almSelAlmacenActual();
-        // SPINNER AL INSTANTE, antes de pedir nada. Con internet flojo el panel se quedaba
-        // con el reparto por categoria de la busqueda anterior hasta que llegara la
-        // respuesta, y el toque parecia perdido: el usuario tocaba otra fila, y otra.
-        // Se congela el alto que tenia el panel para que no pegue un salto al vaciarse.
-        dc.innerHTML = '<div class="alm-panel-cargando" style="min-height:' +
-            Math.max(90, dc.offsetHeight) + 'px"><div class="spinner-mini"></div></div>';
-        window.apiFetch(ROUTE_OTROS.replace('__PID__', idProducto) + (idAlm ? '?id_almacen=' + encodeURIComponent(idAlm) : ''), { headers: { 'Accept': 'application/json' } })
-            .then(function (r) { return r.ok ? r.json() : null; })
-            .then(function (d) {
-                if (pedido !== _almOtrosPedido) return;   // llego tarde: manda el ultimo toque
-                dc.innerHTML = (d && d.html) || almPanelFallo();
-            })
-            // Con el spinner puesto, vaciar el panel en un fallo lo hace DESAPARECER (la regla
-            // :has(:empty) del wrapper), y eso se lee como "este producto no esta en ningun
-            // lado", que es una respuesta falsa. Mejor decir que no se pudo cargar.
-            .catch(function () { if (pedido === _almOtrosPedido) dc.innerHTML = almPanelFallo(); });
-    }
-    function almPanelFallo() {
-        return '<div class="alm-panel-cargando alm-panel-fallo">' +
-               '<i class="material-icons">cloud_off</i>' +
-               '<span>No se pudo cargar. Toca el producto otra vez.</span></div>';
+        _almOtrosId = idProducto;
+        var idAlm = almSelAlmacenActual();
+        almVista().then(function (vista) {
+            if (_almOtrosId !== idProducto || !vista.estado.listo) return;   // manda el último toque
+            dc.innerHTML = window.AlmacenLocal.panelOtros(vista, idProducto, idAlm);
+        });
     }
     // Clic en una fila de la tabla → toggle de selección. Ignora clics sobre botones / inputs
     // (incluido el input .alm-row-cant que va dentro de un td[data-no-toggle]), salvo la celda de
@@ -1893,52 +1815,18 @@
             case 'admin':    if (window.almAbrirAdminAlmacenes) window.almAbrirAdminAlmacenes(); break;
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
             case 'export':
-                // El export sale con los MISMOS FILTROS que la tabla. Reusamos
-                // filtros() —la única fuente de verdad de los filtros activos: almacén,
-                // búsqueda/producto puntual, categoría, stock bajo/con saldo— en vez de
-                // armar la URL a mano. Antes solo mandaba almacén + categoría, así que
-                // ignoraba el producto buscado y exportaba toda la categoría.
-                var u = new URL(CFG.rutas.export, window.location.origin);
-                filtros().forEach(function (v, k) { u.searchParams.set(k, v); });
-                almDescargarExcel(u.toString());
+                // El Excel trae los productos que filtra la tabla, sin partir en páginas: los
+                // resuelve la copia local con filtros() —la única fuente de verdad de los
+                // filtros activos— y el servidor arma el archivo con esos ids.
+                almVista().then(function (vista) {
+                    var fd = new FormData();
+                    fd.append('id_almacen', val('almSelAlmacen'));
+                    fd.append('ids', window.AlmacenLocal.idsInventario(vista, Object.fromEntries(filtros()), POR_DEFECTO).join(','));
+                    window.descargarArchivo(CFG.rutas.export, fd, 'Copia_Inventario.xlsx', 'No se pudo generar el Excel.');
+                });
                 break;
         }
     };
-
-    // ── Descarga genérica con preloader ───────────────────────────────────
-    // Baja el archivo vía fetch + blob (no window.location.href / window.open) para
-    // mostrar el spinner global MIENTRAS el servidor lo genera y forzar la DESCARGA
-    // (en vez de abrir otra pestaña). El nombre sale del Content-Disposition; si no
-    // viene, usa el fallback. La usa la Copia de Inventario (Excel) — misma UX de
-    // descarga que el resto del módulo.
-    function almDescargarArchivo(url, fallbackName, okMsg, errMsg) {
-        pre();
-        return window.apiFetch(url)
-            .then(function (r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                var cd = r.headers.get('Content-Disposition') || '';
-                var m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
-                var nombre = m ? decodeURIComponent(m[1]) : fallbackName;
-                return r.blob().then(function (blob) { return { blob: blob, nombre: nombre }; });
-            })
-            .then(function (res) {
-                var objUrl = URL.createObjectURL(res.blob);
-                var a = document.createElement('a');
-                a.href = objUrl; a.download = res.nombre;
-                document.body.appendChild(a); a.click(); a.remove();
-                setTimeout(function () { URL.revokeObjectURL(objUrl); }, 2000);
-                unpre();
-                if (okMsg && window.showToast) window.showToast(okMsg, 'success');
-            })
-            .catch(function () {
-                unpre();
-                window.toast(errMsg, 'error');
-            });
-    }
-
-    function almDescargarExcel(url) {
-        almDescargarArchivo(url, 'Copia_Inventario.xlsx', 'Excel descargado.', 'No se pudo generar el Excel.');
-    }
 
     // ═══════════════════════════════════════════════════════════════════════
     //  ETIQUETAS CON CÓDIGO DE BARRAS + ESCANEO  (como las de producto del supermercado)
@@ -2338,9 +2226,6 @@
     // por producto individual: ENTRADA → /admin/almacen/recepcion · SALIDA →
     // selección de filas + barra flotante (Nota de Entrega). Para AJUSTE puntual
     // se usa el modal #almAjusteModal (Auditoría de Inventario).
-
-    // ── Página de movimientos (módulo aparte: /admin/almacen/movimientos) ──
-    var ROUTE_MOVIMIENTOS = CFG.rutas.movimientos;
 
     // ── Modal "Detalles del producto" (lo abre el ojo de cada fila; agrupa todas las acciones) ──
     // El tooltip de equipos (.tooltip-bubble) vive dentro de la celda, pero el wrap de la tabla
@@ -2872,9 +2757,8 @@
         });
     };
 
-    // ── Modal "Movimientos del producto" (kardex local de UN producto) ──
-    // Reusa AlmacenController::movimientos con ?mini=1 (partial de 5 columnas)
-    // y filtra por id_producto + id_almacen actual. Estado en window.__almKp.
+    // ── Modal "Movimientos del producto" (kardex de UN producto en el almacén abierto) ──
+    // Sale de la copia local (AlmacenLocal.movimientos con mini). Estado en window.__almKp.
     window.__almKp = { idProducto: null, tipo: '', desde: '', hasta: '' };
 
     // Deja los tres controles (tipo + ambas fechas) en blanco y sincroniza el estado.
@@ -2914,7 +2798,7 @@
         window.almKpCargar();
     };
 
-    window.almKpCargar = function (pageUrl) {
+    window.almKpCargar = function (pagina) {
         if (!window.__almKp.idProducto) return;
         window.__almKp.desde = (el('almKpDesde') && el('almKpDesde').value) || '';
         window.__almKp.hasta = (el('almKpHasta') && el('almKpHasta').value) || '';
@@ -2926,35 +2810,22 @@
         var btnLimpiar = el('almKpBtnLimpiar');
         if (btnLimpiar) btnLimpiar.hidden = !(window.__almKp.tipo || window.__almKp.desde || window.__almKp.hasta);
 
-        var p = new URLSearchParams();
-        p.set('id_producto', window.__almKp.idProducto);
-        p.set('mini', '1');
-        if (val('almSelAlmacen')) p.set('id_almacen', val('almSelAlmacen'));
-        if (window.__almKp.tipo)  p.set('tipo',  window.__almKp.tipo);
-        if (window.__almKp.desde) p.set('desde', window.__almKp.desde);
-        if (window.__almKp.hasta) p.set('hasta', window.__almKp.hasta);
-        if (pageUrl) {
-            try { var pg = new URL(pageUrl, window.location.origin).searchParams.get('page'); if (pg) p.set('page', pg); } catch (e) {}
-        }
-
-        var body = el('almKpBody'); if (body) body.style.opacity = '0.5';
-        window.apiFetch(ROUTE_MOVIMIENTOS + '?' + p.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (body && data.html !== undefined) body.innerHTML = data.html;
-            var pg = el('almKpPag'); if (pg) pg.innerHTML = data.pagination || '';
-        })
-        .catch(function () {
-            if (body) body.innerHTML = '<tr><td colspan="5" class="alm-kp-estado error">No se pudieron cargar los movimientos.</td></tr>';
-        })
-        .finally(function () { if (body) body.style.opacity = '1'; });
+        var f = {
+            id_producto: window.__almKp.idProducto, id_almacen: val('almSelAlmacen'),
+            tipo: window.__almKp.tipo, desde: window.__almKp.desde, hasta: window.__almKp.hasta,
+        };
+        almVista().then(function (vista) {
+            var data = window.AlmacenLocal.movimientos(vista, f, pagina, { mini: true, porDefecto: POR_DEFECTO });
+            var body = el('almKpBody'); if (body) body.innerHTML = data.html;
+            var pg = el('almKpPag'); if (pg) pg.innerHTML = data.pagination;
+        });
     };
 
     // Click en links de paginación del kardex del producto.
     document.addEventListener('click', function (e) {
-        var a = e.target.closest('#almKpPag a'); if (!a) return;
+        var a = e.target.closest('#almKpPag a.page-link'); if (!a) return;
         e.preventDefault(); e.stopImmediatePropagation();
-        window.almKpCargar(a.href);
+        window.almKpCargar(a.dataset.page);
     }, true);
 
     window.almAbrirAjuste = function (idProducto, codigo, nombre, um, saldo) {
@@ -3773,19 +3644,6 @@
                 toast(res.b.message || 'Producto restaurado.');
                 window.almPapeleraBuscar();
                 if (typeof window.almCargar === 'function') window.almCargar();
-
-                if (res.b && res.b.producto && window.almProductosCargados && Array.isArray(window.almProductosLista)) {
-                    var p = res.b.producto;
-                    var ya = window.almProductosLista.some(function (x) { return String(x.ID_PRODUCTO) === String(p.ID_PRODUCTO); });
-                    if (!ya) {
-                        // Restaurar no trae los nºs de parte en la respuesta; quedan vacíos hasta el
-                        // próximo F5 (la relación sigue en BD). La forma de la entry sí es completa.
-                        window.almProductosLista.push(almProdEntry(p));
-                        // El catálogo se mutó EN SITIO → la agrupación cacheada por descripción
-                        // quedó vieja (ver ProductoSuggest.agrupar).
-                        window.ProductoSuggest.invalidar();
-                    }
-                }
             } else {
                 toast((res.b && res.b.message) || 'No se pudo restaurar el producto.', 'error');
             }
@@ -3894,34 +3752,6 @@
                 if (id && esCatFiltro(cat)) {
                     var trU = document.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
                     if (trU) trU.dataset.equiv = window._almProdEquivs.join('|');
-                }
-
-                // Sincronizar window.almProductosLista (cache en memoria que usa el dropdown
-                // de sugerencias) para que el producto nuevo / editado aparezca en la busqueda
-                // sin tener que recargar la pestaña. Antes: el producto recien creado solo
-                // aparecia tras un F5 porque la lista se cargaba 1 vez al render del server.
-                if (res.b && res.b.producto && window.almProductosCargados && Array.isArray(window.almProductosLista)) {
-                    var p = res.b.producto;
-                    // Filtro editado → sus nºs de parte están en _almProdEquivs (el modal). Para
-                    // no-filtros o creación, parts queda vacío. Así la entry cacheada conserva
-                    // CATEGORIA y equivalencias y la búsqueda sigue funcionando sin recargar.
-                    var equivs = esCatFiltro(p.CATEGORIA) && Array.isArray(window._almProdEquivs)
-                        ? window._almProdEquivs : [];
-                    var entry = almProdEntry(p, equivs);
-                    if (id) {
-                        // EDICION: reemplazar la entry existente
-                        var idx = window.almProductosLista.findIndex(function (x) {
-                            return String(x.ID_PRODUCTO) === String(p.ID_PRODUCTO);
-                        });
-                        if (idx !== -1) window.almProductosLista[idx] = entry;
-                    } else {
-                        // CREACION: agregar al final
-                        window.almProductosLista.push(entry);
-                    }
-                    // El catálogo se mutó EN SITIO (no se reemplazó el array) → hay que tirar la
-                    // agrupación cacheada por descripción, o el producto nuevo/renombrado se
-                    // seguiría agrupando con los datos viejos (ver ProductoSuggest.agrupar).
-                    window.ProductoSuggest.invalidar();
                 }
 
                 // La foto va DESPUES de guardar: al crear, hasta aquí no había id al que
@@ -4213,20 +4043,10 @@
     };
     }   // fin de CFG.puedeMover
 
-    // La tabla ya viene pintada con los últimos productos movidos (el servidor los manda en
-    // la carga inicial). Si la URL trae un filtro de contenido (search / categoria / um /
-    // id_producto), se recarga al entrar para aplicarlo; si no, se queda con esa vista sin
-    // pedir nada más. Con el patron placeholder-background, value="" siempre — leemos del
-    // data-active. Incluir almBuscarPickedId garantiza que un link directo del tipo
-    // ?id_producto=NNN dispare la carga y pinte el sidebar cruzado "En otros almacenes".
-    // También lo llama almResetOnRemount: al reabrir el módulo por la SPA con ?search=.
-    function almCargarSiHayFiltro() {
-        var b = el('almFiltroBuscar'), c = el('almFiltroCat'), u = el('almFiltroUm');
-        var bActivo = b && ((b.value && b.value.trim()) || (b.dataset.active && b.dataset.active.trim()));
-        var cActivo = c && ((c.value && c.value.trim()) || (c.dataset.active && c.dataset.active.trim()));
-        if (bActivo || cActivo || (u && u.value) || almBuscarPickedId) window.almCargar();
-    }
-    almCargarSiHayFiltro();
+    // La tabla, el Consolidado y el panel lateral se pintan al entrar desde la copia local, con
+    // el filtro que traiga la URL (?search=, ?categoria=, ?id_producto=…) o, sin él, el aviso
+    // "Usa los filtros…". También al reabrir el módulo por la SPA (almResetOnRemount).
+    window.almCargar();
 
     // ── Posicion de Consolidado + "En otros almacenes" en mobile ─────────────
     // Default DOM (desktop): .counter-sidebar es sibling del .admin-card dentro

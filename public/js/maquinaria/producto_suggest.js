@@ -38,11 +38,9 @@
     // Mapa { claveGrupo: { count, ids, items } } del catálogo. MEMOIZADO: el buscador lo pide
     // en CADA tecla y recorrerlo cuesta ~0,5 ms con los ~1200 productos del catálogo, lo que
     // en el caso "abrir el buscador sin escribir" (donde el ranking no hace nada) era el 100%
-    // del trabajo. La caché se invalida sola si la vista REEMPLAZA el array; si lo muta en
-    // sitio (Inventario hace push/asignación al crear o editar un producto) hay que llamar
-    // invalidar() — si no, un producto nuevo o renombrado no se agruparía bien hasta el F5.
+    // del trabajo. La caché se invalida sola: cada vista REEMPLAZA el array al rehacer el
+    // catálogo, nunca lo muta en sitio.
     var cacheLista = null, cacheGrupos = null;
-    function invalidar() { cacheLista = null; cacheGrupos = null; }
     function agrupar(lista) {
         lista = lista || [];
         if (cacheLista === lista && cacheGrupos) return cacheGrupos;
@@ -110,7 +108,6 @@
         esFiltro: esFiltro,
         claveGrupo: claveGrupo,
         agrupar: agrupar,
-        invalidar: invalidar,
         rankear: rankear,
         dedupe: dedupe,
         badgePresentaciones: badgePresentaciones,

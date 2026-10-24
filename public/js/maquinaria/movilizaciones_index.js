@@ -214,52 +214,6 @@ function _mvMensaje(texto) {
         + '<p style="font-weight: 600; font-size: 14px; margin: 0;">' + texto + '</p></div></td></tr>';
 }
 
-// Paginador con ventana de tamaño FIJO, el mismo dibujo que vendor/pagination/custom-sliding:
-// 11 números en PC y 5 en el teléfono (los demás llevan .pag-far, ocultos por CSS).
-function _mvPaginador(actual, ultima) {
-    if (ultima <= 1) return '';
-    const caja = 'display:flex; align-items:center; justify-content:center; padding:6px 12px; border-radius:6px; font-size:13px;';
-    const apagado = function (html) {
-        return '<li><span style="' + caja + ' border:1px solid #e2e8f0; background:#f8fafc; color:#94a3b8; cursor:not-allowed;">' + html + '</span></li>';
-    };
-    const enlace = function (pag, html, color, clase) {
-        return '<li' + (clase ? ' class="' + clase + '"' : '') + '><a href="#" data-page="' + pag + '" class="page-link" style="' + caja
-            + ' border:1px solid #cbd5e1; background:#fff; color:' + color + '; text-decoration:none; transition:all 0.2s;"'
-            + ' onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'#fff\'">' + html + '</a></li>';
-    };
-    const ventana = function (lado) {
-        const inicio = Math.max(1, Math.min(actual - lado, ultima - lado * 2));
-        return [inicio, Math.min(ultima, inicio + lado * 2)];
-    };
-    const [ini, fin] = ventana(5);
-    const [mIni, mFin] = ventana(2);
-
-    let html = actual === 1 ? apagado('&laquo; <span class="pag-nav-text">Anterior</span>')
-        : enlace(actual - 1, '&laquo; <span class="pag-nav-text">Anterior</span>', '#475569');
-    for (let i = ini; i <= fin; i++) {
-        html += i === actual
-            ? '<li class="pag-num"><span style="' + caja + ' font-weight:700; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8;">' + i + '</span></li>'
-            : enlace(i, String(i), '#0f172a', 'pag-num' + (i < mIni || i > mFin ? ' pag-far' : ''));
-    }
-    html += actual === ultima ? apagado('<span class="pag-nav-text">Siguiente</span> &raquo;')
-        : enlace(actual + 1, '<span class="pag-nav-text">Siguiente</span> &raquo;', '#475569');
-
-    return '<nav role="navigation" aria-label="Pagination Navigation" style="display:flex; justify-content:center; align-items:center;">'
-        + '<ul class="pag-sliding" style="display:flex; flex-wrap:wrap; list-style:none; padding:0; margin:0; justify-content:center; gap:6px;">'
-        + html + '</ul></nav>';
-}
-
-// Línea bajo el total: solo dice algo cuando NO hay conexión (se ven los datos guardados).
-function _mvPintarEstado(estado) {
-    const el = document.getElementById('mvCopiaEstado');
-    if (!el) return;
-    const cuando = estado.actualizado
-        ? new Date(estado.actualizado).toLocaleString('es-VE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-        : '';
-    el.textContent = estado.conectado ? '' : (cuando ? 'Sin conexión · datos del ' + cuando : 'Sin conexión');
-    el.style.display = el.textContent ? 'block' : 'none';
-}
-
 // ─── Pintar ──────────────────────────────────────────────────────────────────
 window._mvPagina = 1;
 
@@ -278,7 +232,7 @@ window.loadMovilizaciones = function (pagina) {
             : 'Cargando historial…');
         if (pag) pag.innerHTML = '';
         if (totalEl) totalEl.innerText = '—';
-        if (vista) _mvPintarEstado(vista.estado);
+        if (vista) window.pintarEstadoCopia('mvCopiaEstado', vista.estado);
         return;
     }
 
@@ -291,9 +245,9 @@ window.loadMovilizaciones = function (pagina) {
     tableBody.innerHTML = filas.length
         ? filas.slice(desde, desde + MV_POR_PAGINA).map(function (m) { return _mvFila(m, superAdmin); }).join('')
         : _mvMensaje('No se encontraron movilizaciones registradas.');
-    if (pag) pag.innerHTML = _mvPaginador(window._mvPagina, ultima);
+    if (pag) pag.innerHTML = window.paginadorHtml(window._mvPagina, ultima);
     if (totalEl) totalEl.innerText = filas.length;
-    _mvPintarEstado(vista.estado);
+    window.pintarEstadoCopia('mvCopiaEstado', vista.estado);
 
     // La URL refleja los filtros y la página (F5 o compartir el enlace vuelven aquí).
     if (window._mvPagina > 1) params.set('page', window._mvPagina);
@@ -332,7 +286,7 @@ if (!window._mvCopiaRegistered) {
     window.addEventListener('copia-local', function (e) {
         if (e.detail.dominio !== 'movilizaciones' || !document.getElementById('movilizacionesTableBody')) return;
         if (e.detail.cambio) window.loadMovilizaciones(window._mvPagina);
-        else _mvPintarEstado(e.detail.estado);
+        else window.pintarEstadoCopia('mvCopiaEstado', e.detail.estado);
     });
 }
 

@@ -45,21 +45,4 @@ class CorreccionNota extends Model
             ->mapWithKeys(fn ($c) => [(int) $c->ID_PRODUCTO => (float) $c->CANTIDAD_ANTES])
             ->all();
     }
-
-    /**
-     * Qué productos de las notas de $movimientos tienen corrección, como
-     * ["NUMERO_NOTA|ID_PRODUCTO" => true]. Una consulta por página del Historial, y ninguna
-     * si la página no trae notas.
-     */
-    public static function corregidos(Collection $movimientos): array
-    {
-        $numeros = $movimientos->pluck('NUMERO_NOTA')->filter()->unique()->values();
-        if ($numeros->isEmpty()) {
-            return [];
-        }
-        return static::whereIn('NUMERO_NOTA', $numeros)
-            ->get(['NUMERO_NOTA', 'ID_PRODUCTO'])
-            ->mapWithKeys(fn ($c) => [$c->NUMERO_NOTA . '|' . $c->ID_PRODUCTO => true])
-            ->all();
-    }
 }

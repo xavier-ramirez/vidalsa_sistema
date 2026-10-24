@@ -1148,6 +1148,9 @@
         {{-- /admin/equipos se filtra, cuenta y pinta desde esa copia (sin ir al servidor). --}}
         <script
             src="{{ asset('js/maquinaria/equipos_local.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_local.js')) }}"></script>
+        {{-- Inventario, bitácora y notas del almacén: igual, desde la copia 'almacen'. --}}
+        <script
+            src="{{ asset('js/maquinaria/almacen_local.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen_local.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/movilizaciones_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/movilizaciones_index.js')) }}"></script>
         {{-- Modal "Nuevo Reporte de Falla" COMPARTIDO (fallas/equipos/auxiliares): global
@@ -1377,11 +1380,6 @@
                 else refrescar();
             })();
         </script>
-        {{-- Render offline por módulo (GLOBAL: se (re)inicializan en cada navegación SPA vía
-             su propio listener 'spa:contentLoaded'; en @section('content') NO se ejecutaban
-             porque la SPA omite los <script src> ya cargados). --}}
-        <script src="{{ asset('js/maquinaria/almacen-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen-offline.js')) }}" defer></script>
-        <script src="{{ asset('js/maquinaria/movimientos-offline.js') }}?v={{ @filemtime(public_path('js/maquinaria/movimientos-offline.js')) }}" defer></script>
 
         {{-- ── WebAuthn: prompt de registro biométrico tras login con contraseña ── --}}
         @if(session('webauthn_prompt'))

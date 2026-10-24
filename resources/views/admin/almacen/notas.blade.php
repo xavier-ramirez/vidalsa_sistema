@@ -48,7 +48,7 @@
 <div class="page-layout-grid">
 <div class="admin-card" style="margin:0;min-height:70vh;min-width:0;width:100%;padding:14px;">
 
-    <div class="anf-stat-pill"><i class="material-icons">description</i> <span>{{ $total }}</span> notas</div>
+    <div class="anf-stat-pill"><i class="material-icons">description</i> <span id="almNotTotalPill">—</span> notas</div>
 
     {{-- ── Filtros ── --}}
     <div id="almNotFilters">
@@ -201,15 +201,12 @@
                     <th style="width:100px;">Acciones</th>
                 </tr>
             </thead>
-            <tbody id="almNotTableBody">
-                @include('admin.almacen.partials.notas_rows', ['notas' => $notas, 'almById' => $almById, 'freById' => $freById, 'conDevolucion' => $conDevolucion])
-            </tbody>
+            {{-- Lo pinta loadNotas (abajo) desde la copia local. --}}
+            <tbody id="almNotTableBody"></tbody>
         </table>
     </div>
 
-    <div id="almNotPagination" style="margin-top:14px;">
-        {{ $notas->links('vendor.pagination.custom-sliding') }}
-    </div>
+    <div id="almNotPagination" style="margin-top:14px;"></div>
 
 </div>
 
@@ -221,18 +218,20 @@
         <div style="position:relative;z-index:2;">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:5px;">Total Notas</div>
             <div style="display:flex;align-items:baseline;gap:6px;">
-                <span id="almNotTotalCount" style="font-size:32px;font-weight:800;line-height:1;letter-spacing:-1px;">{{ $total }}</span>
+                <span id="almNotTotalCount" style="font-size:32px;font-weight:800;line-height:1;letter-spacing:-1px;">—</span>
                 <span style="font-size:12px;font-weight:500;">notas (según filtros)</span>
             </div>
+            {{-- Estado de la copia local: sin conexión / última puesta al día (pintarEstadoCopia). --}}
+            <div id="almNotCopiaEstado" style="display:none;margin-top:6px;font-size:11px;font-weight:600;opacity:0.85;"></div>
         </div>
     </div>
 
-    {{-- Ranking de Consumo de Inventario — mismo partial y mismas dimensiones que el
-         sidebar de /admin/almacen/movimientos. Click en una fila lleva al kardex
-         filtrado por ese producto (la fn almMovFiltrarPorProducto la define más
-         abajo en este propio archivo para que el partial funcione cross-page). --}}
+    {{-- Ranking de Consumo de Inventario — mismo dibujo y mismas dimensiones que el
+         sidebar de /admin/almacen/movimientos (AlmacenLocal.consumo). Click en una fila lleva
+         al kardex filtrado por ese producto (la fn almMovFiltrarPorProducto la define más
+         abajo en este propio archivo para que funcione cross-page). --}}
     <div style="background:white;border-radius:12px;padding:15px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);overflow:hidden;">
-        @include('admin.almacen.partials.consumo_stats', ['consumo' => $consumo])
+        <div id="almNotConsumoContainer"></div>
     </div>
 </div>
 
@@ -246,58 +245,58 @@
     function el(id) { return document.getElementById(id); }
     function hv(name) { var e = document.querySelector('input[name="' + name + '"][data-filter-value]'); return e ? String(e.value).trim() : ''; }
 
-    window.loadNotas = async function (pageUrl) {
+    function filtrosNotas() {
+        var f = {};
+        var alm = hv('id_almacen'); if (alm) f.id_almacen = alm;
+        var tipo = hv('tipo'); if (tipo && tipo !== 'all') f.tipo = tipo;
+        var fr = hv('id_frente'); if (fr && fr !== 'all') f.id_frente = fr;
+        var cat = hv('categoria'); if (cat && cat !== 'all') f.categoria = cat;
+        var s = el('almNotSearch'); if (s && s.value.trim()) f.search = s.value.trim();
+        var d = el('almNotDesde'); if (d && d.value) f.desde = d.value;
+        var h = el('almNotHasta'); if (h && h.value) f.hasta = h.value;
+        return f;
+    }
+
+    // Las notas, su total y el ranking de consumo salen de la COPIA LOCAL del almacén
+    // (almacen_local.js), con o sin internet. pagina: sin ella (cambió un filtro) la primera.
+    var POR_DEFECTO = @json(auth()->user()?->almacenPorDefecto());
+    window.__almNotPagina = parseInt(new URLSearchParams(window.location.search).get('page'), 10) || 1;
+    window.loadNotas = function (pagina) {
         var body = el('almNotTableBody');
         if (!body) return;
+        window.__almNotPagina = pagina || 1;
+        var f = filtrosNotas();
+        var conPre = !window.__almNotVista;
+        if (conPre && window.showPreloader) window.showPreloader();
+        window.CopiaLocal.usar('almacen', body)
+            .then(function (v) { return window.CopiaLocal.alDia('almacen').then(function () { window.__almNotVista = v; return v; }); })
+            .then(function (vista) {
+                if (!document.contains(body)) return;
+                window.pintarEstadoCopia('almNotCopiaEstado', vista.estado);
+                if (!vista.estado.listo) {
+                    body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#64748b;">Sin conexión: este equipo todavía no tiene las notas guardadas.</td></tr>';
+                    return;
+                }
+                var data = window.AlmacenLocal.notas(vista, f, window.__almNotPagina, POR_DEFECTO);
+                body.innerHTML = data.html;
+                el('almNotPagination').innerHTML = data.pagination;
+                el('almNotTotalCount').textContent = data.total;
+                el('almNotTotalPill').textContent = data.total;
+                // `search` aquí es N° Nota/RQ/Contrato/Solicitante, no un producto: el ranking
+                // sigue respondiendo a almacén/frente/categoría/período.
+                el('almNotConsumoContainer').innerHTML = window.AlmacenLocal.consumo(vista, f, POR_DEFECTO, false);
 
-        if (window.showPreloader) window.showPreloader();
-        body.style.opacity = '0.5';
+                var q = new URLSearchParams(f);
+                if (window.__almNotPagina > 1) q.set('page', window.__almNotPagina);
+                try { window.history.replaceState(null, '', @json(route('almacen.notas')) + (q.toString() ? '?' + q : '')); } catch (e) {}
 
-        try {
-            var p = new URLSearchParams();
-            var alm = hv('id_almacen'); if (alm) p.set('id_almacen', alm);
-            var tipo = hv('tipo'); if (tipo && tipo !== 'all') p.set('tipo', tipo);
-            var fr = hv('id_frente'); if (fr && fr !== 'all') p.set('id_frente', fr);
-            var cat = hv('categoria'); if (cat && cat !== 'all') p.set('categoria', cat);
-            var s = el('almNotSearch'); if (s && s.value.trim()) p.set('search', s.value.trim());
-            var d = el('almNotDesde'); if (d && d.value) p.set('desde', d.value);
-            var h = el('almNotHasta'); if (h && h.value) p.set('hasta', h.value);
-
-            if (pageUrl && typeof pageUrl === 'string') {
-                try { var pg = new URL(pageUrl, window.location.origin).searchParams.get('page'); if (pg) p.set('page', pg); } catch (_) {}
-            }
-
-            var baseUrl = @json(route('almacen.notas'));
-            var qs = p.toString();
-            var finalUrl = baseUrl + (qs ? ('?' + qs) : '');
-
-            var resp = await window.apiFetch(finalUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            var data = await resp.json();
-
-            body.innerHTML = data.html || '';
-            body.style.opacity = '1';
-
-            var pag = document.getElementById('almNotPagination');
-            if (pag) pag.innerHTML = data.pagination || '';
-
-            var cnt = document.getElementById('almNotTotalCount');
-            if (cnt && data.total !== undefined) cnt.textContent = data.total;
-
-            if (window.history && window.history.pushState) {
-                window.history.pushState(null, '', finalUrl);
-            }
-
-            var sb = el('almNotSearchClear');
-            if (sb) sb.style.display = (s && s.value.trim()) ? 'block' : 'none';
-            var box = s ? s.closest('.anf-search-box') : null;
-            if (box) { if (s.value.trim()) box.classList.add('active'); else box.classList.remove('active'); }
-        } catch (e) {
-            console.error('[loadNotas]', e);
-            if (body) body.style.opacity = '1';
-        } finally {
-            if (window.hidePreloader) window.hidePreloader();
-        }
+                var s = el('almNotSearch');
+                var sb = el('almNotSearchClear');
+                if (sb) sb.style.display = (s && s.value.trim()) ? 'block' : 'none';
+                var box = s ? s.closest('.anf-search-box') : null;
+                if (box) box.classList.toggle('active', !!s.value.trim());
+            })
+            .finally(function () { if (conPre && window.hidePreloader) window.hidePreloader(); });
     };
 
     // Selección en cualquier custom-dropdown → recarga via AJAX.
@@ -315,6 +314,12 @@
     // handler persistente lee siempre el valor de la visita actual.
     window.__almNotReady = false;
     setTimeout(function () { window.__almNotReady = true; }, 500);
+    // La copia se puso al día (un guardado propio o de otro equipo): se rehace la MISMA página.
+    if (!_almNotBound) window.addEventListener('copia-local', function (e) {
+        if (e.detail.dominio !== 'almacen' || !document.getElementById('almNotTableBody')) return;
+        if (e.detail.cambio) window.loadNotas(window.__almNotPagina);
+        else window.pintarEstadoCopia('almNotCopiaEstado', e.detail.estado);
+    });
     if (!_almNotBound) window.addEventListener('dropdown-selection', function (e) {
         if (!window.__almNotReady) return;
         if (!document.getElementById('almNotTableBody')) return;
@@ -332,7 +337,7 @@
     };
     // "Limpiar Todo" del panel avanzados: borra tipo, categoria, desde y hasta.
     // Usa clearDropdownFilter para resetear la UI visual de los dropdowns pero
-    // desactiva el guard _almNotReady para no disparar loadNotas por cada clear.
+    // desactiva el guard __almNotReady para no disparar loadNotas por cada clear.
     window.almNotLimpiarFechas = function (ev) {
         if (ev) { ev.preventDefault(); ev.stopPropagation(); }
         var d = el('almNotDesde'), h = el('almNotHasta');
@@ -342,12 +347,12 @@
         var hc = el('almNotHastaClear'); if (hc) hc.style.display = 'none';
         var db = el('almNotDesdeBox'); if (db) db.style.background = 'white';
         var hb = el('almNotHastaBox'); if (hb) hb.style.background = 'white';
-        _almNotReady = false;
+        window.__almNotReady = false;
         if (typeof clearDropdownFilter === 'function') {
             clearDropdownFilter('almNotFiltroTipo');
             clearDropdownFilter('almNotFiltroCat');
         }
-        _almNotReady = true;
+        window.__almNotReady = true;
         window.loadNotas();
     };
     if (!_almNotBound) document.addEventListener('click', function (e) {
@@ -380,11 +385,14 @@
         window.location.href = @json(route('almacen.movimientos')) + '?' + p.toString();
     };
 
-    // Paginación AJAX
+    // Paginación (los enlaces llevan su página en data-page; ver window.paginadorHtml).
     if (!_almNotBound) document.addEventListener('click', function (e) {
         var link = e.target.closest('#almNotPagination a.page-link');
-        if (link) { e.preventDefault(); e.stopImmediatePropagation(); window.loadNotas(link.href); }
+        if (link) { e.preventDefault(); e.stopImmediatePropagation(); if (link.dataset.page) window.loadNotas(parseInt(link.dataset.page, 10)); }
     });
+
+    // Pintar al entrar, con los filtros y la página de la URL.
+    window.loadNotas(window.__almNotPagina);
 })();
 </script>
 @endsection

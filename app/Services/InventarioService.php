@@ -269,12 +269,6 @@ class InventarioService
             // Borrado duro de las filas del kardex.
             MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->delete();
 
-            // Snapshot offline: un borrado DURO no lo detecta la sincronizacion
-            // incremental (compara por updated_at / ID maximo, y una fila que se va
-            // no deja rastro). Ademas el recalculo de abajo REESCRIBE filas viejas
-            // sin cambiar su ID. Se pide a los clientes la copia completa de almacen.
-            \App\Support\OfflineVersion::resetear('almacen');
-
             $afectados = $this->recalcularBolsas($pares, $bolsasPorPar, $aperturas);
 
             return ['eliminados' => $movs->count(), 'afectados' => $afectados];
@@ -430,8 +424,6 @@ class InventarioService
         }
         if ($borrar) {
             MovimientoInventario::whereIn('ID_MOVIMIENTO', $borrar)->delete();
-            // Borrado duro: ver la nota de resetear('almacen') en eliminarMovimientoConReverso.
-            \App\Support\OfflineVersion::resetear('almacen');
         }
 
         $despues = [];
@@ -605,9 +597,6 @@ class InventarioService
             // Mismo conjunto de filas que el reverso (la propia + su contraparte de
             // traspaso) para no dejar media pata colgando — pero aquí NO se toca el stock.
             $ids = $this->idsMovimientoYContraparte($mov);
-
-            // Borrado duro: ver la nota de resetear('almacen') mas arriba.
-            \App\Support\OfflineVersion::resetear('almacen');
 
             return ['eliminados' => MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->delete()];
         });

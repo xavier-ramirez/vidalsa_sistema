@@ -12,19 +12,6 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class MovimientoInventario extends Model
 {
-    /**
-     * Snapshot offline: este modelo forma parte del dominio "almacen", asi que al
-     * escribirlo hay que marcar esa version como obsoleta para que los clientes
-     * que SI cachean ese dominio se traigan el cambio. Los que no lo cachean ni
-     * se enteran, que es justo el objetivo de separar las versiones.
-     */
-    protected static function booted(): void
-    {
-        $marcar = static fn () => \App\Support\OfflineVersion::invalidar('almacen');
-        static::saved($marcar);
-        static::deleted($marcar);
-    }
-
     protected $table      = 'movimientos_inventario';
     protected $primaryKey = 'ID_MOVIMIENTO';
 
@@ -47,47 +34,11 @@ class MovimientoInventario extends Model
     public const TIPOS_SALIDA  = [self::TIPO_SALIDA, self::TIPO_TRASPASO_SALIDA];
 
     /**
-     * Metadata visual de cada TIPO para los partials del kardex (label / color /
-     * ícono). Sin color de fondo: el tipo se lee solo con el color de la letra
-     * (pedido del cliente, 07-10-2026; antes iba en una pastilla). Centraliza la
-     * definición que antes vivía duplicada en kardex_rows.blade.php y
-     * kardex_rows_mini.blade.php — si
-     * mañana renombramos "Auditoría" o cambiamos el ícono de "Traspaso", se
-     * toca un solo sitio.
-     *
-     * Formato: [LABEL_HUMANO, COLOR_TEXTO_HEX, MATERIAL_ICON] — el mismo que TIPO_META
-     * de movimientos-offline.js.
-     */
-    public const TIPO_META = [
-        self::TIPO_ENTRADA          => ['Entrada',  '#16a34a', 'add'],
-        // Traspaso entre almacenes: se muestra como Entrada/Salida normal (mismo label y
-        // color que su contraparte pura) — para el usuario una salida a otro almacén ES
-        // una salida. El ícono direccional (south_west/north_east) y la columna de
-        // contraparte/frente indican que fue un movimiento entre almacenes.
-        self::TIPO_TRASPASO_ENTRADA => ['Entrada',  '#16a34a', 'south_west'],
-        self::TIPO_SALIDA           => ['Salida',   '#dc2626', 'remove'],
-        self::TIPO_TRASPASO_SALIDA  => ['Salida',   '#dc2626', 'north_east'],
-        // AJUSTE en BD = "Auditoría de Inventario" en UI (cuadre por conteo físico).
-        self::TIPO_AJUSTE           => ['Auditoría','#0067b1', 'fact_check'],
-        // Color propio (verde azulado) y no el verde de Entrada: suma al stock igual, pero
-        // no es material nuevo y se tiene que distinguir de una compra de un vistazo.
-        self::TIPO_DEVOLUCION       => ['Devolución', '#0d9488', 'assignment_return'],
-    ];
-
-    /** Fallback usado cuando el TIPO no figura en la tabla (defensivo). */
-    public const TIPO_META_DEFAULT = ['?', '#475569', 'swap_vert'];
-
-    /**
      * REFERENCIA de la ENTRADA que se registra al crear un producto con cantidad inicial
-     * (AlmacenController::storeProducto). Los kardex la reconocen con esStockInicial() y
-     * la pintan en dos líneas: "STOCK INICIAL" + "Nuevo material".
+     * (AlmacenController::storeProducto). El kardex la reconoce (STOCK_INICIAL en
+     * almacen_local.js) y la pinta en dos líneas: "STOCK INICIAL" + "Nuevo material".
      */
     public const REF_STOCK_INICIAL = 'STOCK INICIAL';
-
-    public function esStockInicial(): bool
-    {
-        return $this->TIPO === self::TIPO_ENTRADA && $this->REFERENCIA === self::REF_STOCK_INICIAL;
-    }
 
     protected $fillable = [
         'ID_ALMACEN',
@@ -357,22 +308,6 @@ class MovimientoInventario extends Model
             ->pluck('neto', 'id')
             ->mapWithKeys(fn ($neto, $id) => [(int) $id => max(0.0, round((float) $neto, 3))])
             ->all();
-    }
-
-    /**
-     * Cuáles de los N° de Nota que traen en REFERENCIA las devoluciones de esta página
-     * siguen existiendo, como [NUMERO_NOTA => true]. El kardex solo enlaza al PDF los que
-     * están aquí: una nota eliminada ya no tiene PDF y el enlace daría 404. Una consulta
-     * por página y ninguna si en ella no hay devoluciones.
-     */
-    public static function notasVigentesDeDevoluciones($movimientos): array
-    {
-        $filas   = is_array($movimientos) ? collect($movimientos) : $movimientos;
-        $numeros = $filas->where('TIPO', self::TIPO_DEVOLUCION)->pluck('REFERENCIA')->filter()->unique()->values();
-
-        return $numeros->isEmpty()
-            ? []
-            : static::whereIn('NUMERO_NOTA', $numeros)->distinct()->pluck('NUMERO_NOTA')->flip()->map(fn () => true)->all();
     }
 
     /**

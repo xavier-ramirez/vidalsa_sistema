@@ -25,7 +25,6 @@
     $puedeManage    = $puedeAlmManage || $puedeProductos;
     $puedeMover     = auth()->user()?->can('almacen.movimiento') ?? false;
     $puedeEliminar  = auth()->user()?->can('almacen.nota.eliminar') ?? false;
-    $st = $stats ?? ['total' => '—', 'con_saldo' => '—', 'stock_bajo' => '—', 'unidades' => 0];
     // Formatos de Nota de Entrega [valor => etiqueta]. Salen del modelo para que las opciones
     // del selector, sus textos y lo que valida el backend NO se puedan desincronizar: un
     // formato nuevo aparece aquí solo (ver Almacen::FORMATOS_NOTA).
@@ -338,9 +337,8 @@
                     <th style="text-align:center;width:38px;padding:10px 6px;"></th>
                 </tr>
             </thead>
-            <tbody id="almTableBody">
-                @include('admin.almacen.partials.table_rows', ['productos' => $productos, 'almacen' => $almacenSel, 'inicial' => true, 'reparto' => $repartoInicial])
-            </tbody>
+            {{-- Lo pinta almacen_index.js desde la copia local (almCargar). --}}
+            <tbody id="almTableBody"></tbody>
         </table>
     </div>
 
@@ -365,33 +363,34 @@
 
             <div class="alm-cons-row">
                 <div class="alm-cons-total" onclick="window.almVerTodo()" title="Quitar filtros">
-                    <span id="almStatsTotal" class="num">{{ $st['total'] }}</span>
+                    <span id="almStatsTotal" class="num">—</span>
                     <span class="lbl">Productos</span>
                 </div>
                 <div class="alm-cons-badges">
                     <div id="almBadgeConSaldo" class="alm-cons-badge alm-cons-saldo" onclick="window.almFiltrarConSaldo()" title="Solo con saldo (clic para activar/desactivar)">
                         <i class="material-icons">inventory_2</i>
-                        <strong id="almStatsConSaldo">{{ $st['con_saldo'] }}</strong>
+                        <strong id="almStatsConSaldo">—</strong>
                         <span>Con stock</span>
                     </div>
                     <div id="almBadgeBajo" class="alm-cons-badge alm-cons-bajo" onclick="window.almFiltrarBajo()" title="Solo stock bajo (clic para activar/desactivar)">
                         <i class="material-icons">warning</i>
-                        <strong id="almStatsBajo">{{ $st['stock_bajo'] }}</strong>
+                        <strong id="almStatsBajo">—</strong>
                         <span>Stock bajo</span>
                     </div>
                 </div>
             </div>
+            {{-- Estado de la copia local: sin conexión / última puesta al día (pintarEstadoCopia). --}}
+            <div id="almCopiaEstado" style="display:none;margin-top:6px;font-size:11px;font-weight:600;opacity:0.85;"></div>
         </div>
     </div>
 
     {{-- Wrapper del panel lateral (distribución por categoría / "En otros almacenes"). Lleva
          id="almDistWrapper" porque en mobile el JS lo mueve a DESPUES de la tabla (separado del
-         Consolidado, que queda donde esta). Abre con la distribución del almacén ya pintada
-         (AlmacenController::panelLateral); cada recarga de la tabla lo reemplaza (almCargar →
-         distribucionHtml) y el clic en una fila lo cambia al producto tocado (almPanelOtros).
+         Consolidado, que queda donde esta). Cada carga de la tabla pinta aquí la distribución
+         (almCargar → distribucionHtml) y el clic en una fila lo cambia al producto tocado (almPanelOtros).
          El contenedor va SIN espacios alrededor del HTML: el CSS lo esconde con :empty. --}}
     <div id="almDistWrapper" style="background:white;border-radius:12px;padding:15px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);overflow:hidden;">
-        <div id="almDistribucionContainer">{!! $distribucionHtml ?? '' !!}</div>
+        <div id="almDistribucionContainer"></div>
     </div>
 </div>
 
@@ -1367,9 +1366,7 @@
             'lote'                  => route('almacen.movimientos.lote'),
             'salidaPreview'         => route('almacen.salida.preview'),
             'productosStore'        => route('almacen.productos.store'),
-            'productosAutocomplete' => route('almacen.productos-autocomplete'),
             // Las que llevan __PID__ las completa el JavaScript con el id del producto.
-            'productosOtros'        => route('almacen.productos.otros', ['id' => '__PID__']),
             'productosBase'         => url('admin/almacen/productos'),
             'compatibilidad'        => route('almacen.productos.compatibilidad', ['id' => '__PID__']),
             'equivalenciasStore'    => route('almacen.productos.equivalencias.store', ['id' => '__PID__']),
@@ -1379,7 +1376,6 @@
             'etiquetas'             => route('almacen.etiquetas'),
             // Librería del código de barras de las etiquetas (local; se baja al generarlas).
             'libBarras'             => asset('js/vendor/JsBarcode-3.11.6.all.min.js'),
-            'movimientos'           => route('almacen.movimientos'),
             'almacenesStore'        => route('almacen.almacenes.store'),
         ],
         // Permisos: cada funcion del modulo los consulta antes de actuar y, si faltan,
@@ -1396,6 +1392,9 @@
         'formatoNotaDef'        => $formatoNotaDef,
         'formatoNotaHorizontal' => \App\Models\Almacen::FORMATO_NOTA_HORIZONTAL,
         'idUsuario'             => auth()->user()?->ID_USUARIO ?? 0,
+        // Almacén que se abre por defecto (el de su frente o el elegido): la copia local lo usa
+        // cuando la URL no trae ?id_almacen=.
+        'almacenPorDefecto'     => auth()->user()?->almacenPorDefecto(),
     ];
 @endphp
     window.ALM_CFG = @json($almCfg);

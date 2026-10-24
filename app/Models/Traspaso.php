@@ -50,7 +50,6 @@ class Traspaso extends Model
      * Metadata visual de cada ESTADO para los partials/vistas (label / fondo hex / texto hex).
      * Single source of truth — antes vivía duplicada en `recepcion/index.blade.php`,
      * `recepcion/detalle.blade.php` y `recepcion/partials/rows.blade.php` (3 sitios).
-     * Mismo patrón que MovimientoInventario::TIPO_META.
      *
      * Formato: [LABEL_HUMANO, COLOR_FONDO_HEX, COLOR_TEXTO_HEX]
      */
@@ -62,7 +61,7 @@ class Traspaso extends Model
         self::ESTADO_CANCELADO        => ['Cancelada',          '#e2e8f0', '#475569'],
     ];
 
-    /** Fallback cuando el ESTADO no figura en ESTADOS_META (defensivo, igual que TIPO_META_DEFAULT). */
+    /** Fallback cuando el ESTADO no figura en ESTADOS_META (defensivo). */
     public const ESTADO_META_DEFAULT = ['—', '#f1f5f9', '#64748b'];
 
     /**
@@ -173,7 +172,7 @@ class Traspaso extends Model
     /**
      * Nombre del DESTINO tal como debe leerlo el usuario: el FRENTE al que se envió, si lo
      * hay; si no, el almacén. Mismo criterio que la columna Destino del kardex de salidas
-     * (ver partials/kardex_rows.blade.php): el frente es el dato que dice a quién se le
+     * (ver filasKardex en almacen_local.js): el frente es el dato que dice a quién se le
      * entregó, y un almacén de PROYECTO puede servir a varios frentes — mostrar solo su
      * nombre hacía que notas a frentes distintos se vieran todas iguales.
      */

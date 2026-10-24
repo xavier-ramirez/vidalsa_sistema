@@ -4,7 +4,7 @@
  * Vivia dentro de movimientos.blade.php y viajaba en el HTML en CADA apertura del modulo.
  * Aqui se baja UNA vez y el navegador lo reutiliza.
  *
- * Lo que depende de la peticion —rutas y las listas de notas— llega en window.ALM_MOV_CFG,
+ * Lo que depende de la peticion —rutas y permisos— llega en window.ALM_MOV_CFG,
  * que el Blade escribe justo antes de cargar este archivo.
  *
  * OJO con la navegacion SPA: un <script src> ya cargado NO se vuelve a ejecutar
@@ -47,86 +47,80 @@ window.almMovArrancar = function (CFG) {
     // no tiene varias presentaciones), así la bitácora filtra por ID y no por substring.
     // Se siembra desde la URL aceptando las DOS formas: id_producto_in (sugerencia agrupada) e
     // id_producto (link puntual, p.ej. desde el detalle de un producto). Al teclear / Enter /
-    // limpiar vuelve a null → manda la búsqueda por texto (LIKE).
-    // Lo lee también el modo offline (movimientos-offline.js), que replica estos filtros.
+    // limpiar vuelve a null → manda la búsqueda por texto.
     window.almMovPickedIds = (function () {
         var q = new URLSearchParams(window.location.search);
         return q.get('id_producto_in') || q.get('id_producto') || null;
     })();
 
-    function buildParams(pageUrl) {
-        var p = new URLSearchParams();
-        // OJO: cuando el usuario elige "Todos los almacenes" mandamos `id_almacen=all`
-        // explícito. Si no lo enviamos, el controller cree que NO vino el param y
-        // aplica el default-por-frente, volviendo a filtrar (el usuario veía solo su
-        // almacén aunque hubiera pedido "todos").
-        var alm = hv('id_almacen'); if (alm) p.set('id_almacen', alm);
-        var tipo = hv('tipo'); if (tipo && tipo !== 'all') p.set('tipo', tipo);
-        var fr = hv('id_frente'); if (fr && fr !== 'all') p.set('id_frente', fr);
-        var d = el('almMovDesde'); if (d && d.value) p.set('desde', d.value);
-        var h = el('almMovHasta'); if (h && h.value) p.set('hasta', h.value);
-        var nt = el('almMovNota'); if (nt && nt.value.trim()) p.set('nota', nt.value.trim());
+    // Filtros que se ven en pantalla. "Todos los almacenes" va como id_almacen=all explícito:
+    // sin él se tomaría el almacén por defecto del usuario.
+    function filtrosMov() {
+        var f = {};
+        var alm = hv('id_almacen'); if (alm) f.id_almacen = alm;
+        var tipo = hv('tipo'); if (tipo && tipo !== 'all') f.tipo = tipo;
+        var fr = hv('id_frente'); if (fr && fr !== 'all') f.id_frente = fr;
+        var d = el('almMovDesde'); if (d && d.value) f.desde = d.value;
+        var h = el('almMovHasta'); if (h && h.value) f.hasta = h.value;
+        var nt = el('almMovNota'); if (nt && nt.value.trim()) f.nota = nt.value.trim();
         // Producto(s) elegido(s): trae SOLO esos y sus equivalencias en el consumo. Tiene
-        // precedencia sobre `search` (LIKE), así que cuando hay pick NO mandamos `search`
-        // (el cuadro muestra "Nº · descripción", que como texto no encontraría nada).
+        // precedencia sobre `search`: el cuadro muestra "Nº · descripción", que como texto no
+        // encontraría nada.
         var s = el('almMovSearch');
-        if (window.almMovPickedIds) {
-            p.set('id_producto_in', window.almMovPickedIds);
-        } else if (s && s.value.trim()) {
-            p.set('search', s.value.trim());
-        }
-        // pageUrl presente = paginación: el ranking de consumo no cambia entre páginas,
-        // así que pedimos al backend que lo omita (skip_consumo) y no recalcule el agregado.
-        if (pageUrl) {
-            try { var pg = new URL(pageUrl, window.location.origin).searchParams.get('page'); if (pg) p.set('page', pg); } catch (e) {}
-            p.set('skip_consumo', '1');
-        }
-        return p;
+        if (window.almMovPickedIds) f.id_producto_in = window.almMovPickedIds;
+        else if (s && s.value.trim()) f.search = s.value.trim();
+        return f;
     }
 
-    // Trae SOLO el ranking de consumo (agregado ~90ms) en una petición aparte, para que NO
-    // bloquee la aparición de la tabla. Se llama en paralelo al cambiar filtros/búsqueda
-    // (no en paginación: el ranking no cambia entre páginas). Si falla, se conserva el previo.
-    function cargarConsumoMov() {
-        var cc = el('almMovConsumoContainer'); if (!cc) return;
-        var p = buildParams();            // filtros actuales (sin pageUrl)
-        p.set('consumo_only', '1');
-        window.apiFetch(ROUTE + '?' + p.toString(), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
-            .then(function (d) { if (d && d.consumo !== undefined) cc.innerHTML = d.consumo; })
-            .catch(function () {});
+    // La bitácora, su total, el ranking de consumo, las sugerencias de notas y el catálogo del
+    // buscador salen de la COPIA LOCAL del almacén (almacen_local.js), con o sin internet. Tras
+    // un guardado se espera a que la copia lo traiga (alDia).
+    var PUEDE = CFG.puede;
+    var POR_DEFECTO = CFG.almacenPorDefecto;
+    var _almMovPagina = parseInt(new URLSearchParams(window.location.search).get('page'), 10) || 1;
+    function movVista() {
+        return window.CopiaLocal.usar('almacen', el('almMovTableBody'))
+            .then(function (v) { return window.CopiaLocal.alDia('almacen').then(function () { window._almMovVista = v; return v; }); });
     }
 
-    window.loadMovimientos = function (pageUrl) {
+    // pagina: sin ella (cambió un filtro) se vuelve a la primera.
+    window.loadMovimientos = function (pagina) {
         var body = el('almMovTableBody'); if (!body) return;
-        var p = buildParams(pageUrl);
-        // URL "limpia" para el historial (sin flags internos de rendimiento).
-        var pHist = new URLSearchParams(p.toString()); pHist.delete('skip_consumo');
-        // La TABLA nunca espera el agregado de consumo (~90ms): siempre skip_consumo → aparece rápido.
-        p.set('skip_consumo', '1');
-        var url = ROUTE + '?' + p.toString();
-        body.style.opacity = '0.5';
-        if (window.showPreloader) window.showPreloader();
-        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.html !== undefined) body.innerHTML = data.html;
-                var pg = el('almMovPagination'); if (pg) pg.innerHTML = data.pagination || '';
-                { var e = el('almMovTotal'); if (e && data.total !== undefined) e.textContent = data.total; }
+        _almMovPagina = pagina || 1;
+        var f = filtrosMov();
+        // El preloader solo mientras la copia no está (la primera descarga).
+        var conPre = !window._almMovVista;
+        if (conPre && window.showPreloader) window.showPreloader();
+        movVista()
+            .then(function (vista) {
+                if (!document.contains(body)) return;
+                window.pintarEstadoCopia('almMovCopiaEstado', vista.estado);
+                if (!vista.estado.listo) {
+                    body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#64748b;">Sin conexión: este equipo todavía no tiene la bitácora guardada.</td></tr>';
+                    return;
+                }
+                var data = window.AlmacenLocal.movimientos(vista, f, _almMovPagina, { porDefecto: POR_DEFECTO, puede: PUEDE });
+                body.innerHTML = data.html;
+                var pg = el('almMovPagination'); if (pg) pg.innerHTML = data.pagination;
+                var tot = el('almMovTotal'); if (tot) tot.textContent = data.total;
+                var cc = el('almMovConsumoContainer'); if (cc) cc.innerHTML = window.AlmacenLocal.consumo(vista, f, POR_DEFECTO);
+                window.almMovNotasFiltro = window.AlmacenLocal.notasFiltro(vista);
+                window.almMovProductosLista = window.AlmacenLocal.listaProductos(vista);
+                window.almMovProductosCargados = true;
                 almMovBuscarUI();   // marca "activo" del buscador + iconos (x / escanear)
-                try { window.history.replaceState(null, '', ROUTE + '?' + pHist.toString()); } catch (e) {}
+                var q = new URLSearchParams(f);
+                if (_almMovPagina > 1) q.set('page', _almMovPagina);
+                try { window.history.replaceState(null, '', ROUTE + (q.toString() ? '?' + q : '')); } catch (e) {}
             })
-            .catch(function () {
-                body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar los movimientos.</td></tr>';
-                // El aviso "Sin conexión" con su botón lo saca el interceptor global de
-                // fetch (estructura_base) para CUALQUIER petición de la app.
-            })
-            .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
-
-        // El ranking de consumo se refresca SOLO al cambiar filtros/búsqueda (no en paginación),
-        // en paralelo — la tabla ya no lo espera.
-        if (!pageUrl) cargarConsumoMov();
+            .finally(function () { if (conPre && window.hidePreloader) window.hidePreloader(); });
     };
+
+    // La copia se puso al día (un guardado propio o de otro equipo): se rehace la MISMA página.
+    winOn('copia-local', function (e) {
+        if (e.detail.dominio !== 'almacen' || !el('almMovTableBody')) return;
+        if (e.detail.cambio) window.loadMovimientos(_almMovPagina);
+        else window.pintarEstadoCopia('almMovCopiaEstado', e.detail.estado);
+    });
 
     // Filtro de fecha ROBUSTO (Desde/Hasta). Un <input type="date"> devuelve '' mientras
     // la fecha esté INCOMPLETA (falta día, mes o año) y su valor completo solo cuando los
@@ -147,22 +141,9 @@ window.almMovArrancar = function (CFG) {
         window.loadMovimientos();
     };
 
-    // ── Lista de productos para el autocomplete del filtro de búsqueda ──
-    // Catálogo para el buscador FuzzySearch de la bitácora. ANTES se embebía inline aquí
-    // (~300 KB de los 1155 productos) y el módulo abría pesado. AHORA arranca vacío y se carga
-    // por AJAX apenas la página queda lista, REUSANDO el mismo endpoint compartido del índice
-    // (almacen.productos-autocomplete, misma fuente listaAutocomplete) → no bloquea el render y
-    // no se duplica la lista. El buscador lo usa por evento, así que carga async es seguro.
+    // Catálogo del buscador: lo arma loadMovimientos desde la copia (AlmacenLocal.listaProductos).
     window.almMovProductosLista = [];
-    (function () {
-        if (window.almMovProductosCargando) return;
-        window.almMovProductosCargando = true;
-        window.apiFetch(CFG.rutas.productosAutocomplete, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (lista) { window.almMovProductosLista = Array.isArray(lista) ? lista : []; window.almMovProductosCargados = true; })
-        .catch(function () { /* silencioso: el buscador queda vacío hasta que reintente */ })
-        .finally(function () { window.almMovProductosCargando = false; });
-    })();
+    window.almMovProductosCargados = false;
 
     window.almMovSuggestHide = function () { var b = document.getElementById('almMovSuggest'); if (b) b.classList.remove('open'); };
 
@@ -182,8 +163,8 @@ window.almMovArrancar = function (CFG) {
 
         var html = '';
         if (!matches.length) {
-            // Mientras el catálogo async no cargó, "Cargando…" en vez de "Sin coincidencias"
-            // (que sugeriría por error que el producto no existe). El Enter→servidor sigue vivo.
+            // Mientras la copia no ha llegado, "Cargando…" en vez de "Sin coincidencias"
+            // (que sugeriría por error que el producto no existe).
             html = (!window.almMovProductosCargados)
                 ? '<div class="amf-suggest-empty">Cargando productos…</div>'
                 : '<div class="amf-suggest-empty">Sin coincidencias.</div>';
@@ -227,7 +208,7 @@ window.almMovArrancar = function (CFG) {
     //       (si el usuario vuelve a teclear, ya quiere otra cosa).
     //   (b) Clic en una sugerencia → los IDs de esa descripción (uno, o todos si tiene varias
     //       presentaciones) → id_producto_in: filtra por ID, nunca por substring.
-    //   (c) Enter → similitudes vía LIKE %term% del backend (sin IDs).
+    //   (c) Enter → busca el texto escrito (sin IDs).
     //   (d) X → limpia texto + producto elegido y recarga sin filtro.
 
     // ¿Hay filtro de producto puesto? Texto tecleado O IDs elegidos por clic (que pueden venir
@@ -301,11 +282,10 @@ window.almMovArrancar = function (CFG) {
     });
 
     // ── Autocomplete del filtro "Nota de entrega" ──────────────────────────────
-    // Lista de N° de Nota de Entrega (NE-…) de salida en almacenes visibles — la pasa el
-    // controller a TODOS los usuarios (a diferencia de la del modal "Eliminar Nota", que
-    // va gateada). Sugiere por substring al escribir; clic en una → completa el filtro y
+    // Lista de N° de Nota de Entrega (NE-…) de salida en almacenes visibles — sale de la copia
+    // (loadMovimientos). Sugiere por substring al escribir; clic en una → completa el filtro y
     // recarga. Con el campo vacío (foco) muestra las más recientes.
-    window.almMovNotasFiltro = CFG.notasFiltro;
+    window.almMovNotasFiltro = [];
     window.almMovNotaSuggestHide = function () { var b = document.getElementById('almMovNotaSuggest'); if (b) b.classList.remove('open'); };
     window.almMovNotaSuggest = function () {
         var inp = document.getElementById('almMovNota'), box = document.getElementById('almMovNotaSuggest');
@@ -355,10 +335,10 @@ window.almMovArrancar = function (CFG) {
         window.almMovBuscarPick(nombre || '', idProducto ? String(idProducto) : null);
     };
 
-    // Paginación AJAX
+    // Paginación (los enlaces llevan su página en data-page; ver window.paginadorHtml).
     docOn('click', function (e) {
-        var a = e.target.closest('#almMovPagination a.page-link') || e.target.closest('#almMovPagination a');
-        if (a) { e.preventDefault(); e.stopImmediatePropagation(); window.loadMovimientos(a.href); }
+        var a = e.target.closest('#almMovPagination a.page-link');
+        if (a) { e.preventDefault(); e.stopImmediatePropagation(); if (a.dataset.page) window.loadMovimientos(parseInt(a.dataset.page, 10)); }
     }, true);
 
     // ── Tarjeta en mobile: tocar la DESPLIEGA (y la resalta en azul) ──
@@ -413,15 +393,19 @@ window.almMovArrancar = function (CFG) {
         if (p && p.style.display === 'block' && !e.target.closest('#almMovFechasPanel') && !e.target.closest('#btnAdvancedFilterMov')) p.style.display = 'none';
     });
 
-    // Descarga la bitácora en XLSX con los filtros que se están viendo. Reutiliza
-    // buildParams() —el mismo que arma la petición de la tabla— para que el archivo no pueda
-    // traer un recorte distinto del que hay en pantalla. Va por window.location y no por
-    // navigateTo: es una descarga, no una navegación SPA.
+    // Descarga la bitácora en XLSX: los movimientos los resuelve la copia con los MISMOS
+    // filtros de la tabla (no puede salir un recorte distinto) y el servidor arma el archivo
+    // con sus ids; los filtros viajan también para el encabezado del Excel.
     window.almMovExportarExcel = function () {
         var m = document.getElementById('splitDropdownMenuMovInv');
         if (m) m.style.display = 'none';
-        var qs = buildParams().toString();
-        window.location.href = CFG.rutas.exportar + (qs ? ('?' + qs) : '');
+        var f = filtrosMov();
+        movVista().then(function (vista) {
+            var fd = new FormData();
+            Object.keys(f).forEach(function (k) { fd.append(k, f[k]); });
+            fd.append('ids', window.AlmacenLocal.movimientos(vista, f, 1, { porDefecto: POR_DEFECTO }).ids.join(','));
+            window.descargarArchivo(CFG.rutas.exportar, fd, 'Bitacora_Movimientos.xlsx', 'No se pudo generar el Excel.');
+        });
     };
 
     // ── Dropdown "Acciones" (toggle + cierre al click fuera) ────────────────
@@ -486,6 +470,9 @@ window.almMovArrancar = function (CFG) {
         var m = el('splitDropdownMenuMovInv');
         if (m && m.style.display === 'block' && !e.target.closest('#splitDropdownMenuMovInv') && !e.target.closest('#btnAccionesMov')) m.style.display = 'none';
     });
+
+    // Pintar al entrar, con los filtros y la página de la URL.
+    window.loadMovimientos(_almMovPagina);
 };
 
 (function(){
@@ -512,9 +499,6 @@ window.almMovArrancar = function (CFG) {
     // ── Eliminar Nota ───────────────────────────────────────────────────
     // Sólo se monta si el modal existe (gateado por blade @can a almacen.nota.eliminar).
     if (document.getElementById('eliminarNotaOverlay')) {
-        // Lista de N° de Nota (SALIDA, almacenes visibles) para el autocomplete.
-        // La provee el controller SOLO si el usuario tiene almacen.nota.eliminar.
-
         window.openEliminarNotaModal = function () {
             var ov = document.getElementById('eliminarNotaOverlay'); if (!ov) return;
             ov.style.display = 'flex';
@@ -539,9 +523,8 @@ window.almMovArrancar = function (CFG) {
             if (!input || !box) return;
             var q = String(input.value || '').trim().toUpperCase();
             if (q === '') { box.classList.remove('open'); return; }
-            // Se lee aquí y no al montar: este bloque corre una vez por pestaña y el Blade
-            // renueva window.ALM_MOV_CFG en cada apertura (notas emitidas mientras tanto).
-            var matches = (window.ALM_MOV_CFG.numerosNotas || [])
+            // La misma lista del filtro "Nota de entrega", que sale de la copia al día.
+            var matches = (window.almMovNotasFiltro || [])
                 .filter(function (n) { return String(n).toUpperCase().indexOf(q) !== -1; })
                 .slice(0, 4);
             if (matches.length === 0) {
@@ -590,8 +573,7 @@ window.almMovArrancar = function (CFG) {
                 // cierre. Sin esto el único aviso era el recuadro dentro del modal,
                 // que desaparecía con él (800ms) y era fácil de no ver.
                 window.toast(okMsg, 'success');
-                // Recargar la tabla de movimientos para que aparezcan las devoluciones de la reversión.
-                if (window.loadMovimientos) window.loadMovimientos();
+                // La tabla se rehace sola cuando la copia trae la reversión (evento 'copia-local').
                 setTimeout(function(){ window.closeEliminarNotaModal(); }, 800);
             } catch (err) {
                 console.error('[Eliminar Nota]', err);
@@ -641,10 +623,9 @@ window.almMovArrancar = function (CFG) {
                     return;
                 }
                 window.toast(res.d.message || opts.okMsg, 'success');
-                // Recargar la bitácora: la fila desaparece. En el deshacer los saldos
-                // posteriores ya vienen recalculados; en el borrado solo-historial NO
-                // (a propósito) — el stock no se tocó.
-                if (window.loadMovimientos) window.loadMovimientos();
+                // La bitácora se rehace sola cuando la copia trae el cambio (evento 'copia-local'):
+                // la fila desaparece. En el deshacer los saldos posteriores ya vienen
+                // recalculados; en el borrado solo-historial NO (a propósito) — el stock no se tocó.
             })
             .catch(function () {
                 if (window.hidePreloader) window.hidePreloader();

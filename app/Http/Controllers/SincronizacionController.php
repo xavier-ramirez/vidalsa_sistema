@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\RegistroCambios;
+use App\Support\Sincronizacion\DominioAlmacen;
 use App\Support\Sincronizacion\DominioEquipos;
 use App\Support\Sincronizacion\DominioMovilizaciones;
 use Illuminate\Http\Request;
@@ -26,7 +27,8 @@ use Illuminate\Http\Request;
  * solo se manda si su huella cambió. Más caro para el servidor, pero nunca da datos viejos.
  *
  * La copia entera se manda también si cambió el esquema de las filas o el alcance del
- * usuario (firma), o si el cursor es más viejo que lo que guarda el registro.
+ * usuario (firma), si el cursor es más viejo que lo que guarda el registro, o si el dominio
+ * lo pide porque un cambio movió su alcance (cambios() devuelve null).
  */
 class SincronizacionController extends Controller
 {
@@ -36,6 +38,7 @@ class SincronizacionController extends Controller
     private const DOMINIOS = [
         'equipos'        => DominioEquipos::class,
         'movilizaciones' => DominioMovilizaciones::class,
+        'almacen'        => DominioAlmacen::class,
     ];
 
     public function __invoke(Request $request, string $dominio)
@@ -71,14 +74,18 @@ class SincronizacionController extends Controller
             ? RegistroCambios::desde($cursor)
             : null;
 
-        if ($tramo === null) {
+        $cambios = null;
+        if ($tramo !== null) {
+            [$hasta, $agregados] = $tramo;
+            $cambios = $d->cambios($agregados);
+        }
+
+        if ($cambios === null) {
             $hasta = RegistroCambios::cursorDeCargaCompleta();
 
             return response()->json($base + ['hasta' => 'c:' . $hasta, 'completo' => true, 'borrados' => []] + $d->completo());
         }
 
-        [$hasta, $agregados] = $tramo;
-
-        return response()->json($base + ['hasta' => 'c:' . $hasta, 'completo' => false] + $d->cambios($agregados));
+        return response()->json($base + ['hasta' => 'c:' . $hasta, 'completo' => false] + $cambios);
     }
 }

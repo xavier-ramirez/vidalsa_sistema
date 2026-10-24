@@ -22,28 +22,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Almacen extends Model
 {
-    /**
-     * Snapshot offline: este modelo forma parte del dominio "catalogos", asi que al
-     * escribirlo hay que marcar esa version como obsoleta para que los clientes
-     * que SI cachean ese dominio se traigan el cambio. Los que no lo cachean ni
-     * se enteran, que es justo el objetivo de separar las versiones.
-     */
-    protected static function booted(): void
-    {
-        $marcar = static fn () => \App\Support\OfflineVersion::invalidar('catalogos');
-        static::saved($marcar);
-
-        // Al BORRAR un almacén no basta con marcar el catálogo: su stock y sus
-        // movimientos salen del alcance del cliente sin que ninguna de esas dos tablas
-        // se haya tocado, así que un delta no vería nada que enviar y el teléfono se
-        // quedaría con las existencias de un almacén que ya no existe. Reseteo → copia
-        // completa del dominio. Es un evento raro, el coste no importa.
-        static::deleted(static function () use ($marcar) {
-            $marcar();
-            \App\Support\OfflineVersion::resetear('almacen');
-        });
-    }
-
     use SoftDeletes;
 
     protected $table      = 'almacenes';

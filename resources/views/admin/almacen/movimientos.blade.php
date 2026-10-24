@@ -258,7 +258,7 @@
                     </a>
                 {{-- Historial de Notas de Entrega: vista alterna agrupada por NUMERO_NOTA — una
                      fila por Nota de Entrega; clic abre el PDF oficial. Conserva los filtros
-                     activos. Icono como el del PDF de cada fila (kardex_rows). --}}
+                     activos. Icono como el del PDF de cada fila (filasKardex en almacen_local.js). --}}
                     <a id="lnkBitNotas" href="{{ route('almacen.notas') }}"
                         class="alm-mov-accion"
                         onclick="event.preventDefault(); document.getElementById('splitDropdownMenuMovInv').style.display='none'; if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
@@ -318,15 +318,12 @@
                     <th style="width:13%;">Referencia</th>
                 </tr>
             </thead>
-            <tbody id="almMovTableBody">
-                @include('admin.almacen.partials.kardex_rows', ['movimientos' => $movimientos, 'almacenesVisibles' => $almacenesVisibles])
-            </tbody>
+            {{-- Lo pinta almacen_movimientos.js desde la copia local (loadMovimientos). --}}
+            <tbody id="almMovTableBody"></tbody>
         </table>
     </div>
 
-    <div style="margin-top:14px;" id="almMovPagination">
-        {{ $movimientos->links('vendor.pagination.custom-sliding') }}
-    </div>
+    <div style="margin-top:14px;" id="almMovPagination"></div>
 
 </div>
 
@@ -337,17 +334,17 @@
         <div style="position:relative;z-index:2;">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:5px;">Total movimientos</div>
             <div style="display:flex;align-items:baseline;gap:6px;">
-                <span id="almMovTotal" style="font-size:32px;font-weight:800;line-height:1;letter-spacing:-1px;">{{ $total }}</span>
+                <span id="almMovTotal" style="font-size:32px;font-weight:800;line-height:1;letter-spacing:-1px;">—</span>
                 <span style="font-size:12px;font-weight:500;">registros (según filtros)</span>
             </div>
+            {{-- Estado de la copia local: sin conexión / última puesta al día (pintarEstadoCopia). --}}
+            <div id="almMovCopiaEstado" style="display:none;margin-top:6px;font-size:11px;font-weight:600;opacity:0.85;"></div>
         </div>
     </div>
 
     {{-- Ranking de Consumo: mismo wrapper que el card de Distribución en /admin/equipos y /admin/almacen --}}
     <div style="background:white;border-radius:12px;padding:15px;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);overflow:hidden;">
-        <div id="almMovConsumoContainer">
-            @include('admin.almacen.partials.consumo_stats', ['consumo' => $consumo])
-        </div>
+        <div id="almMovConsumoContainer"></div>
     </div>
 </div>
 
@@ -453,15 +450,19 @@
     // Los datos de ESTA apertura que necesita public/js/maquinaria/almacen_movimientos.js.
     $almMovCfg = [
         'rutas' => [
-            'movimientos'           => route('almacen.movimientos'),
-            'productosAutocomplete' => route('almacen.productos-autocomplete'),
-            'exportar'              => route('almacen.movimientosExport'),
-            'notas'                 => route('almacen.notas'),
-            'notaDestroy'           => route('almacen.nota-entrega.destroy'),
+            'movimientos' => route('almacen.movimientos'),
+            'exportar'    => route('almacen.movimientosExport'),
+            'notas'       => route('almacen.notas'),
+            'notaDestroy' => route('almacen.nota-entrega.destroy'),
         ],
-        'notasFiltro'  => $notasFiltro ?? [],
-        // Solo la trae quien tiene almacen.nota.eliminar (autocomplete del modal Eliminar Nota).
-        'numerosNotas' => $numerosNotas ?? [],
+        // Botones de cada fila de la bitácora (Modificar la nota, deshacer / eliminar del historial).
+        'puede' => [
+            'superAdmin' => auth()->user()?->can('super.admin') ?? false,
+            'devolver'   => auth()->user()?->can('almacen.movimiento') ?? false,
+            'corregir'   => auth()->user()?->can('almacen.nota.corregir') ?? false,
+        ],
+        // Almacén que se ve sin ?id_almacen= en la URL (el de su frente).
+        'almacenPorDefecto' => auth()->user()?->almacenPorDefecto(),
     ];
 @endphp
 {{-- El JavaScript del modulo va en un archivo (se baja una vez y queda en caché) y aquí, al

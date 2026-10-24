@@ -11,6 +11,7 @@ use App\Models\Usuario;
 use App\Services\InventarioService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Tests\AlmacenLocal;
 use Tests\MySqlTestCase;
 
 /**
@@ -20,6 +21,8 @@ use Tests\MySqlTestCase;
  */
 class DevolucionMaterialTest extends MySqlTestCase
 {
+    use AlmacenLocal;
+
     private InventarioService $inv;
     private string $marca;
 
@@ -160,9 +163,7 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->assertSame(4.0, $this->saldo($alm->ID_ALMACEN, $p->ID_PRODUCTO, $fB));
 
         // ...y el kardex lo dice como reposición, no como un préstamo nuevo.
-        $html = $this->actingAs($this->usuario())
-            ->getJson(route('almacen.movimientos', ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'DEVOLUCION', 'skip_consumo' => 1]))
-            ->assertOk()->json('html');
+        $html = $this->movimientosLocal($this->usuario(), ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'DEVOLUCION'])['html'];
         $this->assertStringContainsString('devuelto a', $html);
         $this->assertStringNotContainsString('tomado de', $html);
 
@@ -280,9 +281,7 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->inv->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 10);
         $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p->ID_PRODUCTO => 5], null);
         $boton = "almModificarNota('{$nota}', {$p->ID_PRODUCTO})";
-        $bitacora = fn () => $this->actingAs($this->usuario())
-            ->getJson(route('almacen.movimientos', ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'SALIDA', 'skip_consumo' => 1]))
-            ->assertOk()->json('html');
+        $bitacora = fn () => $this->movimientosLocal($this->usuario(), ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'SALIDA'])['html'];
 
         $this->assertStringContainsString($boton, $bitacora(), 'La salida con nota tiene que ofrecer Modificar.');
 
@@ -320,9 +319,7 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/>\s*2\s*</', $texto, 'Y con la cantidad devuelta.');
 
         // Y en la bitácora la salida dice cuánto de ella volvió (kardex_rows: "Devuelto N").
-        $bitacora = $this->actingAs($this->usuario())
-            ->getJson(route('almacen.movimientos', ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'SALIDA', 'skip_consumo' => 1]))
-            ->assertOk()->json('html');
+        $bitacora = $this->movimientosLocal($this->usuario(), ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'SALIDA'])['html'];
         $this->assertStringContainsString('Devuelto 2', $bitacora);
     }
 
@@ -349,19 +346,15 @@ class DevolucionMaterialTest extends MySqlTestCase
         $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p->ID_PRODUCTO => 5], null);
         $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 2]])->assertCreated();
 
-        $html = $this->actingAs($this->usuario())
-            ->getJson(route('almacen.movimientos', ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'DEVOLUCION', 'skip_consumo' => 1]))
-            ->assertOk()->json('html');
+        $html = $this->movimientosLocal($this->usuario(), ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'DEVOLUCION'])['html'];
 
         $this->assertStringContainsString('Devolución', $html);
         $this->assertStringContainsString('+2', $html, 'La devolución tiene que sumar.');
-        $this->assertStringContainsString(route('almacen.nota-entrega', ['numero' => $nota]), $html, 'Tiene que enlazar a la nota de la que vuelve.');
+        $this->assertStringContainsString('/admin/almacen/nota-entrega?numero=' . rawurlencode($nota), $html, 'Tiene que enlazar a la nota de la que vuelve.');
 
         // El kardex de "Movimientos del producto": la devolución entra en Entradas y enlaza a su nota.
-        $mini = $this->actingAs($this->usuario())
-            ->getJson(route('almacen.movimientos', ['id_almacen' => $alm->ID_ALMACEN, 'id_producto' => $p->ID_PRODUCTO, 'tipo' => 'ENTRADAS', 'mini' => 1]))
-            ->assertOk()->json('html');
+        $mini = $this->movimientosLocal($this->usuario(), ['id_almacen' => $alm->ID_ALMACEN, 'id_producto' => $p->ID_PRODUCTO, 'tipo' => 'ENTRADAS'], 1, true)['html'];
         $this->assertStringContainsString('Devolución', $mini);
-        $this->assertStringContainsString(route('almacen.nota-entrega', ['numero' => $nota]), $mini);
+        $this->assertStringContainsString('/admin/almacen/nota-entrega?numero=' . rawurlencode($nota), $mini);
     }
 }

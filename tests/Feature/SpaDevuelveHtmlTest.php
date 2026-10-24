@@ -92,14 +92,14 @@ class SpaDevuelveHtmlTest extends MySqlTestCase
 
     /**
      * La contraparte: con Accept: application/json esos MISMOS endpoints siguen
-     * devolviendo JSON (la paginacion y los filtros dependen de eso). /admin/equipos ya no:
-     * filtra y pagina en el navegador desde la copia local (equipos_local.js).
+     * devolviendo JSON (la paginacion y los filtros dependen de eso). Equipos y Almacen ya
+     * no: filtran y paginan en el navegador desde la copia local.
      */
     public function test_con_accept_json_siguen_devolviendo_json(): void
     {
         $user = $this->admin();
 
-        foreach (['/admin/almacen'] as $ruta) {
+        foreach (['/admin/historial-documentos?pestana=historial'] as $ruta) {
             $res = $this->actingAs($user)->get($ruta, [
                 'X-Requested-With' => 'XMLHttpRequest',
                 'Accept'           => 'application/json',

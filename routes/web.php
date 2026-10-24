@@ -373,10 +373,10 @@ Route::middleware(['auth'])->group(function () {
             //  que depende sólo de usuarios.NIVEL_ACCESO_ALMACEN — ningún permiso da "ver todos los almacenes".)
             // Rutas estáticas ANTES de wildcards. Los {id*} se restringen a numéricos.
             Route::get   ('almacen',                              [App\Http\Controllers\AlmacenController::class, 'index'])            ->name('almacen.index');
-            // Exportación XLSX del inventario (sigue el patrón de /admin/equipos/export). Si hay
-            // ?id_almacen=N exporta sólo ese almacén con una columna de stock; si no, una columna
-            // por cada almacén visible + columna TOTAL.
-            Route::get   ('almacen/export',                       [App\Http\Controllers\AlmacenController::class, 'export'])           ->name('almacen.export');
+            // Exportación XLSX del inventario: los productos (ids) los resuelve la copia local del
+            // navegador. Con id_almacen=N exporta sólo ese almacén con una columna de stock; si no,
+            // una columna por cada almacén visible + columna TOTAL. POST porque los ids no caben en la URL.
+            Route::post  ('almacen/export',                       [App\Http\Controllers\AlmacenController::class, 'export'])           ->name('almacen.export');
 
             // ── Etiquetas con código de barras + escaneo (como las de góndola del supermercado) ──
             // Lista de etiquetas en JSON (AlmacenController::etiquetas): la pantalla las dibuja
@@ -396,17 +396,15 @@ Route::middleware(['auth'])->group(function () {
             // manda aquí lo que lee, y la PC lo recoge por /api/lector-remoto (sin sesión).
             Route::post  ('almacen/lector-remoto',                [App\Http\Controllers\LectorRemotoController::class, 'enviar'])           ->name('almacen.lector-remoto.enviar');
             Route::post  ('almacen/lector-remoto/estado',         [App\Http\Controllers\LectorRemotoController::class, 'estado'])           ->name('almacen.lector-remoto.estado');
-            // Catálogo de productos para el buscador FuzzySearch del cliente. Antes se embebía
-            // inline en la página (~500 KB de 1155 productos) → abría lenta. Ahora se carga por
-            // AJAX tras renderizar, así el módulo abre de una. Read-only, mismo criterio que el índice.
-            // Lleva ETag: si el navegador ya tiene la misma lista recibe un 304 vacío (ver el método).
+            // Catálogo de productos para el buscador FuzzySearch de la recepción. Read-only, mismo
+            // criterio que el índice. Lleva ETag: si el navegador ya tiene la misma lista recibe un 304 vacío (ver el método).
             Route::get   ('almacen/productos-autocomplete',       [App\Http\Controllers\AlmacenController::class, 'productosAutocomplete'])->name('almacen.productos-autocomplete');
 
-            // Datos (JSON) — el kardex de movimientos lo consume el modal "Movimientos".
+            // Bitácora: la página; las filas las pinta el navegador desde la copia local.
             Route::get   ('almacen/movimientos',                  [App\Http\Controllers\AlmacenController::class, 'movimientos'])      ->name('almacen.movimientos');
-            // XLSX de la bitácora con los MISMOS filtros de la pantalla (comparten
-            // queryMovimientosFiltrada). Mismo nivel de acceso que verla: es solo lectura.
-            Route::get   ('almacen/movimientos/export',           [App\Http\Controllers\AlmacenController::class, 'movimientosExport'])->name('almacen.movimientosExport');
+            // XLSX de la bitácora: los movimientos (ids) los resuelve la copia local con los MISMOS
+            // filtros de la pantalla. Mismo nivel de acceso que verla: es solo lectura.
+            Route::post  ('almacen/movimientos/export',           [App\Http\Controllers\AlmacenController::class, 'movimientosExport'])->name('almacen.movimientosExport');
             // Dashboard de Consumo (JSON para Chart.js) — alimenta el modal abrible desde el
             // botón Acciones de /admin/almacen y /admin/almacen/movimientos. Solo lectura.
             Route::get   ('almacen/consumo-dashboard',            [App\Http\Controllers\AlmacenController::class, 'consumoDashboard'])  ->name('almacen.consumoDashboard');
@@ -415,8 +413,6 @@ Route::middleware(['auth'])->group(function () {
             // Compatibilidad de un producto: equivalencias (nº de parte) + equipos que lo usan.
             // Se carga al abrir "Detalles del producto".
             Route::get   ('almacen/productos/{id}/compatibilidad', [App\Http\Controllers\AlmacenController::class, 'productoCompatibilidad'])->whereNumber('id')->name('almacen.productos.compatibilidad');
-            // Panel lateral "En otros almacenes" de un producto: lo pide la tabla al tocar una fila.
-            Route::get   ('almacen/productos/{id}/otros-almacenes', [App\Http\Controllers\AlmacenController::class, 'productoOtrosAlmacenes'])->whereNumber('id')->name('almacen.productos.otros');
             // Foto del producto: se ve como miniatura a la izquierda de la descripción y se
             // sube desde "Detalles del producto". El archivo va a Drive; aquí solo viaja el
             // enlace (ver AlmacenController::subirFotoProducto).

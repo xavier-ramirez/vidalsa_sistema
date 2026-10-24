@@ -17,14 +17,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class ProductoInventario extends Model
 {
     /**
-     * Snapshot offline: este modelo forma parte del dominio "almacen", asi que al
-     * escribirlo hay que marcar esa version como obsoleta para que los clientes
-     * que SI cachean ese dominio se traigan el cambio. Los que no lo cachean ni
-     * se enteran, que es justo el objetivo de separar las versiones.
+     * Snapshot offline de los kits (dominio "catalogos"): cada kit lleva el nombre de sus
+     * productos (KitAlmacenService::catalogo), así que editar un producto lo deja viejo.
      */
     protected static function booted(): void
     {
-        $marcar = static fn () => \App\Support\OfflineVersion::invalidar('almacen');
+        $marcar = static fn () => \App\Support\OfflineVersion::invalidar('catalogos');
         static::saved($marcar);
         static::deleted($marcar);
     }

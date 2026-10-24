@@ -121,15 +121,9 @@ class AlmacenController extends Controller
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Inventario de un almacén: tabla de productos (CODIGO/PRODUCTO/UM/CATEGORIA)
-     * con su saldo en el almacén seleccionado + sidebar "Consolidado de Inventario".
-     *
-     * - HTML normal → render completo (shell + primera página de la tabla + stats).
-     * - wantsJson()  → { html (filas), hasMore, nextOffset, stats, distribucionHtml, almacen }
-     *   para los cambios de filtro/paginación sin recargar toda la página.
-     *
-     * Filtros: id_almacen, search (busca en CODIGO o NOMBRE), categoria, um (unidad de
-     *          medida exacta), solo_bajo (1), solo_con_saldo (1).
+     * Inventario de un almacén: solo el marco de la página (almacenes, filtros, sidebar
+     * "Consolidado de Inventario"). Las filas, los totales y la distribución los pinta el
+     * navegador con la copia local (AlmacenLocal.inventario).
      */
     public function index(Request $request)
     {
@@ -146,9 +140,8 @@ class AlmacenController extends Controller
         // con notificacion. El LOCAL NO puede crear almacenes (esa accion es solo super.admin),
         // asi que entrar a una pantalla vacia donde no puede hacer nada era frustrante. El
         // GLOBAL sigue entrando aunque no haya almacenes (puede crearlos con "Nuevo almacén").
-        // Se respeta el flujo AJAX (paginacion / cambio de filtro vuelven JSON) para no romperlo.
         // "Restringido" = criterio ÚNICO Almacen::usuarioEsGlobal (== Usuario::veTodosLosAlmacenes).
-        if (!$request->wantsJson() && $almacenes->isEmpty() && !Almacen::usuarioEsGlobal($user)) {
+        if ($almacenes->isEmpty() && !Almacen::usuarioEsGlobal($user)) {
             return redirect()->route('menu')->with('flash_toast', [
                 'type'    => 'error',
                 'message' => 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.',
@@ -171,137 +164,14 @@ class AlmacenController extends Controller
             // Fallback final: para usuarios GLOBAL sin frente o sin almacén ligado.
             $almacenSel = $almacenes->first();
         }
-        $idAlmacenSel = $almacenSel?->ID_ALMACEN;
-        $hayInventario = $idAlmacenSel !== null;
 
-        // Peticiones AJAX (cambio de filtro / scroll infinito): paginación por offset.
-        //   - offset=0 (o ausente) → primera carga del filtro: reemplaza la tabla y refresca
-        //     stats + distribución.
-        //   - offset>0 → IntersectionObserver pidió más filas: solo se devuelven html + flags
-        //     (el frontend hace append y NO refresca stats).
-        // Se pide $PAGE_SIZE + 1 para detectar hasMore sin un COUNT extra.
-        if ($request->wantsJson()) {
-            // Lote de 120 (antes 50): trae más filas por tanda para que el scroll fluya como
-            // en /admin/equipos y el indicador "cargar más" rara vez se vea. El render de 120
-            // filas de producto es liviano; el IntersectionObserver (rootMargin 1000px) precarga
-            // la siguiente tanda antes de llegar al final.
-            $PAGE_SIZE = 120;
-            $offset = max(0, (int) $request->input('offset', 0));
-            $rows = collect();
-            $hasMore = false;
-            // Se enciende si lo escrito no coincidio con nada y hubo que buscar parecidos.
-            $busquedaAproximada = false;
-
-            // Sin filtro de contenido la tabla queda VACÍA ("Usa los filtros…"): al abrir el
-            // módulo no se carga ningún producto (pedido del cliente, 16-09-2026), y menos el
-            // inventario entero, que es lo que cuesta. Al limpiar la búsqueda con la "x" vuelve
-            // a esa vista. id_almacen NO cuenta como filtro de contenido (es el contexto).
-            $hayFiltro = $request->filled('search')
-                || $request->filled('id_producto')
-                || $request->filled('id_producto_in')
-                || $request->filled('categoria')
-                || $request->filled('um')
-                || $request->boolean('solo_bajo')
-                || $request->boolean('solo_con_saldo')
-                || $request->boolean('ver_todo'); // acción explícita "Ver todo el stock"
-
-            if ($hayInventario && $hayFiltro) {
-                // Una pasada del listado. $tolerante=true perdona UN error de tipeo por
-                // palabra; se usa solo en el reintento de abajo.
-                $traer = function (bool $tolerante) use ($idAlmacenSel, $request, $offset, $PAGE_SIZE) {
-                    return $this->productosConSaldoQuery($idAlmacenSel, $request, $tolerante)
-                        // Al BUSCAR (escribiendo o eligiendo una sugerencia), primero lo que
-                        // tiene existencia y al final lo que está en cero o menos; dentro de
-                        // cada grupo manda la cercanía de abajo. Es lo que se busca para
-                        // despachar: "electrodo" traía los de 0 mezclados con los que hay.
-                        // Va en SQL, antes de partir en páginas, por lo mismo que la cercanía.
-                        ->when($request->filled('search'), fn ($q) => $q->orderByRaw('COALESCE(almacen_stock.CANTIDAD, 0) <= 0'))
-                        ->tap(fn ($q) => $this->ordenarInventarioPorRelevancia(
-                            // Se ordena por cercanía siempre que haya TEXTO escrito, y el
-                            // front lo manda incluso al elegir una sugerencia (para que el
-                            // campo siga mostrándolo y la URL compartible conserve el
-                            // contexto). Con `id_producto` da igual —sale una fila— y con
-                            // `id_producto_in` (una descripción con varias presentaciones)
-                            // esas filas salen de la más parecida a lo escrito a la menos.
-                            // Sin texto —solo categoría o unidad de medida— no hay nada que
-                            // comparar y manda el alfabético de siempre.
-                            $q, $request->input('search'),
-                            'productos_inventario.CODIGO', 'productos_inventario.NOMBRE',
-                            'productos_inventario.ID_PRODUCTO', $tolerante
-                        ))
-                        ->skip($offset)->take($PAGE_SIZE + 1)
-                        ->get();
-                };
-
-                // Si lo escrito no coincide con NADA se reintenta perdonando un error de
-                // tipeo (ver buscarConPerdonDeTipeo). El autocomplete ya lo perdonaba, asi
-                // que escribir "mangera" mostraba las mangueras en la lista y dejaba la
-                // tabla VACIA al buscar sin elegir ninguna.
-                [$rows, $busquedaAproximada] = $this->buscarConPerdonDeTipeo($request, $traer);
-
-                $hasMore = $rows->count() > $PAGE_SIZE;
-                if ($hasMore) $rows = $rows->slice(0, $PAGE_SIZE)->values();
-                $this->cargarDetallesDeFilas($rows);
-            }
-            // En las páginas siguientes del scroll infinito ($offset > 0) NO devolvemos la
-            // empty-state row del partial — sería un mensaje "Sin coincidencias" appended al
-            // final de las filas ya pintadas. Si el lote viene vacío, el html es ''.
-            // Sin filtro → inicial=true: el partial pinta "usa los filtros" (no "sin coincidencias").
-            $html = ($offset > 0 && $rows->isEmpty())
-                ? ''
-                : view('admin.almacen.partials.table_rows', [
-                    'productos' => $rows,
-                    'almacen'   => $almacenSel,
-                    'inicial'   => !$hayFiltro,
-                    // Reparto por proyecto de ESTA página, para el modal «¿De qué proyecto
-                    // sale?». Vacío en los almacenes que no separan y cuando el lote viene vacío.
-                    'reparto'   => $this->repartoDeLaPagina($almacenSel, $rows),
-                ])->render();
-            $resp = [
-                'almacen'    => $almacenSel,
-                'html'       => $html,
-                'hasMore'    => $hasMore,
-                'nextOffset' => $hasMore ? $offset + $PAGE_SIZE : null,
-                // El front pinta el aviso "sin coincidencias exactas, mostrando parecidos".
-                'aproximada' => $busquedaAproximada,
-            ];
-            // Stats y distribución solo en la primera página (offset=0) — son costosos y
-            // no cambian al hacer scroll, solo cuando el usuario cambia un filtro.
-            // solo_filas=1: el front pide UNA fila suelta para dejarla a la vista tras
-            // editarla (almMostrarProducto) y descarta todo lo demás — no se calculan.
-            if ($offset === 0 && !$request->boolean('solo_filas')) {
-                // Los KPIs (Consolidado) siempre: sin filtro muestran el total del almacén, igual
-                // que la carga inicial HTML.
-                $resp['stats'] = $this->statsInventario($idAlmacenSel);
-                // Panel lateral (ver panelLateral): BUSCAR siempre reparte por CATEGORIA lo que
-                // la tabla esta filtrando. Las ubicaciones de un producto ("En otros almacenes")
-                // salen SOLO al tocar su fila, y eso lo pide el JS aparte
-                // (almPanelOtros -> productoOtrosAlmacenes).
-                //
-                // Antes esto se adivinaba: si el filtro apuntaba a un producto -una sugerencia
-                // clicada, o una busqueda que dejaba una sola fila- el panel saltaba solo a las
-                // ubicaciones. El resultado era que el mismo panel cambiaba de contenido segun
-                // cuantas filas devolviera la busqueda, sin que nadie lo hubiera pedido. Lo
-                // decide el usuario tocando, no el numero de resultados (pedido del cliente,
-                // 17-09-2026).
-                $resp['distribucionHtml'] = $this->panelLateral(null, $idAlmacenSel, $almacenSel?->NOMBRE, $request, $user, $busquedaAproximada);
-            }
-            return response()->json($resp);
-        }
-
-        // Carga HTML: la tabla abre VACÍA (el partial pinta "Usa los filtros…"); las filas se
-        // piden por AJAX en cuanto el usuario busca o aplica un filtro.
+        // La tabla, el Consolidado y el panel lateral los pinta el navegador desde la copia
+        // local (almacen_local.js, GET /sync/almacen); aquí solo va el marco de la pantalla.
         $categorias    = $this->categoriasDistintas();
         // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo UM del modal de
         // producto y el filtro "Unidad de medida" del panel de filtros avanzados.
         $unidadesMedida = ProductoInventario::activos()
             ->select('UM')->distinct()->orderBy('UM')->pluck('UM')->filter()->values();
-        // Productos para el AUTOCOMPLETE del buscador. Fuente ÚNICA (misma que recepción):
-        // trae CODIGO/NOMBRE/UM/CATEGORIA + EQUIV/PARTE/PARTES (nºs de parte de los filtros) para
-        // sugerir al teclear un alterno (p.ej. "MIS0531"), no solo por código/nombre. CATEGORIA
-        // permite avisar cuando un material existe pero es de OTRA categoría (badge + toast).
-        // El catálogo de productos (window.almProductosLista) ya NO se embebe aquí: se pide
-        // por AJAX (productosAutocomplete) tras renderizar, para que el módulo abra rápido.
         // Proyectos (con sus contratos) y almacenes de cada proyecto del modal "Registrar
         // salida": los mismos que ofrece "Registrar y despachar" de la recepción.
         $frentesLista       = \App\Support\DatosNotaSalida::frentes();
@@ -321,31 +191,20 @@ class AlmacenController extends Controller
             // Pill de "Despachos" en el menú Acciones (igual que en la bitácora).
             'porRecibirPry'      => $this->porRecibirDeProyectos($almacenes),
             'almacenSel'         => $almacenSel,
-            'productos'          => collect(),   // la tabla abre vacía; las filas llegan por AJAX
-            'repartoInicial'     => collect(),
             'categorias'         => $categorias,
             'frentesLista'       => $frentesLista,
             // Mapa frente → almacenes PROYECTO (ver arriba): el modal de salida lo usa para
             // pedir el almacén destino solo cuando el frente elegido tiene más de uno.
             'almacenesPorFrente' => $almacenesPorFrente,
-            // El Consolidado de Inventario (KPIs: PRODUCTOS / Con stock / Stock bajo) SÍ se
-            // calcula en la carga inicial — el cliente quiere verlo apenas abre el módulo,
-            // sin esperar a filtrar. Es 1 query agregada (statsInventario), barata. Sin
-            // filtros activos devuelve el consolidado completo del almacén.
-            'stats'              => $this->statsInventario($idAlmacenSel),
-            // Panel lateral al abrir: la distribución por categoría del almacén entero (1 query
-            // agregada, como el Consolidado). Con la tabla vacía es lo que dice qué hay dentro.
-            'distribucionHtml'   => $this->panelLateral(null, $idAlmacenSel, $almacenSel?->NOMBRE, $request, $user),
             'unidadesMedida'     => $unidadesMedida,
             'notasPendientes'    => $notasPendientes,
         ]);
     }
 
     /**
-     * Catálogo de productos para el buscador FuzzySearch del cliente (window.almProductosLista).
-     * Antes se embebía inline en index() (~500 KB de 1155 productos) → el módulo abría lento.
-     * Ahora la página arranca vacía y pide esta lista por AJAX tras renderizar. FUENTE ÚNICA:
-     * ProductoInventario::listaAutocomplete() (la misma que usa el índice y la recepción).
+     * Catálogo de productos para el buscador FuzzySearch de la recepción. El inventario y la
+     * bitácora arman el suyo desde la copia local (AlmacenLocal.listaProductos, misma forma que
+     * ProductoInventario::listaAutocomplete()).
      * Read-only (solo lectura del catálogo activo), sin permiso extra — igual que el índice.
      *
      * Con ETag: el navegador guarda la lista y en cada apertura pregunta si cambió; si es la
@@ -388,83 +247,6 @@ class AlmacenController extends Controller
      */
 
     /**
-     * Tokeniza un término de búsqueda de productos: minúsculas, DESCARTA stopwords
-     * (de/la/y…) y números sueltos de 1-2 dígitos. Si el término era SOLO ruido,
-     * cae al término completo para no terminar con un WHERE vacío que devolvería
-     * TODO el catálogo. Punto ÚNICO de verdad para que la tabla (/admin/almacen),
-     * la bitácora (/almacen/movimientos) y el ranking de consumo busquen IGUAL.
-     */
-    private function tokenizarBusquedaProducto(string $term): array
-    {
-        $stop = ['de','del','la','el','los','las','un','una','unos','unas',
-                 'y','e','o','u','a','en','con','para','por'];
-        $tokens = array_values(array_filter(
-            preg_split('/\s+/', mb_strtolower($term)),
-            fn ($t) => $t !== '' && !in_array($t, $stop, true) && !preg_match('/^\d{1,2}$/', $t)
-        ));
-        return empty($tokens) ? [mb_strtolower($term)] : $tokens;
-    }
-
-    /**
-     * Ejecuta una búsqueda del inventario y, si lo escrito no coincide con NADA, la repite
-     * perdonando un error de tipeo por palabra.
-     *
-     * Punto ÚNICO de esa regla: lo usan el listado (index) y la exportación a Excel, que
-     * promete traer "exactamente los que muestra la tabla". Si solo lo hiciera el listado,
-     * buscar "mangera" enseñaría 12 mangueras en pantalla y bajaría un Excel VACÍO.
-     *
-     * $consulta recibe true/false (tolerante o no) y devuelve la colección.
-     *
-     * @return array{0:\Illuminate\Support\Collection,1:bool} [resultado, fueAproximada]
-     */
-    private function buscarConPerdonDeTipeo(Request $request, callable $consulta): array
-    {
-        // `aprox=1` lo pone el front en las PAGINAS SIGUIENTES del scroll cuando la primera
-        // ya salio aproximada: se va directo al modo tolerante en vez de repetir en cada
-        // pagina una consulta exacta que ya se sabe vacia. Ademas evita el caso raro de que
-        // una pagina vacia de una busqueda EXACTA (porque los datos cambiaron a media
-        // lectura) se rellene con parecidos que no vienen a cuento.
-        //
-        // Solo con offset > 0, a proposito: es un parametro que viaja por la URL y
-        // cualquiera puede escribirlo a mano. En la PRIMERA pagina se decide siempre aqui,
-        // midiendo; si no, un enlace con &aprox=1 haria que una busqueda con coincidencias
-        // exactas se anunciara como "sin coincidencias exactas, mostrando parecidos".
-        if ($request->boolean('aprox') && (int) $request->input('offset', 0) > 0) {
-            return [$consulta(true), true];
-        }
-
-        $exacto = $consulta(false);
-
-        // Solo se reintenta cuando hay TEXTO escrito y no encontró nada. Si el usuario eligió
-        // una sugerencia pidió filas concretas —`id_producto`, o `id_producto_in` cuando esa
-        // descripción tiene varias presentaciones— y que salgan vacías es la respuesta
-        // correcta, no algo que haya que adivinar. Con `id_producto_in` además el texto ni
-        // siquiera se mira (aplicarFiltrosContenido corta antes), así que el reintento
-        // repetiría la MISMA consulta para nada.
-        if ($exacto->isNotEmpty()
-            || !$request->filled('search')
-            || $request->filled('id_producto')
-            || $request->filled('id_producto_in')) {
-            return [$exacto, false];
-        }
-
-        // Si lo escrito SI esta en el catalogo, el vacio lo pusieron los otros filtros
-        // ("Stock bajo", categoria, UM): no hay nada mal escrito que perdonar. Reintentar
-        // ahi enseñaba BOTELLA o BOTON con "sin coincidencias exactas de bota" cuando las
-        // botas existen y solo no estaban en stock bajo. Un exists() sobre el catalogo.
-        $soloTexto = ProductoInventario::query()->activos();
-        $this->aplicarBusquedaProducto($soloTexto, trim((string) $request->input('search')),
-            ['productos_inventario.CODIGO', 'productos_inventario.NOMBRE'], true);
-        if ($soloTexto->exists()) {
-            return [$exacto, false];
-        }
-
-        $aproximado = $consulta(true);
-
-        return $aproximado->isNotEmpty() ? [$aproximado, true] : [$exacto, false];
-    }
-
-    /**
      * Techos del perdon de tipeo. Cada palabra genera ~3 variantes por letra, y cada
      * variante son varios LIKE en el WHERE y otros tantos en el ORDER BY, asi que el coste
      * crece con el LARGO y con el NUMERO de palabras: medido, "manguera hidraulica
@@ -486,245 +268,6 @@ class AlmacenController extends Controller
     private const MAX_FORMAS_CON_PERDON   = 120;
 
     /**
-     * Lo que escribio el usuario, listo para meterlo dentro de un LIKE: sus `%` y `_` pasan
-     * a ser texto normal y no comodines.
-     *
-     * Punto UNICO, porque el filtro y el orden TIENEN que entender lo escrito igual. Hay 14
-     * productos con `%` en el nombre ("YODO AL 10%", "DEXTROSA 5% 500ML"): sin esto, buscar
-     * "10%" hacia LIKE '%10%%' y traia todo lo que llevara "10" en cualquier parte, y un
-     * `%` suelto devolvia el catalogo entero.
-     */
-    private function comoTextoEnLike(string $s): string
-    {
-        return addcslashes($s, '%_\\');
-    }
-
-    /**
-     * TODAS las formas con las que buscar una palabra: la palabra tal cual, su singular si
-     * venía en plural, y —cuando se perdona el tipeo— las variantes con un error de CADA
-     * una de esas dos.
-     *
-     * Punto ÚNICO, y por un fallo concreto: la regla del singular estaba escrita dos veces
-     * —una en el filtro y otra en el orden— y cada copia le daba una entrada distinta al
-     * perdón de tipeo. El filtro perdonaba solo el plural y metía el singular literal, así
-     * que "mangeras" (plural CON error) encontraba 1 fila en vez de 12, y "botazs"
-     * ninguna. Con las formas en un solo sitio, filtro y orden miran exactamente lo mismo
-     * —incluido el tope de letras, que antes se medía sobre el plural en un lado y sobre
-     * el singular en el otro.
-     *
-     * Lo escrito va escapado (comoTextoEnLike); las variantes del perdón NO, porque su `_`
-     * es un comodín puesto a propósito.
-     */
-    private function formasDeBuscarPalabra(string $token, bool $tolerante): array
-    {
-        $formas = [$this->comoTextoEnLike($token)];
-        $raices = [$token];
-
-        // "BOTAS" tiene que encontrar "BOTA DE SEGURIDAD".
-        if (mb_strlen($token) > 3 && mb_substr($token, -1) === 's') {
-            $singular = mb_substr($token, 0, -1);
-            $formas[] = $this->comoTextoEnLike($singular);
-            $raices[] = $singular;
-        }
-
-        if ($tolerante) {
-            foreach ($raices as $raiz) {
-                $formas = array_merge($formas, $this->variantesConUnError($raiz));
-            }
-        }
-
-        return array_values(array_unique($formas));
-    }
-
-    /**
-     * Patrones LIKE de una palabra que perdonan UN error de tipeo, para el reintento de
-     * index() cuando lo escrito no coincide con nada.
-     *
-     * MySQL no trae distancia de Levenshtein, pero el comodín `_` de LIKE (exactamente un
-     * carácter) da los tres errores que comete la gente escribiendo, sin funciones nuevas:
-     *
-     *   - letra CAMBIADA  ("mangyera") → mang_era  → encuentra MANGUERA
-     *   - letra FALTANTE  ("mangera")  → mang_era  → encuentra MANGUERA
-     *   - letra SOBRANTE  ("manguuera")→ manguera  → encuentra MANGUERA
-     *
-     * Se parece al perdón del autocomplete (FuzzySearch, Levenshtein), aunque es más
-     * estricto: aquí un solo error por palabra y todas las palabras; allí hasta 2-3 errores
-     * y basta la mitad. Arregla el caso de siempre (la lista sugería las mangueras y la
-     * tabla salía vacía), pero algo muy mal escrito puede sugerirse y no encontrarse.
-     *
-     * Solo palabras de 4 letras o más: en una de tres, cambiar un carácter por `_` deja un
-     * patrón que casa con media base. (Las de 4 dan variantes de 3 letras —"bota" → "bot",
-     * "ota"—, muy anchas; por eso el reintento solo corre si lo escrito no está en NINGÚN
-     * producto del catálogo: ver buscarConPerdonDeTipeo.) Y si la palabra ya trae comodines de LIKE (`%`, `_`)
-     * o una barra invertida, se devuelve vacío en vez de intentar escaparlos dentro de un
-     * patrón que además lleva comodines puestos por nosotros: ahí no se adivina.
-     */
-    private function variantesConUnError(string $token): array
-    {
-        $largo = mb_strlen($token);
-        if ($largo < 4 || $largo > self::MAX_LETRAS_CON_PERDON || preg_match('/[%_\\\\]/', $token)) {
-            return [];
-        }
-
-        $variantes = [];
-        for ($i = 0; $i < $largo; $i++) {
-            $antes   = mb_substr($token, 0, $i);
-            $despues = mb_substr($token, $i + 1);
-            $variantes[] = $antes . '_' . $despues;   // una letra distinta
-            $variantes[] = $antes . $despues;         // una letra de más
-        }
-        for ($i = 0; $i <= $largo; $i++) {            // una letra de menos
-            $variantes[] = mb_substr($token, 0, $i) . '_' . mb_substr($token, $i);
-        }
-
-        return array_values(array_unique($variantes));
-    }
-
-    /**
-     * Ordena el listado del inventario: por CERCANÍA al término cuando se buscó algo, y
-     * alfabético cuando no.
-     *
-     * Por qué existe: el WHERE de aplicarBusquedaProducto trae todas las similitudes, pero
-     * el orden era `NOMBRE` a secas. Buscando "manguera" salían primero
-     * "ABRAZADERA 5\" PARA MANGUERA…" y "ABRAZADERA 6\"…", y las mangueras de verdad
-     * quedaban de la cuarta en adelante — el usuario veía lo que pidió, pero sepultado.
-     * Ahora manda lo mismo que el autocomplete: primero lo que EMPIEZA por lo escrito,
-     * luego lo que lo trae al empezar una palabra, y al final lo que solo lo menciona.
-     *
-     * El criterio es el de FuzzySearch.rank() (la frase entera pesa más que los tokens
-     * sueltos, y el inicio de palabra más que el medio), traducido a SQL porque aquí hay
-     * que ordenar el conjunto ENTERO antes de partirlo en páginas: si se ordenara en PHP,
-     * solo se ordenaría la página ya traída y la fila más relevante podría quedar en la
-     * página 3. A igualdad NO se prefiere el nombre corto, a diferencia del autocomplete:
-     * ver el comentario del ORDER BY, al final.
-     *
-     * El desempate final por ID_PRODUCTO no es cosmético: 28 productos se llaman
-     * "FILTRO DE ACEITE DE MOTOR". Sin un criterio único al final, MySQL no garantiza el
-     * mismo orden entre filas empatadas, y el scroll infinito (skip/take) puede repetir
-     * una fila o saltársela.
-     */
-    private function ordenarInventarioPorRelevancia($q, ?string $term, string $colCodigo, string $colNombre, string $colId, bool $tolerante = false): void
-    {
-        $frase = trim((string) $term);
-        if ($frase === '') {
-            $q->orderBy($colNombre)->orderBy($colId);   // sin búsqueda: alfabético de siempre
-            return;
-        }
-
-        $piezas = [];
-        $bind   = [];
-
-        // La frase completa: es la señal más fuerte de que la fila es lo que se pidió.
-        $f = $this->comoTextoEnLike(mb_strtolower($frase));
-        $piezas[] = "CASE WHEN {$colNombre} LIKE ? THEN 40"    // el nombre EMPIEZA por lo escrito
-                  . "     WHEN {$colNombre} LIKE ? THEN 25"    // lo trae al empezar una palabra
-                  . "     WHEN {$colNombre} LIKE ? THEN 15"    // solo lo menciona
-                  . "     ELSE 0 END";
-        array_push($bind, "{$f}%", "% {$f}%", "%{$f}%");
-
-        // Y cada palabra por su cuenta, para los términos de varias ("aceite motor").
-        $tokens = $this->tokenizarBusquedaProducto($frase);
-
-        // El MISMO tope que el filtro (MAX_PALABRAS_CON_PERDON): si el orden perdonara lo
-        // que el WHERE no perdona, generaria LIKEs que no pueden encajar con nada. Se mide
-        // ANTES de sumar los numeros de abajo, porque el WHERE no los cuenta: si entraran
-        // aqui, "filtro aceite motor 15" pasaria de 3 palabras a 4 y el orden dejaria de
-        // perdonar la errata que el filtro SI perdona — que es justo la descoordinacion que
-        // dejaba todo a cero y devolvia el alfabetico.
-        $tolerante = $tolerante && count($tokens) <= self::MAX_PALABRAS_CON_PERDON
-            && array_sum(array_map(fn ($t) => count($this->formasDeBuscarPalabra($t, true)), $tokens)) <= self::MAX_FORMAS_CON_PERDON;
-        // Los NÚMEROS CORTOS también puntúan, aunque el filtro los descarte.
-        //
-        // tokenizarBusquedaProducto tira los números de una o dos cifras para que el WHERE no
-        // se vuelva un colador. Pero en un almacén esos números son LA TALLA, y son justo lo
-        // que distingue un producto de otro: buscando "BRAGA 42" salían las ocho bragas con
-        // el mismo puntaje y mandaba el alfabético, así que la 42 —la única que se pidió—
-        // aparecía detrás de la 36. Aquí sí se miran: el filtro sigue trayendo todas las
-        // bragas (que es lo que se quiere: ver las tallas parecidas), pero la que lleva el
-        // número escrito sale PRIMERA.
-        foreach (preg_split('/\s+/', mb_strtolower($frase), -1, PREG_SPLIT_NO_EMPTY) as $suelto) {
-            if (preg_match('/^\d{1,2}$/', $suelto) && !in_array($suelto, $tokens, true)) {
-                $tokens[] = $suelto;
-            }
-        }
-        foreach ($tokens as $tok) {
-            // Se puntúa con las MISMAS formas con las que filtró el WHERE
-            // (formasDeBuscarPalabra): el plural y su singular, y en el reintento también
-            // sus variantes con un error. Si el orden mirara otra cosa, buscar "mangera"
-            // traería las mangueras (bien) pero las ordenaría contra un término que no casa
-            // con ninguna: todas a cero, y el desempate alfabético volvería a poner
-            // "ABRAZADERA … PARA MANGUERA" primero.
-            $formas = $this->formasDeBuscarPalabra($tok, $tolerante);
-
-            // Cada nivel acepta CUALQUIERA de las formas; el primero que encaje manda.
-            $nivel = function (string $col, string $molde) use ($formas, &$bind) {
-                $ors = [];
-                foreach ($formas as $f) { $ors[] = "{$col} LIKE ?"; $bind[] = str_replace('@', $f, $molde); }
-                return '(' . implode(' OR ', $ors) . ')';
-            };
-            $piezas[] = 'CASE WHEN ' . $nivel($colNombre, '@%')   . ' THEN 8'   // empieza por la palabra
-                      . '     WHEN ' . $nivel($colNombre, '% @%') . ' THEN 6'   // empieza una palabra
-                      . '     WHEN ' . $nivel($colNombre, '%@%')  . ' THEN 3'   // solo la menciona
-                      . '     WHEN ' . $nivel($colCodigo, '%@%')  . ' THEN 2'   // entró por el código
-                      . '     ELSE 0 END';                                      // entró por nº de parte
-        }
-
-        // Dentro del mismo nivel de cercanía se ordena ALFABÉTICO, no por nombre más corto:
-        // la lista queda predecible y las series numeradas salen en orden ("BOTA … TALLA 35,
-        // 36, 37"). Probado con el largo primero, y mezclaba las tallas sin motivo.
-        $q->orderByRaw(
-            '(' . implode(' + ', $piezas) . ") DESC, {$colNombre} ASC, {$colId} ASC",
-            $bind
-        );
-    }
-
-    /**
-     * Aplica la búsqueda tokenizada de productos sobre $q: AND entre palabras, y cada
-     * palabra contra todas sus formas (ver formasDeBuscarPalabra, que es donde vive la
-     * regla del singular: "BOTAS" encuentra "BOTA DE SEGURIDAD").
-     *
-     * $cols son las columnas CODIGO/NOMBRE ya calificadas según el contexto del llamador
-     * (tabla con JOIN → 'productos_inventario.X'; relación whereHas('producto') → 'X').
-     *
-     * $tolerante perdona además UN error de tipeo por palabra. Lo enciende SOLO el
-     * reintento de index() cuando la búsqueda exacta no encontró nada
-     * (buscarConPerdonDeTipeo); las demás pantallas que llaman aquí —la bitácora y el
-     * ranking de consumo— lo dejan en false y buscan exacto, como siempre.
-     */
-    private function aplicarBusquedaProducto($q, string $term, array $cols, bool $incluirEquivalencias = false, bool $tolerante = false): void
-    {
-        $tokens = $this->tokenizarBusquedaProducto($term);
-        // Frases largas no se perdonan: ver MAX_PALABRAS_CON_PERDON.
-        $tolerante = $tolerante && count($tokens) <= self::MAX_PALABRAS_CON_PERDON;
-        $q->where(function ($s) use ($tokens, $cols, $incluirEquivalencias, $tolerante) {
-            foreach ($tokens as $tok) {
-                $variantes = $this->formasDeBuscarPalabra($tok, $tolerante);
-                $s->where(function ($t) use ($variantes, $cols, $incluirEquivalencias) {
-                    foreach ($variantes as $v) {
-                        foreach ($cols as $col) {
-                            $t->orWhere($col, 'like', "%{$v}%");
-                        }
-                        // También por NÚMERO DE PARTE equivalente: escribir cualquier alterno
-                        // (p.ej. "1000FG") encuentra el filtro aunque su código/nombre no lo
-                        // contenga. Lo piden (flag=true) la tabla del inventario y las búsquedas
-                        // de la pantalla de MOVIMIENTOS (bitácora y ranking "Consumo de Inventario"),
-                        // así el Enter encuentra lo mismo que sugiere el autocomplete y ambos listados
-                        // coinciden. El correlado usa productos_inventario.ID_PRODUCTO, que está en
-                        // scope tanto en la tabla como dentro del whereHas('producto').
-                        if ($incluirEquivalencias) {
-                            $t->orWhereExists(function ($sub) use ($v) {
-                                $sub->selectRaw('1')->from('producto_equivalencias')
-                                    ->whereColumn('producto_equivalencias.ID_PRODUCTO', 'productos_inventario.ID_PRODUCTO')
-                                    ->where('producto_equivalencias.NUMERO_PARTE', 'like', "%{$v}%");
-                            });
-                        }
-                    }
-                });
-            }
-        });
-    }
-
-    /**
      * IDs de producto de un parámetro CSV (`id_producto_in`): enteros > 0, sin repetidos.
      * Lo mandan los buscadores del inventario y de la bitácora al elegir una sugerencia
      * AGRUPADA (una descripción con varias presentaciones) y el modo "ver solo seleccionados".
@@ -738,350 +281,6 @@ class AlmacenController extends Controller
             ->unique()
             ->values()
             ->all();
-    }
-
-    /**
-     * Filtro de PRODUCTO de las pantallas de movimientos (bitácora y ranking de consumo),
-     * con su orden de precedencia en UN SOLO SITIO:
-     *   1) id_producto_in → los IDs de una descripción con varias presentaciones (o el id
-     *      suelto que manda el buscador al elegir una sugerencia / escanear un código de barras).
-     *   2) id_producto    → compatibilidad con links puntuales de otras pantallas.
-     *   3) search         → "teclear + Enter": LIKE tokenizado CON equivalencias, la misma
-     *      búsqueda que el resto del módulo (así el Enter encuentra lo que sugiere el
-     *      autocomplete). En /almacen/notas se pasa $aplicarBusqueda=false porque allí
-     *      `search` es el N° de Nota, no el producto.
-     *
-     * Que sea excluyente importa: la bitácora y su ranking de consumo TIENEN que filtrar
-     * igual o la pantalla se contradice a sí misma.
-     *
-     * @param string $col columna calificada (consumoRanking hace JOIN con productos_inventario,
-     *                    donde ID_PRODUCTO existe en ambas tablas y sin prefijo es ambigua
-     *                    → MySQL 1052 y pantalla en blanco).
-     */
-    private function aplicarFiltroProductoMovimientos($q, Request $request, string $col = 'ID_PRODUCTO', bool $aplicarBusqueda = true): void
-    {
-        $ids = $this->idsDesdeCsv($request->input('id_producto_in'));
-        if ($ids) {
-            $q->whereIn($col, $ids);
-        } elseif ($request->filled('id_producto')) {
-            $q->where($col, $request->integer('id_producto'));
-        } elseif ($aplicarBusqueda && $request->filled('search')) {
-            $term = trim((string) $request->input('search'));
-            $q->whereHas('producto', function ($p) use ($term) {
-                $this->aplicarBusquedaProducto($p, $term, ['CODIGO', 'NOMBRE'], true);
-            });
-        }
-    }
-
-    /**
-     * Aplica los filtros de CONTENIDO (los que operan sobre columnas de
-     * productos_inventario) a una query: id_producto_in, id_producto, search, categoria, um.
-     * NO toca el JOIN con almacen_stock ni los filtros por stock (solo_bajo/solo_con_saldo),
-     * que dependen del almacén y los maneja el llamador.
-     *
-     * Lo usan inventarioBaseQuery() (la tabla) y export() (la exportación), para que los dos
-     * FILTREN idéntico. Ojo: que filtren igual no significa que el archivo tenga las mismas
-     * filas — el export salta después las de saldo 0 y ordena alfabético. Ver el comentario
-     * de export(), que lo mide.
-     *
-     * $tolerante se propaga a la búsqueda por texto: perdona un error de tipeo por palabra.
-     * Solo lo enciende el reintento de index() cuando la búsqueda exacta no encontró nada.
-     *
-     * @return bool true si `id_producto_in` hizo short-circuit (acotó a esos IDs e ignora
-     *              el resto de filtros) — el llamador debe cortar ahí.
-     */
-    private function aplicarFiltrosContenido($q, Request $request, bool $tolerante = false): bool
-    {
-        // ─── Modo "Ver solo seleccionados" del bulk counter ────────────────────────
-        // El frontend manda los IDs ya seleccionados como CSV en `id_producto_in`.
-        // Cuando esta presente, la query se ACOTA EXCLUSIVAMENTE a esos productos e
-        // IGNORA los demas filtros de contenido (search, categoria, id_producto,
-        // solo_bajo, solo_con_saldo). Razon: el usuario quiere ver SU seleccion sin
-        // que se la recorten los filtros que estaban activos cuando seleccionaba
-        // (ej: selecciono 5 productos navegando por 2 categorias distintas → al
-        // activar "solo seleccionados" quiere ver los 5, no la interseccion con la
-        // categoria activa). id_almacen NO se ignora porque la seleccion vive en
-        // el contexto del almacen actual de la tabla.
-        $ids = $this->idsDesdeCsv($request->input('id_producto_in'));
-        if (!empty($ids)) {
-            $q->whereIn('productos_inventario.ID_PRODUCTO', $ids);
-            return true; // short-circuit: ignoramos los demas filtros
-        }
-
-        // `id_producto`: match EXACTO — lo envía el filtro "Descripción" cuando el usuario
-        // hace clic en una sugerencia (quiere VER esa fila concreta, no las similares).
-        // Tiene precedencia sobre `search` (que sí hace LIKE %term% con tokens y plural).
-        if ($request->filled('id_producto')) {
-            $q->where('productos_inventario.ID_PRODUCTO', '=', (int) $request->input('id_producto'));
-        } elseif ($request->filled('search')) {
-            // (cae aquí solo si NO vino id_producto — typed-and-Enter, no clic en sugerencia)
-            $term = trim((string) $request->input('search'));
-            $this->aplicarBusquedaProducto($q, $term, ['productos_inventario.CODIGO', 'productos_inventario.NOMBRE'], true, $tolerante);
-        }
-        if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
-            // Coincidencia parcial (igual que "search"): el filtro de categoría es un
-            // input de texto con sugerencias, así que se va estrechando conforme se escribe.
-            $cat = trim((string) $request->input('categoria'));
-            $q->where('productos_inventario.CATEGORIA', 'like', "%{$cat}%");
-        }
-        if ($request->filled('um')) {
-            // Unidad de medida: igualdad (sale de la lista de UM ya registradas del panel
-            // "Filtros avanzados"; la colación no distingue mayúsculas).
-            $q->where('productos_inventario.UM', trim((string) $request->input('um')));
-        }
-
-        return false;
-    }
-
-    /**
-     * Saldo del almacén AGREGADO POR PRODUCTO, listo para unir al catálogo.
-     *
-     * Desde que el saldo se lleva por proyecto (ID_FRENTE), un producto puede tener
-     * VARIAS filas en `almacen_stock` dentro del mismo almacén. Unir la tabla directa
-     * duplicaría ese producto en la tabla —una fila por proyecto— así que se une esta
-     * subconsulta, que devuelve exactamente una fila por producto.
-     *
-     * Se conservan los nombres de columna originales (CANTIDAD, CANTIDAD_MINIMA,
-     * FECHA_ULT_MOVIMIENTO) y el alias `almacen_stock` a propósito: así todo lo que ya
-     * consultaba `almacen_stock.CANTIDAD` —el listado, los KPIs, la distribución, el
-     * export— sigue funcionando sin cambiar una línea.
-     *
-     * SIEMPRE suma todos los proyectos del almacén. La tabla muestra el saldo total por
-     * producto; el reparto entre proyectos lo enseña el panel lateral "¿dónde está este
-     * producto?" (ver productoPorProyecto). Por eso el módulo ya no tiene un filtro por
-     * proyecto en la barra: obligaba a ir probando de a uno para ver lo que el panel
-     * contesta de un golpe.
-     */
-    private function stockAgregadoSub(?int $idAlmacen)
-    {
-        return DB::table('almacen_stock')
-            ->select('ID_PRODUCTO')
-            ->selectRaw('SUM(CANTIDAD) as CANTIDAD')
-            ->selectRaw('MAX(CANTIDAD_MINIMA) as CANTIDAD_MINIMA')
-            ->selectRaw('MAX(FECHA_ULT_MOVIMIENTO) as FECHA_ULT_MOVIMIENTO')
-            // Sin almacén no hay inventario que mostrar (mismo efecto que el 1=0 anterior).
-            ->where('ID_ALMACEN', $idAlmacen ?? -1)
-            ->groupBy('ID_PRODUCTO');
-    }
-
-    private function inventarioBaseQuery(?int $idAlmacen, Request $request, bool $tolerante = false)
-    {
-        $q = ProductoInventario::query()->activos();
-
-        $q->leftJoinSub(
-            $this->stockAgregadoSub($idAlmacen),
-            'almacen_stock',
-            fn ($j) => $j->on('almacen_stock.ID_PRODUCTO', '=', 'productos_inventario.ID_PRODUCTO'),
-        );
-
-        // Navegación normal → solo productos con fila de stock en este almacén
-        // (replica el INNER JOIN clásico). Se EXCEPTÚA cuando el usuario pidió ver
-        // un producto puntual (clic en sugerencia = id_producto, o "ver solo
-        // seleccionados" = id_producto_in): ahí dejamos pasar el saldo 0 para que
-        // el producto seleccionado siempre se muestre.
-        //
-        // TAMBIÉN se exceptúa cuando el usuario pide EXPLÍCITAMENTE ver el catálogo:
-        // "Ver todo" (ver_todo), búsqueda por descripción (search), categoría o unidad de medida. Sin esto,
-        // un almacén nuevo/sin stock (p.ej. "PRUEBA") no mostraba NADA y esos filtros
-        // parecían rotos. En almacenes ya cargados NO cambia nada (todos sus productos
-        // tienen fila de stock). Los productos sin stock en el almacén aparecen con saldo 0.
-        // (solo_bajo / solo_con_saldo NO se exceptúan: por definición requieren stock.)
-        $verProductoPuntual = $request->filled('id_producto') || $request->filled('id_producto_in');
-        $verCatalogo        = $request->boolean('ver_todo')
-                            || $request->filled('search')
-                            || $request->filled('categoria')
-                            || $request->filled('um');
-        if (!$verProductoPuntual && !$verCatalogo) {
-            $q->whereNotNull('almacen_stock.ID_PRODUCTO');
-        }
-
-        // Filtros de CONTENIDO (id_producto_in / id_producto / search / categoría),
-        // compartidos con export() para que la exportación refleje EXACTAMENTE lo que
-        // muestra la tabla. Si `id_producto_in` hizo short-circuit (modo "ver solo
-        // seleccionados"), la query queda acotada a esos IDs e ignoramos el resto.
-        if ($this->aplicarFiltrosContenido($q, $request, $tolerante)) {
-            return $q;
-        }
-        if ($request->boolean('solo_bajo')) {
-            $q->whereNotNull('almacen_stock.CANTIDAD_MINIMA')
-              ->whereColumn('almacen_stock.CANTIDAD', '<=', 'almacen_stock.CANTIDAD_MINIMA');
-        }
-        if ($request->boolean('solo_con_saldo')) {
-            $q->where('almacen_stock.CANTIDAD', '>', 0);
-        }
-
-        return $q;
-    }
-
-    /**
-     * Equivalencias (nºs de parte alternos) y modelos de equipo compatibles de un lote de filas,
-     * para el tooltip de la fila y el modal de detalles: 2 consultas para todo el lote. La
-     * MARCA de cada modelo no vive en caracteristicas_modelo sino en `equipos`: se pega a cada
-     * modelo (marca_equipo) para mostrar "Tipo · Marca · Modelo".
-     */
-    private function cargarDetallesDeFilas($rows): void
-    {
-        $rows->load(['equivalencias', 'modelosCompatibles']);
-        $especIds = $rows->flatMap->modelosCompatibles->pluck('ID_ESPEC')->unique()->filter()->all();
-        if (!$especIds) {
-            return;
-        }
-        $marcaPorEspec = \App\Models\Equipo::whereIn('ID_ESPEC', $especIds)
-            ->get(['ID_ESPEC', 'MARCA'])->groupBy('ID_ESPEC')
-            ->map(fn ($g) => $g->pluck('MARCA')->filter()->first());
-        foreach ($rows as $r) {
-            foreach ($r->modelosCompatibles as $m) {
-                $m->marca_equipo = $marcaPorEspec[$m->ID_ESPEC] ?? null;
-            }
-        }
-    }
-
-    /**
-     * Query del listado (con las columnas que la tabla muestra).
-     *
-     * $tolerante lo enciende SOLO el reintento de index() cuando la busqueda exacta no
-     * encontro nada: perdona un error de tipeo por palabra.
-     */
-    private function productosConSaldoQuery(?int $idAlmacen, Request $request, bool $tolerante = false)
-    {
-        return $this->inventarioBaseQuery($idAlmacen, $request, $tolerante)->select([
-            'productos_inventario.ID_PRODUCTO',
-            'productos_inventario.CODIGO',
-            'productos_inventario.NOMBRE',
-            'productos_inventario.UM',
-            'productos_inventario.CATEGORIA',
-            'productos_inventario.UBICACION',
-            // Miniatura a la izquierda de la descripcion (ver partials/table_rows).
-            'productos_inventario.FOTO',
-            DB::raw('COALESCE(almacen_stock.CANTIDAD, 0) as saldo'),
-            'almacen_stock.CANTIDAD_MINIMA as minimo',
-            'almacen_stock.FECHA_ULT_MOVIMIENTO as fecha_ult_mov',
-        ]);
-    }
-
-    /**
-     * Consolidado de Inventario del almacén seleccionado — SIEMPRE del almacén COMPLETO,
-     * NO se acota por los filtros de la tabla (búsqueda/categoría). El sidebar es un
-     * resumen del almacén, no del subconjunto filtrado: si dependiera del filtro, al
-     * buscar algo puntual los tres KPIs caían a 0 mientras la alerta de stock bajo seguía
-     * marcando 1 → incoherente. La TABLA sí se filtra; el Consolidado no.
-     *
-     * `$request` se mantiene en la firma (lo pasan los llamadores) pero ya no se usa:
-     * el consolidado es deliberadamente independiente de los filtros.
-     */
-    private function statsInventario(?int $idAlmacen): array
-    {
-        if ($idAlmacen === null) {
-            return ['total' => 0, 'con_saldo' => 0, 'stock_bajo' => 0, 'unidades' => 0.0];
-        }
-
-        // Un SOLO query sobre los productos ACTIVOS con stock en este almacén (SIN filtros):
-        //   total      → productos con fila de stock en el almacén
-        //   con_saldo  → CANTIDAD > 0
-        //   stock_bajo → tiene mínimo definido y CANTIDAD <= mínimo
-        //   unidades   → suma física de existencias
-        //
-        // Se une la MISMA subconsulta agregada que el listado (stockAgregadoSub) y no la
-        // tabla: en un almacén multi-proyecto un producto tiene una fila por proyecto, así
-        // que unir la tabla contaría ese producto varias veces en "total" y en "con saldo",
-        // y el Consolidado dejaría de cuadrar con la tabla que tiene al lado. El KPI es del
-        // almacén COMPLETO — igual que la tabla, que también suma todos los proyectos.
-        $row = ProductoInventario::query()->activos()
-            ->joinSub(
-                $this->stockAgregadoSub($idAlmacen),
-                'almacen_stock',
-                fn ($j) => $j->on('almacen_stock.ID_PRODUCTO', '=', 'productos_inventario.ID_PRODUCTO'),
-            )
-            ->select(
-                DB::raw('COUNT(*) as total'),
-                DB::raw('SUM(CASE WHEN almacen_stock.CANTIDAD > 0 THEN 1 ELSE 0 END) as con_saldo'),
-                DB::raw('SUM(CASE WHEN almacen_stock.CANTIDAD_MINIMA IS NOT NULL AND almacen_stock.CANTIDAD <= almacen_stock.CANTIDAD_MINIMA THEN 1 ELSE 0 END) as stock_bajo'),
-                DB::raw('COALESCE(SUM(almacen_stock.CANTIDAD), 0) as unidades')
-            )
-            ->first();
-
-        return [
-            'total'      => (int) ($row->total ?? 0),
-            'con_saldo'  => (int) ($row->con_saldo ?? 0),
-            'stock_bajo' => (int) ($row->stock_bajo ?? 0),
-            'unidades'   => (float) ($row->unidades ?? 0),
-        ];
-    }
-
-    /**
-     * Panel lateral del inventario, ya renderizado (partial distribucion_stats). Tiene DOS
-     * modos y aquí se elige cuál:
-     *  - con producto → "En otros almacenes" (panelOtrosAlmacenes): cuánto hay de ESE
-     *    producto en cada uno de los demás almacenes visibles, con 0 donde no hay.
-     *  - sin producto → "Distribución de Inventario": los productos que la tabla está
-     *    filtrando, agrupados por categoría (distribucionPorCategoria), con clic para
-     *    filtrar por una.
-     * Lo usan la carga HTML (sin producto), la recarga AJAX de la tabla (index) y el clic
-     * en una fila (productoOtrosAlmacenes, siempre con producto).
-     */
-    private function panelLateral(?int $idProducto, ?int $idAlmacen, ?string $nombreAlmacen, Request $request, $user, bool $tolerante = false): string
-    {
-        if ($idProducto) {
-            return $this->panelOtrosAlmacenes($idProducto, $idAlmacen, $nombreAlmacen, $user);
-        }
-
-        // $tolerante viaja desde index(): el panel reparte por categoria LO QUE LA TABLA
-        // ESTA MOSTRANDO, asi que si la busqueda fue aproximada el reparto tambien. Sin
-        // esto, escribir "acetminofen" enseñaba 4 filas en la tabla y un panel VACIO al
-        // lado, porque el panel seguia buscando la palabra exacta.
-        return view('admin.almacen.partials.distribucion_stats', [
-            'distribucion' => $this->distribucionPorCategoria($idAlmacen, $request, $tolerante),
-        ])->render();
-    }
-
-    /**
-     * Panel "En otros almacenes" de UN producto: lo que hay en el almacén abierto (con su
-     * reparto por proyecto, si separa) y en CADA uno de los otros almacenes visibles, también
-     * los que tienen 0 (pedido del cliente, 16-09-2026: el cero es una respuesta). No repite
-     * la descripción del producto: la fila marcada en la tabla ya dice cuál es.
-     */
-    private function panelOtrosAlmacenes(int $idProducto, ?int $idAlmacen, ?string $nombreAlmacen, $user): string
-    {
-        return view('admin.almacen.partials.distribucion_stats', [
-            'idProducto'          => $idProducto,
-            'productoOtros'       => $this->productoEnOtrosAlmacenes($idProducto, $idAlmacen, $user),
-            'productoProyectos'   => $this->productoPorProyecto($idProducto, $idAlmacen),
-            // Lo que hay AQUÍ, separe o no por proyecto: es la cifra contra la que se miden
-            // los demás almacenes (las barras del panel van todas a la misma escala). Misma
-            // suma y mismo mínimo que los demás (saldosPorAlmacen).
-            'productoAqui'        => $idAlmacen === null ? null
-                                         : ($this->saldosPorAlmacen($idProducto, [$idAlmacen])->get($idAlmacen)
-                                            ?? (object) ['CANTIDAD' => 0, 'CANTIDAD_MINIMA' => null]),
-            'almacenActualNombre' => $nombreAlmacen,
-        ])->render();
-    }
-
-    /**
-     * Productos del almacén seleccionado agrupados por categoría, respetando los filtros
-     * activos de la tabla (misma base que ella). Cuenta STOCK REAL del almacén (productos con
-     * fila de stock), igual que el Consolidado (statsInventario): el whereNotNull anula el
-     * bypass "verCatalogo" de inventarioBaseQuery, que si no contaba TODO el catálogo (saldo
-     * 0) mientras el Consolidado marcaba 0 y los dos paneles se contradecían.
-     */
-    private function distribucionPorCategoria(?int $idAlmacen, Request $request, bool $tolerante = false)
-    {
-        if ($idAlmacen === null) {
-            return collect();
-        }
-
-        return $this->inventarioBaseQuery($idAlmacen, $request, $tolerante)
-            ->whereNotNull('almacen_stock.ID_PRODUCTO')
-            // Solo lo que TIENE existencia, como antes: el panel va pegado al KPI
-            // "CON STOCK" y si cuenta tambien los productos en cero los dos numeros
-            // dejan de cuadrar (1.437 repartidos al lado de un 632).
-            ->where('almacen_stock.CANTIDAD', '>', 0)
-            ->select(DB::raw("COALESCE(NULLIF(TRIM(productos_inventario.CATEGORIA), ''), 'SIN CATEGORÍA') as categoria"))
-            ->selectRaw('COUNT(DISTINCT productos_inventario.ID_PRODUCTO) as total')
-            ->selectRaw('COALESCE(SUM(almacen_stock.CANTIDAD), 0) as unidades')
-            ->groupBy('categoria')
-            ->orderByDesc('total')
-            ->orderBy('categoria')
-            ->get();
     }
 
     /**
@@ -1179,213 +378,24 @@ class AlmacenController extends Controller
         \App\Services\GoogleDriveService::borrarTrasResponder($idAnterior);
     }
 
-    /** GET almacen/productos/{id}/otros-almacenes?id_almacen=N → { html } del panel lateral (clic en una fila). */
-    public function productoOtrosAlmacenes(Request $request, $id)
-    {
-        $idAlmacen = (int) $request->integer('id_almacen') ?: null;
-        $almacen = null;
-        if ($idAlmacen !== null) {
-            $this->assertPuedeVerAlmacen($request, $idAlmacen);
-            $almacen = Almacen::find($idAlmacen, ['ID_ALMACEN', 'NOMBRE']);
-        }
-        abort_unless(ProductoInventario::whereKey((int) $id)->exists(), 404);
-
-        return response()->json([
-            'html' => $this->panelOtrosAlmacenes((int) $id, $almacen?->ID_ALMACEN, $almacen?->NOMBRE, $request->user()),
-        ]);
-    }
-
     /**
-     * Reparto de UN producto entre los PROYECTOS del almacén actual.
-     *
-     * Responde de un vistazo "de qué proyectos es este stock", que es lo que el filtro
-     * "Todos los proyectos" NO resuelve: ese filtra de a uno y obliga a ir probando.
-     * Alimenta la sección "En este almacén" del panel lateral, arriba de "En otros
-     * almacenes" — juntos contestan la pregunta completa: dónde está el producto, primero
-     * puertas adentro y después en el resto de la red.
-     *
-     * Solo devuelve filas cuando el almacén REALMENTE separa por proyecto (PROYECTO con
-     * más de un frente, ver Almacen::separaPorProyecto). En los demás todo el saldo vive
-     * en la bolsa común y el desglose sería una sola línea repitiendo el total.
-     *
-     * Incluye la bolsa común (frente 0 = material del almacén sin proyecto asignado) como
-     * una fila más, con su propio rótulo: es saldo real y disponible, no un hueco.
-     * Descarta los saldos en cero — son las filas base que crea asegurarStock y llenarían
-     * la lista de proyectos que no tienen nada de este producto.
-     */
-    private function productoPorProyecto(int $idProducto, ?int $idAlmacen)
-    {
-        if ($idAlmacen === null) {
-            return collect();
-        }
-        $almacen = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
-        if (!$almacen || !$almacen->separaPorProyecto()) {
-            return collect();
-        }
-
-        return $this->repartoPorProyecto([$idAlmacen], $idProducto)->get($idAlmacen, collect());
-    }
-
-    /**
-     * Reparto por proyecto (frente) de UN producto, en los almacenes que se le pidan,
-     * agrupado por almacén. Lo usan el desglose del almacén abierto (productoPorProyecto)
-     * y el que cuelga de cada otro almacén del panel (conDesgloseDeProyectos).
-     *
-     * La consulta vive en filasDeReparto — aquí solo se elige el agrupamiento.
-     */
-    private function repartoPorProyecto($idsAlmacen, int $idProducto)
-    {
-        return $this->filasDeReparto($idsAlmacen, [$idProducto])->groupBy('ID_ALMACEN');
-    }
-
-    /**
-     * Reparto por proyecto de TODOS los productos de una página de la tabla, agrupado por
-     * producto. Cada fila con saldo lo lleva en data-bolsas y, al
-     * seleccionarla, el modal «¿De qué proyecto sale?» lo muestra sin pedir nada al servidor.
-     *
-     * UNA consulta por página (no una por fila): la lista de productos ya está cargada.
-     * Devuelve vacío si el almacén no separa por proyecto — ahí todo el saldo es de la
-     * bolsa común y no hay proyecto que elegir.
-     */
-    private function repartoDeLaPagina(?Almacen $almacen, $productos)
-    {
-        if (!$almacen || !$almacen->separaPorProyecto()) {
-            return collect();
-        }
-
-        return $this->filasDeReparto([$almacen->ID_ALMACEN], collect($productos)->pluck('ID_PRODUCTO'))
-            ->groupBy('ID_PRODUCTO');
-    }
-
-    /**
-     * Filas crudas de saldo por (almacén, producto, bolsa), con el nombre del frente.
-     * Núcleo compartido por los tres desgloses: el del almacén abierto, el que cuelga de
-     * cada otro almacén en el panel, y el modal de la tabla. Eran consultas casi calcadas y
-     * bastaba tocar el orden en una para que las listas contaran cosas distintas.
+     * Reparto por proyecto (bolsa) de UN producto dentro de UN almacén, con el nombre del
+     * frente, de la bolsa más grande a la más chica. Lo pide «Detalles del producto».
      *
      * Descarta los saldos en cero (filas base de asegurarStock, que llenarían la lista de
-     * proyectos sin nada). Quién PUEDE pedir el desglose lo decide cada llamador.
+     * proyectos sin nada).
      */
-    private function filasDeReparto($idsAlmacen, $idsProducto)
+    private function repartoPorProyecto(int $idAlmacen, int $idProducto)
     {
-        $almacenes = collect($idsAlmacen)->filter()->unique()->values();
-        $productos = collect($idsProducto)->filter()->unique()->values();
-        if ($almacenes->isEmpty() || $productos->isEmpty()) {
-            return collect();
-        }
-
         return AlmacenStock::query()
             ->leftJoin('frentes_trabajo as f', 'f.ID_FRENTE', '=', 'almacen_stock.ID_FRENTE')
-            ->whereIn('almacen_stock.ID_ALMACEN', $almacenes)
-            ->whereIn('almacen_stock.ID_PRODUCTO', $productos)
+            ->where('almacen_stock.ID_ALMACEN', $idAlmacen)
+            ->where('almacen_stock.ID_PRODUCTO', $idProducto)
             ->where('almacen_stock.CANTIDAD', '>', 0)
-            ->select('almacen_stock.ID_ALMACEN', 'almacen_stock.ID_PRODUCTO',
-                     'almacen_stock.ID_FRENTE', 'almacen_stock.CANTIDAD', 'f.NOMBRE_FRENTE')
+            ->select('almacen_stock.ID_FRENTE', 'almacen_stock.CANTIDAD', 'f.NOMBRE_FRENTE')
             ->orderByDesc('almacen_stock.CANTIDAD')
             ->orderBy('f.NOMBRE_FRENTE')
             ->get();
-    }
-
-    /**
-     * Inventario de UN producto especifico en TODOS los demas almacenes visibles para
-     * el usuario (excluye el almacen actual — que ya se ve en la tabla principal).
-     *
-     * Lo consume el panel lateral "En otros almacenes" (panelOtrosAlmacenes), cuando el
-     * filtro apunta a un producto o se toca su fila en la tabla: asi puede ver, en
-     * un solo vistazo, donde mas existe el producto y pedir un traspaso al almacen
-     * que tenga saldo si el actual se quedo corto.
-     *
-     * Parte de los almacenes VISIBLES (Almacen::visiblesPara, sin los eliminados) y les
-     * cuelga su saldo: el que no tiene nada del producto sale igual, con 0.
-     */
-    private function productoEnOtrosAlmacenes(int $idProducto, ?int $idAlmacenActual, $user)
-    {
-        // Se parte de los ALMACENES visibles, no del saldo: así el que no tiene nada del
-        // producto (sin fila de stock o con 0) también sale, con 0. Antes se partía de
-        // almacen_stock con HAVING SUM > 0 y esos almacenes desaparecían de la lista.
-        $visibles = Almacen::visiblesPara($user)
-            ->when($idAlmacenActual !== null, fn ($q) => $q->where('almacenes.ID_ALMACEN', '!=', $idAlmacenActual))
-            ->get(['almacenes.ID_ALMACEN', 'almacenes.NOMBRE', 'almacenes.TIPO']);
-        if ($visibles->isEmpty()) {
-            return collect();
-        }
-
-        $saldos = $this->saldosPorAlmacen($idProducto, $visibles->pluck('ID_ALMACEN'));
-
-        $filas = $visibles
-            ->map(function ($alm) use ($saldos) {
-                $s = $saldos->get($alm->ID_ALMACEN);
-                return (object) [
-                    'ID_ALMACEN'      => $alm->ID_ALMACEN,
-                    'NOMBRE'          => $alm->NOMBRE,
-                    'TIPO'            => $alm->TIPO,
-                    'CANTIDAD'        => (float) ($s->CANTIDAD ?? 0),
-                    'CANTIDAD_MINIMA' => $s?->CANTIDAD_MINIMA,
-                ];
-            })
-            ->sortBy([['CANTIDAD', 'desc'], ['NOMBRE', 'asc']])
-            ->values();
-
-        return $this->conDesgloseDeProyectos($filas, $idProducto);
-    }
-
-    /**
-     * Saldo de UN producto en cada almacén pedido (ID_ALMACEN => {CANTIDAD, CANTIDAD_MINIMA}).
-     * Un almacén multi-proyecto tiene VARIAS filas de saldo del mismo producto (una por
-     * proyecto), así que se agrupa por almacén: aquí interesa "cuánto hay en ese almacén", no
-     * de qué proyecto es cada parte (eso lo cuelga conDesgloseDeProyectos). La usan el almacén
-     * abierto y los demás del panel, para que las dos cifras se calculen igual.
-     */
-    private function saldosPorAlmacen(int $idProducto, $idsAlmacen)
-    {
-        return AlmacenStock::query()
-            ->where('ID_PRODUCTO', $idProducto)
-            ->whereIn('ID_ALMACEN', $idsAlmacen)
-            ->groupBy('ID_ALMACEN')
-            ->select('ID_ALMACEN')
-            ->selectRaw('SUM(CANTIDAD) as CANTIDAD')
-            ->selectRaw('MAX(CANTIDAD_MINIMA) as CANTIDAD_MINIMA')
-            ->get()
-            ->keyBy('ID_ALMACEN');
-    }
-
-    /**
-     * Cuelga de cada almacén de la lista su reparto por proyecto, para poder verlo SIN
-     * cambiarse a ese almacén: si en El Tigre hay 325 de un producto, lo útil es saber
-     * que 150 son de Patio I y 100 de Cortafuego antes de pedir el traspaso.
-     *
-     * Solo lo llevan los almacenes que separan por proyecto (TIPO=PROYECTO con MÁS DE UN
-     * frente); en el resto todo el saldo vive en la bolsa común y el desglose repetiría
-     * el total en una sola línea.
-     *
-     * DOS consultas fijas, pase lo que pase: una cuenta los frentes de cada almacén y la
-     * otra trae el detalle de TODOS de un golpe, agrupando después en PHP. Preguntarle a
-     * cada almacén por su cuenta seria un N+1 que crece con cada almacén nuevo.
-     */
-    private function conDesgloseDeProyectos($filas, int $idProducto)
-    {
-        if ($filas->isEmpty()) {
-            return $filas;
-        }
-
-        // Cuántos frentes tiene cada almacén de la lista (define si separa o no).
-        $frentesPorAlmacen = DB::table('almacen_frentes')
-            ->whereIn('ID_ALMACEN', $filas->pluck('ID_ALMACEN'))
-            ->groupBy('ID_ALMACEN')
-            ->pluck(DB::raw('COUNT(*)'), 'ID_ALMACEN');
-
-        $separan = $filas
-            ->filter(fn ($f) => $f->TIPO === Almacen::TIPO_PROYECTO
-                             && (int) ($frentesPorAlmacen[$f->ID_ALMACEN] ?? 0) > 1)
-            ->pluck('ID_ALMACEN');
-
-        $detalle = $this->repartoPorProyecto($separan, $idProducto);
-
-        // Siempre se define la propiedad —vacía cuando no aplica— para que la vista pueda
-        // preguntar por ella sin comprobar antes si existe.
-        return $filas->each(function ($fila) use ($detalle) {
-            $fila->proyectos = $detalle[$fila->ID_ALMACEN] ?? collect();
-        });
     }
 
     /**
@@ -1814,9 +824,6 @@ class AlmacenController extends Controller
         try {
             $producto->stock()->delete();   // limpia stock huérfano (sin movimientos, debe estar en 0)
             $producto->forceDelete();
-            // forceDelete cascadea almacen_stock: filas que desaparecen sin rastro para
-            // el delta. Se pide la copia completa de almacen.
-            \App\Support\OfflineVersion::resetear('almacen');
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => 'No se puede eliminar permanentemente: el producto tiene registros asociados.',
@@ -1853,78 +860,6 @@ class AlmacenController extends Controller
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Filtros de la BITÁCORA de movimientos (producto, tipo, nota, frente y periodo), en un
-     * punto único. Llegan aquí por queryMovimientosFiltrada(), que usan tanto la pantalla
-     * —movimientos()— como la exportación a Excel —movimientosExport()—: si cada una armara
-     * su propia cadena, el archivo acabaría trayendo filas que la pantalla no muestra, que
-     * es justo lo que hace inservible un export.
-     *
-     * NO incluye el filtro de ALMACÉN: ese depende de la lista de almacenes visibles del
-     * usuario, que cada método ya calcula por su lado (y en notas() se aplica sobre una
-     * consulta agrupada).
-     */
-    private function aplicarFiltrosMovimientos($q, Request $request): void
-    {
-        // Filtro de producto (id_producto_in → id_producto → search) en su punto Único, para
-        // que la bitácora y el ranking de consumo de esta misma pantalla filtren igual.
-        $this->aplicarFiltroProductoMovimientos($q, $request);
-
-        if ($request->filled('tipo') && $request->input('tipo') !== 'all') {
-            // Filtro Tipo: dos GRUPOS (Entradas / Salidas) y dos tipos exactos (AJUSTE =
-            // Auditoría, DEVOLUCION = Devoluciones). En los grupos se pliegan los traspasos,
-            // las devoluciones y las auditorías (AJUSTE) según su signo:
-            //   Entradas = TIPOS_ENTRADA (entrada, traspaso recibido, devolución) + ajuste que SUBIÓ el stock.
-            //   Salidas  = TIPOS_SALIDA  (salida, traspaso enviado)               + ajuste que BAJÓ  el stock.
-            // Cualquier otro valor se toma como TIPO exacto.
-            $tipoReq = (string) $request->input('tipo');
-            if ($tipoReq === 'ENTRADAS') {
-                $q->where(function ($w) {
-                    $w->whereIn('TIPO', MovimientoInventario::TIPOS_ENTRADA)
-                      // Ajuste que SUBIÓ el saldo (aumento neto). Estricto (>), simétrico con
-                      // SALIDAS (<): un ajuste neutro (resultante == anterior) no movió nada,
-                      // así que no es ni entrada ni salida y no aparece en ninguno de los dos.
-                      ->orWhere(fn ($a) => $a->where('TIPO', MovimientoInventario::TIPO_AJUSTE)
-                          ->whereColumn('CANTIDAD_RESULTANTE', '>', 'CANTIDAD_ANTERIOR'));
-                });
-            } elseif ($tipoReq === 'SALIDAS') {
-                $q->where(function ($w) {
-                    $w->whereIn('TIPO', MovimientoInventario::TIPOS_SALIDA)
-                      ->orWhere(fn ($a) => $a->where('TIPO', MovimientoInventario::TIPO_AJUSTE)
-                          ->whereColumn('CANTIDAD_RESULTANTE', '<', 'CANTIDAD_ANTERIOR'));
-                });
-            } else {
-                $q->where('TIPO', $tipoReq);
-            }
-        }
-
-        // Filtro "Nota de entrega": matchea el N° de Nota de Entrega (NUMERO_NOTA, salidas)
-        // O la referencia/nota del proveedor (REFERENCIA, entradas) — LIKE en ambos.
-        if ($request->filled('nota')) {
-            $nota = trim((string) $request->input('nota'));
-            $q->where(function ($w) use ($nota) {
-                $w->where('NUMERO_NOTA', 'like', "%{$nota}%")
-                  ->orWhere('REFERENCIA', 'like', "%{$nota}%");
-            });
-        }
-
-        if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
-            $q->where('ID_FRENTE', $request->integer('id_frente'));
-        }
-
-        $q->periodo($request->input('desde'), $request->input('hasta'));
-    }
-
-    /**
-     * Bitácora de movimientos de inventario.
-     *
-     * Filtros: id_almacen, los de aplicarFiltrosMovimientos() (producto, tipo, nota, frente
-     * y periodo) y el orden. El de almacén se aplica aquí y no en el punto común porque
-     * depende de los almacenes visibles del usuario, que cada método calcula por su lado.
-     *
-     *  - HTML normal → página completa (shell + filtros + primera página de la tabla + contador).
-     *  - wantsJson() → { html (filas <tr>), pagination, total } para los filtros/paginación por AJAX.
-     */
-    /**
      * Default suave del filtro de almacén — TODOS los usuarios abren con UN almacén
      * preseleccionado, nunca con "Todos". El que quiere ver todos elige el valor explícito.
      *   1) Si el cliente mandó id_almacen (filled), se respeta.
@@ -1948,34 +883,14 @@ class AlmacenController extends Controller
     }
 
     /**
-     * La consulta de la BITÁCORA ya filtrada: alcance de almacenes + el resto de filtros.
-     * Punto único compartido por la pantalla y su exportación a Excel — si cada una armara
-     * la suya, el archivo acabaría trayendo filas que la pantalla no muestra.
+     * Bitácora de movimientos de inventario: el marco de la página (filtros, almacén por
+     * defecto, frentes). Las filas las pinta el navegador desde la copia local.
      */
-    private function queryMovimientosFiltrada(Request $request, $visiblesIds)
-    {
-        $q = MovimientoInventario::query()
-            ->with(['producto:ID_PRODUCTO,CODIGO,NOMBRE,UM', 'almacen:ID_ALMACEN,NOMBRE,TIPO', 'almacenContraparte:ID_ALMACEN,NOMBRE', 'usuario:ID_USUARIO,NOMBRE_COMPLETO,CORREO_ELECTRONICO', 'frente:ID_FRENTE,NOMBRE_FRENTE']);
-
-        if ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all') {
-            $idAlmacen = $request->integer('id_almacen');
-            $this->assertPuedeVerAlmacen($request, $idAlmacen);
-            $q->where('ID_ALMACEN', $idAlmacen);
-        } else {
-            // Limitar a almacenes visibles para el usuario.
-            $q->whereIn('ID_ALMACEN', $visiblesIds);
-        }
-
-        $this->aplicarFiltrosMovimientos($q, $request);
-
-        return $q;
-    }
-
     public function movimientos(Request $request)
     {
-        // Lista de almacenes visibles para el usuario: la usamos (a) para validar el
-        // default-por-frente, (b) para acotar la query cuando se ve "TODOS LOS ALMACENES"
-        // y (c) para pintar el dropdown de filtro. Una sola consulta por request.
+        // Lista de almacenes visibles para el usuario: valida el default-por-frente y pinta el
+        // dropdown de filtro. La tabla, el total y el ranking de consumo los pinta el navegador
+        // desde la copia local (almacen_movimientos.js → almacen_local.js).
         $almacenes    = Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
         $visiblesIds  = $almacenes->pluck('ID_ALMACEN');
 
@@ -1983,7 +898,7 @@ class AlmacenController extends Controller
         // (Mismo razonamiento que index(): un LOCAL sin almacen asignado no puede tomar
         // ninguna accion util en la bitacora, mejor avisarle que falta configuracion.)
         // "Restringido" = criterio ÚNICO Almacen::usuarioEsGlobal (== Usuario::veTodosLosAlmacenes).
-        if (!$request->wantsJson() && $almacenes->isEmpty() && !Almacen::usuarioEsGlobal($request->user())) {
+        if ($almacenes->isEmpty() && !Almacen::usuarioEsGlobal($request->user())) {
             return redirect()->route('menu')->with('flash_toast', [
                 'type'    => 'error',
                 'message' => 'Tu frente no tiene un almacén registrado. Avisa al administrador para que asocie un almacén a tu frente.',
@@ -1991,54 +906,6 @@ class AlmacenController extends Controller
         }
 
         $this->resolverAlmacenPorDefecto($request, $visiblesIds);
-        $q = $this->queryMovimientosFiltrada($request, $visiblesIds);
-
-        // Petición SOLO-consumo (consumo_only): el frontend carga la TABLA aparte con
-        // skip_consumo para que aparezca rápido, y pide el ranking de consumo EN PARALELO.
-        // Aquí saltamos la query de la tabla y la paginación (consumoRanking arma su propia
-        // query desde $request, no usa $paginator) — así este request solo paga el agregado.
-        if ($request->wantsJson() && $request->boolean('consumo_only')) {
-            return response()->json([
-                'consumo' => view('admin.almacen.partials.consumo_stats', ['consumo' => $this->consumoRanking($request)])->render(),
-            ]);
-        }
-
-        // Orden por ORDEN DE REGISTRO (ID_MOVIMIENTO autoincremental), NO por FECHA: la
-        // FECHA la teclea el usuario y puede ser pasada o incluso futura, así que ordenar
-        // por ella hundía la última operación registrada bajo movimientos con fecha mayor.
-        // El cliente quiere ver SIEMPRE primero lo más recientemente registrado.
-        $paginator = $q->orderByDesc('ID_MOVIMIENTO')
-            ->paginate($request->integer('per_page') ?: 50)->withQueryString();
-
-        if ($request->wantsJson()) {
-            // El modal "Movimientos del producto" pide ?mini=1 para usar el partial
-            // de 4 columnas: sin la de Producto (redundante allí, ya se ve arriba) y sin
-            // la de Fecha (el cliente la pidió fuera; el rango se sigue filtrando).
-            $partial = $request->boolean('mini')
-                ? 'admin.almacen.partials.kardex_rows_mini'
-                : 'admin.almacen.partials.kardex_rows';
-
-            $resp = [
-                // `almacenesVisibles`: kardex_rows lo usa para decidir si el N° de Nota que
-                // llega en REFERENCIA (lado que RECIBE un traspaso) se puede enlazar al PDF —
-                // el documento lo emite la contraparte y notaEntregaPdf valida que el usuario
-                // pueda verla. El partial mini no lo lee; pasarlo igual no cuesta nada.
-                'html'       => view($partial, ['movimientos' => $paginator, 'almacenesVisibles' => $visiblesIds])->render(),
-                'pagination' => (string) $paginator->links('vendor.pagination.custom-sliding'),
-                'total'      => $paginator->total(),
-            ];
-
-            // El ranking de consumo (agregado group-by) SOLO depende de los filtros, no
-            // de la página. Al paginar la tabla el frontend manda skip_consumo=1, y el
-            // modal "Movimientos del producto" (mini) no muestra ese sidebar — en ambos
-            // casos evitamos recalcular el agregado en vano. El front conserva el ranking
-            // actual porque omitir la clave deja data.consumo === undefined (no repinta).
-            if (!$request->boolean('skip_consumo') && !$request->boolean('mini')) {
-                $resp['consumo'] = view('admin.almacen.partials.consumo_stats', ['consumo' => $this->consumoRanking($request)])->render();
-            }
-
-            return response()->json($resp);
-        }
 
         // `idAlmacenActivo`: el valor REAL del filtro tras el default-merge del controller —
         // se lo pasamos a la vista para que el dropdown del header NO dependa del helper
@@ -2046,25 +913,6 @@ class AlmacenController extends Controller
         $idAlmacenActivo = ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all')
             ? (int) $request->input('id_almacen')
             : null;
-        // Lista de N° de Nota de Entrega (NE-…) de SALIDA en almacenes visibles. Alimenta
-        // DOS autocompletes:
-        //   · el filtro "Nota de entrega" de la bitácora (para TODOS los usuarios), y
-        //   · el modal "Eliminar Nota" (solo quien tiene almacen.nota.eliminar).
-        // SOLO TIPO=SALIDA (las entradas no llevan NE; el filtro igual matchea REFERENCIA) y
-        // SOLO de almacenes visibles para el usuario (asi no se sugiere una Nota que luego
-        // assertPuedeVerAlmacen rechazaria). Las 500 mas recientes bastan.
-        $notasFiltro = MovimientoInventario::query()
-            ->where('TIPO', MovimientoInventario::TIPO_SALIDA)
-            ->whereIn('ID_ALMACEN', $almacenes->pluck('ID_ALMACEN'))
-            ->whereNotNull('NUMERO_NOTA')
-            ->where('NUMERO_NOTA', '!=', '')
-            ->distinct()
-            ->orderByDesc('NUMERO_NOTA')
-            ->limit(500)
-            ->pluck('NUMERO_NOTA');
-        // El modal "Eliminar Nota" usa la MISMA lista, pero solo si el usuario tiene la clave.
-        $numerosNotas = $request->user()?->can('almacen.nota.eliminar') ? $notasFiltro : collect();
-
         $frentesMovimientos = Almacen::usuarioEsGlobal($request->user())
             ? \App\Models\FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
                 ->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE'])
@@ -2075,25 +923,10 @@ class AlmacenController extends Controller
         $porRecibirPry = $this->porRecibirDeProyectos($almacenes);
 
         return view('admin.almacen.movimientos', [
-            'movimientos'     => $paginator,
-            'total'           => $paginator->total(),
             'porRecibirPry'   => $porRecibirPry,
             'almacenes'       => $almacenes,
-            // IDs de los almacenes visibles — kardex_rows los necesita para enlazar al PDF
-            // la Nota que el lado RECEPTOR de un traspaso trae en REFERENCIA (ver el partial).
-            'almacenesVisibles' => $visiblesIds,
             'idAlmacenActivo' => $idAlmacenActivo,
             'frentesLista'    => $frentesMovimientos,
-            // El catálogo del buscador (almMovProductosLista) ya NO se embebe aquí: la vista lo
-            // pide por AJAX al endpoint compartido almacen.productos-autocomplete tras renderizar,
-            // para que la bitácora abra rápido (antes embebía los 1155 productos inline).
-            // Ranking de productos más consumidos (SALIDA + TRASPASO_SALIDA) aplicando los
-            // mismos filtros visibles. Alimenta el sidebar "Consumo de Inventario".
-            'consumo'         => $this->consumoRanking($request),
-            // Autocomplete del modal "Eliminar Nota" (ver $numerosNotas arriba).
-            'numerosNotas'    => $numerosNotas,
-            // Autocomplete del filtro "Nota de entrega" de la bitácora (todos los usuarios).
-            'notasFiltro'     => $notasFiltro,
         ]);
     }
 
@@ -2111,102 +944,10 @@ class AlmacenController extends Controller
         $almacenes   = Almacen::visiblesPara($request->user())->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
         $visiblesIds = $almacenes->pluck('ID_ALMACEN');
 
-        // Default-merge por almacén — TODOS los usuarios abren con UN almacén
-        // (mismo patron que movimientos()). 1) helper (frente), 2) fallback al primer visible.
-        if (!$request->filled('id_almacen')) {
-            $idDef = $request->user()?->almacenPorDefecto();
-            if (!$idDef && $visiblesIds->isNotEmpty()) {
-                $idDef = (int) $visiblesIds->first();
-            }
-            if ($idDef && $visiblesIds->contains((int) $idDef)) {
-                $request->merge(['id_almacen' => $idDef]);
-            }
-        }
-
-        // Lista de categorías para el filtro avanzado (mismo helper que /admin/almacen).
-        $categorias = $this->categoriasDistintas();
-
-        // Sólo tipos que tienen Nota de Entrega con PDF.
-        $tiposNota = [
-            MovimientoInventario::TIPO_SALIDA,
-            MovimientoInventario::TIPO_TRASPASO_SALIDA,
-        ];
-        $tipoFiltro = $request->input('tipo');
-        $tiposAplicar = ($tipoFiltro && in_array($tipoFiltro, $tiposNota, true)) ? [$tipoFiltro] : $tiposNota;
-
-        // Subquery a nivel de NUMERO_NOTA. Aggregamos solo los campos que se muestran
-        // en la tabla — el "tipo" se decide por MIN porque todas las líneas de una nota
-        // comparten tipo (registrarMovimientoLote sólo asigna NUMERO_NOTA a un único TIPO).
-        // Ya no calculamos COUNT(*) NI SUM(CANTIDAD) — esas columnas "N° Líneas" y
-        // "Cant. total" se quitaron de la tabla (la info vive dentro del propio PDF).
-        $q = MovimientoInventario::query()
-            ->selectRaw(
-                'NUMERO_NOTA,'
-                . ' MIN(FECHA)                    AS FECHA,'
-                . ' MIN(TIPO)                     AS TIPO,'
-                . ' MIN(ID_ALMACEN)               AS ID_ALMACEN,'
-                . ' MIN(ID_ALMACEN_CONTRAPARTE)   AS ID_ALMACEN_CONTRAPARTE,'
-                . ' MIN(ID_FRENTE)                AS ID_FRENTE,'
-                . ' MAX(ID_MOVIMIENTO)            AS ULT_ID'
-            )
-            ->whereIn('TIPO', $tiposAplicar)
-            ->whereNotNull('NUMERO_NOTA')
-            ->where('NUMERO_NOTA', '!=', '')
-            ->groupBy('NUMERO_NOTA');
-
-        if ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all') {
-            $idAlmacen = $request->integer('id_almacen');
-            $this->assertPuedeVerAlmacen($request, $idAlmacen);
-            $q->where('ID_ALMACEN', $idAlmacen);
-        } else {
-            $q->whereIn('ID_ALMACEN', $visiblesIds);
-        }
-        if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
-            $q->where('ID_FRENTE', $request->integer('id_frente'));
-        }
-        if ($request->filled('search')) {
-            $term = trim((string) $request->input('search'));
-            $q->where(function ($w) use ($term) {
-                $w->where('NUMERO_NOTA',     'like', "%{$term}%")
-                  ->orWhere('NUMERO_RQ',     'like', "%{$term}%")
-                  ->orWhere('NUMERO_CONTRATO','like', "%{$term}%")
-                  ->orWhere('SOLICITANTE',    'like', "%{$term}%");
-            });
-        }
-        // Filtro por categoría del producto (misma semántica que /admin/almacen): si una
-        // NOTA tiene al menos una línea cuyo producto pertenece a esa categoría, se incluye.
-        // Implementado con whereExists para no ensuciar el SELECT/GROUP BY del aggregate.
-        if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
-            $cat = trim((string) $request->input('categoria'));
-            $q->whereExists(function ($sub) use ($cat) {
-                $sub->select(DB::raw(1))
-                    ->from('productos_inventario as p')
-                    ->whereColumn('p.ID_PRODUCTO', 'movimientos_inventario.ID_PRODUCTO')
-                    ->where('p.CATEGORIA', 'like', "%{$cat}%");
-            });
-        }
-        $q->periodo($request->input('desde'), $request->input('hasta'));
-
-        // La nota más recientemente REGISTRADA arriba: ordenamos por ULT_ID (mayor
-        // ID_MOVIMIENTO del grupo = orden de registro), no por FECHA — la FECHA la teclea
-        // el usuario y puede ser pasada/futura, lo que hundía la última nota registrada.
-        $q->orderByDesc('ULT_ID');
-
-        // paginate() sobre groupBy: Laravel hace el COUNT con DISTINCT internamente.
-        $paginator = $q->paginate($request->integer('per_page') ?: 50)->withQueryString();
-
-        // Eager load de los almacenes (origen + contraparte) y frentes referenciados en
-        // las filas de esta página — UN solo viaje por relación. NO cargamos usuarios
-        // porque la vista no muestra "registrado por" (cabe en el PDF, no en la tabla).
-        $idsAlm   = $paginator->getCollection()->pluck('ID_ALMACEN')->merge($paginator->getCollection()->pluck('ID_ALMACEN_CONTRAPARTE'))->filter()->unique()->values();
-        $idsFre   = $paginator->getCollection()->pluck('ID_FRENTE')->filter()->unique()->values();
-        $almById  = $idsAlm->isEmpty() ? collect() : Almacen::whereIn('ID_ALMACEN', $idsAlm)->get(['ID_ALMACEN', 'NOMBRE', 'TIPO'])->keyBy('ID_ALMACEN');
-        $freById  = $idsFre->isEmpty() ? collect() : \App\Models\FrenteTrabajo::withTrashed()->whereIn('ID_FRENTE', $idsFre)->get(['ID_FRENTE', 'NOMBRE_FRENTE'])->keyBy('ID_FRENTE');
-        // Notas de esta página con alguna devolución registrada (la devolución lleva el N° de
-        // la nota en REFERENCIA): la fila lo marca para que se vea sin abrir nada.
-        $conDevolucion = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
-            ->whereIn('REFERENCIA', $paginator->getCollection()->pluck('NUMERO_NOTA'))
-            ->distinct()->pluck('REFERENCIA')->flip();
+        // Default-merge por almacén — TODOS los usuarios abren con UN almacén (mismo patrón que
+        // movimientos()). Las notas, su total y el ranking de consumo los pinta el navegador
+        // desde la copia local (AlmacenLocal.notas / consumo).
+        $this->resolverAlmacenPorDefecto($request, $visiblesIds);
 
         $idAlmacenActivo = ($request->filled('id_almacen') && $request->input('id_almacen') !== 'all')
             ? (int) $request->input('id_almacen')
@@ -2219,110 +960,13 @@ class AlmacenController extends Controller
                 ->whereHas('almacenes', fn ($q) => $q->whereIn('almacenes.ID_ALMACEN', $visiblesIds))
                 ->orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
 
-        if ($request->wantsJson()) {
-            return response()->json([
-                'html'       => view('admin.almacen.partials.notas_rows', ['notas' => $paginator, 'almById' => $almById, 'freById' => $freById, 'conDevolucion' => $conDevolucion])->render(),
-                'pagination' => $paginator->links('vendor.pagination.custom-sliding')->toHtml(),
-                'total'      => $paginator->total(),
-            ]);
-        }
-
         return view('admin.almacen.notas', [
-            'notas'           => $paginator,
-            'total'           => $paginator->total(),
             'almacenes'       => $almacenes,
             'idAlmacenActivo' => $idAlmacenActivo,
             'frentesLista'    => $frentesNotas,
-            'categorias'      => $categorias,
-            'almById'         => $almById,
-            'freById'         => $freById,
-            'conDevolucion'   => $conDevolucion,
-            // $aplicarBusqueda=false: aquí `search` es N° Nota/RQ/Contrato/Solicitante, no un
-            // producto. El sidebar "Consumo" sigue respondiendo a almacén/frente/categoría/período.
-            'consumo'         => $this->consumoRanking($request, 30, false),
+            // Lista de categorías para el filtro avanzado (mismo helper que /admin/almacen).
+            'categorias'      => $this->categoriasDistintas(),
         ]);
-    }
-
-    /**
-     * Ranking de productos más consumidos para el sidebar de la bitácora.
-     *
-     * "Consumo" = suma de CANTIDAD menos lo devuelto de cada salida, aplicando los mismos
-     * filtros que la tabla (almacén, frente, fechas, búsqueda) salvo `tipo` (el ranking
-     * SIEMPRE es de salidas).
-     *
-     * Reglas para evitar doble conteo:
-     *  - Filtro por un almacén concreto → cuenta SALIDA y TRASPASO_SALIDA del almacén
-     *    (ambos restan stock de ese almacén, ambos son egresos legítimos).
-     *  - Vista global (todos los almacenes) → SOLO SALIDA. Los TRASPASO_SALIDA son
-     *    movimientos internos entre nuestros propios almacenes; contarlos junto a la
-     *    SALIDA que el almacén destino registra después sería sumar la misma unidad
-     *    dos veces.
-     *
-     * Retorna colección de stdClass con: {id_producto, codigo, nombre, um, total, movimientos}.
-     *
-     * @param bool $aplicarBusqueda  Si el `search` del request debe filtrar el ranking por
-     *   producto. TRUE en la bitácora (/almacen/movimientos), donde `search` ES búsqueda de
-     *   producto. FALSE en /almacen/notas, donde `search` significa N° Nota/RQ/Contrato/
-     *   Solicitante: aplicarlo como código/nombre de producto vaciaría el ranking (ningún
-     *   producto se llama "NE-2026-0001"). El resto de filtros (almacén/frente/categoría/
-     *   período) SÍ son compatibles y se siguen aplicando en ambas páginas.
-     */
-    protected function consumoRanking(Request $request, int $limite = 30, bool $aplicarBusqueda = true)
-    {
-        $almacenFiltrado = $request->filled('id_almacen') && $request->input('id_almacen') !== 'all';
-        // Las CONSTANTES, no los literales: es lo que usan notas() y los filtros. Escrito
-        // a mano, este ranking seria lo unico que no se entera si cambia el valor de una
-        // constante, y devolveria 0 en silencio.
-        $tipos = $almacenFiltrado
-            ? [MovimientoInventario::TIPO_SALIDA, MovimientoInventario::TIPO_TRASPASO_SALIDA]
-            : [MovimientoInventario::TIPO_SALIDA];
-
-        $q = MovimientoInventario::query()->whereIn('TIPO', $tipos);
-
-        if ($almacenFiltrado) {
-            $q->where('ID_ALMACEN', $request->integer('id_almacen'));
-        } else {
-            $q->whereIn('ID_ALMACEN', Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN'));
-        }
-        // Mismo filtro de producto que la bitácora (punto único). La columna va PREFIJADA:
-        // el JOIN con `productos_inventario as p` del final deja ID_PRODUCTO ambigua (existe
-        // en AMBAS tablas) y MySQL dispara el error 1052 → la pantalla queda en blanco.
-        // $aplicarBusqueda=false en /almacen/notas, donde `search` es el N° de Nota.
-        $this->aplicarFiltroProductoMovimientos($q, $request, 'movimientos_inventario.ID_PRODUCTO', $aplicarBusqueda);
-        if ($request->filled('id_frente') && $request->input('id_frente') !== 'all') {
-            $q->where('ID_FRENTE', $request->integer('id_frente'));
-        }
-        // Filtro por categoría — aplica al ranking igual que a la tabla principal.
-        if ($request->filled('categoria') && $request->input('categoria') !== 'all') {
-            $cat = trim((string) $request->input('categoria'));
-            $q->whereExists(function ($sub) use ($cat) {
-                $sub->select(DB::raw(1))
-                    ->from('productos_inventario as pc')
-                    ->whereColumn('pc.ID_PRODUCTO', 'movimientos_inventario.ID_PRODUCTO')
-                    ->where('pc.CATEGORIA', 'like', "%{$cat}%");
-            });
-        }
-        $q->periodo($request->input('desde'), $request->input('hasta'));
-
-        // Consumo NETO: lo que volvió con una devolución no se consumió (ver
-        // MovimientoInventario::scopeConDevuelto). Un producto devuelto entero queda en 0 y
-        // sale del ranking.
-        $neto = 'SUM(' . MovimientoInventario::SQL_CANTIDAD_NETA . ')';
-
-        return $q->conDevuelto()
-            ->join('productos_inventario as p', 'p.ID_PRODUCTO', '=', 'movimientos_inventario.ID_PRODUCTO')
-            ->groupBy('movimientos_inventario.ID_PRODUCTO', 'p.CODIGO', 'p.NOMBRE', 'p.UM')
-            ->havingRaw("{$neto} > 0")
-            ->orderByDesc(DB::raw($neto))
-            ->limit($limite)
-            ->get([
-                'movimientos_inventario.ID_PRODUCTO as id_producto',
-                'p.CODIGO as codigo',
-                'p.NOMBRE as nombre',
-                'p.UM as um',
-                DB::raw("{$neto} as total"),
-                DB::raw('COUNT(*) as movimientos'),
-            ]);
     }
 
     /**
@@ -2357,21 +1001,16 @@ class AlmacenController extends Controller
         // Responde la pregunta que la tabla no puede: su columna STOCK suma todas las bolsas
         // (95) sin decir de quién es cada parte. Cualquier proyecto puede consumirlas —la
         // salida empieza por la suya y sigue con las demás, ver aplicarSalidaConCascada— pero
-        // quien despacha necesita saber a quién le está tocando el material. Hasta ahora esto
-        // solo salía en el panel lateral y únicamente si el usuario llegaba clicando una
-        // sugerencia del buscador (id_producto en la URL); buscando por texto no aparecía.
-        //
-        // Sale del MISMO helper que alimenta ese panel (repartoPorProyecto): una sola
-        // fuente para las dos vistas. Solo en almacenes que separan por proyecto — en el
-        // resto todo vive en la bolsa común y la lista repetiría el total en una línea.
+        // quien despacha necesita saber a quién le está tocando el material. Solo en almacenes
+        // que separan por proyecto — en el resto todo vive en la bolsa común y la lista
+        // repetiría el total en una línea.
         $idAlmacen = (int) $request->integer('id_almacen');
         $proyectos = collect();
         if ($idAlmacen > 0) {
             $this->assertPuedeVerAlmacen($request, $idAlmacen);
             $alm = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
             if ($alm?->separaPorProyecto()) {
-                $proyectos = $this->repartoPorProyecto([$idAlmacen], (int) $id)
-                    ->get($idAlmacen, collect())
+                $proyectos = $this->repartoPorProyecto($idAlmacen, (int) $id)
                     ->map(fn ($r) => [
                         // Rótulo y regla de "bolsa común" salen de InventarioService, el mismo
                         // punto que usan el panel lateral y el export: material del almacén que
@@ -2972,20 +1611,22 @@ class AlmacenController extends Controller
      * Solo se incluyen productos con saldo total > 0 (los de stock 0 o negativo se omiten).
      */
     /**
-     * XLSX de la BITÁCORA de movimientos, con los MISMOS filtros que la pantalla.
-     *
-     * No rearma la consulta: usa queryMovimientosFiltrada, el mismo punto por el que pasa
-     * /admin/almacen/movimientos. Es lo que garantiza que el archivo traiga exactamente las
-     * filas que el usuario está viendo — un export que filtra distinto no sirve para nada.
-     * Incluye el default suave de almacén por la misma razón: sin él, quien abre la pantalla
-     * con su almacén preseleccionado se bajaría un archivo con TODOS los almacenes visibles.
+     * XLSX de la BITÁCORA de movimientos: exactamente las filas que el usuario está viendo,
+     * porque los ids los resuelve la misma copia local que pinta la pantalla.
      */
     public function movimientosExport(Request $request)
     {
         $visiblesIds = Almacen::visiblesPara($request->user())->pluck('ID_ALMACEN');
+        // Solo para nombrar el almacén en la cabecera: los filtros ya los aplicó la copia local.
         $this->resolverAlmacenPorDefecto($request, $visiblesIds);
 
-        $movs = $this->queryMovimientosFiltrada($request, $visiblesIds)
+        // Los movimientos que filtra la bitácora: el navegador los resuelve en su copia local y
+        // manda sus ids en un solo campo separado por comas (ids[] se cortaría en
+        // max_input_vars). Igual se acota a los almacenes que el usuario puede ver.
+        $movs = MovimientoInventario::query()
+            ->with(['producto:ID_PRODUCTO,CODIGO,NOMBRE,UM', 'almacen:ID_ALMACEN,NOMBRE', 'almacenContraparte:ID_ALMACEN,NOMBRE', 'frente:ID_FRENTE,NOMBRE_FRENTE'])
+            ->whereIn('ID_MOVIMIENTO', $this->idsDesdeCsv($request->input('ids')))
+            ->whereIn('ID_ALMACEN', $visiblesIds)
             ->orderByDesc('FECHA')->orderByDesc('ID_MOVIMIENTO')
             ->get();
 
@@ -3020,7 +1661,7 @@ class AlmacenController extends Controller
         // Nada se pierde por quitarlos del archivo: en la pantalla, N° NOTA / REFERENCIA /
         // MOTIVO siguen en la columna "Ref", y el usuario sale al pasar el mouse por la
         // fila, en la burbuja .tooltip-bubble anclada a la celda Producto (no es un
-        // atributo title: ver partials/kardex_rows). SOLICITANTE nunca estuvo en la
+        // atributo title: ver filasKardex en almacen_local.js). SOLICITANTE nunca estuvo en la
         // bitácora: vive en la vista de Notas y en el PDF de la nota de entrega.
         // SALDO DE = bolsa de la que se descontó cuando NO es la del frente al que se
         // entregó (préstamo entre proyectos, ver InventarioService::aplicarSalidaConCascada).
@@ -3032,7 +1673,7 @@ class AlmacenController extends Controller
         $ultima = 'L';   // 12 columnas
 
         // Nombres de las bolsas y qué filas son realmente un préstamo, en consultas por
-        // lote. Mismos helpers que usa el kardex en pantalla (partials/kardex_rows).
+        // lote (la misma regla que pinta el kardex en pantalla, AlmacenLocal).
         $nombreBolsa = MovimientoInventario::nombresDeBolsa($movs);
         $prestamos   = MovimientoInventario::prestamosPorMovimiento($movs);
 
@@ -3107,39 +1748,13 @@ class AlmacenController extends Controller
             $tituloFrente = 'GLOBAL';
         }
 
-        // Productos a exportar = EXACTAMENTE los que muestra la tabla en pantalla.
-        // Reusamos la misma lógica de filtrado que el listado para que coincidan:
-        //  - Con almacén seleccionado: inventarioBaseQuery() aplica TODOS los filtros
-        //    (búsqueda/producto puntual, categoría, stock bajo/con saldo) sobre ese almacén.
-        //  - Global (sin almacén): inventarioBaseQuery devolvería vacío (su JOIN exige un
-        //    almacén), así que aplicamos solo los filtros de contenido sobre el catálogo
-        //    (los de stock son por-almacén y no aplican a la vista de todos los almacenes).
-        // El mismo perdon de tipeo que el listado: sin esto, buscar "mangera" encontraba
-        // mangueras en pantalla y bajaba un Excel VACIO (ver buscarConPerdonDeTipeo).
-        //
-        // OJO con "exactamente los que muestra la tabla" de aqui arriba: se cumple en el
-        // FILTRO (que productos entran), no en lo que acaba escrito en el archivo. Mas
-        // abajo, el bucle que escribe las filas salta las de saldo 0 "a pedido del
-        // cliente", mientras que la tabla SI las enseña cuando hay una busqueda (el bypass
-        // verCatalogo de inventarioBaseQuery). Medido en BARCELONA: search=MANGUERA son 12
-        // filas en pantalla y 2 en el Excel. Y el orden tampoco coincide: el Excel va
-        // alfabetico a proposito (se lee y se filtra con Excel) y la tabla por cercania a
-        // lo buscado (ordenarInventarioPorRelevancia).
-        if ($idAlmacenSel !== null) {
-            [$ids] = $this->buscarConPerdonDeTipeo($request, fn (bool $tol) => $this
-                ->inventarioBaseQuery($idAlmacenSel, $request, $tol)
-                ->distinct()
-                ->pluck('productos_inventario.ID_PRODUCTO'));
-            $productos = ProductoInventario::whereIn('ID_PRODUCTO', $ids)
-                ->orderBy('NOMBRE')
-                ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
-        } else {
-            [$productos] = $this->buscarConPerdonDeTipeo($request, function (bool $tol) use ($request) {
-                $q = ProductoInventario::activos()->orderBy('NOMBRE');
-                $this->aplicarFiltrosContenido($q, $request, $tol);
-                return $q->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
-            });
-        }
+        // Productos a exportar = los que filtra la tabla: el navegador los resuelve en su copia
+        // local (AlmacenLocal.idsInventario) y manda sus ids en un solo campo separado por comas
+        // (como ids[] se cortaría en max_input_vars, 1000). El Excel va alfabético a propósito
+        // (se lee y se filtra con Excel) y salta las filas en saldo 0 (a pedido del cliente).
+        $productos = ProductoInventario::whereIn('ID_PRODUCTO', $this->idsDesdeCsv($request->input('ids')))
+            ->orderBy('NOMBRE')
+            ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
 
         // AGRUPADO por producto+almacén, no fila por fila: desde que el saldo se lleva por
         // proyecto, un producto tiene VARIAS filas dentro del mismo almacén. Recorrerlas
@@ -4825,12 +3440,6 @@ class AlmacenController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        // El update masivo de arriba es por query builder: no emite eventos de modelo, así
-        // que ningún observer invalida. La huella SÍ lo vería (Eloquent pone updated_at en
-        // los update masivos), pero solo al vencer el TTL de 5 min. Este aviso lo baja a
-        // inmediato. No hace falta resetear: se editan filas, no se borran.
-        \App\Support\OfflineVersion::invalidar('almacen');
-
         return response()->json([
             'message'     => "Nota {$numero} eliminada y stock revertido.",
             'numero_nota' => $numero,
@@ -5130,12 +3739,6 @@ class AlmacenController extends Controller
         // Se asocian frentes a CUALQUIER tipo de almacen (GENERAL o PROYECTO): los
         // frentes definen que usuarios LOCAL ven el almacen (ver Almacen::visiblesPara).
         $almacen->frentes()->sync($ids);
-
-        // Esta tabla pivote decide QUÉ ALMACENES ve un usuario LOCAL, y con ello qué stock
-        // y qué movimientos entran en su snapshot. Al cambiarla, el alcance del cliente
-        // offline cambia sin que se haya editado ni una fila de inventario: ninguna huella
-        // lo notaría. El reseteo le pide la copia completa del dominio.
-        \App\Support\OfflineVersion::resetear('almacen');
     }
 
     /**

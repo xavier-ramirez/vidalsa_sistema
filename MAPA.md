@@ -70,7 +70,7 @@ Dos cosas del entorno de Windows que ya están resueltas y **no hay que volver a
 | Fallas | `/admin/fallas` | `FallaController` | `admin/fallas/**` | `fallas_index.js`, `falla_create_modal.js` |
 | Movilizaciones | `/admin/movilizaciones` | `MovilizacionController` | `admin/movilizaciones/**` | `movilizaciones_index.js` |
 | Mapa | `/mapa` (fuera de `admin`) | `MapaController`, `OleoductoController` | `admin/mapa*` | `mapa_index.js` |
-| Almacén | `/admin/almacen` | `AlmacenController` | `admin/almacen/**` | inline + `almacen-offline.js`, `producto_suggest.js` |
+| Almacén | `/admin/almacen` | `AlmacenController` | `admin/almacen/**` | `almacen_index.js` + `almacen_local.js` (copia local), `producto_suggest.js` |
 | Consumibles | `/admin/consumibles` | `ConsumiblesController` | `admin/consumibles/**` | `consumibles_index.js`, `consumibles_graficos.js` |
 | Traspasos / Devoluciones y correcciones de nota | `/admin/almacen/recepcion`, `/admin/almacen/ajuste-nota` | `TraspasoController`, `AjusteNotaController` | dentro de almacén | `ajuste_nota.js` |
 | Usuarios / Frentes | `/admin/usuarios`, `/admin/frentes` | `UserController`, `FrenteTrabajoController` | `admin/usuarios/**`, `admin/frentes/**` | `usuarios_index.js`, `frentes_spa.js` |

@@ -13,6 +13,7 @@
  *   CopiaLocal.ahora(dominio) → Promise. Pregunta ya por ese dominio.
  *   CopiaLocal.alGuardar() → Promise. Pregunta ya por todos los dominios en uso; lo llaman
  *       fetch_interceptor.js (tras cada guardado que sale bien) y outbox-sync.js.
+ *   CopiaLocal.alDia(dominio) → Promise. Se cumple cuando la copia ya trae el último guardado.
  *   Evento 'copia-local' en window, detail { dominio, cambio, estado }: cambio = true si
  *       llegaron datos nuevos (la pantalla se repinta); con false solo cambió el estado.
  *   estado = { listo, conectado, actualizado (ms) }.
@@ -234,10 +235,13 @@
     }
 
     // Si ya había una pregunta en curso se repite al terminar: pudo salir antes del guardado.
+    // Mientras tanto la copia de ese dominio no está al día (ver alDia).
     function alGuardar() {
         return Promise.all(enUso().map((d) => {
             const c = copias[d];
-            return c.enCurso ? c.enCurso.then(() => sincronizar(d)) : sincronizar(d);
+            const p = c.enCurso ? c.enCurso.then(() => sincronizar(d)) : sincronizar(d);
+            c.trasGuardar = p;
+            return p.finally(() => { if (c.trasGuardar === p) c.trasGuardar = null; });
         }));
     }
 
@@ -259,5 +263,8 @@
         },
         ahora: sincronizar,
         alGuardar,
+        alDia(d) {
+            return copia(d).trasGuardar || Promise.resolve();
+        },
     };
 })();

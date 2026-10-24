@@ -12,6 +12,7 @@ use App\Models\Usuario;
 use App\Services\InventarioService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Tests\AlmacenLocal;
 use Tests\MySqlTestCase;
 
 /**
@@ -23,6 +24,8 @@ use Tests\MySqlTestCase;
  */
 class CorreccionNotaTest extends MySqlTestCase
 {
+    use AlmacenLocal;
+
     private InventarioService $inv;
     private string $marca;
 
@@ -278,9 +281,7 @@ class CorreccionNotaTest extends MySqlTestCase
         $p = $this->producto('ELECTRODO');
         $this->inv->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 200);
         $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p->ID_PRODUCTO => 180], null);
-        $bitacora = fn () => $this->actingAs($this->usuario())
-            ->getJson(route('almacen.movimientos', ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'SALIDA', 'skip_consumo' => 1]))
-            ->assertOk()->json('html');
+        $bitacora = fn () => $this->movimientosLocal($this->usuario(), ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'SALIDA'])['html'];
 
         $html = $bitacora();
         $this->assertStringContainsString("almModificarNota('{$nota}', {$p->ID_PRODUCTO})", $html);

@@ -2,11 +2,8 @@
 
 namespace App\Support;
 
-use App\Models\Almacen;
 use App\Models\AlmacenKit;
-use App\Models\AlmacenStock;
 use App\Models\Equipo;
-use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use Illuminate\Support\Facades\Cache;
 
@@ -22,12 +19,12 @@ use Illuminate\Support\Facades\Cache;
  * de almacén. Con versiones por dominio, a ese usuario un cambio de almacén le es
  * literalmente invisible.
  *
- * ── Dos dominios ───────────────────────────────────────────────────────────
- *   almacen    → stock + productos + movimientos
- *   catalogos  → almacenes + kits (pesan pocos KB, por eso viajan enteros cuando
+ * ── Un dominio ─────────────────────────────────────────────────────────────
+ *   catalogos  → los kits del almacén (pesan pocos KB, por eso viajan enteros cuando
  *                cambian: así no hace falta detectar borrados en ellos)
- * Equipos, auxiliares y movilizaciones ya no viajan aquí: los lleva la copia local
- * (copia-local.js, /sync/equipos).
+ * Lo demás ya no viaja aquí: equipos, auxiliares y movilizaciones los lleva la copia
+ * local (copia-local.js, /sync/equipos) y el inventario, la bitácora y las notas, la del
+ * almacén (/sync/almacen).
  *
  * ── Por qué el caché va en el store 'file' y no en el de por defecto ────────
  * CACHE_STORE=database: cada lectura de caché sería UNA CONSULTA a MySQL, que es
@@ -39,20 +36,18 @@ use Illuminate\Support\Facades\Cache;
  *
  * ── Por qué hay TTL además de invalidación explícita ───────────────────────
  * Los bumps se disparan desde observers, pero hay rutas que escriben SIN eventos
- * de modelo y por tanto no los disparan:
- *   · InventarioService y AlmacenController: updates de stock por query builder.
- *   · Comandos artisan que borran/cargan por query builder.
+ * de modelo y por tanto no los disparan: updates masivos y comandos artisan que
+ * borran o cargan por query builder.
  * El TTL corto es el PISO que garantiza que un cambio así se detecte en ≤5 min
  * aunque nadie llame a invalidar(). No lo quites pensando que los bumps bastan.
  *
- * ── Las tres piezas de una huella y qué cubre cada una ──────────────────────
+ * ── Las dos piezas de una huella y qué cubre cada una ───────────────────────
  *   · pulso    → un contador que suben los observers. Es lo que hace que la huella
  *                cambie SIEMPRE ante un evento de modelo, sin depender de que el
  *                reloj tenga resolución suficiente (ver invalidar()).
  *   · MAX(...) → cubre las escrituras SIN eventos descritas arriba, que solo se
  *                detectan al recalcular por TTL.
- *   · reset    → borrados que un incremental no puede deducir (ver resetear()).
- * Quitar cualquiera de las tres deja un agujero distinto.
+ * Quitar cualquiera de las dos deja un agujero distinto.
  *
  * @see \App\Support\CacheVersion  patrón hermano (dashboard e historial)
  */
@@ -69,19 +64,12 @@ class OfflineVersion
      *   v6 → kits del almacén (tabla `kits`, dominio catalogos)
      *   v7 → combustible de cada equipo (filtro Combustible sin conexión)
      *   v8 → sin equipos ni frentes (los lleva la copia local de /sync/equipos)
+     *   v9 → solo los kits (el inventario lo lleva la copia local de /sync/almacen)
      */
-    public const ESQUEMA = 8;
+    public const ESQUEMA = 9;
 
-    /** Dominios válidos. El orden no importa; valida el argumento de invalidar(). */
-    public const DOMINIOS = ['almacen', 'catalogos'];
-
-    /**
-     * Dominios que admiten reseteo (recarga completa).
-     *
-     * `catalogos` queda fuera porque ya viaja ENTERO cada vez que cambia: no hay nada
-     * que "recargar completo" en él, sería un modo que no significa nada.
-     */
-    private const DOMINIOS_RESETEABLES = ['almacen'];
+    /** Dominios válidos; valida el argumento de invalidar(). */
+    public const DOMINIOS = ['catalogos'];
 
     private const CLAVE_VERSIONES = 'offline_versiones';
     private const TTL_SEGUNDOS    = 300;
@@ -94,12 +82,12 @@ class OfflineVersion
     }
 
     /**
-     * Huellas de los dos dominios + los tokens de reseteo.
+     * Huella de cada dominio.
      *
      * Cacheado: la comprobación de frescura NO debe tocar MySQL. El recálculo solo
      * ocurre cuando alguien invalida o al vencer el TTL.
      *
-     * @return array{almacen:string, catalogos:string, reset:array<string,int>}
+     * @return array{catalogos:string}
      */
     public static function todas(): array
     {
@@ -112,63 +100,29 @@ class OfflineVersion
 
     /**
      * Recalcula desde la BD. Solo MAX() sobre columnas indexadas: no trae filas.
-     * (los índices de updated_at se crearon en 2026_08_01_090000 y _100000 para esto.)
      *
-     * OJO con withTrashed(): Equipo, ProductoInventario y Almacen usan SoftDeletes, así
-     * que un MAX() normal EXCLUYE las filas borradas. Al borrar la fila que tenía el
-     * updated_at más alto, el MAX volvía al valor anterior y la huella quedaba IGUAL que
-     * antes del borrado: el teléfono no se enteraba nunca de la baja. Con withTrashed la
-     * fila borrada sigue contando y su updated_at (que el borrado suave actualiza) mueve
-     * la huella hacia adelante.
+     * OJO con withTrashed(): Equipo y ProductoInventario usan SoftDeletes, así que un MAX()
+     * normal EXCLUYE las filas borradas. Al borrar la fila que tenía el updated_at más alto,
+     * el MAX volvía al valor anterior y la huella quedaba IGUAL que antes del borrado. Con
+     * withTrashed la fila borrada sigue contando y su updated_at (que el borrado suave
+     * actualiza) mueve la huella hacia adelante.
      */
     private static function calcular(): array
     {
-        $reset = [
-            'almacen' => (int) (self::store()->get('offline_reset_almacen') ?? 0),
+        $partes = [
+            self::ESQUEMA,
+            (int) (self::store()->get('offline_pulso_catalogos') ?? 0),
+            // Kits: altas y ediciones. El BORRADO de un kit no mueve este MAX: lo avisa el
+            // pulso (AlmacenKit::booted llama a invalidar en deleted). Cada kit lleva además
+            // el nombre de sus productos y las placas de sus equipos (KitAlmacenService::
+            // catalogo), así que un producto o un equipo editado también lo refresca.
+            AlmacenKit::max('updated_at'),
+            ProductoInventario::withTrashed()->max('updated_at'),
+            Equipo::withTrashed()->max('updated_at'),
         ];
-        $pulso = [
-            'almacen'   => (int) (self::store()->get('offline_pulso_almacen') ?? 0),
-            'catalogos' => (int) (self::store()->get('offline_pulso_catalogos') ?? 0),
-        ];
-
-        $huella = static fn (array $partes) => substr(
-            md5(implode('|', array_map(static fn ($v) => (string) $v, $partes))),
-            0,
-            12
-        );
 
         return [
-            'almacen' => $huella([
-                self::ESQUEMA,
-                $reset['almacen'],
-                $pulso['almacen'],
-                MovimientoInventario::max('ID_MOVIMIENTO'),
-                // MAX(ID) detecta ALTAS; updated_at detecta EDICIONES: recalcularSaldoProducto
-                // reescribe CANTIDAD_ANTERIOR/RESULTANTE de filas viejas y anular una nota
-                // vacía su NUMERO_NOTA, todo sin tocar el ID.
-                MovimientoInventario::max('updated_at'),
-                // updated_at y NO FECHA_ULT_MOVIMIENTO (que era lo que miraba la huella
-                // global anterior): el snapshot lleva tambien CANTIDAD_MINIMA, y editar
-                // el minimo NO es un movimiento, asi que no toca FECHA_ULT_MOVIMIENTO
-                // pero si updated_at. Con la columna vieja, cambiar un minimo no llegaba
-                // nunca a los telefonos y el KPI "bajo minimo" offline quedaba mal.
-                AlmacenStock::max('updated_at'),
-                ProductoInventario::withTrashed()->max('updated_at'),
-            ]),
-            'catalogos' => $huella([
-                self::ESQUEMA,
-                $pulso['catalogos'],
-                Almacen::withTrashed()->max('updated_at'),
-                // Kits: altas y ediciones. El BORRADO de un kit no mueve este MAX: lo avisa el
-                // pulso (AlmacenKit::booted llama a invalidar en deleted). Cada kit lleva además
-                // el nombre de sus productos y las placas de sus equipos (KitAlmacenService::
-                // catalogo), así que un producto o un equipo editado también lo refresca. Los
-                // catálogos pesan pocos KB: reenviarlos por eso es barato.
-                AlmacenKit::max('updated_at'),
-                ProductoInventario::withTrashed()->max('updated_at'),
-                Equipo::withTrashed()->max('updated_at'),
-            ]),
-            'reset' => $reset,
+            'catalogos' => substr(md5(implode('|', array_map(static fn ($v) => (string) $v, $partes))), 0, 12),
         ];
     }
 
@@ -187,10 +141,6 @@ class OfflineVersion
      * Los MAX() siguen siendo necesarios: cubren las escrituras que NO emiten eventos de
      * modelo (updates masivos por query builder, comandos artisan), donde nadie llama
      * aquí y el único aviso es el recálculo al vencer el TTL.
-     *
-     * El pulso es POR DOMINIO a propósito: uno global reintroduciría justo el problema
-     * que todo esto viene a resolver — que un movimiento de almacén re-baje también los
-     * catálogos.
      *
      * De-duplicado por request igual que CacheVersion::bump — sin esto, una carga masiva
      * de 200 productos haría 200 escrituras de caché para el mismo efecto.
@@ -211,26 +161,6 @@ class OfflineVersion
     }
 
     /**
-     * Fuerza que un dominio se re-baje ENTERO en todos los clientes.
-     *
-     * Para los borrados que un delta no puede detectar por sí solo: borrado duro de
-     * movimientos o forceDelete de un producto
-     * (que cascadea almacen_stock). En esos casos el cliente no tiene forma de saber
-     * qué filas desaparecieron, así que se le pide la copia completa de ese dominio.
-     */
-    public static function resetear(string $dominio): void
-    {
-        if (! in_array($dominio, self::DOMINIOS_RESETEABLES, true)) {
-            return;
-        }
-        self::subirContador('offline_reset_' . $dominio);
-        // El token vive DENTRO de la huella, así que hay que recalcularla SI o SI,
-        // aunque ya se hubiera invalidado antes en este mismo request.
-        self::olvidarMarcasDelRequest();
-        self::invalidar($dominio);
-    }
-
-    /**
      * Sube un contador en el store del offline (add-or-increment).
      *
      * increment() sobre una clave que NO existe devuelve false y NO la crea — con el
@@ -245,11 +175,5 @@ class OfflineVersion
         if (! $store->add($clave, 1)) {
             $store->increment($clave);
         }
-    }
-
-    /** Alias legible de olvidarMarcasDelRequest() (trait DeDuplicaPorRequest). */
-    public static function olvidarInvalidacionDelRequest(): void
-    {
-        self::olvidarMarcasDelRequest();
     }
 }
