@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cuanto vale lo precargado. Eran 5 s, y se quedaban cortos: entre que el puntero pasa
     // por el menu y el usuario decide, pasa mas tiempo que eso, y el trabajo se tiraba para
     // volver a pedir lo mismo. 30 s es lo que tarda un modulo en quedarse viejo de verdad
-    // —los datos frescos los pide cada modulo por su cuenta al montarse—.
+    // —los datos los trae la copia local, que se pone al día sola en segundo plano—.
     const PREFETCH_TTL_MS = 30000;
     const prefetchStore   = new Map(); // url -> { html, ts }
     let   prefetchEnVuelo = null;      // evita disparar dos veces por el mismo link
