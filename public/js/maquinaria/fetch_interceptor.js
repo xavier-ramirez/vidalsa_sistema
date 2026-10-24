@@ -109,7 +109,7 @@ window.fetch = async function (...args) {
             if (response.status === 401) {
                 try {
                     var _cuerpo = await response.clone().json();
-                    if (_cuerpo && (_cuerpo.motivo === 'clave_cambiada')) {
+                    if (_cuerpo && (_cuerpo.motivo === 'clave_cambiada' || _cuerpo.motivo === 'usuario_inactivo')) {
                         _motivo = _cuerpo.motivo;
                     }
                 } catch (e) { /* respuesta sin JSON: vale el aviso genérico */ }

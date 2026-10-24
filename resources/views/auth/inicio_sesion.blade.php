@@ -276,6 +276,7 @@
         const AVISOS = {
             sesion_expirada:  'Tu sesión expiró por seguridad.\nInicia sesión de nuevo.',
             clave_cambiada:   'Tu clave cambió.\nInicia sesión con la nueva.',
+            usuario_inactivo: 'Tu usuario fue desactivado.\nContacta al administrador.',
             inactividad:      'Tu sesión se cerró por inactividad.\nInicia sesión de nuevo.'
         };
         const PENDIENTES = '\nTus cambios sin subir siguen guardados: al entrar se suben solos.';

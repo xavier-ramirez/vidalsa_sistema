@@ -40,10 +40,17 @@ class ValidarSesionUnica
             $user = Auth::user();
             $sessionToken = $request->session()->get('current_session_token');
 
+            $motivo = null;
+            if ($user->ESTATUS === 'INACTIVO') {
+                // Lo desactivó un administrador con la sesión abierta: el login solo lo
+                // comprueba al entrar, así que sin esto seguía trabajando.
+                $motivo  = 'usuario_inactivo';
+                $mensaje = 'Tu usuario fue desactivado. Contacta al administrador.';
+            }
             // Si hay un token en sesión y no coincide con el de la DB
             // (Si no hay token en sesión, es probable que la sesión haya expirado naturalmente,
             // dejar que el framework maneje la expiración normal en lugar de forzar logout)
-            if ($sessionToken && $user->SESSION_TOKEN !== $sessionToken) {
+            elseif ($sessionToken && $user->SESSION_TOKEN !== $sessionToken) {
                 // Varias sesiones a la vez SÍ se permiten: todas comparten el mismo token
                 // (Usuario::tokenDeSesion) y entrar en otro equipo no lo cambia. Así que un
                 // token que no cuadra solo puede venir de un cambio de clave: o sigue en NULL
@@ -52,7 +59,9 @@ class ValidarSesionUnica
                 // consigo en vez de deducirlo de aquí.
                 $motivo  = 'clave_cambiada';
                 $mensaje = 'Tu clave cambió. Inicia sesión con la nueva.';
+            }
 
+            if ($motivo) {
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();

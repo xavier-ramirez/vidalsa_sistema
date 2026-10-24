@@ -92,4 +92,68 @@ class UsuarioAccesosTest extends MySqlTestCase
         $this->assertSame(1, $requiere());
         $this->actingAs(Usuario::find($id))->get('/menu')->assertRedirect(route('password.change'));
     }
+
+    /** Un usuario normal (sin super.admin), creado en la transacción de la prueba. */
+    private function usuarioNormal(array $extra = []): Usuario
+    {
+        $id = DB::table('usuarios')->insertGetId($extra + [
+            'NOMBRE_COMPLETO' => 'Prueba Normal', 'CORREO_ELECTRONICO' => 'prueba.normal.' . strtolower(Str::random(8)) . '@cvidalsa27.com',
+            'PASSWORD_HASH' => bcrypt('123456'), 'ID_ROL' => Role::value('ID_ROL'), 'NIVEL_ACCESO_EQUIPOS' => 1,
+            'NIVEL_ACCESO_ALMACEN' => 1, 'ESTATUS' => 'ACTIVO', 'REQUIERE_CAMBIO_CLAVE' => 0, 'PERMISOS' => 'equipos.edit',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return Usuario::find($id);
+    }
+
+    /** «Limpiar roles inactivos» lo ve y lo usa solo quien administra usuarios. */
+    public function test_limpiar_roles_solo_lo_usa_el_super_admin(): void
+    {
+        $normal = $this->usuarioNormal();
+        $this->actingAs($normal)->getJson('/admin/usuarios/roles/unused')->assertForbidden();
+        $this->actingAs($normal)->deleteJson('/admin/usuarios/roles/unused')->assertForbidden();
+        $this->actingAs($this->superAdminGlobal())->getJson('/admin/usuarios/roles/unused')->assertOk();
+    }
+
+    /** El admin no puede dejarse fuera: ni eliminarse, ni desactivarse, ni quitarse super.admin. */
+    public function test_el_admin_no_puede_eliminarse_ni_dejarse_sin_acceso(): void
+    {
+        $admin = $this->superAdminGlobal();
+        $datos = ['NOMBRE_COMPLETO' => $admin->NOMBRE_COMPLETO, 'CORREO_ELECTRONICO' => 'prueba.yo.' . strtolower(Str::random(8)) . '@cvidalsa27.com',
+                  'ID_ROL' => (string) $admin->ID_ROL, 'NIVEL_ACCESO_EQUIPOS' => 1, 'NIVEL_ACCESO_ALMACEN' => 1, 'ESTATUS' => 'ACTIVO',
+                  'PERMISOS' => ['super.admin']];
+
+        $this->actingAs($admin)->deleteJson('/admin/usuarios/' . $admin->ID_USUARIO)->assertStatus(422);
+        $this->actingAs($admin)->putJson('/admin/usuarios/' . $admin->ID_USUARIO, ['PERMISOS' => ['equipos.edit']] + $datos)
+            ->assertStatus(422)->assertJsonValidationErrors('PERMISOS');
+        $this->actingAs($admin)->putJson('/admin/usuarios/' . $admin->ID_USUARIO, ['ESTATUS' => 'INACTIVO'] + $datos)
+            ->assertStatus(422)->assertJsonValidationErrors('ESTATUS');
+        $this->assertNotNull(Usuario::find($admin->ID_USUARIO));
+    }
+
+    /** Cambiar la clave propia deja ESTA sesión abierta y cierra las de otros equipos. */
+    public function test_cambiar_su_clave_sigue_dentro_y_saca_a_los_otros_equipos(): void
+    {
+        $u = $this->usuarioNormal(['SESSION_TOKEN' => 'token-viejo']);
+        $this->actingAs($u)->withSession(['current_session_token' => 'token-viejo'])
+            ->putJson('/admin/usuarios/mi-perfil', ['password' => 'Nueva#2026', 'password_confirmation' => 'Nueva#2026'])
+            ->assertOk()->assertJson(['success' => true]);
+
+        $nuevo = DB::table('usuarios')->where('ID_USUARIO', $u->ID_USUARIO)->value('SESSION_TOKEN');
+        $this->assertNotEmpty($nuevo);
+        $this->assertNotSame('token-viejo', $nuevo);
+        $this->assertSame($nuevo, session('current_session_token'), 'Esta sesión toma el token nuevo.');
+        $this->actingAs(Usuario::find($u->ID_USUARIO))->get('/menu')->assertOk();
+
+        // Otro equipo, con el token de antes: fuera.
+        $this->actingAs(Usuario::find($u->ID_USUARIO))->withSession(['current_session_token' => 'token-viejo'])
+            ->get('/menu')->assertRedirect('/?aviso=clave_cambiada');
+    }
+
+    /** Desactivado con la sesión abierta: sale en su próxima petición y se le dice por qué. */
+    public function test_usuario_desactivado_sale_en_su_proxima_peticion(): void
+    {
+        $u = $this->usuarioNormal(['ESTATUS' => 'INACTIVO']);
+        $this->actingAs($u)->get('/menu')->assertRedirect('/?aviso=usuario_inactivo');
+        $this->actingAs(Usuario::find($u->ID_USUARIO))->getJson('/menu')->assertStatus(401)->assertJson(['motivo' => 'usuario_inactivo']);
+    }
 }

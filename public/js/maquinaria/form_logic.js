@@ -838,7 +838,6 @@ window.addEventListener('spa:contentLoaded', function () {
                         form.reset();
 
                         const resets = [
-                            { id: 'input_rol', label: 'label_rol', text: 'Seleccione un rol...' },
                             // Un dropdown por nivel: equipos y almacén son ejes independientes.
                             { id: 'input_nivel_equipos', label: 'label_nivel_equipos', text: 'Seleccione nivel de acceso...' },
                             { id: 'input_nivel_almacen', label: 'label_nivel_almacen', text: 'Seleccione nivel de acceso...' },

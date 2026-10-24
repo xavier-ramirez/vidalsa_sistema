@@ -156,6 +156,10 @@
                     if (typeof window.hidePreloader === 'function') window.hidePreloader();
 
                     if (response.ok && data.success) {
+                        // Esta sesión sigue abierta, pero el candado para entrar sin internet
+                        // (offline-auth.js) se hizo con la clave vieja: fuera. Se rehace solo
+                        // la próxima vez que se entre con la nueva.
+                        try { localStorage.removeItem('vidalsa_offline_auth'); } catch (e) { /* sin almacenamiento */ }
                         frmClave.reset();
                         const msgEl = document.getElementById('pw-strength-msg');
                         if (msgEl) { msgEl.textContent = ''; }

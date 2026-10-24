@@ -330,12 +330,7 @@
             <a href="{{ $returnUrl ?? route('usuarios.index') }}" class="btn-primary-maquinaria btn-secondary btn-compacto">
                 Cancelar
             </a>
-            <button type="submit" class="btn-primary-maquinaria btn-compacto"
-                @cannot('manage.users')
-                {{-- Sin nombrar la clave: en esta pantalla los permisos se leen por su
-                     descripcion, no por su nombre tecnico. --}}
-                onclick="event.preventDefault(); window.toast('Acceso denegado: no tienes permiso para guardar cambios de usuarios.', 'error');"
-                @endcannot>
+            <button type="submit" class="btn-primary-maquinaria btn-compacto">
                 <i class="material-icons">save</i>
                 Guardar
             </button>
@@ -343,8 +338,10 @@
     </form>
 </div>
 
-{{-- Escribir la cuenta de frentes (asignados + bloqueados) al cargar (modo edición).
-     El resumen lo escribe SOLO el JS: el <span> viene vacio del servidor.
+{{-- Escribir los resúmenes de frentes (asignados + bloqueados) y de permisos al cargar
+     (modo edición). Los escribe SOLO el JS: los <span> vienen vacíos del servidor.
+     Es el único que los pinta al abrir, por la SPA y en carga completa (antes el de
+     permisos solo salía por la SPA: con F5 decía "Seleccione permisos..." teniéndolos).
 
      VA DENTRO DE @section('content') a proposito. Estuvo en @section('extra_js'), y ahi
      el arreglo del readyState no servia de nada: el layout hace @yield('extra_js') FUERA
@@ -358,14 +355,15 @@
      si los corre), y entonces la rama del else es la que hace el trabajo. Mismo patron
      que consumibles/cargar y que equipos/index. --}}
 <script>
-    function pintarResumenDeFrentes() {
+    function pintarResumenes() {
         if (window.updateFrentesCount) window.updateFrentesCount();
         if (window.updateFrentesBloqueadosCount) window.updateFrentesBloqueadosCount();
+        if (window.updateSelectedCount) window.updateSelectedCount();
     }
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', pintarResumenDeFrentes);
+        document.addEventListener('DOMContentLoaded', pintarResumenes);
     } else {
-        pintarResumenDeFrentes();
+        pintarResumenes();
     }
 </script>
 

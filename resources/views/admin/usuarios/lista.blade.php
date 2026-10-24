@@ -319,7 +319,6 @@
     {{-- ─── Panel lateral: Usuarios Activos (sesiones últimos 30 min) ───
          Mismo panel y misma fuente de datos que el módulo de Auditoría
          (Usuario::sesionesActivas) — para no duplicar la lógica. --}}
-    @if(isset($activeUsers) && auth()->check() && auth()->user()->can('super.admin'))
     <aside class="usuarios-side">
         {{-- ─── IPs Bloqueadas ───────────────────────────────────────────────
              Mismo criterio/umbral que Auditoría (BloqueoIp::bloqueadas()). Reutiliza el
@@ -413,7 +412,6 @@
             @endif
         </div>
     </aside>
-    @endif
     </div>{{-- /usuarios-layout --}}
 
     <!-- Modal Limpiar Roles (Estilo Papelera) -->
@@ -454,94 +452,6 @@
     }
 </style>
 
-<script>
-    // Inyecta el keyframes de rotación en el head si no existe
-    if (!document.getElementById('spin-keyframes')) {
-        const style = document.createElement('style');
-        style.id = 'spin-keyframes';
-        style.innerHTML = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
-        document.head.appendChild(style);
-    }
-
-    // Asignar al objeto window para que esté disponible globalmente sin importar cómo el SPA inyecte el HTML
-    window.checkUnusedRoles = function() {
-        document.getElementById('modalLimpiarRoles').style.display = 'flex';
-        
-        const body = document.getElementById('modalLimpiarRolesBody');
-        body.innerHTML = '<div style="padding: 24px; text-align: center; color: #94a3b8;"><i class="material-icons" style="animation: spin 1s linear infinite; font-size: 22px;">sync</i></div>';
-
-        window.apiFetch("{{ route('usuarios.unused-roles') }}")
-            .then(response => response.json())
-            .then(roles => {
-                if (roles.length > 0) {
-                    // Escapa el nombre del rol antes de inyectarlo como HTML (defensa básica XSS).
-                    const esc = window.escapeHtml;   // helper central (dom_helpers.js): antes no escapaba '
-                    const plural = roles.length === 1 ? 'rol' : 'roles';
-                    let html = `<div style="padding: 10px 16px; font-size: 12px; color: #64748b; background: white; border-bottom: 1px solid #e2e8f0; text-align: center;">Se ${roles.length === 1 ? 'encontró' : 'encontraron'} <strong style="color:#c2410c;">${roles.length}</strong> ${plural} sin usuarios que se pueden eliminar:</div>`;
-                    html += '<div style="overflow-y: auto; background: #f8fafc; padding: 10px; flex: 1; min-height: 160px; max-height: 400px;">';
-
-                    roles.forEach(rol => {
-                        html += `
-                        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 5px;">
-                            <div style="width: 42px; height: 42px; border-radius: 6px; background: #fff7ed; color: #c2410c; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid #e2e8f0;">
-                                <i class="material-icons" style="font-size: 20px;">badge</i>
-                            </div>
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="font-weight: 700; color: #1e293b; font-size: 12px; text-transform: uppercase; line-height: 1.2;">${esc(rol.NOMBRE_ROL)}</div>
-                                <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">SIN USUARIOS ASIGNADOS</div>
-                            </div>
-                        </div>`;
-                    });
-                    
-                    html += '</div>';
-                    
-                    // Footer con el botón de eliminar
-                    html += `
-                    <div style="padding: 12px 16px; background: white; border-top: 1px solid #e2e8f0; display: flex; justify-content: center;">
-                        <button type="button" onclick="window.deleteUnusedRoles()" class="btn-primary-maquinaria" style="background:#ef4444;padding:8px 16px;border-radius:8px;font-size:13px;height:auto;gap:6px;cursor:pointer;">
-                            <i class="material-icons" style="font-size: 18px;">delete_outline</i>
-                            Confirmar Eliminación
-                        </button>
-                    </div>`;
-                    body.innerHTML = html;
-                } else {
-                    body.innerHTML = `
-                    <div style="padding: 40px 20px; text-align: center;">
-                        <i class="material-icons" style="font-size: 48px; color: #10b981; margin-bottom: 10px;">check_circle_outline</i>
-                        <p style="color: #059669; font-size: 16px; font-weight: bold; margin: 0;">¡Sistema Limpio!</p>
-                        <p style="color: #475569; font-size: 13px; margin-top: 5px;">Todos los roles tienen usuarios asignados.</p>
-                    </div>`;
-                }
-            })
-            .catch(error => {
-                body.innerHTML = '<div style="padding: 24px; text-align: center; color: #ef4444;">Error al consultar los roles.</div>';
-                console.error(error);
-            });
-    };
-
-    window.deleteUnusedRoles = function() {
-        if (!confirm('¿Confirma que desea eliminar estos roles permanentemente?')) return;
-        
-        window.apiFetch("{{ route('usuarios.delete-unused-roles') }}", { headers: { 'Accept': 'application/json' },
-            method: 'DELETE'})
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById('modalLimpiarRoles').style.display = 'none';
-                if (window.showToast) {
-                    window.showToast(data.message, 'success');
-                } else {
-                    alert(data.message);
-                }
-                setTimeout(() => window.location.reload(), 1500);
-            }
-        })
-        .catch(error => {
-            alert('Ocurrió un error al intentar eliminar los roles.');
-            console.error(error);
-        });
-    };
-</script>
 
 {{-- JS de esta pantalla (solo lo usa ella; antes iba en el layout y lo bajaban todas). La SPA lo ejecuta una vez por pestaña. --}}
 <script src="{{ asset('js/maquinaria/usuarios_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/usuarios_index.js')) }}"></script>

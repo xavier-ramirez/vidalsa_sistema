@@ -8,6 +8,7 @@ use App\Models\FrenteTrabajo;
 use App\Models\BloqueoIp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
@@ -15,7 +16,7 @@ class UserController extends Controller
     {
         $this->middleware('auth');
         // Requiere SOLO la clave 'super.admin' en PERMISOS (el rol ya no importa)
-        $this->middleware('can:manage.users')->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+        $this->middleware('can:manage.users')->only(['index', 'create', 'store', 'edit', 'update', 'destroy', 'getUnusedRoles', 'deleteUnusedRoles']);
     }
 
     // ─── Perfil Propio (para usuarios sin permiso manage.users) ──────────────
@@ -44,11 +45,12 @@ class UserController extends Controller
         ]);
 
         $user = auth()->user();
-        // Rehashea y revoca la sesión (ver Usuario::establecerClave): en el request
-        // siguiente hay que volver a entrar con la clave nueva.
+        // Rehashea y revoca las sesiones (ver Usuario::establecerClave); ESTA sigue abierta
+        // con el token nuevo: "se cierra la sesión en los demás dispositivos".
         $user->establecerClave($request->password);
         $user->REQUIERE_CAMBIO_CLAVE = 0;
         $user->save();
+        $this->seguirEnEsteEquipo($request, $user);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -308,6 +310,16 @@ class UserController extends Controller
     {
         $user = Usuario::findOrFail($id);
         $validated = $request->validated();
+        $esElMismo = (int) $user->ID_USUARIO === (int) auth()->id();
+
+        // Quien edita su propia cuenta no puede quitarse el Acceso Total ni desactivarse: se
+        // quedaría fuera de este módulo sin nadie que lo pueda deshacer desde la pantalla.
+        if ($esElMismo && $request->ESTATUS === 'INACTIVO') {
+            throw ValidationException::withMessages(['ESTATUS' => 'No puedes desactivar tu propio usuario.']);
+        }
+        if ($esElMismo && ! in_array('super.admin', (array) $request->PERMISOS, true)) {
+            throw ValidationException::withMessages(['PERMISOS' => 'No puedes quitarte el Acceso Total (Super Admin).']);
+        }
 
         // Update user attributes
         $user->NOMBRE_COMPLETO = $validated['NOMBRE_COMPLETO'];
@@ -319,12 +331,15 @@ class UserController extends Controller
             // seguía navegando con una clave que ya no existe. Y como al crearlo, al entrar
             // con esa clave se le pide cambiarla (la sabe el admin). La suya propia, no.
             $user->establecerClave($request->password);
-            if ((int) $user->ID_USUARIO !== (int) auth()->id()) {
+            if (! $esElMismo) {
                 $user->REQUIERE_CAMBIO_CLAVE = 1;
             }
         }
 
         $user->save();
+        if ($esElMismo && $request->filled('password')) {
+            $this->seguirEnEsteEquipo($request, $user);
+        }
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -335,6 +350,15 @@ class UserController extends Controller
         }
 
         return redirect()->to(self::usuariosReturnUrl($request->input('return_url')))->with('success', 'Usuario actualizado correctamente.');
+    }
+
+    /**
+     * Tras cambiar la clave propia: esta sesión toma el token nuevo y sigue abierta; las demás
+     * (otros equipos) traen el viejo y ValidarSesionUnica las cierra.
+     */
+    private function seguirEnEsteEquipo(Request $request, Usuario $user): void
+    {
+        $request->session()->put('current_session_token', $user->tokenDeSesion());
     }
 
     /**
@@ -387,6 +411,9 @@ class UserController extends Controller
     public function destroy(Request $request, string $id)
     {
         $user = Usuario::findOrFail($id);
+        if ((int) $user->ID_USUARIO === (int) auth()->id()) {
+            return response()->json(['success' => false, 'message' => 'No puedes eliminar tu propio usuario.'], 422);
+        }
         $user->delete();
 
         // La tabla lo pide por AJAX (usrEliminar) y se recarga ella misma con sus filtros.

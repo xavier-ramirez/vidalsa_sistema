@@ -71,8 +71,6 @@ class UserRequest extends FormRequest
             'password.min' => 'La clave de acceso debe tener al menos 6 caracteres.',
             'ID_ROL.required' => 'Debes asignar un rol al usuario.',
             'ID_ROL.max' => 'El rol no puede tener más de 150 caracteres.',
-            'ID_FRENTE_ASIGNADO.required' => 'Debes asignar al menos un frente de trabajo.',
-            'ID_FRENTE_ASIGNADO.min' => 'Debes asignar al menos un frente de trabajo.',
             'NIVEL_ACCESO_EQUIPOS.required' => 'El nivel de acceso a Equipos es obligatorio.',
             'NIVEL_ACCESO_EQUIPOS.in' => 'El nivel de acceso a Equipos seleccionado no es válido.',
             'NIVEL_ACCESO_ALMACEN.required' => 'El nivel de acceso a Almacén es obligatorio.',

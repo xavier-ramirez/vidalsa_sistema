@@ -63,16 +63,13 @@
                                      Cancelar vuelven ahí. En la recarga por AJAX la URL pedida es la misma
                                      que queda en la barra, así que sirve igual. --}}
                                 <a href="{{ route('usuarios.edit', ['usuario' => $user->ID_USUARIO, 'return' => request()->getRequestUri()]) }}" 
-                                   @cannot('manage.users') 
-                                   onclick="event.preventDefault(); showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permisos para editar usuarios.', confirmText: 'Entendido', hideCancel: true });" 
-                                   @endcannot
                                    class="btn-action-maquinaria"
                                    style="color: var(--maquinaria-blue); background: transparent;"
                                    title="Editar">
                                     <i class="material-icons" style="font-size: 18px;">edit</i>
                                 </a>
                                 <button type="button" 
-                                    onclick="@can('manage.users') window.usrEliminar({{ $user->ID_USUARIO }}, '{{ addslashes($user->NOMBRE_COMPLETO) }}') @else showModal({ type: 'error', title: 'Acceso Denegado', message: 'No tienes permisos para eliminar usuarios.', confirmText: 'Entendido', hideCancel: true }); @endcan" 
+                                    onclick="window.usrEliminar({{ $user->ID_USUARIO }}, @js($user->NOMBRE_COMPLETO))"
                                     class="btn-action-maquinaria"
                                     style="color: var(--maquinaria-red); background: transparent;"
                                     title="Eliminar">

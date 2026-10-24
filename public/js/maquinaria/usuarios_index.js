@@ -264,6 +264,62 @@ window.usrToggleAcciones = function () {
     m.style.display = (m.style.display === 'none' || !m.style.display) ? 'block' : 'none';
 };
 
+// ── Limpiar roles inactivos (roles sin ningún usuario) ───────────────────────
+// Los desplegables de la pantalla solo listan roles CON usuarios, así que borrar los
+// huérfanos no cambia nada de lo que se ve: no hace falta recargar.
+window.checkUnusedRoles = function () {
+    const modal = document.getElementById('modalLimpiarRoles');
+    const body = document.getElementById('modalLimpiarRolesBody');
+    if (!modal || !body) return;
+    modal.style.display = 'flex';
+    body.innerHTML = '<div style="padding: 24px; text-align: center; color: #94a3b8;"><i class="material-icons" style="animation: spin 1s linear infinite; font-size: 22px;">sync</i></div>';
+
+    window.apiFetch('/admin/usuarios/roles/unused')
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (roles) {
+            if (!roles.length) {
+                body.innerHTML =
+                    '<div style="padding: 40px 20px; text-align: center;">' +
+                    '<i class="material-icons" style="font-size: 48px; color: #10b981; margin-bottom: 10px;">check_circle_outline</i>' +
+                    '<p style="color: #059669; font-size: 16px; font-weight: bold; margin: 0;">¡Sistema Limpio!</p>' +
+                    '<p style="color: #475569; font-size: 13px; margin-top: 5px;">Todos los roles tienen usuarios asignados.</p></div>';
+                return;
+            }
+            const uno = roles.length === 1;
+            body.innerHTML =
+                '<div style="padding: 10px 16px; font-size: 12px; color: #64748b; background: white; border-bottom: 1px solid #e2e8f0; text-align: center;">Se ' +
+                (uno ? 'encontró' : 'encontraron') + ' <strong style="color:#c2410c;">' + roles.length + '</strong> ' + (uno ? 'rol' : 'roles') +
+                ' sin usuarios que se pueden eliminar:</div>' +
+                '<div style="overflow-y: auto; background: #f8fafc; padding: 10px; flex: 1; min-height: 160px; max-height: 400px;">' +
+                roles.map(function (rol) {
+                    return '<div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 5px;">' +
+                        '<div style="width: 42px; height: 42px; border-radius: 6px; background: #fff7ed; color: #c2410c; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid #e2e8f0;"><i class="material-icons" style="font-size: 20px;">badge</i></div>' +
+                        '<div style="flex: 1; min-width: 0;"><div style="font-weight: 700; color: #1e293b; font-size: 12px; text-transform: uppercase; line-height: 1.2;">' + window.escapeHtml(rol.NOMBRE_ROL) + '</div>' +
+                        '<div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">SIN USUARIOS ASIGNADOS</div></div></div>';
+                }).join('') +
+                '</div>' +
+                '<div style="padding: 12px 16px; background: white; border-top: 1px solid #e2e8f0; display: flex; justify-content: center;">' +
+                '<button type="button" onclick="window.deleteUnusedRoles()" class="btn-primary-maquinaria" style="background:#ef4444;padding:8px 16px;border-radius:8px;font-size:13px;height:auto;gap:6px;cursor:pointer;">' +
+                '<i class="material-icons" style="font-size: 18px;">delete_outline</i> Confirmar Eliminación</button></div>';
+        })
+        .catch(function () {
+            body.innerHTML = '<div style="padding: 24px; text-align: center; color: #ef4444;">Error al consultar los roles.</div>';
+        });
+};
+
+window.deleteUnusedRoles = function () {
+    window.apiFetch('/admin/usuarios/roles/unused', { method: 'DELETE', headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body: body }; }); })
+        .then(function (res) {
+            if (!res.ok || !res.body.success) throw new Error(res.body.message);
+            document.getElementById('modalLimpiarRoles').style.display = 'none';
+            window.showToast(res.body.message, 'success');
+        })
+        .catch(function (e) {
+            window.showToast((e && e.message) || 'No se pudieron eliminar los roles.', 'error');
+        });
+};
+
 // ── Filtros avanzados (Nivel de acceso) ──────────────────────────────────────
 // Sin stopPropagation: el clic sigue hasta document, donde se cierran Acciones, las
 // sugerencias y Frente/Rol (un desplegable a la vez). El panel se cierra en el bloque de abajo.

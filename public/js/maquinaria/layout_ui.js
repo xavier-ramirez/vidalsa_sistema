@@ -3499,8 +3499,4 @@ function _subirDesdeVisor(file, type, equipoId, label, module, vencimiento) {
 // showPreloader / hidePreloader viven en preloader.js (contador de referencias); navegacion.js
 // les monta encima el watchdog anti-spinner-congelado.
 
-// Re-initialize dynamic elements after SPA load
-window.addEventListener('spa:contentLoaded', () => {
-    window.updateSelectedCount();
-});
 
