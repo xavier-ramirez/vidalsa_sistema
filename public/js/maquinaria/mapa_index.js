@@ -2738,17 +2738,26 @@
                 window.toast('Puntos unidos.', 'success');
             });
         }
+        // Las confirmaciones del mapa van con el modal de la app y no con confirm(): el diálogo
+        // del navegador congela la página, saca de la pantalla completa y no tiene el estilo del
+        // sistema. El mensaje es HTML: los nombres van escapados.
+        function preguntar(titulo, mensaje, textoSi, accion) {
+            window.showModal({ type: 'warning', title: titulo, message: mensaje, confirmText: textoSi, cancelText: 'Cancelar', onConfirm: accion });
+        }
         // Borra el proyecto entero del mapa y todos sus puntos. Vivía en la × de la lista de
         // frentes; al quitar ese panel se mudó al clic derecho de la vela, que es el único
         // sitio que sigue teniendo un proyecto a mano.
         function eliminarProyecto(id) {
             var g = oleoMap[id]; if (!g) return;
-            if (!confirm('¿Borrar "' + (g.data.nombre || 'este frente') + '" del mapa y todos sus puntos?')) return;
+            preguntar('Borrar proyecto', '¿Borrar "' + esc(g.data.nombre || 'este frente') + '" del mapa y todos sus puntos?',
+                'Borrar', function () { borrarProyecto(id); });
+        }
+        function borrarProyecto(id) {
             // Si se está editando su trazo hay que salir primero, o el editor se queda vivo
             // sobre un proyecto que ya no existe. salirDibujo repinta, y oleoDibujar REEMPLAZA
             // la entrada de oleoMap, así que las capas se releen después de eso y no antes.
             if (edMode && String(edId) === String(id)) salirDibujo();
-            g = oleoMap[id]; if (!g) return;
+            var g = oleoMap[id]; if (!g) return;
             // Optimista: quita del mapa YA (no espera al servidor) → se siente instantáneo.
             (g.lines || []).forEach(function (l) { map.removeLayer(l); });
             (g.markers || []).forEach(function (m) { map.removeLayer(m); });
@@ -2810,10 +2819,11 @@
         }
         // Trazo vacío = el backend guarda null (exige 2 puntos para dar por buena una línea).
         function eliminarLinea(id) {
-            if (!confirm('¿Eliminar la línea (recorrido) de este frente? Los puntos se conservan.')) return;
-            guardarRecorrido(id, [], function () {
-                oleoDibujar(oleoMap[id].data);
-                window.toast('Línea eliminada (los puntos quedan).', 'success');
+            preguntar('Eliminar línea', '¿Eliminar la línea (recorrido) de este frente? Los puntos se conservan.', 'Eliminar', function () {
+                guardarRecorrido(id, [], function () {
+                    oleoDibujar(oleoMap[id].data);
+                    window.toast('Línea eliminada (los puntos quedan).', 'success');
+                });
             });
         }
 
@@ -2961,10 +2971,13 @@
         function eliminarPunto(oleoId, punto) {
             var enVarios = (punto.proyectos || 1) > 1;
             var aviso = enVarios
-                ? '¿Quitar "' + (punto.nombre || 'este punto') + '" de este proyecto?' + '\n\n' +
+                ? '¿Quitar "' + esc(punto.nombre || 'este punto') + '" de este proyecto?' + '\n\n' +
                   'Seguirá en los otros ' + (punto.proyectos - 1) + ' proyecto(s) donde está.'
                 : '¿Eliminar este punto? No se puede deshacer.';
-            if (!confirm(aviso)) return;
+            preguntar(enVarios ? 'Quitar punto' : 'Eliminar punto', aviso, enVarios ? 'Quitar' : 'Eliminar',
+                function () { quitarPunto(oleoId, punto); });
+        }
+        function quitarPunto(oleoId, punto) {
             spinOn();
             oleoApi('/mapa/oleoductos/' + oleoId + '/puntos/' + punto.id, 'DELETE').then(function (res) {
                 spinOff();

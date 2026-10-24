@@ -204,6 +204,12 @@ window.showModal = function (options) {
 
     modalCallback = config.onConfirm;
 
+    // En pantalla completa solo se ve lo que está DENTRO del elemento a pantalla completa (el
+    // mapa): el modal se muda ahí al abrirse, como los avisos (showToast), y closeModal lo
+    // devuelve al body para que la navegación SPA, que reemplaza el contenido, no se lo lleve.
+    const raiz = window.raizVisible();
+    if (modalEl.parentNode !== raiz) raiz.appendChild(modalEl);
+
     // Show modal
     modalEl.classList.add('active');
     const este = ++modalAbierto;
@@ -233,7 +239,10 @@ window.showModal = function (options) {
 
 window.closeModal = function () {
     const modalEl = document.getElementById('standardModal');
-    if (modalEl) modalEl.classList.remove('active');
+    if (modalEl) {
+        modalEl.classList.remove('active');
+        if (modalEl.parentNode !== document.body) document.body.appendChild(modalEl);
+    }
     modalCallback = null;
     modalCancelCallback = null;
 }
