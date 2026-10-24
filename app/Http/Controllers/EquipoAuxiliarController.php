@@ -1678,7 +1678,7 @@ class EquipoAuxiliarController extends Controller
             $rawModelo  = trim((string) $sheet->getCell('C' . $n)->getValue());
             $rawSerial  = trim((string) $sheet->getCell('D' . $n)->getValue());
             $rawCap     = trim((string) $sheet->getCell('E' . $n)->getValue());
-            $rawAnio    = $sheet->getCell('F' . $n)->getValue();
+            $rawAnio    = trim((string) $sheet->getCell('F' . $n)->getValue());
             $rawFrente  = trim((string) $sheet->getCell('G' . $n)->getValue());
             $rawEstado  = trim((string) $sheet->getCell('H' . $n)->getValue());
 
@@ -1733,7 +1733,7 @@ class EquipoAuxiliarController extends Controller
                 }
             }
 
-            $anio = ($rawAnio !== '' && $rawAnio !== null) ? (int) $rawAnio : null;
+            $anio = $rawAnio !== '' ? (int) $rawAnio : null;
             if ($anio !== null && ($anio < 1950 || $anio > 2100)) {
                 $errors['año'] = 'Debe estar entre 1950 y 2100.';
             }

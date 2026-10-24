@@ -5123,7 +5123,7 @@ class EquipoController extends Controller
             $rawCategoria = trim((string)$sheet->getCell('B' . $n)->getValue());
             $rawMarca     = trim((string)$sheet->getCell('C' . $n)->getValue());
             $rawModelo    = trim((string)$sheet->getCell('D' . $n)->getValue());
-            $rawAnio      = $sheet->getCell('E' . $n)->getValue();
+            $rawAnio      = trim((string)$sheet->getCell('E' . $n)->getValue());
             $rawEtiqueta  = trim((string)$sheet->getCell('F' . $n)->getValue());
             $rawChasis    = trim((string)$sheet->getCell('G' . $n)->getValue());
             $rawMotor     = trim((string)$sheet->getCell('H' . $n)->getValue());
@@ -5140,7 +5140,7 @@ class EquipoController extends Controller
             $categoriaUpper = strtoupper($rawCategoria);
             $marcaUpper     = strtoupper($rawMarca);
             $modeloUpper    = strtoupper($rawModelo);
-            $anio           = $rawAnio !== '' && $rawAnio !== null ? (int)$rawAnio : null;
+            $anio           = $rawAnio !== '' ? (int)$rawAnio : null;
             $etiqueta       = $rawEtiqueta !== '' ? $rawEtiqueta : null;
             $chasisUpper    = strtoupper($rawChasis);
             $motorUpper     = $rawMotor !== '' ? strtoupper($rawMotor) : null;
