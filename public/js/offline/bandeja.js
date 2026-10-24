@@ -22,9 +22,15 @@
  *
  * Lo que el servidor rechaza (sin stock, falla abierta, sin permiso…) se queda en ROJO con su
  * motivo: no se vuelve a mandar solo. Desde el panel se puede reintentar o descartar. Un 5xx,
- * un 409 "en curso" o la red caída se reintentan después, sin tocar el orden.
+ * un 409 "en curso", la red caída o la sesión cerrada (401) se reintentan después, sin tocar el
+ * orden.
  *
  * Una bandeja por usuario (meta usuario-id), igual que la copia local.
+ *
+ * Se guarda CIFRADA con la llave de llave-local.js, archivos incluidos: en el equipo solo queda
+ * en claro de quién es, cuándo se hizo y su estado. Sin llave abierta se guarda tal cual antes
+ * que perderlo, y se cifra la próxima vez que se lea. Si la sesión se cerró en el servidor
+ * (401), lo que se guarda espera aquí como sin internet y sube al volver a entrar.
  */
 (function () {
     'use strict';
@@ -58,13 +64,66 @@
     const memoria = new Map();
     async function todos() {
         const b = await db();
-        const lista = b ? await pedir(b.transaction('items').objectStore('items').getAll()) : Array.from(memoria.values());
-        return lista.filter((it) => it.u === usuario()).sort((a, b) => a.creado - b.creado);
+        if (!b) return Array.from(memoria.values()).filter((it) => it.u === usuario()).sort((a, z) => a.creado - z.creado);
+        const guardados = (await pedir(b.transaction('items').objectStore('items').getAll())).filter((r) => r.u === usuario());
+        const lista = await Promise.all(guardados.map(abrir));
+        // Lo que quedó en claro (de antes del cifrado, o guardado sin llave) se cifra ya.
+        for (let i = 0; i < guardados.length; i++) {
+            if (!guardados[i].sello && !lista[i].ilegible) await guardarItem(lista[i]);
+        }
+        return lista.sort((a, z) => a.creado - z.creado);
     }
     async function guardarItem(it) {
         const b = await db();
-        if (b) await pedir(b.transaction('items', 'readwrite').objectStore('items').put(it));
-        else memoria.set(it.clave, it);
+        if (b) {
+            const registro = await sellar(it);   // se cifra ANTES de abrir la transacción
+            await pedir(b.transaction('items', 'readwrite').objectStore('items').put(registro));
+        } else memoria.set(it.clave, it);
+    }
+
+    // ── Cifrado: { clave, u, creado, estado, motivo } en claro; el resto en `sello` y los
+    //    archivos del formulario, cada uno cifrado, en `archivos` ─────────────────────────
+    const SELLADOS = ['url', 'metodo', 'cuerpo', 'formulario', 'titulo', 'tipo', 'datos'];
+    const visible = (it) => ({ clave: it.clave, u: it.u, creado: it.creado, estado: it.estado, motivo: it.motivo });
+
+    async function sellar(it) {
+        const llave = window.LlaveLocal;
+        if (!llave || !(await llave.lista())) return it;
+        const contenido = {};
+        SELLADOS.forEach((k) => { contenido[k] = it[k]; });
+        const archivos = [];
+        if (it.formulario) {
+            contenido.formulario = [];
+            for (const [k, v] of it.formulario) {
+                if (!(v instanceof Blob)) { contenido.formulario.push([k, v]); continue; }
+                archivos.push(await llave.cifrarBytes(await v.arrayBuffer()));
+                contenido.formulario.push([k, { archivo: archivos.length - 1, nombre: v.name || 'archivo', tipo: v.type }]);
+            }
+        }
+        return Object.assign(visible(it), { sello: await llave.cifrar(contenido), archivos });
+    }
+
+    async function abrir(registro) {
+        if (!registro.sello) return registro;
+        try {
+            const llave = window.LlaveLocal;
+            const c = await llave.descifrar(registro.sello);
+            if (c.formulario) {
+                for (const par of c.formulario) {
+                    const v = par[1];
+                    if (v && typeof v === 'object' && 'archivo' in v) {
+                        par[1] = new File([await llave.descifrarBytes(registro.archivos[v.archivo])], v.nombre, { type: v.tipo });
+                    }
+                }
+            }
+            return Object.assign(visible(registro), c);
+        } catch (e) {
+            // No se puede abrir con la llave de ahora: se muestra en rojo y NO se toca lo guardado.
+            return Object.assign(visible(registro), {
+                estado: 'rechazada', ilegible: true, titulo: 'Cambio guardado sin internet',
+                motivo: 'No se puede leer con la llave de ahora. Entra con tu clave para recuperarlo.',
+            });
+        }
     }
     async function borrarItem(clave) {
         const b = await db();
@@ -128,6 +187,13 @@
         try {
             const { r, b } = await mandar(it);
             conectado = true;
+            // La sesión se cerró en el servidor: se guarda aquí y sube al volver a entrar (el
+            // aviso para entrar lo saca fetch_interceptor.js).
+            if (r.status === 401) {
+                await guardarItem(it);
+                await refrescar();
+                return { ok: false, status: 0, b: {}, enBandeja: true };
+            }
             return { ok: r.ok, status: r.status, b, enBandeja: false };
         } catch (e) {
             conectado = false;
@@ -157,7 +223,7 @@
                 if (b && b.nota_url && window.descargarPdf) {
                     window.descargarPdf(b.nota_url, b.numero_nota ? 'Nota_' + b.numero_nota + '.pdf' : 'nota_entrega.pdf');
                 }
-            } else if (r.status >= 500 || r.headers.get('X-Operacion-En-Curso')) {
+            } else if (r.status === 401 || r.status >= 500 || r.headers.get('X-Operacion-En-Curso')) {
                 break;                                                     // reintento luego
             } else {
                 rechazados++;
@@ -177,7 +243,7 @@
 
     async function reintentar(c) {
         const it = cache.find((x) => x.clave === c);
-        if (!it) return;
+        if (!it || it.ilegible) return;
         // Clave nueva: la vieja quedó guardada en el servidor con su rechazo.
         await borrarItem(c);
         await guardarItem(Object.assign({}, it, { clave: clave(), estado: 'pendiente', motivo: '' }));
@@ -269,7 +335,7 @@
             const rojo = it.estado === 'rechazada';
             const botones = rojo
                 ? '<div style="display:flex;gap:8px;margin-top:6px;">'
-                    + '<button data-reintentar="' + esc(it.clave) + '" style="background:#0067b1;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Reintentar</button>'
+                    + (it.ilegible ? '' : '<button data-reintentar="' + esc(it.clave) + '" style="background:#0067b1;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Reintentar</button>')
                     + '<button data-descartar="' + esc(it.clave) + '" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Descartar</button></div>'
                 : '';
             return '<div style="padding:11px 14px;border-bottom:1px solid #f1f5f9;">'

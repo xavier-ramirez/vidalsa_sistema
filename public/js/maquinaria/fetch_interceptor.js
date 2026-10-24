@@ -89,9 +89,9 @@ window.fetch = async function (...args) {
         // Si la sesión expiró de verdad (401, o 419 que no se arregló)
         if (response.status === 401 || response.status === 419) {
             // DUEÑO ÚNICO de "la sesión murió". Corta aquí y devuelve una promesa
-            // que no resuelve nunca, así que NINGÚN módulo llega a ver un 401/419:
-            // por eso ya no existen las ramas de "sesión expirada" que tenían
-            // equipos_index y form_logic — no podían ejecutarse.
+            // que no resuelve nunca, así que ningún módulo llega a ver un 401/419
+            // (solo la bandeja, ver abajo): por eso ya no existen las ramas de
+            // "sesión expirada" que tenían equipos_index y form_logic.
             //
             // Con ?aviso= el login explica POR QUÉ se cerró la sesión (un flash no
             // serviría: esa pantalla se sirve desde el caché del Service Worker).
@@ -113,6 +113,18 @@ window.fetch = async function (...args) {
                         _motivo = _cuerpo.motivo;
                     }
                 } catch (e) { /* respuesta sin JSON: vale el aviso genérico */ }
+            }
+            // Sesión vencida: se vuelve a entrar AHÍ MISMO (sesion_caida.js), sin salir de la
+            // pantalla. Lo escrito sigue en su sitio y lo que se intentó guardar por la bandeja
+            // se queda en ella (por eso a esas peticiones —las que llevan X-Clave-Operacion— sí
+            // se les devuelve el 401). Clave cambiada o usuario inactivo van al login: ahí no
+            // hay vuelta atrás desde esta pantalla.
+            if (!_motivo && typeof window.sesionCaida === 'function') {
+                window.sesionCaida();
+                var _cab = (args[1] && args[1].headers) || {};
+                var _deLaBandeja = typeof _cab.has === 'function' ? _cab.has('X-Clave-Operacion')
+                    : Object.keys(_cab).some(function (k) { return k.toLowerCase() === 'x-clave-operacion'; });
+                return _deLaBandeja ? response : new Promise(() => { });
             }
             var _aviso = _motivo || 'sesion_expirada';
             if (window.Bandeja && window.Bandeja.pendientes().some(function (it) { return it.estado === 'pendiente'; })) _aviso += '_pendientes';

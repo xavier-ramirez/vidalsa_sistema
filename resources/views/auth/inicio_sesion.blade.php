@@ -533,6 +533,8 @@ if ('serviceWorker' in navigator) {
 {{-- Overlay "Actualizando…": si hay un SW nuevo bajándose (tras un despliegue), avisa y
      recarga al terminar. Solo en ese caso; en login normal no aparece. --}}
 <script src="{{ asset('js/pwa-update-overlay.js') }}?v={{ @filemtime(public_path('js/pwa-update-overlay.js')) }}" defer></script>
+{{-- La llave de lo guardado en el equipo: se prepara con la clave y se cierra aquí. --}}
+<script src="{{ asset('js/offline/llave-local.js') }}?v={{ @filemtime(public_path('js/offline/llave-local.js')) }}" defer></script>
 {{-- Login OFFLINE: botón "Entrar sin conexión" + verificación por hash local. --}}
 <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
 {{-- Helpers DOM compartidos (window.getCsrf / escapeHtml / escapeAttrJs / apiFetch).

@@ -127,7 +127,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard/export-documents-pdf', [App\Http\Controllers\DashboardController::class, 'exportDocumentsPDF'])->name('dashboard.exportDocumentsPDF');
         Route::get('/dashboard/export-documents-excel', [App\Http\Controllers\DashboardController::class, 'exportDocumentsExcel'])->name('dashboard.exportDocumentsExcel');
 
-        // Copia local de cada dispositivo (ver SincronizacionController).
+        // Copia local de cada dispositivo (ver SincronizacionController). /sync/llave va
+        // ANTES que /sync/{dominio}: si no, 'llave' se tomaría por un dominio.
+        Route::get('/sync/llave', [App\Http\Controllers\SincronizacionController::class, 'llave'])->name('sync.llave');
         Route::get('/sync/{dominio}', App\Http\Controllers\SincronizacionController::class)->name('sync');
 
         Route::prefix('admin')->group(function () {

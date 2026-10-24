@@ -77,6 +77,8 @@
     {{-- La copia local (copia-local.js) guarda los datos de cada usuario aparte: en un equipo
          compartido nadie ve la copia de otro. --}}
     <meta name="usuario-id" content="{{ Auth::user()?->ID_USUARIO }}">
+    {{-- El correo con que se vuelve a entrar sin salir de la pantalla (offline/sesion_caida.js). --}}
+    <meta name="usuario-correo" content="{{ Auth::user()?->CORREO_ELECTRONICO }}">
     {{-- Los dominios que esa copia mantiene al día en segundo plano (SincronizacionController). --}}
     <meta name="copia-dominios" content="{{ \App\Http\Controllers\SincronizacionController::dominiosDe(Auth::user()) }}">
 
@@ -1134,12 +1136,18 @@
             src="{{ asset('js/maquinaria/menu.js') }}?v={{ @filemtime(public_path('js/maquinaria/menu.js')) }}"></script>
         <script
             src="{{ asset('js/maquinaria/equipos_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_index.js')) }}"></script>
+        {{-- La llave con que la copia y la bandeja se guardan cifradas en el equipo. --}}
+        <script
+            src="{{ asset('js/offline/llave-local.js') }}?v={{ @filemtime(public_path('js/offline/llave-local.js')) }}"></script>
         {{-- Copia local (IndexedDB) de la que pintan las pantallas, con o sin internet. --}}
         <script
             src="{{ asset('js/offline/copia-local.js') }}?v={{ @filemtime(public_path('js/offline/copia-local.js')) }}"></script>
         {{-- Lo que se guarda sin internet espera aquí y sube solo al volver la red. --}}
         <script
             src="{{ asset('js/offline/bandeja.js') }}?v={{ @filemtime(public_path('js/offline/bandeja.js')) }}"></script>
+        {{-- Sesión cerrada en el servidor: volver a entrar sin salir de la pantalla. --}}
+        <script
+            src="{{ asset('js/offline/sesion_caida.js') }}?v={{ @filemtime(public_path('js/offline/sesion_caida.js')) }}"></script>
         {{-- /admin/equipos se filtra, cuenta y pinta desde esa copia (sin ir al servidor). --}}
         <script
             src="{{ asset('js/maquinaria/equipos_local.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_local.js')) }}"></script>

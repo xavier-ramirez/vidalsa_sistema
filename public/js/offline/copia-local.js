@@ -19,6 +19,7 @@
  *   CopiaLocal.alGuardar() → Promise. Pregunta ya por todos los dominios que mantiene; lo llaman
  *       fetch_interceptor.js (tras cada guardado que sale bien) y estado_red.js.
  *   CopiaLocal.alDia(dominio) → Promise. Se cumple cuando la copia ya trae el último guardado.
+ *   CopiaLocal.reanudar() → vuelve a preguntar tras entrar de nuevo sin salir de la pantalla.
  *   Evento 'copia-local' en window, detail { dominio, cambio, estado }: cambio = true si
  *       llegaron datos nuevos (la pantalla se repinta); con false solo cambió el estado.
  *   estado = { listo, conectado, actualizado (ms) }.
@@ -31,21 +32,29 @@
  *
  * Usa window.fetchSinInterceptor: sin red, cada sondeo fallaría y el interceptor sacaría el
  * aviso "Sin conexión" cada 15 s. El estado de la copia lo muestra cada pantalla.
+ *
+ * En el equipo se guarda CIFRADA con la llave de llave-local.js: cada tabla en BLOQUES (las
+ * filas repartidas por id), y al llegar cambios solo se reescriben los bloques tocados, así
+ * cifrar no se nota. Sin llave abierta (no debería pasar dentro del sistema) la copia vive
+ * solo en memoria; si la guardada no se puede abrir (otra llave) se tira y se baja de nuevo.
  */
 (function () {
     'use strict';
     if (window.CopiaLocal) return;
 
     const DB_NOMBRE = 'vidalsa_copia';
-    const DB_VERSION = 1;
+    // 2: cifrada por bloques. Al subir de la 1 se tira la copia vieja, que estaba en claro.
+    const DB_VERSION = 2;
+    const BLOQUES = 32;
+    const CATALOGOS = '__catalogos';   // tabla aparte para los catálogos: cambian poco
     const TICK_MS = 5000;
     const INACTIVIDAD_MAX_MS = 2 * 60 * 1000;
 
     const usuario = () => (document.querySelector('meta[name="usuario-id"]') || {}).content || '';
 
     // ── IndexedDB ────────────────────────────────────────────────────────────
-    // filas:  { u, d, t, id, f }            clave [u, d, t, id]
-    // estado: { u, d, hasta, firma, esquema, espera, actualizado, catalogos }  clave [u, d]
+    // bloques: { u, d, t, b, iv, ct }   clave [u, d, t, b] · ct = las filas del bloque, cifradas
+    // estado:  { u, d, iv, ct }         clave [u, d]       · ct = { hasta, firma, esquema, espera, actualizado }
     // Si el navegador no deja abrirla (ventana privada), la copia vive solo en memoria.
     let dbPromesa = null;
     function db() {
@@ -55,7 +64,8 @@
                 try { req = indexedDB.open(DB_NOMBRE, DB_VERSION); } catch (e) { resolve(null); return; }
                 req.onupgradeneeded = () => {
                     const b = req.result;
-                    b.createObjectStore('filas', { keyPath: ['u', 'd', 't', 'id'] });
+                    ['filas', 'estado'].forEach((n) => { if (b.objectStoreNames.contains(n)) b.deleteObjectStore(n); });
+                    b.createObjectStore('bloques', { keyPath: ['u', 'd', 't', 'b'] });
                     b.createObjectStore('estado', { keyPath: ['u', 'd'] });
                 };
                 req.onsuccess = () => resolve(req.result);
@@ -73,8 +83,8 @@
 
     function borrarOtrosUsuarios(b) {
         const u = usuario();
-        const tx = b.transaction(['filas', 'estado'], 'readwrite');
-        const filas = tx.objectStore('filas');
+        const tx = b.transaction(['bloques', 'estado'], 'readwrite');
+        const filas = tx.objectStore('bloques');
         const estado = tx.objectStore('estado');
         estado.getAllKeys().onsuccess = (e) => {
             new Set(e.target.result.map((k) => k[0])).forEach((otro) => {
@@ -109,28 +119,61 @@
         return copias[d];
     }
 
+    // ── Cifrado ──────────────────────────────────────────────────────────────
+    const llave = window.LlaveLocal;
+    const conLlave = () => (llave ? llave.lista() : Promise.resolve(false));
+
+    // Bloque de una fila: el id repartido en BLOQUES (número o texto).
+    function bloque(id) {
+        if (typeof id === 'number') return Math.abs(id) % BLOQUES;
+        let h = 0;
+        const s = String(id);
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+        return Math.abs(h) % BLOQUES;
+    }
+
     function cargar(d) {
         const c = copia(d);
         if (!c.lista) {
             const u = usuario();
-            c.lista = db().then((b) => {
-                if (!b) return;
-                const tx = b.transaction(['filas', 'estado'], 'readonly');
+            c.lista = Promise.all([db(), conLlave()]).then(([b, hayLlave]) => {
+                if (!b || !hayLlave) return;
+                const tx = b.transaction(['bloques', 'estado'], 'readonly');
                 return Promise.all([
-                    pedir(tx.objectStore('filas').getAll(rango([u, d]))),
+                    pedir(tx.objectStore('bloques').getAll(rango([u, d]))),
                     pedir(tx.objectStore('estado').get([u, d])),
-                ]).then(([filas, meta]) => {
-                    filas.forEach((r) => (c.tablas[r.t] || (c.tablas[r.t] = new Map())).set(r.id, r.f));
-                    if (meta) {
-                        c.meta = meta;
-                        c.catalogos = meta.catalogos || {};
-                        c.estado.actualizado = meta.actualizado || null;
-                        c.estado.listo = true;
-                    }
+                ]).then(([bloques, est]) => {
+                    if (!est) return;
+                    return Promise.all([llave.descifrar(est)].concat(bloques.map((r) => llave.descifrar(r))))
+                        .then(([meta, ...filas]) => {
+                            const tablas = {};
+                            bloques.forEach((r, i) => {
+                                if (r.t === CATALOGOS) { c.catalogos = filas[i]; return; }
+                                const m = tablas[r.t] || (tablas[r.t] = new Map());
+                                filas[i].forEach((f) => m.set(f.id, f));
+                            });
+                            c.tablas = tablas;
+                            c.meta = meta;
+                            c.estado.actualizado = meta.actualizado || null;
+                            c.estado.listo = true;
+                        })
+                        // Cifrada con otra llave: no se puede abrir, se tira y se baja de nuevo.
+                        .catch(() => { c.tablas = {}; c.catalogos = {}; c.meta = {}; return borrar(d); });
                 });
             }).catch(() => {});
         }
         return c.lista;
+    }
+
+    function borrar(d) {
+        const u = usuario();
+        return db().then((b) => {
+            if (!b) return;
+            const tx = b.transaction(['bloques', 'estado'], 'readwrite');
+            tx.objectStore('bloques').delete(rango([u, d]));
+            tx.objectStore('estado').delete([u, d]);
+            return fin(tx);
+        }).catch(() => {});
     }
 
     // ── Sincronizar ──────────────────────────────────────────────────────────
@@ -141,6 +184,13 @@
     function aplicar(d, r) {
         const c = copia(d);
         const u = usuario();
+
+        // Bloques que hay que reescribir: todos los de la copia si llegó entera; si no, los
+        // de las filas que cambiaron o se borraron.
+        const tocados = {};
+        const tocar = (t, id) => (tocados[t] || (tocados[t] = new Set())).add(bloque(id));
+        Object.entries(r.datos || {}).forEach(([t, fs]) => fs.forEach((f) => tocar(t, f.id)));
+        Object.entries(r.borrados || {}).forEach(([t, ids]) => ids.forEach((id) => tocar(t, id)));
 
         if (r.completo) { c.tablas = {}; }
         Object.entries(r.datos || {}).forEach(([t, filas]) => {
@@ -157,14 +207,28 @@
         c.estado.actualizado = Date.now();
         c.estado.listo = true;
 
-        return db().then((b) => {
-            if (!b) return;
-            const tx = b.transaction(['filas', 'estado'], 'readwrite');
-            const filas = tx.objectStore('filas');
-            if (r.completo) filas.delete(rango([u, d]));
-            Object.entries(r.datos || {}).forEach(([t, fs]) => fs.forEach((f) => filas.put({ u, d, t, id: f.id, f })));
-            Object.entries(r.borrados || {}).forEach(([t, ids]) => ids.forEach((id) => filas.delete([u, d, t, id])));
-            tx.objectStore('estado').put(Object.assign({ u, d, actualizado: c.estado.actualizado, catalogos: c.catalogos }, c.meta));
+        return Promise.all([db(), conLlave()]).then(async ([b, hayLlave]) => {
+            if (!b || !hayLlave) return;
+            // Se cifra TODO antes de abrir la transacción: una espera ajena a IndexedDB la cierra.
+            const escribir = [];   // [t, b, filas | null (bloque vacío: se borra)]
+            Object.entries(tocados).forEach(([t, bs]) => {
+                const grupos = {};
+                bs.forEach((n) => { grupos[n] = []; });
+                (c.tablas[t] || new Map()).forEach((f, id) => { const g = grupos[bloque(id)]; if (g) g.push(f); });
+                Object.entries(grupos).forEach(([n, fs]) => escribir.push([t, Number(n), fs.length ? fs : null]));
+            });
+            if (r.completo || Object.keys(r.catalogos || {}).length) escribir.push([CATALOGOS, 0, c.catalogos]);
+            const cifrados = await Promise.all(escribir.map(([, , v]) => (v ? llave.cifrar(v) : null)));
+            const est = await llave.cifrar(Object.assign({ actualizado: c.estado.actualizado }, c.meta));
+
+            const tx = b.transaction(['bloques', 'estado'], 'readwrite');
+            const bloques = tx.objectStore('bloques');
+            if (r.completo) bloques.delete(rango([u, d]));
+            escribir.forEach(([t, n], i) => {
+                if (cifrados[i]) bloques.put(Object.assign({ u, d, t, b: n }, cifrados[i]));
+                else bloques.delete([u, d, t, n]);
+            });
+            tx.objectStore('estado').put(Object.assign({ u, d }, est));
             return fin(tx);
         }).catch((e) => console.warn('[CopiaLocal] no se pudo guardar la copia de', d, e));
     }
@@ -177,14 +241,7 @@
         c.sinPermiso = true;
         c.tablas = {}; c.arrays = {}; c.catalogos = {}; c.meta = {};
         c.estado.listo = false;
-        const u = usuario();
-        return db().then((b) => {
-            if (!b) return;
-            const tx = b.transaction(['filas', 'estado'], 'readwrite');
-            tx.objectStore('filas').delete(rango([u, d]));
-            tx.objectStore('estado').delete([u, d]);
-            return fin(tx);
-        }).catch(() => {});
+        return borrar(d);
     }
 
     function sincronizar(d) {
@@ -202,7 +259,8 @@
                     c.sinSesion = true;
                     // Como ya no hace falta navegar para que la copia pregunte, es ella la que
                     // se entera de que la sesión murió: se repite por el fetch con interceptor,
-                    // que lleva al login con el motivo (fetch_interceptor.js).
+                    // que decide (fetch_interceptor.js): pide la clave ahí mismo o, con un motivo
+                    // como clave cambiada, lleva al login. Al volver a entrar llama a reanudar().
                     if (window.fetchSinInterceptor) window.fetch(res.url, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).catch(() => {});
                     return;
                 }
@@ -284,6 +342,11 @@
         },
         ahora: sincronizar,
         alGuardar,
+        // Se volvió a entrar sin salir de la pantalla (sesion_caida.js): se pregunta otra vez ya.
+        reanudar() {
+            Object.values(copias).forEach((c) => { c.sinSesion = false; });
+            revisar(true);
+        },
         alDia(d) {
             return copia(d).trasGuardar || Promise.resolve();
         },

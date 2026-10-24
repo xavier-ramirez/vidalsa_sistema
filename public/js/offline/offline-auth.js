@@ -76,6 +76,8 @@
         // Calcula el verificador al ENVIAR el login (en paralelo con la ida y vuelta a la
         // red, así el PBKDF2 no añade espera). Todavía no se guarda: solo queda listo.
         preparar: function (identifier, password) {
+            // La llave de lo guardado en el equipo se prepara a la vez (llave-local.js).
+            if (window.LlaveLocal) window.LlaveLocal.preparar(identifier, password);
             if (!disponible() || !identifier || !password) { _preparado = null; return null; }
             _preparado = (async function () {
                 try {
@@ -97,6 +99,7 @@
         sincronizar: async function (claveV) {
             const p = _preparado;
             _preparado = null;
+            if (window.LlaveLocal) await window.LlaveLocal.confirmar();
             if (p) {
                 try {
                     const v = await p;
@@ -108,7 +111,10 @@
         // El intento no prosperó (credenciales rechazadas, red caída, o la clave está a
         // punto de cambiarse): el verificador a medio hacer se tira y el guardado de antes
         // se queda como estaba.
-        descartar: function () { _preparado = null; },
+        descartar: function () {
+            _preparado = null;
+            if (window.LlaveLocal) window.LlaveLocal.descartar();
+        },
         verificar: async function (identifier, password) {
             if (!disponible()) return false;
             let v;
@@ -137,6 +143,9 @@
     // el layout general: ahí no hay nada que hacer.
     const loginForm = document.getElementById('loginForm');
     if (!loginForm) return;
+
+    // En el inicio de sesión no hay nadie dentro: la llave abierta de lo guardado se olvida.
+    if (window.LlaveLocal) window.LlaveLocal.cerrar();
 
     // Página de LOGIN: decide cuál de los tres accesos se ofrece según haya servidor.
     const btnOff = document.getElementById('btnOfflineLogin');
@@ -279,6 +288,8 @@
         if (!id || !pw) { window.mostrarMsgLogin('Escribe tu correo y tu clave.'); return; }
         if (btnOff) btnOff.disabled = true;
         const ok = await window.OfflineAuth.verificar(id, pw).catch(function () { return false; });
+        // La misma clave abre la copia cifrada que quedó en el equipo.
+        if (ok && window.LlaveLocal) await window.LlaveLocal.abrirConClave(id, pw).catch(function () { return false; });
         if (btnOff) btnOff.disabled = false;
         if (ok) {
             // El menú omite el spinner general en esta primera carga tras login.

@@ -372,6 +372,7 @@
                 // no se iba nunca, con la sesión abierta. keepalive: el POST sigue su camino
                 // aunque la página ya se haya ido al login.
                 const plazo = setTimeout(salir, PLAZO_LOGOUT_MS);
+                if (window.LlaveLocal) window.LlaveLocal.cerrar();   // lo guardado en el equipo deja de poder leerse
                 window.apiFetch('/logout', { headers: { 'Accept': 'application/json' },
                     method: 'POST',
                     redirect: 'manual',   // no seguimos el 302: navegamos nosotros abajo

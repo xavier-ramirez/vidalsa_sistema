@@ -36,6 +36,7 @@ const PRECACHE_URLS = [
     '/css/maquinaria/inicio_sesion.css',
     '/js/pwa-update-overlay.js',
     '/images/maquinaria/logo.webp',
+    '/js/offline/llave-local.js',
     '/js/offline/offline-auth.js',
     // dom_helpers.js lo carga el login porque webauthn.js usa window.apiFetch/getCsrf de
     // ahí: faltaba, así que el primer arranque tras cada versión de caché se quedaba

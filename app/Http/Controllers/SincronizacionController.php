@@ -54,6 +54,20 @@ class SincronizacionController extends Controller
         return implode(',', array_keys(array_filter(self::DOMINIOS, fn ($clase) => $clase::puede($usuario))));
     }
 
+    /**
+     * La llave del SERVIDOR con que el navegador envuelve la de su copia cifrada (ver
+     * public/js/offline/llave-local.js). Solo se entrega con sesión abierta: así la copia que
+     * queda en el equipo no se puede leer sin entrar, con clave o con huella. Sale de APP_KEY
+     * y del usuario, sin guardar nada: cambiar APP_KEY deja ilegibles las copias (se vuelven a
+     * bajar) y lo pendiente de las bandejas, que solo se recupera entrando con la clave.
+     */
+    public function llave(Request $request)
+    {
+        $llave = hash_hmac('sha256', 'copia-local|' . $request->user()->ID_USUARIO, (string) config('app.key'), true);
+
+        return response()->json(['llave' => base64_encode($llave)])->header('Cache-Control', 'no-store');
+    }
+
     public function __invoke(Request $request, string $dominio)
     {
         $clase = self::DOMINIOS[$dominio] ?? abort(404);
