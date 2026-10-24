@@ -242,8 +242,9 @@ class DashboardController extends Controller
         // Se cachea la RESPUESTA ya armada (HTML, total y datos del detalle), no la coleccion
         // Eloquent: guardar la coleccion (~1,3 MB con sus relaciones) obligaba a leerla y
         // deserializarla y a volver a pintar el HTML y los datos del detalle en CADA visita.
-        // Nada de esto depende del usuario fuera de la clave: el partial no usa @can ni
-        // auth(), y los permisos y frentes ya van en la huella de claveCache. Prefijo propio
+        // Nada de esto depende del usuario fuera de la clave: el único @can del partial
+        // (equipos.edit, botón de gestión) y los frentes ya van en la huella de claveCache.
+        // Prefijo propio
         // (_resp_) para no leer nunca una entrada vieja que guardaba la coleccion.
         $resp = \Illuminate\Support\Facades\Cache::remember("dashboard_alertas_resp_{$clave}", now()->addMinutes(10), function () use ($frentesVisibles, $frentesBloqueados) {
             $expiredList = $this->generateAlertsList($frentesVisibles, $frentesBloqueados);

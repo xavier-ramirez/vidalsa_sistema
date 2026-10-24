@@ -40,6 +40,15 @@ if (!window._alertasModalEscHandler) {
             window.cerrarFormatoReporteAlertas();
             return;
         }
+        // Lo mismo con lo que se abre DESDE una tarjeta: la confirmación de gestión, el
+        // visor del PDF y el detalle del equipo. Antes Escape cerraba el panel de abajo y
+        // dejaba esas capas sueltas.
+        const gestion = document.getElementById('btnCancelGestion');
+        if (gestion) { gestion.click(); return; }
+        const visor = document.getElementById('pdfPreviewModal');
+        if (visor && visor.classList.contains('active')) { window.closePdfPreview(); return; }
+        const detalle = document.getElementById('detailsModal');
+        if (detalle && detalle.classList.contains('active')) { window.closeDetailsModal(); return; }
 
         const overlay = document.getElementById('expiredDocsContainer');
         if (overlay && overlay.classList.contains('open')) {
@@ -192,24 +201,8 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
         event.preventDefault();
     }
 
-    // CHECK PERMISSION FIRST
-    if (typeof window.CAN_UPDATE_INFO !== 'undefined' && window.CAN_UPDATE_INFO === false) {
-        if (typeof window.showToast === 'function') {
-            window.showToast('No tienes permisos para realizar esta acción.', 'error');
-        } else if (typeof window.showModal === 'function') {
-            window.showModal({
-                type: 'error',
-                title: 'Acceso Denegado',
-                message: 'No tienes permisos para realizar esta acción.',
-                confirmText: 'Entendido',
-                hideCancel: true
-            });
-        } else {
-            alert('Acceso Denegado: No tienes permisos para actualizar información.');
-        }
-        return;
-    }
-
+    // El permiso (equipos.edit) lo resuelve la tarjeta: sin él el botón sale deshabilitado
+    // y este clic no llega. El servidor lo vuelve a exigir.
     const existing = document.getElementById('dashboardGestionModal');
     if (existing) existing.remove();
 
@@ -299,13 +292,7 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
         } catch (error) {
             console.error('Error:', error);
             if (typeof window.hidePreloader === 'function') window.hidePreloader();
-            if (typeof window.showToast === 'function') {
-                window.showToast(error.message, 'error');
-            } else if (typeof window.showModal === 'function') {
-                window.showModal({ type: 'error', title: 'Error', message: error.message });
-            } else {
-                alert(error.message);
-            }
+            window.showToast(error.message, 'error');
         }
     };
 };

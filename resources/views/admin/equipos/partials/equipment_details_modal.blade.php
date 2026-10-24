@@ -915,8 +915,15 @@ if (!window._gpsModalScriptLoaded) {
             }
         };
 
+        // Escape cierra SOLO el GPS: sin el stopImmediatePropagation el handler del panel de
+        // alertas (menu.js) cerraba además el detalle que queda debajo.
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') window.closeGpsModal();
+            if (e.key !== 'Escape') return;
+            var modal = $('gpsTrackerModal');
+            if (modal && modal.style.display === 'flex') {
+                e.stopImmediatePropagation();
+                window.closeGpsModal();
+            }
         });
     })();
 }

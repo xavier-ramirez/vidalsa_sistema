@@ -72,7 +72,11 @@
 
          En un AUXILIAR va un solo botón, el del visor: mostrar los otros dos sería
          prometer lo que no hay. showDetailsImproved lee los data-* de un equipo, y
-         iniciarGestion valida exists:equipos, así que el 422 llegaría después del clic. --}}
+         iniciarGestion valida exists:equipos, así que el 422 llegaría después del clic.
+
+         Sin 'equipos.edit' (lo que exige DashboardController::iniciarGestion) el 2º botón
+         sale deshabilitado: antes se ofrecía y el 403 llegaba tras confirmar. Cachear este
+         HTML es seguro: los permisos van en la huella de claveCache. --}}
     <div style="flex-shrink: 0; display: flex; flex-wrap: nowrap; gap: 5px; align-items: center;">
     @if($esAux)
         <button type="button"
@@ -122,7 +126,19 @@
             <i class="material-icons" style="font-size: 20px; pointer-events: none;">visibility</i>
         </button>
 
-        @if(!$gestionadoPor)
+        @if($gestionadoPor)
+        <button type="button" disabled
+            title="Este documento ya está en gestión por {{ explode(' ', $gestionadoPor)[0] }}"
+            style="flex-shrink: 0; box-sizing: border-box; width: 32px; height: 32px; border-radius: 8px; border: none; padding: 0; background: #e2e8f0; color: #94a3b8; display: flex; align-items: center; justify-content: center; cursor: default;">
+            <i class="material-icons" style="font-size: 18px; pointer-events: none;">engineering</i>
+        </button>
+        @elsecannot('equipos.edit')
+        <button type="button" disabled
+            title="No tienes permiso para gestionar documentos"
+            style="flex-shrink: 0; box-sizing: border-box; width: 32px; height: 32px; border-radius: 8px; border: none; padding: 0; background: #e2e8f0; color: #94a3b8; display: flex; align-items: center; justify-content: center; cursor: default;">
+            <i class="material-icons" style="font-size: 18px; pointer-events: none;">manage_accounts</i>
+        </button>
+        @else
         <button type="button"
             onclick="window.iniciarGestionCustom('{{ $equipoId }}', '{{ $docType }}', event)"
             title="Iniciar gestión de este documento"
@@ -130,12 +146,6 @@
             onmouseover="this.style.background='#0067b1'; this.style.transform='scale(1.08)';"
             onmouseout="this.style.background='#00004d'; this.style.transform='scale(1)';">
             <i class="material-icons" style="font-size: 18px; pointer-events: none;">manage_accounts</i>
-        </button>
-        @else
-        <button type="button" disabled
-            title="Este documento ya está en gestión por {{ explode(' ', $gestionadoPor)[0] }}"
-            style="flex-shrink: 0; box-sizing: border-box; width: 32px; height: 32px; border-radius: 8px; border: none; padding: 0; background: #e2e8f0; color: #94a3b8; display: flex; align-items: center; justify-content: center; cursor: default;">
-            <i class="material-icons" style="font-size: 18px; pointer-events: none;">engineering</i>
         </button>
         @endif
     @endif
