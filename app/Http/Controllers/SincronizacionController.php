@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Usuario;
 use App\Support\RegistroCambios;
 use App\Support\Sincronizacion\DominioAlmacen;
 use App\Support\Sincronizacion\DominioEquipos;
@@ -40,6 +41,18 @@ class SincronizacionController extends Controller
         'movilizaciones' => DominioMovilizaciones::class,
         'almacen'        => DominioAlmacen::class,
     ];
+
+    /**
+     * Los dominios que el usuario puede copiar, separados por coma. El layout los pone en
+     * <meta name="copia-dominios"> y copia-local.js los mantiene al día en segundo plano,
+     * esté abierto el módulo que sea.
+     */
+    public static function dominiosDe(?Usuario $usuario): string
+    {
+        if (! $usuario) return '';
+
+        return implode(',', array_keys(array_filter(self::DOMINIOS, fn ($clase) => $clase::puede($usuario))));
+    }
 
     public function __invoke(Request $request, string $dominio)
     {

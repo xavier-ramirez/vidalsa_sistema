@@ -77,6 +77,8 @@
     {{-- La copia local (copia-local.js) guarda los datos de cada usuario aparte: en un equipo
          compartido nadie ve la copia de otro. --}}
     <meta name="usuario-id" content="{{ Auth::user()?->ID_USUARIO }}">
+    {{-- Los dominios que esa copia mantiene al día en segundo plano (SincronizacionController). --}}
+    <meta name="copia-dominios" content="{{ \App\Http\Controllers\SincronizacionController::dominiosDe(Auth::user()) }}">
 
     {{-- Helpers DOM compartidos (window.getCsrf / escapeHtml / escapeAttrJs).
          VAN EN EL <head>, no abajo con el resto de los scripts: los <script> inline

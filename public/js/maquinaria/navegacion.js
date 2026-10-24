@@ -97,6 +97,97 @@ document.addEventListener('DOMContentLoaded', () => {
         navigateTo(link.href);
     });
 
+    // ── PANTALLAS GUARDADAS (Equipos e Historial) ────────────────────────────────
+    // Estos módulos pintan sus datos desde la copia local, que copia-local.js mantiene al día
+    // en segundo plano. Lo que todavía se pedía al servidor en cada clic era la pantalla (su
+    // HTML). Ahora se guarda por usuario y por versión de las vistas, y se abre desde aquí:
+    //   · un despliegue cambia version-vistas → la clave es otra y se vuelve a pedir;
+    //   · sus filtros salen de la BD (frentes, tipos, marcas): cuando la copia de ese dominio
+    //     trae cambios, la pantalla se vuelve a pedir en segundo plano para la próxima vez;
+    //   · solo la URL limpia, sin ?...
+    // Almacén NO entra: su pantalla trae contadores en vivo (notas por recibir) del servidor.
+    const PANTALLAS_LOCALES = {
+        '/admin/equipos': 'equipos',
+        '/admin/movilizaciones': 'movilizaciones',
+    };
+    // Sin el prefijo 'vidalsa-': el service worker borra esas cachés al cambiar de versión.
+    const CACHE_PANTALLAS = 'pantallas-guardadas';
+    const leerMeta = (n) => (document.querySelector('meta[name="' + n + '"]') || {}).content || '';
+    const versionDe = (html) => ((html || '').match(/name="version-vistas" content="([^"]*)"/) || [])[1];
+
+    function clavePantalla(url) {
+        let u;
+        try { u = new URL(url, window.location.origin); } catch (_) { return null; }
+        const ruta = u.pathname.replace(/\/+$/, '');
+        const usuario = leerMeta('usuario-id');
+        const version = leerMeta('version-vistas');
+        if (u.origin !== window.location.origin || u.search || !PANTALLAS_LOCALES[ruta] || !usuario || !version) return null;
+        return window.location.origin + '/__pantalla' + ruta + '?u=' + encodeURIComponent(usuario) + '&v=' + encodeURIComponent(version);
+    }
+
+    async function respuestaGuardada(url) {
+        const clave = clavePantalla(url);
+        if (!clave || !window.caches) return null;
+        try { return (await (await caches.open(CACHE_PANTALLAS)).match(clave)) || null; } catch (_) { return null; }
+    }
+
+    async function pantallaGuardada(url) {
+        const r = await respuestaGuardada(url);
+        try { return r ? await r.text() : null; } catch (_) { return null; }
+    }
+
+    // Solo la respuesta corta de la SPA y de la MISMA versión que esta pestaña: si el servidor
+    // ya sirve otra, la que decide es loadPage (recarga completa).
+    function guardarPantalla(url, html) {
+        const clave = clavePantalla(url);
+        if (!clave || !window.caches || !html || !html.includes('respuesta-spa') || !html.includes('main-viewport')) return;
+        if (versionDe(html) !== leerMeta('version-vistas')) return;
+        caches.open(CACHE_PANTALLAS)
+            .then((c) => c.put(clave, new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Guardada': String(Date.now()) } })))
+            .catch(() => {});
+    }
+
+    // La pide en segundo plano y la guarda: sin spinner ni avisos.
+    function refrescarPantalla(url) {
+        if (navigator.onLine === false) return Promise.resolve();
+        return window.apiFetch(url, { headers: CABECERAS_SPA, cache: 'no-store' })
+            .then((r) => (r.ok && !r.redirected && r.headers.get('X-Vidalsa-Desde-Cache') !== '1' ? r.text() : null))
+            .then((html) => guardarPantalla(url, html))
+            .catch(() => {});
+    }
+
+    // Al cargar: se borran las de otra versión u otro usuario y se guardan las que falten de
+    // los módulos del menú (sin permiso no hay enlace), así hasta el primer clic es inmediato.
+    setTimeout(() => {
+        if (!window.caches || !leerMeta('usuario-id')) return;
+        const rutas = Object.keys(PANTALLAS_LOCALES);
+        const vigentes = new Set(rutas.map(clavePantalla));
+        const enMenu = new Set(Array.from(document.querySelectorAll('a[href]'), (a) => {
+            try { return new URL(a.href).pathname.replace(/\/+$/, ''); } catch (_) { return ''; }
+        }));
+        caches.open(CACHE_PANTALLAS).then((c) => c.keys()
+            .then((reqs) => Promise.all(reqs.filter((q) => !vigentes.has(q.url)).map((q) => c.delete(q))))
+            .then(() => rutas.filter((r) => enMenu.has(r)).reduce((p, r) => p
+                .then(() => c.match(clavePantalla(r)))
+                .then((hay) => hay || refrescarPantalla(r)), Promise.resolve())))
+            .catch(() => {});
+    }, 4000);
+
+    // Cambiaron los datos de un dominio: su pantalla (los filtros) se vuelve a pedir en
+    // segundo plano, una vez que paren los cambios, y solo si es MÁS VIEJA que el cambio (la
+    // primera descarga de la copia llega justo cuando la pantalla se acaba de guardar).
+    const refrescoPendiente = {};
+    window.addEventListener('copia-local', (e) => {
+        if (!e.detail || !e.detail.cambio) return;
+        const cuando = Date.now();
+        Object.keys(PANTALLAS_LOCALES).filter((r) => PANTALLAS_LOCALES[r] === e.detail.dominio).forEach((r) => {
+            clearTimeout(refrescoPendiente[r]);
+            refrescoPendiente[r] = setTimeout(() => {
+                respuestaGuardada(r).then((g) => { if (g && Number(g.headers.get('X-Guardada')) < cuando) refrescarPantalla(r); });
+            }, 10000);
+        });
+    });
+
     // ── PRECARGA AL PASAR EL MOUSE ───────────────────────────────────────────────
     // Al apuntar a un link del menú se pide su HTML por adelantado. Cuando el usuario
     // hace clic (normalmente 300-600 ms después) la respuesta ya llegó y el módulo abre
@@ -158,7 +249,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // la pedirá igual y así sabe que viene de la caché.
                 return (r.ok && !r.redirected && ct.includes('text/html') && r.headers.get('X-Vidalsa-Desde-Cache') !== '1') ? r.text() : null;
             })
-            .then((html) => { if (html) prefetchStore.set(url, { html: html, ts: Date.now() }); })
+            .then((html) => {
+                if (!html) return;
+                prefetchStore.set(url, { html: html, ts: Date.now() });
+                guardarPantalla(url, html);
+            })
             .catch(() => { /* silencioso: si falla, el clic hará la petición normal */ })
             .finally(() => { if (prefetchEnVuelo === url) prefetchEnVuelo = null; });
     }
@@ -510,6 +605,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // versión de cuando se guardó, y compararla con la de esta pestaña no dice nada.
             let desdeCache = !!opciones.desdeCache;
 
+            // Equipos e Historial: la pantalla guardada, sin preguntar al servidor.
+            if (html === null) {
+                html = await pantallaGuardada(url);
+                if (_yaNoEsLaActual()) { handledCleanup = true; return; }
+            }
+
             if (html !== null) {
                 clearTimeout(timeoutId);
             } else {
@@ -561,6 +662,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 html = await response.text();
                 if (_yaNoEsLaActual()) { handledCleanup = true; return; }
+                if (!desdeCache && !response.redirected) guardarPantalla(url, html);
             }
 
             // Extraer contenido del viewport

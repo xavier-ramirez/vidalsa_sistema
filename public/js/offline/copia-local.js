@@ -5,10 +5,15 @@
  * La copia vive en IndexedDB y se pone al día con GET /sync/{dominio}
  * (SincronizacionController): la primera vez baja entera y después solo lo que cambió.
  *
+ *   Como WhatsApp: TODOS los dominios del usuario (<meta name="copia-dominios">) se ponen al
+ *   día en segundo plano, esté abierto el módulo que sea: al cargar la página, cada `espera`
+ *   segundos que manda el servidor (15 s), al volver a la pestaña y al recuperar la red. Así
+ *   abrir un módulo no le pregunta nada al servidor: la copia ya está al día.
+ *
  *   CopiaLocal.usar(dominio, ancla) → Promise<vista>
- *       Abre la copia del dominio y la mantiene al día mientras `ancla` (un elemento de la
- *       pantalla) siga en la página: pregunta cada `espera` segundos que manda el servidor
- *       (15 s), al volver a la pestaña y al recuperar la red.
+ *       Abre la copia del dominio. Solo pregunta al servidor si no hay copia todavía o si la
+ *       última pregunta ya pasó de `espera`. `ancla` (un elemento de la pantalla) mantiene al
+ *       día también un dominio que no venga en el meta.
  *       vista.filas(tabla) → array · vista.catalogo(nombre) → array · vista.estado
  *   CopiaLocal.ahora(dominio) → Promise. Pregunta ya por ese dominio.
  *   CopiaLocal.alGuardar() → Promise. Pregunta ya por todos los dominios en uso; lo llaman
@@ -164,10 +169,12 @@
         }).catch((e) => console.warn('[CopiaLocal] no se pudo guardar la copia de', d, e));
     }
 
-    // Sin permiso (403): la copia de ese dominio se borra; con la sesión vencida (401) se
-    // conserva, pero deja de preguntar hasta que vuelva a entrar.
+    // Sin permiso (403): la copia de ese dominio se borra y no se vuelve a preguntar en esta
+    // página; con la sesión vencida (401) se conserva, pero deja de preguntar hasta que vuelva
+    // a entrar.
     function olvidar(d) {
         const c = copia(d);
+        c.sinPermiso = true;
         c.tablas = {}; c.arrays = {}; c.catalogos = {}; c.meta = {};
         c.estado.listo = false;
         const u = usuario();
@@ -191,7 +198,14 @@
                 credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' },
             }).then((res) => {
                 if (res.status === 403) return olvidar(d).then(() => avisar(d, true));
-                if (res.status === 401) { c.sinSesion = true; return; }
+                if (res.status === 401) {
+                    c.sinSesion = true;
+                    // Como ya no hace falta navegar para que la copia pregunte, es ella la que
+                    // se entera de que la sesión murió: se repite por el fetch con interceptor,
+                    // que lleva al login con el motivo (fetch_interceptor.js).
+                    if (window.fetchSinInterceptor) window.fetch(res.url, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).catch(() => {});
+                    return;
+                }
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 return res.json().then((r) => {
                     const cambio = !!(r.completo || Object.keys(r.datos || {}).length
@@ -216,22 +230,23 @@
         } catch (e) { return true; }
     }
 
-    // Dominios en uso: los que tienen alguna ancla todavía en la página.
+    // Dominios que se mantienen al día: los del usuario (meta) y los que tengan alguna ancla
+    // todavía en la página.
     function enUso() {
+        const meta = ((document.querySelector('meta[name="copia-dominios"]') || {}).content || '').split(',').filter(Boolean);
+        meta.forEach(copia);
         return Object.keys(copias).filter((d) => {
             const c = copias[d];
             c.anclas.forEach((a) => { if (!a.isConnected) c.anclas.delete(a); });
-            return c.anclas.size > 0 && !c.sinSesion;
+            return (meta.includes(d) || c.anclas.size > 0) && !c.sinSesion && !c.sinPermiso;
         });
     }
 
+    const vencida = (c) => Date.now() - c.ultimo >= (c.meta.espera || 15) * 1000;
+
     function revisar(forzar) {
-        if (document.visibilityState !== 'visible' || !usuarioActivo()) return;
-        enUso().forEach((d) => {
-            const c = copias[d];
-            const espera = (c.meta.espera || 15) * 1000;
-            if (forzar || Date.now() - c.ultimo >= espera) sincronizar(d);
-        });
+        if (!usuario() || document.visibilityState !== 'visible' || !usuarioActivo()) return;
+        enUso().forEach((d) => { if (forzar || vencida(copias[d])) sincronizar(d); });
     }
 
     // Si ya había una pregunta en curso se repite al terminar: pudo salir antes del guardado.
@@ -249,6 +264,9 @@
     window.addEventListener('focus', () => revisar(true));
     window.addEventListener('online', () => revisar(true));
     document.addEventListener('visibilitychange', () => revisar(true));
+    // Al cargar la página: todas las copias se ponen al día de una vez, antes de abrir nada.
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => revisar(false));
+    else revisar(false);
 
     window.CopiaLocal = {
         usar(d, ancla) {
@@ -256,9 +274,12 @@
             if (ancla) c.anclas.add(ancla);
             return cargar(d).then(() => {
                 // La primera vez (sin copia) se espera a la descarga; con copia se pinta ya
-                // y la puesta al día llega por el evento.
-                const pendiente = sincronizar(d);
-                return (c.estado.listo ? Promise.resolve() : pendiente).then(() => c.vista);
+                // y, si hacía falta preguntar, la puesta al día llega por el evento.
+                if (c.estado.listo) {
+                    if (vencida(c) && !c.sinSesion && !c.sinPermiso) sincronizar(d);
+                    return c.vista;
+                }
+                return sincronizar(d).then(() => c.vista);
             });
         },
         ahora: sincronizar,
