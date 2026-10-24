@@ -826,13 +826,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
+    // Lo mismo que pinta el layout con request()->is() en una carga completa. Antes solo se
+    // marcaba el enlace con la URL EXACTA y entre los de primer nivel: entrando por la SPA a
+    // Frentes, Usuarios o Equipos no quedaba marcado ni el enlace del desplegable ni su
+    // sección («Configuraciones», «Flota»…), y el de la pantalla anterior seguía encendido.
+    // Gana el enlace de ruta más larga que contenga a la actual (/admin/frentes/5/edit →
+    // «Frentes»; /admin/almacen/recepcion → «Recepción», no «Almacén»).
     function updateActiveLinks(url) {
-        document.querySelectorAll('.nav-link, .mobile-nav-link').forEach(link => {
-            if (link.href === url) {
-                link.classList.add('active');
-            } else {
-                link.classList.remove('active');
-            }
+        const actual = new URL(url, window.location.origin).pathname.replace(/\/+$/, '') || '/';
+        const enlaces = document.querySelectorAll('.nav-link, .nav-dropdown-link, .mobile-nav-link');
+        const base = (link) => {
+            const h = link.getAttribute('href');
+            if (!h || h === '#') return null;
+            return new URL(link.href).pathname.replace(/\/create$/, '').replace(/\/+$/, '') || '/';
+        };
+        const largo = {};
+        enlaces.forEach((link) => {
+            const b = base(link);
+            const contiene = b && (actual === b || (b !== '/menu' && actual.startsWith(b + '/')));
+            const grupo = link.classList.contains('mobile-nav-link') ? 'movil' : 'escritorio';
+            if (contiene && b.length > (largo[grupo] || 0)) largo[grupo] = b.length;
+        });
+        enlaces.forEach((link) => {
+            const b = base(link);
+            const grupo = link.classList.contains('mobile-nav-link') ? 'movil' : 'escritorio';
+            const contiene = b && (actual === b || (b !== '/menu' && actual.startsWith(b + '/')));
+            link.classList.toggle('active', !!contiene && b.length === largo[grupo]);
+        });
+        // La sección (enlace "#" que abre el desplegable) va encendida si lo está uno de los suyos.
+        document.querySelectorAll('.nav-dropdown').forEach((dd) => {
+            const cabeza = dd.querySelector(':scope > .nav-link');
+            if (cabeza) cabeza.classList.toggle('active', !!dd.querySelector('.nav-dropdown-link.active'));
         });
 
         // Add dynamic visibility for the "Inicio" (Menu) button in SPA transitions

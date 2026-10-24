@@ -401,6 +401,15 @@ function borrarFrente(id) {
 }
 
 // --- MODAL "FRENTES SIN EQUIPOS" (candidatos a eliminar) ---
+// Escape lo cierra como la X y el clic fuera; con la confirmación de Eliminar encima no:
+// ese Escape es de la confirmación. Un solo listener: este archivo corre una vez por pestaña.
+document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    const overlay = document.getElementById("sinEquiposOverlay");
+    const confirmacion = document.getElementById("standardModal");
+    if (overlay && !(confirmacion && confirmacion.classList.contains("active"))) overlay.remove();
+});
+
 window.abrirModalSinEquipos = function () {
     const previo = document.getElementById("sinEquiposOverlay");
     if (previo) previo.remove();
