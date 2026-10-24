@@ -12,7 +12,7 @@
  *       vista.filas(tabla) → array · vista.catalogo(nombre) → array · vista.estado
  *   CopiaLocal.ahora(dominio) → Promise. Pregunta ya por ese dominio.
  *   CopiaLocal.alGuardar() → Promise. Pregunta ya por todos los dominios en uso; lo llaman
- *       fetch_interceptor.js (tras cada guardado que sale bien) y outbox-sync.js.
+ *       fetch_interceptor.js (tras cada guardado que sale bien) y estado_red.js.
  *   CopiaLocal.alDia(dominio) → Promise. Se cumple cuando la copia ya trae el último guardado.
  *   Evento 'copia-local' en window, detail { dominio, cambio, estado }: cambio = true si
  *       llegaron datos nuevos (la pantalla se repinta); con false solo cambió el estado.

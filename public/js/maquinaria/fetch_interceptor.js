@@ -143,8 +143,8 @@ window.fetch = async function (...args) {
         // DUEÑO ÚNICO de "se fue la red", igual que lo es de "se cayó la sesión".
         // Un TypeError de fetch contra NUESTRO servidor = no se alcanzó (los errores
         // HTTP 4xx/5xx resuelven, no lanzan). Como aquí pasan TODAS las peticiones de
-        // la app, con esto el aviso "Sin conexión" —y su botón "Trabajar sin
-        // conexión"— sale hagas lo que hagas: filtrar, navegar, guardar.
+        // la app, con esto el aviso "Sin internet" sale hagas lo que hagas: filtrar,
+        // navegar, guardar.
         //
         // Antes esto estaba copiado a mano en CINCO módulos, así que solo aparecía si
         // el usuario tocaba justo una de esas pantallas; en cualquier otra se iba
@@ -162,9 +162,7 @@ window.fetch = async function (...args) {
             && typeof window.netStatus.showOffline === 'function') {
             window.netStatus.showOffline();
         }
-        // Se relanza para que el caller (ej. fetchNotifs) decida qué hacer.
-        // El console.warn anterior generaba ruido en cada poll cuando no
-        // habia red — eliminado.
+        // Se relanza para que quien pidió decida qué hacer.
         throw err;
     }
 };

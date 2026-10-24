@@ -50,9 +50,6 @@
         <div class="card-section" style="grid-column: span 12;">
             <div class="cards-wrapper">
 
-                {{-- MOVILIZACIONES / "Equipos Por Confirmar Recepción": funcionalidad ELIMINADA
-                     por completo (antes vivía en el centro de notificaciones del navbar, ya removido). --}}
-
                 {{-- ── Card "Salud Operacional" (al lado de Alertas, 1 col del cards-wrapper) ── --}}
                 @php
                     $_flotaTotal = $totalFlotaActiva ?? 0;
@@ -322,8 +319,6 @@
     </footer>
 </div>
 
-    {{-- El panel del usuario se movió al header (ver layouts/estructura_base.blade.php) --}}
-
     <!-- Partial Modal for Equipment Details (Used by Alerts) -->
     @include('admin.equipos.partials.equipment_details_modal')
 
@@ -441,16 +436,6 @@
             }
 
             programar();
-        })();
-
-        // Animación slideDown: la usan modales de otras pantallas (equipos, movilizaciones)
-        // que no la definen; una vez inyectada vale para toda la pestaña.
-        (function () {
-            if (window.__menuStyleRDInjected) return;
-            window.__menuStyleRDInjected = true;
-            const _styleRD = document.createElement('style');
-            _styleRD.textContent = '@keyframes slideDown { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
-            document.head.appendChild(_styleRD);
         })();
 
         // ── Reporte de Alertas de Documentos: elegir formato y descargar ──────────

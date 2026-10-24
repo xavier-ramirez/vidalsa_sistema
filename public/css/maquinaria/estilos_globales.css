@@ -226,6 +226,19 @@ body {
     color: var(--maquinaria-blue);
 }
 
+/* Listas y desplegables que bajan al abrirse (multiselect, sugerencias, menús de acciones). */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 @keyframes fadeInDownSmall {
     from {
         opacity: 0;

@@ -83,9 +83,9 @@
      *
      * DEVUELVE si se pudo mostrar. Esto es a proposito y no es un detalle: los
      * cuatro envoltorios de Almacen/Recepcion caian a alert() cuando no habia
-     * toasts, y los de fetch_interceptor.js y outbox-sync NO. Metiendo el alert aqui
-     * le habria aparecido un alert bloqueante a esos dos —y un alert nativo
-     * congela la pestana, incluido el sincronizador que corre de fondo—. Con el
+     * toasts, y el de fetch_interceptor.js NO. Metiendo el alert aqui le habria
+     * aparecido un alert bloqueante —y un alert nativo congela la pestana, incluida
+     * la copia local que corre de fondo—. Con el
      * booleano, cada quien conserva su comportamiento sin repetir el guard.
      *
      * El tipo por defecto es 'info'; las pantallas que asumen otro lo declaran

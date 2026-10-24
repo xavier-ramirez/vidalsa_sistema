@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'Pragma': 'no-cache',
         // Accept: text/html es OBLIGATORIO aquí y no es decorativo. La SPA pide la
         // PÁGINA (el HTML que se inyecta en el contenedor), y varios controladores
-        // —AlmacenController::index, EquipoController, EquipoAuxiliarController…—
+        // —EquipoController, EquipoAuxiliarController…—
         // hacen `if ($request->wantsJson())` para devolver solo las filas de la
         // tabla en JSON. Sin este Accept, window.apiFetch pone su
         // 'application/json' por defecto, wantsJson() da true y la navegación
@@ -900,8 +900,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('avisoVersionCerrar').onclick = function () { caja.remove(); };
     }
 
+    // Igual que la copia local: sin actividad en 2 min no se pregunta (cada petición alarga la
+    // sesión en el servidor, y una pestaña olvidada no debe mantenerla viva).
+    function usuarioActivo() {
+        try {
+            var t = parseInt(localStorage.getItem('vidalsa_last_activity'), 10);
+            return !t || (Date.now() - t) < 2 * 60 * 1000;
+        } catch (e) { return true; }
+    }
+
     function revisar() {
-        if (pidiendo || avisando || document.hidden || navigator.onLine === false) return;
+        if (pidiendo || avisando || document.hidden || navigator.onLine === false || !usuarioActivo()) return;
         pidiendo = true;
         fetch('/version-vistas', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
             .then(function (r) { return r.ok ? r.json() : null; })

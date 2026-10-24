@@ -355,7 +355,6 @@
     @foreach ([
         'js/maquinaria/layout_ui.js',
         'js/maquinaria/estado_red.js',
-        'js/maquinaria/fetch_interceptor.js',
         'js/maquinaria/global_handlers.js',
         'js/maquinaria/preloader.js',
     ] as $_precarga)
@@ -1084,8 +1083,7 @@
                 <h3 id="modalTitle" class="modal-title">¿Confirmar Acción?</h3>
                 <p id="modalMessage" class="modal-message">¿Estás seguro de que deseas realizar esta acción?</p>
                 <div class="modal-footer">
-                    <button id="modalCancelBtn" onclick="cancelModal()"
-                        class="modal-btn modal-btn-cancel">Cancelar</button>
+                    <button id="modalCancelBtn" class="modal-btn modal-btn-cancel">Cancelar</button>
                     <button id="modalConfirmBtn" class="modal-btn modal-btn-confirm">Confirmar</button>
                 </div>
             </div>
@@ -1289,7 +1287,7 @@
         <script src="{{ asset('js/pwa-install.js') }}?v={{ @filemtime(public_path('js/pwa-install.js')) }}" defer></script>
         {{-- El overlay "Actualizando…" va SOLO en el login (inicio_sesion.blade.php): en páginas
              internas una recarga forzada por actualización perdería trabajo del usuario. Aquí el
-             SW nuevo se aplica sin interrumpir (pwa-install.js hace SKIP_WAITING). --}}
+             SW nuevo se aplica sin interrumpir (sw.js hace skipWaiting() al instalarse). --}}
 
         {{-- offline-auth.js NO se carga aquí a propósito: solo tiene trabajo en la pantalla
              de login (preparar y confirmar el verificador de acceso sin conexión, y el botón

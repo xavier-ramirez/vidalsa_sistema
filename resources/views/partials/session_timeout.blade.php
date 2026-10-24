@@ -179,7 +179,6 @@
                                 if (token && token.length > 10) {
                                     const meta = document.querySelector('meta[name="csrf-token"]');
                                     if (meta) meta.setAttribute('content', token);
-                                    if (window.axios) window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
                                 }
                             });
                         } else {
@@ -290,8 +289,6 @@
                         if (token && token.length > 10) {
                             const meta = document.querySelector('meta[name="csrf-token"]');
                             if (meta) meta.setAttribute('content', token);
-                            if (window.axios) window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
-                            if (window.jQuery) window.jQuery.ajaxSetup({ headers: { 'X-CSRF-TOKEN': token } });
                         }
                         window.toast('Sesión renovada', 'success');
                     })
@@ -375,10 +372,8 @@
                 // no se iba nunca, con la sesión abierta. keepalive: el POST sigue su camino
                 // aunque la página ya se haya ido al login.
                 const plazo = setTimeout(salir, PLAZO_LOGOUT_MS);
-                const token = window.getCsrf();   // helper central (dom_helpers.js)
                 window.apiFetch('/logout', { headers: { 'Accept': 'application/json' },
                     method: 'POST',
-                    body: new URLSearchParams({ _token: token }),
                     redirect: 'manual',   // no seguimos el 302: navegamos nosotros abajo
                     cache: 'no-store',
                     keepalive: true

@@ -120,7 +120,7 @@
                     @csrf
                     <div class="form-group">
                         <div class="custom-form-field">
-                            <input type="text" name="login_identifier" id="login_identifier" class="custom-input @error('login_error') input-error @enderror" placeholder=" " required autocomplete="off" value="{{ old('login_identifier') }}">
+                            <input type="text" name="login_identifier" id="login_identifier" class="custom-input" placeholder=" " required autocomplete="off" value="{{ old('login_identifier') }}">
                             <label for="login_identifier" class="custom-label">Correo corporativo</label>
                         </div>
                     </div>

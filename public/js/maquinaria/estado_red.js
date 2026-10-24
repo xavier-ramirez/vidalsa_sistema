@@ -51,8 +51,7 @@
     let sinConexion = false;
 
     // ── DUEÑO ÚNICO de "se fue la red" (lo llama también el interceptor de fetch) ──
-    // Ya avisado no se repinta: cada petición fallida (la copia local pregunta cada 15 s) lo
-    // volvería a medir y animar.
+    // Ya avisado no se repinta: cada petición fallida lo volvería a medir y animar.
     function mostrarOffline() {
         if (sinConexion) return;
         sinConexion = true;

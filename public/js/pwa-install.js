@@ -20,20 +20,10 @@
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
             navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
-                .then(function (reg) {
-                    if (reg && reg.addEventListener) {
-                        reg.addEventListener('updatefound', function () {
-                            var nw = reg.installing;
-                            if (nw) {
-                                nw.addEventListener('statechange', function () {
-                                    if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                                        if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                                    }
-                                });
-                            }
-                        });
-                    }
-                })
+                .catch(function () { /* silencioso */ });
+            // Con sesión: que el SW guarde los módulos sin internet que le falten (ver sw.js).
+            navigator.serviceWorker.ready
+                .then(function (reg) { if (reg.active) reg.active.postMessage({ type: 'PAGINAS_SIN_RED' }); })
                 .catch(function () { /* silencioso */ });
         });
     }
@@ -168,6 +158,6 @@
     } else {
         renderSlot();
     }
-    // En navegacion SPA del proyecto, estructura_base reactiva scripts; exponer hook:
-    window.renderPwaInstallSlot = renderSlot;
+    // Al volver al menú por la SPA el slot es nuevo: se pinta otra vez.
+    window.addEventListener('spa:contentLoaded', renderSlot);
 })();

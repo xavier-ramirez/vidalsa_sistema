@@ -48,12 +48,6 @@ if (!window._alertasModalEscHandler) {
     });
 }
 
-// togglePendingMovs removido: la funcionalidad "Equipos Por Confirmar" se eliminó
-// por completo (vivía en el centro de notificaciones del navbar, ya removido).
-
-// Event Delegation para "Gestionar" fue reemplazada por onclick directo
-// usando window.iniciarGestionCustom para evitar conflictos de propagación.
-
 // Contador "Por Renovar" de la card + campanita. Misma regla que menu.blade.php: solo se
 // agita si queda algo por renovar.
 function pintarTotalAlertas(total) {
@@ -191,9 +185,6 @@ window.filterDashboardAlerts = function () {
     }
 };
 
-// filterPendingMovs removido: la b\u00fasqueda ya no aplica, la lista vive en el dropdown
-// de notificaciones del navbar, que muestra un set acotado sin filtro UI.
-
 // Modal compacto para iniciar gestión
 window.iniciarGestionCustom = function (equipoId, docType, event) {
     if (event) {
@@ -276,7 +267,6 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
         if (typeof window.showPreloader === 'function') window.showPreloader();
 
         try {
-            const csrf = window.getCsrf();
             const response = await window.apiFetch('/dashboard/iniciar-gestion', {
                 method: 'POST',
                 headers: { 'Accept': 'application/json', 
@@ -319,7 +309,3 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
         }
     };
 };
-
-// refreshPendingMovs removido: la lista de pendientes vive en el dropdown de notificaciones
-// del navbar (ver layouts/estructura_base.blade.php). Si necesitas forzar refresh desde otra
-// parte del código, dispatcha: window.dispatchEvent(new Event('notif:refresh')).

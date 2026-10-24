@@ -185,6 +185,15 @@
         } catch (e) { return ''; }
     }
     const claveNumeros = () => 'vidalsa_notas_' + usuario();
+    // Los números apartados de otro usuario que usó este equipo se borran: no le sirven a nadie
+    // más y, si vuelve, el servidor le devuelve los suyos (apartarNumeros).
+    function borrarNumerosDeOtros() {
+        try {
+            Object.keys(localStorage).forEach((k) => {
+                if (k.indexOf('vidalsa_notas_') === 0 && k !== claveNumeros()) localStorage.removeItem(k);
+            });
+        } catch (e) { /* sin almacenamiento */ }
+    }
     function numeros() {
         try { return JSON.parse(localStorage.getItem(claveNumeros()) || '[]'); } catch (e) { return []; }
     }
@@ -326,7 +335,10 @@
         if (conectado && cache.length) subir();
     });
     setInterval(() => { if (!document.hidden && cache.some((x) => x.estado === 'pendiente')) subir(); }, REINTENTO_MS);
-    const arrancar = () => heredarColaVieja().then(refrescar).then(() => { if (cache.length) subir(); });
+    const arrancar = () => {
+        borrarNumerosDeOtros();
+        return heredarColaVieja().then(refrescar).then(() => { if (cache.length) subir(); });
+    };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar);
     else arrancar();
 })();

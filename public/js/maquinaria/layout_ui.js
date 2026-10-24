@@ -97,6 +97,7 @@ if (!window._navDropdownDelegated) {
 
 // Modal Logic
 let modalCallback = null;
+let modalAbierto = 0;   // cuál showModal está en pantalla (para el autocierre)
 let modalCancelCallback = null;
 
 /**
@@ -205,15 +206,13 @@ window.showModal = function (options) {
 
     // Show modal
     modalEl.classList.add('active');
+    const este = ++modalAbierto;
 
-    // Auto-close success modal after 3s (unless disabled)
+    // Auto-close success modal after 3s (unless disabled). Solo si sigue siendo ESTE modal:
+    // si en esos 3 s se abrió otro (p. ej. una confirmación), no se le da a «Aceptar» por él.
     if (config.type === 'success' && !config.disableAutoClose) {
         setTimeout(() => {
-            const modalEl = document.getElementById('standardModal');
-            if (modalEl && modalEl.classList.contains('active')) {
-                const confirmBtn = document.getElementById('modalConfirmBtn');
-                if (confirmBtn) confirmBtn.click();
-            }
+            if (este === modalAbierto && modalEl.classList.contains('active')) confirmBtn.click();
         }, 3000);
     }
 

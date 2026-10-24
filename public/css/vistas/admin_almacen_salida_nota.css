@@ -42,7 +42,6 @@
        campo por campo; como clase, cambiarlo una vez los cambia todos. */
     .alm-hint { font-size:11.5px; color:#94a3b8; margin-top:5px; }
     @keyframes almIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
-    @keyframes slideDown { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     /* Todos los modales del módulo, con el encabezado de los de Equipos y Recepción: barra
        pizarra #1e293b, título blanco con su ícono azul, centrado, y la X fija en la esquina. */
     .alm-modal-head { padding: 14px 48px; background: #1e293b; display: flex; align-items: center; justify-content: center; position: relative; }

@@ -11,14 +11,9 @@
  * rutas de API/acciones, la copia (/sync/) y el sondeo de conexión (/up) NUNCA se cachean
  * para no servir datos viejos.
  *
- * CACHE_VERSION es inyectado por la ruta Laravel que sirve este archivo; el placeholder
- * __CACHE_VERSION__ se reemplaza con filemtime en cada response para que todo cambio
- * en el codigo invalide los caches del SW automaticamente.
- *
- * Al CAMBIAR un asset PRECACHEADO (p. ej. /css/maquinaria/inicio_sesion.css) hay que
- * tocar ESTE archivo para bumpear CACHE_VERSION; si no, el SW sigue sirviendo la copia
- * vieja precacheada (cache-first) y el cambio no llega al usuario.
- * Última invalidación manual: 2026-07-19 (overlay "Actualizando…": precachear su script).
+ * CACHE_VERSION lo pone la ruta Laravel que sirve este archivo (routes/web.php): commit de
+ * git + filemtime de sw.js. Cada despliegue cambia de caché solo, incluidos los assets
+ * PRECACHEADOS (cache-first); no hace falta tocar este archivo para que lleguen.
  */
 const CACHE_VERSION = '__CACHE_VERSION__';
 const STATIC_CACHE  = 'vidalsa-static-' + CACHE_VERSION;
@@ -97,14 +92,37 @@ self.addEventListener('install', (event) => {
             // vuelto a abrirlo con red— ese boton devolvia al login una y otra vez. Los
             // módulos, para que abran sin internet aunque en este equipo nunca se hayan
             // abierto con red.
-            ...PAGINAS_SIN_RED.map((ruta) => fetch(ruta, { credentials: 'same-origin' }).then((response) => {
-                if (response && response.status === 200 && !response.redirected) {
-                    return caches.open(RUNTIME_CACHE).then((cache) => cache.put(ruta, response));
-                }
-            }).catch(() => {}))
+            guardarPaginasSinRed(false),
         ])
     );
 });
+
+// Si el install corrió SIN sesión (la app se abrió en el login), ninguna página quedó guardada.
+// El layout, ya con sesión, pide 'PAGINAS_SIN_RED' en cada carga (pwa-install.js) y aquí solo
+// se bajan las que faltan en la caché de esta versión. Con cada página, sus CSS/JS propios
+// (los ?v= de su HTML): sin ellos un módulo nunca abierto con red salía sin estilos.
+function guardarPaginasSinRed(soloFaltantes) {
+    return caches.open(RUNTIME_CACHE).then((cache) => Promise.all(PAGINAS_SIN_RED.map((ruta) =>
+        (soloFaltantes ? cache.match(ruta) : Promise.resolve(null)).then((ya) => ya || fetch(ruta, { credentials: 'same-origin' }).then((response) => {
+            if (!response || response.status !== 200 || response.redirected) return;
+            return response.clone().text()
+                .then((html) => cache.put(ruta, response).then(() => guardarArchivosDe(cache, html)));
+        })).catch(() => {})
+    )));
+}
+
+function guardarArchivosDe(cache, html) {
+    const urls = new Set();
+    for (const m of html.matchAll(/(?:href|src)="([^"]+\?v=[^"]+)"/g)) {
+        try {
+            const u = new URL(m[1].replace(/&amp;/g, '&'), self.location.origin);
+            if (u.origin === self.location.origin && /^\/(css|js)\//.test(u.pathname)) urls.add(u.toString());
+        } catch (e) { /* URL rara: se salta */ }
+    }
+    return Promise.all([...urls].map((u) => cache.match(u).then((ya) => ya || fetch(u).then((r) => {
+        if (r && r.ok) return cache.put(u, r);
+    })).catch(() => {})));
+}
 
 // ¿Se puede pasar esta entrada de la caché vieja a la nueva? Las PAGINAS (HTML, incluidas
 // las respuestas cortas de la SPA y el panel de alertas) y los archivos con ?v= en la URL:
@@ -410,7 +428,5 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SKIP_WAITING') {
-        self.skipWaiting();
-    }
+    if (event.data && event.data.type === 'PAGINAS_SIN_RED') event.waitUntil(guardarPaginasSinRed(true));
 });
