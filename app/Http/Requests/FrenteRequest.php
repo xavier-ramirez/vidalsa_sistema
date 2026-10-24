@@ -52,32 +52,16 @@ class FrenteRequest extends FormRequest
             $this->merge(['CONTRATOS' => $contratos]);
         }
 
-        $this->merge([
-            'NOMBRE_FRENTE' => mb_strtoupper($this->input('NOMBRE_FRENTE')),
-            'UBICACION'     => mb_strtoupper($this->input('UBICACION')),
-            'ZONA'          => $this->filled('ZONA') ? mb_strtoupper($this->input('ZONA')) : null,
-            'SUBDIVISIONES' => $this->filled('SUBDIVISIONES') ? mb_strtoupper($this->input('SUBDIVISIONES')) : null,
-            'RESP_1_NOM'    => mb_strtoupper($this->input('RESP_1_NOM')),
-            'RESP_1_CAR'    => mb_strtoupper($this->input('RESP_1_CAR')),
-            'RESP_1_CED'    => mb_strtoupper($this->input('RESP_1_CED', '')),
-            'RESP_1_EQU'    => mb_strtoupper($this->input('RESP_1_EQU')),
-            'RESP_2_NOM'    => mb_strtoupper($this->input('RESP_2_NOM')),
-            'RESP_2_CAR'    => mb_strtoupper($this->input('RESP_2_CAR')),
-            'RESP_2_CED'    => mb_strtoupper($this->input('RESP_2_CED', '')),
-            'RESP_2_EQU'    => mb_strtoupper($this->input('RESP_2_EQU')),
-            'RESP_3_NOM'    => mb_strtoupper($this->input('RESP_3_NOM')),
-            'RESP_3_CAR'    => mb_strtoupper($this->input('RESP_3_CAR')),
-            'RESP_3_CED'    => mb_strtoupper($this->input('RESP_3_CED', '')),
-            'RESP_3_EQU'    => mb_strtoupper($this->input('RESP_3_EQU')),
-            'RESP_4_NOM'    => mb_strtoupper($this->input('RESP_4_NOM')),
-            'RESP_4_CAR'    => mb_strtoupper($this->input('RESP_4_CAR')),
-            'RESP_4_CED'    => mb_strtoupper($this->input('RESP_4_CED', '')),
-            'RESP_4_EQU'    => mb_strtoupper($this->input('RESP_4_EQU')),
-            'RESP_5_NOM'    => mb_strtoupper($this->input('RESP_5_NOM')),
-            'RESP_5_CAR'    => mb_strtoupper($this->input('RESP_5_CAR')),
-            'RESP_5_CED'    => mb_strtoupper($this->input('RESP_5_CED', '')),
-            'RESP_5_EQU'    => mb_strtoupper($this->input('RESP_5_EQU')),
-        ]);
+        // En mayúsculas; lo vacío queda NULL. Antes mb_strtoupper(null) guardaba '' en los
+        // responsables sin llenar, y el acta (MovilizacionController::extractFirmasActa) no
+        // ponía su cargo por defecto porque '' no es null.
+        $campos = ['NOMBRE_FRENTE', 'UBICACION', 'ZONA', 'SUBDIVISIONES'];
+        for ($i = 1; $i <= 5; $i++) {
+            array_push($campos, "RESP_{$i}_NOM", "RESP_{$i}_CAR", "RESP_{$i}_CED", "RESP_{$i}_EQU");
+        }
+        $this->merge(collect($campos)->mapWithKeys(fn ($c) => [
+            $c => $this->filled($c) ? mb_strtoupper(trim((string) $this->input($c))) : null,
+        ])->all());
     }
 
     /**

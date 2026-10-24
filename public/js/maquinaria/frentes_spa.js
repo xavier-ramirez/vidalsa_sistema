@@ -465,19 +465,12 @@ function showNotification(type, message) {
     // de modulos (equipos, auxiliares, catalogo).
     // window.toast (dom_helpers.js) devuelve false si aun no hay toasts: solo
     // entonces se cae al modal.
-    if (window.toast && window.toast(message, type)) {
-        return;
-    }
-    if (typeof window.showModal === "function") {
-        // Fallback: si no hay toast disponible, modal sin boton Cancelar.
-        window.showModal({
-            type: type,
-            title: type === "success" ? "Éxito" : "Error",
-            message: message,
-            confirmText: "Aceptar",
-            hideCancel: true,
-        });
-    } else {
-        alert(message);
-    }
+    if (window.toast(message, type)) return;
+    window.showModal({
+        type: type,
+        title: type === "success" ? "Éxito" : "Error",
+        message: message,
+        confirmText: "Aceptar",
+        hideCancel: true,
+    });
 }

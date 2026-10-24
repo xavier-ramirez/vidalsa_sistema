@@ -88,11 +88,13 @@
      nobr="true" en la tabla maestra: garantiza que todo el bloque de firmas
      NUNCA quede partido entre dos páginas. TCPDF lo mueve completo a la siguiente.
 
-     ORDEN DE FIRMAS:
-       RESP_1 → SOLICITADO  (Coord. Mecánica Liviana o Pesada según equipo)
-       RESP_2 → ELABORADO   (Dpto. Transporte y Logística — solo Patio Maturín)
-       RESP_3 → REVISADO    (Sub-Gerente — solo Patio Maturín)
-       RESP_4 → APROBADO    (Gerente)
+     ORDEN DE FIRMAS (MovilizacionController::extractFirmasActa, mismo orden que el
+     formulario de Frentes):
+       RESP_1 → SOLICITADO  (Coord. Mecánica Liviana)
+       RESP_2 → SOLICITADO  (Coord. Mecánica Pesada)
+       RESP_3 → ELABORADO   (Transporte y Logística)
+       RESP_4 → REVISADO    (Sub-gerente)
+       RESP_5 → APROBADO    (Gerente)
        + RECIBIDO POR (destino, siempre al final)
 
      LAYOUT — UNA sola rejilla de 2 columnas para todos los casos:

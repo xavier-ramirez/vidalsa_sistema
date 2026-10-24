@@ -103,6 +103,28 @@ class FrentesTrabajoTest extends MySqlTestCase
         $this->assertSame(['CTR-A', 'CTR-B'], $f->refresh()->CONTRATOS);
     }
 
+    /** Responsable sin llenar = NULL (no ''): el acta pone entonces su cargo por defecto. */
+    public function test_los_responsables_vacios_quedan_en_null_y_los_llenos_en_mayusculas(): void
+    {
+        $f = $this->frente();
+
+        $this->actingAs($this->superAdmin())
+            ->putJson("/admin/frentes/{$f->ID_FRENTE}?json=true", $this->payload($f, [
+                'RESP_1_NOM' => ' juan pérez ', 'RESP_1_CAR' => 'gerente', 'RESP_1_CED' => 'v-123',
+                'RESP_2_NOM' => '', 'RESP_2_CAR' => '', 'RESP_2_EQU' => '',
+            ]))
+            ->assertOk();
+
+        $f->refresh();
+        $this->assertSame('JUAN PÉREZ', $f->RESP_1_NOM);
+        $this->assertSame('GERENTE', $f->RESP_1_CAR);
+        $this->assertSame('V-123', $f->RESP_1_CED);
+        $this->assertNull($f->RESP_2_NOM);
+        $this->assertNull($f->RESP_2_CAR);
+        $this->assertNull($f->RESP_2_EQU);
+        $this->assertNull($f->RESP_5_NOM);
+    }
+
     public function test_no_deja_finalizar_un_frente_con_equipos_asignados(): void
     {
         $f = $this->frente();
