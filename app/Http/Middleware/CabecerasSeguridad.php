@@ -16,6 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class CabecerasSeguridad
 {
+    public const CSP = "base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'";
+
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
@@ -33,6 +35,17 @@ class CabecerasSeguridad
         // A otros sitios solo viaja el dominio, nunca la ruta con sus IDs o búsquedas. Es lo
         // que ya hacen los navegadores modernos por defecto; se fija para los viejos.
         $cabeceras->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+        // CSP: lo que un código inyectado usaría para salir de la página. Un <base> ajeno
+        // desviaría todos los enlaces y scripts relativos; <object>/<embed> cargan plugins;
+        // un <form> podría mandar los datos (o la clave del login) a otro sitio; y
+        // frame-ancestors es el X-Frame-Options de arriba para navegadores nuevos.
+        // NO limita script-src: las páginas tienen mucho JS en línea (onclick, <script>), y
+        // cerrarlo exige sacar ese código a archivos antes o se rompen pantallas.
+        // Solo en páginas: en un PDF, object-src 'none' hace que Chrome no lo muestre.
+        if (str_starts_with((string) $cabeceras->get('Content-Type'), 'text/html')) {
+            $cabeceras->set('Content-Security-Policy', self::CSP);
+        }
 
         // HSTS: durante un año el navegador ya no intenta entrar por http. Solo sobre https
         // (por http el navegador la ignora). Detrás de EasyPanel isSecure() sale del
