@@ -166,23 +166,15 @@
                 overflow: hidden !important;
             }
 
-            /* Los gráficos por tipo SÍ salen en el teléfono (estuvieron ocultos cuando eran de
-               Chart.js y no se leían; ya son HTML, pintarPorTipo). En la cabecera: título y
-               cámara arriba, el resumen debajo en su propia línea. Cada fila: nombre y cifras
-               arriba, la barra debajo a todo el ancho. */
+            /* "Flota Nueva vs Vieja por Tipo" y "Auxiliares Nuevos vs Viejos por Tipo" NO salen
+               en el teléfono: el usuario no los necesita ahí (25-10-2026). Se ocultan, no se
+               quitan del HTML: pintarPorTipo() los sigue llenando para escritorio. !important
+               gana al style.display que les ponen avisoSinConexion y pintarPorTipo. */
+            #fdm-panel-age,
+            #fdm-panel-auxiliares { display: none !important; }
+
+            /* Cabecera de los paneles: el título y la cámara se reparten si no caben. */
             #fleetDashboardModal .fdm-panel-head { flex-wrap: wrap; gap: 6px 10px; }
-            #fleetDashboardModal .fdm-resumen { order: 3; flex-basis: 100%; gap: 4px 14px; }
-            #fleetDashboardModal .fdm-res-lbl { font-size: 11.5px; }
-            #fleetDashboardModal .fdm-res b { font-size: 15px; }
-            #fleetDashboardModal .fdm-fila {
-                grid-template-columns: minmax(0, 1fr) auto;
-                grid-template-areas: "nom cifras" "barra barra";
-                gap: 5px 10px;
-                padding: 7px 0;
-            }
-            #fleetDashboardModal .fdm-fila-nom { grid-area: nom; }
-            #fleetDashboardModal .fdm-fila-cifras { grid-area: cifras; min-width: 0; gap: 10px; }
-            #fleetDashboardModal .fdm-fila-pista { grid-area: barra; height: 10px; }
 
             /* Paneles: menos padding. */
             #fleetDashboardModal .fdm-panel,
