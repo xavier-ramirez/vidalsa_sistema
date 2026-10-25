@@ -43,21 +43,24 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     // la entrada por ODC. Los dos sitios que lo leen lo hacen AL TECLEAR, así que no
     // bloquea nada.
     //
-    // El guard es por SESIÓN, no por montaje: el módulo se abre y se cierra muchas veces en
-    // la navegación interna y la lista no cambia entre aperturas — sin él se pediría otra
-    // vez en cada entrada.
+    // Se vuelve a pedir en CADA apertura (antes una vez por sesión: un producto creado desde
+    // Inventario u otro equipo no salía hasta recargar). Mientras llega se busca en la de la
+    // apertura anterior, y lo dado de alta aquí entretanto (push en catalogo()) se conserva.
     window.trProductosLista = window.trProductosLista || [];
     (function () {
-        if (window.trProductosCargados || window.trProductosCargando) return;
-        if (!RECB_CFG.urlProductos) return;
+        if (window.trProductosCargando || !RECB_CFG.urlProductos) return;
         window.trProductosCargando = true;
+        var previa = window.trProductosLista, antes = previa.length;
         window.apiFetch(RECB_CFG.urlProductos, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (lista) {
-                window.trProductosLista = Array.isArray(lista) ? lista : [];
-                window.trProductosCargados = true;
+                if (!Array.isArray(lista)) return;
+                var ids = {};
+                lista.forEach(function (p) { ids[p.ID_PRODUCTO] = true; });
+                window.trProductosLista = lista.concat(window.trProductosLista === previa
+                    ? previa.slice(antes).filter(function (p) { return !ids[p.ID_PRODUCTO]; }) : []);
             })
-            .catch(function () { /* silencioso: el buscador queda vacío y se reintenta al volver */ })
+            .catch(function () { /* silencioso: queda la lista anterior y se reintenta al volver */ })
             .finally(function () { window.trProductosCargando = false; });
     })();
 

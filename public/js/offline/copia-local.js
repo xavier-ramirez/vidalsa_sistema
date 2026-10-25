@@ -343,6 +343,12 @@
         },
         ahora: sincronizar,
         alGuardar,
+        // Se abrió un módulo de este dominio (navegacion.js): se pregunta ya si la última
+        // pregunta tiene más de 3 s, y lo hecho desde otro equipo no espera la vuelta de 15 s.
+        alAbrir(d) {
+            const c = copias[d];
+            if (c && c.estado.listo && !c.sinSesion && !c.sinPermiso && Date.now() - c.ultimo > 3000) sincronizar(d);
+        },
         // Se volvió a entrar sin salir de la pantalla (sesion_caida.js): se pregunta otra vez ya.
         reanudar() {
             Object.values(copias).forEach((c) => { c.sinSesion = false; });
