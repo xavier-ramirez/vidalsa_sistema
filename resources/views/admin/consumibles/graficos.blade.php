@@ -42,7 +42,7 @@
                             </div>
                             @foreach($frentes as $f)
                                 <div class="dropdown-item" data-value="{{ $f->ID_FRENTE }}"
-                                    onclick="window.selectOption('frenteFilterSelect', '{{ $f->ID_FRENTE }}', '{{ $f->NOMBRE_FRENTE }}'); window.cargarDatos();">
+                                    onclick="window.selectOption('frenteFilterSelect', '{{ $f->ID_FRENTE }}', '{{ addslashes($f->NOMBRE_FRENTE) }}'); window.cargarDatos();">
                                     {{ $f->NOMBRE_FRENTE }}
                                 </div>
                             @endforeach
@@ -74,7 +74,7 @@
                             @foreach(\App\Models\Consumible::tiposLabel() as $v => $l)
                                 @if(!in_array($v, ['REFRIGERANTE', 'OTRO']))
                                     <div class="dropdown-item {{ $v == 'GASOIL' ? 'selected' : '' }}" data-value="{{ $v }}"
-                                        onclick="window.selectOption('tipoFilterSelect', '{{ $v }}', '{{ $l }}'); window.cargarDatos();">
+                                        onclick="window.selectOption('tipoFilterSelect', '{{ $v }}', '{{ addslashes($l) }}'); window.cargarDatos();">
                                         {{ $l }}
                                     </div>
                                 @endif

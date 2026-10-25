@@ -222,7 +222,7 @@
                                     @foreach($frentes as $f)
                                         <div class="dropdown-item {{ $currentFrenteId == $f->ID_FRENTE ? 'selected' : '' }}"
                                             data-value="{{ $f->ID_FRENTE }}"
-                                            onclick="window.selectOption('frenteFilterSelect', '{{ $f->ID_FRENTE }}', '{{ $f->NOMBRE_FRENTE }}'); setTimeout(()=>window.submitConsumiblesFilters(), 50);">
+                                            onclick="window.selectOption('frenteFilterSelect', '{{ $f->ID_FRENTE }}', '{{ addslashes($f->NOMBRE_FRENTE) }}'); setTimeout(()=>window.submitConsumiblesFilters(), 50);">
                                             {{ $f->NOMBRE_FRENTE }}
                                         </div>
                                     @endforeach
@@ -263,7 +263,7 @@
                                     @foreach($tiposList as $val => $label)
                                         <div class="dropdown-item {{ $currentTipo == $val ? 'selected' : '' }}"
                                             data-value="{{ $val }}"
-                                            onclick="window.selectOption('tipoFilterSelect', '{{ $val }}', '{{ $label }}'); setTimeout(()=>window.submitConsumiblesFilters(), 50);">
+                                            onclick="window.selectOption('tipoFilterSelect', '{{ $val }}', '{{ addslashes($label) }}'); setTimeout(()=>window.submitConsumiblesFilters(), 50);">
                                             {{ $label }}</div>
                                     @endforeach
                                 </div>
@@ -366,7 +366,7 @@
                                             @foreach($estadosList as $val => $label)
                                                 <div class="dropdown-item {{ $currentEstado == $val ? 'selected' : '' }}"
                                                     data-value="{{ $val }}"
-                                                    onclick="window.selectOption('estadoFilterSelect', '{{ $val }}', '{{ $label }}'); setTimeout(()=>window.submitConsumiblesFilters(), 50);">
+                                                    onclick="window.selectOption('estadoFilterSelect', '{{ $val }}', '{{ addslashes($label) }}'); setTimeout(()=>window.submitConsumiblesFilters(), 50);">
                                                     {{ $label }}</div>
                                             @endforeach
                                         </div>
@@ -405,6 +405,7 @@
                                 <span style="font-size:14px; font-weight:500;">Cargar Lote (Masivo)</span>
                             </a>
                             {{-- Acciones Locales --}}
+                            @can('equipos.edit')
                             <button type="button" id="btnMatch"
                                 onclick="document.getElementById('splitDropdownMenu').style.display='none'; ejecutarMatch()"
                                 class="dropdown-item-custom"
@@ -416,6 +417,7 @@
                                 <span id="consumiblesMatchTxt" style="font-size:14px; font-weight:500;">Ejecutar Match ({{ $pendientes }} /
                                     {{ $sinMatch }})</span>
                             </button>
+                            @endcan
                             <a id="consumiblesExportar" href="{{ route('consumibles.exportarCsv', request()->all()) }}"
                                 onclick="document.getElementById('splitDropdownMenu').style.display='none';"
                                 class="dropdown-item-custom"
@@ -659,11 +661,13 @@
                                         <span id="frente-txt-{{ $c->ID_CONSUMIBLE }}" style="flex:1;">
                                             {{ $c->frente?->NOMBRE_FRENTE ?? '—' }}
                                         </span>
+                                        @can('equipos.edit')
                                         <button onclick="editarFrente({{ $c->ID_CONSUMIBLE }}, {{ $c->ID_FRENTE ?? 'null' }})"
                                             style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;"
                                             title="Cambiar frente">
                                             <i class="material-icons" style="font-size:14px;">edit</i>
                                         </button>
+                                        @endcan
                                     </div>
                                     @php
                                         $frenteConsumible = $c->ID_FRENTE;
@@ -681,16 +685,18 @@
                                     @endif
                                 </td>
                                 <td style="font-family:monospace; font-size:12px; color:#1e293b;"
-                                    id="id-cell-{{ $c->ID_CONSUMIBLE }}">
+                                    id="id-cell-{{ $c->ID_CONSUMIBLE }}" data-original="{{ $c->IDENTIFICADOR }}">
                                     <div style="display:flex; align-items:center; gap:5px;">
                                         <span id="id-txt-{{ $c->ID_CONSUMIBLE }}"
                                             style="flex:1;">{{ $c->IDENTIFICADOR ?? '—' }}</span>
+                                        @can('equipos.edit')
                                         <button
-                                            onclick="editarId({{ $c->ID_CONSUMIBLE }}, '{{ addslashes($c->IDENTIFICADOR ?? '') }}')"
+                                            onclick="editarId({{ $c->ID_CONSUMIBLE }})"
                                             style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;"
                                             title="Editar identificador">
                                             <i class="material-icons" style="font-size:14px;">edit</i>
                                         </button>
+                                        @endcan
                                     </div>
                                 </td>
                                 <td style="font-size:12px; line-height:1.5;">
@@ -765,12 +771,14 @@
                                     @endif
                                 </td>
                                 <td>
+                                    @can('equipos.edit')
                                     <button type="button" data-consumible-id="{{ $c->ID_CONSUMIBLE }}"
                                         onclick="window.borrarDirecto({{ $c->ID_CONSUMIBLE }}, '{{ route('consumibles.destroy', $c->ID_CONSUMIBLE) }}', this)"
                                         style="background:none; border:none; color:#ef4444; cursor:pointer; padding:4px;"
                                         title="Eliminar al instante">
                                         <i class="material-icons" style="font-size:17px;">delete</i>
                                     </button>
+                                    @endcan
                                 </td>
                             </tr>
                         @empty

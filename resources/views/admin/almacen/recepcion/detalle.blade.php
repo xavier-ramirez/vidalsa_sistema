@@ -267,7 +267,7 @@
                  porque es una acción irreversible dentro de la pantalla de trabajo diario. --}}
             @if($puedeCancelar)
             <button type="button" class="dt-btn dt-btn-cancel"
-                    onclick="window.trCancelar('{{ $traspaso->REFERENCIA ?: $traspaso->NUMERO }}')">
+                    onclick="window.trCancelar('{{ addslashes($traspaso->REFERENCIA ?: $traspaso->NUMERO) }}')">
                 <i class="material-icons">block</i> Anular nota
             </button>
             @endif
@@ -282,7 +282,7 @@
             </button>
         @elseif($puedeEnviar)
             <button type="button" class="dt-btn dt-btn-cancel"
-                    onclick="window.trCancelar('{{ $traspaso->NUMERO }}')">Cancelar borrador</button>
+                    onclick="window.trCancelar('{{ addslashes($traspaso->NUMERO) }}')">Cancelar borrador</button>
             <div style="flex:1;"></div>
             <button type="button" class="dt-btn dt-btn-blue"
                     onclick="window.trEnviar()">
@@ -291,7 +291,7 @@
         @elseif($puedeCancelar)
             <div style="flex:1;"></div>
             <button type="button" class="dt-btn dt-btn-cancel"
-                    onclick="window.trCancelar('{{ $traspaso->NUMERO }}')">Cancelar y revertir</button>
+                    onclick="window.trCancelar('{{ addslashes($traspaso->NUMERO) }}')">Cancelar y revertir</button>
         @endif
     </div>
     @endif
@@ -414,7 +414,7 @@
         window.confirmarAccion({
             type:        'danger',
             title:       'Anular la nota',
-            message:     'La nota <strong>' + numero + '</strong> quedará ANULADA. Si ya estaba en tránsito, el stock volverá al almacén de origen. No se puede deshacer.',
+            message:     'La nota <strong>' + window.escapeHtml(numero) + '</strong> quedará ANULADA. Si ya estaba en tránsito, el stock volverá al almacén de origen. No se puede deshacer.',
             confirmText: 'Anular',
             cancelText:  'No, volver',
         }, anular);

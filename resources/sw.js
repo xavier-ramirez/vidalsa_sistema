@@ -100,6 +100,39 @@ self.addEventListener('install', (event) => {
     );
 });
 
+// ── De quién son las páginas guardadas ─────────────────────────────────────────────
+// El HTML de los módulos trae datos del usuario que los abrió (la copia de IndexedDB va
+// cifrada por usuario; estas páginas no). En una PC compartida, el siguiente que entrara
+// veía lo que el anterior. Por eso cada página con sesión dice quién es (PAGINAS_SIN_RED con
+// `usuario`): si no es el dueño de lo guardado, se tira todo antes de guardar lo suyo.
+// Salir del sistema NO las tira: el acceso sin internet (offline-auth.js) sigue siendo de
+// quien salió, y sin estas páginas al día siguiente no podría entrar sin red. Sin dueño
+// anotado (lo guardado antes de existir esta marca) se adopta, sin tirar nada.
+// Se quedan el login ('/'), que no tiene datos de nadie, y los CSS/JS.
+const DUENO = '/__dueno-paginas';
+
+function esPagina(req) {
+    const ruta = new URL(req.url).pathname;
+    return ruta !== '/' && ruta !== DUENO && !/^\/(js|css|fonts|images|img|icons)\//.test(ruta);
+}
+
+function olvidarPaginas() {
+    return caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith('vidalsa-runtime-')).map((k) =>
+        caches.open(k).then((cache) => cache.keys().then((reqs) => Promise.all(
+            reqs.filter(esPagina).map((req) => cache.delete(req))
+        )).then(() => cache.delete(DUENO)))
+    )));
+}
+
+function asegurarDueno(usuario) {
+    if (!usuario) return Promise.resolve();
+    return caches.open(RUNTIME_CACHE).then((cache) => cache.match(DUENO)
+        .then((r) => (r ? r.text() : null))
+        .then((dueno) => (dueno === String(usuario) ? null
+            : (dueno === null ? Promise.resolve() : olvidarPaginas())
+                .then(() => cache.put(DUENO, new Response(String(usuario)))))));
+}
+
 // Si el install corrió SIN sesión (la app se abrió en el login), ninguna página quedó guardada.
 // El layout, ya con sesión, pide 'PAGINAS_SIN_RED' en cada carga (pwa-install.js) y aquí solo
 // se bajan las que faltan en la caché de esta versión. Con cada página, sus CSS/JS propios
@@ -158,6 +191,7 @@ function esLoginEnClaveAjena(req, res) {
 
 function sePuedeConservar(req, res) {
     const u = new URL(req.url);
+    if (u.pathname === DUENO) return true;   // sin él, cada despliegue tiraría las páginas
     // Una respuesta CORTA de la SPA guardada con la clave normal (lo hacia el SW anterior a
     // las claves ?__spa=1): pasarla abriria la app sin menu ni scripts. Fuera.
     if (req.headers.get('X-SPA-Navigate') === '1') return false;
@@ -433,5 +467,8 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'PAGINAS_SIN_RED') event.waitUntil(guardarPaginasSinRed(true));
+    const tipo = event.data && event.data.type;
+    if (tipo === 'PAGINAS_SIN_RED') {
+        event.waitUntil(asegurarDueno(event.data.usuario).then(() => guardarPaginasSinRed(true)));
+    }
 });

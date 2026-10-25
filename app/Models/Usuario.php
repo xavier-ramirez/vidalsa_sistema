@@ -5,12 +5,11 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\Hash;
 
 class Usuario extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable;
 
     /** Valores de NIVEL_ACCESO_EQUIPOS / NIVEL_ACCESO_ALMACEN y su etiqueta. */
     public const NIVELES_ACCESO = [1 => 'GLOBAL', 2 => 'LOCAL'];

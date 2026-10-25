@@ -14,6 +14,7 @@ use App\Models\TipoEquipo;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use App\Support\MensajeError;
 
 class EquipoController extends Controller
 {
@@ -41,9 +42,7 @@ class EquipoController extends Controller
 
     public function __construct()
     {
-        // mobileIndex y mobileChangeStatus se invocan via routes/api.php con
-        // guard sanctum — no pasan por el middleware 'auth' web del constructor.
-        $this->middleware('auth')->except(['mobileIndex', 'mobileChangeStatus']);
+        $this->middleware('auth');
         // Registro uno a uno + carga masiva via Excel: requieren 'equipos.create'.
         // Gate::before resuelve super.admin. 'create' (el GET del formulario) va aqui
         // tambien: sin el, un usuario sin permiso abria y llenaba el form para recibir
@@ -1854,40 +1853,6 @@ class EquipoController extends Controller
         ]);
     }
 
-    /**
-     * Cambio de estado operativo desde la APK móvil (Sanctum).
-     *
-     * Mismo flujo que changeStatus pero accesible desde routes/api.php sin pasar
-     * por el middleware 'auth' web del constructor (la APK autentica con token
-     * Bearer Sanctum). El permiso 'equipos.edit' lo aplica la ruta misma.
-     *
-     * Disparado por el sincronizador del outbox SQLite cuando el usuario tocó
-     * el chip de estado de un equipo en modo offline.
-     */
-    public function mobileChangeStatus(Request $request, $id)
-    {
-        $request->validate([
-            'status' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO',
-        ]);
-        $equipo = \App\Models\Equipo::findOrFail($id);
-
-        // MISMA regla que la web (changeStatus): si el equipo tiene un reporte de falla
-        // ABIERTO, su estado lo gobierna ese reporte y NO se cambia a mano — hay que cerrar
-        // el reporte primero. Se responde 409 con los datos del reporte para que la APK
-        // muestre el aviso ("cierra el reporte primero") y NO reintente el outbox.
-        // Fuente ÚNICA del "reporte abierto": la relación Equipo::fallaAbierta.
-        $falla = $equipo->fallaAbierta;
-        if ($falla) {
-            return \App\Models\Falla::respuestaReporteAbierto($falla);
-        }
-
-        $equipo->ESTADO_OPERATIVO = $request->input('status');
-        $equipo->save();
-
-        return response()->json(['success' => true, 'estado' => $equipo->ESTADO_OPERATIVO]);
-    }
-
-
     public function uploadDoc(Request $request, $id)
     {
         if (!auth()->user()->can('user.edit')) {
@@ -2059,7 +2024,7 @@ class EquipoController extends Controller
             Log::error('Error subiendo archivo a Google Drive: ' . $e->getMessage());
             if (ob_get_length())
                 ob_end_clean();
-            return response()->json(['success' => false, 'message' => 'Error al subir archivo: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Error al subir archivo: ' . MensajeError::texto($e, MensajeError::REINTENTAR)], 500);
         }
     }
 
@@ -2220,7 +2185,7 @@ class EquipoController extends Controller
         } catch (\Exception $e) {
             Log::error('Error anexando corrección a Google Drive: ' . $e->getMessage());
             if (ob_get_length()) ob_end_clean();
-            return response()->json(['success' => false, 'message' => 'Error al anexar la corrección: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Error al anexar la corrección: ' . MensajeError::texto($e, MensajeError::REINTENTAR)], 500);
         }
     }
 
@@ -3321,7 +3286,7 @@ class EquipoController extends Controller
             Log::error('Fleet Stats Error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Error al obtener estadísticas: ' . $e->getMessage()
+                'message' => 'Error al obtener estadísticas: ' . MensajeError::texto($e, MensajeError::REINTENTAR)
             ], 500);
         }
     }
@@ -4553,7 +4518,7 @@ class EquipoController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('bulkAnchor error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+            return response()->json(['success' => false, 'error' => MensajeError::texto($e)], 500);
         }
     }
 
@@ -4617,8 +4582,8 @@ class EquipoController extends Controller
             DB::rollBack();
             Log::error('[clearAnchor] Fallo crítico: ' . $e->getMessage());
             return response()->json([
-                'success' => false, 
-                'error' => 'Fallo interno al intentar desanclar. ' . $e->getMessage()
+                'success' => false,
+                'error' => 'Fallo interno al intentar desanclar: ' . MensajeError::texto($e, MensajeError::REINTENTAR)
             ], 500);
         }
     }
@@ -4734,72 +4699,6 @@ class EquipoController extends Controller
         });
     }
 
-    // ─── MOBILE API ───────────────────────────────────────────────────────────────
-    public function mobileIndex(Request $request)
-    {
-        $search = $request->input('search');
-
-        $query = Equipo::with(['tipo', 'frenteActual', 'documentacion', ...Equipo::conFoto()])
-            ->excludeFueraDeFlota();
-
-        if ($search) {
-            $searchUpper = strtoupper(trim($search));
-            $query->where(function ($q) use ($searchUpper) {
-                $q->where('CODIGO_PATIO', 'like', "%{$searchUpper}%")
-                  ->orWhere('SERIAL_CHASIS', 'like', "%{$searchUpper}%")
-                  // SERIAL_DE_MOTOR: la búsqueda web (index/export) sí lo incluye; el móvil
-                  // lo omitía → buscar por nº de motor no encontraba el equipo en la APK.
-                  ->orWhere('SERIAL_DE_MOTOR', 'like', "%{$searchUpper}%")
-                  ->orWhere('MARCA', 'like', "%{$searchUpper}%")
-                  ->orWhere('MODELO', 'like', "%{$searchUpper}%")
-                  ->orWhere('NUMERO_ETIQUETA', 'like', "%{$searchUpper}%")
-                  ->orWhereHas('documentacion', function ($d) use ($searchUpper) {
-                      $d->where('PLACA', 'like', "%{$searchUpper}%");
-                  })
-                  ->orWhereHas('frenteActual', function ($f) use ($searchUpper) {
-                      $f->where('NOMBRE_FRENTE', 'like', "%{$searchUpper}%");
-                  });
-            });
-        }
-
-        $equipos = $query->orderBy('CODIGO_PATIO')->get();
-
-        return response()->json($equipos->map(function ($eq) {
-            // Foto: Equipo::fotoParaMostrar (color → modelo → propia), la misma del
-            // listado web. Si es un drive ID se convierte al thumbnail publico para que
-            // el <Image> de RN lo descargue directo sin proxy.
-            $foto = null;
-            $raw = $eq->fotoParaMostrar();
-            if ($raw) {
-                // Extraer drive id si viene como URL completa
-                if (preg_match('#(?:/d/|id=)([\w-]{20,})#', $raw, $m)) {
-                    $foto = 'https://drive.google.com/thumbnail?id=' . $m[1] . '&sz=w400';
-                } else {
-                    $foto = $raw; // URL directa
-                }
-            }
-
-            return [
-                'ID_EQUIPO'       => $eq->ID_EQUIPO,
-                'CODIGO_PATIO'    => $eq->CODIGO_PATIO,
-                'TIPO'            => $eq->tipo->nombre ?? 'N/A',
-                'MARCA'           => $eq->MARCA,
-                'MODELO'          => $eq->MODELO,
-                'ANIO'            => $eq->ANIO,
-                'CATEGORIA_FLOTA' => $eq->CATEGORIA_FLOTA,
-                'SERIAL_CHASIS'   => $eq->SERIAL_CHASIS,
-                'SERIAL_MOTOR'    => $eq->SERIAL_DE_MOTOR,
-                'NUMERO_ETIQUETA' => $eq->NUMERO_ETIQUETA,
-                'ESTADO_OPERATIVO'=> $eq->ESTADO_OPERATIVO,
-                'PLACA'           => $eq->documentacion->PLACA ?? 'S/P',
-                'FRENTE_ACTUAL'   => $eq->frenteActual->NOMBRE_FRENTE ?? 'Sin Asignar',
-                'DETALLE_UBICACION' => $eq->DETALLE_UBICACION_ACTUAL,
-                'CONFIRMADO'      => $eq->CONFIRMADO_EN_SITIO,
-                'FOTO'            => $foto,
-            ];
-        }));
-    }
-    // ──────────────────────────────────────────────────────────────────────────────
     // ── GESTIÓN DE RESPONSABLES DE EQUIPOS ─────────────────────────────────────────
 
     /**

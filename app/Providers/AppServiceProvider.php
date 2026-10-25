@@ -12,6 +12,8 @@ use App\Models\Documentacion;
 use App\Observers\EquipoObserver;
 use App\Observers\EquipoAuxiliarObserver;
 use App\Observers\DocumentacionObserver;
+use App\Support\ExcelSinFormulas;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -36,6 +38,9 @@ class AppServiceProvider extends ServiceProvider
         // aspecto.
         Paginator::defaultView('vendor.pagination.custom-sliding');
         Schema::defaultStringLength(191);
+
+        // Un texto que empiece con "=" sale en el Excel como texto, nunca como fórmula.
+        Cell::setValueBinder(new ExcelSinFormulas());
         
         // GLOBAL PERMISSION GATE - Basado UNICAMENTE en claves (columna PERMISOS).
         // El ROL no otorga acceso automatico. Solo la clave 'super.admin' en PERMISOS

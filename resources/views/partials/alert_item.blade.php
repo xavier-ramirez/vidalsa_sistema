@@ -80,7 +80,7 @@
     <div style="flex-shrink: 0; display: flex; flex-wrap: nowrap; gap: 5px; align-items: center;">
     @if($esAux)
         <button type="button"
-            onclick="event.stopPropagation(); window.openPdfPreview('{{ $alert->current_link }}', 'certificado', 'Certificado', null, null, true, 'auxiliar');"
+            onclick="event.stopPropagation(); window.openPdfPreview('{{ addslashes($alert->current_link ?? '') }}', 'certificado', 'Certificado', null, null, true, 'auxiliar');"
             title="Ver el certificado de este auxiliar"
             style="flex-shrink: 0; box-sizing: border-box; width: 32px; height: 32px; border-radius: 8px; border: none; padding: 0; background: transparent; color: #94a3b8; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, color .15s;"
             onmouseover="this.style.background='#f1f5f9'; this.style.color='#1e293b';"

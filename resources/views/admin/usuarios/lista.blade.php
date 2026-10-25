@@ -83,7 +83,7 @@
                             TODOS LOS FRENTES
                         </div>
                         @foreach($frentes as $frente)
-                            <div class="dropdown-item {{ request('id_frente') == $frente->ID_FRENTE ? 'selected' : '' }}" data-value="{{ $frente->ID_FRENTE }}" onclick="selectOption('frenteFilterSelect', '{{ $frente->ID_FRENTE }}', '{{ $frente->NOMBRE_FRENTE }}'); loadUsuarios();">
+                            <div class="dropdown-item {{ request('id_frente') == $frente->ID_FRENTE ? 'selected' : '' }}" data-value="{{ $frente->ID_FRENTE }}" onclick="selectOption('frenteFilterSelect', '{{ $frente->ID_FRENTE }}', '{{ addslashes($frente->NOMBRE_FRENTE) }}'); loadUsuarios();">
                                 {{ $frente->NOMBRE_FRENTE }}
                             </div>
                         @endforeach
@@ -127,7 +127,7 @@
                             TODOS LOS ROLES
                         </div>
                         @foreach($roles as $rol)
-                            <div class="dropdown-item {{ request('id_rol') == $rol->ID_ROL ? 'selected' : '' }}" data-value="{{ $rol->ID_ROL }}" onclick="selectOption('rolFilterSelect', '{{ $rol->ID_ROL }}', '{{ $rol->NOMBRE_ROL }}'); loadUsuarios();">
+                            <div class="dropdown-item {{ request('id_rol') == $rol->ID_ROL ? 'selected' : '' }}" data-value="{{ $rol->ID_ROL }}" onclick="selectOption('rolFilterSelect', '{{ $rol->ID_ROL }}', '{{ addslashes($rol->NOMBRE_ROL) }}'); loadUsuarios();">
                                 {{ $rol->NOMBRE_ROL }}
                             </div>
                         @endforeach
@@ -176,7 +176,7 @@
                             <div class="dropdown-item-list">
                                 <div class="dropdown-item {{ $nivelActivo ? '' : 'selected' }}" data-value="" onclick="selectOption('usrNivelSelect', '', 'TODOS'); window.usrAvanzadoCambio();">TODOS</div>
                                 @foreach($nivelOpciones as $valor => $texto)
-                                    <div class="dropdown-item {{ $nivelSel === $valor ? 'selected' : '' }}" data-value="{{ $valor }}" onclick="selectOption('usrNivelSelect', '{{ $valor }}', '{{ $texto }}'); window.usrAvanzadoCambio();">{{ $texto }}</div>
+                                    <div class="dropdown-item {{ $nivelSel === $valor ? 'selected' : '' }}" data-value="{{ $valor }}" onclick="selectOption('usrNivelSelect', '{{ $valor }}', '{{ addslashes($texto) }}'); window.usrAvanzadoCambio();">{{ $texto }}</div>
                                 @endforeach
                             </div>
                         </div>
@@ -320,8 +320,8 @@
          Mismo panel y misma fuente de datos que el módulo de Auditoría
          (Usuario::sesionesActivas) — para no duplicar la lógica. --}}
     <aside class="usuarios-side">
-        {{-- ─── IPs Bloqueadas ───────────────────────────────────────────────
-             Mismo criterio/umbral que Auditoría (BloqueoIp::bloqueadas()). Reutiliza el
+        {{-- ─── Bloqueos (equipos e IPs) ─────────────────────────────────────
+             Lo bloqueado por claves incorrectas (BloqueoIp::bloqueadas()). Reutiliza el
              JS GLOBAL ya cargado en todas las páginas (historial_documentos_index.js):
              window.filterBlockedIps, window.unlockIp y el delegado de .btn-unlock-ip — por
              eso los IDs/clases/atributos deben ser idénticos a la tarjeta de Auditoría.
@@ -332,19 +332,19 @@
             <div style="display: flex; align-items: center; justify-content: space-between;{{ $bipsCount ? ' margin-bottom: 10px;' : '' }}">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <i class="material-icons" style="color: {{ $bipsCount ? '#ef4444' : '#16a34a' }}; font-size: {{ $bipsCount ? '20' : '18' }}px;">{{ $bipsCount ? 'gpp_bad' : 'verified_user' }}</i>
-                    <h3 style="margin: 0; font-size: 12px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">IPs Bloqueadas</h3>
+                    <h3 style="margin: 0; font-size: 12px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">Equipos e IPs bloqueados</h3>
                 </div>
                 <span class="badge" style="background: {{ $bipsCount ? '#fee2e2' : '#dcfce7' }}; color: {{ $bipsCount ? '#ef4444' : '#15803d' }}; font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 700;" id="blocked-ip-count">{{ $bipsCount }}</span>
             </div>
             @if($bipsCount === 0)
-            <p style="margin: 8px 0 0; font-size: 11px; color: #94a3b8; text-align: center; padding: 8px 0 0;">Sin IPs bloqueadas (umbral: {{ \App\Models\BloqueoIp::UMBRAL_BLOQUEO }} intentos fallidos).</p>
+            <p style="margin: 8px 0 0; font-size: 11px; color: #94a3b8; text-align: center; padding: 8px 0 0;">Nada bloqueado. Un equipo se bloquea con {{ \App\Models\BloqueoIp::FALLOS_EQUIPO }} claves incorrectas; una IP, con {{ \App\Models\BloqueoIp::FALLOS_IP }} de {{ \App\Models\BloqueoIp::CUENTAS_IP }} cuentas o más.</p>
             @else
             <div style="position: relative; margin-bottom: 10px;">
                 <i class="material-icons" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; pointer-events: none;">search</i>
                 <input
                     type="text"
                     id="ip-filter-input"
-                    placeholder="Filtrar por IP..."
+                    placeholder="Filtrar..."
                     autocomplete="off"
                     oninput="window.filterBlockedIps(this.value)"
                     style="width: 100%; box-sizing: border-box; padding: 7px 10px 7px 30px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; color: #334155; background: #f8fafc; outline: none; transition: border-color 0.2s;"
@@ -355,19 +355,19 @@
             <div id="ip-filter-empty" style="display: none; text-align: center; font-size: 12px; color: #94a3b8; padding: 8px 0;">Sin coincidencias</div>
             <div id="blocked-ips-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar-container">
                 @foreach($blockedIps as $ip)
-                <div id="blocked-ip-{{ $ip->ID_BLOQUEO }}" data-ip-text="{{ $ip->DIRECCION_IP }}" style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #f1f5f9; transition: all 0.2s;">
+                <div id="blocked-ip-{{ $ip->ID_BLOQUEO }}" data-ip-text="{{ $ip->etiqueta }}" style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #f1f5f9; transition: all 0.2s;">
                     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        <span style="font-size: 13px; font-weight: 600; color: #334155; font-family: monospace;">{{ $ip->DIRECCION_IP }}</span>
+                        <span style="font-size: 13px; font-weight: 600; color: #334155; font-family: monospace;">{{ $ip->etiqueta }}</span>
                         <span style="font-size: 11px; color: #64748b; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: 600;" title="Último intento: {{ $ip->ULTIMO_INTENTO->format('d/m/Y H:i') }}">Fallos: {{ $ip->CANTIDAD_INTENTOS }}</span>
                     </div>
                     <button
                             class="btn-unlock-ip"
                             data-ip-id="{{ $ip->ID_BLOQUEO }}"
-                            data-ip-address="{{ $ip->DIRECCION_IP }}"
+                            data-ip-address="{{ $ip->etiqueta }}"
                             style="background: transparent; border: none; padding: 4px; color: #ef4444; cursor: pointer; border-radius: 4px; transition: background 0.2s; display: flex; align-items: center; justify-content: center; pointer-events: all; position: relative; z-index: 30; margin-left: 10px;"
                             onmouseover="this.style.background='#fee2e2'"
                             onmouseout="this.style.background='transparent'"
-                            title="Desbloquear IP">
+                            title="Desbloquear">
                         <i class="material-icons" style="font-size: 18px; pointer-events: none;">delete_outline</i>
                     </button>
                 </div>

@@ -8,6 +8,14 @@ use Illuminate\Support\Facades\Log;
 
 class GoogleDriveController extends Controller
 {
+    /**
+     * Lo único que sirve el proxy: documentos y fotos. La cuenta de Drive guarda más cosas
+     * (hojas de cálculo, respaldos...) y antes salía cualquiera, con su tipo tal cual: un
+     * HTML o un SVG abierto desde aquí correría con la sesión del sistema. SVG queda fuera
+     * por eso mismo, aunque sea una imagen.
+     */
+    private const TIPOS_PERMITIDOS = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
     public function proxy($path)
     {
         try {
@@ -33,11 +41,16 @@ class GoogleDriveController extends Controller
             // 1. MINIATURA: de su copia local o, la primera vez, de Drive.
             if ($isThumb) {
                 [$bytes, $mimeOriginal] = \App\Services\GoogleDriveService::miniatura($fileId, $sz);
+                $mimeMiniatura = $bytes !== null ? (getimagesizefromstring($bytes)['mime'] ?? null) : null;
+                if ($bytes !== null && !self::permitido($mimeMiniatura)) {
+                    return self::noDisponible();
+                }
                 if ($bytes !== null) {
                     $version = request()->query('v', '0');
                     $etag = md5($fileId . '-' . $sz . '-' . $version);
                     return response($bytes, 200, [
-                        'Content-Type'  => getimagesizefromstring($bytes)['mime'],
+                        'Content-Type'  => $mimeMiniatura,
+                        'X-Content-Type-Options' => 'nosniff',
                         'Cache-Control' => 'private, max-age=' . $maxAge . ', must-revalidate',
                         'ETag'          => '"' . $etag . '"',
                         'Expires'       => gmdate('D, d M Y H:i:s \G\M\T', time() + $maxAge),
@@ -61,11 +74,15 @@ class GoogleDriveController extends Controller
             if (!$isThumb && Storage::disk('local')->exists($cachePath)) {
                 $fullPath = Storage::disk('local')->path($cachePath);
                 $mime = mime_content_type($fullPath);
+                if (!self::permitido($mime)) {
+                    return self::noDisponible();
+                }
                 $version = request()->query('v', '0');
                 // Mismo ETag que la primera vez (la transmision desde Drive, mas abajo): es el mismo archivo.
                 $etag = md5($fileId . '-' . $version);
                 return response()->file($fullPath, [
                     'Content-Type'  => $mime,
+                    'X-Content-Type-Options' => 'nosniff',
                     'Cache-Control' => 'private, max-age=' . $maxAge . ', must-revalidate',
                     'ETag'          => '"' . $etag . '"',
                     'Expires'       => gmdate('D, d M Y H:i:s \G\M\T', time() + $maxAge),
@@ -85,6 +102,10 @@ class GoogleDriveController extends Controller
                     'size' => $file->getSize() ?: 0,
                 ];
             });
+            // Antes de bajar nada: lo que no es PDF ni foto no sale (ni se copia al disco).
+            if (!self::permitido($metadata['mime'])) {
+                return self::noDisponible();
+            }
             $version = request()->query('v', '0');
             $etag = md5($fileId . '-' . $version);
 
@@ -118,6 +139,7 @@ class GoogleDriveController extends Controller
 
             $cabeceras = [
                 'Content-Type'  => $metadata['mime'],
+                'X-Content-Type-Options' => 'nosniff',
                 'Cache-Control' => 'private, max-age=' . $maxAge . ', must-revalidate',
                 'ETag'          => '"' . $etag . '"',
                 'Expires'       => gmdate('D, d M Y H:i:s \G\M\T', time() + $maxAge),
@@ -189,7 +211,17 @@ class GoogleDriveController extends Controller
             // NO usar abort(404) porque renderiza la página de NAVEGACIÓN con botón
             // "Ir al inicio de sesión" — absurdo dentro de un visor de PDF (el usuario
             // ya está logueado). Devolvemos una página propia "Documento no disponible".
-            return response()->view('errors.asset_unavailable', [], 404);
+            return self::noDisponible();
         }
+    }
+
+    private static function permitido(?string $mime): bool
+    {
+        return in_array($mime, self::TIPOS_PERMITIDOS, true);
+    }
+
+    private static function noDisponible()
+    {
+        return response()->view('errors.asset_unavailable', [], 404);
     }
 }

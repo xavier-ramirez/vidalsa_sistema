@@ -274,14 +274,4 @@ class FrenteTrabajoController extends Controller
             ]),
         ]);
     }
-
-    // ─── MOBILE API ────────────────────────────────────────────────────────────
-    public function mobileIndex()
-    {
-        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
-            ->orderBy('NOMBRE_FRENTE')
-            ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'TIPO_FRENTE', 'UBICACION']);
-        return response()->json($frentes);
-    }
-    // ──────────────────────────────────────────────────────────────────────────
 }

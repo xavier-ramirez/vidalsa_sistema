@@ -154,8 +154,9 @@ class RecepcionDespachoDirectoTest extends MySqlTestCase
             $m->shouldReceive('crearBorrador')->andThrow(new \RuntimeException('Falla simulada al enviar.'));
         });
 
+        // La excepción no sale de app/: se responde el mensaje genérico (MensajeError).
         $this->despachar($this->general, $this->frenteConAlmacen)
-            ->assertStatus(422)->assertJsonPath('message', 'Falla simulada al enviar.');
+            ->assertStatus(422)->assertJsonPath('message', \App\Support\MensajeError::GENERICO);
 
         $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->general)->count(), 'Ni la entrada.');
         $this->assertSame(0.0, $this->saldo($this->general, $this->p1));

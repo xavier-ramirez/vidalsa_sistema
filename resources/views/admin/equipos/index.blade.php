@@ -1436,7 +1436,7 @@
                 <div class="dropdown-content">
                     @foreach(\App\Models\FrenteTrabajo::TIPOS as $valorTipo => $nombreTipo)
                         <div class="dropdown-item tipo-frente-item" data-value="{{ $valorTipo }}"
-                             onclick="selectOption('tipoFrenteTipo', '{{ $valorTipo }}', '{{ $nombreTipo }}')">
+                             onclick="selectOption('tipoFrenteTipo', '{{ $valorTipo }}', '{{ addslashes($nombreTipo) }}')">
                             <b>{{ $nombreTipo }}</b><small>{{ \App\Models\FrenteTrabajo::TIPOS_AYUDA[$valorTipo] ?? '' }}</small>
                         </div>
                     @endforeach

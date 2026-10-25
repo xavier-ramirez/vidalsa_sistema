@@ -90,7 +90,7 @@
                     <div class="dropdown-content" id="rolesListContainer">
                         @foreach($roles as $rol)
                             <div class="dropdown-item role-item-opt" 
-                                 onclick="document.getElementById('ID_ROL').value = '{{ $rol->NOMBRE_ROL }}'; document.getElementById('roleSelect').classList.remove('active');">
+                                 onclick="document.getElementById('ID_ROL').value = '{{ addslashes($rol->NOMBRE_ROL) }}'; document.getElementById('roleSelect').classList.remove('active');">
                                 {{ $rol->NOMBRE_ROL }}
                             </div>
                         @endforeach

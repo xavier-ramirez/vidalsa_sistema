@@ -16,7 +16,7 @@
                    oninput="filterFormDropdown(this)">
             <div class="dropdown-list">
                 @foreach($tipos_equipo as $tipo)
-                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $tipo }}')">{{ $tipo }}</div>
+                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ addslashes($tipo) }}')">{{ $tipo }}</div>
                 @endforeach
             </div>
         </div>
@@ -39,7 +39,7 @@
                    required>
             <div class="dropdown-list">
                 @foreach($marcas as $marca)
-                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $marca }}')">{{ $marca }}</div>
+                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ addslashes($marca) }}')">{{ $marca }}</div>
                 @endforeach
             </div>
         </div>
@@ -99,7 +99,7 @@
                    required>
             <div class="dropdown-list">
                 @foreach($modelos as $modelo)
-                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $modelo }}')">{{ $modelo }}</div>
+                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ addslashes($modelo) }}')">{{ $modelo }}</div>
                 @endforeach
             </div>
         </div>
@@ -125,7 +125,7 @@
                        autocomplete="off">
                 <div class="dropdown-list">
                     @foreach($aniosList ?? [] as $anio)
-                        <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $anio }}')">{{ $anio }}</div>
+                        <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ addslashes($anio) }}')">{{ $anio }}</div>
                     @endforeach
                 </div>
             </div>
@@ -264,7 +264,7 @@
                 <div class="dropdown-content">
                     <div class="dropdown-item" onclick="selectOption('frenteSelect', '', 'Sin Asignar', 'frente_trabajo')">Sin Asignar</div>
                     @foreach($frentes as $id => $nombre)
-                        <div class="dropdown-item" onclick="selectOption('frenteSelect', '{{ $id }}', '{{ $nombre }}', 'frente_trabajo')">{{ $nombre }}</div>
+                        <div class="dropdown-item" onclick="selectOption('frenteSelect', '{{ $id }}', '{{ addslashes($nombre) }}', 'frente_trabajo')">{{ $nombre }}</div>
                     @endforeach
                 </div>
             @endif
@@ -297,7 +297,7 @@
                         $val_display = is_numeric($key) ? $val : $val;
                         $val_value = is_numeric($key) ? $val : $key;
                     @endphp
-                    <div class="dropdown-item" onclick="selectOption('estadoSelect', '{{ $val_value }}', '{{ $val_display }}', 'estatus')">{{ $val_display }}</div>
+                    <div class="dropdown-item" onclick="selectOption('estadoSelect', '{{ $val_value }}', '{{ addslashes($val_display) }}', 'estatus')">{{ $val_display }}</div>
                 @endforeach
             </div>
         </div>
@@ -413,7 +413,7 @@
                    oninput="filterFormDropdown(this)">
             <div class="dropdown-list">
                 @foreach($seguros as $nombre)
-                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $nombre }}')">{{ $nombre }}</div>
+                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ addslashes($nombre) }}')">{{ $nombre }}</div>
                 @endforeach
             </div>
         </div>

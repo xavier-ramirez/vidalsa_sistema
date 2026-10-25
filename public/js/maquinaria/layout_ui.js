@@ -2336,17 +2336,17 @@ window.loadMetadata = async function () {
             if (ctx.module === 'auxiliar') {
                 if (ctx.docType === 'propiedad') {
                     html += `
-                    <div style="${containerStyle}"><label style="${labelStyle}">Serial</label><input type="text" name="serial" value="${info.serial || ''}" ${disabledAttr} autocomplete="off"></div>
-                    <div style="${containerStyle}"><label style="${labelStyle}">Código Interno</label><input type="text" name="codigo" value="${info.codigo || ''}" ${disabledAttr} autocomplete="off"></div>
-                    <div style="${containerStyle}"><label style="${labelStyle}">Tipo</label><input type="text" name="tipo" value="${info.tipo || ''}" ${disabledAttr} autocomplete="off"></div>
-                    <div style="${containerStyle}"><label style="${labelStyle}">Marca</label><input type="text" name="marca" value="${info.marca || ''}" ${disabledAttr} autocomplete="off"></div>
-                    <div style="${containerStyle}"><label style="${labelStyle}">Modelo</label><input type="text" name="modelo" value="${info.modelo || ''}" ${disabledAttr} autocomplete="off"></div>
-                    <div style="${containerStyle}"><label style="${labelStyle}">Capacidad</label><input type="text" name="capacidad" value="${info.capacidad || ''}" ${disabledAttr} autocomplete="off"></div>
-                    <div style="${containerStyle}"><label style="${labelStyle}">Año</label><input type="number" name="anio" value="${info.anio || ''}" ${disabledAttr} autocomplete="off"></div>
+                    <div style="${containerStyle}"><label style="${labelStyle}">Serial</label><input type="text" name="serial" value="${esc(info.serial)}" ${disabledAttr} autocomplete="off"></div>
+                    <div style="${containerStyle}"><label style="${labelStyle}">Código Interno</label><input type="text" name="codigo" value="${esc(info.codigo)}" ${disabledAttr} autocomplete="off"></div>
+                    <div style="${containerStyle}"><label style="${labelStyle}">Tipo</label><input type="text" name="tipo" value="${esc(info.tipo)}" ${disabledAttr} autocomplete="off"></div>
+                    <div style="${containerStyle}"><label style="${labelStyle}">Marca</label><input type="text" name="marca" value="${esc(info.marca)}" ${disabledAttr} autocomplete="off"></div>
+                    <div style="${containerStyle}"><label style="${labelStyle}">Modelo</label><input type="text" name="modelo" value="${esc(info.modelo)}" ${disabledAttr} autocomplete="off"></div>
+                    <div style="${containerStyle}"><label style="${labelStyle}">Capacidad</label><input type="text" name="capacidad" value="${esc(info.capacidad)}" ${disabledAttr} autocomplete="off"></div>
+                    <div style="${containerStyle}"><label style="${labelStyle}">Año</label><input type="number" name="anio" value="${esc(info.anio)}" ${disabledAttr} autocomplete="off"></div>
                 `;
                 } else if (ctx.docType === 'certificado') {
                     html += `
-                    <div style="${containerStyle}"><label style="${labelStyle}">Fecha Vencimiento</label><input type="date" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>
+                    <div style="${containerStyle}"><label style="${labelStyle}">Fecha Vencimiento</label><input type="date" name="fecha_vencimiento" value="${esc(info.fecha_vencimiento)}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>
                 `;
                 }
                 _metaPintar(container, html, ctx);
@@ -2393,20 +2393,20 @@ window.loadMetadata = async function () {
 
             if (ctx.docType === 'propiedad') {
                 html += `
-                <div style="${containerStyle}"><label for="meta_nro_doc_${ctx.equipoId}" style="${labelStyle}">Nro. Documento</label><input type="text" id="meta_nro_doc_${ctx.equipoId}" name="nro_documento" value="${info.nro_documento || ''}" ${disabledAttr} maxlength="100" autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_titular_${ctx.equipoId}" style="${labelStyle}">Titular</label><input type="text" id="meta_titular_${ctx.equipoId}" name="titular" value="${info.titular || ''}" ${disabledAttr} maxlength="150" autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_placa_${ctx.equipoId}" style="${labelStyle}">Placa</label><input type="text" id="meta_placa_${ctx.equipoId}" name="placa" value="${info.placa || ''}" ${disabledAttr} maxlength="20" autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_marca_${ctx.equipoId}" style="${labelStyle}">Marca</label><input type="text" id="meta_marca_${ctx.equipoId}" name="marca" value="${info.marca || ''}" ${disabledAttr} maxlength="50" autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_modelo_${ctx.equipoId}" style="${labelStyle}">Modelo</label><input type="text" id="meta_modelo_${ctx.equipoId}" name="modelo" value="${info.modelo || ''}" ${disabledAttr} maxlength="50" autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_chasis_${ctx.equipoId}" style="${labelStyle}">Serial Chasis</label><input type="text" id="meta_chasis_${ctx.equipoId}" name="serial_chasis" value="${info.serial_chasis || ''}" ${disabledAttr} maxlength="100" autocomplete="off"></div>
-                <div style="${containerStyle}"><label for="meta_motor_${ctx.equipoId}" style="${labelStyle}">Serial Motor</label><input type="text" id="meta_motor_${ctx.equipoId}" name="serial_motor" value="${info.serial_motor || ''}" ${disabledAttr} maxlength="100" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_nro_doc_${ctx.equipoId}" style="${labelStyle}">Nro. Documento</label><input type="text" id="meta_nro_doc_${ctx.equipoId}" name="nro_documento" value="${esc(info.nro_documento)}" ${disabledAttr} maxlength="100" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_titular_${ctx.equipoId}" style="${labelStyle}">Titular</label><input type="text" id="meta_titular_${ctx.equipoId}" name="titular" value="${esc(info.titular)}" ${disabledAttr} maxlength="150" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_placa_${ctx.equipoId}" style="${labelStyle}">Placa</label><input type="text" id="meta_placa_${ctx.equipoId}" name="placa" value="${esc(info.placa)}" ${disabledAttr} maxlength="20" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_marca_${ctx.equipoId}" style="${labelStyle}">Marca</label><input type="text" id="meta_marca_${ctx.equipoId}" name="marca" value="${esc(info.marca)}" ${disabledAttr} maxlength="50" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_modelo_${ctx.equipoId}" style="${labelStyle}">Modelo</label><input type="text" id="meta_modelo_${ctx.equipoId}" name="modelo" value="${esc(info.modelo)}" ${disabledAttr} maxlength="50" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_chasis_${ctx.equipoId}" style="${labelStyle}">Serial Chasis</label><input type="text" id="meta_chasis_${ctx.equipoId}" name="serial_chasis" value="${esc(info.serial_chasis)}" ${disabledAttr} maxlength="100" autocomplete="off"></div>
+                <div style="${containerStyle}"><label for="meta_motor_${ctx.equipoId}" style="${labelStyle}">Serial Motor</label><input type="text" id="meta_motor_${ctx.equipoId}" name="serial_motor" value="${esc(info.serial_motor)}" ${disabledAttr} maxlength="100" autocomplete="off"></div>
             `;
             } else if (ctx.docType === 'poliza') {
                 let datalistOptions = '';
                 let currentInsurerName = '';
                 if (info.insurers) {
                     info.insurers.forEach(ins => {
-                        datalistOptions += `<option value="${ins.NOMBRE_ASEGURADORA}">`;
+                        datalistOptions += `<option value="${esc(ins.NOMBRE_ASEGURADORA)}">`;
                         if (ins.ID_SEGURO == info.id_seguro) currentInsurerName = ins.NOMBRE_ASEGURADORA;
                     });
                 }
@@ -2415,7 +2415,7 @@ window.loadMetadata = async function () {
                 html += `
                 <div style="${containerStyle}">
                     <label for="meta_aseguradora_${ctx.equipoId}" style="${labelStyle}">Aseguradora <small style="color:#94a3b8;font-weight:400;">(Seleccionar o escribir nueva)</small></label>
-                    <input type="text" id="meta_aseguradora_${ctx.equipoId}" name="nombre_aseguradora" list="insurersList_${ctx.equipoId}" value="${currentInsurerName || ''}" placeholder="Escriba o seleccione..." ${disabledAttr} autocomplete="off">
+                    <input type="text" id="meta_aseguradora_${ctx.equipoId}" name="nombre_aseguradora" list="insurersList_${ctx.equipoId}" value="${esc(currentInsurerName)}" placeholder="Escriba o seleccione..." ${disabledAttr} autocomplete="off">
                     <datalist id="insurersList_${ctx.equipoId}">${datalistOptions}</datalist>
                 </div>
             `;
@@ -2438,10 +2438,10 @@ window.loadMetadata = async function () {
             // póliza, ROTC y RACDA). Siempre a la vista, para ponerla a mano si la verificación no
             // la sacó del PDF. Opcional: no toda hoja la trae.
             if ('fecha_emision' in info) {
-                html += `<div style="${containerStyle}"><label for="meta_fec_emi_${ctx.equipoId}" style="${labelStyle}">Fecha de Emisión</label><input type="date" id="meta_fec_emi_${ctx.equipoId}" name="fecha_emision" value="${info.fecha_emision || ''}" ${disabledAttr} autocomplete="off"></div>`;
+                html += `<div style="${containerStyle}"><label for="meta_fec_emi_${ctx.equipoId}" style="${labelStyle}">Fecha de Emisión</label><input type="date" id="meta_fec_emi_${ctx.equipoId}" name="fecha_emision" value="${esc(info.fecha_emision)}" ${disabledAttr} autocomplete="off"></div>`;
             }
             if (vencimientoAlFinal) {
-                html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${info.fecha_vencimiento || ''}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>`;
+                html += `<div style="${containerStyle}"><label for="meta_fec_venc_${ctx.equipoId}" style="${labelStyle}">Fecha Vencimiento</label><input type="date" id="meta_fec_venc_${ctx.equipoId}" name="fecha_vencimiento" value="${esc(info.fecha_vencimiento)}" ${disabledAttr} ${fechaReq} autocomplete="off"></div>`;
             }
             _metaPintar(container, html, ctx);
         }

@@ -369,7 +369,7 @@ window.addEventListener('spa:contentLoaded', function() {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// GESTIÓN DE IPS BLOQUEADAS
+// GESTIÓN DE BLOQUEOS (equipos e IPs, ver BloqueoIp)
 // ═══════════════════════════════════════════════════════════════════════════════
 window.unlockIp = function(id, ipAddress) {
     if (typeof window.showModal !== 'function') {
@@ -379,8 +379,8 @@ window.unlockIp = function(id, ipAddress) {
     
     window.showModal({
         type: 'danger',
-        title: 'Desbloquear IP',
-        message: 'Esta acción eliminará el bloqueo de la IP ' + ipAddress + '.<br>¿Continuar?',
+        title: 'Desbloquear',
+        message: 'Esta acción eliminará el bloqueo de ' + window.escapeHtml(ipAddress) + '.<br>¿Continuar?',
         confirmText: 'Sí, Desbloquear',
         cancelText: 'Cancelar',
         onConfirm: async () => {

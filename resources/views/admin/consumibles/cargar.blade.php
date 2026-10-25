@@ -282,7 +282,7 @@
                                     @foreach($tipos as $val => $label)
                                         <div class="dropdown-item {{ old('tipo_consumible') == $val ? 'selected' : '' }}"
                                             data-value="{{ $val }}"
-                                            onclick="window.selectOption('tipoDropdownCargar', '{{ $val }}', '{{ $label }}'); window.actualizarUnidad();">
+                                            onclick="window.selectOption('tipoDropdownCargar', '{{ $val }}', '{{ addslashes($label) }}'); window.actualizarUnidad();">
                                             {{ $label }}
                                         </div>
                                     @endforeach
@@ -313,7 +313,7 @@
                                     @foreach($unidades as $val => $label)
                                         <div class="dropdown-item {{ old('unidad', 'LITROS') == $val ? 'selected' : '' }}"
                                             data-value="{{ $val }}"
-                                            onclick="window.selectOption('unidadDropdownCargar', '{{ $val }}', '{{ $label }}');">
+                                            onclick="window.selectOption('unidadDropdownCargar', '{{ $val }}', '{{ addslashes($label) }}');">
                                             {{ $label }}
                                         </div>
                                     @endforeach

@@ -9,6 +9,7 @@ use App\Services\DevolucionService;
 use App\Services\InventarioService;
 use Illuminate\Http\Request;
 use Throwable;
+use App\Support\MensajeError;
 
 /**
  * «Modificar» un producto de una Nota de Entrega (botón de cada salida con nota del Historial
@@ -121,7 +122,7 @@ class AjusteNotaController extends Controller
                 'id_usuario' => $request->user()->ID_USUARIO,
             ]);
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         $n = count($data['lineas']);
@@ -152,7 +153,7 @@ class AjusteNotaController extends Controller
                 'id_usuario' => $request->user()->ID_USUARIO,
             ]);
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         return response()->json(['message' => "Nota {$numero} corregida.", 'numero' => $numero], 201);

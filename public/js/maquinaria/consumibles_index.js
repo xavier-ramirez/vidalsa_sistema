@@ -17,9 +17,10 @@ window.borrarDirecto = function(id, url, btn) {
 
     window.apiFetch(url, { headers: { 'Accept': 'application/json' },
         method: 'DELETE'})
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-        if (data.ok || data.success || !data.error) {
+    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+    .then(function(res) {
+        var data = res.data || {};
+        if (res.ok && data.ok) {
             var row = btn ? btn.closest('tr') : null;
             if (row) {
                 row.style.transition = 'opacity 0.2s, transform 0.2s';
@@ -30,7 +31,7 @@ window.borrarDirecto = function(id, url, btn) {
             window.toast('Registro eliminado al instante.', 'success');
         } else {
             console.error('Error al borrar', data);
-            window.toast('No se pudo eliminar', 'error');
+            window.toast(data.message || 'No se pudo eliminar', 'error');
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="material-icons" style="font-size:17px;">delete</i>'; btn.style.opacity = '1'; }
         }
     })
@@ -62,8 +63,16 @@ if (typeof window.ModuleManager !== 'undefined') {
 
                 window.apiFetch(routeMatch, { headers: { 'Accept': 'application/json' },
                     method: 'POST'})
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
+                .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+                .then(function(res) {
+                    var data = res.data || {};
+                    // Un 403 también trae JSON: sin esto salía "0 equipos confirmados" en verde.
+                    if (!res.ok) {
+                        if (window.hidePreloader) window.hidePreloader();
+                        if (btn) btn.disabled = false;
+                        window.toast(data.message || 'No se pudo ejecutar el match', 'error');
+                        return;
+                    }
                     var confirmados = data.confirmados || 0;
                     var sinMatch    = data.sin_match   || 0;
 
@@ -97,17 +106,31 @@ if (typeof window.ModuleManager !== 'undefined') {
             };
 
             // ── Edición inline — Identificador ───────────────────────
-            window.editarId = function(id, valorActual) {
+            // El identificador lo escribe cualquiera con permiso: se pinta SIEMPRE escapado y
+            // el valor de antes vive en la celda (data-original), no dentro de un onclick.
+            var esc = window.escapeHtml;
+            function pintarId(celda, id, valor, recien) {
+                celda.dataset.original = valor || '';
+                celda.innerHTML =
+                    '<div style="display:flex;align-items:center;gap:5px;">' +
+                        '<span id="id-txt-' + id + '" style="flex:1;' + (recien ? 'color:#059669;font-weight:700;' : '') + '">' + (esc(valor) || '—') + '</span>' +
+                        '<button onclick="editarId(' + id + ')" style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;" title="Editar">' +
+                            '<i class="material-icons" style="font-size:14px;">edit</i>' +
+                        '</button>' +
+                    '</div>';
+            }
+
+            window.editarId = function(id) {
                 var celda = document.getElementById('id-cell-' + id);
                 if (!celda) return;
-                var safe = String(valorActual).replace(/'/g, "\\'");
+                var valorActual = celda.dataset.original || '';
                 celda.innerHTML =
                     '<div style="display:flex;align-items:center;gap:4px;">' +
-                        '<input id="inp-id-' + id + '" type="text" value="' + valorActual + '" ' +
+                        '<input id="inp-id-' + id + '" type="text" value="' + esc(valorActual) + '" ' +
                                'style="font-family:monospace;font-size:12px;padding:3px 6px;border:1px solid #0067b1;border-radius:6px;flex:1;min-width:0;outline:none;" ' +
-                               'onkeydown="if(event.key===\'Enter\')guardarId(' + id + ');if(event.key===\'Escape\')cancelarId(' + id + ',\'' + safe + '\')">' +
+                               'onkeydown="if(event.key===\'Enter\')guardarId(' + id + ');if(event.key===\'Escape\')cancelarId(' + id + ')">' +
                         '<button onclick="guardarId(' + id + ')" style="background:#0067b1;color:#fff;border:none;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:11px;font-weight:700;">✓</button>' +
-                        '<button onclick="cancelarId(' + id + ',\'' + safe + '\')" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e0;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:11px;">✕</button>' +
+                        '<button onclick="cancelarId(' + id + ')" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e0;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:11px;">✕</button>' +
                     '</div>';
                 var inp = document.getElementById('inp-id-' + id);
                 if (inp) inp.focus();
@@ -125,23 +148,22 @@ if (typeof window.ModuleManager !== 'undefined') {
                     headers: { 'Content-Type': 'application/json'},
                     body: JSON.stringify({ identificador: nuevo })
                 })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    if (data.ok) {
-                        var celda = document.getElementById('id-cell-' + id);
-                        if (!celda) return;
-                        celda.innerHTML =
-                            '<div style="display:flex;align-items:center;gap:5px;">' +
-                                '<span id="id-txt-' + id + '" style="flex:1;color:#059669;font-weight:700;">' + nuevo + '</span>' +
-                                '<button onclick="editarId(' + id + ',\'' + nuevo.replace(/'/g, "\\'") + '\')" style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;" title="Editar">' +
-                                    '<i class="material-icons" style="font-size:14px;">edit</i>' +
-                                '</button>' +
-                            '</div>';
-                        setTimeout(function() {
-                            var txt = document.getElementById('id-txt-' + id);
-                            if (txt) txt.style.color = '#1e293b';
-                        }, 2000);
+                .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+                .then(function(res) {
+                    var data = res.data || {};
+                    if (!res.ok || !data.ok) {
+                        inp.disabled = false;
+                        inp.style.border = '1px solid #ef4444';
+                        window.toast(data.message || 'No se pudo guardar el identificador', 'error');
+                        return;
                     }
+                    var celda = document.getElementById('id-cell-' + id);
+                    if (!celda) return;
+                    pintarId(celda, id, data.identificador || nuevo, true);
+                    setTimeout(function() {
+                        var txt = document.getElementById('id-txt-' + id);
+                        if (txt) txt.style.color = '#1e293b';
+                    }, 2000);
                 })
                 .catch(function() {
                     var inp2 = document.getElementById('inp-id-' + id);
@@ -149,17 +171,9 @@ if (typeof window.ModuleManager !== 'undefined') {
                 });
             };
 
-            window.cancelarId = function(id, valorOriginal) {
+            window.cancelarId = function(id) {
                 var celda = document.getElementById('id-cell-' + id);
-                if (!celda) return;
-                var safe = String(valorOriginal || '').replace(/'/g, "\\'");
-                celda.innerHTML =
-                    '<div style="display:flex;align-items:center;gap:5px;">' +
-                        '<span id="id-txt-' + id + '" style="flex:1;">' + (valorOriginal || '—') + '</span>' +
-                        '<button onclick="editarId(' + id + ',\'' + safe + '\')" style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;" title="Editar">' +
-                            '<i class="material-icons" style="font-size:14px;">edit</i>' +
-                        '</button>' +
-                    '</div>';
+                if (celda) pintarId(celda, id, celda.dataset.original, false);
             };
 
             // ── Edición inline — Frente ───────────────────────────────
@@ -176,7 +190,7 @@ if (typeof window.ModuleManager !== 'undefined') {
                 try { frentesList = JSON.parse(appRoot.dataset.frentes || '[]'); } catch(e) {}
 
                 var opciones = frentesList.map(function(f) {
-                    return '<option value="' + f.id + '"' + (f.id == idActual ? ' selected' : '') + '>' + f.nombre + '</option>';
+                    return '<option value="' + esc(f.id) + '"' + (f.id == idActual ? ' selected' : '') + '>' + esc(f.nombre) + '</option>';
                 }).join('');
 
                 celda.innerHTML =
@@ -200,24 +214,29 @@ if (typeof window.ModuleManager !== 'undefined') {
                     headers: { 'Content-Type': 'application/json'},
                     body: JSON.stringify({ id_frente: idFrente })
                 })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    if (data.ok) {
-                        delete celdaOriginal[id];
-                        var celda = document.getElementById('frente-cell-' + id);
-                        if (!celda) return;
-                        celda.innerHTML =
-                            '<div style="display:flex;align-items:center;gap:4px;">' +
-                                '<span id="frente-txt-' + id + '" style="flex:1;color:#059669;font-weight:700;">' + data.nombre_frente + '</span>' +
-                                '<button onclick="editarFrente(' + id + ',' + idFrente + ')" style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;" title="Cambiar frente">' +
-                                    '<i class="material-icons" style="font-size:14px;">edit</i>' +
-                                '</button>' +
-                            '</div>';
-                        setTimeout(function() {
-                            var txt = document.getElementById('frente-txt-' + id);
-                            if (txt) txt.style.color = '#1e293b';
-                        }, 2000);
+                .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+                .then(function(res) {
+                    var data = res.data || {};
+                    if (!res.ok || !data.ok) {
+                        sel.disabled = false;
+                        sel.style.border = '1px solid #ef4444';
+                        window.toast(data.message || 'No se pudo cambiar el frente', 'error');
+                        return;
                     }
+                    delete celdaOriginal[id];
+                    var celda = document.getElementById('frente-cell-' + id);
+                    if (!celda) return;
+                    celda.innerHTML =
+                        '<div style="display:flex;align-items:center;gap:4px;">' +
+                            '<span id="frente-txt-' + id + '" style="flex:1;color:#059669;font-weight:700;">' + esc(data.nombre_frente) + '</span>' +
+                            '<button onclick="editarFrente(' + id + ',' + Number(idFrente) + ')" style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;" title="Cambiar frente">' +
+                                '<i class="material-icons" style="font-size:14px;">edit</i>' +
+                            '</button>' +
+                        '</div>';
+                    setTimeout(function() {
+                        var txt = document.getElementById('frente-txt-' + id);
+                        if (txt) txt.style.color = '#1e293b';
+                    }, 2000);
                 })
                 .catch(function() { if (sel) { sel.disabled = false; sel.style.border = '1px solid #ef4444'; } });
             };

@@ -73,11 +73,11 @@ window.equiposAnclajesArrancar = function (EQANC_CFG) {
                     const bPlacaOrSerial = (b.placa && b.placa !== 'S/P') ? b.placa : (b.serial || 'N/A');
 
                     // Compute Tags (Type + Label)
-                    const aEtiquetaHtml = a.etiqueta ? `<span style="background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-weight: 800; color: #475569; margin-left: 5px; font-size: 10px;">#${a.etiqueta}</span>` : '';
-                    const bEtiquetaHtml = b.etiqueta ? `<span style="background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-weight: 800; color: #475569; margin-left: 5px; font-size: 10px;">#${b.etiqueta}</span>` : '';
+                    const aEtiquetaHtml = a.etiqueta ? `<span style="background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-weight: 800; color: #475569; margin-left: 5px; font-size: 10px;">#${esc(a.etiqueta)}</span>` : '';
+                    const bEtiquetaHtml = b.etiqueta ? `<span style="background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-weight: 800; color: #475569; margin-left: 5px; font-size: 10px;">#${esc(b.etiqueta)}</span>` : '';
 
-                    const aFotoHtml = a.foto ? `<img src="${a.foto}" onerror="this.outerHTML='<div style=&quot;width: 32px; height: 26px; border-radius: 5px; background: #fff; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; flex-shrink: 0;&quot;><i class=&quot;material-icons&quot; style=&quot;color: #cbd5e1; font-size: 14px;&quot;>directions_car</i></div>'" style="width: 32px; height: 26px; object-fit: contain; border-radius: 5px; background: #fff; border: 1px solid #e2e8f0; flex-shrink: 0;">` : `<div style="width: 32px; height: 26px; border-radius: 5px; background: #fff; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; flex-shrink: 0;"><i class="material-icons" style="color: #cbd5e1; font-size: 14px;">directions_car</i></div>`;
-                    const bFotoHtml = b.foto ? `<img src="${b.foto}" onerror="this.outerHTML='<div style=&quot;width: 32px; height: 26px; border-radius: 5px; background: #fff; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; flex-shrink: 0;&quot;><i class=&quot;material-icons&quot; style=&quot;color: #cbd5e1; font-size: 14px;&quot;>directions_car</i></div>'" style="width: 32px; height: 26px; object-fit: contain; border-radius: 5px; background: #fff; border: 1px solid #e2e8f0; flex-shrink: 0;">` : `<div style="width: 32px; height: 26px; border-radius: 5px; background: #fff; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; flex-shrink: 0;"><i class="material-icons" style="color: #cbd5e1; font-size: 14px;">directions_car</i></div>`;
+                    const aFotoHtml = a.foto ? `<img src="${esc(a.foto)}" onerror="this.outerHTML='<div style=&quot;width: 32px; height: 26px; border-radius: 5px; background: #fff; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; flex-shrink: 0;&quot;><i class=&quot;material-icons&quot; style=&quot;color: #cbd5e1; font-size: 14px;&quot;>directions_car</i></div>'" style="width: 32px; height: 26px; object-fit: contain; border-radius: 5px; background: #fff; border: 1px solid #e2e8f0; flex-shrink: 0;">` : `<div style="width: 32px; height: 26px; border-radius: 5px; background: #fff; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; flex-shrink: 0;"><i class="material-icons" style="color: #cbd5e1; font-size: 14px;">directions_car</i></div>`;
+                    const bFotoHtml = b.foto ? `<img src="${esc(b.foto)}" onerror="this.outerHTML='<div style=&quot;width: 32px; height: 26px; border-radius: 5px; background: #fff; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; flex-shrink: 0;&quot;><i class=&quot;material-icons&quot; style=&quot;color: #cbd5e1; font-size: 14px;&quot;>directions_car</i></div>'" style="width: 32px; height: 26px; object-fit: contain; border-radius: 5px; background: #fff; border: 1px solid #e2e8f0; flex-shrink: 0;">` : `<div style="width: 32px; height: 26px; border-radius: 5px; background: #fff; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; flex-shrink: 0;"><i class="material-icons" style="color: #cbd5e1; font-size: 14px;">directions_car</i></div>`;
 
                     html += `
                     <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; align-items: stretch; gap: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)'" onmouseout="this.style.boxShadow='0 1px 4px rgba(0,0,0,0.06)'">
@@ -86,8 +86,8 @@ window.equiposAnclajesArrancar = function (EQANC_CFG) {
                         <div style="display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 5px 8px; border-radius: 6px; border: 1px solid #f1f5f9;">
                             ${aFotoHtml}
                             <div style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
-                                <span style="font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px;">${a.tipo || 'Sin Tipo'}${aEtiquetaHtml}</span>
-                                <span style="font-size: 12px; font-weight: 800; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;">${aPlacaOrSerial}</span>
+                                <span style="font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px;">${esc(a.tipo || 'Sin Tipo')}${aEtiquetaHtml}</span>
+                                <span style="font-size: 12px; font-weight: 800; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;">${esc(aPlacaOrSerial)}</span>
                             </div>
                         </div>
                         
@@ -103,8 +103,8 @@ window.equiposAnclajesArrancar = function (EQANC_CFG) {
                         <div style="display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 5px 8px; border-radius: 6px; border: 1px solid #f1f5f9;">
                             ${bFotoHtml}
                             <div style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
-                                <span style="font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px;">${b.tipo || 'Sin Tipo'}${bEtiquetaHtml}</span>
-                                <span style="font-size: 12px; font-weight: 800; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;">${bPlacaOrSerial}</span>
+                                <span style="font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px;">${esc(b.tipo || 'Sin Tipo')}${bEtiquetaHtml}</span>
+                                <span style="font-size: 12px; font-weight: 800; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;">${esc(bPlacaOrSerial)}</span>
                             </div>
                         </div>
 

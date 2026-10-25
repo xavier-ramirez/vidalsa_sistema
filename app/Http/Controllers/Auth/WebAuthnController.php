@@ -9,7 +9,7 @@ use App\Models\BloqueoIp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
-use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class WebAuthnController extends Controller
 {
@@ -205,15 +205,16 @@ class WebAuthnController extends Controller
         ]);
 
         $ip = $request->ip();
+        $equipo = BloqueoIp::equipo($request);
 
-        // Bloqueo permanente por IP
-        $bloqueo = BloqueoIp::where('DIRECCION_IP', $ip)->first();
-        if ($bloqueo && $bloqueo->BLOQUEO_PERMANENTE) {
-            return response()->json(['error' => 'Su dirección IP ha sido bloqueada permanentemente.'], 403);
+        // Equipo o IP bloqueados (los mismos que el login con clave, ver BloqueoIp)
+        if ($motivo = BloqueoIp::motivoBloqueo($ip, $equipo)) {
+            return response()->json(['error' => $motivo], 403);
         }
 
-        // Rate limiting
-        $throttleKey = 'webauthn|' . $ip;
+        // Rate limiting por equipo: por IP frenaba a toda la oficina por lo que hacía uno.
+        // Sin cookie de equipo (ver BloqueoIp::equipo), por IP.
+        $throttleKey = 'webauthn|' . ($equipo ?? $ip);
         if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
             $seconds = RateLimiter::availableIn($throttleKey);
             return response()->json(['error' => "Demasiados intentos. Intente en {$seconds} segundos."], 429);
@@ -256,7 +257,7 @@ class WebAuthnController extends Controller
 
         if ($valid !== 1) {
             RateLimiter::hit($throttleKey);
-            $this->registrarFalloBd($ip, $bloqueo);
+            BloqueoIp::registrarFallo($ip, $equipo, 'huella:' . $credential->credential_id);
             return response()->json(['error' => 'Verificación biométrica fallida.'], 401);
         }
 
@@ -295,10 +296,8 @@ class WebAuthnController extends Controller
         );
 
         RateLimiter::clear($throttleKey);
-        if ($bloqueo) {
-            $bloqueo->CANTIDAD_INTENTOS = 0;
-            $bloqueo->save();
-        }
+        // Descuenta los fallos de esta huella y los de la clave de la misma persona.
+        BloqueoIp::registrarExito($ip, $equipo, 'huella:' . $credential->credential_id, Str::lower($user->CORREO_ELECTRONICO));
 
         // route() y no URLs a mano: el LoginController resuelve el mismo destino igual,
         // y con rutas literales un cambio en routes/web.php dejaba el login biométrico
@@ -359,23 +358,5 @@ class WebAuthnController extends Controller
         $pem   .= chunk_split($base64, 64, "\n");
         $pem   .= "-----END PUBLIC KEY-----\n";
         return $pem;
-    }
-
-    private function registrarFalloBd(string $ip, ?BloqueoIp $bloqueo): void
-    {
-        if (!$bloqueo) {
-            $bloqueo = new BloqueoIp();
-            $bloqueo->DIRECCION_IP = $ip;
-            $bloqueo->CANTIDAD_INTENTOS = 0;
-        }
-
-        $bloqueo->CANTIDAD_INTENTOS++;
-        $bloqueo->ULTIMO_INTENTO = Carbon::now();
-
-        if ($bloqueo->CANTIDAD_INTENTOS >= 10) {
-            $bloqueo->BLOQUEO_PERMANENTE = true;
-        }
-
-        $bloqueo->save();
     }
 }

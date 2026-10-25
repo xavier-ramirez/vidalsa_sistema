@@ -901,7 +901,7 @@ class HistorialDocumentosController extends Controller
                 //   · no hace falta un segundo log por cada guardado (sería un evento
                 //     duplicado para el mismo cambio).
                 // Cubre TODAS las vías porque todas guardan el modelo: el chip de la lista,
-                // el modal de detalles, la APK (mobileChangeStatus) y el paso automático a
+                // el modal de detalles y el paso automático a
                 // INOPERATIVO / OPERATIVO al abrir y cerrar un reporte de falla.
                 // Si el guardado tocó además otros campos, el evento se rotula por el estado
                 // (es lo importante) y la columna "ver cambios" sigue mostrándolos todos.
@@ -1232,12 +1232,11 @@ class HistorialDocumentosController extends Controller
     {
         try {
             $bloqueo = \App\Models\BloqueoIp::findOrFail($id);
-            $ip = $bloqueo->DIRECCION_IP;
             $bloqueo->delete();
 
             return response()->json([
                 'success' => true,
-                'message' => "La IP {$ip} ha sido desbloqueada exitosamente."
+                'message' => "Desbloqueado: {$bloqueo->etiqueta}."
             ]);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('unlockIp failed: ' . $e->getMessage());

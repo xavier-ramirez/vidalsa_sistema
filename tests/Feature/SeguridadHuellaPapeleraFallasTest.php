@@ -17,6 +17,8 @@ use Tests\MySqlTestCase;
  *    challenge y el origen, no reasigna huellas ajenas y cambiar la clave las borra.
  *  - Papelera de equipos: pide user.delete, como la de auxiliares.
  *  - Copia de Fallas: resta los reportes de frentes bloqueados para el usuario.
+ *  - La API de la APK abandonada (/api/mobile/*) ya no existe: entregaba la flota sin login.
+ *  - Consumibles: cambiar y borrar registros pide equipos.edit.
  * Corre en la transacción de la prueba.
  */
 class SeguridadHuellaPapeleraFallasTest extends MySqlTestCase
@@ -110,6 +112,33 @@ class SeguridadHuellaPapeleraFallasTest extends MySqlTestCase
         $u->ID_FRENTE_BLOQUEADO = (string) $frente;
         $u->save();
         $this->assertNotContains($falla->ID_FALLA, $ids($u->fresh()));
+    }
+
+    public function test_la_api_de_la_apk_ya_no_existe(): void
+    {
+        foreach (['equipos', 'frentes', 'catalogos-destacados', 'movilizaciones'] as $ruta) {
+            $this->getJson('/api/mobile/' . $ruta)->assertNotFound();
+        }
+        $this->postJson('/api/mobile/login', ['correo' => 'x', 'password' => 'x'])->assertNotFound();
+    }
+
+    public function test_consumibles_pide_permiso_para_cambiar_y_borrar(): void
+    {
+        $id = DB::table('consumibles')->value('ID_CONSUMIBLE') ?? $this->markTestSkipped('No hay consumibles.');
+        $sin = $this->usuario();
+
+        $this->actingAs($sin)->patchJson("/admin/consumibles/{$id}/identificador", ['identificador' => '<img src=x onerror=alert(1)>'])->assertForbidden();
+        $this->actingAs($sin)->patchJson("/admin/consumibles/{$id}/estado", ['estado_equipo' => 'PENDIENTE'])->assertForbidden();
+        $this->actingAs($sin)->postJson('/admin/consumibles/match-automatico')->assertForbidden();
+        $this->actingAs($sin)->deleteJson("/admin/consumibles/{$id}")->assertForbidden();
+        $this->assertDatabaseHas('consumibles', ['ID_CONSUMIBLE' => $id]);
+
+        // Con el permiso pasa la puerta y llega a la validación (vacío → 422). Sin guardar
+        // de verdad: eso subiría la versión de la caché de gráficos, que no se revierte.
+        $this->actingAs($this->usuario('equipos.edit'))->patchJson("/admin/consumibles/{$id}/identificador", ['identificador' => ''])->assertStatus(422);
+        // Borrar pide lo mismo que editar (no user.delete): con equipos.edit pasa la puerta y
+        // llega al registro; con un id que no existe responde 404 sin borrar nada.
+        $this->actingAs($this->usuario('equipos.edit'))->deleteJson('/admin/consumibles/999999999')->assertNotFound();
     }
 
     // ─── Ayudas ──────────────────────────────────────────────────────────

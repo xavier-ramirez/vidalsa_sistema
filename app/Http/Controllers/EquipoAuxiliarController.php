@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use App\Support\MensajeError;
 
 class EquipoAuxiliarController extends Controller
 {
@@ -768,7 +769,9 @@ class EquipoAuxiliarController extends Controller
 
             return response()->json(['success' => true, 'message' => 'Equipo auxiliar anclado correctamente.']);
         } catch (\RuntimeException $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            // RuntimeException también es un QueryException o un findOrFail fallido: solo el
+            // tope de arriba trae un texto para la pantalla.
+            return response()->json(['success' => false, 'message' => MensajeError::para($e)], 422);
         } catch (\Throwable $e) {
             Log::error('EquipoAuxiliar anchor falló: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Error al anclar el equipo.'], 500);
@@ -1002,7 +1005,7 @@ class EquipoAuxiliarController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
             Log::error('Error subiendo documento de auxiliar a Google Drive: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Error al subir archivo: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Error al subir archivo: ' . MensajeError::texto($e, MensajeError::REINTENTAR)], 500);
         }
     }
 
@@ -1913,7 +1916,7 @@ class EquipoAuxiliarController extends Controller
             Log::error('bulkStoreBatch auxiliares: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Error al guardar el batch: ' . $e->getMessage(),
+                'message' => 'Error al guardar el batch: ' . MensajeError::texto($e, MensajeError::REINTENTAR),
             ], 500);
         }
     }

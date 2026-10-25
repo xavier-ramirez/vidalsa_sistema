@@ -7,6 +7,7 @@ use App\Services\GoogleDriveService;
 use App\Models\Documentacion;
 use App\Models\Embarque;
 use App\Models\EquipoAuxiliar;
+use App\Support\ExcelSinFormulas;
 
 /**
  * Respaldo LOCAL de todos los PDF de documentos guardados en Google Drive.
@@ -156,7 +157,9 @@ class RespaldoDocumentos extends Command
         $fh = fopen($csvPath, 'w');
         fwrite($fh, "\xEF\xBB\xBF"); // BOM UTF-8
         foreach ($filas as $fila) {
-            fputcsv($fh, $fila, ';'); // ';' = separador que Excel-ES abre en columnas directo
+            // ';' = separador que Excel-ES abre en columnas directo. Placas, seriales y BL los
+            // escribe la gente: celdaCsv evita que uno con "=" se abra como fórmula.
+            fputcsv($fh, array_map([ExcelSinFormulas::class, 'celdaCsv'], $fila), ';');
         }
         fclose($fh);
 

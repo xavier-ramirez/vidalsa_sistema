@@ -17,7 +17,7 @@ class MovilizacionController extends Controller
 
     public function __construct()
     {
-        $this->middleware('auth')->except(['mobileIndex', 'mobileStore']);
+        $this->middleware('auth');
         // Permiso para MOVER equipos (crear movilizaciones).
         $this->middleware('can:equipos.assign')->only(['bulkStore']);
         // Borrar/deshacer movilizaciones es destructivo: solo super.admin (consistente con el modulo de equipos).
@@ -984,131 +984,6 @@ class MovilizacionController extends Controller
             'origin_zona' => $frenteOrigen ? trim($frenteOrigen->ZONA ?? '') : '',
             'firmas'      => $this->extractFirmasActa($frenteOrigen, $equipos),
         ]);
-    }
-
-    // â”€â”€â”€ MOBILE API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    public function mobileIndex(Request $request)
-    {
-        $query = Movilizacion::with(['equipo.tipo', 'equipo.documentacion', 'frenteOrigen', 'frenteDestino']);
-
-        // Filtros opcionales
-        if ($request->filled('id_equipo')) {
-            $query->where('ID_EQUIPO', $request->id_equipo);
-        }
-        if ($request->filled('id_frente_origen')) {
-            $query->where('ID_FRENTE_ORIGEN', $request->id_frente_origen);
-        }
-        if ($request->filled('id_frente_destino')) {
-            $query->where('ID_FRENTE_DESTINO', $request->id_frente_destino);
-        }
-        if ($request->filled('tipo_movimiento')) {
-            $query->where('TIPO_MOVIMIENTO', $request->tipo_movimiento);
-        }
-        if ($request->filled('codigo')) {
-            $query->where('CODIGO_CONTROL', 'like', '%' . trim($request->codigo) . '%');
-        }
-        if ($request->filled('fecha_desde')) {
-            $query->whereDate('FECHA_DESPACHO', '>=', $request->fecha_desde);
-        }
-        if ($request->filled('fecha_hasta')) {
-            $query->whereDate('FECHA_DESPACHO', '<=', $request->fecha_hasta);
-        }
-
-        // Paginación con scroll infinito (offset/limit)
-        $PAGE_SIZE = 50;
-        $offset = max(0, (int) $request->input('offset', 0));
-        $totalFound = (clone $query)->count();
-        $movs = $query->orderBy('FECHA_DESPACHO', 'desc')
-            ->offset($offset)->limit($PAGE_SIZE)->get();
-        $nextOffset = $offset + $movs->count();
-        $hasMore = $nextOffset < $totalFound;
-
-        $items = $movs->map(function ($m) {
-            return [
-                'ID_MOVILIZACION'  => $m->ID_MOVILIZACION,
-                'CODIGO_CONTROL'   => $m->formatted_codigo_control,
-                'TIPO_MOVIMIENTO'  => $m->TIPO_MOVIMIENTO,
-                'FECHA_DESPACHO'   => optional($m->FECHA_DESPACHO)->toIso8601String(),
-                'DETALLE_UBICACION'=> $m->DETALLE_UBICACION,
-                'USUARIO_REGISTRO' => $m->USUARIO_REGISTRO,
-                'equipo' => $m->equipo ? [
-                    'ID_EQUIPO'     => $m->equipo->ID_EQUIPO,
-                    'CODIGO_PATIO'  => $m->equipo->CODIGO_PATIO,
-                    'SERIAL_CHASIS' => $m->equipo->SERIAL_CHASIS,
-                    'MARCA'         => $m->equipo->MARCA,
-                    'MODELO'        => $m->equipo->MODELO,
-                    'TIPO'          => $m->equipo->tipo->nombre ?? 'N/A',
-                    'PLACA'         => $m->equipo->documentacion->PLACA ?? 'S/P',
-                ] : null,
-                // NOMBRE_FRENTE congelado al momento del movimiento (ver
-                // Movilizacion::getNombreOrigenAttribute) — no el nombre actual del frente.
-                'frente_origen'  => $m->frenteOrigen ? ['ID_FRENTE' => $m->frenteOrigen->ID_FRENTE, 'NOMBRE_FRENTE' => $m->nombre_origen] : null,
-                'frente_destino' => $m->frenteDestino ? ['ID_FRENTE' => $m->frenteDestino->ID_FRENTE, 'NOMBRE_FRENTE' => $m->nombre_destino] : null,
-            ];
-        });
-
-        return response()->json([
-            'items'      => $items,
-            'totalFound' => $totalFound,
-            'shownCount' => $movs->count(),
-            'offset'     => $offset,
-            'nextOffset' => $nextOffset,
-            'hasMore'    => $hasMore,
-            'pageSize'   => $PAGE_SIZE,
-        ]);
-    }
-
-    public function mobileStore(Request $request)
-    {
-        $tipo = $request->input('tipo', 'despacho');
-        $usuario = $request->user();
-
-        // La RECEPCION DIRECTA se retiro. Una APK vieja que todavia la mande no puede caer en
-        // el despacho de abajo (registraria un movimiento que nadie pidio): se rechaza.
-        if ($tipo === 'recepcion_directa') {
-            return response()->json(['success' => false, 'message' => 'La recepcion directa ya no existe. Registra la movilizacion como despacho.'], 422);
-        }
-
-        $request->validate([
-            'ID_EQUIPO'         => 'required|exists:equipos,ID_EQUIPO',
-            'ID_FRENTE_DESTINO' => 'required|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $equipo  = \App\Models\Equipo::lockForUpdate()->findOrFail($request->ID_EQUIPO);
-            $nextId = self::generateNextCodigoControl();
-
-            $now = now();
-            $origen = $equipo->ID_FRENTE_ACTUAL ?? 1;
-            Movilizacion::create([
-                'CODIGO_CONTROL'    => $nextId,
-                'ID_EQUIPO'         => $request->ID_EQUIPO,
-                'ID_FRENTE_ORIGEN'  => $origen,
-                'ID_FRENTE_DESTINO' => $request->ID_FRENTE_DESTINO,
-                // Nombre congelado al momento del movimiento — ver Movilizacion::getNombreOrigenAttribute.
-                'NOMBRE_FRENTE_ORIGEN_SNAPSHOT'  => FrenteTrabajo::withTrashed()->find($origen)?->NOMBRE_FRENTE,
-                'NOMBRE_FRENTE_DESTINO_SNAPSHOT' => FrenteTrabajo::find($request->ID_FRENTE_DESTINO)?->NOMBRE_FRENTE,
-                'FECHA_DESPACHO'    => $now,
-                'TIPO_MOVIMIENTO'   => 'DESPACHO',
-                'USUARIO_REGISTRO'  => $usuario->CORREO_ELECTRONICO ?? 'SISTEMA',
-            ]);
-
-            // ID_FRENTE_ACTUAL NO es fillable (ver Equipo::$fillable): asignación por
-            // propiedad + save(), NO update([...]) (mass-assign lo descartaría en silencio).
-            $equipo->ID_FRENTE_ACTUAL         = $request->ID_FRENTE_DESTINO;
-            $equipo->DETALLE_UBICACION_ACTUAL = null;
-            // Despacho → pendiente de confirmar en el frente destino (se tilda al llegar).
-            $equipo->CONFIRMADO_EN_SITIO      = 0;
-            $equipo->save();
-
-            DB::commit();
-            return response()->json(['success' => true, 'message' => 'Despacho registrado correctamente.']);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('mobileStore movilizacion error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'No se pudo registrar el despacho.'], 500);
-        }
     }
 
     /**

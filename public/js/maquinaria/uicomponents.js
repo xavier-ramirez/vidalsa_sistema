@@ -871,6 +871,8 @@ window.showDetailsImproved = function (target, event) {
     const hasAnchor = isValid(d.anchorId);
     if (anclajeAccordion && anclajeCard) {
         if (hasAnchor) {
+            // Datos del equipo (serial, placa, marca, rol...): se pintan escapados.
+            const esc = window.escapeHtml;
             const anchorTipo   = d.anchorTipoNombre || 'Equipo';
             const anchorMarca  = d.anchorMarca || '';
             const anchorPlaca  = (d.anchorPlaca && d.anchorPlaca !== 'N/A') ? d.anchorPlaca : '';
@@ -881,25 +883,25 @@ window.showDetailsImproved = function (target, event) {
             const idPrincipal  = anchorPlaca || anchorSerial || anchorCode || ('#' + d.anchorId);
             const idLabel      = anchorPlaca ? 'Placa' : (anchorSerial ? 'Chasis' : (anchorCode ? 'Código' : 'ID'));
             const rolBadge = anchorRol
-                ? `<span style="background:#e0e7ff;color:#3730a3;font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:0.4px;">${anchorRol}</span>`
+                ? `<span style="background:#e0e7ff;color:#3730a3;font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:0.4px;">${esc(anchorRol)}</span>`
                 : '';
             const fotoHtml = isValid(anchorFoto)
-                ? `<img src="${anchorFoto}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:contain;background:white;border:1px solid #cbd5e0;flex-shrink:0;" onerror="this.outerHTML='<div style=&quot;width:48px;height:48px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #cbd5e0;&quot;><i class=&quot;material-icons&quot; style=&quot;font-size:22px;&quot;>directions_car</i></div>'">`
+                ? `<img src="${esc(anchorFoto)}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:contain;background:white;border:1px solid #cbd5e0;flex-shrink:0;" onerror="this.outerHTML='<div style=&quot;width:48px;height:48px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #cbd5e0;&quot;><i class=&quot;material-icons&quot; style=&quot;font-size:22px;&quot;>directions_car</i></div>'">`
                 : `<div style="width:48px;height:48px;border-radius:8px;background:#eff6ff;color:#1e40af;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #cbd5e0;"><i class="material-icons" style="font-size:22px;">directions_car</i></div>`;
             anclajeCard.innerHTML = `
                 ${fotoHtml}
                 <div style="flex:1;min-width:0;">
                     <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap;">
-                        <strong style="font-size:13px;color:#000;text-transform:uppercase;letter-spacing:0.3px;">${anchorTipo}</strong>
+                        <strong style="font-size:13px;color:#000;text-transform:uppercase;letter-spacing:0.3px;">${esc(anchorTipo)}</strong>
                         ${rolBadge}
                     </div>
                     <!-- Datos en NEGRO (antes #475569 y #64748b, gris): costaba leerlos.
                          "Sin marca" se queda gris a propósito — es la AUSENCIA de un dato y
                          en negro se leería como si el equipo tuviera esa marca. -->
-                    <div style="font-size:12px;color:#000;font-weight:600;">${anchorMarca || '<em style=\"color:#94a3b8;font-weight:400;\">Sin marca</em>'}</div>
+                    <div style="font-size:12px;color:#000;font-weight:600;">${esc(anchorMarca) || '<em style=\"color:#94a3b8;font-weight:400;\">Sin marca</em>'}</div>
                     <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;font-size:11px;color:#000;">
-                        <span style="display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">${anchorPlaca?'featured_play_list':(anchorSerial?'fingerprint':'tag')}</i><strong style="color:#000;">${idLabel}:</strong> ${idPrincipal}</span>
-                        ${anchorCode && idLabel !== 'Código' ? `<span style="display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">qr_code_2</i>${anchorCode}</span>` : ''}
+                        <span style="display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">${anchorPlaca?'featured_play_list':(anchorSerial?'fingerprint':'tag')}</i><strong style="color:#000;">${idLabel}:</strong> ${esc(idPrincipal)}</span>
+                        ${anchorCode && idLabel !== 'Código' ? `<span style="display:flex;align-items:center;gap:3px;"><i class="material-icons" style="font-size:11px;">qr_code_2</i>${esc(anchorCode)}</span>` : ''}
                     </div>
                 </div>
                 <i class="material-icons" style="color:#10b981;font-size:18px;flex-shrink:0;" title="Anclado">link</i>
@@ -954,6 +956,7 @@ window.showDetailsImproved = function (target, event) {
                 saAccordion.style.display = 'block';
                 if (saBadge) saBadge.textContent = json.data.length;
                 
+                const esc = window.escapeHtml;
                 saList.innerHTML = json.data.map(sa => {
                     const tc = SA_TIPO_CFG[sa.tipo] || SA_TIPO_CFG.OTRO;
                     const estadoColor = sa.estado === 'OPERATIVO' ? '#16a34a' : (sa.estado === 'INOPERATIVO' ? '#dc2626' : '#64748b');
@@ -963,7 +966,7 @@ window.showDetailsImproved = function (target, event) {
                     // del tipo. onerror cae al placeholder si la URL falla.
                     const foto = sa.foto
                         ? `<div style="width:44px;height:44px;border-radius:9px;overflow:hidden;border:1px solid #cbd5e0;flex-shrink:0;background:#f1f5f9;">
-                                <img src="${sa.foto}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"
+                                <img src="${esc(sa.foto)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"
                                      onerror="this.outerHTML='<span class=&quot;material-icons&quot; style=&quot;font-size:22px;color:#94a3b8;display:flex;align-items:center;justify-content:center;width:100%;height:100%;&quot;>${tc.icon}</span>'">
                            </div>`
                         : `<div style="width:44px;height:44px;border-radius:9px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;border:1px solid #cbd5e0;flex-shrink:0;">
@@ -973,7 +976,7 @@ window.showDetailsImproved = function (target, event) {
                     // Mismo layout que la tarjeta "Vinculación" (hostCard) del modal del auxiliar
                     // para que se vean IGUALES: 3 líneas → (TIPO · MARCA · MODELO) gris / serial /
                     // estado con ícono. Sin badge a la derecha.
-                    const marcaModelo = [sa.marca, sa.modelo].filter(Boolean).join(' · ');
+                    const marcaModelo = esc([sa.marca, sa.modelo].filter(Boolean).join(' · '));
                     // Si el tipo cae al fallback OTRO (sea "OTRO" real o un tipo sin config
                     // propia, p.ej. HIDROJET o MONTACARGA) NO se antepone la palabra "Otro"
                     // (no aporta y molesta): se muestra solo la marca/modelo. Para tipos con
@@ -985,7 +988,7 @@ window.showDetailsImproved = function (target, event) {
                             ? `${tc.label} <span style="color:#cbd5e1;font-weight:600;">·</span> ${marcaModelo.toUpperCase()}`
                             : tc.label);
                     const estadoIcon = sa.estado === 'OPERATIVO' ? 'check_circle' : (sa.estado === 'INOPERATIVO' ? 'cancel' : 'help');
-                    const estadoLine = `<span style="font-size:11px;color:${estadoColor};font-weight:700;display:inline-flex;align-items:center;gap:3px;margin-top:1px;"><i class="material-icons" style="font-size:13px;">${estadoIcon}</i>${sa.estado.replace('_',' ')}</span>`;
+                    const estadoLine = `<span style="font-size:11px;color:${estadoColor};font-weight:700;display:inline-flex;align-items:center;gap:3px;margin-top:1px;"><i class="material-icons" style="font-size:13px;">${estadoIcon}</i>${esc(String(sa.estado || '').replace('_',' '))}</span>`;
 
                     // Fila de documento del auxiliar — mismo estilo que los docs propios (nombre
                     // en gris + botón-ícono para ver el PDF, o "No cargado"). Abre el visor
@@ -994,7 +997,7 @@ window.showDetailsImproved = function (target, event) {
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0;border-bottom:1px dashed #f1f5f9;">
                             <span style="color:#64748b;font-size:12px;">${label}</span>
                             ${link
-                                ? `<button class="pdf-doc-btn" type="button" title="Ver PDF" onclick="event.stopPropagation(); window.openPdfPreview('${link}','${docType}','${label}',0,'',true,'auxiliar');" ><i class="material-icons">description</i></button>`
+                                ? `<button class="pdf-doc-btn" type="button" title="Ver PDF" onclick="event.stopPropagation(); window.openPdfPreview('${window.escapeAttrJs(link)}','${docType}','${label}',0,'',true,'auxiliar');" ><i class="material-icons">description</i></button>`
                                 : `<span style="color:#94a3b8;font-size:12px;">No cargado</span>`}
                         </div>`;
 
@@ -1009,7 +1012,7 @@ window.showDetailsImproved = function (target, event) {
                                      #1e293b): son los datos que identifican al auxiliar y en
                                      gris claro se perdían sobre el fondo #f8fafc de la tarjeta. -->
                                 <span style="font-size:10px;font-weight:700;color:#000;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tipoMarcaLine}</span>
-                                <span style="font-size:11px;font-weight:700;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;">${sa.serial || '—'}</span>
+                                <span style="font-size:11px;font-weight:700;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;">${esc(sa.serial) || '—'}</span>
                                 ${estadoLine}
                             </div>
                             <i class="material-icons" style="font-size:18px;color:#94a3b8;flex-shrink:0;" title="Ver documentos">expand_more</i>
@@ -1137,14 +1140,14 @@ window.loadResponsables = (function () {
                 return `
                 <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${bg};border-radius:10px;border:1px solid ${border};transition:background .15s;">
                     <div style="width:36px;height:36px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:700;font-size:14px;">
-                        ${r.PERSONA_ASIGNADA.charAt(0).toUpperCase()}
+                        ${window.escapeHtml(r.PERSONA_ASIGNADA.charAt(0).toUpperCase())}
                     </div>
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;align-items:center;gap:6px;">
-                            <span style="font-size:13px;font-weight:700;color:#1e293b;word-wrap:break-word;overflow-wrap:break-word;line-height:1.2;">${r.PERSONA_ASIGNADA}</span>
+                            <span style="font-size:13px;font-weight:700;color:#1e293b;word-wrap:break-word;overflow-wrap:break-word;line-height:1.2;">${window.escapeHtml(r.PERSONA_ASIGNADA)}</span>
                         </div>
                         <div style="font-size:11px;color:#64748b;margin-top:2px;">
-                            C.I. ${r.CEDULA_RESPONSABLE} &nbsp;&bull;&nbsp; Asignado el ${dStr}
+                            C.I. ${window.escapeHtml(r.CEDULA_RESPONSABLE)} &nbsp;&bull;&nbsp; Asignado el ${window.escapeHtml(dStr)}
                         </div>
                     </div>
                     ${statusBadge}

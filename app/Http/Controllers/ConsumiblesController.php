@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Support\CacheVersion;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use App\Support\MensajeError;
 
 class ConsumiblesController extends Controller
 {
@@ -213,7 +214,7 @@ class ConsumiblesController extends Controller
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
-            $errMsg = 'Error al guardar: ' . $e->getMessage();
+            $errMsg = 'Error al guardar: ' . MensajeError::para($e, MensajeError::REINTENTAR);
             if ($request->expectsJson()) {
                 return response()->json(['message' => $errMsg], 500);
             }
@@ -308,7 +309,7 @@ class ConsumiblesController extends Controller
     // ══════════════════════════════════════════════════════════════
     public function destroy(Request $request, int $id)
     {
-        // El usuario solicitó eliminar la restricción de permiso
+        // Pide equipos.edit, como editar (la ruta); ya no super.admin, a pedido del usuario.
         Consumible::findOrFail($id)->delete();
 
         // Invalidar caché de gráficos

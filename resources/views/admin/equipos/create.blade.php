@@ -142,7 +142,7 @@
                                    onchange="window.__checkTipoEquipoCategoria();">
                             <div class="dropdown-list">
                                 @foreach($tipos_equipo as $tipo)
-                                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $tipo }}')">{{ $tipo }}</div>
+                                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ addslashes($tipo) }}')">{{ $tipo }}</div>
                                 @endforeach
                             </div>
                         </div>
@@ -225,7 +225,7 @@
                                onfocus="showFormDropdown(this)" onblur="hideFormDropdownDelayed(this)">
                         <div class="dropdown-list">
                             @foreach($aniosList ?? [] as $a)
-                                <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $a }}')">{{ $a }}</div>
+                                <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ addslashes($a) }}')">{{ $a }}</div>
                             @endforeach
                         </div>
                     </div>
@@ -318,7 +318,7 @@
                             {{-- Opciones equipo --}}
                             @foreach(['OPERATIVO', 'INOPERATIVO', 'EN MANTENIMIENTO' => 'MANTENIMIENTO', 'DESINCORPORADO'] as $key => $val)
                                 @php $vd = is_numeric($key) ? $val : $val; $vv = is_numeric($key) ? $val : $key; @endphp
-                                <div class="dropdown-item estado-opt-eq" onclick="selectOption('estadoSelect', '{{ $vv }}', '{{ $vd }}', 'estatus')">{{ $vd }}</div>
+                                <div class="dropdown-item estado-opt-eq" onclick="selectOption('estadoSelect', '{{ $vv }}', '{{ addslashes($vd) }}', 'estatus')">{{ $vd }}</div>
                             @endforeach
                             {{-- Opciones auxiliar (ocultas inicialmente) --}}
                             @foreach($estadosAux as $k => $label)
@@ -482,7 +482,7 @@
                                    onfocus="showFormDropdown(this)" onblur="hideFormDropdownDelayed(this)" oninput="filterFormDropdown(this)">
                             <div class="dropdown-list">
                                 @foreach($seguros as $s)
-                                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $s }}')">{{ $s }}</div>
+                                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ addslashes($s) }}')">{{ $s }}</div>
                                 @endforeach
                             </div>
                         </div>

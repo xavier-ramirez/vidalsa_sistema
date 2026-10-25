@@ -121,15 +121,18 @@
                     resBox.style.display = 'block';
                     return;
                 }
+                // Serial, placa, frente... vienen de la base: se pintan escapados, y lo que va
+                // al onclick con escapeAttrJs (comillas dentro de un atributo).
+                const esc = window.escapeHtml, js = window.escapeAttrJs;
                 resBox.innerHTML = data.results.map(r => {
                     const rawFoto = r.foto ? r.foto.replace(/\\/g, '/') : '';
                     const fotoSrc = rawFoto ? (rawFoto.startsWith('http') || rawFoto.startsWith('/') ? rawFoto : '/' + rawFoto) : '';
                     const fotoHtml = fotoSrc
-                        ? `<img src="${fotoSrc}" alt="" style="width:88px;height:72px;object-fit:contain;border-radius:8px;background:#f8fafc;flex-shrink:0;">`
+                        ? `<img src="${esc(fotoSrc)}" alt="" style="width:88px;height:72px;object-fit:contain;border-radius:8px;background:#f8fafc;flex-shrink:0;">`
                         : `<div style="width:88px;height:72px;border-radius:8px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#cbd5e0;flex-shrink:0;"><i class="material-icons" style="font-size:34px;">image_not_supported</i></div>`;
                     const tipoNom = r.tipo_nombre || (r.tipo === 'equipo' ? 'VEHÍCULO' : 'AUX');
                     const icon = (name, txt) =>
-                        txt ? `<span style="display:inline-flex;align-items:center;gap:2px;white-space:nowrap;"><i class="material-icons" style="font-size:12px;color:#94a3b8;">${name}</i> ${txt}</span>` : '';
+                        txt ? `<span style="display:inline-flex;align-items:center;gap:2px;white-space:nowrap;"><i class="material-icons" style="font-size:12px;color:#94a3b8;">${name}</i> ${esc(txt)}</span>` : '';
                     const chips = [
                         icon('fingerprint', r.serial),
                         icon('settings', r.serial_motor),
@@ -137,7 +140,7 @@
                         icon('tag', r.codigo),
                     ].filter(Boolean).join('');
                     const frenteHtml = r.frente
-                        ? `<div style="margin-top:5px;font-size:11.5px;font-weight:600;color:#3b82f6;">${r.frente}</div>`
+                        ? `<div style="margin-top:5px;font-size:11.5px;font-weight:600;color:#3b82f6;">${esc(r.frente)}</div>`
                         : `<div style="margin-top:5px;font-size:11px;color:#cbd5e1;font-style:italic;">Sin ubicación asignada</div>`;
                     const displayInfo = r.placa || r.serial || r.codigo || '';
                     // La tarjeta sugerida identifica por serial/placa/código + frente
@@ -145,7 +148,7 @@
                     // tarjeta de "seleccionado".
                     return `
                         <div class="fl-search-result"
-                             onclick="window.flSelectActivo('fl', '${r.tipo}', ${r.id}, '${tipoNom.replace(/'/g, "\\'")}', '${displayInfo.replace(/'/g, "\\'")}')">
+                             onclick="window.flSelectActivo('fl', '${js(r.tipo)}', ${Number(r.id)}, '${js(tipoNom)}', '${js(displayInfo)}')">
                             ${fotoHtml}
                             <div style="flex:1;min-width:0;margin-left:10px;">
                                 ${chips ? `<div style="display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:#64748b;">${chips}</div>` : ''}
@@ -166,8 +169,8 @@
             <div style="display:flex; align-items:center; gap:8px;">
                 <i class="material-icons" style="font-size:18px;color:#059669;flex-shrink:0;">check_circle</i>
                 <div style="display:flex; flex-direction:column; flex:1; min-width:0;">
-                    <strong style="color:#1e293b; font-size:13px; line-height:1.2;">${tipoNom}</strong>
-                    <span style="color:#64748b; font-size:12px;">${info || ''}</span>
+                    <strong style="color:#1e293b; font-size:13px; line-height:1.2;">${window.escapeHtml(tipoNom)}</strong>
+                    <span style="color:#64748b; font-size:12px;">${window.escapeHtml(info)}</span>
                 </div>
             </div>`;
         box.style.display = 'block';

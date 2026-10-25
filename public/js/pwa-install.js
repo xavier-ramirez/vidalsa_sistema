@@ -22,8 +22,10 @@
             navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
                 .catch(function () { /* silencioso */ });
             // Con sesión: que el SW guarde los módulos sin internet que le falten (ver sw.js).
+            // Con quién es: si lo guardado es de otro usuario, el SW lo tira primero.
+            var usuario = (document.querySelector('meta[name="usuario-id"]') || {}).content || '';
             navigator.serviceWorker.ready
-                .then(function (reg) { if (reg.active) reg.active.postMessage({ type: 'PAGINAS_SIN_RED' }); })
+                .then(function (reg) { if (reg.active) reg.active.postMessage({ type: 'PAGINAS_SIN_RED', usuario: usuario }); })
                 .catch(function () { /* silencioso */ });
         });
     }

@@ -19,6 +19,7 @@ use App\Traits\ExcelLogoCorporativo;
 use App\Traits\ConvertsImageToWebp;
 use RuntimeException;
 use Throwable;
+use App\Support\MensajeError;
 
 /**
  * Módulo de Almacén / Inventario.
@@ -2243,7 +2244,7 @@ class AlmacenController extends Controller
                 return ['ids' => $ids, 'numero_nota' => $opts['numero_nota'] ?? null];
             });
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         $n = count($result['ids']);
@@ -2300,7 +2301,7 @@ class AlmacenController extends Controller
         try {
             $resultado = $this->crearYEnviarTraspaso($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $bolsaPorProducto, $transporte);
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         $this->recordarTransporte((int) $data['id_almacen'], $transporte);
@@ -2401,7 +2402,7 @@ class AlmacenController extends Controller
                 return ['numero_nota' => $opts['numero_nota'], 'numero_traspaso' => null];
             });
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         $this->recordarTransporte($idAlmacen, $transporte);
@@ -3440,7 +3441,7 @@ class AlmacenController extends Controller
                 ]);
             });
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         return response()->json([
@@ -3489,7 +3490,7 @@ class AlmacenController extends Controller
                 return [$r, $this->traspasos->quitarLineasDeshechas($envio['lineas'])];
             });
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         // Más de una fila: las patas y tramos de un ítem de envío (con su retorno si se
@@ -3552,7 +3553,7 @@ class AlmacenController extends Controller
         try {
             $envio = $this->traspasos->resumenDeshacer($mov);
         } catch (Throwable $e) {
-            return response()->json(['avisos' => array_merge($avisos, [$e->getMessage()])]);
+            return response()->json(['avisos' => array_merge($avisos, [MensajeError::para($e)])]);
         }
         if ($envio) {
             $destino = $envio['destino'] ?? 'el almacén destino';
@@ -3592,7 +3593,7 @@ class AlmacenController extends Controller
         try {
             $r = $this->inventario->eliminarMovimientoSinReverso($id);
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         $msg = $r['eliminados'] > 1

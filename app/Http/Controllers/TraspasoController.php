@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Throwable;
+use App\Support\MensajeError;
 
 /**
  * Pedido de Traspaso (envío entre almacenes con recepción confirmada).
@@ -528,7 +529,7 @@ class TraspasoController extends Controller
                 $lineas,
             );
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         // Si el usuario hizo clic en "Enviar ahora" en lugar de "Guardar borrador", lo enviamos seguido.
@@ -539,7 +540,7 @@ class TraspasoController extends Controller
                     'fecha_envio'      => now(),
                 ]);
             } catch (Throwable $e) {
-                return response()->json(['message' => 'Borrador guardado, pero falló al enviar: ' . $e->getMessage(), 'traspaso' => $traspaso], 422);
+                return response()->json(['message' => 'Borrador guardado, pero falló al enviar: ' . MensajeError::para($e), 'traspaso' => $traspaso], 422);
             }
         }
 
@@ -633,7 +634,7 @@ class TraspasoController extends Controller
         try {
             $this->traspasos->validarOrigenDestino((int) $traspaso->ID_ALMACEN_ORIGEN, $destinoResuelto);
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         try {
@@ -649,7 +650,7 @@ class TraspasoController extends Controller
                 $this->traspasos->reemplazarLineas($traspaso, $lineas);
             });
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         return response()->json([
@@ -679,7 +680,7 @@ class TraspasoController extends Controller
                 'permitir_negativo' => $request->boolean('permitir_negativo') && $request->user()->can('super.admin'),
             ]);
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
         return response()->json(['message' => "Traspaso {$traspaso->NUMERO} enviado.", 'traspaso' => $traspaso]);
     }
@@ -704,7 +705,7 @@ class TraspasoController extends Controller
                 'fecha_recepcion'      => $payload['fecha_recepcion'] ?? now(),
             ]);
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         // El estado ya NO depende de las diferencias de cantidad, sino de si quedaron
@@ -730,7 +731,7 @@ class TraspasoController extends Controller
                 'notas'      => $request->input('notas'),
             ]);
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => MensajeError::para($e)], 422);
         }
         return response()->json(['message' => "Traspaso {$traspaso->NUMERO} cancelado.", 'traspaso' => $traspaso]);
     }

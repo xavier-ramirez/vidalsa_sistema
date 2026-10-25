@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use App\Support\MensajeError;
 
 class CaracteristicaModeloController extends Controller
 {
@@ -856,15 +857,16 @@ class CaracteristicaModeloController extends Controller
             return redirect()->route('catalogo.index')->with('success', 'Modelo registrado correctamente.');
         } catch (\Exception $e) {
             Log::error('Error registrando modelo en catálogo: ' . $e->getMessage());
-            
+            $msg = 'Error al registrar el modelo: ' . MensajeError::texto($e, MensajeError::REINTENTAR);
+
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error al registrar el modelo: ' . $e->getMessage()
+                    'message' => $msg
                 ], 500);
             }
 
-            return back()->withInput()->with('error', 'Error al registrar el modelo: ' . $e->getMessage());
+            return back()->withInput()->with('error', $msg);
         }
     }
 
@@ -956,12 +958,13 @@ class CaracteristicaModeloController extends Controller
             return redirect()->route('catalogo.index')->with('success', 'Modelo actualizado exitosamente');
         } catch (\Exception $e) {
             Log::error('Error actualizando modelo en catálogo: ' . $e->getMessage());
-            
+            $msg = 'Error al actualizar el modelo: ' . MensajeError::texto($e, MensajeError::REINTENTAR);
+
             if ($request->wantsJson()) {
-                return response()->json(['message' => 'Error al actualizar el modelo: ' . $e->getMessage()], 500);
+                return response()->json(['message' => $msg], 500);
             }
 
-            return back()->withInput()->with('error', 'Error al actualizar el modelo: ' . $e->getMessage());
+            return back()->withInput()->with('error', $msg);
         }
     }
 
@@ -1101,7 +1104,7 @@ class CaracteristicaModeloController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'No se pudo actualizar la foto: ' . $e->getMessage(),
+                'message' => 'No se pudo actualizar la foto: ' . MensajeError::texto($e, MensajeError::REINTENTAR),
             ], 500);
         }
     }

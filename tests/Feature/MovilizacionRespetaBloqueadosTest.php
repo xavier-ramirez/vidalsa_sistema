@@ -41,26 +41,6 @@ class MovilizacionRespetaBloqueadosTest extends MySqlTestCase
     }
 
     /**
-     * La recepcion directa se retiro. La APK (api/mobile/movilizaciones) todavia puede
-     * mandarla: se rechaza, y NO cae en el despacho (que registraria un movimiento).
-     */
-    public function test_la_apk_ya_no_registra_recepciones_directas(): void
-    {
-        [$usuario, , $equipo, $destinoOk] = $this->escenario();
-        DB::table('usuarios')->where('ID_USUARIO', $usuario->ID_USUARIO)->update(['PERMISOS' => 'equipos.assign,equipos.create']);
-        $antes = DB::table('movilizacion_historial')->count();
-
-        \Laravel\Sanctum\Sanctum::actingAs($usuario->fresh(), ['*']);
-        $this->postJson('/api/mobile/movilizaciones', [
-            'tipo' => 'recepcion_directa', 'ids' => [$equipo->ID_EQUIPO],
-            'ID_EQUIPO' => $equipo->ID_EQUIPO, 'ID_FRENTE_DESTINO' => $destinoOk->ID_FRENTE,
-        ])->assertStatus(422)->assertJson(['success' => false]);
-
-        $this->assertSame($antes, DB::table('movilizacion_historial')->count(), 'No se registra ningun movimiento.');
-        $this->assertSame((int) $equipo->ID_FRENTE_ACTUAL, (int) Equipo::find($equipo->ID_EQUIPO)->ID_FRENTE_ACTUAL);
-    }
-
-    /**
      * Monta el escenario sobre datos reales: un usuario con permiso de movilizar, un
      * frente que se le bloquea y un equipo suyo. Todo dentro de la transacción del test.
      *

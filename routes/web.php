@@ -284,12 +284,15 @@ Route::middleware(['auth'])->group(function () {
             // (cada modelo tiene su propio audit log).
             Route::get ('consumibles/exportar-csv',       [App\Http\Controllers\ConsumiblesController::class, 'exportarCsv'])    ->name('consumibles.exportarCsv');
             Route::post('consumibles/guardar-lote',       [App\Http\Controllers\ConsumiblesController::class, 'guardarLote'])    ->middleware('can:super.admin')->name('consumibles.guardarLote');
-            Route::post('consumibles/match-automatico',   [App\Http\Controllers\ConsumiblesController::class, 'matchAutomatico'])->name('consumibles.matchAutomatico');
-            // Rutas con wildcard {id} al final para no capturar segmentos estáticos
-            Route::patch('consumibles/{id}/estado',       [App\Http\Controllers\ConsumiblesController::class, 'updateEstado'])   ->name('consumibles.updateEstado');
-            Route::patch('consumibles/{id}/identificador',[App\Http\Controllers\ConsumiblesController::class, 'updateIdentificador'])->name('consumibles.updateIdentificador');
-            Route::patch('consumibles/{id}/frente',       [App\Http\Controllers\ConsumiblesController::class, 'updateFrente'])   ->name('consumibles.updateFrente');
-            Route::delete('consumibles/{id}',             [App\Http\Controllers\ConsumiblesController::class, 'destroy'])        ->name('consumibles.destroy');
+            Route::post('consumibles/match-automatico',   [App\Http\Controllers\ConsumiblesController::class, 'matchAutomatico'])->middleware('can:equipos.edit')->name('consumibles.matchAutomatico');
+            // Rutas con wildcard {id} al final para no capturar segmentos estáticos.
+            // Cambiar, emparejar y borrar registros pide equipos.edit (antes cualquier usuario
+            // con sesión podía). Borrar NO pide user.delete: en mar-2026 se pidió quitarle la
+            // restricción de super.admin, y user.delete lo tienen solo dos usuarios.
+            Route::patch('consumibles/{id}/estado',       [App\Http\Controllers\ConsumiblesController::class, 'updateEstado'])   ->middleware('can:equipos.edit')->name('consumibles.updateEstado');
+            Route::patch('consumibles/{id}/identificador',[App\Http\Controllers\ConsumiblesController::class, 'updateIdentificador'])->middleware('can:equipos.edit')->name('consumibles.updateIdentificador');
+            Route::patch('consumibles/{id}/frente',       [App\Http\Controllers\ConsumiblesController::class, 'updateFrente'])   ->middleware('can:equipos.edit')->name('consumibles.updateFrente');
+            Route::delete('consumibles/{id}',             [App\Http\Controllers\ConsumiblesController::class, 'destroy'])        ->middleware('can:equipos.edit')->name('consumibles.destroy');
 
             // ── Equipos Auxiliares (maquinas de soldar, luminarias, compresores, etc) ──
             // Reemplaza el antiguo modulo "sub-activos" con logica de anclaje 1:N

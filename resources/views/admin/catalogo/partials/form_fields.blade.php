@@ -79,7 +79,7 @@
                    autocomplete="off">
             <div class="dropdown-list">
                 @foreach($tipos ?? [] as $t)
-                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $t }}')">{{ $t }}</div>
+                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ addslashes($t) }}')">{{ $t }}</div>
                 @endforeach
             </div>
         </div>
@@ -101,7 +101,7 @@
                    autocomplete="off">
             <div class="dropdown-list">
                 @foreach($modelosList ?? [] as $modelo)
-                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $modelo }}')">{{ $modelo }}</div>
+                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ addslashes($modelo) }}')">{{ $modelo }}</div>
                 @endforeach
             </div>
         </div>
@@ -123,7 +123,7 @@
                    autocomplete="off">
             <div class="dropdown-list">
                 @foreach($aniosList ?? [] as $anio)
-                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ $anio }}')">{{ $anio }}</div>
+                    <div class="dropdown-item" onmousedown="selectDropdownItem(this, '{{ addslashes($anio) }}')">{{ $anio }}</div>
                 @endforeach
             </div>
         </div>

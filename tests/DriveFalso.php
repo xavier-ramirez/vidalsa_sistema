@@ -15,6 +15,12 @@ class DriveFalso extends GoogleDriveService
     /** true = la API falla como si no hubiera red. */
     public bool $caido = false;
 
+    /** Tipo que dice Drive de cualquier archivo que se le pregunte (files->get). */
+    public string $mimeDeArchivos = 'application/pdf';
+
+    /** Cuántas veces se pidió bajar un archivo (getStreamById). */
+    public int $bajadas = 0;
+
     private object $api;
 
     public function __construct()
@@ -27,6 +33,16 @@ class DriveFalso extends GoogleDriveService
                 $this->files = new class {
                     public int $creados = 0;
                     public bool $caido = false;
+                    public string $mime = 'application/pdf';
+
+                    public function get($id, $opciones)
+                    {
+                        return new class($this->mime) {
+                            public function __construct(private string $mime) {}
+                            public function getMimeType() { return $this->mime; }
+                            public function getSize() { return 0; }
+                        };
+                    }
 
                     public function create($metadata, $opciones)
                     {
@@ -65,9 +81,17 @@ class DriveFalso extends GoogleDriveService
         return $this->api->files->creados;
     }
 
+    public function getStreamById($fileId)
+    {
+        $this->bajadas++;
+
+        return \GuzzleHttp\Psr7\Utils::streamFor('%PDF-1.4 falso');
+    }
+
     public function getDrive()
     {
         $this->api->files->caido = $this->caido;
+        $this->api->files->mime = $this->mimeDeArchivos;
 
         return $this->api;
     }

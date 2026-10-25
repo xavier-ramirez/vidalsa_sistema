@@ -183,7 +183,7 @@
         <td style="text-align: center;">
             <div style="display:inline-flex;align-items:center;gap:6px;justify-content:center;">
                 @if($event->link)
-                    <button type="button" class="pdf-doc-btn" onclick="openPdfPreview('{{ $event->link }}', '{{ $event->doc_key }}', '{{ $event->tipo }}', '{{ $event->equipo_db_id ?? '' }}')" title="Ver PDF">
+                    <button type="button" class="pdf-doc-btn" onclick="openPdfPreview('{{ addslashes($event->link) }}', '{{ $event->doc_key }}', '{{ addslashes($event->tipo ?? '') }}', '{{ $event->equipo_db_id ?? '' }}')" title="Ver PDF">
                         <i class="material-icons">description</i>
                     </button>
                 @endif

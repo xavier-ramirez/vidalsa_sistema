@@ -158,8 +158,8 @@ class UserController extends Controller
         // Auditoría (Usuario::sesionesActivas), para el panel lateral. No duplica lógica.
         $activeUsers = \App\Models\Usuario::sesionesActivas(30);
 
-        // IPs efectivamente bloqueadas — mismo criterio/umbral que Auditoría vía el scope
-        // BloqueoIp::bloqueadas() (fuente única). El panel lateral "IPs Bloqueadas" reutiliza
+        // Equipos e IPs bloqueados por claves incorrectas, vía el scope BloqueoIp::bloqueadas()
+        // (fuente única). El panel lateral "Equipos e IPs bloqueados" reutiliza
         // el JS global (unlockIp/filterBlockedIps) ya cargado en todas las páginas.
         $blockedIps = BloqueoIp::bloqueadas()->get();
 

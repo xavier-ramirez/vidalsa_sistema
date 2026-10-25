@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Equipo;
 use App\Models\FrenteTrabajo;
 use App\Models\CaracteristicaModelo;
+use App\Support\MensajeError;
 
 class DashboardController extends Controller
 {
@@ -131,50 +132,10 @@ class DashboardController extends Controller
     }
 
     /**
-     * API mobile: devuelve los 3 catalogos destacados (modelos con FOTO_REFERENCIAL)
-     * con la foto en base64 para que la APK los cachee en SQLite y los muestre
-     * en el dashboard sin necesidad de internet posterior. Espejo del bloque
-     * `@if(isset($catalogosDestacados))` de menu.blade.php pero limitado a 3.
-     */
-    public function mobileCatalogosDestacados()
-    {
-        // Mismo select acotado que index(): solo hacen falta esas tres columnas para
-        // resolver la marca. Con el with() completo se traian TODAS las columnas de TODOS
-        // los equipos de esos modelos, que es justo lo que index() ya habia corregido.
-        $destacados = CaracteristicaModelo::with(['equipos' => fn ($q) => $q->select('ID_EQUIPO', 'ID_ESPEC', 'MARCA')])
-            ->whereNotNull('FOTO_REFERENCIAL')
-            ->orderBy('ID_ESPEC', 'desc')
-            ->limit(3)
-            ->get();
-
-        $payload = [];
-        $marcasFallback = $this->marcasPorModelo($destacados);
-        foreach ($destacados as $cat) {
-            $marca = $cat->equipos->isNotEmpty()
-                ? $cat->equipos->first()->MARCA
-                : ($marcasFallback[mb_strtoupper(trim((string) $cat->MODELO))] ?? null);
-
-            $driveFileId = CaracteristicaModelo::idDrive($cat->FOTO_REFERENCIAL);
-            $fotoBase64 = $this->fetchDriveThumbBase64($driveFileId, 'w300');
-
-            $payload[] = [
-                'id_espec'    => $cat->ID_ESPEC,
-                'modelo'      => $cat->MODELO,
-                'marca'       => $marca,
-                'anio'        => $cat->ANIO_ESPEC,
-                'motor'       => $cat->MOTOR,
-                'foto_base64' => $fotoBase64, // null si no se pudo bajar
-            ];
-        }
-
-        return response()->json($payload);
-    }
-
-    /**
      * MARCA de fallback por MODELO para los catálogos SIN equipos ligados
      * directamente, en UNA sola consulta whereIn (antes: un Equipo::where()
      * ->value() POR catálogo dentro del loop = N+1). Devuelve [MODELO => MARCA].
-     * Usado por index() y mobileCatalogosDestacados().
+     * Usado por index().
      */
     private function marcasPorModelo($catalogos): array
     {
@@ -192,21 +153,6 @@ class DashboardController extends Controller
             ->pluck('MARCA', 'MODELO')
             ->mapWithKeys(fn ($marca, $modelo) => [mb_strtoupper(trim((string) $modelo)) => $marca])
             ->toArray();
-    }
-
-    /**
-     * Miniatura de la foto en base64 (data URI), o null si no se pudo — el cliente
-     * mostrara un placeholder. La saca GoogleDriveService::miniatura, la misma que sirve
-     * el proxy y con la misma copia local: aqui habia una segunda version a mano que pedia
-     * la URL publica sin comprobar que volviera una imagen.
-     */
-    private function fetchDriveThumbBase64($driveFileId, $sz = 'w300')
-    {
-        if (!$driveFileId) return null;
-        [$bytes] = \App\Services\GoogleDriveService::miniatura($driveFileId, $sz);
-        return $bytes === null
-            ? null
-            : 'data:' . getimagesizefromstring($bytes)['mime'] . ';base64,' . base64_encode($bytes);
     }
 
     /**
@@ -683,12 +629,12 @@ class DashboardController extends Controller
                     ->header('Content-Type', 'application/pdf')
                     ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
             } else {
-                 throw new \Exception('La librería TCPDF no se encuentra instalada correctamente.');
+                 throw new \RuntimeException('La librería TCPDF no se encuentra instalada correctamente.');
             }
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('PDF Export Error: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Error al generar PDF: ' . $e->getMessage()]);
+            return back()->withErrors(['error' => 'Error al generar PDF: ' . MensajeError::texto($e, MensajeError::REINTENTAR)]);
         }
     }
 
@@ -828,7 +774,7 @@ class DashboardController extends Controller
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Excel Export Error: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Error al generar el Excel: ' . $e->getMessage()]);
+            return back()->withErrors(['error' => 'Error al generar el Excel: ' . MensajeError::texto($e, MensajeError::REINTENTAR)]);
         }
     }
 }

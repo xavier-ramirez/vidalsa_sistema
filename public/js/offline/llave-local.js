@@ -176,9 +176,13 @@
 
     // Salir del sistema (los botones de la cabecera y del menú del teléfono): la llave se
     // olvida YA. La pantalla de inicio que venga después puede ser una copia vieja del service
-    // worker que todavía no sepa cerrarla.
+    // worker que todavía no sepa cerrarla. Las páginas guardadas se quedan: son para entrar
+    // sin internet, y se tiran si entra otra persona (ver DUENO en sw.js).
     document.addEventListener('submit', (e) => {
         const f = e.target;
-        try { if (f && f.action && new URL(f.action, location.href).pathname === '/logout') window.LlaveLocal.cerrar(); } catch (err) {}
+        try {
+            if (!f || !f.action || new URL(f.action, location.href).pathname !== '/logout') return;
+            window.LlaveLocal.cerrar();
+        } catch (err) {}
     }, true);
 })();

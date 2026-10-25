@@ -222,6 +222,8 @@
             document.head.appendChild(style);
         }
 
+        // Los datos de la ficha (motor, aceites, foto) se escriben a mano: van escapados.
+        const esc = window.escapeHtml;
         // Main Content Container (Row)
         html += '<div class="catalog-flex-container">';
 
@@ -229,7 +231,7 @@
         if (data.FOTO) {
             html += `
                 <div class="catalog-photo-wrapper">
-                    <img src="${data.FOTO}" style="width: 100%; height: 92px; border-radius: 8px; object-fit: contain; background: #f8fafc; border: 1px solid #e2e8f0;">
+                    <img src="${esc(data.FOTO)}" style="width: 100%; height: 92px; border-radius: 8px; object-fit: contain; background: #f8fafc; border: 1px solid #e2e8f0;">
                 </div>`;
         } else {
             // Placeholder if no photo
@@ -249,27 +251,27 @@
             <div style="flex: 1;" class="catalog-grid">
                 <div>
                     <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Motor</span>
-                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.MOTOR || '--'}</span>
+                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${esc(data.MOTOR) || '--'}</span>
                 </div>
                 <div>
                     <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Batería</span>
-                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.TIPO_BATERIA || '--'}</span>
+                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${esc(data.TIPO_BATERIA) || '--'}</span>
                 </div>
                 <div>
                     <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Aceite Motor</span>
-                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.ACEITE_MOTOR || '--'}</span>
+                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${esc(data.ACEITE_MOTOR) || '--'}</span>
                 </div>
                 <div>
                     <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Aceite Caja</span>
-                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.ACEITE_CAJA || '--'}</span>
+                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${esc(data.ACEITE_CAJA) || '--'}</span>
                 </div>
                 <div>
                     <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Liga Freno</span>
-                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.LIGA_FRENO || '--'}</span>
+                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${esc(data.LIGA_FRENO) || '--'}</span>
                 </div>
                 <div>
                     <span style="display: block; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Refrigerante</span>
-                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${data.REFRIGERANTE || '--'}</span>
+                    <span style="color: #1e293b; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${esc(data.REFRIGERANTE) || '--'}</span>
                 </div>
             </div>
         `;
