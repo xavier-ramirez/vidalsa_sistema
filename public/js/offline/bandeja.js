@@ -22,8 +22,8 @@
  *
  * Lo que el servidor rechaza (sin stock, falla abierta, sin permiso…) se queda en ROJO con su
  * motivo: no se vuelve a mandar solo. Desde el panel se puede reintentar o descartar. Un 5xx,
- * un 409 "en curso", la red caída o la sesión cerrada (401) se reintentan después, sin tocar el
- * orden.
+ * un 409 "en curso", la red caída o la sesión cerrada (401/419) se reintentan después, sin tocar
+ * el orden.
  *
  * Una bandeja por usuario (meta usuario-id), igual que la copia local.
  *
@@ -187,9 +187,10 @@
         try {
             const { r, b } = await mandar(it);
             conectado = true;
-            // La sesión se cerró en el servidor: se guarda aquí y sube al volver a entrar (el
-            // aviso para entrar lo saca fetch_interceptor.js).
-            if (r.status === 401) {
+            // La sesión se cerró en el servidor (401, o 419 si ni el token nuevo sirvió): se
+            // guarda aquí y sube al volver a entrar (el aviso para entrar lo saca
+            // fetch_interceptor.js).
+            if (r.status === 401 || r.status === 419) {
                 await guardarItem(it);
                 await refrescar();
                 return { ok: false, status: 0, b: {}, enBandeja: true };
@@ -223,7 +224,7 @@
                 if (b && b.nota_url && window.descargarPdf) {
                     window.descargarPdf(b.nota_url, b.numero_nota ? 'Nota_' + b.numero_nota + '.pdf' : 'nota_entrega.pdf');
                 }
-            } else if (r.status === 401 || r.status >= 500 || r.headers.get('X-Operacion-En-Curso')) {
+            } else if (r.status === 401 || r.status === 419 || r.status >= 500 || r.headers.get('X-Operacion-En-Curso')) {
                 break;                                                     // reintento luego
             } else {
                 rechazados++;

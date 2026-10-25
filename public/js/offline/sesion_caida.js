@@ -6,6 +6,9 @@
  * lo escrito sigue en su sitio, lo que se intentó guardar por la bandeja espera en ella y, al
  * entrar, la copia vuelve a ponerse al día y la bandeja sube sola. Quien entra con huella, u
  * otra persona, usa "Ir al inicio de sesión" (eso sí sale de la pantalla).
+ *
+ * Devuelve una promesa que se cumple, con el token nuevo, al volver a entrar: con ella el
+ * interceptor repite lo que quedó esperando (la misma para todas las peticiones).
  */
 (function () {
     'use strict';
@@ -13,14 +16,19 @@
 
     const correo = () => (document.querySelector('meta[name="usuario-correo"]') || {}).content || '';
     let caja = null;
+    let entrada = null, alEntrar = null;
 
     function pedirToken() {
         return window.fetchSinInterceptor('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
             .then((r) => (r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status))))
             .then((t) => {
                 t = t.trim();
-                const meta = document.querySelector('meta[name="csrf-token"]');
-                if (meta && t) meta.setAttribute('content', t);
+                if (t) {
+                    const meta = document.querySelector('meta[name="csrf-token"]');
+                    if (meta) meta.setAttribute('content', t);
+                    // Los formularios de la pantalla llevan el token de la sesión vieja.
+                    document.querySelectorAll('input[name="_token"]').forEach((i) => { i.value = t; });
+                }
                 return t;
             });
     }
@@ -57,15 +65,16 @@
             if (window.LlaveLocal) await window.LlaveLocal.confirmar();
             // Toca cambiar la clave: eso es otra pantalla.
             if (data.redirect && !/\/menu$/.test(data.redirect)) { window.location.href = data.redirect; return; }
-            await pedirToken();   // la sesión nueva trae su propio token
+            const fresco = await pedirToken();   // la sesión nueva trae su propio token
             try {
                 localStorage.setItem('vidalsa_ultimo_contacto', String(Date.now()));
                 localStorage.setItem('vidalsa_last_activity', String(Date.now()));
             } catch (err) {}
             cerrar();
+            alEntrar(fresco);
             if (window.CopiaLocal) window.CopiaLocal.reanudar();
             if (window.Bandeja) window.Bandeja.subir();
-            if (window.toast) window.toast('Entraste de nuevo. Si estabas guardando algo, vuelve a pulsar Guardar.', 'success');
+            if (window.toast) window.toast('Entraste de nuevo. Lo que estabas guardando sigue solo.', 'success');
         } catch (err) {
             if (window.LlaveLocal) window.LlaveLocal.descartar();
             aviso('No hay conexión con el servidor. Inténtalo de nuevo en un momento.');
@@ -80,7 +89,8 @@
     }
 
     window.sesionCaida = function () {
-        if (caja) return;
+        if (caja) return entrada;
+        entrada = new Promise((r) => { alEntrar = r; });
         caja = document.createElement('div');
         caja.id = 'sesionCaida';
         caja.setAttribute('role', 'dialog');
@@ -103,5 +113,6 @@
         caja.querySelector('a').addEventListener('click', () => { if (window.LlaveLocal) window.LlaveLocal.cerrar(); });
         (window.raizVisible ? window.raizVisible() : document.body).appendChild(caja);
         setTimeout(() => { const c = caja && caja.querySelector('[data-clave]'); if (c) c.focus(); }, 50);
+        return entrada;
     };
 })();

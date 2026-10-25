@@ -77,6 +77,9 @@
     {{-- La copia local (copia-local.js) guarda los datos de cada usuario aparte: en un equipo
          compartido nadie ve la copia de otro. --}}
     <meta name="usuario-id" content="{{ Auth::user()?->ID_USUARIO }}">
+    {{-- Huella de lo que el usuario puede ver y hacer: si un administrador le cambia permisos o
+         frentes, las pantallas guardadas de navegacion.js dejan de valer. --}}
+    <meta name="usuario-acceso" content="{{ Auth::user() ? substr(md5(implode('|', array_map('strval', \Illuminate\Support\Arr::only(Auth::user()->getAttributes(), ['ID_ROL', 'PERMISOS', 'NIVEL_ACCESO_EQUIPOS', 'NIVEL_ACCESO_ALMACEN', 'ID_FRENTE_ASIGNADO', 'ID_FRENTE_BLOQUEADO'])))), 0, 12) : '' }}">
     {{-- El correo con que se vuelve a entrar sin salir de la pantalla (offline/sesion_caida.js). --}}
     <meta name="usuario-correo" content="{{ Auth::user()?->CORREO_ELECTRONICO }}">
     {{-- Los dominios que esa copia mantiene al día en segundo plano (SincronizacionController). --}}

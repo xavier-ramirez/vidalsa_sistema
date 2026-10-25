@@ -153,12 +153,13 @@
                                 filas[i].forEach((f) => m.set(f.id, f));
                             });
                             c.tablas = tablas;
+                            c.arrays = {};
                             c.meta = meta;
                             c.estado.actualizado = meta.actualizado || null;
                             c.estado.listo = true;
                         })
                         // Cifrada con otra llave: no se puede abrir, se tira y se baja de nuevo.
-                        .catch(() => { c.tablas = {}; c.catalogos = {}; c.meta = {}; return borrar(d); });
+                        .catch(() => { c.tablas = {}; c.arrays = {}; c.catalogos = {}; c.meta = {}; return borrar(d); });
                 });
             }).catch(() => {});
         }

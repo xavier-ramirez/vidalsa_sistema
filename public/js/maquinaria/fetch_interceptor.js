@@ -26,6 +26,32 @@ const originalFetch = window.fetch;
  * usar window.apiFetch, que es el que atrapa 401/419 y avisa de la caída de red.
  */
 window.fetchSinInterceptor = originalFetch.bind(window);
+
+/**
+ * La misma petición con otro token CSRF: en la cabecera y, si el cuerpo lo lleva, en el
+ * _token del cuerpo, que es el que manda (Laravel mira primero input('_token')).
+ */
+function conTokenNuevo(opciones, fresco) {
+    const conf = Object.assign({}, opciones || {});
+    const cab = {};
+    const propias = conf.headers || {};
+    if (typeof Headers !== 'undefined' && propias instanceof Headers) propias.forEach((v, k) => { cab[k] = v; });
+    else Object.assign(cab, propias);
+    for (const k in cab) {
+        if (k.toLowerCase() === 'x-csrf-token') delete cab[k];
+    }
+    cab['X-CSRF-TOKEN'] = fresco;
+    conf.headers = cab;
+    try {
+        const b = conf.body;
+        if (typeof FormData !== 'undefined' && b instanceof FormData && b.has('_token')) {
+            b.set('_token', fresco);
+        } else if (typeof URLSearchParams !== 'undefined' && b instanceof URLSearchParams && b.has('_token')) {
+            b.set('_token', fresco);
+        }
+    } catch (e) { /* body no manipulable: queda la cabecera */ }
+    return conf;
+}
 window.fetch = async function (...args) {
     try {
         let response = await originalFetch.apply(this, args);
@@ -58,29 +84,9 @@ window.fetch = async function (...args) {
                     if (fresco) {
                         const meta = document.querySelector('meta[name="csrf-token"]');
                         if (meta) meta.setAttribute('content', fresco);
-                        const conf = Object.assign({}, args[1] || {});
-                        const cab = Object.assign({}, conf.headers || {});
-                        for (const k in cab) {
-                            if (k.toLowerCase() === 'x-csrf-token') delete cab[k];
-                        }
-                        cab['X-CSRF-TOKEN'] = fresco;
-                        conf.headers = cab;
-
-                        // El _token del CUERPO manda sobre la cabecera: Laravel mira
-                        // primero input('_token') y solo despues la cabecera. Si el
-                        // formulario lo lleva dentro (lo normal al mandar un <form>
-                        // con FormData), refrescar solo la cabecera no arreglaba nada.
-                        try {
-                            const b = conf.body;
-                            if (typeof FormData !== 'undefined' && b instanceof FormData && b.has('_token')) {
-                                b.set('_token', fresco);
-                            } else if (typeof URLSearchParams !== 'undefined' && b instanceof URLSearchParams && b.has('_token')) {
-                                b.set('_token', fresco);
-                            }
-                        } catch (e) { /* body no manipulable: queda la cabecera */ }
                         // El tercer argumento marca el reintento: sin él, un 419
                         // persistente se reintentaría en bucle.
-                        return window.fetch(args[0], conf, true);
+                        return window.fetch(args[0], conTokenNuevo(args[1], fresco), true);
                     }
                 }
             } catch (e) { /* sin red: cae al manejo de abajo */ }
@@ -88,9 +94,8 @@ window.fetch = async function (...args) {
 
         // Si la sesión expiró de verdad (401, o 419 que no se arregló)
         if (response.status === 401 || response.status === 419) {
-            // DUEÑO ÚNICO de "la sesión murió". Corta aquí y devuelve una promesa
-            // que no resuelve nunca, así que ningún módulo llega a ver un 401/419
-            // (solo la bandeja, ver abajo): por eso ya no existen las ramas de
+            // DUEÑO ÚNICO de "la sesión murió": ningún módulo llega a ver un 401/419
+            // (solo la bandeja, ver abajo), por eso ya no existen las ramas de
             // "sesión expirada" que tenían equipos_index y form_logic.
             //
             // Con ?aviso= el login explica POR QUÉ se cerró la sesión (un flash no
@@ -117,14 +122,17 @@ window.fetch = async function (...args) {
             // Sesión vencida: se vuelve a entrar AHÍ MISMO (sesion_caida.js), sin salir de la
             // pantalla. Lo escrito sigue en su sitio y lo que se intentó guardar por la bandeja
             // se queda en ella (por eso a esas peticiones —las que llevan X-Clave-Operacion— sí
-            // se les devuelve el 401). Clave cambiada o usuario inactivo van al login: ahí no
-            // hay vuelta atrás desde esta pantalla.
+            // se les devuelve el 401). Lo demás ESPERA a que se entre y se repite con el token
+            // nuevo: el botón que estaba "guardando" termina solo. Repetirla no duplica nada,
+            // porque con 401/419 el servidor no hizo la operación. Clave cambiada o usuario
+            // inactivo van al login: ahí no hay vuelta atrás desde esta pantalla.
             if (!_motivo && typeof window.sesionCaida === 'function') {
-                window.sesionCaida();
+                var _entrada = window.sesionCaida();
                 var _cab = (args[1] && args[1].headers) || {};
                 var _deLaBandeja = typeof _cab.has === 'function' ? _cab.has('X-Clave-Operacion')
                     : Object.keys(_cab).some(function (k) { return k.toLowerCase() === 'x-clave-operacion'; });
-                return _deLaBandeja ? response : new Promise(() => { });
+                if (_deLaBandeja) return response;
+                return _entrada.then(function (fresco) { return window.fetch(args[0], conTokenNuevo(args[1], fresco)); });
             }
             var _aviso = _motivo || 'sesion_expirada';
             if (window.Bandeja && window.Bandeja.pendientes().some(function (it) { return it.estado === 'pendiente'; })) _aviso += '_pendientes';

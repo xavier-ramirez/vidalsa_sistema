@@ -101,7 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Estos módulos pintan sus datos desde la copia local, que copia-local.js mantiene al día
     // en segundo plano. Lo que todavía se pedía al servidor en cada clic era la pantalla (su
     // HTML). Ahora se guarda por usuario y por versión de las vistas, y se abre desde aquí:
-    //   · un despliegue cambia version-vistas → la clave es otra y se vuelve a pedir;
+    //   · un despliegue cambia version-vistas → la clave es otra y se vuelve a pedir; lo mismo
+    //     si le cambian permisos o frentes al usuario (usuario-acceso);
     //   · sus filtros salen de la BD (frentes, tipos, marcas): cuando la copia de ese dominio
     //     trae cambios, la pantalla se vuelve a pedir en segundo plano para la próxima vez;
     //   · solo la URL limpia, sin ?...
@@ -122,7 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const usuario = leerMeta('usuario-id');
         const version = leerMeta('version-vistas');
         if (u.origin !== window.location.origin || u.search || !PANTALLAS_LOCALES[ruta] || !usuario || !version) return null;
-        return window.location.origin + '/__pantalla' + ruta + '?u=' + encodeURIComponent(usuario) + '&v=' + encodeURIComponent(version);
+        return window.location.origin + '/__pantalla' + ruta + '?u=' + encodeURIComponent(usuario) + '&v=' + encodeURIComponent(version)
+            + '&a=' + encodeURIComponent(leerMeta('usuario-acceso'));
     }
 
     async function respuestaGuardada(url) {

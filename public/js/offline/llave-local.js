@@ -37,6 +37,8 @@
     const leer = (almacen, k) => { try { return JSON.parse(almacen.getItem(k) || 'null'); } catch (e) { return null; } };
     const escribir = (almacen, k, v) => { try { if (v == null) almacen.removeItem(k); else almacen.setItem(k, JSON.stringify(v)); } catch (e) {} };
     const aes = (raw) => sub.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+    // Dos ventanas abriendo a la vez la PRIMERA llave crearían dos distintas: una sola a la vez.
+    const unaALaVez = (fn) => (navigator.locks ? navigator.locks.request('vidalsa-llave', fn) : fn());
 
     async function envolver(kek, dek) {
         const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -72,20 +74,23 @@
             } catch (e) { r = null; }
             if (r && r.ok) {
                 const srv = deB64((await r.json()).llave);
-                const todas = leer(localStorage, LLAVES) || {};
-                const mia = todas[u] || {};
-                if (!dek && mia.srv) { try { dek = await desenvolver(srv, mia.srv); } catch (e) { dek = null; } }
-                // La del servidor ya no abre (cambió APP_KEY): la recupera la clave recién escrita.
-                if (!dek && pend && pend.dek && mia.pwd && mia.pwd.id === pend.id) dek = deB64(pend.dek);
-                if (!dek) {
-                    dek = crypto.getRandomValues(new Uint8Array(32));
-                    delete mia.pwd;   // envolvía otra llave: ya no abre nada
-                }
-                mia.srv = await envolver(srv, dek);
-                if (pend) mia.pwd = Object.assign({ id: pend.id, salt: pend.salt }, await envolver(deB64(pend.kek), dek));
-                todas[u] = mia;
-                escribir(localStorage, LLAVES, todas);
-                escribir(sessionStorage, PENDIENTE, null);
+                dek = await unaALaVez(async () => {
+                    const todas = leer(localStorage, LLAVES) || {};
+                    const mia = todas[u] || {};
+                    if (!dek && mia.srv) { try { dek = await desenvolver(srv, mia.srv); } catch (e) { dek = null; } }
+                    // La del servidor ya no abre (cambió APP_KEY): la recupera la clave recién escrita.
+                    if (!dek && pend && pend.dek && mia.pwd && mia.pwd.id === pend.id) dek = deB64(pend.dek);
+                    if (!dek) {
+                        dek = crypto.getRandomValues(new Uint8Array(32));
+                        delete mia.pwd;   // envolvía otra llave: ya no abre nada
+                    }
+                    mia.srv = await envolver(srv, dek);
+                    if (pend) mia.pwd = Object.assign({ id: pend.id, salt: pend.salt }, await envolver(deB64(pend.kek), dek));
+                    todas[u] = mia;
+                    escribir(localStorage, LLAVES, todas);
+                    escribir(sessionStorage, PENDIENTE, null);
+                    return dek;
+                });
             }
         }
         if (!dek) return false;
@@ -135,11 +140,16 @@
                 .then(([kek, dek]) => ({ id: ident, salt: b64(salt), kek: b64(kek), dek: dek ? b64(dek) : null }))
                 .catch(() => null);
         },
-        // El servidor aceptó la clave: la página siguiente la usa para envolver la llave.
+        // El servidor aceptó la clave: se envuelve la llave también con ella. La abre la página
+        // siguiente o, si ya está abierta (se volvió a entrar sin salir: sesion_caida.js), ahora.
         confirmar() {
             const p = preparada;
             preparada = null;
-            return p ? p.then((v) => { if (v) escribir(sessionStorage, PENDIENTE, v); }) : Promise.resolve();
+            return p ? p.then((v) => {
+                if (!v) return;
+                escribir(sessionStorage, PENDIENTE, v);
+                if (llave) return abrir().catch(() => false);
+            }) : Promise.resolve();
         },
         descartar() { preparada = null; },
         async abrirConClave(id, clave) {
