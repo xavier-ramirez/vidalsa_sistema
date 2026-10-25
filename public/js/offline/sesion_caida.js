@@ -74,7 +74,7 @@
             alEntrar(fresco);
             if (window.CopiaLocal) window.CopiaLocal.reanudar();
             if (window.Bandeja) window.Bandeja.subir();
-            if (window.toast) window.toast('Entraste de nuevo. Lo que estabas guardando sigue solo.', 'success');
+            if (window.toast) window.toast('Entraste de nuevo.', 'success');
         } catch (err) {
             if (window.LlaveLocal) window.LlaveLocal.descartar();
             aviso('No hay conexión con el servidor. Inténtalo de nuevo en un momento.');
