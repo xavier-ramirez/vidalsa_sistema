@@ -11,8 +11,8 @@
  *   abrir un módulo no le pregunta nada al servidor: la copia ya está al día.
  *
  *   CopiaLocal.usar(dominio, ancla) → Promise<vista>
- *       Abre la copia del dominio. Solo pregunta al servidor si no hay copia todavía o si la
- *       última pregunta ya pasó de `espera`. `ancla` (un elemento de la pantalla) mantiene al
+ *       Abre la copia del dominio. Pregunta al servidor si no hay copia todavía o si la
+ *       última pregunta tiene más de 3 s (abrir, filtrar). `ancla` (un elemento de la pantalla) mantiene al
  *       día también un dominio que no venga en el meta.
  *       vista.filas(tabla) → array · vista.catalogo(nombre) → array · vista.estado
  *   CopiaLocal.ahora(dominio) → Promise. Pregunta ya por ese dominio.
@@ -302,6 +302,8 @@
     }
 
     const vencida = (c) => Date.now() - c.ultimo >= (c.meta.espera || 15) * 1000;
+    // usar(): pintar desde la copia pregunta si la última pregunta tiene más de esto.
+    const PREGUNTA_AL_USAR_MS = 3000;
 
     function revisar(forzar) {
         if (!usuario() || document.visibilityState !== 'visible' || !usuarioActivo()) return;
@@ -333,9 +335,11 @@
             if (ancla) c.anclas.add(ancla);
             return cargar(d).then(() => {
                 // La primera vez (sin copia) se espera a la descarga; con copia se pinta ya
-                // y, si hacía falta preguntar, la puesta al día llega por el evento.
+                // y, si la última pregunta tiene más de 3 s, se pregunta: la puesta al día
+                // llega por el evento. Así abrir el módulo, filtrar o cambiar de página trae
+                // lo hecho desde otro equipo sin esperar la vuelta de `espera`.
                 if (c.estado.listo) {
-                    if (vencida(c) && !c.sinSesion && !c.sinPermiso) sincronizar(d);
+                    if (Date.now() - c.ultimo > PREGUNTA_AL_USAR_MS && !c.sinSesion && !c.sinPermiso) sincronizar(d);
                     return c.vista;
                 }
                 return sincronizar(d).then(() => c.vista);
@@ -343,12 +347,6 @@
         },
         ahora: sincronizar,
         alGuardar,
-        // Se abrió un módulo de este dominio (navegacion.js): se pregunta ya si la última
-        // pregunta tiene más de 3 s, y lo hecho desde otro equipo no espera la vuelta de 15 s.
-        alAbrir(d) {
-            const c = copias[d];
-            if (c && c.estado.listo && !c.sinSesion && !c.sinPermiso && Date.now() - c.ultimo > 3000) sincronizar(d);
-        },
         // Se volvió a entrar sin salir de la pantalla (sesion_caida.js): se pregunta otra vez ya.
         reanudar() {
             Object.values(copias).forEach((c) => { c.sinSesion = false; });

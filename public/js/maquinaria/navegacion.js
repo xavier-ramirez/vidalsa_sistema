@@ -949,7 +949,6 @@ document.addEventListener('DOMContentLoaded', () => {
             window.dispatchEvent(new CustomEvent('spa:contentLoaded'));
             _navHecha = Math.max(_navHecha, _miNav);   // ya está dibujada (ver ponerAlDia)
             if (deGuardada) trasAbrirGuardada(url);
-            if (PANTALLAS_LOCALES[rutaDe(url)] && window.CopiaLocal) window.CopiaLocal.alAbrir(PANTALLAS_LOCALES[rutaDe(url)]);
 
             // Marcar como manejado ANTES de ocultar, para que el bloque finally
             // no ejecute un segundo hidePreloader (race condition fix).
