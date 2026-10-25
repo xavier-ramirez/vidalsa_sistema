@@ -15,8 +15,9 @@ use Illuminate\Support\Str;
  * pagina, cuenta y pinta SOLO con estas filas, con o sin internet (fallas_index.js): no hay
  * filtros en el servidor.
  *
- * Quién lo ve: todos, igual que la pantalla (FallaController no la restringe). Cerrar,
- * crear y borrar siguen pidiendo sus permisos en el servidor.
+ * Quién lo ve: todos, igual que la pantalla (FallaController no la restringe), menos los
+ * reportes de activos que están en un frente bloqueado para el usuario: bloqueado se resta
+ * en todo. Cerrar, crear y borrar siguen pidiendo sus permisos en el servidor.
  *
  * Cada fila copia los datos de su activo (tipo, marca, serial, placa, foto, frente actual):
  * cambiar el equipo, el auxiliar, su tipo, su ficha o el nombre de su frente reenvía sus
@@ -39,10 +40,10 @@ class DominioFallas
         return true;
     }
 
-    /** Todos ven lo mismo: no hay alcance por usuario. */
+    /** Lo único que cambia lo que ve cada usuario son sus frentes bloqueados. */
     public function firma(): string
     {
-        return '1';
+        return $this->usuario->huellaFrentesBloqueados();
     }
 
     /** @return array{datos: array, catalogos: array} */
@@ -113,10 +114,19 @@ class DominioFallas
             ->whereIn('ID_EQUIPO', $idsDe('equipo'))->get()->keyBy('ID_EQUIPO');
         $auxiliares = EquipoAuxiliar::withTrashed()->whereIn('ID_AUXILIAR', $idsDe('equipo_auxiliar'))->get()->keyBy('ID_AUXILIAR');
         $frentes = FrenteTrabajo::withTrashed()->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+        $activo = static fn (Falla $f) => $f->ACTIVO_TIPO === 'equipo_auxiliar'
+            ? $auxiliares->get($f->ACTIVO_ID)
+            : ($f->ACTIVO_TIPO === 'equipo' ? $equipos->get($f->ACTIVO_ID) : null);
+        // Lo que se resta aquí sale en cambios() como borrado: un equipo que entra a un
+        // frente bloqueado se lleva sus reportes de la copia.
+        $bloqueados = array_map('intval', $this->usuario->getFrentesBloqueadosIds());
+        if ($bloqueados) {
+            $fallas = $fallas->reject(fn (Falla $f) => in_array((int) $activo($f)?->ID_FRENTE_ACTUAL, $bloqueados, true));
+        }
 
-        return $fallas->map(static function (Falla $f) use ($equipos, $auxiliares, $frentes) {
+        return $fallas->map(static function (Falla $f) use ($activo, $frentes) {
             $esAux = $f->ACTIVO_TIPO === 'equipo_auxiliar';
-            $a = $esAux ? $auxiliares->get($f->ACTIVO_ID) : ($f->ACTIVO_TIPO === 'equipo' ? $equipos->get($f->ACTIVO_ID) : null);
+            $a = $activo($f);
             $idFrente = $a?->ID_FRENTE_ACTUAL ? (int) $a->ID_FRENTE_ACTUAL : null;
 
             return [
@@ -150,6 +160,6 @@ class DominioFallas
                     'frente'      => $idFrente ? ($frentes[$idFrente] ?? null) : null,
                 ] + Falla::datosActivo($a) : null,
             ];
-        })->all();
+        })->values()->all();
     }
 }

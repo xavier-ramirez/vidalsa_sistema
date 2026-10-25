@@ -22,10 +22,23 @@ class WebAuthnController extends Controller
      */
     private const LOGIN_CHALLENGE_TTL = 600;
 
+    /**
+     * Marca de sesión que abre la ventana para registrar una huella: la pone
+     * LoginController al entrar CON CLAVE y dura REGISTRO_TTL. Sin ella, quien tuviera
+     * una sesión ajena (una PC sin bloquear, una cookie robada) podía dejarse una huella
+     * suya para entrar cuando quisiera, sin saber la clave.
+     */
+    public const SESION_REGISTRO = 'webauthn_registro_hasta';
+    public const REGISTRO_TTL = 600;
+
     // ─── REGISTRO (usuario ya autenticado) ───────────────────────────────
 
     public function registerOptions(Request $request)
     {
+        if (! $this->ventanaDeRegistro($request)) {
+            return $this->sinVentanaDeRegistro();
+        }
+
         $user = $request->user();
         $challenge = random_bytes(32);
         $request->session()->put('webauthn_register_challenge', $challenge);
@@ -62,15 +75,33 @@ class WebAuthnController extends Controller
         $request->validate([
             'credential_id'     => 'required|string',
             'public_key_spki'   => 'required|string',
+            'client_data_json'  => 'required|string',
             'nombre_dispositivo' => 'nullable|string|max:150',
         ]);
+
+        if (! $this->ventanaDeRegistro($request)) {
+            return $this->sinVentanaDeRegistro();
+        }
 
         $challenge = $request->session()->pull('webauthn_register_challenge');
         if (!$challenge) {
             return response()->json(['error' => 'Challenge expirado. Intente de nuevo.'], 422);
         }
 
+        // Lo mismo que login(): la respuesta tiene que ser de una creación hecha en ESTE
+        // sitio con el challenge que se acaba de dar, no una llave armada a mano.
+        $clientData = json_decode((string) base64_decode($request->input('client_data_json')), true);
+        if (! $this->clientDataValido($request, $clientData, 'webauthn.create', $challenge)) {
+            return response()->json(['error' => 'Registro biométrico no válido.'], 422);
+        }
+
         $credentialId = $request->input('credential_id');
+        // Una huella ya registrada a OTRA persona no se reasigna (antes updateOrCreate se
+        // la quitaba con solo conocer su ID, que es público).
+        if (WebAuthnCredential::where('credential_id', $credentialId)->where('ID_USUARIO', '!=', $request->user()->ID_USUARIO)->exists()) {
+            return response()->json(['error' => 'Esa huella ya está registrada.'], 422);
+        }
+
         $spkiBytes    = base64_decode($request->input('public_key_spki'));
 
         if (!$spkiBytes || strlen($spkiBytes) < 32) {
@@ -95,6 +126,8 @@ class WebAuthnController extends Controller
                 'created_at'         => now(),
             ]
         );
+        // Una huella por entrada con clave.
+        $request->session()->forget(self::SESION_REGISTRO);
 
         return response()->json(['success' => true, 'message' => 'Huella registrada correctamente.']);
     }
@@ -203,23 +236,9 @@ class WebAuthnController extends Controller
 
         // Verificar clientDataJSON
         $clientDataJson = base64_decode($request->input('client_data_json'));
-        $clientData     = json_decode($clientDataJson, true);
-
-        if (!$clientData || ($clientData['type'] ?? '') !== 'webauthn.get') {
+        if (! $this->clientDataValido($request, json_decode($clientDataJson, true), 'webauthn.get', $challenge)) {
             RateLimiter::hit($throttleKey);
-            return response()->json(['error' => 'Tipo de operación inválido.'], 401);
-        }
-
-        $expectedChallenge = rtrim(strtr(base64_encode($challenge), '+/', '-_'), '=');
-        if (($clientData['challenge'] ?? '') !== $expectedChallenge) {
-            RateLimiter::hit($throttleKey);
-            return response()->json(['error' => 'Challenge no coincide.'], 401);
-        }
-
-        $expectedOrigin = $request->getSchemeAndHttpHost();
-        if (($clientData['origin'] ?? '') !== $expectedOrigin) {
-            RateLimiter::hit($throttleKey);
-            return response()->json(['error' => 'Origen no válido.'], 401);
+            return response()->json(['error' => 'Verificación biométrica no válida.'], 401);
         }
 
         // Verificar firma
@@ -288,8 +307,8 @@ class WebAuthnController extends Controller
 
         // clave_v igual que en el login con contraseña, pero aquí sirve para lo contrario:
         // la huella NO prueba que el usuario sepa la clave actual, así que el cliente la
-        // usa para TIRAR el candado de acceso sin internet si ya no corresponde (típico:
-        // un admin cambió la clave y este teléfono solo entra con huella).
+        // usa para TIRAR el candado de acceso sin internet si ya no corresponde. Cambiar
+        // la clave ya borra las huellas (Usuario::establecerClave); esto queda de respaldo.
         return response()->json([
             'success'  => true,
             'redirect' => $redirect,
@@ -298,6 +317,25 @@ class WebAuthnController extends Controller
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────
+
+    private function ventanaDeRegistro(Request $request): bool
+    {
+        return (int) $request->session()->get(self::SESION_REGISTRO, 0) >= now()->timestamp;
+    }
+
+    private function sinVentanaDeRegistro()
+    {
+        return response()->json(['error' => 'Para activar la huella, vuelva a entrar con su clave.'], 403);
+    }
+
+    /** clientDataJSON del navegador: tipo de operación, challenge dado y origen de este sitio. */
+    private function clientDataValido(Request $request, mixed $clientData, string $tipo, string $challenge): bool
+    {
+        return is_array($clientData)
+            && ($clientData['type'] ?? '') === $tipo
+            && hash_equals(rtrim(strtr(base64_encode($challenge), '+/', '-_'), '='), (string) ($clientData['challenge'] ?? ''))
+            && ($clientData['origin'] ?? '') === $request->getSchemeAndHttpHost();
+    }
 
     /**
      * Dominio al que quedan atadas las huellas.

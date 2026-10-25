@@ -213,7 +213,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('equipos/bulk-lookup',        [App\Http\Controllers\EquipoController::class, 'bulkLookup'])->name('equipos.bulkLookup');
             // Papelera de equipos (soft-delete + restore con auditoria de quien borro).
             // Definidos ANTES del resource para que /papelera no choque con {id}.
-            Route::get  ('equipos/papelera',          [App\Http\Controllers\EquipoController::class, 'papelera'])->name('equipos.papelera');
+            Route::get  ('equipos/papelera',          [App\Http\Controllers\EquipoController::class, 'papelera'])->middleware('can:user.delete')->name('equipos.papelera');
             Route::post ('equipos/bulk-delete',       [App\Http\Controllers\EquipoController::class, 'bulkDelete'])->middleware('can:user.delete')->name('equipos.bulkDelete');
             Route::patch ('equipos/{id}/restore',    [App\Http\Controllers\EquipoController::class, 'restoreEquipo'])->middleware('can:super.admin')->name('equipos.restore');
             Route::delete('equipos/{id}/permanente', [App\Http\Controllers\EquipoController::class, 'forceDeleteEquipo'])->whereNumber('id')->middleware('can:super.admin')->name('equipos.forceDelete');

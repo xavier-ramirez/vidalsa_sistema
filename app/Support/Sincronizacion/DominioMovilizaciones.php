@@ -36,7 +36,7 @@ class DominioMovilizaciones
 
     public function firma(): string
     {
-        return substr(md5((string) ($this->usuario->getAttributes()['ID_FRENTE_BLOQUEADO'] ?? '')), 0, 10);
+        return $this->usuario->huellaFrentesBloqueados();
     }
 
     /** @return array{datos: array, catalogos: array} */

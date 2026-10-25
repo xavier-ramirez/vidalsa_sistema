@@ -108,6 +108,8 @@ class LoginController extends Controller
                 }
 
                 $request->session()->flash('webauthn_prompt', true);
+                // Solo ahora, tras escribir la clave, se puede registrar una huella.
+                $request->session()->put(WebAuthnController::SESION_REGISTRO, now()->timestamp + WebAuthnController::REGISTRO_TTL);
 
                 return $this->respuestaLogin($request, true, route('menu'));
             }

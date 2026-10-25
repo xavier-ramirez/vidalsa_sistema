@@ -163,6 +163,12 @@ class Usuario extends Authenticatable
     {
         $this->PASSWORD_HASH = Hash::make($claveNueva);
         $this->SESSION_TOKEN = null;
+        // Las huellas también: una que dejó quien tuvo la cuenta no puede sobrevivir al
+        // cambio de clave. El teléfono se entera en loginOptions (sin_credenciales) y la
+        // ofrece de nuevo al entrar con la clave nueva.
+        if ($this->ID_USUARIO) {
+            WebAuthnCredential::where('ID_USUARIO', $this->ID_USUARIO)->delete();
+        }
     }
 
     /**
@@ -262,6 +268,15 @@ class Usuario extends Authenticatable
             $mapa = FrenteTrabajo::pluck('NOMBRE_FRENTE', 'ID_FRENTE')->all();
         }
         return array_values(array_filter(array_map(fn ($id) => $mapa[$id] ?? null, $ids)));
+    }
+
+    /**
+     * Huella corta de los frentes bloqueados: la firma de las copias locales que solo
+     * cambian con ellos (Movilizaciones, Fallas). Cambiarlos recarga esas copias.
+     */
+    public function huellaFrentesBloqueados(): string
+    {
+        return substr(md5((string) ($this->getAttributes()['ID_FRENTE_BLOQUEADO'] ?? '')), 0, 10);
     }
 
     /**

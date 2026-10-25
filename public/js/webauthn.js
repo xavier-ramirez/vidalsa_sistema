@@ -153,6 +153,7 @@ const VidalsaWebAuthn = (() => {
         const body = {
             credential_id:      bytesToBase64(new Uint8Array(credential.rawId)),
             public_key_spki:    bytesToBase64(new Uint8Array(spkiKey)),
+            client_data_json:   bytesToBase64(new Uint8Array(credential.response.clientDataJSON)),
             nombre_dispositivo: detectarDispositivo()
         };
 
