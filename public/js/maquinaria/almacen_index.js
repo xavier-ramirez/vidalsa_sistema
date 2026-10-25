@@ -80,13 +80,32 @@
         });
     };
     window.almCargarProductos();
-    // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
-    window.almCategoriasLista = CFG.categorias;
-    // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo "UM" del modal.
-    window.almUnidadesMedida = CFG.unidadesMedida;
-    // Mapa { ID_FRENTE: ["CTR-2026-0042", ...] } para sugerir contratos en el modal "Registrar salida".
-    // Los contratos se gestionan en /admin/frentes (columna CONTRATOS JSON de frentes_trabajo).
-    window.almFrenteContratos = CFG.frenteContratos;
+    // Los catálogos de ESTA apertura se toman de window.ALM_CFG al arrancar, al reabrir el módulo
+    // (este archivo corre una vez por pestaña) y cuando navegacion.js trae la pantalla al día
+    // (abre guardada): un almacén, categoría o contrato nuevo de otro equipo, sin recargar.
+    function almTomarDatos() {
+        CFG = window.ALM_CFG || CFG;
+        // Categorías ya registradas — alimentan la lista del campo "Categoría" del modal de producto.
+        window.almCategoriasLista = CFG.categorias;
+        // Unidades de medida distintas ya registradas — alimentan el autocomplete del campo "UM" del modal.
+        window.almUnidadesMedida = CFG.unidadesMedida;
+        // Mapa { ID_FRENTE: ["CTR-2026-0042", ...] } para sugerir contratos en el modal "Registrar salida".
+        // Los contratos se gestionan en /admin/frentes (columna CONTRATOS JSON de frentes_trabajo).
+        window.almFrenteContratos = CFG.frenteContratos;
+        // Datos de los almacenes visibles (para el modal de edición): { id: {NOMBRE,TIPO,CODIGO,UBICACION,frentes:[ids]} }
+        window.almAlmacenesData = CFG.almacenesData;
+    }
+    almTomarDatos();
+    window.addEventListener('pantalla-al-dia', function (e) {
+        if (!e.detail || e.detail.ruta !== '/admin/almacen') return;
+        almTomarDatos();
+        // La lista de frentes del modal de almacén pudo cambiar: su resumen de marcados y el
+        // filtro de lo escrito se vuelven a aplicar.
+        var buscar = el('almNvFrentesInput');
+        if (!buscar || !window.almNvFrentesUpdate) return;
+        window.almNvFrentesUpdate();
+        if (buscar.value) window.almNvFrentesFilter(buscar);
+    });
     function ROUTE_MIN(idAlm)   { return ROUTE_INDEX + '/almacenes/' + idAlm + '/minimo'; }
     // Delega en window.toast (dom_helpers.js); aqui solo el default de esta pantalla.
     function toast(msg, type) { if (!window.toast(msg, type || 'success') && type === 'error') alert(msg); }
@@ -569,6 +588,7 @@
     // navegación SPA. Reúne las piezas que ya limpian cada cosa (badges + pick + selección) para
     // no duplicar lógica; almSelClear vacía almSeleccion/almSoloSel y refresca la barra flotante.
     window.almResetOnRemount = function () {
+        almTomarDatos();
         window.almResetBadges();
         if (typeof almResetPick === 'function') almResetPick();
         almVerTodoActivo = false;
@@ -2966,8 +2986,6 @@
     function ROUTE_ALM_ITEM(id) { return ROUTE_INDEX + '/almacenes/' + id; }
     function ROUTE_ALM_LOGISTICA(id) { return ROUTE_ALM_ITEM(id) + '/logistica'; }
     function ROUTE_PROD_ITEM(id) { return ROUTE_INDEX + '/productos/' + id; }
-    // Datos de los almacenes visibles (para el modal de edición): { id: {NOMBRE,TIPO,CODIGO,UBICACION,frentes:[ids]} }
-    window.almAlmacenesData = CFG.almacenesData;
 
     // Selección del custom-dropdown "Tipo" en el modal de almacén
     window.almNvTipoSelect = function (value, label) {

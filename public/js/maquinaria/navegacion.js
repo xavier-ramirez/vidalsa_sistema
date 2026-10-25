@@ -172,33 +172,121 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const rutaDe = (url) => { try { return new URL(url, window.location.origin).pathname.replace(/\/+$/, ''); } catch (_) { return ''; } };
-    const enPantalla = (ruta) => rutaDe(window.location.href) === ruta && !!mainViewport.querySelector('[data-en-vivo]');
 
-    // La pantalla a la vista se pide de nuevo y se cambian SOLO sus partes data-en-vivo, enteras
-    // (con sus colores y su title); lo demás —lo escrito, lo abierto— no se toca. Por eso esas
-    // partes no llevan listeners puestos por JS: solo onclick en el HTML. Evento
-    // 'pantalla-al-dia' { ruta, doc } para lo que el módulo ponga por su cuenta (la lista de
-    // Alertas del Menú, menu.js).
+    // La pantalla a la vista y la huella del HTML con que se pintó: contra ella se ve qué
+    // listas trae cambiadas el servidor (las del DOM ya las tocó el JS: ocultas, elegidas).
+    let vistaBase = null;
+    const aLaVista = (ruta) => !!vistaBase && vistaBase.ruta === ruta && rutaDe(window.location.href) === ruta;
+
+    // Las listas que el servidor saca de la BD: las opciones de los desplegables, los
+    // datalist/select con id y lo marcado con data-al-dia (con id). Clave → elemento.
+    const LISTAS = '.custom-dropdown[id] .dropdown-item-list, datalist[id], select[id], [data-al-dia][id]:not(script)';
+    function listasDe(raiz) {
+        const m = new Map();
+        raiz.querySelectorAll(LISTAS).forEach((el) => {
+            const k = el.matches('.dropdown-item-list') && !el.matches('[data-al-dia][id]')
+                ? el.closest('.custom-dropdown[id]').id + ' lista' : '#' + el.id;
+            if (!m.has(k)) m.set(k, el);
+        });
+        return m;
+    }
+    const scriptsAlDia = (raiz) => Array.from(raiz.querySelectorAll('script[data-al-dia]'), (s) => s.textContent).join('\n');
+    // Lo que se compara de un .main-viewport del servidor: el HTML de cada lista y sus scripts.
+    const huella = (ruta, raiz) => ({
+        ruta,
+        listas: new Map(Array.from(listasDe(raiz), ([k, el]) => [k, el.innerHTML])),
+        scripts: scriptsAlDia(raiz),
+    });
+
+    // Cambia las opciones y conserva lo del usuario: lo elegido (y su resalte), lo marcado o
+    // escrito en los input con id, el scroll y, si el desplegable está abierto, su búsqueda.
+    function cambiarLista(el, nuevo) {
+        const valor = el.tagName === 'SELECT' ? el.value : null;
+        const previos = new Map(Array.from(el.querySelectorAll('input[id]'), (i) => [i.id, i]));
+        const caja = el.parentElement;
+        const scroll = [el.scrollTop, caja ? caja.scrollTop : 0];
+        el.innerHTML = nuevo.innerHTML;
+        delete el.dataset.ordenGuardado;
+        if (valor !== null && Array.from(el.options).some((o) => o.value === valor)) el.value = valor;
+        el.querySelectorAll('input[id]').forEach((i) => {
+            const p = previos.get(i.id);
+            if (!p) return;
+            if (i.type === 'checkbox' || i.type === 'radio') i.checked = p.checked;
+            else i.value = p.value;
+        });
+        const dd = el.closest('.custom-dropdown');
+        if (dd) {
+            // Sin valor (''), el resalte es el del servidor (el «TODOS» de la URL limpia).
+            const elegido = dd.querySelector('[data-filter-value]') || dd.querySelector('input[type="hidden"]');
+            if (elegido && elegido.value) el.querySelectorAll('.dropdown-item[data-value]').forEach((it) => it.classList.toggle('selected', it.dataset.value === elegido.value));
+            // Cerrado no: filterDropdownOptions lo abre, y al abrirlo se borra la búsqueda.
+            const busca = dd.querySelector('[data-filter-search]') || dd.querySelector('.dropdown-trigger input[type="text"]');
+            if (busca && busca.value && dd.classList.contains('active') && window.filterDropdownOptions) window.filterDropdownOptions(busca);
+        }
+        el.scrollTop = scroll[0];
+        if (caja) caja.scrollTop = scroll[1];
+    }
+
+    // La pantalla a la vista se pide de nuevo (y se guarda) y se cambia solo lo que el servidor
+    // trae distinto: sus partes data-en-vivo, enteras (con sus colores y su title), y las
+    // listas de los filtros (un frente, almacén o tipo creado, renombrado o cerrado desde otro
+    // equipo). Lo demás —lo escrito, lo abierto, la tabla— no se toca. Por eso esas partes no
+    // llevan listeners puestos por JS: solo onclick en el HTML. Si cambió alguna lista o algún
+    // <script data-al-dia> (los mapas de los filtros dependientes, la configuración con datos),
+    // esos scripts se vuelven a correr con window.__pantallaAlDia puesto (no cambian lo
+    // elegido). Evento 'pantalla-al-dia' { ruta, doc } para lo que el módulo ponga por su
+    // cuenta (Alertas del Menú, los datos de Almacén).
     function ponerAlDia(url) {
         const ruta = rutaDe(url);
-        if (!enPantalla(ruta)) return;
+        const base = vistaBase;
+        const nav = _navSeq;   // si arranca otra navegación, esta pantalla ya se va
+        if (!aLaVista(ruta) || _navHecha !== nav) return;
         refrescarPantalla(ruta).then((html) => {
-            if (!html || !enPantalla(ruta)) return;
+            if (!html || vistaBase !== base || nav !== _navSeq || !aLaVista(ruta) || versionDe(html) !== leerMeta('version-vistas')) return;
             const doc = new DOMParser().parseFromString(html, 'text/html');
+            const nueva = doc.querySelector('.main-viewport');
+            if (!nueva) return;
             mainViewport.querySelectorAll('[data-en-vivo]').forEach((el) => {
                 const nuevo = doc.querySelector('[data-en-vivo="' + el.dataset.enVivo + '"]');
                 if (nuevo && nuevo.outerHTML !== el.outerHTML) el.replaceWith(document.importNode(nuevo, true));
             });
+            const despues = listasDe(nueva);
+            let cambio = false;
+            listasDe(mainViewport).forEach((el, k) => {
+                const nuevo = despues.get(k);
+                if (!base.listas.has(k) || !nuevo || base.listas.get(k) === nuevo.innerHTML) return;
+                cambiarLista(el, nuevo);
+                cambio = true;
+            });
+            if (cambio || scriptsAlDia(nueva) !== base.scripts) {
+                window.__pantallaAlDia = true;
+                try {
+                    nueva.querySelectorAll('script[data-al-dia]').forEach((viejo) => {
+                        const s = document.createElement('script');
+                        s.textContent = viejo.textContent;
+                        document.body.appendChild(s).remove();
+                    });
+                } finally { window.__pantallaAlDia = false; }
+            }
+            vistaBase = huella(ruta, nueva);
             window.dispatchEvent(new CustomEvent('pantalla-al-dia', { detail: { ruta, doc } }));
         });
     }
 
-    // Recién abierta desde la guardada: con partes en vivo se ponen al día; si no tiene copia
-    // local que avise de cambios, se vuelve a pedir para la próxima vez.
+    // Recién abierta desde la guardada, que puede ser de hace horas: se pone al día. Si se
+    // guardó hace menos de 30 s (ir y volver entre módulos) no se pide otra vez, salvo que la
+    // copia local haya avisado de un cambio que aún no se pidió (refrescoPendiente, abajo).
     function trasAbrirGuardada(url) {
         const ruta = rutaDe(url);
-        if (enPantalla(ruta)) ponerAlDia(ruta);
-        else if (PANTALLAS_LOCALES[ruta] === null) refrescarPantalla(ruta);
+        if (refrescoPendiente[ruta]) {
+            clearTimeout(refrescoPendiente[ruta]);
+            delete refrescoPendiente[ruta];
+            ponerAlDia(ruta);
+            return;
+        }
+        respuestaGuardada(ruta).then((g) => {
+            if (!g || Date.now() - Number(g.headers.get('X-Guardada')) > 30000) ponerAlDia(ruta);
+        });
     }
 
     // Al cargar: se borran las de otra versión u otro usuario y se guardan las que falten de
@@ -213,24 +301,41 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(() => rutas.filter((r) => enMenu.has(r)).reduce((p, r) => p
                 .then(() => c.match(clavePantalla(r)))
                 .then((hay) => hay || refrescarPantalla(r)), Promise.resolve())))
+            .then(() => baseDeLaCargaCompleta())
             .catch(() => {});
     }, 4000);
 
+    // Abierta con carga completa (F5, login) no hay HTML con que comparar: el DOM ya lo tocó el
+    // JS. Sirve la pantalla guardada; si es más vieja, ponerAlDia cambia de más listas que ya
+    // estaban bien, nunca de menos.
+    function baseDeLaCargaCompleta() {
+        const ruta = rutaDe(window.location.href);
+        if (vistaBase || _navSeq !== 0 || !(ruta in PANTALLAS_LOCALES)) return;
+        return pantallaGuardada(ruta).then((html) => {
+            const vista = html && new DOMParser().parseFromString(html, 'text/html').querySelector('.main-viewport');
+            if (vista && !vistaBase && _navSeq === 0 && rutaDe(window.location.href) === ruta) vistaBase = huella(ruta, vista);
+        });
+    }
+
     // Cambiaron los datos de un dominio: su pantalla (los filtros) se vuelve a pedir en
-    // segundo plano, una vez que paren los cambios, y solo si es MÁS VIEJA que el cambio (la
-    // primera descarga de la copia llega justo cuando la pantalla se acaba de guardar). Si
-    // está a la vista con partes en vivo (Menú, Almacén), esas se cambian ya, en 1,5 s.
+    // segundo plano, una vez que paren los cambios, y solo si la guardada es MÁS VIEJA que el
+    // cambio (la primera descarga de la copia llega justo cuando la pantalla se acaba de
+    // guardar). A la vista se pone al día en 1,5 s (ponerAlDia); si no, en 10 s solo se guarda.
     const refrescoPendiente = {};
     window.addEventListener('copia-local', (e) => {
         if (!e.detail || !e.detail.cambio) return;
         const cuando = Date.now();
         Object.keys(PANTALLAS_LOCALES).filter((r) => PANTALLAS_LOCALES[r] === e.detail.dominio).forEach((r) => {
             clearTimeout(refrescoPendiente[r]);
-            const aLaVista = enPantalla(r);
+            const vista = aLaVista(r);
             refrescoPendiente[r] = setTimeout(() => {
-                if (aLaVista && enPantalla(r)) { ponerAlDia(r); return; }
-                respuestaGuardada(r).then((g) => { if (g && Number(g.headers.get('X-Guardada')) < cuando) refrescarPantalla(r); });
-            }, aLaVista ? 1500 : 10000);
+                delete refrescoPendiente[r];
+                respuestaGuardada(r).then((g) => {
+                    if (g && Number(g.headers.get('X-Guardada')) >= cuando) return;
+                    if (vista && aLaVista(r)) ponerAlDia(r);
+                    else if (g) refrescarPantalla(r);
+                });
+            }, vista ? 1500 : 10000);
         });
     });
 
@@ -530,6 +635,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // llegar tarde y restarle una referencia a la SEGUNDA, que aun estaba cargando; el
     // spinner se iba antes de tiempo y la pantalla quedaba destapada a medio cargar.
     let _navSeq = 0;
+    // La última navegación que terminó (bien, mal o abandonada): si es menor que _navSeq, hay
+    // una en camino y la pantalla a la vista está por irse (ponerAlDia no la toca).
+    let _navHecha = 0;
 
     // Los avisos de "no se pudo traer la página del servidor", escritos UNA vez.
     //
@@ -836,8 +944,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // cada externo (CDN) antes de continuar — crítico para Chart.js, etc.
             await executeScripts(mainViewport);
 
+            vistaBase = rutaDe(url) in PANTALLAS_LOCALES ? huella(rutaDe(url), newContent) : null;
             updateActiveLinks(url);
             window.dispatchEvent(new CustomEvent('spa:contentLoaded'));
+            _navHecha = Math.max(_navHecha, _miNav);   // ya está dibujada (ver ponerAlDia)
             if (deGuardada) trasAbrirGuardada(url);
 
             // Marcar como manejado ANTES de ocultar, para que el bloque finally
@@ -912,6 +1022,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // y se ocultaría antes de tiempo. (Antes se limpiaba en spa:contentLoaded,
             // que solo cubre el camino de éxito.)
             window.__vidalsaRedirecting = false;
+            _navHecha = Math.max(_navHecha, _miNav);
 
             // Solo ocultar el spinner aquí si el try/catch NO lo manejó.
             // Previene el race condition donde finally ejecuta antes

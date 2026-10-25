@@ -156,8 +156,10 @@
 
         {{-- Filtro Tipo dependiente del Frente: al elegir un frente, el dropdown de Tipo
              muestra SOLO los tipos presentes en ese frente (mapa provisto por el backend).
-             Va inline porque la SPA re-ejecuta los <script> del contenido al navegar. --}}
-        <script>
+             Va inline porque la SPA re-ejecuta los <script> del contenido al navegar.
+             data-al-dia: navegacion.js lo vuelve a correr cuando el servidor trae otras listas
+             (la pantalla abre guardada). --}}
+        <script data-al-dia>
             window.EQ_TIPOS_POR_FRENTE = @json($tiposPorFrente ?? []);
 
             // Muestra/oculta las opciones del filtro Tipo según el frente seleccionado.
@@ -198,8 +200,10 @@
                     it.style.setProperty('display', ok ? '' : 'none', ok ? '' : 'important');
                 });
 
-                // Resetear el Tipo si el seleccionado ya no pertenece al frente.
-                if (permitidos !== null) {
+                // Resetear el Tipo si el seleccionado ya no pertenece al frente. No cuando
+                // navegacion.js pone la pantalla al día en segundo plano: la tabla sigue con ese
+                // tipo y cambiarlo sin recargar dejaría el filtro mintiendo.
+                if (permitidos !== null && !window.__pantallaAlDia) {
                     var tInput = document.querySelector('#tipoFilterSelect input[name="id_tipo"]');
                     var cur = tInput ? tInput.value : '';
                     if (cur && cur !== 'all' && cur.indexOf('tipo_aux:') !== 0
@@ -1083,7 +1087,7 @@
                                    style="padding: 0 8px; color: #64748b; font-size: 20px; display: none; flex-shrink:0;">close</i>
                             </div>
                                 <!-- Custom Dropdown List -->
-                                <div id="dashboardFrenteList" style="display: none; position: absolute; top: 105%; left: 0; right: 0; max-height: 250px; overflow-y: auto; background: white; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 50; padding: 5px;">
+                                <div id="dashboardFrenteList" data-al-dia style="display: none; position: absolute; top: 105%; left: 0; right: 0; max-height: 250px; overflow-y: auto; background: white; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 50; padding: 5px;">
                                     <div onclick="dashboardSelectFrente('all', 'Todos los Frentes', event)" class="dashboard-frente-option dropdown-item" style="padding: 8px 12px; cursor: default; border-radius: 6px; color: #1e293b; font-size: 13px; font-weight: 700; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
                                         TODOS LOS FRENTES
                                     </div>

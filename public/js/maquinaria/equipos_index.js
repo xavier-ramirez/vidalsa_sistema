@@ -1288,19 +1288,6 @@ window.eqRegisterNuevoFrente = function (frente) {
     }
 };
 
-// Los frentes ACTIVOS de la copia local que le falten al filtro, al datalist del modal de
-// movilización, se agregan (eqRegisterNuevoFrente). La pantalla abre guardada
-// (navegacion.js) con la lista de frentes de cuando se guardó: un frente creado desde OTRO
-// equipo —el teléfono movilizó a uno nuevo— no salía en la PC, aunque sus equipos sí.
-window.eqFrentesDesdeCopia = function () {
-    if (!window.CopiaLocal || !document.getElementById('frenteFilterSelect')) return;
-    window.CopiaLocal.usar('equipos').then(function (vista) {
-        vista.catalogo('frentes')
-            .filter(function (f) { return f.estatus === 'ACTIVO'; })
-            .forEach(function (f) { window.eqRegisterNuevoFrente({ id: f.id, nombre: f.nombre }); });
-    }).catch(function () {});
-};
-
 // Filtros activos de la pantalla, leídos de los inputs. FUENTE ÚNICA: la usan la tabla
 // (loadEquipos) y la exportación a Excel (exportEquipos), que tienen que traer exactamente
 // lo mismo. Cuando el export releía los inputs por su cuenta se le quedaron fuera ejes
@@ -3580,7 +3567,6 @@ function initEquipos() {
 
     // Primera consulta, con los filtros de la URL (el Blade los deja puestos en los inputs).
     window.loadEquipos(null, false, { sinHistorial: true });
-    window.eqFrentesDesdeCopia();
 
     updateSelectionUI();
 }
@@ -3593,7 +3579,6 @@ if (!window._equiposWindowListenersReady) {
     window.addEventListener('copia-local', function (e) {
         if (e.detail.dominio !== 'equipos' || !e.detail.cambio || !document.getElementById('equiposTableBody')) return;
         window.loadEquipos(null, true, { sinHistorial: true, cuantos: Math.max(150, window._eqHasta || 0) });
-        window.eqFrentesDesdeCopia();
     });
 
     // Reinicializar módulo al navegar A equipos, limpiar al salir

@@ -1771,7 +1771,8 @@
         var oleoActivo = null;     // id del oleoducto activo (preseleccionado al guardar)
         // Frentes de trabajo = proyectos. Vienen del backend (window.mapaFrentes = [{id, nombre}]).
         // El selector "Proyecto" del popup se arma con estos; NO se crean proyectos a mano.
-        var oleoFrentes = Array.isArray(window.mapaFrentes) ? window.mapaFrentes : [];
+        // Se leen al usarlos: la pantalla abre guardada y navegacion.js pone al día window.mapaFrentes.
+        var oleoFrentes = function () { return Array.isArray(window.mapaFrentes) ? window.mapaFrentes : []; };
         // Ubicaciones SIN frente: en el buscador del formulario son una opción más de la lista
         // (SUELTO_ID es un id centinela, no existe en frentes_trabajo) y en la leyenda/panel el
         // grupo se rotula con SUELTO_LABEL. Cambiar ese texto aquí lo cambia en todas partes.
@@ -2458,7 +2459,7 @@
             var list   = pick.querySelector('.oleo-save-list');
 
             var excluir  = (cfg.excluir || []).map(String);
-            var opciones = oleoFrentes.filter(function (f) { return excluir.indexOf(String(f.id)) === -1; });
+            var opciones = oleoFrentes().filter(function (f) { return excluir.indexOf(String(f.id)) === -1; });
             // "Sin proyecto" es una opción más de la lista (siempre la primera) donde aplica.
             var OP_SUELTO = { id: SUELTO_ID, nombre: SUELTO_LABEL };
 
@@ -2546,7 +2547,7 @@
             // ubicación suelta se deja marcado "sin proyecto" (para cargar varias seguidas).
             var sueltoActivo = !!(activo && activo.suelto);
             var frenteActivo = activo ? activo.id_frente : null;
-            var faObj = frenteActivo ? oleoFrentes.filter(function (f) { return String(f.id) === String(frenteActivo); })[0] : null;
+            var faObj = frenteActivo ? oleoFrentes().filter(function (f) { return String(f.id) === String(frenteActivo); })[0] : null;
             // Selector de proyecto tipo BUSCADOR (recomienda al escribir), no un <select> plano.
             var html = '<div class="oleo-save">' +
                 '<label class="oleo-save-lbl">Nombre del punto <span class="oleo-req">*</span></label>' +
@@ -2892,7 +2893,7 @@
                 .map(function (o) { return String(o.id_frente || ''); })
                 .filter(function (x) { return x !== ''; });
 
-            if (oleoFrentes.filter(function (f) { return yaEn.indexOf(String(f.id)) === -1; }).length === 0) {
+            if (oleoFrentes().filter(function (f) { return yaEn.indexOf(String(f.id)) === -1; }).length === 0) {
                 window.toast('Este punto ya está en todos tus frentes.', 'info');
                 return;
             }

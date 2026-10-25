@@ -973,7 +973,7 @@
                                oninput="window.almNvFrentesFilter(this)">
                         <i class="material-icons" style="padding:0 12px;color:var(--maquinaria-gray-text);transition:transform 0.3s;">expand_more</i>
                     </div>
-                    <div class="multiselect-content">
+                    <div class="multiselect-content" id="almNvFrentesLista" data-al-dia>
                         @forelse(($frentesLista ?? collect()) as $f)
                             <label class="multiselect-item alm-frente-opt" for="almNvFrente_{{ $f->ID_FRENTE }}">
                                 <input type="checkbox" id="almNvFrente_{{ $f->ID_FRENTE }}" value="{{ $f->ID_FRENTE }}" onchange="window.almNvFrentesUpdate()">
@@ -1101,7 +1101,7 @@
             <i class="material-icons alm-x" onclick="almCerrar('almAdminAlmacenesModal')">close</i>
         </div>
         <div class="alm-modal-body">
-            <div class="alm-admin-list">
+            <div class="alm-admin-list" id="almAdminLista" data-al-dia>
                 @forelse($almacenes as $a)
                     <div class="alm-admin-row" data-id="{{ $a->ID_ALMACEN }}">
                         <i class="material-icons" style="font-size:18px;color:{{ $a->TIPO === 'GENERAL' ? '#0067b1' : '#64748b' }};">{{ $a->TIPO === 'GENERAL' ? 'business' : 'store' }}</i>
@@ -1357,7 +1357,7 @@
 </div>
 @endif
 
-<script>
+<script data-al-dia>
     // Lo unico que sigue viajando en el HTML del modulo: los datos de ESTA apertura. El
     // codigo esta en public/js/maquinaria/almacen_index.js, que el navegador cachea.
 @php
