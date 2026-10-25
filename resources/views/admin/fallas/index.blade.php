@@ -367,7 +367,7 @@
                     </div>
 
                     <button type="button"
-                        onclick="{{ auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('super.admin')) ? 'window.openNuevoReporteModal()' : 'window.flAccesoDenegado()' }}"
+                        onclick="{{ auth()->user() && (auth()->user()->can('equipos.edit') || auth()->user()->can('super.admin')) ? 'window.flNuevoReporte()' : 'window.flAccesoDenegado()' }}"
                         class="falla-btn falla-btn-primary fallas-btn-new" style="height:45px;">
                         <i class="material-icons" style="font-size:18px;">add_circle</i> Reporte
                     </button>
@@ -382,28 +382,29 @@
                     <div style="display: flex; gap: 8px; justify-content: space-between;">
                         <div class="eq-mobile-stat-block eq-block-total" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.25);">
                             <span style="font-size:10px; font-weight:700; color:#ffffff; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">summarize</i> TOTAL</span>
-                            <span data-fallas-stat="total_reportes" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $stats['total_reportes'] }}</span>
+                            <span data-fallas-stat="total_reportes" style="color:white; font-size:22px; font-weight:800; line-height:1;">—</span>
                         </div>
                         <div class="eq-mobile-stat-block eq-block-inop" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3);">
                             <span style="font-size:10px; font-weight:700; color:#ffffff; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">report_problem</i> ABIERTOS</span>
-                            <span data-fallas-stat="reportes_abiertos" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $stats['reportes_abiertos'] }}</span>
+                            <span data-fallas-stat="reportes_abiertos" style="color:white; font-size:22px; font-weight:800; line-height:1;">—</span>
                         </div>
                         <div class="eq-mobile-stat-block eq-block-cerr" style="flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 4px; border-radius:10px; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3);">
                             <span style="font-size:10px; font-weight:700; color:#ffffff; margin-bottom:2px;"><i class="material-icons" style="font-size:11px; vertical-align:middle;">check_circle</i> CERRADOS</span>
-                            <span data-fallas-stat="reportes_cerrados" style="color:white; font-size:22px; font-weight:800; line-height:1;">{{ $stats['reportes_cerrados'] }}</span>
+                            <span data-fallas-stat="reportes_cerrados" style="color:white; font-size:22px; font-weight:800; line-height:1;">—</span>
                         </div>
                     </div>
-                    @include('admin.fallas.partials.mant_chart', ['stats' => $stats])
+                    @include('admin.fallas.partials.mant_chart', ['stats' => []])
                 </div>
 
-                {{-- Cards de fallas --}}
-                <div id="fallasTableBody" style="display:flex; flex-direction:column; gap:10px;">
-                    @include('admin.fallas.partials.table_rows', compact('fallas'))
-                </div>
+                {{-- Cards de fallas: las pinta fallas_index.js desde la copia local (dominio
+                     'fallas'), con o sin internet; el Consolidado, también. --}}
+                <div id="fallasCopiaEstado" style="display:none; margin-bottom:8px; font-size:12px; font-weight:600; color:#b45309;"></div>
+                <div id="fallasTableBody" style="display:flex; flex-direction:column; gap:10px;"
+                    data-puede-cerrar="{{ auth()->user()->can('equipos.edit') ? 1 : 0 }}"
+                    data-super-admin="{{ auth()->user()->can('super.admin') ? 1 : 0 }}"></div>
 
                 <div id="fallasPagination"
-                    style="margin-top:12px; width: 100%; max-width: 100vw; overflow-x: auto; padding-bottom: 8px;">
-                    {!! $fallas->links('vendor.pagination.custom-sliding') !!}</div>
+                    style="margin-top:12px; width: 100%; max-width: 100vw; overflow-x: auto; padding-bottom: 8px;"></div>
             </div>
             </div>
 
@@ -429,24 +430,24 @@
                             <div title="Total de Reportes"
                                 style="flex:1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.15); padding: 8px 4px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.25);">
                                 <i class="material-icons" style="font-size: 17px; color: #ffffff; margin-bottom: 2px;">summarize</i>
-                                <strong id="statTotal" data-fallas-stat="total_reportes" style="font-weight: 800; font-size: 22px; color: white; line-height: 1;">{{ $stats['total_reportes'] }}</strong>
+                                <strong id="statTotal" data-fallas-stat="total_reportes" style="font-weight: 800; font-size: 22px; color: white; line-height: 1;">—</strong>
                                 <span style="font-size: 9px; letter-spacing: 0.3px; font-weight: 700; text-transform: uppercase; margin-top: 2px; text-align: center; line-height: 1.15;">Total Reportes</span>
                             </div>
                             <div title="Reportes Abiertos"
                                 style="flex:1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.15); padding: 8px 4px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.25);">
                                 <i class="material-icons" style="font-size: 17px; color: #ef4444; margin-bottom: 2px;">report_problem</i>
-                                <strong id="statAbiertos" data-fallas-stat="reportes_abiertos" style="font-weight: 800; font-size: 22px; color: white; line-height: 1;">{{ $stats['reportes_abiertos'] }}</strong>
+                                <strong id="statAbiertos" data-fallas-stat="reportes_abiertos" style="font-weight: 800; font-size: 22px; color: white; line-height: 1;">—</strong>
                                 <span style="font-size: 9px; letter-spacing: 0.3px; font-weight: 700; text-transform: uppercase; margin-top: 2px; text-align: center; line-height: 1.15;">Reportes Abiertos</span>
                             </div>
                             <div title="Reportes Cerrados"
                                 style="flex:1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(34, 197, 94, 0.15); padding: 8px 4px; border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.25);">
                                 <i class="material-icons" style="font-size: 17px; color: #22c55e; margin-bottom: 2px;">check_circle</i>
-                                <strong id="statCerrados" data-fallas-stat="reportes_cerrados" style="font-weight: 800; font-size: 22px; color: white; line-height: 1;">{{ $stats['reportes_cerrados'] }}</strong>
+                                <strong id="statCerrados" data-fallas-stat="reportes_cerrados" style="font-weight: 800; font-size: 22px; color: white; line-height: 1;">—</strong>
                                 <span style="font-size: 9px; letter-spacing: 0.3px; font-weight: 700; text-transform: uppercase; margin-top: 2px; text-align: center; line-height: 1.15;">Reportes Cerrados</span>
                             </div>
                         </div>
 
-                        @include('admin.fallas.partials.mant_chart', ['stats' => $stats])
+                        @include('admin.fallas.partials.mant_chart', ['stats' => []])
                     </div>
                 </div>
             </div>
@@ -525,12 +526,12 @@
                 urlIndex: '{{ route("fallas.index") }}',
                 urlBase: '{{ url("admin/fallas") }}'
             };
-            // Modal de creación compartido: al crear un reporte se recarga el listado.
+            // Modal de creación compartido. El reporte creado llega a la copia local sola y el
+            // listado se repinta con ella (fallas_index.js).
             window.FALLA_MODAL_CFG = {
                 urlSearch: '{{ route("fallas.searchActivos") }}',
                 urlStore: '{{ route("fallas.store") }}',
-                urlBase: '{{ url("admin/fallas") }}',
-                onCreated: function () { if (window.cargarFallas) window.cargarFallas(); }
+                urlBase: '{{ url("admin/fallas") }}'
             };
         </script>
         {{-- falla_create_modal.js se carga GLOBAL en el layout (SPA-safe). --}}

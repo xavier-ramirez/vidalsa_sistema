@@ -68,6 +68,7 @@ const PAGINAS_SIN_RED = [
     '/admin/almacen',
     '/admin/almacen/movimientos',
     '/admin/almacen/notas',
+    '/admin/fallas',
 ];
 
 self.addEventListener('install', (event) => {

@@ -36,7 +36,9 @@ class RegistroCambios
     private const FUENTES = [
         'equipos'                => [['equipos', 'ID_EQUIPO']],
         'documentacion'          => [['equipos', 'ID_EQUIPO']],
-        'fallas'                 => [['equipos', 'ACTIVO_ID', "{r}.ACTIVO_TIPO = 'equipo'"],
+        // El reporte es fila propia (DominioFallas) y cambia lo que muestra su activo.
+        'fallas'                 => [['fallas', 'ID_FALLA'],
+                                     ['equipos', 'ACTIVO_ID', "{r}.ACTIVO_TIPO = 'equipo'"],
                                      ['auxiliares', 'ACTIVO_ID', "{r}.ACTIVO_TIPO = 'equipo_auxiliar'"]],
         // El equipo anfitrión muestra cuántos auxiliares lleva encima (subCount).
         'equipos_auxiliares'     => [['auxiliares', 'ID_AUXILIAR'], ['equipos', 'ID_EQUIPO_HOST']],

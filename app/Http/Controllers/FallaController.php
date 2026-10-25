@@ -30,195 +30,29 @@ class FallaController extends Controller
     }
 
     /**
-     * Listado con filtros y paginacion server-side.
+     * La pantalla del listado: filtros y contenedores vacíos. Las tarjetas, la paginación y el
+     * Consolidado los pinta fallas_index.js desde la copia local (DominioFallas), con o sin
+     * internet; aquí solo van las listas de los filtros.
      */
-    public function index(Request $request)
+    public function index()
     {
-        $query = Falla::query();
-
-        // Estatus
-        if ($request->filled('estatus')) {
-            $query->where('ESTADO_REPORTE', $request->estatus);
-        }
-
-        // Fechas — rangos sobre la columna cruda (NO whereDate: envolver la columna
-        // en DATE() impide usar el índice de FECHA_EMISION). Una fecha malformada
-        // en la URL se IGNORA (try/catch): Carbon::parse revienta con 500 y el
-        // whereDate viejo simplemente no devolvía filas.
-        if ($request->filled('fecha_desde')) {
-            try {
-                $query->where('FECHA_EMISION', '>=', \Carbon\Carbon::parse($request->fecha_desde)->toDateString());
-            } catch (\Throwable $e) { /* fecha inválida → sin filtro */ }
-        }
-        if ($request->filled('fecha_hasta')) {
-            try {
-                $query->where('FECHA_EMISION', '<', \Carbon\Carbon::parse($request->fecha_hasta)->addDay()->toDateString());
-            } catch (\Throwable $e) { /* fecha inválida → sin filtro */ }
-        }
-
-        // Responsable
-        if ($request->filled('responsable')) {
-            $query->where('ID_USUARIO_REPORTA', $request->responsable);
-        }
-
-        // Tipo de activo — acepta: 'equipo', 'equipo_auxiliar', 'tipo_eq:{id}', 'tipo_aux:{TIPO}'
-        $ta = $request->input('tipo_activo', '');
-        if ($ta !== '') {
-            if ($ta === 'equipo' || $ta === 'equipo_auxiliar') {
-                $query->where('ACTIVO_TIPO', $ta);
-            } elseif (str_starts_with($ta, 'tipo_eq:')) {
-                $tipoId = (int) substr($ta, 8);
-                $query->where('ACTIVO_TIPO', 'equipo')
-                      ->whereIn('ACTIVO_ID',
-                          Equipo::where('id_tipo_equipo', $tipoId)->select('ID_EQUIPO'));
-            } elseif (str_starts_with($ta, 'tipo_aux:')) {
-                $auxTipo = substr($ta, 9);
-                $query->where('ACTIVO_TIPO', 'equipo_auxiliar')
-                      ->whereIn('ACTIVO_ID',
-                          EquipoAuxiliar::where('TIPO', $auxTipo)->select('ID_AUXILIAR'));
-            }
-        }
-
-        // Busqueda por serial / placa / codigo / etiqueta.
-        // Subqueries whereIn (mismo patron que tipo_eq/tipo_aux arriba): antes se
-        // hacia pluck() de TODOS los IDs coincidentes a PHP y se reinyectaban como
-        // lista IN — dos queries extra por filtro y listas enormes en frentes grandes.
-        if ($request->filled('search')) {
-            $sClean = mb_strtoupper(ltrim(trim($request->input('search')), '#'));
-            $like   = "%{$sClean}%";
-
-            $eqSub = Equipo::leftJoin('documentacion AS d', 'equipos.ID_EQUIPO', '=', 'd.ID_EQUIPO')
-                ->where(function ($w) use ($like) {
-                    $w->whereRaw('UPPER(equipos.SERIAL_CHASIS) like ?', [$like])
-                      ->orWhereRaw('UPPER(equipos.SERIAL_DE_MOTOR) like ?', [$like])
-                      ->orWhereRaw('UPPER(equipos.CODIGO_PATIO) like ?', [$like])
-                      ->orWhereRaw('UPPER(d.PLACA) like ?', [$like]);
-                })->select('equipos.ID_EQUIPO');
-
-            $auxSub = EquipoAuxiliar::where(function ($w) use ($like) {
-                $w->whereRaw('UPPER(SERIAL) like ?', [$like])
-                  ->orWhereRaw('UPPER(CODIGO_INTERNO) like ?', [$like]);
-            })->select('ID_AUXILIAR');
-
-            $query->where(function ($q) use ($eqSub, $auxSub, $like) {
-                $q->where(function ($i) use ($eqSub) {
-                    $i->where('ACTIVO_TIPO', 'equipo')->whereIn('ACTIVO_ID', $eqSub);
-                })->orWhere(function ($i) use ($auxSub) {
-                    $i->where('ACTIVO_TIPO', 'equipo_auxiliar')->whereIn('ACTIVO_ID', $auxSub);
-                })->orWhere('CODIGO_REPORTE', 'like', $like);
-            });
-        }
-
-        // Marca
-        if ($request->filled('marca')) {
-            $mLike = '%' . mb_strtoupper(trim($request->marca)) . '%';
-            $eqSub  = Equipo::whereRaw('UPPER(MARCA) like ?', [$mLike])->select('ID_EQUIPO');
-            $auxSub = EquipoAuxiliar::whereRaw('UPPER(MARCA) like ?', [$mLike])->select('ID_AUXILIAR');
-            $query->where(function ($q) use ($eqSub, $auxSub) {
-                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqSub))
-                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxSub));
-            });
-        }
-
-        // Modelo
-        if ($request->filled('modelo')) {
-            $moLike = '%' . mb_strtoupper(trim($request->modelo)) . '%';
-            $eqSub  = Equipo::whereRaw('UPPER(MODELO) like ?', [$moLike])->select('ID_EQUIPO');
-            $auxSub = EquipoAuxiliar::whereRaw('UPPER(MODELO) like ?', [$moLike])->select('ID_AUXILIAR');
-            $query->where(function ($q) use ($eqSub, $auxSub) {
-                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqSub))
-                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxSub));
-            });
-        }
-
-        // Frente
-        if ($request->filled('id_frente')) {
-            $frId   = (int) $request->id_frente;
-            $eqSub  = Equipo::where('ID_FRENTE_ACTUAL', $frId)->select('ID_EQUIPO');
-            $auxSub = EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $frId)->select('ID_AUXILIAR');
-            $query->where(function ($q) use ($eqSub, $auxSub) {
-                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqSub))
-                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxSub));
-            });
-        }
-
-        $fallas = $query->orderByDesc('FECHA_EMISION')->paginate(50);
-
-        // N+1 Optimization: Eager load custom polymorphic manually
-        $equipoIds = [];
-        $auxiliarIds = [];
-        foreach ($fallas->items() as $falla) {
-            if ($falla->ACTIVO_TIPO === 'equipo') {
-                $equipoIds[] = $falla->ACTIVO_ID;
-            } elseif ($falla->ACTIVO_TIPO === 'equipo_auxiliar') {
-                $auxiliarIds[] = $falla->ACTIVO_ID;
-            }
-        }
-        
-        $equiposLoaded = empty($equipoIds) ? collect() : Equipo::with([...Equipo::conFoto('', true), 'documentacion', 'tipo'])->whereIn('ID_EQUIPO', array_unique($equipoIds))->get()->keyBy('ID_EQUIPO');
-        $auxiliaresLoaded = empty($auxiliarIds) ? collect() : EquipoAuxiliar::whereIn('ID_AUXILIAR', array_unique($auxiliarIds))->get()->keyBy('ID_AUXILIAR');
-
-        // Hidrata activo + frente (un solo query previo para todos los frentes).
-        $allFrentes = FrenteTrabajo::pluck('NOMBRE_FRENTE', 'ID_FRENTE')->toArray();
-        $fallas->getCollection()->transform(function ($f) use ($allFrentes, $equiposLoaded, $auxiliaresLoaded) {
-            if ($f->ACTIVO_TIPO === 'equipo') {
-                $activo = $equiposLoaded->get($f->ACTIVO_ID);
-            } elseif ($f->ACTIVO_TIPO === 'equipo_auxiliar') {
-                $activo = $auxiliaresLoaded->get($f->ACTIVO_ID);
-            } else {
-                $activo = null;
-            }
-
-            $f->_activo      = $activo;
-            $frenteId        = $activo?->ID_FRENTE_ACTUAL;
-            $f->_frente_nombre = $frenteId ? ($allFrentes[$frenteId] ?? '—') : '—';
-            return $f;
-        });
-
-        $stats = $this->buildStats($request);
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'html'       => view('admin.fallas.partials.table_rows', compact('fallas'))->render(),
-                'stats'      => $stats,
-                // appends(query): los enlaces del paginador conservan los filtros activos (mismo
-                // criterio que MovilizacionController). Sin esto, "página 2" apuntaba al set sin filtrar.
-                'pagination' => $fallas->appends($request->query())->links('vendor.pagination.custom-sliding')->toHtml(),
-            ]);
-        }
-
         $responsables = Usuario::whereIn('ID_USUARIO',
                 Falla::distinct()->pluck('ID_USUARIO_REPORTA')->filter()
             )->orderBy('NOMBRE_COMPLETO')->get(['ID_USUARIO', 'NOMBRE_COMPLETO']);
 
         $frentes = FrenteTrabajo::orderBy('NOMBRE_FRENTE')->get(['ID_FRENTE', 'NOMBRE_FRENTE']);
 
-        // Catalogo de Marcas / Modelos para el filtro avanzado.
-        // Cuando el usuario filtra por tipo_activo, solo recomendamos
-        // los valores de esa familia (vehiculos o auxiliares); si no, union.
-        $tipoSel = $request->input('tipo_activo');
-        $eqMarcas = ($tipoSel === 'equipo_auxiliar') ? collect()
-            : Equipo::whereNotNull('MARCA')->where('MARCA','!=','')->distinct()->orderBy('MARCA')->pluck('MARCA');
-        $auxMarcas = ($tipoSel === 'equipo') ? collect()
-            : EquipoAuxiliar::whereNotNull('MARCA')->where('MARCA','!=','')->distinct()->orderBy('MARCA')->pluck('MARCA');
-        $availableMarcas = $eqMarcas->merge($auxMarcas)->unique()->sort()->values();
-
-        $eqModelos = ($tipoSel === 'equipo_auxiliar') ? collect()
-            : Equipo::whereNotNull('MODELO')->where('MODELO','!=','')->distinct()->orderBy('MODELO')->pluck('MODELO');
-        $auxModelos = ($tipoSel === 'equipo') ? collect()
-            : EquipoAuxiliar::whereNotNull('MODELO')->where('MODELO','!=','')->distinct()->orderBy('MODELO')->pluck('MODELO');
-        $availableModelos = $eqModelos->merge($auxModelos)->unique()->sort()->values();
+        // Marcas / Modelos del filtro avanzado: los de vehículos y auxiliares juntos.
+        $distintos = fn ($modelo, string $col) => $modelo::whereNotNull($col)->where($col, '!=', '')->distinct()->pluck($col);
+        $availableMarcas  = $distintos(Equipo::class, 'MARCA')->merge($distintos(EquipoAuxiliar::class, 'MARCA'))->unique()->sort()->values();
+        $availableModelos = $distintos(Equipo::class, 'MODELO')->merge($distintos(EquipoAuxiliar::class, 'MODELO'))->unique()->sort()->values();
 
         // Tipos de equipo (para el filtro avanzado agrupado).
-        // Sin cache: las tablas son chicas y los tipos se reflejan en tiempo real
-        // cuando el admin agrega/elimina un TipoEquipo o un EquipoAuxiliar nuevo.
         $tiposEquipo = TipoEquipo::orderBy('nombre')->get(['id', 'nombre']);
-        $tiposAux = EquipoAuxiliar::whereNotNull('TIPO')->where('TIPO', '!=', '')
-            ->distinct()->orderBy('TIPO')->pluck('TIPO');
+        $tiposAux = $distintos(EquipoAuxiliar::class, 'TIPO')->sort()->values();
 
         return view('admin.fallas.index', compact(
-            'fallas', 'stats', 'responsables', 'frentes',
-            'availableMarcas', 'availableModelos', 'tiposEquipo', 'tiposAux'
+            'responsables', 'frentes', 'availableMarcas', 'availableModelos', 'tiposEquipo', 'tiposAux'
         ));
     }
 
@@ -578,146 +412,6 @@ class FallaController extends Controller
             'EMAIL_USUARIO' => $user->CORREO_ELECTRONICO,
             'CREADO_EN'     => now(),
         ]);
-    }
-
-    /**
-     * Stats del sidebar: reportes_abiertos, reportes_cerrados, total_reportes y el
-     * desglose por tipo de mantenimiento (preventivo, correctivo, rapidos). NO devuelve
-     * conteos de flota: los anunciaba un docblock viejo -TOTAL, INOPERATIVO, EN
-     * MANTENIMIENTO- y ninguna de esas claves existe en el return de abajo.
-     * Respeta los filtros del request
-     * que aplican a equipos (id_frente, tipo_activo, marca, modelo, search)
-     * para que el sidebar refleje la vista activa, igual que /admin/equipos.
-     */
-    private function buildStats(Request $request): array
-    {
-        [$eqQ, $auxQ] = $this->buildActivoQueriesForStats($request);
-
-        // El Consolidado muestra Reportes Abiertos / Cerrados. Los $eqQ/$auxQ se usan
-        // para acotar las fallas a los activos filtrados (ids de abajo), y SOLO si hay
-        // filtro de activo: sin el, la cuenta es global y no hace falta ninguna lista.
-        // Reportes: aplica los filtros equivalentes sobre la tabla fallas
-        // (id_frente, tipo_activo, marca, modelo, search se filtran por activo).
-
-        $reportesQ = Falla::query();
-        if ($request->filled('fecha_desde')) {
-            $reportesQ->whereDate('FECHA_EMISION', '>=', $request->fecha_desde);
-        }
-        if ($request->filled('fecha_hasta')) {
-            $reportesQ->whereDate('FECHA_EMISION', '<=', $request->fecha_hasta);
-        }
-        if ($request->filled('responsable')) {
-            $reportesQ->where('ID_USUARIO_REPORTA', $request->responsable);
-        }
-        // Si hay filtros equipo-level activos, restringimos a las fallas que apuntan
-        // a esos activos. Sin filtros, no aplicamos restriccion (cuenta global).
-        $hasEqFilter = $request->filled('id_frente') || $request->filled('tipo_activo')
-                    || $request->filled('marca') || $request->filled('modelo')
-                    || $request->filled('search');
-        if ($hasEqFilter) {
-            // El CODIGO_REPORTE entra aqui igual que en index(): buscar "RF-000123" encuentra
-            // el reporte por su codigo, no por el activo, asi que ningun equipo coincide y
-            // los IDs salen vacios. Sin esta rama el Consolidado decia 0 abiertos / 0
-            // cerrados / 0 total mientras la tabla de al lado mostraba el reporte.
-            $buscado = $request->filled('search')
-                ? '%' . mb_strtoupper(ltrim(trim($request->input('search')), '#')) . '%'
-                : null;
-
-            // Solo el ID: la consulta base trae select('equipos.*') y un pluck sobre ella
-            // bajaba TODAS las columnas de todos los equipos en cada apertura del modulo.
-            $eqIds  = (clone $eqQ)->select('equipos.ID_EQUIPO')->pluck('ID_EQUIPO')->all();
-            $auxIds = (clone $auxQ)->select('equipos_auxiliares.ID_AUXILIAR')->pluck('ID_AUXILIAR')->all();
-
-            $reportesQ->where(function ($q) use ($eqIds, $auxIds, $buscado) {
-                $q->where(fn($i) => $i->where('ACTIVO_TIPO','equipo')->whereIn('ACTIVO_ID',$eqIds ?: [0]))
-                  ->orWhere(fn($i) => $i->where('ACTIVO_TIPO','equipo_auxiliar')->whereIn('ACTIVO_ID',$auxIds ?: [0]));
-                if ($buscado !== null) {
-                    $q->orWhere('CODIGO_REPORTE', 'like', $buscado);
-                }
-            });
-        }
-
-        $abiertos = (clone $reportesQ)->where('ESTADO_REPORTE', 'abierto')->count();
-        $cerrados = (clone $reportesQ)->where('ESTADO_REPORTE', 'cerrado')->count();
-        $total    = $abiertos + $cerrados;
-
-        // Desglose por tipo de mantenimiento para el gráfico del Consolidado.
-        // "Rápidos" = el resto (reportes cortos / sin tipo de mantenimiento), de modo
-        // que preventivo + correctivo + rapidos = total siempre.
-        $preventivo = (clone $reportesQ)->where('TIPO_MANTENIMIENTO', 'PREVENTIVO')->count();
-        $correctivo = (clone $reportesQ)->where('TIPO_MANTENIMIENTO', 'CORRECTIVO')->count();
-        $rapidos    = max(0, $total - $preventivo - $correctivo);
-
-        return [
-            'reportes_abiertos' => $abiertos,
-            'reportes_cerrados' => $cerrados,
-            'total_reportes'    => $total,
-            'preventivo'        => $preventivo,
-            'correctivo'        => $correctivo,
-            'rapidos'           => $rapidos,
-        ];
-    }
-
-    /**
-     * Construye queries de Equipo y EquipoAuxiliar aplicando los filtros del
-     * request que tienen sentido a nivel de activo. Usado para los conteos
-     * del sidebar.
-     */
-    private function buildActivoQueriesForStats(Request $request): array
-    {
-        $eq  = Equipo::query()->select('equipos.*');
-        $aux = EquipoAuxiliar::query();
-
-        if ($request->filled('id_frente')) {
-            $frId = (int) $request->id_frente;
-            $eq->where('ID_FRENTE_ACTUAL', $frId);
-            $aux->where('ID_FRENTE_ACTUAL', $frId);
-        }
-
-        if ($request->filled('marca')) {
-            $mLike = '%' . mb_strtoupper(trim($request->marca)) . '%';
-            $eq->whereRaw('UPPER(MARCA) like ?', [$mLike]);
-            $aux->whereRaw('UPPER(MARCA) like ?', [$mLike]);
-        }
-
-        if ($request->filled('modelo')) {
-            $moLike = '%' . mb_strtoupper(trim($request->modelo)) . '%';
-            $eq->whereRaw('UPPER(MODELO) like ?', [$moLike]);
-            $aux->whereRaw('UPPER(MODELO) like ?', [$moLike]);
-        }
-
-        $ta = $request->input('tipo_activo', '');
-        if ($ta === 'equipo') {
-            $aux->whereRaw('1 = 0');
-        } elseif ($ta === 'equipo_auxiliar') {
-            $eq->whereRaw('1 = 0');
-        } elseif (str_starts_with($ta, 'tipo_eq:')) {
-            $tipoId = (int) substr($ta, 8);
-            $eq->where('id_tipo_equipo', $tipoId);
-            $aux->whereRaw('1 = 0');
-        } elseif (str_starts_with($ta, 'tipo_aux:')) {
-            $auxTipo = substr($ta, 9);
-            $aux->where('TIPO', $auxTipo);
-            $eq->whereRaw('1 = 0');
-        }
-
-        if ($request->filled('search')) {
-            $sClean = mb_strtoupper(ltrim(trim($request->input('search')), '#'));
-            $like = "%{$sClean}%";
-            $eq->leftJoin('documentacion AS d_stats', 'equipos.ID_EQUIPO', '=', 'd_stats.ID_EQUIPO')
-               ->where(function ($w) use ($like) {
-                   $w->whereRaw('UPPER(equipos.SERIAL_CHASIS) like ?', [$like])
-                     ->orWhereRaw('UPPER(equipos.SERIAL_DE_MOTOR) like ?', [$like])
-                     ->orWhereRaw('UPPER(equipos.CODIGO_PATIO) like ?', [$like])
-                     ->orWhereRaw('UPPER(d_stats.PLACA) like ?', [$like]);
-               });
-            $aux->where(function ($w) use ($like) {
-                $w->whereRaw('UPPER(SERIAL) like ?', [$like])
-                  ->orWhereRaw('UPPER(CODIGO_INTERNO) like ?', [$like]);
-            });
-        }
-
-        return [$eq, $aux];
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Models\Usuario;
 use App\Support\RegistroCambios;
 use App\Support\Sincronizacion\DominioAlmacen;
 use App\Support\Sincronizacion\DominioEquipos;
+use App\Support\Sincronizacion\DominioFallas;
 use App\Support\Sincronizacion\DominioMovilizaciones;
 use Illuminate\Http\Request;
 
@@ -40,6 +41,7 @@ class SincronizacionController extends Controller
         'equipos'        => DominioEquipos::class,
         'movilizaciones' => DominioMovilizaciones::class,
         'almacen'        => DominioAlmacen::class,
+        'fallas'         => DominioFallas::class,
     ];
 
     /**

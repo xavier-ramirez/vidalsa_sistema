@@ -97,8 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
         navigateTo(link.href);
     });
 
-    // ── PANTALLAS GUARDADAS (Menú, Equipos, Historial, Almacén…) ─────────────────
-    // Equipos, Historial y Almacén pintan sus datos desde la copia local, que copia-local.js
+    // ── PANTALLAS GUARDADAS (Menú, Equipos, Historial, Fallas, Almacén…) ─────────
+    // Equipos, Historial, Fallas y Almacén pintan sus datos desde la copia local, que copia-local.js
     // mantiene al día en segundo plano. Lo que todavía se pedía al servidor en cada clic era la
     // pantalla (su HTML). Ahora se guarda por usuario y por versión de las vistas, y se abre
     // desde aquí:
@@ -113,11 +113,12 @@ document.addEventListener('DOMContentLoaded', () => {
     //   · las que no tienen copia local (null) se vuelven a pedir en segundo plano cada vez
     //     que se abren, para la próxima.
     // NO entran los módulos que pintan sus filas y contadores en el servidor (Usuarios,
-    // Documentos, Fallas, Recepción, Catálogo): su pantalla guardada mostraría datos viejos.
+    // Documentos, Recepción, Catálogo): su pantalla guardada mostraría datos viejos.
     const PANTALLAS_LOCALES = {
         '/menu': 'equipos',
         '/admin/equipos': 'equipos',
         '/admin/movilizaciones': 'movilizaciones',
+        '/admin/fallas': 'fallas',
         '/admin/almacen': 'almacen',
         '/admin/almacen/movimientos': 'almacen',
         '/admin/consumibles/graficos': null,
