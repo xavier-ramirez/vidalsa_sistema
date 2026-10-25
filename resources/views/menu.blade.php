@@ -38,7 +38,9 @@
         </div>
         <div class="menu-hero-stat">
             <div class="menu-hero-stat-label">Flota activa</div>
-            <div class="menu-hero-stat-value">{{ $totalFlotaActiva ?? 0 }}</div>
+            {{-- data-en-vivo: el menú abre desde la pantalla guardada y estos números se ponen al
+                 día solos en segundo plano (navegacion.js · ponerAlDia). --}}
+            <div class="menu-hero-stat-value" data-en-vivo="flota">{{ $totalFlotaActiva ?? 0 }}</div>
             <div class="menu-hero-stat-caption">Equipos en operación</div>
         </div>
     </section>
@@ -60,7 +62,7 @@
                     $_pctMt  = $_flotaTotal > 0 ? round(($_mt  / $_flotaTotal) * 100, 1) : 0;
                     $_pctBad = $_flotaTotal > 0 ? round(($_bad / $_flotaTotal) * 100, 1) : 0;
                 @endphp
-                <div class="salud-card">
+                <div class="salud-card" data-en-vivo="salud">
                     <div class="salud-main-block">
                         <div class="salud-body">
                             <span class="salud-label">Salud Operacional</span>

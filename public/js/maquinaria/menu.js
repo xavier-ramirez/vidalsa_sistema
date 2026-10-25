@@ -134,6 +134,19 @@ window.cargarAlertasDashboard = function () {
     else setTimeout(poner, 150);
 };
 
+// El menú abrió desde la pantalla guardada y llegó la del servidor (navegacion.js ·
+// ponerAlDia): si la clave de sus datos cambió, la lista de Alertas se vuelve a pedir.
+if (!window.__menuAlDiaBound) {
+    window.__menuAlDiaBound = true;
+    window.addEventListener('pantalla-al-dia', function (e) {
+        const lista = document.getElementById('dashboardAlertsList');
+        const nueva = e.detail.doc.getElementById('dashboardAlertsList');
+        if (!lista || !nueva || nueva.dataset.clave === lista.dataset.clave) return;
+        lista.dataset.clave = nueva.dataset.clave;
+        window.cargarAlertasDashboard();
+    });
+}
+
 // Function to filter dashboard alerts by search input
 window.filterDashboardAlerts = function () {
     const input = document.getElementById('alertSearch');

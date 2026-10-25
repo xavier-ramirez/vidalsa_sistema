@@ -97,19 +97,31 @@ document.addEventListener('DOMContentLoaded', () => {
         navigateTo(link.href);
     });
 
-    // ── PANTALLAS GUARDADAS (Equipos e Historial) ────────────────────────────────
-    // Estos módulos pintan sus datos desde la copia local, que copia-local.js mantiene al día
-    // en segundo plano. Lo que todavía se pedía al servidor en cada clic era la pantalla (su
-    // HTML). Ahora se guarda por usuario y por versión de las vistas, y se abre desde aquí:
+    // ── PANTALLAS GUARDADAS (Menú, Equipos, Historial, Almacén…) ─────────────────
+    // Equipos, Historial y Almacén pintan sus datos desde la copia local, que copia-local.js
+    // mantiene al día en segundo plano. Lo que todavía se pedía al servidor en cada clic era la
+    // pantalla (su HTML). Ahora se guarda por usuario y por versión de las vistas, y se abre
+    // desde aquí:
     //   · un despliegue cambia version-vistas → la clave es otra y se vuelve a pedir; lo mismo
     //     si le cambian permisos o frentes al usuario (usuario-acceso);
     //   · sus filtros salen de la BD (frentes, tipos, marcas): cuando la copia de ese dominio
     //     trae cambios, la pantalla se vuelve a pedir en segundo plano para la próxima vez;
     //   · solo la URL limpia, sin ?...
-    // Almacén NO entra: su pantalla trae contadores en vivo (notas por recibir) del servidor.
+    //   · lo que la pantalla trae del servidor va marcado con data-en-vivo (los números del
+    //     Menú, las notas por recibir de Almacén): al abrirla desde aquí esas partes se piden
+    //     en segundo plano y se cambian solas;
+    //   · las que no tienen copia local (null) se vuelven a pedir en segundo plano cada vez
+    //     que se abren, para la próxima.
+    // NO entran los módulos que pintan sus filas y contadores en el servidor (Usuarios,
+    // Documentos, Fallas, Recepción, Catálogo): su pantalla guardada mostraría datos viejos.
     const PANTALLAS_LOCALES = {
+        '/menu': 'equipos',
         '/admin/equipos': 'equipos',
         '/admin/movilizaciones': 'movilizaciones',
+        '/admin/almacen': 'almacen',
+        '/admin/almacen/movimientos': 'almacen',
+        '/admin/consumibles/graficos': null,
+        '/mapa': null,
     };
     // Sin el prefijo 'vidalsa-': el service worker borra esas cachés al cambiar de versión.
     const CACHE_PANTALLAS = 'pantallas-guardadas';
@@ -122,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ruta = u.pathname.replace(/\/+$/, '');
         const usuario = leerMeta('usuario-id');
         const version = leerMeta('version-vistas');
-        if (u.origin !== window.location.origin || u.search || !PANTALLAS_LOCALES[ruta] || !usuario || !version) return null;
+        if (u.origin !== window.location.origin || u.search || !(ruta in PANTALLAS_LOCALES) || !usuario || !version) return null;
         return window.location.origin + '/__pantalla' + ruta + '?u=' + encodeURIComponent(usuario) + '&v=' + encodeURIComponent(version)
             + '&a=' + encodeURIComponent(leerMeta('usuario-acceso'));
     }
@@ -149,13 +161,43 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(() => {});
     }
 
-    // La pide en segundo plano y la guarda: sin spinner ni avisos.
+    // La pide en segundo plano y la guarda: sin spinner ni avisos. Devuelve el HTML (o null).
     function refrescarPantalla(url) {
-        if (navigator.onLine === false) return Promise.resolve();
+        if (navigator.onLine === false) return Promise.resolve(null);
         return window.apiFetch(url, { headers: CABECERAS_SPA, cache: 'no-store' })
             .then((r) => (r.ok && !r.redirected && r.headers.get('X-Vidalsa-Desde-Cache') !== '1' ? r.text() : null))
-            .then((html) => guardarPantalla(url, html))
-            .catch(() => {});
+            .then((html) => { guardarPantalla(url, html); return html; })
+            .catch(() => null);
+    }
+
+    const rutaDe = (url) => { try { return new URL(url, window.location.origin).pathname.replace(/\/+$/, ''); } catch (_) { return ''; } };
+    const enPantalla = (ruta) => rutaDe(window.location.href) === ruta && !!mainViewport.querySelector('[data-en-vivo]');
+
+    // La pantalla a la vista se pide de nuevo y se cambian SOLO sus partes data-en-vivo, enteras
+    // (con sus colores y su title); lo demás —lo escrito, lo abierto— no se toca. Por eso esas
+    // partes no llevan listeners puestos por JS: solo onclick en el HTML. Evento
+    // 'pantalla-al-dia' { ruta, doc } para lo que el módulo ponga por su cuenta (la lista de
+    // Alertas del Menú, menu.js).
+    function ponerAlDia(url) {
+        const ruta = rutaDe(url);
+        if (!enPantalla(ruta)) return;
+        refrescarPantalla(ruta).then((html) => {
+            if (!html || !enPantalla(ruta)) return;
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            mainViewport.querySelectorAll('[data-en-vivo]').forEach((el) => {
+                const nuevo = doc.querySelector('[data-en-vivo="' + el.dataset.enVivo + '"]');
+                if (nuevo && nuevo.outerHTML !== el.outerHTML) el.replaceWith(document.importNode(nuevo, true));
+            });
+            window.dispatchEvent(new CustomEvent('pantalla-al-dia', { detail: { ruta, doc } }));
+        });
+    }
+
+    // Recién abierta desde la guardada: con partes en vivo se ponen al día; si no tiene copia
+    // local que avise de cambios, se vuelve a pedir para la próxima vez.
+    function trasAbrirGuardada(url) {
+        const ruta = rutaDe(url);
+        if (enPantalla(ruta)) ponerAlDia(ruta);
+        else if (PANTALLAS_LOCALES[ruta] === null) refrescarPantalla(ruta);
     }
 
     // Al cargar: se borran las de otra versión u otro usuario y se guardan las que falten de
@@ -164,9 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!window.caches || !leerMeta('usuario-id')) return;
         const rutas = Object.keys(PANTALLAS_LOCALES);
         const vigentes = new Set(rutas.map(clavePantalla));
-        const enMenu = new Set(Array.from(document.querySelectorAll('a[href]'), (a) => {
-            try { return new URL(a.href).pathname.replace(/\/+$/, ''); } catch (_) { return ''; }
-        }));
+        const enMenu = new Set(Array.from(document.querySelectorAll('a[href]'), (a) => rutaDe(a.href)));
         caches.open(CACHE_PANTALLAS).then((c) => c.keys()
             .then((reqs) => Promise.all(reqs.filter((q) => !vigentes.has(q.url)).map((q) => c.delete(q))))
             .then(() => rutas.filter((r) => enMenu.has(r)).reduce((p, r) => p
@@ -177,16 +217,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Cambiaron los datos de un dominio: su pantalla (los filtros) se vuelve a pedir en
     // segundo plano, una vez que paren los cambios, y solo si es MÁS VIEJA que el cambio (la
-    // primera descarga de la copia llega justo cuando la pantalla se acaba de guardar).
+    // primera descarga de la copia llega justo cuando la pantalla se acaba de guardar). Si
+    // está a la vista con partes en vivo (Menú, Almacén), esas se cambian ya, en 1,5 s.
     const refrescoPendiente = {};
     window.addEventListener('copia-local', (e) => {
         if (!e.detail || !e.detail.cambio) return;
         const cuando = Date.now();
         Object.keys(PANTALLAS_LOCALES).filter((r) => PANTALLAS_LOCALES[r] === e.detail.dominio).forEach((r) => {
             clearTimeout(refrescoPendiente[r]);
+            const aLaVista = enPantalla(r);
             refrescoPendiente[r] = setTimeout(() => {
+                if (aLaVista && enPantalla(r)) { ponerAlDia(r); return; }
                 respuestaGuardada(r).then((g) => { if (g && Number(g.headers.get('X-Guardada')) < cuando) refrescarPantalla(r); });
-            }, 10000);
+            }, aLaVista ? 1500 : 10000);
         });
     });
 
@@ -607,9 +650,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // versión de cuando se guardó, y compararla con la de esta pestaña no dice nada.
             let desdeCache = !!opciones.desdeCache;
 
-            // Equipos e Historial: la pantalla guardada, sin preguntar al servidor.
+            // Las de PANTALLAS_LOCALES: la pantalla guardada, sin preguntar al servidor.
+            let deGuardada = false;
             if (html === null) {
                 html = await pantallaGuardada(url);
+                deGuardada = html !== null;
                 if (_yaNoEsLaActual()) { handledCleanup = true; return; }
             }
 
@@ -792,6 +837,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             updateActiveLinks(url);
             window.dispatchEvent(new CustomEvent('spa:contentLoaded'));
+            if (deGuardada) trasAbrirGuardada(url);
 
             // Marcar como manejado ANTES de ocultar, para que el bloque finally
             // no ejecute un segundo hidePreloader (race condition fix).

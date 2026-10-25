@@ -103,6 +103,9 @@
     {{-- ── Banner: total de notas de entrega pendientes por confirmar ──
          Una sola línea con el conteo (sin listar cada nota); toda la tarjeta es un link
          que lleva a la bandeja de recepción. --}}
+    {{-- data-en-vivo: Almacén abre desde la pantalla guardada y esto se pone al día solo
+         (navegacion.js · ponerAlDia). El contenedor va siempre, aunque no haya pendientes. --}}
+    <div data-en-vivo="notas-pendientes">
     @if(($notasPendientes ?? 0) > 0)
         @php $nPend = $notasPendientes; @endphp
         <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
@@ -118,6 +121,7 @@
             </span>
         </a>
     @endif
+    </div>
 
     {{-- ── Filtros ── (el filtro de almacén está junto al título, no aquí) --}}
     <div id="almFilters">
@@ -261,7 +265,7 @@
                          bitácora, con la misma cuenta (AlmacenController::porRecibirDeProyectos)
                          y la misma pill de la columna Estado (Traspaso::ESTADOS_META). Corto a
                          propósito ("Despachos" + el número): la frase entera va en el title. --}}
-                    <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" class="dropdown-item-custom alm-acc-despacho"
+                    <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" class="dropdown-item-custom alm-acc-despacho" data-en-vivo="despachos"
                        title="{{ ($porRecibirPry ?? 0) > 0 ? $porRecibirPry . ' notas por recibir' : 'Todo recibido' }} · abre la Reposición del general"
                        onclick="event.preventDefault(); document.getElementById('almAccionesMenu').style.display='none'; if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;color:#0067b1;">local_shipping</i></div>

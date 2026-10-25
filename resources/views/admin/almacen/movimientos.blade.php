@@ -244,7 +244,7 @@
                      cuántas notas faltan por recibir, en la misma pill de la columna Estado
                      de la bandeja (colores de Traspaso::ESTADOS_META). Corto a propósito
                      ("Despachos" + el número): la frase entera va en el title. --}}
-                    <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}"
+                    <a href="{{ route('almacen.recepcion.index', ['force' => 1]) }}" data-en-vivo="despachos"
                         class="alm-mov-accion" title="{{ $porRecibirPry > 0 ? $porRecibirPry . ' notas por recibir' : 'Todo recibido' }} · abre la Reposición del general"
                         onclick="event.preventDefault(); document.getElementById('splitDropdownMenuMovInv').style.display='none'; if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
                         <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">local_shipping</i></div>
