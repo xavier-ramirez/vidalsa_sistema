@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Equipo;
 use App\Models\Falla;
 use App\Models\Usuario;
 use App\Support\RegistroCambios;
@@ -81,11 +82,61 @@ class SincronizacionFallasTest extends MySqlTestCase
         $this->assertContains((int) $falla->ID_FALLA, $this->sync($usuario, $primera)->json('borrados.fallas'));
     }
 
-    private function sync(Usuario $usuario, ?array $previa = null)
+    /**
+     * Fallas trabaja con Equipos: crear, cerrar y borrar un reporte cambian el estado del
+     * equipo y su aviso de reporte abierto. Las DOS copias tienen que enterarse por el
+     * registro, sin carga completa.
+     */
+    public function test_crear_cerrar_y_borrar_mueven_la_copia_de_fallas_y_la_de_equipos(): void
+    {
+        $admin = $this->usuario('super.admin');
+        $e = Equipo::create([
+            'MARCA' => 'PRUEBA', 'MODELO' => 'PRUEBA-SYNC-FL', 'ANIO' => 2026,
+            'ESTADO_OPERATIVO' => 'OPERATIVO', 'SERIAL_CHASIS' => 'TEST-SYNC-FL-' . uniqid(),
+        ]);
+        $fl = $this->sync($admin)->json();
+        $eq = $this->sync($admin, null, 'equipos')->json();
+        $crear = fn () => $this->actingAs($admin)->postJson(route('fallas.store'), [
+            'tipo_reporte' => 'corto', 'activo_tipo' => 'equipo', 'activo_id' => $e->ID_EQUIPO,
+            'descripcion' => 'PRUEBA SYNC FALLAS',
+        ])->assertOk()->json('falla.ID_FALLA');
+        $paso = function () use ($admin, &$fl, &$eq, $e) {
+            $fl = $this->sync($admin, $fl)->assertJson(['completo' => false])->json();
+            $eq = $this->sync($admin, $eq, 'equipos')->assertJson(['completo' => false])->json();
+
+            return [collect($fl['datos']['fallas'] ?? [])->keyBy('id'), collect($eq['datos']['equipos'] ?? [])->keyBy('id')[$e->ID_EQUIPO] ?? null];
+        };
+
+        // Crear: el reporte aparece abierto y el equipo queda INOPERATIVO con su aviso.
+        $id = $crear();
+        [$fallas, $equipo] = $paso();
+        $this->assertSame('abierto', $fallas[$id]['estado']);
+        $this->assertSame($e->SERIAL_CHASIS, $fallas[$id]['activo']['serial']);
+        $this->assertSame('INOPERATIVO', $equipo['estado']);
+        $this->assertSame($id, $equipo['falla']['id']);
+
+        // Cerrar (desde /admin/fallas): cerrado, y el equipo vuelve a OPERATIVO sin aviso.
+        $this->actingAs($admin)->patchJson(route('fallas.close', $id), ['observaciones_cierre' => 'OK'])->assertOk()->assertJson(['success' => true]);
+        [$fallas, $equipo] = $paso();
+        $this->assertSame('cerrado', $fallas[$id]['estado']);
+        $this->assertSame('OPERATIVO', $equipo['estado']);
+        $this->assertNull($equipo['falla']);
+
+        // Borrar uno abierto (super.admin): se va de la copia y el equipo se cura.
+        $otro = $crear();
+        $paso();
+        $this->actingAs($admin)->deleteJson(route('fallas.destroy', $otro))->assertOk()->assertJson(['success' => true]);
+        [, $equipo] = $paso();
+        $this->assertContains($otro, $fl['borrados']['fallas'] ?? []);
+        $this->assertSame('OPERATIVO', $equipo['estado']);
+        $this->assertNull($equipo['falla']);
+    }
+
+    private function sync(Usuario $usuario, ?array $previa = null, string $dominio = 'fallas')
     {
         $q = $previa ? '?' . http_build_query(['desde' => $previa['hasta'], 'firma' => $previa['firma'], 'esquema' => $previa['esquema']]) : '';
 
-        return $this->actingAs($usuario)->getJson('/sync/fallas' . $q);
+        return $this->actingAs($usuario)->getJson('/sync/' . $dominio . $q);
     }
 
     /** Usuario de prueba creado DESDE CERO (nunca replicate) y solo dentro de la transacción. */
