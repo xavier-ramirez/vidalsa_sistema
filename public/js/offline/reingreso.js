@@ -11,7 +11,8 @@
  * servidor (LlaveLocal.entroSinServidor): una sesión que se cerró por tiempo, con la llave
  * todavía abierta, sigue yendo al inicio de sesión.
  *
- *   Reingreso.reanudar() → Promise<boolean>. Recupera la sesión con el pase. Lo llama
+ *   Reingreso.reanudar() → Promise<true | false | 'sin_red'>. Recupera la sesión con el pase.
+ *       'sin_red': se cortó otra vez en medio (no es que falte la sesión). Lo llama
  *       fetch_interceptor.js ante un 401/419, antes de mandar al inicio de sesión.
  *   Con sesión, al cargar la página, se pide un pase nuevo una vez al día (el anterior se
  *   borra en el servidor).
@@ -56,39 +57,58 @@
         headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf },
         body: JSON.stringify(cuerpo),
     });
+    // Varias pestañas comparten el pase (localStorage) y la cookie de sesión: una a la vez.
+    const unaALaVez = (fn) => (navigator.locks ? navigator.locks.request('vidalsa-pase', fn) : fn());
+    // Token fresco y si hay sesión (el <meta> de una página que salió de la caché puede ser viejo).
+    async function estado() {
+        const r = await crudo('/refresh-csrf').catch(() => null);
+        if (!r || !r.ok) return null;
+        return { csrf: (await r.text()).trim(), conSesion: r.headers.get('X-Auth-Status') === 'authenticated' };
+    }
 
     // ── Con sesión: tener el pase al día ─────────────────────────────────────
-    async function renovar() {
-        if (!usuario() || !window.LlaveLocal || !navigator.onLine || window.LlaveLocal.entroSinServidor()) return;
-        const g = todos()[usuario()];
-        if (g && Date.now() - g.emitido < RENOVAR_MS) return;
-        if (!(await window.LlaveLocal.lista())) return;
-        const anterior = g ? await leer() : null;
-        const r = await enviar('/sesion/pase', window.getCsrf ? window.getCsrf() : '', { anterior });
-        if (r.ok) await guardar((await r.json()).pase);
+    function renovar() {
+        if (!usuario() || !window.LlaveLocal || !navigator.onLine || window.LlaveLocal.entroSinServidor()) return Promise.resolve();
+        return unaALaVez(async () => {
+            const g = todos()[usuario()];   // dentro del candado: otra pestaña pudo renovarlo recién
+            if (g && Date.now() - g.emitido < RENOVAR_MS) return;
+            const e = await estado();
+            if (!e || !e.conSesion || !(await window.LlaveLocal.lista())) return;
+            const anterior = g ? await leer() : null;
+            const r = await enviar('/sesion/pase', e.csrf, { anterior });
+            if (r.ok) await guardar((await r.json()).pase);
+        });
     }
 
     // ── Sin sesión y entrado sin servidor: recuperarla ───────────────────────
     let enCurso = null;
     let reanudada = 0;
-    async function intentar() {
-        if (!window.LlaveLocal || !window.LlaveLocal.entroSinServidor()) return false;
-        const pase = await leer();
-        if (!pase) return false;
-        const tk = await crudo('/refresh-csrf');
-        if (!tk.ok) return false;
-        const r = await enviar('/sesion/reanudar', (await tk.text()).trim(), { pase });
-        if (!r.ok) {
-            if (r.status === 422) olvidar();   // gastado o ya no sirve: el inicio de sesión dará otro
-            return false;
-        }
-        const b = await r.json();
+    function listo(csrf) {
         const meta = document.querySelector('meta[name="csrf-token"]');
-        if (meta && b.csrf) meta.setAttribute('content', b.csrf);
+        if (meta && csrf) meta.setAttribute('content', csrf);
         window.LlaveLocal.conServidor();
-        await guardar(b.pase);
         reanudada = Date.now();
         return true;
+    }
+    function intentar() {
+        if (!window.LlaveLocal || !window.LlaveLocal.entroSinServidor()) return Promise.resolve(false);
+        return unaALaVez(async () => {
+            const e = await estado();
+            if (!e) return 'sin_red';
+            // Otra pestaña ya la recuperó: la cookie es la misma, no hay nada que canjear.
+            if (e.conSesion) return listo(e.csrf);
+            const pase = await leer();
+            if (!pase) return false;
+            const r = await enviar('/sesion/reanudar', e.csrf, { pase }).catch(() => null);
+            if (!r) return 'sin_red';
+            if (!r.ok) {
+                if (r.status === 422) olvidar();   // gastado o ya no sirve: el inicio de sesión dará otro
+                return false;
+            }
+            const b = await r.json();
+            await guardar(b.pase);
+            return listo(b.csrf);
+        });
     }
 
     window.Reingreso = {

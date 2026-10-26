@@ -422,6 +422,9 @@
     });
     setInterval(() => { if (!document.hidden && cache.some((x) => x.estado === 'pendiente')) subir(); }, REINTENTO_MS);
     const arrancar = () => {
+        // Que el navegador no borre por su cuenta la bandeja ni la copia (falta de espacio; en
+        // iPhone, Safari borra lo de un sitio que no se abre en 7 días si no está instalado).
+        try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
         borrarNumerosDeOtros();
         return heredarColaVieja().then(refrescar).then(() => { if (cache.length) subir(); });
     };

@@ -64,7 +64,8 @@ Route::get('/sw.js', function () {
 
 Route::post('/', [App\Http\Controllers\Auth\LoginController::class, 'login'])->name('login.post');
 // Quien entró sin conexión vuelve a tener sesión con su pase al volver el servidor (PaseReingreso).
-Route::post('/sesion/reanudar', [App\Http\Controllers\Auth\ReingresoController::class, 'reanudar'])->middleware('throttle:20,1')->name('sesion.reanudar');
+// El tope es por IP y la oficina sale por una sola: holgado (adivinar un pase de 256 bits no es posible).
+Route::post('/sesion/reanudar', [App\Http\Controllers\Auth\ReingresoController::class, 'reanudar'])->middleware('throttle:120,1')->name('sesion.reanudar');
 Route::redirect('/home', '/menu');
 
 // ── WebAuthn (huella / biometría) ──────────────────────────────────────

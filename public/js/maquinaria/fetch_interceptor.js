@@ -54,9 +54,13 @@ function conTokenNuevo(opciones, fresco) {
 }
 
 /**
- * La sesión se cerró en el servidor: SIEMPRE a la pantalla de inicio de sesión, nada de pedir
- * la clave dentro de la aplicación. Lo que quedó en la bandeja sin internet sigue guardado en
- * el equipo y sube solo al volver a entrar. `response` = el 401/419 que lo dijo.
+ * La sesión se cerró en el servidor: a la pantalla de inicio de sesión, nada de pedir la clave
+ * dentro de la aplicación. Lo que quedó en la bandeja sin internet sigue guardado en el equipo
+ * y sube solo al volver a entrar. `response` = el 401/419 que lo dijo.
+ *
+ * Si se entró SIN conexión y el pase de reingreso no sirvió (venció, cambió la clave, equipo
+ * sin pase) no se saca a nadie a mitad de lo que está haciendo: una barra ofrece entrar
+ * (avisoEntrar) y mientras tanto se sigue como sin internet. Devuelve true si se fue.
  */
 window.irAlInicioDeSesion = async function (response) {
     // Con ?aviso= el login explica POR QUÉ se cerró la sesión (un flash no
@@ -80,10 +84,37 @@ window.irAlInicioDeSesion = async function (response) {
             }
         } catch (e) { /* respuesta sin JSON: vale el aviso genérico */ }
     }
-    var _aviso = _motivo || 'sesion_expirada';
+    var _local = !_motivo && !!window.LlaveLocal && typeof window.LlaveLocal.entroSinServidor === 'function'
+        && window.LlaveLocal.entroSinServidor();
+    var _aviso = _motivo || (_local ? 'volvio_conexion' : 'sesion_expirada');
     if (window.Bandeja && window.Bandeja.pendientes().some(function (it) { return it.estado === 'pendiente'; })) _aviso += '_pendientes';
+    if (_local) { avisoEntrar('/?aviso=' + _aviso); return false; }
     window.location.href = '/?aviso=' + _aviso;
+    return true;
 };
+
+/** La barra "volvió la conexión: entra con tu clave", una sola aunque fallen varias peticiones. */
+function avisoEntrar(destino) {
+    var barra = document.getElementById('avisoEntrarConClave');
+    if (!barra) {
+        barra = document.createElement('div');
+        barra.id = 'avisoEntrarConClave';
+        barra.setAttribute('role', 'alert');
+        barra.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:100000;display:flex;gap:12px;align-items:center;'
+            + 'justify-content:center;flex-wrap:wrap;padding:12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));'
+            + 'background:#0b3d91;color:#fff;font:600 14px/1.35 Inter,system-ui,sans-serif;box-shadow:0 -4px 16px rgba(0,0,0,.25)';
+        var texto = document.createElement('span');
+        texto.textContent = 'Volvió la conexión. Entra con tu clave para subir tus cambios.';
+        var boton = document.createElement('button');
+        boton.type = 'button';
+        boton.textContent = 'Entrar';
+        boton.style.cssText = 'border:0;border-radius:8px;padding:8px 18px;background:#fff;color:#0b3d91;font:700 14px Inter,system-ui,sans-serif;cursor:pointer';
+        barra.appendChild(texto);
+        barra.appendChild(boton);
+        (document.body || document.documentElement).appendChild(barra);
+    }
+    barra.querySelector('button').onclick = function () { window.location.href = destino; };
+}
 window.fetch = async function (...args) {
     try {
         let response = await originalFetch.apply(this, args);
@@ -133,8 +164,11 @@ window.fetch = async function (...args) {
             // Entró sin conexión y volvió el servidor: la sesión se recupera con el pase de
             // reingreso (reingreso.js) y la petición se repite, sin pedir la clave otra vez
             // estando ya dentro. El tercer argumento (reintento) evita volver a probar.
-            if (!args[2] && window.Reingreso && await window.Reingreso.reanudar()) {
-                return window.fetch(args[0], conTokenNuevo(args[1], window.getCsrf ? window.getCsrf() : ''), true);
+            if (!args[2] && window.Reingreso) {
+                var _re = await window.Reingreso.reanudar();
+                if (_re === true) return window.fetch(args[0], conTokenNuevo(args[1], window.getCsrf ? window.getCsrf() : ''), true);
+                // Se cortó otra vez en medio: es falta de red, no de sesión (ver el catch).
+                if (_re === 'sin_red') throw new TypeError('Failed to fetch');
             }
             // La bandeja (cabecera X-Clave-Operacion) recibe el 401/419: primero guarda la
             // operación en el equipo y después llama a irAlInicioDeSesion. Si se saliera ya,
@@ -143,8 +177,10 @@ window.fetch = async function (...args) {
             var _deLaBandeja = typeof _cab.has === 'function' ? _cab.has('X-Clave-Operacion')
                 : Object.keys(_cab).some(function (k) { return k.toLowerCase() === 'x-clave-operacion'; });
             if (_deLaBandeja) return response;
-            await window.irAlInicioDeSesion(response);
-            return new Promise(() => { }); // Promesa pendiente eterna
+            if (await window.irAlInicioDeSesion(response)) return new Promise(() => { }); // se va: pendiente eterna
+            // Se quedó (entró sin conexión, ver irAlInicioDeSesion): para quien pidió es como
+            // sin internet, sin el aviso "Sin internet" (la red sí está).
+            throw Object.assign(new TypeError('Sin sesión: entra con tu clave'), { sinSesion: true });
         }
         // AQUÍ NO SE ANUNCIA QUE VOLVIÓ LA RED, aunque la petición haya salido bien.
         //
@@ -185,7 +221,7 @@ window.fetch = async function (...args) {
         var _url = String((args[0] && args[0].url) || args[0] || '');
         var _propia = true;   // sin URL legible se asume nuestra (es lo normal)
         try { _propia = new URL(_url, location.href).origin === location.origin; } catch (e) {}
-        if (err instanceof TypeError && _propia && window.netStatus
+        if (err instanceof TypeError && !err.sinSesion && _propia && window.netStatus
             && typeof window.netStatus.showOffline === 'function') {
             window.netStatus.showOffline();
         }
