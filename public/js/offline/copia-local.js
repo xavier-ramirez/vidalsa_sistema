@@ -7,8 +7,7 @@
  *
  *   Como WhatsApp: TODOS los dominios del usuario (<meta name="copia-dominios">) se ponen al
  *   día en segundo plano, esté abierto el módulo que sea: al cargar la página, cada `espera`
- *   segundos que manda el servidor (15 s; 5 s el módulo que está en pantalla), al volver a la
- *   pestaña y al recuperar la red. Así
+ *   segundos que manda el servidor (15 s), al volver a la pestaña y al recuperar la red. Así
  *   abrir un módulo no le pregunta nada al servidor: la copia ya está al día.
  *
  *   CopiaLocal.usar(dominio, ancla) → Promise<vista>
@@ -49,7 +48,6 @@
     const BLOQUES = 32;
     const CATALOGOS = '__catalogos';   // tabla aparte para los catálogos: cambian poco
     const TICK_MS = 5000;
-    const INACTIVIDAD_MAX_MS = 2 * 60 * 1000;
 
     const usuario = () => (document.querySelector('meta[name="usuario-id"]') || {}).content || '';
 
@@ -283,13 +281,6 @@
         return c.enCurso;
     }
 
-    function usuarioActivo() {
-        try {
-            const t = parseInt(localStorage.getItem('vidalsa_last_activity'), 10);
-            return !t || (Date.now() - t) < INACTIVIDAD_MAX_MS;
-        } catch (e) { return true; }
-    }
-
     // Dominios que se mantienen al día: los del usuario (meta) y los que tengan alguna ancla
     // todavía en la página.
     function enUso() {
@@ -302,18 +293,12 @@
         });
     }
 
-    // El dominio que está en pantalla (con ancla) pregunta en cada vuelta del reloj: lo hecho
-    // desde otro equipo aparece solo, sin volver a abrir el módulo. En modo respaldo
-    // (espera > 15 s, el servidor arma la copia entera) se queda en su `espera`.
-    const vencida = (c) => {
-        const espera = c.meta.espera || 15;
-        return (espera <= 15 && c.anclas.size > 0) || Date.now() - c.ultimo >= espera * 1000;
-    };
+    const vencida = (c) => Date.now() - c.ultimo >= (c.meta.espera || 15) * 1000;
     // usar(): pintar desde la copia pregunta si la última pregunta tiene más de esto.
     const PREGUNTA_AL_USAR_MS = 3000;
 
     function revisar(forzar) {
-        if (!usuario() || document.visibilityState !== 'visible' || !usuarioActivo()) return;
+        if (!usuario() || document.visibilityState !== 'visible' || !window.usuarioActivo()) return;
         enUso().forEach((d) => { if (forzar || vencida(copias[d])) sincronizar(d); });
     }
 

@@ -407,30 +407,31 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
             .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
     };
 
-    // Puesta al día SOLA mientras la bandeja está en pantalla: lo recibido o enviado desde
-    // otro equipo aparece sin volver a abrir el módulo. Pide la MISMA consulta que se ve (la
-    // URL que dejó trLoad), no la de los controles: un texto a medio escribir no filtra.
-    // Sin preloader ni parpadeo, y solo cambia la tabla si llegó distinta.
+    // Puesta al día SOLA mientras la bandeja está en pantalla: la copia local trae en segundo
+    // plano lo hecho desde otro equipo, y enviar, recibir o anular una nota mueve stock del
+    // almacén; en cuanto llega ese cambio se vuelve a pedir la bandeja, sin volver a abrir el
+    // módulo. Pide la MISMA consulta que se ve (la URL que dejó trLoad), no la de los
+    // controles: un texto a medio escribir no filtra. Sin preloader ni parpadeo, y solo cambia
+    // la tabla si llegó distinta.
     window.trRefrescarSolo = function () {
         var body = el('trTableBody');
-        if (!body || document.visibilityState !== 'visible' || body.style.opacity === '0.5') return;
-        try {
-            var t = parseInt(localStorage.getItem('vidalsa_last_activity'), 10);
-            if (t && Date.now() - t > 2 * 60 * 1000) return;   // nadie mirando: no se carga al servidor
-        } catch (e) {}
+        if (!body) return;
         var ruta = new URL(ROUTE, window.location.origin);
         if (window.location.pathname !== ruta.pathname) return;
-        var miSeq = _trSeq;
+        var miSeq = _trSeq, consulta = window.location.search;
         // Sin interceptor, como la copia local: sin red no salta el aviso, y la sesión
-        // caída la avisa la copia (este sondeo solo se calla).
-        (window.fetchSinInterceptor || window.fetch)(ruta.pathname + window.location.search, { credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        // caída la avisa la copia (aquí solo se calla).
+        (window.fetchSinInterceptor || window.fetch)(ruta.pathname + consulta, { credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (data) {
-                if (data && miSeq === _trSeq && body.isConnected) trAplicar(body, data);   // si no, entretanto se pidió otra carga
+                // Se descarta si entretanto se pidió otra carga o cambió la consulta a la vista.
+                if (data && miSeq === _trSeq && body.isConnected && window.location.search === consulta) trAplicar(body, data);
             })
-            .catch(function () {});   // sin red: se queda lo que se ve, la próxima vuelta reintenta
+            .catch(function () {});   // sin red: se queda lo que se ve hasta el próximo cambio
     };
-    if (_trBindGlobal) setInterval(function () { window.trRefrescarSolo(); }, 10000);
+    if (_trBindGlobal) window.addEventListener('copia-local', function (e) {
+        if (e.detail.dominio === 'almacen' && e.detail.cambio) window.trRefrescarSolo();
+    });
 
     // Click en fila → abrir modal de detalle
     if (_trBindGlobal) document.addEventListener('click', function (e) {

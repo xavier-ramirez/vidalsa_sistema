@@ -1186,17 +1186,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('avisoVersionCerrar').onclick = function () { caja.remove(); };
     }
 
-    // Igual que la copia local: sin actividad en 2 min no se pregunta (cada petición alarga la
-    // sesión en el servidor, y una pestaña olvidada no debe mantenerla viva).
-    function usuarioActivo() {
-        try {
-            var t = parseInt(localStorage.getItem('vidalsa_last_activity'), 10);
-            return !t || (Date.now() - t) < 2 * 60 * 1000;
-        } catch (e) { return true; }
-    }
-
     function revisar() {
-        if (pidiendo || avisando || document.hidden || navigator.onLine === false || !usuarioActivo()) return;
+        if (pidiendo || avisando || document.hidden || navigator.onLine === false || !window.usuarioActivo()) return;
         pidiendo = true;
         fetch('/version-vistas', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
             .then(function (r) { return r.ok ? r.json() : null; })

@@ -22,6 +22,9 @@
  *   window.toast()          Aviso al usuario, con el guard y el respaldo a alert()
  *                           que estaban repetidos en 6 envoltorios locales.
  *
+ *   window.usuarioActivo()  ¿Tocó algo en los últimos 2 min? Lo miran los sondeos
+ *                           (copia local y aviso de versión) antes de preguntar.
+ *
  * SPA-safe: sin estado, idempotente (re-evaluarlo solo reasigna las mismas funciones).
  *
  * OJO: las pantallas que NO extienden layouts.estructura_base (auth/inicio_sesion,
@@ -495,6 +498,15 @@
         return '<nav role="navigation" aria-label="Pagination Navigation" style="display:flex; justify-content:center; align-items:center;">'
             + '<ul class="pag-sliding" style="display:flex; flex-wrap:wrap; list-style:none; padding:0; margin:0; justify-content:center; gap:6px;">'
             + html + '</ul></nav>';
+    };
+
+    // Sin actividad en 2 min los sondeos no preguntan: cada petición alarga la sesión en el
+    // servidor y una pestaña olvidada no debe mantenerla viva. La marca la pone session_timeout.
+    window.usuarioActivo = function () {
+        try {
+            var t = parseInt(localStorage.getItem('vidalsa_last_activity'), 10);
+            return !t || (Date.now() - t) < 2 * 60 * 1000;
+        } catch (e) { return true; }
     };
 
     /**
