@@ -51,6 +51,32 @@ class CierreInactividadLoginTest extends MySqlTestCase
         $this->assertAuthenticated();
     }
 
+    // POST /logout con X-Solo-Sesion (cierre por inactividad y reintentos del login): solo
+    // cierra la sesión de ese token. Iniciar sesión lo cambia, así que un cierre que llega
+    // tarde no saca a quien ya volvió a entrar.
+    public function test_el_cierre_automatico_cierra_su_propia_sesion(): void
+    {
+        $this->actingAs($this->superAdminGlobal())->withSession(['_token' => 'token-de-esta-sesion'])
+            ->postJson('/logout', [], ['X-Solo-Sesion' => 'token-de-esta-sesion'])
+            ->assertOk()->assertJson(['cerrada' => true]);
+        $this->assertGuest();
+    }
+
+    public function test_un_cierre_atrasado_no_saca_la_sesion_nueva(): void
+    {
+        $this->actingAs($this->superAdminGlobal())->withSession(['_token' => 'token-de-la-sesion-nueva'])
+            ->postJson('/logout', [], ['X-Solo-Sesion' => 'token-de-la-sesion-vieja'])
+            ->assertOk()->assertJson(['cerrada' => false]);
+        $this->assertAuthenticated();
+    }
+
+    public function test_salir_sin_la_cabecera_cierra_como_siempre(): void
+    {
+        $this->actingAs($this->superAdminGlobal())->withSession(['_token' => 'cualquiera'])
+            ->post('/logout')->assertRedirect('/');
+        $this->assertGuest();
+    }
+
     public function test_un_enlace_de_otro_sitio_no_cierra_la_sesion(): void
     {
         $this->actingAs($this->superAdminGlobal())

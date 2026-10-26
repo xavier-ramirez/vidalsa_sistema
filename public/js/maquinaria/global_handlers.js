@@ -46,12 +46,24 @@ document.addEventListener('focusin', habilitarSinAutollenado, true);
 // bandeja, avisoConPendientes): si el POST no llegó y la sesión sigue abierta, el inicio de
 // sesión la cierra en vez de volver solo al menú (SystemController::loginPage y
 // precalentarCsrf en auth/inicio_sesion).
-// Sin el interceptor: /logout no lleva CSRF y su respuesta no tiene que llevar a ningún lado.
+// Sin el interceptor: /logout está exenta de CSRF y su respuesta no tiene que llevar a ningún lado.
+// X-Solo-Sesion (LoginController::logout): el cierre AUTOMÁTICO cierra solo esta sesión, no la
+// que la persona abra si el POST llega tarde. El token queda en sessionStorage para los
+// reintentos del inicio de sesión (misma pestaña). «Salir» cierra la que haya: lo pide ahora.
 window.salirDelSistema = function (aviso) {
     // Lo guardado en el equipo deja de poder leerse YA: el inicio de sesión que venga puede ser
     // una copia vieja del service worker que no sepa cerrar la llave. Las páginas guardadas se
     // quedan (son para entrar sin internet; se tiran si entra otra persona: DUENO en sw.js).
     if (window.LlaveLocal) window.LlaveLocal.cerrar();
+    // Ya se sale: un 401 de algo en vuelo (la copia local) no manda al login con otro aviso.
+    window.__saliendo = true;
+    const token = window.getCsrf();
+    try {
+        if (token) sessionStorage.setItem('vidalsa_cierre_token', token);
+        else sessionStorage.removeItem('vidalsa_cierre_token');
+    } catch (e) { /* sin sessionStorage */ }
+    const cabeceras = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+    if (token && aviso !== 'salida') cabeceras['X-Solo-Sesion'] = token;
     const destino = '/?aviso=' + window.avisoConPendientes(aviso);
     let salio = false;
     const salir = function () {
@@ -62,7 +74,7 @@ window.salirDelSistema = function (aviso) {
     const plazo = setTimeout(salir, 2500);
     (window.fetchSinInterceptor || window.fetch)('/logout', {
         method: 'POST', credentials: 'same-origin', redirect: 'manual', cache: 'no-store', keepalive: true,
-        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        headers: cabeceras
     })
         .catch(function () { /* sin red: igual se sale */ })
         .finally(function () { clearTimeout(plazo); salir(); });

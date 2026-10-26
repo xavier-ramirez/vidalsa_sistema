@@ -294,9 +294,16 @@
         // Viene de salir (el cierre automático de partials/session_timeout o el botón «Salir»,
         // los dos por window.salirDelSistema): ver precalentarCsrf, que termina de cerrar la
         // sesión en el servidor si seguía abierta porque el POST /logout no llegó (sin red).
-        // __cierreEn: cuándo se cerró. Si después alguna pestaña usa una sesión (vuelve a
-        // iniciar en otra, p. ej.), esa sesión ya no es la que se cerró y no se toca.
-        if (motivo === 'inactividad' || motivo === 'salida') { window.__cierrePendiente = true; window.__cierreEn = Date.now(); }
+        // __cierreToken: el token de la sesión que se cerró (lo deja salirDelSistema en esta
+        // pestaña). Con él el servidor cierra SOLO esa: si mientras tanto se volvió a entrar
+        // (aquí o en otra pestaña), la sesión abierta es otra y no se toca. Se lee una vez.
+        if (motivo === 'inactividad' || motivo === 'salida') {
+            try {
+                window.__cierreToken = sessionStorage.getItem('vidalsa_cierre_token');
+                sessionStorage.removeItem('vidalsa_cierre_token');
+            } catch (e) {}
+            window.__cierrePendiente = !!window.__cierreToken;
+        }
         // El texto se pinta cuando el DOM ya tiene el <div>; el guard del preloader lo
         // apaga solo porque mostrarMsgLogin lo oculta.
         const texto = (AVISOS[motivo] + (conPendientes ? PENDIENTES : '')).trim();
@@ -371,16 +378,13 @@
                     // entonces la sesión sigue abierta porque el POST /logout no llegó (red
                     // lenta o caída), y volver al menú era "se cerró la sesión y se abrió". Se cierra
                     // aquí y se sigue en el login. Hasta 3 intentos si la red también falla.
-                    // Una pestaña con sesión anota en vidalsa_ultimo_contacto cada vez que habla
-                    // con el servidor (partials/session_timeout). Si lo hizo DESPUÉS del cierre,
-                    // la sesión abierta es una nueva —se volvió a entrar desde otra pestaña— y
-                    // cerrarla sacaría a la persona de lo que está usando.
-                    var usadaDespues = 0;
-                    try { usadaDespues = parseInt(localStorage.getItem('vidalsa_ultimo_contacto'), 10) || 0; } catch (e) {}
-                    if (usadaDespues > (window.__cierreEn || 0)) window.__cierrePendiente = false;
-                    if (window.__cierrePendiente && (window.__intentosCierre || 0) < 3) {
+                    // Si el servidor dice que no la cerró, es OTRA sesión (se volvió a entrar):
+                    // se deja y se va al menú. Nunca con un inicio de sesión en marcha.
+                    if (window.__cierrePendiente && !window._loginEnCurso && (window.__intentosCierre || 0) < 3) {
                         window.__intentosCierre = (window.__intentosCierre || 0) + 1;
-                        cerrarSesionEnServidor().finally(precalentarCsrf);
+                        cerrarSesionEnServidor().then(function (cerrada) {
+                            if (cerrada === false) window.__cierrePendiente = false;
+                        }).finally(precalentarCsrf);
                         return null;
                     }
                     window.marcarLoginReciente();
@@ -400,13 +404,15 @@
             })
             .catch(function () {});
     }
-    // Mismo cierre que window.salirDelSistema (POST /logout, exenta de CSRF). Cualquier respuesta
-    // vale; precalentarCsrf vuelve a preguntar y confirma si quedó cerrada.
+    // Mismo cierre que window.salirDelSistema (POST /logout, exenta de CSRF), con X-Solo-Sesion:
+    // un cierre que llegue tarde, con la persona ya adentro otra vez, no saca la sesión nueva.
+    // Devuelve si el servidor la cerró (undefined si no contestó); precalentarCsrf vuelve a
+    // preguntar y confirma.
     function cerrarSesionEnServidor() {
         return fetch('/logout', {
             method: 'POST', credentials: 'same-origin', redirect: 'manual', cache: 'no-store',
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-        }).catch(function () {});
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-Solo-Sesion': window.__cierreToken }
+        }).then(function (r) { return r.json(); }).then(function (d) { return d.cerrada; }).catch(function () {});
     }
     precalentarCsrf();
     // Al volver de otra pestaña o del bfcache el token pudo caducar: refréscalo para
@@ -414,7 +420,16 @@
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') precalentarCsrf();
     });
-    window.addEventListener('pageshow', function (e) { if (e.persisted) precalentarCsrf(); });
+    // Del bfcache (Atrás desde el menú) vuelve la página tal como se fue: con el spinner del
+    // inicio de sesión que ya terminó y _loginEnCurso puesto, que además frenaba a
+    // precalentarCsrf. Se apaga y se pregunta: con la sesión abierta lleva al menú.
+    window.addEventListener('pageshow', function (e) {
+        if (!e.persisted) return;
+        window._loginEnCurso = false;
+        const pl = document.getElementById('loginPreloader');
+        if (pl) { pl.classList.add('fade-out'); pl.style.display = 'none'; }
+        precalentarCsrf();
+    });
 
     // Destino que el servidor devuelve cuando toca cambiar la clave obligatoriamente.
     // Se compara con data.redirect para NO guardar el verificador offline en ese caso:

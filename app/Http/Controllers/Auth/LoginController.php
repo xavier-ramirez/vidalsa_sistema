@@ -171,7 +171,21 @@ class LoginController extends Controller
         // otra PC donde sigue dentro. Además ValidarSesionUnica lee un token en null como "la
         // clave cambió" (lo deja así Usuario::establecerClave) y les diría eso, que es falso.
         // La sesión de ESTE navegador se invalida abajo y con eso basta.
-        self::cerrarSesion($request);
+        //
+        // X-Solo-Sesion: el token CSRF de la sesión que se quiere cerrar (lo mandan el cierre por
+        // inactividad y los reintentos del login; ver window.salirDelSistema). Iniciar sesión cambia
+        // el token, así que un cierre que llega TARDE, cuando la persona ya volvió a entrar, no
+        // saca la sesión nueva ("entré y al primer clic me dijo que la sesión se cerró"). Sin la
+        // cabecera (botón «Salir», formularios) se cierra como siempre.
+        $solo = $request->header('X-Solo-Sesion');
+        $cerrar = $solo === null || ! Auth::check() || hash_equals($request->session()->token(), $solo);
+        if ($cerrar) {
+            self::cerrarSesion($request);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['cerrada' => $cerrar]);
+        }
 
         return redirect('/')->withHeaders([
             'Cache-Control' => 'no-cache, no-store, must-revalidate',

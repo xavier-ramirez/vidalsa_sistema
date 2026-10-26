@@ -72,6 +72,8 @@ window.irAlInicioDeSesion = async function (response) {
     // la clave se le decía que su sesión caducó.
     // Solo se aceptan los códigos conocidos: el valor viaja a la URL. Lo pendiente en la
     // bandeja viaja aparte (avisoConPendientes).
+    // Ya saliendo (window.salirDelSistema): ese inicio de sesión dice el motivo verdadero.
+    if (window.__saliendo) return true;
     var _motivo = null;
     if (response && response.status === 401) {
         try {
