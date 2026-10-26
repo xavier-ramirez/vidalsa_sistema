@@ -278,8 +278,10 @@
             clave_cambiada:   'Tu clave cambió.\nInicia sesión con la nueva.',
             usuario_inactivo: 'Tu usuario fue desactivado.\nContacta al administrador.',
             inactividad:      'Tu sesión se cerró por inactividad.\nInicia sesión de nuevo.',
-            // Entró sin conexión y el acceso guardado ya no alcanzó para reconectar (fetch_interceptor.js).
-            volvio_conexion:  'Volvió la conexión.\nInicia sesión con tu clave para seguir.'
+            // Trabajó sin conexión y el acceso guardado ya no alcanzó para reconectar (fetch_interceptor.js).
+            volvio_conexion:  'Volvió la conexión.\nInicia sesión con tu clave para seguir.',
+            // «Salir» (window.salirDelSistema): solo se dice algo si quedó algo sin subir.
+            salida:           ''
         };
         const PENDIENTES = '\nTus cambios sin subir siguen guardados: al entrar se suben solos.';
         var clave;
@@ -287,16 +289,18 @@
         if (!clave) return;
         const conPendientes = /_pendientes$/.test(clave);
         const motivo = clave.replace(/_pendientes$/, '');
-        if (!AVISOS[motivo]) return;
-        // Viene del cierre automático del temporizador (partials/session_timeout): ver
-        // precalentarCsrf, que termina de cerrar la sesión en el servidor si seguía abierta.
+        if (!(motivo in AVISOS)) return;
+        // Viene de salir (el cierre automático de partials/session_timeout o el botón «Salir»,
+        // los dos por window.salirDelSistema): ver precalentarCsrf, que termina de cerrar la
+        // sesión en el servidor si seguía abierta porque el POST /logout no llegó (sin red).
         // __cierreEn: cuándo se cerró. Si después alguna pestaña usa una sesión (vuelve a
         // iniciar en otra, p. ej.), esa sesión ya no es la que se cerró y no se toca.
-        if (motivo === 'inactividad') { window.__cierrePorInactividad = true; window.__cierreEn = Date.now(); }
+        if (motivo === 'inactividad' || motivo === 'salida') { window.__cierrePendiente = true; window.__cierreEn = Date.now(); }
         // El texto se pinta cuando el DOM ya tiene el <div>; el guard del preloader lo
         // apaga solo porque mostrarMsgLogin lo oculta.
-        document.addEventListener('DOMContentLoaded', function () {
-            mostrarMsgLogin(AVISOS[motivo] + (conPendientes ? PENDIENTES : ''), true);
+        const texto = (AVISOS[motivo] + (conPendientes ? PENDIENTES : '')).trim();
+        if (texto) document.addEventListener('DOMContentLoaded', function () {
+            mostrarMsgLogin(texto, !!AVISOS[motivo]);
         });
         try { window.history.replaceState({}, '', window.location.pathname); } catch (e) {}
     })();
@@ -362,9 +366,9 @@
                 // otra vez. /refresh-csrf lo delata con X-Auth-Status y lo mandamos al
                 // menú en vez de dejarlo teclear credenciales que no hacen falta.
                 if (r.headers.get('X-Auth-Status') === 'authenticated') {
-                    // EXCEPTO si se llega aquí por un cierre por inactividad: entonces la sesión
-                    // sigue abierta porque el POST /logout del temporizador no llegó (red
-                    // lenta), y volver al menú era "se cerró la sesión y se abrió". Se cierra
+                    // EXCEPTO si se llega aquí por una salida (cierre por inactividad o «Salir»):
+                    // entonces la sesión sigue abierta porque el POST /logout no llegó (red
+                    // lenta o caída), y volver al menú era "se cerró la sesión y se abrió". Se cierra
                     // aquí y se sigue en el login. Hasta 3 intentos si la red también falla.
                     // Una pestaña con sesión anota en vidalsa_ultimo_contacto cada vez que habla
                     // con el servidor (partials/session_timeout). Si lo hizo DESPUÉS del cierre,
@@ -372,8 +376,8 @@
                     // cerrarla sacaría a la persona de lo que está usando.
                     var usadaDespues = 0;
                     try { usadaDespues = parseInt(localStorage.getItem('vidalsa_ultimo_contacto'), 10) || 0; } catch (e) {}
-                    if (usadaDespues > (window.__cierreEn || 0)) window.__cierrePorInactividad = false;
-                    if (window.__cierrePorInactividad && (window.__intentosCierre || 0) < 3) {
+                    if (usadaDespues > (window.__cierreEn || 0)) window.__cierrePendiente = false;
+                    if (window.__cierrePendiente && (window.__intentosCierre || 0) < 3) {
                         window.__intentosCierre = (window.__intentosCierre || 0) + 1;
                         cerrarSesionEnServidor().finally(precalentarCsrf);
                         return null;
@@ -382,10 +386,10 @@
                     window.location.replace(@json(route('menu')));
                     return null;
                 }
-                // Sin sesión: el cierre por inactividad ya se completó y la marca se apaga.
+                // Sin sesión: la salida ya se completó y la marca se apaga.
                 // Si quedara puesta, al volver a ESTA pestaña (visibilitychange / pageshow)
                 // se cerraría la sesión que la persona abra después desde otra pestaña.
-                window.__cierrePorInactividad = false;
+                window.__cierrePendiente = false;
                 return r.text();
             })
             .then(function (token) {
@@ -395,7 +399,7 @@
             })
             .catch(function () {});
     }
-    // Mismo cierre que el temporizador (POST /logout, exenta de CSRF). Cualquier respuesta
+    // Mismo cierre que window.salirDelSistema (POST /logout, exenta de CSRF). Cualquier respuesta
     // vale; precalentarCsrf vuelve a preguntar y confirma si quedó cerrada.
     function cerrarSesionEnServidor() {
         return fetch('/logout', {
@@ -457,6 +461,16 @@
                 );
             }
 
+            // La red con tope: con el wifi levantado y sin salida (la señal que va y viene) un
+            // fetch no falla, se queda colgado minutos con el spinner encima y sin ofrecer
+            // "Entrar sin conexión". Pasado el tope cuenta como sin conexión (catch de abajo).
+            function fetchConTope(url, opciones, ms) {
+                const corta = new AbortController();
+                const tope = setTimeout(function () { corta.abort(); }, ms);
+                return fetch(url, Object.assign({ signal: corta.signal }, opciones))
+                    .finally(function () { clearTimeout(tope); });
+            }
+
             // Handshake + POST, con UN reintento automático si el primer intento da 419.
             // Antes ese 419 hacía reload() silencioso: el usuario veía "presioné Entrar
             // y no pasó nada" y tenía que darle Entrar otra vez. Ahora el segundo intento
@@ -465,7 +479,7 @@
                 // 1. Handshake: pedir un token CSRF fresco.
                 //    cache:'no-store' es OBLIGATORIO: el HTML del login se sirve desde la
                 //    caché del Service Worker (token viejo); forzamos red para el token actual.
-                return fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
+                return fetchConTope('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' }, 10000)
                     .then(response => {
                         if (!response.ok) throw new Error('HTTP ' + response.status);
                         return response.text();
@@ -476,12 +490,12 @@
                         // 3. Enviar por FETCH (no navegación nativa): así un bajón de red en el
                         //    POST se atrapa en el .catch de abajo y NO dispara la página de
                         //    error del navegador — te quedas en el login para reintentar.
-                        return fetch(loginForm.action, {
+                        return fetchConTope(loginForm.action, {
                             method: 'POST',
                             body: new FormData(loginForm),
                             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
                             credentials: 'same-origin',
-                        }).then(function (resp) {
+                        }, 20000).then(function (resp) {
                             if (resp.status === 419) {
                                 // CSRF expiró pese al handshake (sesión recién recreada).
                                 if (!esReintento) return intentarLogin(true);
@@ -518,10 +532,13 @@
                 .catch(error => {
                     console.error('Login failed:', error);
                     // Bajón de red / servidor inalcanzable en el handshake O en el POST: NO
-                    // navegamos (eso dispara la página de error del navegador). Avisamos y
-                    // nos quedamos en el login para reintentar o entrar sin conexión. El
-                    // verificador a medio hacer se descarta: nadie validó esas credenciales.
-                    if (window.OfflineAuth) window.OfflineAuth.descartar();
+                    // navegamos (eso dispara la página de error del navegador). Desde aquí se
+                    // ofrece "Entrar sin conexión" (y si el intento salió de ese botón, se entra
+                    // ya en local: sinRespuesta, antes de descartar, que da el intento por
+                    // terminado). El verificador a medio hacer se tira: nadie validó esas credenciales.
+                    const off = window.OfflineAuth;
+                    if (off && off.sinRespuesta && off.sinRespuesta()) return;
+                    if (off) off.descartar();
                     avisarSinConexion();
                 });
         });
@@ -613,7 +630,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     mostrarMsgLogin('Este teléfono no tiene la huella vinculada. Entre con su clave y podrá activarla.');
                     return;
                 }
-                if (err.message === 'SIN_CONEXION') { avisarSinConexion(); return; }
+                if (err.message === 'SIN_CONEXION') {
+                    if (window.OfflineAuth && window.OfflineAuth.sinRespuesta) window.OfflineAuth.sinRespuesta();
+                    avisarSinConexion();
+                    return;
+                }
                 // Mismo canal de mensajes que el resto de la pantalla (antes escribía el
                 // <div> a mano, saltándose el apagado del spinner y del botón).
                 mostrarMsgLogin(err.message || 'Error de autenticación biométrica');

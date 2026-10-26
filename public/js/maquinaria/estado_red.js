@@ -60,8 +60,8 @@
     }
 
     // ── DUEÑO ÚNICO de "volvió la red" ────────────────────────────────────────
-    // Todo lo que detecte el regreso —el evento 'online' o el re-sondeo de abajo— entra
-    // por aquí. La copia local pregunta ya (no espera su sondeo de 15 s) y la bandeja sube
+    // Lo único que lo detecta es el sondeo de abajo (también tras el evento 'online'), y
+    // entra por aquí. La copia local pregunta ya (no espera su sondeo de 15 s) y la bandeja sube
     // lo pendiente sola al ver que la copia volvió a llegar al servidor.
     function volvioLaRed() {
         if (!sinConexion) return;
@@ -120,8 +120,11 @@
         if (!document.hidden && sinConexion) sondearServidor();
     });
 
+    // 'online' solo dice que volvió la INTERFAZ: se pregunta al servidor antes de cantar
+    // "Conexión restaurada". Con la señal que va y viene, el aviso verde salía y a los pocos
+    // segundos la siguiente petición lo volvía a poner en "Sin internet".
     window.addEventListener('offline', mostrarOffline);
-    window.addEventListener('online', volvioLaRed);
+    window.addEventListener('online', function () { if (sinConexion) sondearServidor(); });
 
     // ── Detección de conexión REAL al cargar ────────────────────────────────
     // navigator.onLine NO es confiable: suele decir "online" aunque el SERVIDOR esté

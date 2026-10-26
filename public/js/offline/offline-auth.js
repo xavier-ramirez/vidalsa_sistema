@@ -54,6 +54,11 @@
     // Verificador a medio hacer: vive SOLO aquí, en memoria, mientras dura el intento de
     // login de esta página. Nunca toca localStorage hasta que sincronizar() lo asciende.
     let _preparado = null; // Promise<{identifier,salt,hash}|null>
+    // ¿El intento en curso salió de "Entrar sin conexión"? Ese botón pregunta antes al servidor
+    // y, si contesta, entra por el inicio de sesión normal. Con la red que va y viene el servidor
+    // podía contestar al sondeo y no al inicio de sesión: entonces se sigue con la entrada local
+    // (sinRespuesta) en vez de dejar al usuario con "Sin conexión". descartar() lo apaga.
+    let _vieneDeLocal = false;
 
     // ¿El candado guardado se hizo con OTRA clave? `claveV` es la huella de la clave
     // actual que manda el servidor (Usuario::claveVersion). Un candado sin `claveV` es de
@@ -113,6 +118,7 @@
         // se queda como estaba.
         descartar: function () {
             _preparado = null;
+            _vieneDeLocal = false;
             if (window.LlaveLocal) window.LlaveLocal.descartar();
         },
         verificar: async function (identifier, password) {
@@ -300,10 +306,18 @@
             if (btnOff) btnOff.disabled = false;
             sinServidor = false;
             refrescarAccesos();
+            _vieneDeLocal = true;   // si la red se cae en medio, sinRespuesta() entra en local
             if (loginForm.requestSubmit) loginForm.requestSubmit();
             else loginForm.dispatchEvent(new Event('submit', { cancelable: true }));
             return;
         }
+        await entrarLocal(id, pw);
+    }
+    window.OfflineAuth.intentarOffline = intentarOffline;
+
+    // La comprobación en el equipo, sin servidor.
+    async function entrarLocal(id, pw) {
+        if (btnOff) btnOff.disabled = true;
         const ok = await window.OfflineAuth.verificar(id, pw).catch(function () { return false; });
         // La misma clave abre la copia cifrada que quedó en el equipo.
         if (ok && window.LlaveLocal) await window.LlaveLocal.abrirConClave(id, pw).catch(function () { return false; });
@@ -316,7 +330,20 @@
             window.mostrarMsgLogin('Correo o clave no coinciden con tu última sesión en este equipo.');
         }
     }
-    window.OfflineAuth.intentarOffline = intentarOffline;
+
+    // El inicio de sesión normal no llegó al servidor (red caída o colgada, ver el submit en
+    // inicio_sesion.blade.php). Desde aquí cuenta como sin servidor —se ofrece "Entrar sin
+    // conexión" y se vuelve a sondear— y, si el intento salió de ese botón, se entra ya en
+    // local. true = sigue la entrada local; false = quien llama avisa "sin conexión".
+    window.OfflineAuth.sinRespuesta = function () {
+        const local = _vieneDeLocal;
+        sinServidor = true;
+        refrescarAccesos();
+        if (!local || !window.OfflineAuth.tieneOffline()) return false;
+        window.OfflineAuth.descartar();
+        entrarLocal((idEl && idEl.value || '').trim(), (pwEl && pwEl.value || ''));
+        return true;
+    };
 
     if (btnOff) btnOff.addEventListener('click', intentarOffline);
 

@@ -58,9 +58,10 @@ function conTokenNuevo(opciones, fresco) {
  * dentro de la aplicación. Lo que quedó en la bandeja sin internet sigue guardado en el equipo
  * y sube solo al volver a entrar. `response` = el 401/419 que lo dijo.
  *
- * Si se entró SIN conexión y el pase de reingreso no sirvió (venció, cambió la clave, equipo
- * sin pase) no se saca a nadie a mitad de lo que está haciendo: una barra ofrece entrar
- * (avisoEntrar) y mientras tanto se sigue como sin internet. Devuelve true si se fue.
+ * Si se trabajó SIN conexión (entró sin red, o la red se cayó trabajando) y el pase de
+ * reingreso no sirvió (venció, cambió la clave, equipo sin pase) no se saca a nadie a mitad de
+ * lo que está haciendo: una barra ofrece entrar (avisoEntrar) y mientras tanto se sigue como
+ * sin internet. Devuelve true si se fue.
  */
 window.irAlInicioDeSesion = async function (response) {
     // Con ?aviso= el login explica POR QUÉ se cerró la sesión (un flash no
@@ -69,12 +70,8 @@ window.irAlInicioDeSesion = async function (response) {
     // {motivo: 'clave_cambiada'}; antes esto se ignoraba y cualquier 401 llegaba
     // al login como "Tu sesión expiró por seguridad", así que a quien le cambiaron
     // la clave se le decía que su sesión caducó.
-    // Solo se aceptan los códigos conocidos: el valor viaja a la URL.
-    //
-    // El motivo y lo pendiente son dos cosas y viajan las dos: si queda algo en la
-    // bandeja sin internet (bandeja.js), el aviso lleva además "_pendientes", que es lo
-    // único que le dice al usuario que sus cambios sin subir siguen guardados y suben
-    // al volver a entrar.
+    // Solo se aceptan los códigos conocidos: el valor viaja a la URL. Lo pendiente en la
+    // bandeja viaja aparte (avisoConPendientes).
     var _motivo = null;
     if (response && response.status === 401) {
         try {
@@ -84,13 +81,22 @@ window.irAlInicioDeSesion = async function (response) {
             }
         } catch (e) { /* respuesta sin JSON: vale el aviso genérico */ }
     }
-    var _local = !_motivo && !!window.LlaveLocal && typeof window.LlaveLocal.entroSinServidor === 'function'
-        && window.LlaveLocal.entroSinServidor();
-    var _aviso = _motivo || (_local ? 'volvio_conexion' : 'sesion_expirada');
-    if (window.Bandeja && window.Bandeja.pendientes().some(function (it) { return it.estado === 'pendiente'; })) _aviso += '_pendientes';
+    var _local = !_motivo && !!window.LlaveLocal && typeof window.LlaveLocal.trabajaSinServidor === 'function'
+        && window.LlaveLocal.trabajaSinServidor();
+    var _aviso = window.avisoConPendientes(_motivo || (_local ? 'volvio_conexion' : 'sesion_expirada'));
     if (_local) { avisoEntrar('/?aviso=' + _aviso); return false; }
     window.location.href = '/?aviso=' + _aviso;
     return true;
+};
+
+/**
+ * El aviso para el inicio de sesión (?aviso=), con "_pendientes" detrás si queda algo en la
+ * bandeja sin subir: es lo único que le dice al usuario que esos cambios siguen guardados y
+ * suben al volver a entrar. Lo usan irAlInicioDeSesion y window.salirDelSistema.
+ */
+window.avisoConPendientes = function (aviso) {
+    var hay = window.Bandeja && window.Bandeja.pendientes().some(function (it) { return it.estado === 'pendiente'; });
+    return hay ? aviso + '_pendientes' : aviso;
 };
 
 /** La barra "volvió la conexión: entra con tu clave", una sola aunque fallen varias peticiones. */
@@ -161,7 +167,7 @@ window.fetch = async function (...args) {
             // (solo la bandeja, ver abajo), por eso ya no existen las ramas de
             // "sesión expirada" que tenían equipos_index y form_logic.
             //
-            // Entró sin conexión y volvió el servidor: la sesión se recupera con el pase de
+            // Trabajó sin conexión y volvió el servidor: la sesión se recupera con el pase de
             // reingreso (reingreso.js) y la petición se repite, sin pedir la clave otra vez
             // estando ya dentro. El tercer argumento (reintento) evita volver a probar.
             // Tras el reintento con token nuevo ('token') SÍ se prueba: sin sesión el
@@ -180,7 +186,7 @@ window.fetch = async function (...args) {
                 : Object.keys(_cab).some(function (k) { return k.toLowerCase() === 'x-clave-operacion'; });
             if (_deLaBandeja) return response;
             if (await window.irAlInicioDeSesion(response)) return new Promise(() => { }); // se va: pendiente eterna
-            // Se quedó (entró sin conexión, ver irAlInicioDeSesion): para quien pidió es como
+            // Se quedó (trabajó sin conexión, ver irAlInicioDeSesion): para quien pidió es como
             // sin internet, sin el aviso "Sin internet" (la red sí está).
             throw Object.assign(new TypeError('Sin sesión: entra con tu clave'), { sinSesion: true });
         }

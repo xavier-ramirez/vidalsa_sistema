@@ -12,8 +12,9 @@
  *     SIN internet, en "Entrar sin conexión". Se rehace en cada inicio de sesión con clave.
  * Abierta, vive solo en sessionStorage (esta ventana): se borra al cerrar la app o el
  * navegador y al volver a la pantalla de inicio de sesión. Si se abrió con la clave SIN
- * servidor ("Entrar sin conexión") queda marcada hasta que el servidor la vuelva a dar: es lo
- * que deja usar el pase de reingreso (reingreso.js).
+ * servidor ("Entrar sin conexión"), o se siguió trabajando con la red caída (lo anota
+ * partials/session_timeout), queda marcada hasta que el servidor vuelva a contestar con
+ * sesión: es lo que deja usar el pase de reingreso (reingreso.js).
  *
  *   LlaveLocal.lista() → Promise<boolean>. Abre la llave (pidiéndola al servidor si hace falta).
  *   LlaveLocal.cifrar(valor) → Promise<{ iv, ct }> · descifrar({ iv, ct }) → Promise<valor>
@@ -21,8 +22,10 @@
  *   LlaveLocal.preparar(id, clave) / confirmar() / descartar() → inicio de sesión con clave
  *       (los llama offline-auth.js, igual que su verificador).
  *   LlaveLocal.abrirConClave(id, clave) → Promise<boolean>. "Entrar sin conexión".
- *   LlaveLocal.entroSinServidor() → boolean · conServidor() → quita la marca (ya hay sesión).
- *   LlaveLocal.cerrar() → olvida la llave abierta (pantalla de inicio de sesión).
+ *   LlaveLocal.trabajaSinServidor() → boolean · marcarSinServidor() → la pone (se cortó la red
+ *       con alguien trabajando) · conServidor() → la quita (el servidor contestó con sesión).
+ *   LlaveLocal.cerrar() → olvida la llave abierta (pantalla de inicio de sesión y al salir:
+ *       window.salirDelSistema en global_handlers.js).
  */
 (function () {
     'use strict';
@@ -172,9 +175,13 @@
             }
             return false;
         },
-        entroSinServidor() {
+        trabajaSinServidor() {
             const s = leer(sessionStorage, SESION);
             return !!(s && s.u === usuario() && s.sinServidor);
+        },
+        marcarSinServidor() {
+            const s = leer(sessionStorage, SESION);
+            if (s && s.u === usuario() && !s.sinServidor) escribir(sessionStorage, SESION, { u: s.u, k: s.k, sinServidor: true });
         },
         conServidor() {
             const s = leer(sessionStorage, SESION);
@@ -186,16 +193,4 @@
             escribir(sessionStorage, PENDIENTE, null);
         },
     };
-
-    // Salir del sistema (los botones de la cabecera y del menú del teléfono): la llave se
-    // olvida YA. La pantalla de inicio que venga después puede ser una copia vieja del service
-    // worker que todavía no sepa cerrarla. Las páginas guardadas se quedan: son para entrar
-    // sin internet, y se tiran si entra otra persona (ver DUENO en sw.js).
-    document.addEventListener('submit', (e) => {
-        const f = e.target;
-        try {
-            if (!f || !f.action || new URL(f.action, location.href).pathname !== '/logout') return;
-            window.LlaveLocal.cerrar();
-        } catch (err) {}
-    }, true);
 })();

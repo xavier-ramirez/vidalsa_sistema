@@ -2,19 +2,21 @@
  * Pase de reingreso — window.Reingreso (App\Support\PaseReingreso).
  *
  * Quien entra SIN conexión ("Entrar sin conexión") comprueba su clave en el equipo y el
- * servidor no se entera: allá no tiene sesión. Al volver la red, en vez de mandarlo otra vez
- * al inicio de sesión estando ya dentro, se canjea un pase que el servidor dio cuando sí
- * había sesión, y lo pendiente sube solo.
+ * servidor no se entera: allá no tiene sesión. Lo mismo quien entró con red y siguió
+ * trabajando con ella caída más que la vida de la sesión: el servidor la cerró sin saber que
+ * se usaba. Al volver la red, en vez de mandarlo otra vez al inicio de sesión estando ya
+ * dentro, se canjea un pase que el servidor dio cuando sí había sesión, y lo pendiente sube solo.
  *
  * El pase se guarda CIFRADO con la llave local (localStorage 'vidalsa_pases', uno por
- * usuario): sin la clave no se puede leer. Solo se usa si en ESTA ventana se entró sin
- * servidor (LlaveLocal.entroSinServidor): una sesión que se cerró por tiempo, con la llave
- * todavía abierta, sigue yendo al inicio de sesión.
+ * usuario): sin la clave no se puede leer. Solo se usa si en ESTA ventana se trabajó sin
+ * servidor (LlaveLocal.trabajaSinServidor): una sesión que se cerró por inactividad, con la
+ * llave todavía abierta, sigue yendo al inicio de sesión.
  *
  *   Reingreso.reanudar() → Promise<true | false | 'sin_red'>. Recupera la sesión con el pase.
  *       'sin_red': se cortó otra vez en medio o falló el servidor (no es que falte la
- *       sesión ni que el pase no sirva: eso es false, y solo lo dice un 422). Lo llama
- *       fetch_interceptor.js ante un 401/419, antes de mandar al inicio de sesión.
+ *       sesión ni que el pase no sirva: eso es false, y solo lo dice un 422). Lo llaman
+ *       fetch_interceptor.js ante un 401/419 y partials/session_timeout cuando su aviso al
+ *       servidor vuelve como invitado, antes de mandar al inicio de sesión.
  *   Con sesión se pide un pase nuevo una vez al día (el anterior se borra en el servidor):
  *   se mira al cargar la página, al volver a la app y cada media hora.
  */
@@ -70,7 +72,7 @@
 
     // ── Con sesión: tener el pase al día ─────────────────────────────────────
     function renovar() {
-        if (!usuario() || !window.LlaveLocal || !navigator.onLine || window.LlaveLocal.entroSinServidor()) return Promise.resolve();
+        if (!usuario() || !window.LlaveLocal || !navigator.onLine || window.LlaveLocal.trabajaSinServidor()) return Promise.resolve();
         return unaALaVez(async () => {
             const g = todos()[usuario()];   // dentro del candado: otra pestaña pudo renovarlo recién
             if (g && Date.now() - g.emitido < RENOVAR_MS) return;
@@ -93,7 +95,7 @@
         return true;
     }
     function intentar() {
-        if (!window.LlaveLocal || !window.LlaveLocal.entroSinServidor()) return Promise.resolve(false);
+        if (!window.LlaveLocal || !window.LlaveLocal.trabajaSinServidor()) return Promise.resolve(false);
         return unaALaVez(async () => {
             const e = await estado();
             if (!e) return 'sin_red';

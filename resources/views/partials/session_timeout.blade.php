@@ -53,7 +53,9 @@
          *     cerrado (ping que vuelve como invitado), lo mismo, directo al login.
          *   - Sin conexión no hay servidor al que avisar: mientras tanto se cuenta desde el
          *     último clic, como antes, para que quien trabaja sin señal en obra no sea sacado.
-         *     Al volver la red, el primer aviso dirá si la sesión sigue viva.
+         *     Al volver la red, el primer aviso dirá si la sesión sigue viva; si el servidor la
+         *     cerró mientras se trabajaba sin él, no es inactividad: se recupera con el pase de
+         *     reingreso (sesionCaida, abajo).
          * Las pestañas comparten el último contacto por localStorage (misma cookie, misma
          * sesión en el servidor).
          */
@@ -72,8 +74,6 @@
             // Reintento de un aviso perdido (5xx o red): 5% de la vida de sesión (mín 15s, máx 60s).
             const PING_REINTENTO_MS     = Math.max(15000, Math.min(60000, Math.floor(SESSION_LIFETIME_MS * 0.05)));
             const CLAVE_CONTACTO        = 'vidalsa_ultimo_contacto';
-            // Lo más que se espera la respuesta del POST /logout antes de ir al login igual.
-            const PLAZO_LOGOUT_MS       = 2500;
 
             // ── Estado interno ──────────────────────────────────────────
             let ultimoContacto = 0;        // último momento confirmado en que el servidor renovó la sesión
@@ -171,10 +171,11 @@
                             // (ruta pública). Reflejamos el cierre en vez de seguir como si nada.
                             if (response.headers.get('X-Auth-Status') === 'guest') {
                                 console.warn('⚠️ Ping: sesión ya expirada en el backend');
-                                sessionAlreadyExpired();
+                                sesionCaida();
                                 return;
                             }
                             registrarContacto(salida);
+                            if (window.LlaveLocal) window.LlaveLocal.conServidor();
                             return response.text().then(token => {
                                 if (token && token.length > 10) {
                                     const meta = document.querySelector('meta[name="csrf-token"]');
@@ -197,6 +198,10 @@
                         // se cuenta desde el último clic (ver handleActivity).
                         console.warn('⚠️ Ping sin respuesta (sin conexión)');
                         sinConexion = true;
+                        // Alguien está trabajando (los avisos salen de su actividad) y el servidor
+                        // no se entera: si cierra la sesión mientras tanto, al volver la red se
+                        // recupera con el pase en vez de mandarlo al inicio de sesión.
+                        if (window.LlaveLocal) window.LlaveLocal.marcarSinServidor();
                         programarReintentoPing();
                     })
                     .finally(() => { pingEnVuelo = false; });
@@ -283,8 +288,9 @@
                         clearTimeout(timeoutId);
                         if (!response.ok) { reverificarSesionPronto(); return; }
                         // Ruta pública: 200 con token de INVITADO = la sesión ya expiró en el backend.
-                        if (response.headers.get('X-Auth-Status') === 'guest') { sessionAlreadyExpired(); return; }
+                        if (response.headers.get('X-Auth-Status') === 'guest') { sesionCaida(); return; }
                         registrarContacto(salida);
+                        if (window.LlaveLocal) window.LlaveLocal.conServidor();
                         const token = await response.text();
                         if (token && token.length > 10) {
                             const meta = document.querySelector('meta[name="csrf-token"]');
@@ -342,45 +348,36 @@
                 showExpiredNotice(function () { window.location.replace('/?aviso=inactividad'); });
             }
 
+            // El aviso volvió como INVITADO. Si en esta ventana se trabajó sin servidor (entró
+            // sin conexión, o la red se cortó trabajando: marcarSinServidor en pingServer), el
+            // servidor la cerró sin saber que se usaba: se recupera con el pase (reingreso.js)
+            // y se sigue. Antes esto sacaba al inicio de sesión "por inactividad" a quien acababa
+            // de entrar sin conexión, apenas volvía la red y tocaba algo.
+            //   · pase canjeado     → contacto ahora, como cualquier aviso que llega;
+            //   · se cortó en medio → sin internet, se reintenta;
+            //   · el pase no sirve  → irAlInicioDeSesion deja la barra «Volvió la conexión» sin
+            //     sacarlo; mientras tanto se cuenta desde el último clic, como sin internet.
+            function sesionCaida() {
+                if (!window.Reingreso || !window.LlaveLocal || !window.LlaveLocal.trabajaSinServidor()) {
+                    sessionAlreadyExpired();
+                    return;
+                }
+                window.Reingreso.reanudar().then(function (r) {
+                    if (r === true) { sinConexion = false; registrarContacto(Date.now()); return; }
+                    sinConexion = true;
+                    if (r === 'sin_red') programarReintentoPing();
+                    else window.irAlInicioDeSesion(null);
+                });
+            }
+
             // ── Logout automático al expirar ────────────────────────────
-            // Cerramos la sesión del backend por POST, pero con window.apiFetch(NO un <form>.submit()):
-            // así, pase lo que pase —302 OK, 419 por sesión YA caída (CSRF viejo), 5xx o red—
-            // SIEMPRE aterrizamos en el login y NUNCA se renderiza una página de error.
-            // Antes era form.submit(): si el backend ya había expirado (volver a una pestaña
-            // dormida cuyos timers se pausaron, o GC de sesión), el POST daba 419 y el usuario
-            // veía la pantalla de error en vez de salir limpio → "el backend cerró y el front no".
-            // El fetch descarta ese 419 (nunca lo pinta) y navegamos nosotros al login.
-            // Si la sesión SÍ vive, el 302 destruye la sesión y actualiza la cookie (el browser
-            // aplica el Set-Cookie al recibir la respuesta) antes de que naveguemos. En ambos
-            // casos: backend cerrado + front en login, sin estados colgados.
+            // POST /logout por fetch y al inicio de sesión pase lo que pase (302, 5xx o sin red),
+            // nunca una página de error: window.salirDelSistema (global_handlers.js), la misma
+            // salida que el botón «Salir». ?aviso=inactividad dice además por qué se cerró.
             function performLogout() {
                 clearInterval(checkInterval);
                 clearTimeout(pingReintento); pingReintento = null; // idem: nada en vuelo al salir
-                // replace: sin volver "atrás" a la página protegida. ?aviso=inactividad le dice
-                // al login que venimos de un cierre: si este POST no llegó (red lenta) y el
-                // servidor sigue con la sesión abierta, el login la cierra en vez de volver a
-                // entrar solo al menú ("se cerró la sesión y se abrió"): SystemController::
-                // loginPage, y el JS del login cuando la pantalla sale del caché.
-                let salio = false;
-                const salir = function () {
-                    if (salio) return;
-                    salio = true;
-                    window.location.replace('/?aviso=inactividad');
-                };
-                // Como mucho PLAZO_LOGOUT_MS esperando al servidor. Con mala señal (teléfono) el
-                // POST podía quedarse sin respuesta y el aviso "Volviendo al inicio de sesión…"
-                // no se iba nunca, con la sesión abierta. keepalive: el POST sigue su camino
-                // aunque la página ya se haya ido al login.
-                const plazo = setTimeout(salir, PLAZO_LOGOUT_MS);
-                if (window.LlaveLocal) window.LlaveLocal.cerrar();   // lo guardado en el equipo deja de poder leerse
-                window.apiFetch('/logout', { headers: { 'Accept': 'application/json' },
-                    method: 'POST',
-                    redirect: 'manual',   // no seguimos el 302: navegamos nosotros abajo
-                    cache: 'no-store',
-                    keepalive: true
-                })
-                .catch(function () { /* red caída: igual salimos al login abajo */ })
-                .finally(function () { clearTimeout(plazo); salir(); });
+                window.salirDelSistema('inactividad');
             }
 
             // ── Actividad del usuario (con throttle) ────────────────────

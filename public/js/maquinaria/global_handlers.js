@@ -1,8 +1,9 @@
 /**
  * Handlers globales del layout: window.togglePw (ver/ocultar contrasena), campos sin
- * autollenado del navegador (data-sin-autollenado) y guard del submit de logout (evita
- * doble click y levanta el spinner). El menu Acciones y el panel de Filtros Avanzados de
- * Equipos los abren sus onclick y los cierra equipos_index.js (clic fuera).
+ * autollenado del navegador (data-sin-autollenado) y la salida del sistema
+ * (window.salirDelSistema: botones «Salir» y cierre por inactividad). El menu Acciones y el
+ * panel de Filtros Avanzados de Equipos los abren sus onclick y los cierra equipos_index.js
+ * (clic fuera).
  *
  * Extraido del <script> inline de estructura_base.blade.php (2026-08-24), cola del
  * mismo bloque que preloader.js y estado_red.js. Se carga DESPUES de los dos,
@@ -37,14 +38,47 @@ function habilitarSinAutollenado(e) {
 document.addEventListener('pointerdown', habilitarSinAutollenado, true);
 document.addEventListener('focusin', habilitarSinAutollenado, true);
 
-// Global handler para Cierre de Sesión (Previene doble click y muestra spinner Inmediato)
+// Salir del sistema: los botones «Salir» de la cabecera y del menú del teléfono, y el cierre
+// por inactividad (partials/session_timeout). Por fetch y NO enviando el formulario: sin red, o
+// con la red colgada, el POST nativo terminaba en la página de error del navegador en vez del
+// inicio de sesión. Se espera al servidor como mucho 2,5 s (plazo); keepalive: el POST sigue
+// su camino aunque la página ya se haya ido. `aviso` va en la URL (con lo pendiente en la
+// bandeja, avisoConPendientes): si el POST no llegó y la sesión sigue abierta, el inicio de
+// sesión la cierra en vez de volver solo al menú (SystemController::loginPage y
+// precalentarCsrf en auth/inicio_sesion).
+// Sin el interceptor: /logout no lleva CSRF y su respuesta no tiene que llevar a ningún lado.
+window.salirDelSistema = function (aviso) {
+    // Lo guardado en el equipo deja de poder leerse YA: el inicio de sesión que venga puede ser
+    // una copia vieja del service worker que no sepa cerrar la llave. Las páginas guardadas se
+    // quedan (son para entrar sin internet; se tiran si entra otra persona: DUENO en sw.js).
+    if (window.LlaveLocal) window.LlaveLocal.cerrar();
+    const destino = '/?aviso=' + window.avisoConPendientes(aviso);
+    let salio = false;
+    const salir = function () {
+        if (salio) return;
+        salio = true;
+        window.location.replace(destino);   // replace: sin volver «atrás» a la página protegida
+    };
+    const plazo = setTimeout(salir, 2500);
+    (window.fetchSinInterceptor || window.fetch)('/logout', {
+        method: 'POST', credentials: 'same-origin', redirect: 'manual', cache: 'no-store', keepalive: true,
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+        .catch(function () { /* sin red: igual se sale */ })
+        .finally(function () { clearTimeout(plazo); salir(); });
+};
+
 document.addEventListener('submit', function (e) {
-    if (e.target && e.target.action && e.target.action.includes('logout')) {
-        if (typeof window.showPreloader === 'function') window.showPreloader();
-        const btn = e.target.querySelector('button[type="submit"]');
-        if (btn) {
-            btn.style.pointerEvents = 'none';
-            btn.style.opacity = '0.5';
-        }
+    const form = e.target;
+    if (!form || !form.action || !form.action.includes('logout')) return;
+    e.preventDefault();
+    if (form.dataset.saliendo) return;   // doble clic
+    form.dataset.saliendo = '1';
+    if (typeof window.showPreloader === 'function') window.showPreloader();
+    const btn = form.querySelector('button[type="submit"]');
+    if (btn) {
+        btn.style.pointerEvents = 'none';
+        btn.style.opacity = '0.5';
     }
+    window.salirDelSistema('salida');
 });
