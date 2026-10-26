@@ -27,15 +27,11 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Vacío a propósito: TIPO_MOVIMIENTO casi siempre la creó 2026_02_19, no esta, y ESTADO_MVO
+     * lo quitó 2026_04_19. Revertir esta borraría los tipos de movimiento ya guardados.
+     */
     public function down(): void
     {
-        Schema::table('movilizacion_historial', function (Blueprint $table) {
-            if (Schema::hasColumn('movilizacion_historial', 'TIPO_MOVIMIENTO')) {
-                $table->dropColumn('TIPO_MOVIMIENTO');
-            }
-            if (!Schema::hasColumn('movilizacion_historial', 'ESTADO_MVO')) {
-                $table->string('ESTADO_MVO', 20)->default('COMPLETADO');
-            }
-        });
     }
 };

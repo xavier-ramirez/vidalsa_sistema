@@ -2,7 +2,6 @@
 
 use App\Support\RegistroCambios;
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Triggers del registro de cambios para las tablas del almacén (copia local del dominio
@@ -27,10 +26,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        foreach (self::TABLAS as $tabla) {
-            foreach (['ai', 'au', 'ad'] as $sufijo) {
-                DB::unprepared("DROP TRIGGER IF EXISTS cambios_{$tabla}_{$sufijo}");
-            }
-        }
+        RegistroCambios::borrarTriggers(self::TABLAS);
     }
 };

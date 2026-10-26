@@ -119,21 +119,9 @@ window.fetch = async function (...args) {
                     }
                 } catch (e) { /* respuesta sin JSON: vale el aviso genérico */ }
             }
-            // Sesión vencida: se vuelve a entrar AHÍ MISMO (sesion_caida.js), sin salir de la
-            // pantalla. Lo escrito sigue en su sitio y lo que se intentó guardar por la bandeja
-            // se queda en ella (por eso a esas peticiones —las que llevan X-Clave-Operacion— sí
-            // se les devuelve el 401). Lo demás ESPERA a que se entre y se repite con el token
-            // nuevo: el botón que estaba "guardando" termina solo. Repetirla no duplica nada,
-            // porque con 401/419 el servidor no hizo la operación. Clave cambiada o usuario
-            // inactivo van al login: ahí no hay vuelta atrás desde esta pantalla.
-            if (!_motivo && typeof window.sesionCaida === 'function') {
-                var _entrada = window.sesionCaida();
-                var _cab = (args[1] && args[1].headers) || {};
-                var _deLaBandeja = typeof _cab.has === 'function' ? _cab.has('X-Clave-Operacion')
-                    : Object.keys(_cab).some(function (k) { return k.toLowerCase() === 'x-clave-operacion'; });
-                if (_deLaBandeja) return response;
-                return _entrada.then(function (fresco) { return window.fetch(args[0], conTokenNuevo(args[1], fresco)); });
-            }
+            // Siempre a la pantalla de inicio de sesión: nada de pedir la clave dentro de la
+            // aplicación. Lo que estaba en la bandeja sin internet sigue guardado en el equipo
+            // y sube solo al volver a entrar (el aviso lo dice con "_pendientes").
             var _aviso = _motivo || 'sesion_expirada';
             if (window.Bandeja && window.Bandeja.pendientes().some(function (it) { return it.estado === 'pendiente'; })) _aviso += '_pendientes';
             window.location.href = '/?aviso=' + _aviso;

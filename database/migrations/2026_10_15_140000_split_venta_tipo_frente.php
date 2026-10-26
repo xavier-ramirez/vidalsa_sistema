@@ -23,7 +23,6 @@ return new class extends Migration {
         DB::table('frentes_trabajo')->where('TIPO_FRENTE', 'VENTA')->update(['TIPO_FRENTE' => 'TRAMITE_VENTA']);
         DB::statement("ALTER TABLE frentes_trabajo MODIFY TIPO_FRENTE ENUM('RESGUARDO','OPERACION','ESPECIAL','VENDIDO','TRAMITE_VENTA') NOT NULL DEFAULT 'OPERACION'");
         Cache::forget('frentes_fuera_de_flota_ids');
-        \App\Support\OfflineVersion::invalidar('catalogos');
     }
 
     public function down(): void
@@ -36,6 +35,5 @@ return new class extends Migration {
         DB::table('frentes_trabajo')->whereIn('TIPO_FRENTE', ['VENDIDO', 'TRAMITE_VENTA'])->update(['TIPO_FRENTE' => 'VENTA']);
         DB::statement("ALTER TABLE frentes_trabajo MODIFY TIPO_FRENTE ENUM('RESGUARDO','OPERACION','ESPECIAL','VENTA') NOT NULL DEFAULT 'OPERACION'");
         Cache::forget('frentes_fuera_de_flota_ids');
-        \App\Support\OfflineVersion::invalidar('catalogos');
     }
 };

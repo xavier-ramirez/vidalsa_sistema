@@ -7,10 +7,11 @@
  * como siempre. El aviso no trae datos: se piden por /sync con la sesión y los permisos de cada
  * uno.
  *
- * Mientras está conectado la copia deja de preguntar cada 15 s (CopiaLocal.enVivo): pregunta
- * solo de respaldo. Si se cae (sin red, servidor reiniciando) vuelve a los 15 s y, al
- * reconectar, pregunta ya por lo que pudo pasar mientras tanto. Sin la librería o sin el meta
- * no pasa nada: queda la pregunta cada 15 s.
+ * «En vivo» (CopiaLocal.enVivo) = llegan avisos o latidos del vigía (uno cada 25 s): la copia
+ * deja de preguntar cada 15 s y pregunta solo de respaldo. Si el socket se cae, o el vigía
+ * deja de latir aunque el socket siga abierto, vuelve sola a los 15 s. Al suscribirse (también
+ * al reconectar) pregunta ya por lo que pudo pasar mientras tanto. Sin la librería (sin red al
+ * cargar) se reintenta al volver la red; sin el meta no pasa nada: queda la pregunta cada 15 s.
  *
  * <meta name="tiempo-real"> (solo con sesión): { clave, canal, puerto, libreria }. Sin puerto
  * se usa el de la página (en el servidor nginx pasa /app a Reverb).
@@ -27,21 +28,38 @@
 
     const tls = window.location.protocol === 'https:';
     const puerto = Number(cfg.puerto) || Number(window.location.port) || (tls ? 443 : 80);
+    // Casi tres latidos sin noticias del vigía: se da por caído.
+    const SIN_LATIDO_MS = 70000;
 
-    window.cargarScriptUnaVez(cfg.libreria, () => !!window.Pusher).then(() => {
-        const conexion = new window.Pusher(cfg.clave, {
-            cluster: '',
-            wsHost: window.location.hostname,
-            wsPort: puerto,
-            wssPort: puerto,
-            forceTLS: tls,
-            enabledTransports: ['ws', 'wss'],
-            disableStats: true,
-        });
-        const canal = conexion.subscribe(cfg.canal);
-        // En vivo = suscrito al canal (no basta el socket abierto); se cae con la conexión.
-        canal.bind('pusher:subscription_succeeded', () => window.CopiaLocal.enVivo(true));
-        conexion.connection.bind('state_change', (s) => { if (s.current !== 'connected') window.CopiaLocal.enVivo(false); });
-        canal.bind('cambios', () => window.CopiaLocal.hayCambios());
-    }).catch(() => {});
+    let vence = null;
+    function vivo() {
+        clearTimeout(vence);
+        window.CopiaLocal.enVivo(true);
+        vence = setTimeout(caido, SIN_LATIDO_MS);
+    }
+    function caido() {
+        clearTimeout(vence);
+        window.CopiaLocal.enVivo(false);
+    }
+
+    function iniciar() {
+        window.cargarScriptUnaVez(cfg.libreria, () => !!window.Pusher).then(() => {
+            const conexion = new window.Pusher(cfg.clave, {
+                cluster: '',
+                wsHost: window.location.hostname,
+                wsPort: puerto,
+                wssPort: puerto,
+                forceTLS: tls,
+                enabledTransports: ['ws', 'wss'],
+                disableStats: true,
+            });
+            const canal = conexion.subscribe(cfg.canal);
+            canal.bind('pusher:subscription_succeeded', () => window.CopiaLocal.hayCambios());
+            canal.bind('latido', vivo);
+            canal.bind('cambios', () => { vivo(); window.CopiaLocal.hayCambios(); });
+            conexion.connection.bind('state_change', (s) => { if (s.current !== 'connected') caido(); });
+        }).catch(() => window.addEventListener('online', iniciar, { once: true }));
+    }
+
+    iniciar();
 })();

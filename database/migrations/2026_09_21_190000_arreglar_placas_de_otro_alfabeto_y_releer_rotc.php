@@ -41,8 +41,8 @@ return new class extends Migration
     private function arreglarPlacas(): array
     {
         $tocadas = [];
-        // Solo las que tienen algo fuera de ASCII. Se filtra aqui y no en SQL: las pruebas corren
-        // las migraciones en SQLite, que no tiene CONVERT ... USING.
+        // Solo las que tienen algo fuera de ASCII. Se filtra aqui y no en SQL: CONVERT ... USING
+        // es solo de MySQL.
         $fichas = DB::table('documentacion')->whereNotNull('PLACA')->get(['ID_EQUIPO', 'PLACA'])
             ->filter(fn ($f) => preg_match('/[^\x20-\x7E]/', $f->PLACA));
 

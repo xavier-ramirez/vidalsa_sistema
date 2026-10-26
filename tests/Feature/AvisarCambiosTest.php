@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Console\Commands\AvisarCambios;
 use App\Events\HuboCambios;
 use App\Support\RegistroCambios;
+use Illuminate\Events\Dispatcher;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Tests\MySqlTestCase;
@@ -56,15 +58,52 @@ class AvisarCambiosTest extends MySqlTestCase
 
     public function test_al_correr_la_ventana_no_avisa_de_mas_ni_pierde_lo_nuevo(): void
     {
+        // Ventana chica: correrla no exige miles de filas.
+        $this->vigia = new AvisarCambios(5);
         $this->vigia->vuelta();
 
         // Más filas que la ventana de una vez: avisa, y la ventana se corre detrás de ellas.
-        $this->anotarMuchas(AvisarCambios::VENTANA + 50);
+        for ($i = 0; $i < 8; $i++) {
+            $this->anotar();
+        }
         $this->assertTrue($this->vigia->vuelta());
         $this->assertFalse($this->vigia->vuelta(), 'correr la ventana no es un cambio');
 
         $this->anotar();
         $this->assertTrue($this->vigia->vuelta(), 'lo nuevo después de correrla avisa');
+    }
+
+    public function test_cambiarle_el_acceso_a_un_usuario_avisa(): void
+    {
+        $this->vigia->vuelta();
+
+        DB::table('usuarios')->where('ID_USUARIO', DB::table('usuarios')->min('ID_USUARIO'))
+            ->increment('NIVEL_ACCESO_EQUIPOS');
+        $this->assertTrue($this->vigia->vuelta(), 'otro nivel cambia lo que su copia debe tener');
+        $this->assertFalse($this->vigia->vuelta());
+    }
+
+    public function test_el_latido_va_aparte_de_los_cambios(): void
+    {
+        $this->assertTrue($this->vigia->latir());
+        Event::assertDispatched(HuboCambios::class, fn (HuboCambios $e) => $e->broadcastAs() === 'latido');
+        $this->assertSame('cambios', (new HuboCambios())->broadcastAs());
+    }
+
+    public function test_si_el_aviso_falla_se_repite_en_la_vuelta_siguiente(): void
+    {
+        $this->vigia->vuelta();
+        $this->anotar();
+
+        // Reverb caído: el aviso sale de verdad y falla (nadie escucha en ese puerto).
+        config(['broadcasting.connections.reverb.options.port' => 1]);
+        Broadcast::purge('reverb');
+        Event::swap(new Dispatcher($this->app));
+        $this->assertNull($this->vigia->vuelta(), 'sin Reverb la vuelta falla');
+
+        Event::fake([HuboCambios::class]);
+        $this->assertTrue($this->vigia->vuelta(), 'al volver Reverb, el cambio se avisa');
+        $this->assertFalse($this->vigia->vuelta());
     }
 
     public function test_el_aviso_va_al_canal_por_reverb_aunque_broadcast_connection_diga_otra_cosa(): void
@@ -81,12 +120,5 @@ class AvisarCambiosTest extends MySqlTestCase
     private function anotar(?int $id = null): void
     {
         DB::table(RegistroCambios::TABLA)->insert(array_filter(['ID_CAMBIO' => $id, 'TABLA' => 'equipos', 'ID_FILA' => 1]));
-    }
-
-    private function anotarMuchas(int $n): void
-    {
-        foreach (array_chunk(array_fill(0, $n, ['TABLA' => 'equipos', 'ID_FILA' => 1]), 500) as $filas) {
-            DB::table(RegistroCambios::TABLA)->insert($filas);
-        }
     }
 }

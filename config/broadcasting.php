@@ -47,7 +47,8 @@ return [
     /*
      * Lo que el navegador necesita para conectarse (meta "tiempo-real" en estructura_base).
      * Sin puerto se usa el de la página: en el servidor nginx pasa /app a Reverb por el mismo
-     * 443. En local (XAMPP) se va directo al puerto de `php artisan reverb:start`.
+     * 443. En local (XAMPP) se va directo al puerto de `php artisan reverb:start` (el mismo de
+     * config/reverb.php, salvo REVERB_PUERTO_CLIENTE).
      *
      * El canal es público pero con nombre secreto (sale de APP_KEY) y solo lo recibe quien
      * entró: así conectarse no pide /broadcasting/auth, que renovaría la sesión sin que el
@@ -55,7 +56,7 @@ return [
      */
     'cliente' => [
         'activo' => (bool) env('TIEMPO_REAL', true),
-        'puerto' => env('REVERB_PUERTO_CLIENTE'),
+        'puerto' => env('REVERB_PUERTO_CLIENTE', env('APP_ENV') === 'local' ? env('REVERB_SERVER_PORT', 8080) : null),
         'canal' => 'cambios.' . $secreto('canal'),
     ],
 

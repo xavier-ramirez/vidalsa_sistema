@@ -183,21 +183,25 @@
         return window.OfflineAuth.tieneOffline() || huellaHabilitada;
     }
 
-    function sondearServidor() {
-        if (!hayAlgoQueDecidir()) return;
-        sondeoLanzado = true;
-        if (!navigator.onLine) { sinServidor = true; refrescarAccesos(); return; }
-        // Tope de 4s: sin él, una red que traga los paquetes sin contestar dejaría el
-        // botón de acceso local sin aparecer nunca.
+    // ¿Contesta el servidor? Con tope: sin él, una red que traga los paquetes sin contestar
+    // dejaría el botón de acceso local sin aparecer nunca.
+    function hayServidor(ms) {
+        if (!navigator.onLine) return Promise.resolve(false);
         const corta = (typeof AbortController === 'function') ? new AbortController() : null;
-        const tope = corta ? setTimeout(function () { corta.abort(); }, 4000) : null;
-        fetch('/up', {
+        const tope = corta ? setTimeout(function () { corta.abort(); }, ms) : null;
+        return fetch('/up', {
             method: 'GET', cache: 'no-store', credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             signal: corta ? corta.signal : undefined
         })
-            .then(function () { sinServidor = false; }, function () { sinServidor = true; })
-            .then(function () { if (tope) clearTimeout(tope); refrescarAccesos(); });
+            .then(function () { return true; }, function () { return false; })
+            .finally(function () { if (tope) clearTimeout(tope); });
+    }
+
+    function sondearServidor() {
+        if (!hayAlgoQueDecidir()) return;
+        sondeoLanzado = true;
+        hayServidor(4000).then(function (hay) { sinServidor = !hay; refrescarAccesos(); });
     }
 
     // Punto ÚNICO que decide qué accesos se ven. Sin él, el blade pintaba la huella por
@@ -287,6 +291,19 @@
         const pw = (pwEl && pwEl.value || '');
         if (!id || !pw) { window.mostrarMsgLogin('Escribe tu correo y tu clave.'); return; }
         if (btnOff) btnOff.disabled = true;
+        // Primero el servidor, otra vez y con más paciencia: el sondeo al abrir la pantalla
+        // pudo fallar solo porque el servidor tardó (recién desplegado, red lenta). Si ahora
+        // contesta se entra por el inicio de sesión normal, CON sesión: entrar solo con la
+        // comprobación local dejaba la sesión cerrada en el servidor y la primera consulta
+        // devolvía al login.
+        if (await hayServidor(8000)) {
+            if (btnOff) btnOff.disabled = false;
+            sinServidor = false;
+            refrescarAccesos();
+            if (loginForm.requestSubmit) loginForm.requestSubmit();
+            else loginForm.dispatchEvent(new Event('submit', { cancelable: true }));
+            return;
+        }
         const ok = await window.OfflineAuth.verificar(id, pw).catch(function () { return false; });
         // La misma clave abre la copia cifrada que quedó en el equipo.
         if (ok && window.LlaveLocal) await window.LlaveLocal.abrirConClave(id, pw).catch(function () { return false; });

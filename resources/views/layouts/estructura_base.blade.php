@@ -79,8 +79,6 @@
     <meta name="usuario-id" content="{{ Auth::user()?->ID_USUARIO }}">
     {{-- Permisos y frentes del usuario: con ellos se invalidan las pantallas guardadas (Usuario::huellaAcceso). --}}
     <meta name="usuario-acceso" content="{{ Auth::user()?->huellaAcceso() }}">
-    {{-- El correo con que se vuelve a entrar sin salir de la pantalla (offline/sesion_caida.js). --}}
-    <meta name="usuario-correo" content="{{ Auth::user()?->CORREO_ELECTRONICO }}">
     {{-- Los dominios que esa copia mantiene al día en segundo plano (SincronizacionController). --}}
     <meta name="copia-dominios" content="{{ \App\Http\Controllers\SincronizacionController::dominiosDe(Auth::user()) }}">
     {{-- Aviso en tiempo real de que hubo cambios (offline/tiempo-real.js, config/broadcasting.php). --}}
@@ -1159,9 +1157,6 @@
         {{-- Lo que se guarda sin internet espera aquí y sube solo al volver la red. --}}
         <script
             src="{{ asset('js/offline/bandeja.js') }}?v={{ @filemtime(public_path('js/offline/bandeja.js')) }}"></script>
-        {{-- Sesión cerrada en el servidor: volver a entrar sin salir de la pantalla. --}}
-        <script
-            src="{{ asset('js/offline/sesion_caida.js') }}?v={{ @filemtime(public_path('js/offline/sesion_caida.js')) }}"></script>
         {{-- /admin/equipos se filtra, cuenta y pinta desde esa copia (sin ir al servidor). --}}
         <script
             src="{{ asset('js/maquinaria/equipos_local.js') }}?v={{ @filemtime(public_path('js/maquinaria/equipos_local.js')) }}"></script>

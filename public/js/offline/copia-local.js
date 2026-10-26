@@ -21,9 +21,8 @@
  *   CopiaLocal.alGuardar() → Promise. Pregunta ya por todos los dominios que mantiene; lo llaman
  *       fetch_interceptor.js (tras cada guardado que sale bien) y estado_red.js.
  *   CopiaLocal.alDia(dominio) → Promise. Se cumple cuando la copia ya trae el último guardado.
- *   CopiaLocal.reanudar() → vuelve a preguntar tras entrar de nuevo sin salir de la pantalla.
  *   CopiaLocal.hayCambios() → el servidor avisó (tiempo-real.js): pregunta ya por todos.
- *   CopiaLocal.enVivo(conectado) → el aviso en tiempo real se conectó o se cayó.
+ *   CopiaLocal.enVivo(conectado) → llegan (o dejaron de llegar) avisos del servidor.
  *   Evento 'copia-local' en window, detail { dominio, cambio, estado }: cambio = true si
  *       llegaron datos nuevos (la pantalla se repinta); con false solo cambió el estado.
  *   estado = { listo, conectado, actualizado (ms) }.
@@ -107,7 +106,7 @@
             copias[d] = {
                 tablas: {}, arrays: {}, catalogos: {}, meta: {},
                 estado: { listo: false, conectado: true, actualizado: null },
-                vista: null, lista: null, enCurso: null, repetir: false, ultimo: 0, anclas: new Set(),
+                vista: null, lista: null, enCurso: null, siguiente: null, ultimo: 0, anclas: new Set(),
             };
             copias[d].vista = {
                 filas: (t) => {
@@ -263,8 +262,7 @@
                     c.sinSesion = true;
                     // Como ya no hace falta navegar para que la copia pregunte, es ella la que
                     // se entera de que la sesión murió: se repite por el fetch con interceptor,
-                    // que decide (fetch_interceptor.js): pide la clave ahí mismo o, con un motivo
-                    // como clave cambiada, lleva al login. Al volver a entrar llama a reanudar().
+                    // que lleva al inicio de sesión con el motivo (fetch_interceptor.js).
                     if (window.fetchSinInterceptor) window.fetch(res.url, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).catch(() => {});
                     return;
                 }
@@ -282,10 +280,25 @@
             });
         }).finally(() => {
             c.enCurso = null;
-            if (c.repetir) { c.repetir = false; sincronizar(d); }
         });
 
         return c.enCurso;
+    }
+
+    // Una pregunta que salga DESPUÉS de ahora: la que ya va en camino pudo salir antes del
+    // cambio (un guardado o un aviso), así que se encadena otra al terminar. Varias llamadas
+    // mientras tanto esperan esa misma.
+    function sincronizarTras(d) {
+        const c = copias[d];
+        if (!c.enCurso) return sincronizar(d);
+        if (!c.siguiente) {
+            const otra = () => {
+                c.siguiente = null;
+                return c.sinSesion || c.sinPermiso ? undefined : sincronizar(d);
+            };
+            c.siguiente = c.enCurso.then(otra, otra);
+        }
+        return c.siguiente;
     }
 
     // Dominios que se mantienen al día: los del usuario (meta) y los que tengan alguna ancla
@@ -318,23 +331,25 @@
         enUso().forEach((d) => {
             const c = copias[d];
             if (!forzar && !aviso && !vencida(c)) return;
-            // Un aviso con una pregunta ya en camino: pudo salir antes del cambio. Se repite al terminar.
-            if (aviso && c.enCurso) c.repetir = true;
+            if (aviso) sincronizarTras(d);
             else sincronizar(d);
         });
     }
 
+    // El aviso llega a todos a la vez: cada uno pregunta un poco después (0,1 a 0,5 s, al azar)
+    // para no caer juntos sobre el servidor, y los avisos de ese rato van en una sola pregunta.
+    let esperaAviso = null;
     function hayCambios() {
         avisoPendiente = true;
-        revisar(true);
+        if (esperaAviso) return;
+        esperaAviso = setTimeout(() => { esperaAviso = null; revisar(true); }, 100 + Math.random() * 400);
     }
 
-    // Si ya había una pregunta en curso se repite al terminar: pudo salir antes del guardado.
-    // Mientras tanto la copia de ese dominio no está al día (ver alDia).
+    // Hasta que llega la pregunta posterior al guardado, la copia no está al día (ver alDia).
     function alGuardar() {
         return Promise.all(enUso().map((d) => {
             const c = copias[d];
-            const p = c.enCurso ? c.enCurso.then(() => sincronizar(d)) : sincronizar(d);
+            const p = sincronizarTras(d);
             c.trasGuardar = p;
             return p.finally(() => { if (c.trasGuardar === p) c.trasGuardar = null; });
         }));
@@ -367,16 +382,9 @@
         ahora: sincronizar,
         alGuardar,
         hayCambios,
-        // Al conectarse (o reconectarse) se pregunta ya: pudo haber cambios mientras estaba caído.
+        // En vivo = llegan avisos del servidor (tiempo-real.js): preguntar queda de respaldo.
         enVivo(conectado) {
-            const antes = enVivo;
             enVivo = !!conectado;
-            if (enVivo && !antes) hayCambios();
-        },
-        // Se volvió a entrar sin salir de la pantalla (sesion_caida.js): se pregunta otra vez ya.
-        reanudar() {
-            Object.values(copias).forEach((c) => { c.sinSesion = false; });
-            revisar(true);
         },
         alDia(d) {
             return copia(d).trasGuardar || Promise.resolve();

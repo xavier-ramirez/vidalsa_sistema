@@ -20,8 +20,6 @@ return new class extends Migration {
 
         DB::statement("ALTER TABLE frentes_trabajo MODIFY TIPO_FRENTE ENUM('RESGUARDO','OPERACION','ESPECIAL','VENTA') NOT NULL DEFAULT 'OPERACION'");
         Cache::forget('frentes_fuera_de_flota_ids');
-        // El listado sin conexión guarda qué frentes quedan fuera de la flota: se rehace.
-        \App\Support\OfflineVersion::invalidar('catalogos');
     }
 
     public function down(): void
@@ -34,6 +32,5 @@ return new class extends Migration {
         DB::table('frentes_trabajo')->where('TIPO_FRENTE', 'VENTA')->update(['TIPO_FRENTE' => 'ESPECIAL']);
         DB::statement("ALTER TABLE frentes_trabajo MODIFY TIPO_FRENTE ENUM('RESGUARDO','OPERACION','ESPECIAL') NOT NULL DEFAULT 'OPERACION'");
         Cache::forget('frentes_fuera_de_flota_ids');
-        \App\Support\OfflineVersion::invalidar('catalogos');
     }
 };

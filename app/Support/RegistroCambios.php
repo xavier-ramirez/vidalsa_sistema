@@ -160,10 +160,13 @@ class RegistroCambios
         return $fallos;
     }
 
-    public static function borrarTriggers(): void
+    /** @param list<string>|null $tablas Solo los de estas tablas; null = todos. */
+    public static function borrarTriggers(?array $tablas = null): void
     {
-        foreach (array_keys(self::sentencias()) as $nombre) {
-            DB::unprepared("DROP TRIGGER IF EXISTS {$nombre}");
+        foreach ($tablas ?? array_keys(self::FUENTES) as $tabla) {
+            foreach (self::EVENTOS as $sufijo) {
+                DB::unprepared('DROP TRIGGER IF EXISTS ' . self::nombreTrigger($tabla, $sufijo));
+            }
         }
         self::olvidarEstado();
     }

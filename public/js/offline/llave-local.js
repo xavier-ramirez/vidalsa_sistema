@@ -141,7 +141,7 @@
                 .catch(() => null);
         },
         // El servidor aceptó la clave: se envuelve la llave también con ella. La abre la página
-        // siguiente o, si ya está abierta (se volvió a entrar sin salir: sesion_caida.js), ahora.
+        // siguiente.
         confirmar() {
             const p = preparada;
             preparada = null;

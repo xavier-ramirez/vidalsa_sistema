@@ -22,7 +22,7 @@ return new class extends Migration
 
     public function up(): void
     {
-        // El ENUM es de MySQL; las pruebas que corren en sqlite no llegan a este tipo.
+        // El ENUM es de MySQL: en otro motor no hay nada que ampliar.
         if (DB::getDriverName() !== 'mysql' || !Schema::hasColumn('movimientos_inventario', 'TIPO')) {
             return;
         }

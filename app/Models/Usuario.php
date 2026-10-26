@@ -205,15 +205,19 @@ class Usuario extends Authenticatable
     }
 
     /**
+     * Lo que decide qué ve y hace un usuario. Lo usan huellaAcceso() y el vigía del tiempo
+     * real (AvisarCambios), que avisa en cuanto un administrador cambia alguno.
+     */
+    public const CAMPOS_ACCESO = ['ID_ROL', 'PERMISOS', 'NIVEL_ACCESO_EQUIPOS', 'NIVEL_ACCESO_ALMACEN', 'ID_FRENTE_ASIGNADO', 'ID_FRENTE_BLOQUEADO'];
+
+    /**
      * Huella corta de lo que el usuario puede ver y hacer (rol, permisos, niveles y frentes).
      * Va en <meta name="usuario-acceso">: navegacion.js la mete en la clave de las pantallas
      * guardadas, así que si un administrador le cambia algo, la guardada deja de valer.
      */
     public function huellaAcceso(): string
     {
-        $campos = ['ID_ROL', 'PERMISOS', 'NIVEL_ACCESO_EQUIPOS', 'NIVEL_ACCESO_ALMACEN', 'ID_FRENTE_ASIGNADO', 'ID_FRENTE_BLOQUEADO'];
-
-        return substr(md5(implode('|', array_map(fn ($c) => (string) $this->getRawOriginal($c), $campos))), 0, 12);
+        return substr(md5(implode('|', array_map(fn ($c) => (string) $this->getRawOriginal($c), self::CAMPOS_ACCESO))), 0, 12);
     }
 
     public function rol()
