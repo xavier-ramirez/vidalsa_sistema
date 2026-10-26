@@ -30,8 +30,9 @@
  * Una copia por usuario (meta usuario-id): en un equipo compartido nadie ve la de otro, y
  * al entrar otro usuario la del anterior se borra.
  *
- * No pregunta si el usuario lleva 2 minutos sin tocar nada: cada pregunta va con sesión y la
- * renovaría para siempre (misma marca 'vidalsa_last_activity' que session_timeout).
+ * El reloj no pregunta si el usuario lleva 2 minutos sin tocar nada: cada pregunta va con
+ * sesión y la renovaría para siempre (misma marca 'vidalsa_last_activity' que session_timeout).
+ * Sí preguntan un aviso del servidor y volver a la pantalla (ver revisar).
  *
  * Usa window.fetchSinInterceptor: sin red, cada sondeo fallaría y el interceptor sacaría el
  * aviso "Sin conexión" cada 15 s. El estado de la copia lo muestra cada pantalla.
@@ -321,16 +322,22 @@
     // Con el aviso en tiempo real conectado, preguntar solo es la red de seguridad: cada tanto.
     const RESPALDO_EN_VIVO_S = 120;
     let enVivo = false;
-    // El servidor avisó mientras no se podía preguntar (pestaña oculta o 2 min sin tocar
-    // nada): se pregunta en cuanto se pueda, sin esperar al respaldo.
+    // El servidor avisó mientras no se podía preguntar (pestaña oculta): se pregunta en cuanto
+    // se vuelva a ver, sin esperar al respaldo.
     let avisoPendiente = false;
 
     const vencida = (c) => Date.now() - c.ultimo >= Math.max(c.meta.espera || 15, enVivo ? RESPALDO_EN_VIVO_S : 0) * 1000;
     // usar(): pintar desde la copia pregunta si la última pregunta tiene más de esto.
     const PREGUNTA_AL_USAR_MS = 3000;
 
+    // El reloj solo pregunta con alguien usando la pantalla (tocó algo en los últimos 2 min).
+    // Un aviso del servidor (hubo un cambio de verdad) o volver a la pantalla (forzar) preguntan
+    // aunque nadie haya tocado nada: antes, un cambio hecho desde otro lado —otro equipo, un SQL
+    // en phpMyAdmin— no aparecía al volver a la pestaña hasta hacer clic y esperar al reloj.
+    // No deja la sesión abierta: el cierre por inactividad (session_timeout) cuenta los clics.
     function revisar(forzar) {
-        if (!usuario() || document.visibilityState !== 'visible' || !window.usuarioActivo()) return;
+        if (!usuario() || document.visibilityState !== 'visible') return;
+        if (!forzar && !avisoPendiente && !window.usuarioActivo()) return;
         const aviso = avisoPendiente;
         avisoPendiente = false;
         enUso().forEach((d) => {
