@@ -1575,7 +1575,10 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         subirPdf: tableBody.dataset.subirPdf === '1',
     };
 
+    // Tras un guardado (movilizar, cambiar estado…) se espera a que la copia lo traiga (alDia),
+    // como en Almacén: si no, la tabla se repinta un instante con el frente de antes.
     return window.CopiaLocal.usar('equipos', tableBody)
+        .then((vista) => window.CopiaLocal.alDia('equipos').then(() => vista))
         .then((vista) => {
             window._eqVista = vista;
             if (!vigente() || !document.contains(tableBody)) return null;
