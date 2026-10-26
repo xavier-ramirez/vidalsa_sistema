@@ -52,6 +52,38 @@ function conTokenNuevo(opciones, fresco) {
     } catch (e) { /* body no manipulable: queda la cabecera */ }
     return conf;
 }
+
+/**
+ * La sesión se cerró en el servidor: SIEMPRE a la pantalla de inicio de sesión, nada de pedir
+ * la clave dentro de la aplicación. Lo que quedó en la bandeja sin internet sigue guardado en
+ * el equipo y sube solo al volver a entrar. `response` = el 401/419 que lo dijo.
+ */
+window.irAlInicioDeSesion = async function (response) {
+    // Con ?aviso= el login explica POR QUÉ se cerró la sesión (un flash no
+    // serviría: esa pantalla se sirve desde el caché del Service Worker).
+    // El MOTIVO real, si el servidor lo mandó. ValidarSesionUnica responde con
+    // {motivo: 'clave_cambiada'}; antes esto se ignoraba y cualquier 401 llegaba
+    // al login como "Tu sesión expiró por seguridad", así que a quien le cambiaron
+    // la clave se le decía que su sesión caducó.
+    // Solo se aceptan los códigos conocidos: el valor viaja a la URL.
+    //
+    // El motivo y lo pendiente son dos cosas y viajan las dos: si queda algo en la
+    // bandeja sin internet (bandeja.js), el aviso lleva además "_pendientes", que es lo
+    // único que le dice al usuario que sus cambios sin subir siguen guardados y suben
+    // al volver a entrar.
+    var _motivo = null;
+    if (response && response.status === 401) {
+        try {
+            var _cuerpo = await response.clone().json();
+            if (_cuerpo && (_cuerpo.motivo === 'clave_cambiada' || _cuerpo.motivo === 'usuario_inactivo')) {
+                _motivo = _cuerpo.motivo;
+            }
+        } catch (e) { /* respuesta sin JSON: vale el aviso genérico */ }
+    }
+    var _aviso = _motivo || 'sesion_expirada';
+    if (window.Bandeja && window.Bandeja.pendientes().some(function (it) { return it.estado === 'pendiente'; })) _aviso += '_pendientes';
+    window.location.href = '/?aviso=' + _aviso;
+};
 window.fetch = async function (...args) {
     try {
         let response = await originalFetch.apply(this, args);
@@ -98,33 +130,14 @@ window.fetch = async function (...args) {
             // (solo la bandeja, ver abajo), por eso ya no existen las ramas de
             // "sesión expirada" que tenían equipos_index y form_logic.
             //
-            // Con ?aviso= el login explica POR QUÉ se cerró la sesión (un flash no
-            // serviría: esa pantalla se sirve desde el caché del Service Worker).
-            // El MOTIVO real, si el servidor lo mandó. ValidarSesionUnica responde con
-            // {motivo: 'clave_cambiada'}; antes esto se ignoraba y cualquier 401 llegaba
-            // al login como "Tu sesión expiró por seguridad", así que a quien le cambiaron
-            // la clave se le decía que su sesión caducó.
-            // Solo se aceptan los códigos conocidos: el valor viaja a la URL.
-            //
-            // El motivo y lo pendiente son dos cosas y viajan las dos: si queda algo en la
-            // bandeja sin internet (bandeja.js), el aviso lleva además "_pendientes", que es lo
-            // único que le dice al usuario que sus cambios sin subir siguen guardados y suben
-            // al volver a entrar.
-            var _motivo = null;
-            if (response.status === 401) {
-                try {
-                    var _cuerpo = await response.clone().json();
-                    if (_cuerpo && (_cuerpo.motivo === 'clave_cambiada' || _cuerpo.motivo === 'usuario_inactivo')) {
-                        _motivo = _cuerpo.motivo;
-                    }
-                } catch (e) { /* respuesta sin JSON: vale el aviso genérico */ }
-            }
-            // Siempre a la pantalla de inicio de sesión: nada de pedir la clave dentro de la
-            // aplicación. Lo que estaba en la bandeja sin internet sigue guardado en el equipo
-            // y sube solo al volver a entrar (el aviso lo dice con "_pendientes").
-            var _aviso = _motivo || 'sesion_expirada';
-            if (window.Bandeja && window.Bandeja.pendientes().some(function (it) { return it.estado === 'pendiente'; })) _aviso += '_pendientes';
-            window.location.href = '/?aviso=' + _aviso;
+            // La bandeja (cabecera X-Clave-Operacion) recibe el 401/419: primero guarda la
+            // operación en el equipo y después llama a irAlInicioDeSesion. Si se saliera ya,
+            // lo que se estaba guardando se perdería con la página.
+            var _cab = (args[1] && args[1].headers) || {};
+            var _deLaBandeja = typeof _cab.has === 'function' ? _cab.has('X-Clave-Operacion')
+                : Object.keys(_cab).some(function (k) { return k.toLowerCase() === 'x-clave-operacion'; });
+            if (_deLaBandeja) return response;
+            await window.irAlInicioDeSesion(response);
             return new Promise(() => { }); // Promesa pendiente eterna
         }
         // AQUÍ NO SE ANUNCIA QUE VOLVIÓ LA RED, aunque la petición haya salido bien.

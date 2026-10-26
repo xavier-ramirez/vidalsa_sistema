@@ -30,7 +30,7 @@ return new class extends Migration
                 $table->unsignedBigInteger('CREADO_POR')->nullable();
                 $table->foreign('CREADO_POR')->references('ID_USUARIO')->on('usuarios')->nullOnDelete();
                 $table->timestamps();
-                // La huella offline de los catálogos lee MAX(updated_at) (OfflineVersion).
+                // Lo leía la huella offline de los catálogos, MAX(updated_at) (OfflineVersion, ya retirada).
                 $table->index('updated_at', 'idx_almacen_kit_upd');
             });
         }

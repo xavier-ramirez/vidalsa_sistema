@@ -9,6 +9,7 @@ use Illuminate\Events\Dispatcher;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Tests\MySqlTestCase;
 
 /**
@@ -81,6 +82,32 @@ class AvisarCambiosTest extends MySqlTestCase
             ->increment('NIVEL_ACCESO_EQUIPOS');
         $this->assertTrue($this->vigia->vuelta(), 'otro nivel cambia lo que su copia debe tener');
         $this->assertFalse($this->vigia->vuelta());
+    }
+
+    public function test_pasar_un_frente_de_asignado_a_bloqueado_avisa(): void
+    {
+        $id = DB::table('usuarios')->min('ID_USUARIO');
+        DB::table('usuarios')->where('ID_USUARIO', $id)->update(['ID_FRENTE_ASIGNADO' => '5', 'ID_FRENTE_BLOQUEADO' => null]);
+        $this->vigia->vuelta();
+
+        // El mismo valor en el campo de al lado: sin COALESCE, CONCAT_WS daba la misma cadena.
+        DB::table('usuarios')->where('ID_USUARIO', $id)->update(['ID_FRENTE_ASIGNADO' => null, 'ID_FRENTE_BLOQUEADO' => '5']);
+        $this->assertTrue($this->vigia->vuelta());
+    }
+
+    public function test_con_reverb_caido_el_latido_que_falla_se_anota_una_sola_vez(): void
+    {
+        $this->vigia->vuelta();
+        config(['broadcasting.connections.reverb.options.port' => 1]);
+        Broadcast::purge('reverb');
+        Event::swap(new Dispatcher($this->app));
+        Log::spy();
+
+        foreach (range(1, 3) as $_) {
+            $this->assertFalse($this->vigia->latir());
+            $this->assertFalse($this->vigia->vuelta(), 'la base sigue bien y no hay cambios');
+        }
+        Log::shouldHaveReceived('warning')->once();
     }
 
     public function test_el_latido_va_aparte_de_los_cambios(): void

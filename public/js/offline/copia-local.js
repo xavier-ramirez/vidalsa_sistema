@@ -338,11 +338,12 @@
 
     // El aviso llega a todos a la vez: cada uno pregunta un poco después (0,1 a 0,5 s, al azar)
     // para no caer juntos sobre el servidor, y los avisos de ese rato van en una sola pregunta.
+    // Pregunta por `avisoPendiente`: si el reloj ya lo atendió mientras tanto, no repite.
     let esperaAviso = null;
     function hayCambios() {
         avisoPendiente = true;
         if (esperaAviso) return;
-        esperaAviso = setTimeout(() => { esperaAviso = null; revisar(true); }, 100 + Math.random() * 400);
+        esperaAviso = setTimeout(() => { esperaAviso = null; revisar(false); }, 100 + Math.random() * 400);
     }
 
     // Hasta que llega la pregunta posterior al guardado, la copia no está al día (ver alDia).

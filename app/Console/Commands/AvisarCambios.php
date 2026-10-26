@@ -51,8 +51,12 @@ class AvisarCambios extends Command
 
     private int $ultimoLatido = 0;
 
-    /** Último error anotado en el log: el mismo no se repite en cada vuelta. */
-    private ?string $falla = null;
+    /**
+     * Orígenes ('base', 'aviso') que están fallando: se anota en el log al empezar a fallar y
+     * no otra vez hasta que se recupere. Por mensaje no sirve: el de Reverb cambia en cada
+     * intento (milisegundos, hora, firma).
+     */
+    private array $fallas = [];
 
     /** @param int $ventana Filas que abarca la huella (las pruebas usan una chica). */
     public function __construct(private int $ventana = self::VENTANA)
@@ -87,21 +91,24 @@ class AvisarCambios extends Command
             [$maximo, $total, $desdeNueva, $nuevaBase] = $this->mirar($this->base);
             $acceso = $this->accesos();
 
+            unset($this->fallas['base']);
+
             $aviso = $this->huella !== null && "{$maximo}:{$total}:{$acceso}" !== $this->huella;
             if ($aviso) {
                 broadcast(new HuboCambios());
+                unset($this->fallas['aviso']);
                 $this->ultimoLatido = time();   // un aviso también dice «sigo vivo»
             }
             // La ventana avanza con la misma foto de la tabla: la huella sigue valiendo.
             $this->base   = $nuevaBase;
             $this->huella = "{$maximo}:{$desdeNueva}:{$acceso}";
-            $this->falla  = null;
 
             return $aviso;
         } catch (Throwable $e) {
-            $this->anotarFalla($e);
             // Solo si lo que falló es la base se reconecta; un aviso que no salió no la toca.
-            if ($e instanceof QueryException || $e instanceof PDOException) {
+            $deLaBase = $e instanceof QueryException || $e instanceof PDOException;
+            $this->anotarFalla($deLaBase ? 'base' : 'aviso', $e);
+            if ($deLaBase) {
                 DB::purge();
             }
 
@@ -115,20 +122,21 @@ class AvisarCambios extends Command
         $this->ultimoLatido = time();
         try {
             broadcast(new HuboCambios(latido: true));
+            unset($this->fallas['aviso']);
 
             return true;
         } catch (Throwable $e) {
-            $this->anotarFalla($e);
+            $this->anotarFalla('aviso', $e);
 
             return false;
         }
     }
 
-    private function anotarFalla(Throwable $e): void
+    private function anotarFalla(string $origen, Throwable $e): void
     {
-        if ($this->falla !== $e->getMessage()) {
+        if (!isset($this->fallas[$origen])) {
             Log::warning('cambios:avisar: ' . $e->getMessage());
-            $this->falla = $e->getMessage();
+            $this->fallas[$origen] = true;
         }
     }
 
@@ -146,10 +154,17 @@ class AvisarCambios extends Command
         return [(int) $f->m, (int) $f->c, (int) $f->r, $nuevaBase];
     }
 
-    /** Suma de control del acceso de todos los usuarios: cambia si se edita, crea o borra uno. */
+    /**
+     * Suma de control del acceso de todos los usuarios: cambia si se edita, crea o borra uno.
+     * COALESCE porque CONCAT_WS se salta los NULL: pasar un valor de un campo vacío al de al
+     * lado daría la misma cadena (igual que Usuario::huellaAcceso, nulo = vacío).
+     */
     private function accesos(): string
     {
-        $campos = implode(', ', array_merge(['ID_USUARIO'], Usuario::CAMPOS_ACCESO));
+        $campos = implode(', ', array_map(
+            static fn ($c) => "COALESCE({$c}, '')",
+            array_merge(['ID_USUARIO'], Usuario::CAMPOS_ACCESO),
+        ));
         $f = DB::table('usuarios')
             ->selectRaw("COUNT(*) AS n, COALESCE(SUM(CRC32(CONCAT_WS('|', {$campos}))), 0) AS s")
             ->first();

@@ -5,7 +5,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Índices para las huellas del snapshot offline (\App\Support\OfflineVersion).
+ * Índices para las huellas del snapshot offline (\App\Support\OfflineVersion, ya retirada:
+ * hoy la copia local va por el registro de cambios; los índices quedan).
  *
  * Esas huellas hacen MAX(updated_at) sobre estas dos tablas para detectar
  * EDICIONES (el MAX(ID) solo ve altas). Sin índice, cada recálculo es un escaneo

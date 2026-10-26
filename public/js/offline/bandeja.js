@@ -188,11 +188,11 @@
             const { r, b } = await mandar(it);
             conectado = true;
             // La sesión se cerró en el servidor (401, o 419 si ni el token nuevo sirvió): se
-            // guarda aquí y sube al volver a entrar (el aviso para entrar lo saca
-            // fetch_interceptor.js).
+            // guarda aquí, sube al volver a entrar, y recién entonces al inicio de sesión.
             if (r.status === 401 || r.status === 419) {
                 await guardarItem(it);
                 await refrescar();
+                window.irAlInicioDeSesion(r);
                 return { ok: false, status: 0, b: {}, enBandeja: true };
             }
             return { ok: r.ok, status: r.status, b, enBandeja: false };
@@ -212,7 +212,7 @@
     }
     async function subirAhora() {
         if (!navigator.onLine) return;
-        let subidos = 0, rechazados = 0;
+        let subidos = 0, rechazados = 0, sinSesion = null;
         for (const it of (await todos()).filter((x) => x.estado === 'pendiente')) {
             let res;
             try { res = await mandar(it); } catch (e) { conectado = false; break; }   // sin red: luego
@@ -224,7 +224,10 @@
                 if (b && b.nota_url && window.descargarPdf) {
                     window.descargarPdf(b.nota_url, b.numero_nota ? 'Nota_' + b.numero_nota + '.pdf' : 'nota_entrega.pdf');
                 }
-            } else if (r.status === 401 || r.status === 419 || r.status >= 500 || r.headers.get('X-Operacion-En-Curso')) {
+            } else if (r.status === 401 || r.status === 419) {
+                sinSesion = r;                                             // sube al volver a entrar
+                break;
+            } else if (r.status >= 500 || r.headers.get('X-Operacion-En-Curso')) {
                 break;                                                     // reintento luego
             } else {
                 rechazados++;
@@ -236,6 +239,7 @@
         if (subidos && apartaNumeros()) apartarNumeros();
         if (subidos) toast(subidos === 1 ? 'Se subió 1 cambio hecho sin internet.' : 'Se subieron ' + subidos + ' cambios hechos sin internet.', 'success');
         if (rechazados) toast(rechazados === 1 ? '1 cambio no se pudo aplicar: revísalo en la bandeja.' : rechazados + ' cambios no se pudieron aplicar: revísalos en la bandeja.', 'error');
+        if (sinSesion) window.irAlInicioDeSesion(sinSesion);
     }
     function motivoDe(b) {
         if (b && b.errors) return Object.values(b.errors).map((a) => [].concat(a).join(' ')).join(' ');
