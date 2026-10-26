@@ -37,6 +37,14 @@ class CierreInactividadLoginTest extends MySqlTestCase
         $this->assertGuest();
     }
 
+    public function test_un_aviso_en_forma_de_lista_no_rompe_el_login(): void
+    {
+        $this->actingAs($this->superAdminGlobal())
+            ->get('/?aviso[]=salida', ['Sec-Fetch-Site' => 'same-origin'])
+            ->assertRedirect(route('menu'));
+        $this->assertAuthenticated();
+    }
+
     public function test_sin_el_aviso_quien_tiene_sesion_sigue_yendo_al_menu(): void
     {
         $this->actingAs($this->superAdminGlobal())->get('/')->assertRedirect(route('menu'));

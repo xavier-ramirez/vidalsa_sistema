@@ -27,8 +27,9 @@
  *
  * SPA-safe: sin estado, idempotente (re-evaluarlo solo reasigna las mismas funciones).
  *
- * OJO: las pantallas que NO extienden layouts.estructura_base (auth/inicio_sesion,
- * auth/change_password, errors/*) no cargan este archivo y siguen usando fetch pelado.
+ * OJO: de las pantallas que NO extienden layouts.estructura_base, solo auth/inicio_sesion
+ * carga este archivo (lo usa webauthn.js); auth/change_password y errors/* no, y siguen
+ * usando fetch pelado.
  */
 (function () {
     'use strict';

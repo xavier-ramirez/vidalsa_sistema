@@ -289,7 +289,8 @@
         if (!clave) return;
         const conPendientes = /_pendientes$/.test(clave);
         const motivo = clave.replace(/_pendientes$/, '');
-        if (!(motivo in AVISOS)) return;
+        // hasOwnProperty y no `in`: `in` también acepta 'toString' y compañía (?aviso=toString).
+        if (!Object.prototype.hasOwnProperty.call(AVISOS, motivo)) return;
         // Viene de salir (el cierre automático de partials/session_timeout o el botón «Salir»,
         // los dos por window.salirDelSistema): ver precalentarCsrf, que termina de cerrar la
         // sesión en el servidor si seguía abierta porque el POST /logout no llegó (sin red).

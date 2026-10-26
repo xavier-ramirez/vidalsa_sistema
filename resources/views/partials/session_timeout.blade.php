@@ -255,10 +255,9 @@
             // la sesión sigue viva cuando quizá ya cayó → la próxima petición real daría 419 y el
             // usuario perdería trabajo. Para no quedar en ese estado ciego, revalidamos PRONTO con
             // pingServer (no esperamos a la próxima actividad del usuario):
-            //   • sesión caída  → pingServer detecta INVITADO → va al login;
-            //   • 5xx persistente → pingServer hace logout limpio;
-            //   • red aún caída  → pingServer no fuerza nada (offline ≠ sesión muerta) y otra
-            //     recuperación posterior la reconfirmará.
+            //   • sesión caída  → pingServer detecta INVITADO → sesionCaida (pase o al login);
+            //   • 5xx o red aún caída → pingServer no fuerza nada (no es sesión muerta) y
+            //     reintenta una vez (programarReintentoPing).
             let reverifyTimeoutId;
             function reverificarSesionPronto() {
                 clearTimeout(reverifyTimeoutId);
@@ -345,7 +344,7 @@
             // sesión) y sin pantalla de error intermedia. Con ?aviso=inactividad, como
             // performLogout: el login dice por qué se cerró, igual que el modal.
             function sessionAlreadyExpired() {
-                showExpiredNotice(function () { window.location.replace('/?aviso=inactividad'); });
+                showExpiredNotice(function () { window.location.replace('/?aviso=' + window.avisoConPendientes('inactividad')); });
             }
 
             // El aviso volvió como INVITADO. Si en esta ventana se trabajó sin servidor (entró
