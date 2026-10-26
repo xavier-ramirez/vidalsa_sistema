@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
         // columna) — justo lo contrario de lo que declara el seeder.
         // La clave NO va escrita aqui (el repositorio es publico): se toma de
         // SEED_ADMIN_PASSWORD en el .env o se genera al azar y se muestra una sola vez.
-        $clave = env('SEED_ADMIN_PASSWORD') ?: Str::random(16);
+        $clave = config('app.seed_admin_password') ?: Str::random(16);
 
         \App\Models\Usuario::forceCreate([
             'NOMBRE_COMPLETO'      => 'Francisco Sanchez',

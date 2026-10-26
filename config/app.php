@@ -123,4 +123,8 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    // Clave del super admin que crea DatabaseSeeder (vacía = una al azar). Aquí y no con env()
+    // en el seeder: con la config en caché (local y producción) env() ya no lee el .env.
+    'seed_admin_password' => env('SEED_ADMIN_PASSWORD'),
+
 ];
