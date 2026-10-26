@@ -12,10 +12,11 @@
  * todavía abierta, sigue yendo al inicio de sesión.
  *
  *   Reingreso.reanudar() → Promise<true | false | 'sin_red'>. Recupera la sesión con el pase.
- *       'sin_red': se cortó otra vez en medio (no es que falte la sesión). Lo llama
+ *       'sin_red': se cortó otra vez en medio o falló el servidor (no es que falte la
+ *       sesión ni que el pase no sirva: eso es false, y solo lo dice un 422). Lo llama
  *       fetch_interceptor.js ante un 401/419, antes de mandar al inicio de sesión.
- *   Con sesión, al cargar la página, se pide un pase nuevo una vez al día (el anterior se
- *   borra en el servidor).
+ *   Con sesión se pide un pase nuevo una vez al día (el anterior se borra en el servidor):
+ *   se mira al cargar la página, al volver a la app y cada media hora.
  */
 (function () {
     'use strict';
@@ -23,6 +24,7 @@
 
     const GUARDADOS = 'vidalsa_pases';
     const RENOVAR_MS = 24 * 3600 * 1000;
+    const REPROBAR_MS = 30 * 60 * 1000;
     // Lo que tarda en llegar la respuesta de las peticiones que salieron antes de reanudar:
     // su 401 ya no dice que la sesión falte.
     const RECIEN_MS = 30000;
@@ -101,10 +103,12 @@
             if (!pase) return false;
             const r = await enviar('/sesion/reanudar', e.csrf, { pase }).catch(() => null);
             if (!r) return 'sin_red';
-            if (!r.ok) {
-                if (r.status === 422) olvidar();   // gastado o ya no sirve: el inicio de sesión dará otro
+            if (r.status === 422) {   // gastado o ya no sirve: el inicio de sesión dará otro
+                olvidar();
                 return false;
             }
+            // Falló el servidor (500, 429…): el pase sigue sirviendo, se prueba en el próximo intento.
+            if (!r.ok) return 'sin_red';
             const b = await r.json();
             await guardar(b.pase);
             return listo(b.csrf);
@@ -122,4 +126,8 @@
     const arrancar = () => { renovar().catch(() => {}); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar);
     else arrancar();
+    // Si al cargar no se pudo (servidor ocupado, red floja) no se espera a la próxima carga
+    // completa, que en la app puede tardar el día entero. Con el pase al día no sale nada.
+    setInterval(() => { if (!document.hidden) arrancar(); }, REPROBAR_MS);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) arrancar(); });
 })();

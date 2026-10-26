@@ -149,7 +149,7 @@ window.fetch = async function (...args) {
                         if (meta) meta.setAttribute('content', fresco);
                         // El tercer argumento marca el reintento: sin él, un 419
                         // persistente se reintentaría en bucle.
-                        return window.fetch(args[0], conTokenNuevo(args[1], fresco), true);
+                        return window.fetch(args[0], conTokenNuevo(args[1], fresco), 'token');
                     }
                 }
             } catch (e) { /* sin red: cae al manejo de abajo */ }
@@ -164,9 +164,11 @@ window.fetch = async function (...args) {
             // Entró sin conexión y volvió el servidor: la sesión se recupera con el pase de
             // reingreso (reingreso.js) y la petición se repite, sin pedir la clave otra vez
             // estando ya dentro. El tercer argumento (reintento) evita volver a probar.
-            if (!args[2] && window.Reingreso) {
+            // Tras el reintento con token nuevo ('token') SÍ se prueba: sin sesión el
+            // servidor contesta primero 419 y recién el reintento da el 401.
+            if (args[2] !== 'reanudada' && window.Reingreso) {
                 var _re = await window.Reingreso.reanudar();
-                if (_re === true) return window.fetch(args[0], conTokenNuevo(args[1], window.getCsrf ? window.getCsrf() : ''), true);
+                if (_re === true) return window.fetch(args[0], conTokenNuevo(args[1], window.getCsrf ? window.getCsrf() : ''), 'reanudada');
                 // Se cortó otra vez en medio: es falta de red, no de sesión (ver el catch).
                 if (_re === 'sin_red') throw new TypeError('Failed to fetch');
             }
