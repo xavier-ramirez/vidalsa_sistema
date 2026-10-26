@@ -1148,6 +1148,9 @@
         {{-- La llave con que la copia y la bandeja se guardan cifradas en el equipo. --}}
         <script
             src="{{ asset('js/offline/llave-local.js') }}?v={{ @filemtime(public_path('js/offline/llave-local.js')) }}"></script>
+        {{-- Quien entró sin conexión recupera la sesión al volver el servidor, sin pedir la clave. --}}
+        <script
+            src="{{ asset('js/offline/reingreso.js') }}?v={{ @filemtime(public_path('js/offline/reingreso.js')) }}"></script>
         {{-- Copia local (IndexedDB) de la que pintan las pantallas, con o sin internet. --}}
         <script
             src="{{ asset('js/offline/copia-local.js') }}?v={{ @filemtime(public_path('js/offline/copia-local.js')) }}"></script>

@@ -69,21 +69,8 @@ class LoginController extends Controller
                     return $this->respuestaLogin($request, false, null, 'Usuario inactivo. Contacte al administrador.');
                 }
 
-                // 4. Token compartido por las sesiones del usuario (Usuario::tokenDeSesion).
-                $sessionToken = $user->tokenDeSesion();
-
-                // 5. Éxito: Regenerar sesión y limpiar Rate Limiter
-                $request->session()->regenerate();
-                $request->session()->put('current_session_token', $sessionToken);
-                $request->session()->save();
-
-                // Deja constancia de que en ESTE navegador sí hubo sesión, para que el día
-                // que se venza el login pueda decir por qué (ver COOKIE_SESION_PREVIA).
-                // Sobrevive a la sesión a propósito: si muriera con ella no serviría para
-                // explicar su muerte. La borra el cierre de sesión.
-                \Illuminate\Support\Facades\Cookie::queue(
-                    cookie()->forever(self::COOKIE_SESION_PREVIA, '1', null, null, null, true)
-                );
+                // 4. Éxito: la sesión queda abierta como en toda entrada (abrirSesion).
+                self::abrirSesion($request, $user);
 
                 BloqueoIp::registrarExito($ip, $equipo, $cuenta); // Descuenta los fallos de esta cuenta
 
@@ -99,7 +86,7 @@ class LoginController extends Controller
                 return $this->respuestaLogin($request, true, route('menu'));
             }
 
-            // 6. Fallo de Credenciales: cuenta para el equipo, la cuenta y la IP
+            // 5. Fallo de Credenciales: cuenta para el equipo, la cuenta y la IP
             $motivo = BloqueoIp::registrarFallo($ip, $equipo, $cuenta);
 
             return $this->respuestaLogin($request, false, null, $motivo ?? 'Usuario o clave incorrecta.');
@@ -136,6 +123,28 @@ class LoginController extends Controller
             return redirect()->to($redirect);
         }
         return back()->withErrors(['login_error' => $error])->withInput($request->except('password'));
+    }
+
+    /**
+     * Lo que sigue a autenticar, igual en las tres entradas: clave (login), huella
+     * (WebAuthnController::login) y pase de reingreso (ReingresoController::reanudar). El
+     * usuario ya tiene que estar autenticado (Auth::attempt o Auth::login).
+     */
+    public static function abrirSesion(Request $request, Usuario $user): void
+    {
+        // Token compartido por las sesiones del usuario (Usuario::tokenDeSesion): lo vigila
+        // ValidarSesionUnica para cortar las sesiones de antes de un cambio de clave.
+        $request->session()->regenerate();
+        $request->session()->put('current_session_token', $user->tokenDeSesion());
+        $request->session()->save();
+
+        // Deja constancia de que en ESTE navegador sí hubo sesión, para que el día
+        // que se venza el login pueda decir por qué (ver COOKIE_SESION_PREVIA).
+        // Sobrevive a la sesión a propósito: si muriera con ella no serviría para
+        // explicar su muerte. La borra el cierre de sesión.
+        \Illuminate\Support\Facades\Cookie::queue(
+            cookie()->forever(self::COOKIE_SESION_PREVIA, '1', null, null, null, true)
+        );
     }
 
     /**

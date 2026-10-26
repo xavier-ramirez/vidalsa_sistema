@@ -130,6 +130,12 @@ window.fetch = async function (...args) {
             // (solo la bandeja, ver abajo), por eso ya no existen las ramas de
             // "sesión expirada" que tenían equipos_index y form_logic.
             //
+            // Entró sin conexión y volvió el servidor: la sesión se recupera con el pase de
+            // reingreso (reingreso.js) y la petición se repite, sin pedir la clave otra vez
+            // estando ya dentro. El tercer argumento (reintento) evita volver a probar.
+            if (!args[2] && window.Reingreso && await window.Reingreso.reanudar()) {
+                return window.fetch(args[0], conTokenNuevo(args[1], window.getCsrf ? window.getCsrf() : ''), true);
+            }
             // La bandeja (cabecera X-Clave-Operacion) recibe el 401/419: primero guarda la
             // operación en el equipo y después llama a irAlInicioDeSesion. Si se saliera ya,
             // lo que se estaba guardando se perdería con la página.

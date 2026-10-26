@@ -31,6 +31,7 @@ class ValidarSesionUnica
             $request->is('refresh-csrf') ||
             $request->is('webauthn/login') ||
             $request->is('webauthn/login-options') ||
+            $request->is('sesion/reanudar') ||
             ($request->isMethod('post') && $request->is('/'))
         ) {
             return $next($request);

@@ -63,6 +63,8 @@ Route::get('/sw.js', function () {
 });
 
 Route::post('/', [App\Http\Controllers\Auth\LoginController::class, 'login'])->name('login.post');
+// Quien entró sin conexión vuelve a tener sesión con su pase al volver el servidor (PaseReingreso).
+Route::post('/sesion/reanudar', [App\Http\Controllers\Auth\ReingresoController::class, 'reanudar'])->middleware('throttle:20,1')->name('sesion.reanudar');
 Route::redirect('/home', '/menu');
 
 // ── WebAuthn (huella / biometría) ──────────────────────────────────────
@@ -81,6 +83,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/webauthn/register',         [App\Http\Controllers\Auth\WebAuthnController::class, 'register'])->name('webauthn.register');
     // IDs de las huellas YA registradas del usuario: el teléfono los recupera si perdió los suyos (webauthn.js).
     Route::get('/webauthn/mis-credenciales',  [App\Http\Controllers\Auth\WebAuthnController::class, 'misCredenciales'])->name('webauthn.misCredenciales');
+    // El pase de reingreso de este equipo (reingreso.js): se pide con sesión, se usa sin ella.
+    Route::post('/sesion/pase', [App\Http\Controllers\Auth\ReingresoController::class, 'emitir'])->name('sesion.pase');
 
     Route::middleware(['password.change.check'])->group(function () {
         Route::get('/menu', [App\Http\Controllers\DashboardController::class, 'index'])->name('menu');

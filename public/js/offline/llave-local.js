@@ -11,7 +11,9 @@
  *   · pwd: con una llave sacada de la clave del usuario (PBKDF2). Es la que abre la copia
  *     SIN internet, en "Entrar sin conexión". Se rehace en cada inicio de sesión con clave.
  * Abierta, vive solo en sessionStorage (esta ventana): se borra al cerrar la app o el
- * navegador y al volver a la pantalla de inicio de sesión.
+ * navegador y al volver a la pantalla de inicio de sesión. Si se abrió con la clave SIN
+ * servidor ("Entrar sin conexión") queda marcada hasta que el servidor la vuelva a dar: es lo
+ * que deja usar el pase de reingreso (reingreso.js).
  *
  *   LlaveLocal.lista() → Promise<boolean>. Abre la llave (pidiéndola al servidor si hace falta).
  *   LlaveLocal.cifrar(valor) → Promise<{ iv, ct }> · descifrar({ iv, ct }) → Promise<valor>
@@ -19,6 +21,7 @@
  *   LlaveLocal.preparar(id, clave) / confirmar() / descartar() → inicio de sesión con clave
  *       (los llama offline-auth.js, igual que su verificador).
  *   LlaveLocal.abrirConClave(id, clave) → Promise<boolean>. "Entrar sin conexión".
+ *   LlaveLocal.entroSinServidor() → boolean · conServidor() → quita la marca (ya hay sesión).
  *   LlaveLocal.cerrar() → olvida la llave abierta (pantalla de inicio de sesión).
  */
 (function () {
@@ -62,6 +65,7 @@
         if (!sub || !u) return false;
         const s = leer(sessionStorage, SESION);
         let dek = s && s.u === u ? deB64(s.k) : null;
+        let sinServidor = !!(dek && s.sinServidor);
         const pend = leer(sessionStorage, PENDIENTE);
         if (!dek || pend) {
             // Con internet: la del servidor abre la guardada (o se crea la primera vez) y, si se
@@ -73,6 +77,7 @@
                 });
             } catch (e) { r = null; }
             if (r && r.ok) {
+                sinServidor = false;
                 const srv = deB64((await r.json()).llave);
                 dek = await unaALaVez(async () => {
                     const todas = leer(localStorage, LLAVES) || {};
@@ -94,7 +99,7 @@
             }
         }
         if (!dek) return false;
-        escribir(sessionStorage, SESION, { u, k: b64(dek) });
+        escribir(sessionStorage, SESION, sinServidor ? { u, k: b64(dek), sinServidor } : { u, k: b64(dek) });
         llave = await aes(dek);
         return true;
     }
@@ -161,11 +166,19 @@
                 if (!w || w.id !== ident) continue;
                 try {
                     const dek = await desenvolver(await kekDeClave(ident, clave, deB64(w.salt)), w);
-                    escribir(sessionStorage, SESION, { u, k: b64(dek) });
+                    escribir(sessionStorage, SESION, { u, k: b64(dek), sinServidor: true });
                     return true;
                 } catch (e) { /* otra clave: no abre */ }
             }
             return false;
+        },
+        entroSinServidor() {
+            const s = leer(sessionStorage, SESION);
+            return !!(s && s.u === usuario() && s.sinServidor);
+        },
+        conServidor() {
+            const s = leer(sessionStorage, SESION);
+            if (s && s.sinServidor) escribir(sessionStorage, SESION, { u: s.u, k: s.k });
         },
         cerrar() {
             llave = null;

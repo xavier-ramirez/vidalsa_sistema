@@ -262,8 +262,13 @@
                     c.sinSesion = true;
                     // Como ya no hace falta navegar para que la copia pregunte, es ella la que
                     // se entera de que la sesión murió: se repite por el fetch con interceptor,
-                    // que lleva al inicio de sesión con el motivo (fetch_interceptor.js).
-                    if (window.fetchSinInterceptor) window.fetch(res.url, { credentials: 'same-origin', headers: { Accept: 'application/json' } }).catch(() => {});
+                    // que la recupera con el pase de reingreso (si se entró sin conexión) o
+                    // lleva al inicio de sesión con el motivo (fetch_interceptor.js).
+                    if (window.fetchSinInterceptor) {
+                        window.fetch(res.url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                            .then((r) => { if (r.ok) { c.sinSesion = false; sincronizarTras(d); } })
+                            .catch(() => {});
+                    }
                     return;
                 }
                 if (!res.ok) throw new Error('HTTP ' + res.status);

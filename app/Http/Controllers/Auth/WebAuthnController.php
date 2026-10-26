@@ -280,20 +280,10 @@ class WebAuthnController extends Controller
         }
 
         Auth::login($user);
-
-        $sessionToken = $user->tokenDeSesion();
-
-        $request->session()->regenerate();
-        $request->session()->put('current_session_token', $sessionToken);
-        $request->session()->save();
-
-        // La MISMA marca que deja el login con clave (LoginController::COOKIE_SESION_PREVIA).
-        // Sin ella, entrar con huella —que es justo la vía normal en el teléfono— no dejaba
-        // constancia de que aquí hubo sesión, y el día que se venciera el login mandaba a la
-        // pantalla limpia sin explicar nada: el caso exacto que esa marca existe para cubrir.
-        \Illuminate\Support\Facades\Cookie::queue(
-            cookie()->forever(LoginController::COOKIE_SESION_PREVIA, '1', null, null, null, true)
-        );
+        // Lo mismo que el login con clave, también la marca COOKIE_SESION_PREVIA: sin ella,
+        // entrar con huella —la vía normal en el teléfono— no dejaba constancia de que aquí
+        // hubo sesión y el día que se venciera el login no explicaba nada.
+        LoginController::abrirSesion($request, $user);
 
         RateLimiter::clear($throttleKey);
         // Descuenta los fallos de esta huella y los de la clave de la misma persona.
