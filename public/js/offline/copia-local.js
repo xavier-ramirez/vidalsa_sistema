@@ -7,7 +7,8 @@
  *
  *   Como WhatsApp: TODOS los dominios del usuario (<meta name="copia-dominios">) se ponen al
  *   día en segundo plano, esté abierto el módulo que sea: al cargar la página, cada `espera`
- *   segundos que manda el servidor (15 s), al volver a la pestaña y al recuperar la red. Así
+ *   segundos que manda el servidor (15 s; 5 s el módulo que está en pantalla), al volver a la
+ *   pestaña y al recuperar la red. Así
  *   abrir un módulo no le pregunta nada al servidor: la copia ya está al día.
  *
  *   CopiaLocal.usar(dominio, ancla) → Promise<vista>
@@ -301,7 +302,13 @@
         });
     }
 
-    const vencida = (c) => Date.now() - c.ultimo >= (c.meta.espera || 15) * 1000;
+    // El dominio que está en pantalla (con ancla) pregunta en cada vuelta del reloj: lo hecho
+    // desde otro equipo aparece solo, sin volver a abrir el módulo. En modo respaldo
+    // (espera > 15 s, el servidor arma la copia entera) se queda en su `espera`.
+    const vencida = (c) => {
+        const espera = c.meta.espera || 15;
+        return (espera <= 15 && c.anclas.size > 0) || Date.now() - c.ultimo >= espera * 1000;
+    };
     // usar(): pintar desde la copia pregunta si la última pregunta tiene más de esto.
     const PREGUNTA_AL_USAR_MS = 3000;
 

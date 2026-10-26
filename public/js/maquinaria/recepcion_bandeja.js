@@ -361,6 +361,25 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         });
     };
 
+    // Pinta una respuesta de la bandeja: tabla, paginación, sugerencias, resumen y badge.
+    // La tabla solo se reescribe si llegó distinta (_trHtml = la última pintada).
+    var _trHtml = null;
+    function trAplicar(body, data) {
+        if (data.html !== undefined && data.html !== _trHtml) { body.innerHTML = data.html; _trHtml = data.html; }
+        var pg = el('trPagination'); if (pg && pg.innerHTML !== (data.pagination || '')) pg.innerHTML = data.pagination || '';
+        // Refrescar las sugerencias del buscador con las del almacén/filtros actuales
+        // (el backend las recalcula y las manda en cada respuesta). Sin esto, al
+        // cambiar el "Almacén destino" seguían apareciendo notas del almacén anterior.
+        if (Array.isArray(data.numerosNotas)) TR_NUMEROS = data.numerosNotas;
+        // Panel "Resumen de la bandeja" y badge del menú: el backend ya manda los
+        // conteos frescos en cada respuesta AJAX. Sin esto, al confirmar/enviar/
+        // cancelar una nota la fila desaparecía de la tabla pero "Por revisar" y el
+        // badge rojo del menú "Recepción" seguían con el número de la carga inicial
+        // hasta recargar la página entera.
+        if (data.bandejaStats) window.trUpdateBandejaStats(data.bandejaStats);
+        if (typeof data.traspasosPorRecibir === 'number') window.trUpdateNavBadge(data.traspasosPorRecibir);
+    }
+
     // Nº de la última carga pedida. Con la búsqueda por debounce es normal tener DOS
     // peticiones en vuelo (se teclea mientras la anterior viaja) y la que responde última
     // gana, aunque traiga la consulta vieja. Cada respuesta se descarta si ya no es la
@@ -381,24 +400,37 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (miSeq !== _trSeq) return;   // llegó tarde: ya se pidió otra búsqueda
-                if (data.html !== undefined) body.innerHTML = data.html;
-                var pg = el('trPagination'); if (pg) pg.innerHTML = data.pagination || '';
-                // Refrescar las sugerencias del buscador con las del almacén/filtros actuales
-                // (el backend las recalcula y las manda en cada respuesta). Sin esto, al
-                // cambiar el "Almacén destino" seguían apareciendo notas del almacén anterior.
-                if (Array.isArray(data.numerosNotas)) TR_NUMEROS = data.numerosNotas;
-                // Panel "Resumen de la bandeja" y badge del menú: el backend ya manda los
-                // conteos frescos en cada respuesta AJAX. Sin esto, al confirmar/enviar/
-                // cancelar una nota la fila desaparecía de la tabla pero "Por revisar" y el
-                // badge rojo del menú "Recepción" seguían con el número de la carga inicial
-                // hasta recargar la página entera.
-                if (data.bandejaStats) window.trUpdateBandejaStats(data.bandejaStats);
-                if (typeof data.traspasosPorRecibir === 'number') window.trUpdateNavBadge(data.traspasosPorRecibir);
+                trAplicar(body, data);
                 try { window.history.replaceState(null, '', url); } catch (e) {}
             })
-            .catch(function () { body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar las notas de entrega.</td></tr>'; })
+            .catch(function () { _trHtml = null; body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar las notas de entrega.</td></tr>'; })
             .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
     };
+
+    // Puesta al día SOLA mientras la bandeja está en pantalla: lo recibido o enviado desde
+    // otro equipo aparece sin volver a abrir el módulo. Pide la MISMA consulta que se ve (la
+    // URL que dejó trLoad), no la de los controles: un texto a medio escribir no filtra.
+    // Sin preloader ni parpadeo, y solo cambia la tabla si llegó distinta.
+    window.trRefrescarSolo = function () {
+        var body = el('trTableBody');
+        if (!body || document.visibilityState !== 'visible' || body.style.opacity === '0.5') return;
+        try {
+            var t = parseInt(localStorage.getItem('vidalsa_last_activity'), 10);
+            if (t && Date.now() - t > 2 * 60 * 1000) return;   // nadie mirando: no se carga al servidor
+        } catch (e) {}
+        var ruta = new URL(ROUTE, window.location.origin);
+        if (window.location.pathname !== ruta.pathname) return;
+        var miSeq = _trSeq;
+        // Sin interceptor, como la copia local: sin red no salta el aviso, y la sesión
+        // caída la avisa la copia (este sondeo solo se calla).
+        (window.fetchSinInterceptor || window.fetch)(ruta.pathname + window.location.search, { credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (data && miSeq === _trSeq && body.isConnected) trAplicar(body, data);   // si no, entretanto se pidió otra carga
+            })
+            .catch(function () {});   // sin red: se queda lo que se ve, la próxima vuelta reintenta
+    };
+    if (_trBindGlobal) setInterval(function () { window.trRefrescarSolo(); }, 10000);
 
     // Click en fila → abrir modal de detalle
     if (_trBindGlobal) document.addEventListener('click', function (e) {
