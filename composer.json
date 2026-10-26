@@ -10,6 +10,7 @@
         "doctrine/dbal": "^4.4",
         "elibyy/tcpdf-laravel": "^11.5",
         "laravel/framework": "^12.0",
+        "laravel/reverb": "^1.5",
         "laravel/tinker": "^2.10.1",
         "masbug/flysystem-google-drive-ext": "*",
         "phpoffice/phpspreadsheet": "^5.5",

@@ -83,6 +83,15 @@
     <meta name="usuario-correo" content="{{ Auth::user()?->CORREO_ELECTRONICO }}">
     {{-- Los dominios que esa copia mantiene al día en segundo plano (SincronizacionController). --}}
     <meta name="copia-dominios" content="{{ \App\Http\Controllers\SincronizacionController::dominiosDe(Auth::user()) }}">
+    {{-- Aviso en tiempo real de que hubo cambios (offline/tiempo-real.js, config/broadcasting.php). --}}
+    @if (Auth::check() && config('broadcasting.cliente.activo'))
+    <meta name="tiempo-real" content="{{ json_encode([
+        'clave'    => config('broadcasting.connections.reverb.key'),
+        'canal'    => config('broadcasting.cliente.canal'),
+        'puerto'   => config('broadcasting.cliente.puerto'),
+        'libreria' => asset('js/vendor/pusher-8.4.0.min.js'),
+    ]) }}">
+    @endif
 
     {{-- Helpers DOM compartidos (window.getCsrf / escapeHtml / escapeAttrJs).
          VAN EN EL <head>, no abajo con el resto de los scripts: los <script> inline
@@ -1144,6 +1153,9 @@
         {{-- Copia local (IndexedDB) de la que pintan las pantallas, con o sin internet. --}}
         <script
             src="{{ asset('js/offline/copia-local.js') }}?v={{ @filemtime(public_path('js/offline/copia-local.js')) }}"></script>
+        {{-- Lo hecho en otro equipo llega al instante: el servidor avisa y la copia pregunta ya. --}}
+        <script
+            src="{{ asset('js/offline/tiempo-real.js') }}?v={{ @filemtime(public_path('js/offline/tiempo-real.js')) }}"></script>
         {{-- Lo que se guarda sin internet espera aquí y sube solo al volver la red. --}}
         <script
             src="{{ asset('js/offline/bandeja.js') }}?v={{ @filemtime(public_path('js/offline/bandeja.js')) }}"></script>

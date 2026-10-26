@@ -6,9 +6,11 @@
  * (SincronizacionController): la primera vez baja entera y después solo lo que cambió.
  *
  *   Como WhatsApp: TODOS los dominios del usuario (<meta name="copia-dominios">) se ponen al
- *   día en segundo plano, esté abierto el módulo que sea: al cargar la página, cada `espera`
- *   segundos que manda el servidor (15 s), al volver a la pestaña y al recuperar la red. Así
- *   abrir un módulo no le pregunta nada al servidor: la copia ya está al día.
+ *   día en segundo plano, esté abierto el módulo que sea, EN CUANTO el servidor avisa que hubo
+ *   cambios (tiempo-real.js, por WebSocket). Además al cargar la página, al volver a la pestaña,
+ *   al recuperar la red y cada `espera` segundos (15 s) como respaldo: con el aviso conectado,
+ *   cada RESPALDO_EN_VIVO_S. Así abrir un módulo no le pregunta nada al servidor: la copia ya
+ *   está al día.
  *
  *   CopiaLocal.usar(dominio, ancla) → Promise<vista>
  *       Abre la copia del dominio. Pregunta al servidor si no hay copia todavía o si la
@@ -20,6 +22,8 @@
  *       fetch_interceptor.js (tras cada guardado que sale bien) y estado_red.js.
  *   CopiaLocal.alDia(dominio) → Promise. Se cumple cuando la copia ya trae el último guardado.
  *   CopiaLocal.reanudar() → vuelve a preguntar tras entrar de nuevo sin salir de la pantalla.
+ *   CopiaLocal.hayCambios() → el servidor avisó (tiempo-real.js): pregunta ya por todos.
+ *   CopiaLocal.enVivo(conectado) → el aviso en tiempo real se conectó o se cayó.
  *   Evento 'copia-local' en window, detail { dominio, cambio, estado }: cambio = true si
  *       llegaron datos nuevos (la pantalla se repinta); con false solo cambió el estado.
  *   estado = { listo, conectado, actualizado (ms) }.
@@ -103,7 +107,7 @@
             copias[d] = {
                 tablas: {}, arrays: {}, catalogos: {}, meta: {},
                 estado: { listo: false, conectado: true, actualizado: null },
-                vista: null, lista: null, enCurso: null, ultimo: 0, anclas: new Set(),
+                vista: null, lista: null, enCurso: null, repetir: false, ultimo: 0, anclas: new Set(),
             };
             copias[d].vista = {
                 filas: (t) => {
@@ -276,7 +280,10 @@
                 c.estado.conectado = false;
                 if (antes) avisar(d, false);
             });
-        }).finally(() => { c.enCurso = null; });
+        }).finally(() => {
+            c.enCurso = null;
+            if (c.repetir) { c.repetir = false; sincronizar(d); }
+        });
 
         return c.enCurso;
     }
@@ -293,13 +300,33 @@
         });
     }
 
-    const vencida = (c) => Date.now() - c.ultimo >= (c.meta.espera || 15) * 1000;
+    // Con el aviso en tiempo real conectado, preguntar solo es la red de seguridad: cada tanto.
+    const RESPALDO_EN_VIVO_S = 120;
+    let enVivo = false;
+    // El servidor avisó mientras no se podía preguntar (pestaña oculta o 2 min sin tocar
+    // nada): se pregunta en cuanto se pueda, sin esperar al respaldo.
+    let avisoPendiente = false;
+
+    const vencida = (c) => Date.now() - c.ultimo >= Math.max(c.meta.espera || 15, enVivo ? RESPALDO_EN_VIVO_S : 0) * 1000;
     // usar(): pintar desde la copia pregunta si la última pregunta tiene más de esto.
     const PREGUNTA_AL_USAR_MS = 3000;
 
     function revisar(forzar) {
         if (!usuario() || document.visibilityState !== 'visible' || !window.usuarioActivo()) return;
-        enUso().forEach((d) => { if (forzar || vencida(copias[d])) sincronizar(d); });
+        const aviso = avisoPendiente;
+        avisoPendiente = false;
+        enUso().forEach((d) => {
+            const c = copias[d];
+            if (!forzar && !aviso && !vencida(c)) return;
+            // Un aviso con una pregunta ya en camino: pudo salir antes del cambio. Se repite al terminar.
+            if (aviso && c.enCurso) c.repetir = true;
+            else sincronizar(d);
+        });
+    }
+
+    function hayCambios() {
+        avisoPendiente = true;
+        revisar(true);
     }
 
     // Si ya había una pregunta en curso se repite al terminar: pudo salir antes del guardado.
@@ -339,6 +366,13 @@
         },
         ahora: sincronizar,
         alGuardar,
+        hayCambios,
+        // Al conectarse (o reconectarse) se pregunta ya: pudo haber cambios mientras estaba caído.
+        enVivo(conectado) {
+            const antes = enVivo;
+            enVivo = !!conectado;
+            if (enVivo && !antes) hayCambios();
+        },
         // Se volvió a entrar sin salir de la pantalla (sesion_caida.js): se pregunta otra vez ya.
         reanudar() {
             Object.values(copias).forEach((c) => { c.sinSesion = false; });
