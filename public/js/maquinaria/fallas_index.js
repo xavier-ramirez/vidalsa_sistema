@@ -218,9 +218,10 @@
         const puedeCerrar = cuerpo.dataset.puedeCerrar === '1';
         const superAdmin = cuerpo.dataset.superAdmin === '1';
 
-        cuerpo.innerHTML = filas.length
+        // Solo cambian las tarjetas distintas (window.repintarFilas): no se rehace la página entera.
+        window.repintarFilas(cuerpo, filas.length
             ? filas.slice(desde, desde + POR_PAGINA).map(function (f) { return tarjeta(f, puedeCerrar, superAdmin); }).join('')
-            : mensaje('No hay reportes que coincidan con los filtros.');
+            : mensaje('No hay reportes que coincidan con los filtros.'));
         if (pag) pag.innerHTML = window.paginadorHtml(_pagina, ultima);
         pintarConsolidado(consolidado(filtrar(todas, p, false)));
         window.pintarEstadoCopia('fallasCopiaEstado', _vista.estado);

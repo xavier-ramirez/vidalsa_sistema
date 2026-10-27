@@ -280,6 +280,9 @@
             inactividad:      'Tu sesión se cerró por inactividad.\nInicia sesión de nuevo.',
             // Trabajó sin conexión y el acceso guardado ya no alcanzó para reconectar (fetch_interceptor.js).
             volvio_conexion:  'Volvió la conexión.\nInicia sesión con tu clave para seguir.',
+            // Se abrió una página interna sin internet y sin haber escrito la clave (la PC reabre
+            // las pestañas de ayer): sin la clave no se abren los datos guardados (llave-local.js).
+            sin_conexion:     'Sin conexión.\nEscribe tu clave para entrar sin conexión.',
             // «Salir» (window.salirDelSistema): solo se dice algo si quedó algo sin subir.
             salida:           ''
         };

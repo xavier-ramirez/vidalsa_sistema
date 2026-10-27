@@ -268,7 +268,8 @@
         var f = filtrosNotas();
         var conPre = !window.__almNotVista;
         if (conPre && window.showPreloader) window.showPreloader();
-        window.CopiaLocal.usar('almacen', body)
+        window.layoutListo()
+            .then(function () { return window.CopiaLocal.usar('almacen', body); })
             .then(function (v) { return window.CopiaLocal.alDia('almacen').then(function () { window.__almNotVista = v; return v; }); })
             .then(function (vista) {
                 if (!document.contains(body)) return;
@@ -278,7 +279,7 @@
                     return;
                 }
                 var data = window.AlmacenLocal.notas(vista, f, window.__almNotPagina, POR_DEFECTO);
-                body.innerHTML = data.html;
+                window.repintarFilas(body, data.html);   // solo las filas distintas
                 el('almNotPagination').innerHTML = data.pagination;
                 el('almNotTotalCount').textContent = data.total;
                 el('almNotTotalPill').textContent = data.total;

@@ -25,6 +25,9 @@
  *   window.usuarioActivo()  ¿Tocó algo en los últimos 2 min? Lo miran los sondeos
  *                           (copia local y aviso de versión) antes de preguntar.
  *
+ *   window.layoutListo()    Promise: ya corrieron los scripts del final del layout
+ *                           (CopiaLocal, Bandeja…). Ver más abajo.
+ *
  * SPA-safe: sin estado, idempotente (re-evaluarlo solo reasigna las mismas funciones).
  *
  * OJO: de las pantallas que NO extienden layouts.estructura_base, solo auth/inicio_sesion
@@ -499,6 +502,68 @@
         return '<nav role="navigation" aria-label="Pagination Navigation" style="display:flex; justify-content:center; align-items:center;">'
             + '<ul class="pag-sliding" style="display:flex; flex-wrap:wrap; list-style:none; padding:0; margin:0; justify-content:center; gap:6px;">'
             + html + '</ul></nav>';
+    };
+
+    // En una carga COMPLETA (F5, pestaña restaurada, marcador) los <script> de una vista
+    // corren ANTES que los del final del layout: copia-local.js, bandeja.js… todavía no
+    // existen. Lo que los use al arrancar espera a esto; en la navegación SPA ya están y se
+    // cumple al momento. Sin esto Almacén, Movimientos y Notas abrían con la tabla vacía
+    // («Cannot read properties of undefined (reading 'usar')»), con o sin internet.
+    window.layoutListo = function () {
+        if (document.readyState !== 'loading') return Promise.resolve();
+        return new Promise(function (listo) { document.addEventListener('DOMContentLoaded', listo, { once: true }); });
+    };
+
+    /**
+     * window.repintarFilas(contenedor, filas) → los nodos que tuvo que crear.
+     *
+     * Pone en `contenedor` (un <tbody> o la lista de tarjetas) las filas de `filas` SIN rehacer
+     * las que ya estaban igual: cada una recuerda el HTML con que se pintó (_filaHtml); las
+     * iguales se reusan tal cual —con su foto ya cargada, su selección y lo escrito en ella— y
+     * solo se mueven si cambió el orden. Al llegar un cambio de otro equipo, de 1.200 filas se
+     * toca una; con innerHTML se rehacía la tabla entera y en la PC se notaba el tirón.
+     * `filas`: el HTML de cada fila (array, un elemento por fila) o el de todas juntas (texto).
+     */
+    window.repintarFilas = function (cont, filas) {
+        var creadas = null;
+        if (typeof filas === 'string') {
+            var todas = document.createElement(cont.tagName);
+            todas.innerHTML = filas;
+            creadas = Array.from(todas.children);
+            filas = creadas.map(function (n) { return n.outerHTML; });
+        }
+        var viejas = new Map();   // html → filas pintadas con ese html
+        Array.from(cont.children).forEach(function (n) {
+            if (n._filaHtml == null) return;
+            if (!viejas.has(n._filaHtml)) viejas.set(n._filaHtml, []);
+            viejas.get(n._filaHtml).push(n);
+        });
+        var nuevas = [];          // posiciones de las que no estaban
+        var orden = filas.map(function (html, i) {
+            var iguales = viejas.get(html);
+            if (iguales && iguales.length) return iguales.shift();
+            nuevas.push(i);
+            return creadas ? creadas[i] : null;
+        });
+        if (!creadas && nuevas.length) {
+            var sueltas = document.createElement(cont.tagName);
+            sueltas.innerHTML = nuevas.map(function (i) { return filas[i]; }).join('');
+            // Se toman todas antes de colocarlas: al moverlas se van de `sueltas`.
+            var hechas = Array.from(sueltas.children);
+            nuevas.forEach(function (i, k) { orden[i] = hechas[k]; });
+        }
+        nuevas.forEach(function (i) { orden[i]._filaHtml = filas[i]; });
+        var quedan = new Set(orden);
+        Array.from(cont.children).forEach(function (n) { if (!quedan.has(n)) n.remove(); });
+        var ref = cont.firstElementChild;
+        orden.forEach(function (n) {
+            // `ref` bajó en el orden (un equipo que cambió de frente): se deja y se mueve al
+            // llegar a su puesto; si no, se movían una por una todas las filas que la siguen.
+            if (ref && ref !== n && ref.nextElementSibling === n) ref = n;
+            if (n === ref) ref = ref.nextElementSibling;
+            else cont.insertBefore(n, ref);
+        });
+        return nuevas.map(function (i) { return orden[i]; });
     };
 
     // Sin actividad en 2 min los sondeos no preguntan: cada petición alarga la sesión en el

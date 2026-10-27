@@ -79,7 +79,8 @@ window.almMovArrancar = function (CFG) {
     var POR_DEFECTO = CFG.almacenPorDefecto;
     var _almMovPagina = parseInt(new URLSearchParams(window.location.search).get('page'), 10) || 1;
     function movVista() {
-        return window.CopiaLocal.usar('almacen', el('almMovTableBody'))
+        return window.layoutListo()
+            .then(function () { return window.CopiaLocal.usar('almacen', el('almMovTableBody')); })
             .then(function (v) { return window.CopiaLocal.alDia('almacen').then(function () { window._almMovVista = v; return v; }); });
     }
 
@@ -100,7 +101,7 @@ window.almMovArrancar = function (CFG) {
                     return;
                 }
                 var data = window.AlmacenLocal.movimientos(vista, f, _almMovPagina, { porDefecto: POR_DEFECTO, puede: PUEDE });
-                body.innerHTML = data.html;
+                window.repintarFilas(body, data.html);   // solo las filas distintas
                 var pg = el('almMovPagination'); if (pg) pg.innerHTML = data.pagination;
                 var tot = el('almMovTotal'); if (tot) tot.textContent = data.total;
                 var cc = el('almMovConsumoContainer'); if (cc) cc.innerHTML = window.AlmacenLocal.consumo(vista, f, POR_DEFECTO);

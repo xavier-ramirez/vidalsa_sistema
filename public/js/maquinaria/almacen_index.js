@@ -65,7 +65,8 @@
     // copia lo traiga (alDia): el stock nunca se pinta con el dato de antes.
     var POR_DEFECTO = CFG.almacenPorDefecto;
     function almVista() {
-        return window.CopiaLocal.usar('almacen', el('almTableBody'))
+        return window.layoutListo()
+            .then(function () { return window.CopiaLocal.usar('almacen', el('almTableBody')); })
             .then(function (v) { return window.CopiaLocal.alDia('almacen').then(function () { window._almVista = v; return v; }); });
     }
     // Catálogo de productos (CODIGO/NOMBRE/UM/PARTE) — lo usan el buscador FuzzySearch y los
@@ -347,13 +348,16 @@
                             _r.remove();
                             continue;
                         }
+                        _r._filaHtml = _r.outerHTML;   // para que un repintado la reconozca
                         body.appendChild(_r);
                         if (_r.nodeType === 1 && _r.classList.contains('alm-row')) _nuevasRows.push(_r);
                     }
                     // SOLO las filas nuevas (no re-itera todo el tbody en cada lote → evita el freeze).
                     almSelApplyToRows(_nuevasRows);
                 } else {
-                    body.innerHTML = data.html;
+                    // Solo cambian las filas distintas (window.repintarFilas): al llegar un cambio
+                    // de otro equipo no se rehace todo el inventario cargado.
+                    window.repintarFilas(body, data.html);
                     almSelApplyToVisible();
                     if (opts.mostrar) almMostrarProducto(opts.mostrar);
                 }
@@ -398,6 +402,9 @@
                 }
                 // Scroll infinito PEREZOSO: se observa la ÚLTIMA fila y el siguiente lote se pinta
                 // SOLO cuando el usuario se acerca.
+                // Lista nueva o repintada: la última fila pudo reusarse con el vigilante de la
+                // carga anterior (que ya no hace nada): se le pone uno de esta.
+                if (!append) body.querySelectorAll('tr[data-inf-observed]').forEach(function (r) { delete r.dataset.infObserved; });
                 if (data.hasMore && typeof data.nextOffset === 'number') {
                     var _rows = body.querySelectorAll('tr.alm-row');
                     var lastRow = _rows.length ? _rows[_rows.length - 1] : null;
@@ -3820,7 +3827,7 @@
     // modales de salida y de vista previa) tampoco se pinta sin el. Antes este trozo ni
     // siquiera se enviaba al navegador: lo envolvia un condicional de Blade.
     // Números de Nota para registrar salidas si se va el internet (bandeja.js los repone).
-    window.Bandeja.apartarNumeros();
+    window.layoutListo().then(function () { window.Bandeja.apartarNumeros(); });
     // ── Modal "Registrar salida" unificado ─────────────────────────────────────
     //  Un solo formulario para ambos casos: salida para consumo (mismo almacén) o
     //  salida hacia otro proyecto (TRASPASO). El backend decide qué hacer según el

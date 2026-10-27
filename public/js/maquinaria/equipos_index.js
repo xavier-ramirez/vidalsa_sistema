@@ -1465,41 +1465,11 @@ window.eqPintarBotonFiltros = function (filters) {
     btnAdv.classList.toggle('activo', !!(f.modelo || f.marca || f.anio || f.categoria || f.estado || f.gps || f.color || f.combustible || f.detalle || f.titular || f.aseguradora || f.confirmado || f.filter_propiedad || f.filter_poliza || f.filter_rotc || f.filter_racda || f.filter_adicional || f.filter_adicional_2));
 };
 
-// Repintado sin rehacer la tabla: cada fila guarda el HTML con que se pintó (tr._eqHtml) y
-// solo se crean las que cambiaron; las iguales se reusan tal cual (con su foto ya cargada y su
-// selección) y se mueven si cambió el orden. Con 1.200 filas y un cambio, se toca una.
+// Repintado sin rehacer la tabla (window.repintarFilas, dom_helpers.js): solo se crean las filas
+// que cambiaron; las demás conservan su foto ya cargada y su selección.
 function eqRepintarFilas(tableBody, filas) {
-    const viejas = new Map();   // html → filas pintadas con ese html
-    Array.from(tableBody.children).forEach((tr) => {
-        if (tr._eqHtml == null) return;
-        if (!viejas.has(tr._eqHtml)) viejas.set(tr._eqHtml, []);
-        viejas.get(tr._eqHtml).push(tr);
-    });
-    const nuevas = [];          // [posición, html] de las que no estaban
-    const orden = filas.map((html, i) => {
-        const iguales = viejas.get(html);
-        if (iguales && iguales.length) return iguales.shift();
-        nuevas.push([i, html]);
-        return null;
-    });
-    if (nuevas.length) {
-        const temp = document.createElement('tbody');
-        temp.innerHTML = nuevas.map(([, html]) => html).join('');
-        // Se toman todas antes de colocarlas: al moverlas se van de `temp` y cambian los índices.
-        const creadas = Array.from(temp.children);
-        nuevas.forEach(([i, html], k) => { orden[i] = creadas[k]; orden[i]._eqHtml = html; });
-    }
-    const quedan = new Set(orden);
-    Array.from(tableBody.children).forEach((tr) => { if (!quedan.has(tr)) tr.remove(); });
-    let ref = tableBody.firstElementChild;
-    orden.forEach((tr) => {
-        // `ref` bajó en el orden (un equipo que cambió de frente): se deja y se mueve al
-        // llegar a su puesto; si no, se movían una por una todas las filas que la siguen.
-        if (ref && ref !== tr && ref.nextElementSibling === tr) ref = tr;
-        if (tr === ref) ref = ref.nextElementSibling;
-        else tableBody.insertBefore(tr, ref);
-    });
-    if (window._registerLazyImages) nuevas.forEach(([i]) => window._registerLazyImages(orden[i]));
+    const nuevas = window.repintarFilas(tableBody, filas);
+    if (window._registerLazyImages) nuevas.forEach((tr) => window._registerLazyImages(tr));
     tableBody.style.opacity = '1';
 }
 
@@ -1645,6 +1615,10 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         .then((data) => {
             if (!data) return;
             window._eqHasta = data.nextOffset;   // filas cargadas: las que rehace un repintado
+            // Ya estaba toda la lista: el repintado la trae entera aunque haya crecido. Si pidiera
+            // las mismas filas que había, un equipo que entra (de otro frente) dejaba fuera la
+            // última fila y los auxiliares del final hasta volver a bajar.
+            window._eqCompleto = !data.hasMore;
 
             // Cargar datos en memoria ANTES de tocar el DOM
             if (data.equiposData) {
@@ -1825,7 +1799,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             temp.innerHTML = data.html;
             const allRows = Array.from(temp.children);
             // Cada fila recuerda el HTML con que se pintó: el repintado compara contra eso.
-            if (data.filas && allRows.length === data.filas.length) allRows.forEach((tr, i) => { tr._eqHtml = data.filas[i]; });
+            if (data.filas && allRows.length === data.filas.length) allRows.forEach((tr, i) => { tr._filaHtml = data.filas[i]; });
 
             if (!append) {
                 tableBody.innerHTML = '';
@@ -3637,7 +3611,7 @@ if (!window._equiposWindowListenersReady) {
     // La copia local se puso al día: se rehace lo que se ve, con las mismas filas cargadas.
     window.addEventListener('copia-local', function (e) {
         if (e.detail.dominio !== 'equipos' || !e.detail.cambio || !document.getElementById('equiposTableBody')) return;
-        window.loadEquipos(null, true, { sinHistorial: true, cuantos: Math.max(150, window._eqHasta || 0) });
+        window.loadEquipos(null, true, { sinHistorial: true, cuantos: window._eqCompleto ? Infinity : Math.max(150, window._eqHasta || 0) });
     });
 
     // Reinicializar módulo al navegar A equipos, limpiar al salir

@@ -70,6 +70,7 @@
         let dek = s && s.u === u ? deB64(s.k) : null;
         let sinServidor = !!(dek && s.sinServidor);
         const pend = leer(sessionStorage, PENDIENTE);
+        let sinRed = false;   // el servidor no contestó (no un 401: eso lo atiende el interceptor)
         if (!dek || pend) {
             // Con internet: la del servidor abre la guardada (o se crea la primera vez) y, si se
             // acaba de entrar con clave, se envuelve también con ella para poder entrar sin red.
@@ -78,7 +79,7 @@
                 r = await (window.fetchSinInterceptor || window.fetch)('/sync/llave', {
                     credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' },
                 });
-            } catch (e) { r = null; }
+            } catch (e) { r = null; sinRed = true; }
             if (r && r.ok) {
                 sinServidor = false;
                 const srv = deB64((await r.json()).llave);
@@ -101,10 +102,27 @@
                 });
             }
         }
-        if (!dek) return false;
+        if (!dek) {
+            if (sinRed && !pend) pedirClaveSinRed();
+            return false;
+        }
         escribir(sessionStorage, SESION, sinServidor ? { u, k: b64(dek), sinServidor } : { u, k: b64(dek) });
         llave = await aes(dek);
         return true;
+    }
+
+    // Página interna abierta SIN red y sin la llave de esta ventana: Chrome en la PC reabre las
+    // pestañas de ayer (o se entra por un marcador) y el service worker sirve el módulo guardado,
+    // pero sin servidor la llave solo la abre la clave, y aquí nadie la escribió. El módulo salía
+    // vacío y sin aviso («en la PC no puedo entrar sin internet»; el teléfono arranca en el
+    // inicio y no pasaba). Se va al inicio de sesión, que ofrece «Entrar sin conexión», y
+    // después se vuelve a esta misma página (offline-auth.js · VOLVER_A).
+    let yendoAlInicio = false;
+    function pedirClaveSinRed() {
+        if (yendoAlInicio || !usuario()) return;
+        yendoAlInicio = true;
+        try { sessionStorage.setItem('vidalsa_volver_a', location.pathname + location.search); } catch (e) {}
+        location.replace('/?aviso=sin_conexion');
     }
 
     function lista() {

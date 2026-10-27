@@ -26,6 +26,14 @@
     // memoria y lo resuelve la propia pantalla de login, que ya sabe si el servidor aceptó
     // las credenciales. Esta constante queda únicamente para borrar los restos viejos.
     const PENDING_LEGACY = 'vidalsa_offline_auth_pending';
+    // La página interna que mandó aquí por no poder abrir la llave sin red (llave-local.js):
+    // «Entrar sin conexión» vuelve a ella en vez de al menú. Solo rutas propias ('/x', no '//x').
+    const VOLVER_A = 'vidalsa_volver_a';
+    function tomarVolverA() {
+        let v = null;
+        try { v = sessionStorage.getItem(VOLVER_A); sessionStorage.removeItem(VOLVER_A); } catch (e) {}
+        return v && /^\/(?![\/\\])/.test(v) ? v : null;
+    }
     const ITER    = 120000; // iteraciones PBKDF2 (lento a propósito, dificulta fuerza bruta)
 
     function disponible() {
@@ -102,6 +110,7 @@
         //    otro equipo— se tira, y lo rehace el próximo inicio de sesión con contraseña,
         //    que es el que sí demuestra saberla.
         sincronizar: async function (claveV) {
+            tomarVolverA();   // entró con servidor: va a donde lo lleve el inicio de sesión
             const p = _preparado;
             _preparado = null;
             if (window.LlaveLocal) await window.LlaveLocal.confirmar();
@@ -325,7 +334,7 @@
         if (ok) {
             // El menú omite el spinner general en esta primera carga tras login.
             if (window.marcarLoginReciente) window.marcarLoginReciente();
-            window.location.href = '/menu';
+            window.location.href = tomarVolverA() || '/menu';
         } else {
             window.mostrarMsgLogin('Correo o clave no coinciden con tu última sesión en este equipo.');
         }

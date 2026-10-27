@@ -242,9 +242,10 @@ window.loadMovilizaciones = function (pagina) {
     const desde = (window._mvPagina - 1) * MV_POR_PAGINA;
     const superAdmin = tableBody.dataset.superAdmin === '1';
 
-    tableBody.innerHTML = filas.length
+    // Solo cambian las filas distintas (window.repintarFilas): no se rehace la página entera.
+    window.repintarFilas(tableBody, filas.length
         ? filas.slice(desde, desde + MV_POR_PAGINA).map(function (m) { return _mvFila(m, superAdmin); }).join('')
-        : _mvMensaje('No se encontraron movilizaciones registradas.');
+        : _mvMensaje('No se encontraron movilizaciones registradas.'));
     if (pag) pag.innerHTML = window.paginadorHtml(window._mvPagina, ultima);
     if (totalEl) totalEl.innerText = filas.length;
     window.pintarEstadoCopia('mvCopiaEstado', vista.estado);
