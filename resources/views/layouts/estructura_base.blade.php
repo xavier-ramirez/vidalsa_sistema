@@ -128,6 +128,10 @@
          del layout. No tiene dependencias ni toca el DOM al cargarse. --}}
     <script
         src="{{ asset('js/maquinaria/module_manager.js') }}?v={{ @filemtime(public_path('js/maquinaria/module_manager.js')) }}"></script>
+    {{-- menu_cabecera.js: los desplegables de la cabecera (Flota, Almacén…) responden desde el
+         primer pintado, sin esperar los scripts del final del body. 1 KB, solo escucha en document. --}}
+    <script
+        src="{{ asset('js/maquinaria/menu_cabecera.js') }}?v={{ @filemtime(public_path('js/maquinaria/menu_cabecera.js')) }}"></script>
     <style>
         /* Standard Material Icons definition */
         .material-icons {
@@ -1294,12 +1298,14 @@
             document.addEventListener("visibilitychange", function () {
                 if (document.visibilityState === 'visible' && document.fonts) {
                     document.fonts.load('1em "Material Icons"').then(() => {
-                        document.querySelectorAll('.material-icons').forEach(el => {
-                            const temp = el.style.display;
-                            el.style.display = 'none';
-                            el.offsetHeight; // trigger reflow
-                            el.style.display = temp;
-                        });
+                        // Todos ocultos, UN recálculo, todos de vuelta. Leer offsetHeight dentro
+                        // del bucle recalculaba la página por cada ícono: con la tabla de Equipos
+                        // (miles de íconos) volver a la pestaña congelaba la PC varios segundos.
+                        const iconos = Array.from(document.querySelectorAll('.material-icons'));
+                        const antes = iconos.map(el => el.style.display);
+                        iconos.forEach(el => { el.style.display = 'none'; });
+                        document.body.offsetHeight; // trigger reflow
+                        iconos.forEach((el, i) => { el.style.display = antes[i]; });
                     });
                 }
             });

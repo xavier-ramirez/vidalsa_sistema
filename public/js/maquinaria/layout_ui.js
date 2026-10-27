@@ -64,36 +64,7 @@ if (!window._mobileNavGroupDelegated) {
     });
 }
 
-// Desplegables de la cabecera (Flota, Almacén, Configuraciones) — delegación en
-// document, igual que los grupos del menú móvil de arriba.
-// Se engancha EN CUANTO corre este script, NO en DOMContentLoaded: al entrar tras el
-// login el preloader se oculta enseguida (el splash del login ya cubrió la
-// transición), así que la cabecera ya se ve y se puede pulsar mientras todavía se
-// descargan los <script> del final del body. Con el enganche anterior —un listener
-// por botón dentro de DOMContentLoaded— esos primeros clics se perdían y parecía que
-// "Flota" no desplegaba. Delegando funciona desde el primer pintado y además
-// sobrevive a los re-renders de la SPA. El guard evita duplicar el listener.
-if (!window._navDropdownDelegated) {
-    window._navDropdownDelegated = true;
-    document.addEventListener('click', (e) => {
-        // Un click sintetico puede llegar con target = document (sin closest).
-        if (!e.target || !e.target.closest) return;
-        const dropdowns = document.querySelectorAll('.nav-dropdown');
-        if (!dropdowns.length) return;
-        const trigger = e.target.closest('.nav-dropdown > .nav-link');
-        if (trigger) {
-            e.preventDefault();
-            const dropdown = trigger.closest('.nav-dropdown');
-            dropdowns.forEach(d => { if (d !== dropdown) d.classList.remove('active'); });
-            dropdown.classList.toggle('active');
-            return;
-        }
-        // Clic en un enlace de dentro, o fuera de cualquier desplegable: se cierran todos.
-        if (e.target.closest('.nav-dropdown-link') || !e.target.closest('.nav-dropdown')) {
-            dropdowns.forEach(d => d.classList.remove('active'));
-        }
-    });
-}
+// Desplegables de la cabecera: en menu_cabecera.js (va en el <head>).
 
 // Modal Logic
 let modalCallback = null;

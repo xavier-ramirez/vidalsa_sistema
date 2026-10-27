@@ -7,7 +7,7 @@
  * alcance.
  *
  *   EquiposLocal.consultar(vista, filtros, offset, puede, cuantos) → el objeto que pinta
- *       loadEquipos (equipos_index.js): html de las filas, equiposData / auxData de los modales,
+ *       loadEquipos (equipos_index.js): html de las filas (y `filas`, el de cada <tr>), equiposData / auxData de los modales,
  *       Consolidado (stats y auxConsolidado), Distribución, Detalles y aviso de venta.
  *       `filtros` = window.eqFiltrosActivos() (+ ids_in); `puede` = { editar, superAdmin,
  *       subirPdf } de la página; `cuantos` = filas del lote (150 si no se dice).
@@ -567,7 +567,7 @@
         const enAux = modoAux(f);
         const inicio = offset === 0;
         const r = {
-            mode: enAux ? 'aux' : 'equipos', html: '', equiposData: {}, auxData: {}, hasMore: false, nextOffset: offset,
+            mode: enAux ? 'aux' : 'equipos', html: '', filas: [], equiposData: {}, auxData: {}, hasMore: false, nextOffset: offset,
             stats: { total: 0, activos: 0, inactivos: 0, mantenimiento: 0 },
             distribution: '', auxDistribution: '', ubicaciones: '', showUbicaciones: false, frenteVenta: null,
             auxConsolidado: null, showAuxConsolidado: false,
@@ -578,14 +578,14 @@
             r.hasMore = r.nextOffset < lista.length;
             return pagina;
         };
-        const conAux = (lista) => lista.map((a) => { r.auxData[a.id] = detalleAux(a, puede); return filaAux(a, ctx, puede); }).join('');
+        const conAux = (lista) => lista.map((a) => { r.auxData[a.id] = detalleAux(a, puede); return filaAux(a, ctx, puede); });
         const frenteElegido = /^\d+$/.test(txt(f.id_frente)) ? ctx.frentes.get(Number(txt(f.id_frente))) : null;
 
         if (enAux) {
             const req = auxModo(f);
             const lista = ordenarAux(aux.filter(filtroAux(req, ctx)));
             const pagina = lote(lista);
-            r.html = pagina.length ? conAux(pagina) : filaMensaje('search_off', 'NO SE ENCONTRARON EQUIPOS AUXILIARES CON LOS FILTROS APLICADOS.');
+            r.filas = pagina.length ? conAux(pagina) : [filaMensaje('search_off', 'NO SE ENCONTRARON EQUIPOS AUXILIARES CON LOS FILTROS APLICADOS.')];
             if (inicio) {
                 r.stats = statsAux(lista, req, ctx);
                 r.distribution = distribucionAux(aux, req, ctx);
@@ -594,12 +594,12 @@
             const lista = ordenarEquipos(todos.filter(filtroEquipos(f, ctx)), ctx);
             const pagina = lote(lista);
             pagina.forEach((e) => { r.equiposData[e.id] = e; });
-            let html = pagina.map((e) => filaEquipo(e, ctx, puede)).join('');
+            let filas = pagina.map((e) => filaEquipo(e, ctx, puede));
             // Los auxiliares que coinciden van al final del último lote.
             if (!r.hasMore && !soloEquipos(f) && ejeCompartido(f)) {
-                html += conAux(ordenarAux(aux.filter(filtroAux(auxCompartido(f), ctx))));
+                filas = filas.concat(conAux(ordenarAux(aux.filter(filtroAux(auxCompartido(f), ctx)))));
             }
-            r.html = html || filaMensaje('search_off', 'NO SE ENCONTRARON EQUIPOS CON LOS FILTROS APLICADOS.');
+            r.filas = filas.length ? filas : [filaMensaje('search_off', 'NO SE ENCONTRARON EQUIPOS CON LOS FILTROS APLICADOS.')];
             if (inicio) {
                 r.stats = statsEquipos(todos, f, ctx);
                 r.distribution = distribucionEquipos(todos, f, ctx);
@@ -609,7 +609,7 @@
                 }
             }
         } else {
-            r.html = filaMensaje('filter_alt', 'SELECCIONE UN FILTRO PARA VER LOS EQUIPOS.');
+            r.filas = [filaMensaje('filter_alt', 'SELECCIONE UN FILTRO PARA VER LOS EQUIPOS.')];
             r.distribution = listaTipos([], 'autorenew', '#3b82f6', 'Equipos y Maquinaria', 'azul', 'equipos_y_maquinaria');
         }
 
@@ -622,6 +622,8 @@
             r.showAuxConsolidado = !enAux && !soloEquipos(f);
             if (r.showAuxConsolidado && hay) r.auxDistribution = distribucionAux(aux, compartido, ctx);
         }
+        // Una fila (<tr>) por elemento: el repintado compara fila por fila (loadEquipos).
+        r.html = r.filas.join('');
         return r;
     }
 

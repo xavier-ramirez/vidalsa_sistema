@@ -1465,6 +1465,59 @@ window.eqPintarBotonFiltros = function (filters) {
     btnAdv.classList.toggle('activo', !!(f.modelo || f.marca || f.anio || f.categoria || f.estado || f.gps || f.color || f.combustible || f.detalle || f.titular || f.aseguradora || f.confirmado || f.filter_propiedad || f.filter_poliza || f.filter_rotc || f.filter_racda || f.filter_adicional || f.filter_adicional_2));
 };
 
+// Repintado sin rehacer la tabla: cada fila guarda el HTML con que se pintó (tr._eqHtml) y
+// solo se crean las que cambiaron; las iguales se reusan tal cual (con su foto ya cargada y su
+// selección) y se mueven si cambió el orden. Con 1.200 filas y un cambio, se toca una.
+function eqRepintarFilas(tableBody, filas) {
+    const viejas = new Map();   // html → filas pintadas con ese html
+    Array.from(tableBody.children).forEach((tr) => {
+        if (tr._eqHtml == null) return;
+        if (!viejas.has(tr._eqHtml)) viejas.set(tr._eqHtml, []);
+        viejas.get(tr._eqHtml).push(tr);
+    });
+    const nuevas = [];          // [posición, html] de las que no estaban
+    const orden = filas.map((html, i) => {
+        const iguales = viejas.get(html);
+        if (iguales && iguales.length) return iguales.shift();
+        nuevas.push([i, html]);
+        return null;
+    });
+    if (nuevas.length) {
+        const temp = document.createElement('tbody');
+        temp.innerHTML = nuevas.map(([, html]) => html).join('');
+        // Se toman todas antes de colocarlas: al moverlas se van de `temp` y cambian los índices.
+        const creadas = Array.from(temp.children);
+        nuevas.forEach(([i, html], k) => { orden[i] = creadas[k]; orden[i]._eqHtml = html; });
+    }
+    const quedan = new Set(orden);
+    Array.from(tableBody.children).forEach((tr) => { if (!quedan.has(tr)) tr.remove(); });
+    let ref = tableBody.firstElementChild;
+    orden.forEach((tr) => {
+        // `ref` bajó en el orden (un equipo que cambió de frente): se deja y se mueve al
+        // llegar a su puesto; si no, se movían una por una todas las filas que la siguen.
+        if (ref && ref !== tr && ref.nextElementSibling === tr) ref = tr;
+        if (tr === ref) ref = ref.nextElementSibling;
+        else tableBody.insertBefore(tr, ref);
+    });
+    if (window._registerLazyImages) nuevas.forEach(([i]) => window._registerLazyImages(orden[i]));
+    tableBody.style.opacity = '1';
+}
+
+// Scroll infinito: al acercarse a la última fila se pide el lote siguiente (offset = nextOffset).
+// Un solo vigilante por tabla: cada pintado reemplaza al anterior.
+function eqSeguirConScroll(tableBody, data, vigente) {
+    if (tableBody._eqMas) { tableBody._eqMas.disconnect(); tableBody._eqMas = null; }
+    const ultima = tableBody.lastElementChild;
+    if (!data.hasMore || typeof data.nextOffset !== 'number' || !ultima) return;
+    const obs = tableBody._eqMas = new IntersectionObserver((entries) => {
+        if (!entries[0] || !entries[0].isIntersecting) return;
+        obs.disconnect();
+        if (tableBody._eqMas === obs) tableBody._eqMas = null;
+        if (vigente()) window.loadEquipos(null, true, { offset: data.nextOffset, append: true });
+    }, { root: null, rootMargin: '400px', threshold: 0 });
+    obs.observe(ultima);
+}
+
 window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // Defensa: si el primer argumento es boolean (caller antiguo que usaba loadEquipos(true)),
     // interpretarlo como el flag silent para no romper con "baseUrl.includes is not a function".
@@ -1496,8 +1549,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     const turno = window._eqTurno = (window._eqTurno || 0) + 1;
     const vigente = () => turno === window._eqTurno;
 
+    // Repintado porque llegó la copia nueva (opts.cuantos): solo se cambian las filas distintas
+    // (eqRepintarFilas), así que las fotos de las demás siguen su carga y la tabla no se atenúa.
+    const repintado = !!opts.cuantos && !append;
+
     // Limpiar la cola de imágenes: los nodos viejos serán reemplazados por los nuevos.
-    if (window._resetImageLoader) window._resetImageLoader();
+    if (!repintado && window._resetImageLoader) window._resetImageLoader();
 
     let baseUrl = url || window.location.pathname;
 
@@ -1561,7 +1618,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         if (selIds.length) filters.ids_in = selIds;
         else window._equiposSoloSel = false; // sin selección → modo apagado
     }
-    tableBody.style.opacity = "0.5";
+    if (!repintado) tableBody.style.opacity = "0.5";
 
     // El preloader solo se ve mientras la copia local no está lista (la primera descarga):
     // con copia, la consulta es inmediata. La llamada que lo abre es la que lo cierra.
@@ -1721,10 +1778,14 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 // Cada filtro repinta la lista unificada con las secciones nuevas; el reset del
                 // scroll a la primera sección lo hace _eqRenderDistribucion.
                 const showUbi = !!(data && data.showUbicaciones);
+                const ubiHtml = (showUbi && data.ubicaciones) ? data.ubicaciones : '';
+                // En un repintado, si no cambió nada, no se reescribe ni se lleva al inicio.
+                const distribIgual = repintado && window.__distribHtml === data.distribution
+                    && window.__distribAuxHtml === (data.auxDistribution || '') && window.__distribUbiHtml === ubiHtml;
                 window.__distribHtml    = data.distribution;
                 window.__distribAuxHtml = data.auxDistribution || '';
-                window.__distribUbiHtml = (showUbi && data.ubicaciones) ? data.ubicaciones : '';
-                _eqRenderDistribucion();
+                window.__distribUbiHtml = ubiHtml;
+                if (!distribIgual) _eqRenderDistribucion();
 
                 // Aviso de frente VENDIDO / EN TRÁMITE DE VENTA: solo dentro de un frente de esos.
                 const avisoVenta = document.getElementById('eqAvisoVenta');
@@ -1752,18 +1813,26 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             // ── RENDERIZADO PROGRESIVO ───────────────────────────────────────
             // Parseamos el HTML en un contenedor temporal FUERA del DOM
             // (sin esto el navegador no calcula layout → no bloquea)
+            if (repintado && data.filas) {
+                eqRepintarFilas(tableBody, data.filas);
+                reApplySelections();
+                if (typeof window.auxRestoreSelection === 'function') window.auxRestoreSelection();
+                eqSeguirConScroll(tableBody, data, vigente);
+                return;
+            }
+
             const temp = document.createElement('tbody');
             temp.innerHTML = data.html;
             const allRows = Array.from(temp.children);
+            // Cada fila recuerda el HTML con que se pintó: el repintado compara contra eso.
+            if (data.filas && allRows.length === data.filas.length) allRows.forEach((tr, i) => { tr._eqHtml = data.filas[i]; });
 
             if (!append) {
                 tableBody.innerHTML = '';
             }
             tableBody.style.opacity = '1';
 
-            // Filas por lote. Un repintado las pone todas de una vez: con la tabla vaciada y
-            // rellenada en la misma tarea, el navegador no llega a pintar el hueco ni salta el scroll.
-            const CHUNK_SIZE = opts.cuantos ? Math.max(1, allRows.length) : 30;
+            const CHUNK_SIZE = 30;
             let index = 0;
             let scrollObserver = null;
             let pausedResumeHandler = null;
@@ -1808,21 +1877,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                     if (hayFilasAux && typeof window.auxRestoreSelection === 'function') {
                         window.auxRestoreSelection();
                     }
-                    // Infinite scroll: si la consulta dice que hay más, observar la última fila
-                    // del conjunto actual y pedir el lote siguiente (offset = nextOffset).
-                    if (data && data.hasMore && typeof data.nextOffset === 'number') {
-                        const lastRow = tableBody.lastElementChild;
-                        if (lastRow && !lastRow.dataset.infiniteObserved) {
-                            lastRow.dataset.infiniteObserved = '1';
-                            const infObs = new IntersectionObserver((entries, obs) => {
-                                if (entries[0] && entries[0].isIntersecting) {
-                                    obs.disconnect();
-                                    window.loadEquipos(null, true, { offset: data.nextOffset, append: true });
-                                }
-                            }, { root: null, rootMargin: '400px', threshold: 0 });
-                            infObs.observe(lastRow);
-                        }
-                    }
+                    eqSeguirConScroll(tableBody, data, vigente);
                     return;
                 }
 
@@ -1863,8 +1918,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                         scrollObserver.observe(triggerRow);
                     }
                 } else {
-                    // Terminamos de inyectar todo
+                    // Terminamos de inyectar todo: si hay más, el lote siguiente al llegar abajo.
                     reApplySelections();
+                    eqSeguirConScroll(tableBody, data, vigente);
                 }
             }
 
