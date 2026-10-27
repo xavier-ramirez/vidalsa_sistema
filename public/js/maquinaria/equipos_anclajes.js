@@ -195,46 +195,9 @@ window.equiposAnclajesArrancar = function (EQANC_CFG) {
         if (tValue) _qsExp.set('id_tipo', tValue);
         const url = EQANC_CFG.rutaEquiposExportAnclajes + (_qsExp.toString() ? ('?' + _qsExp.toString()) : '');
 
-        // Fetch + blob en lugar de <a href>.click(): evita el spinner nativo
-        // de la pestaña del navegador. Mostramos el preloader global propio
-        // de la app mientras se genera el XLSX en el servidor.
-        if (typeof window.showPreloader === 'function') window.showPreloader();
-
-        window.apiFetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(r => {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                const cd = r.headers.get('content-disposition') || '';
-                const m  = cd.match(/filename="?([^";]+)"?/i);
-                const fname = m ? m[1] : ('Anclajes_' + new Date().toISOString().slice(0,10) + '.xlsx');
-                return r.blob().then(blob => ({ blob, fname }));
-            })
-            .then(({ blob, fname }) => {
-                const blobUrl = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = blobUrl;
-                link.download = fname;
-                link.style.display = 'none';
-                document.body.appendChild(link);
-                link.click();
-                setTimeout(() => {
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(blobUrl);
-                }, 300);
-                if (typeof window.showToast === 'function') {
-                    window.showToast('Descarga lista: ' + fname, 'success');
-                }
-            })
-            .catch(err => {
-                console.error('[exportAnclajes]', err);
-                if (typeof window.showToast === 'function') {
-                    window.showToast('Error al descargar el Excel de anclajes.', 'error');
-                } else {
-                    alert('Error al descargar el Excel.');
-                }
-            })
-            .finally(() => {
-                if (typeof window.hidePreloader === 'function') window.hidePreloader();
-            });
+        // Lo arma el servidor; descargarArchivo pone el spinner, toma el nombre del archivo y
+        // avisa si falla.
+        window.descargarArchivo(url, null, 'Anclajes.xlsx', 'Error al descargar el Excel de anclajes.');
     };
 
     // CAN_CREATE_EQUIPOS, CAN_ASSIGN_EQUIPOS, CAN_CHANGE_STATUS ya estan
