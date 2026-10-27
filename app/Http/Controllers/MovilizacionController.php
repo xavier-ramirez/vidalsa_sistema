@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Movilizacion;
 use App\Models\FrenteTrabajo;
+use App\Support\IdsEnviados;
 use App\Support\Sincronizacion\DominioMovilizaciones;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -49,8 +50,8 @@ class MovilizacionController extends Controller
 
     /**
      * Exporta a XLSX el historial TAL COMO SE ESTÁ VIENDO: la pantalla manda los ids que
-     * dejaron sus filtros (`ids[]`), así el archivo no puede traer otro universo. Los filtros
-     * viajan también, pero solo para escribir el subtítulo. Las filas pasan por la misma
+     * dejaron sus filtros (`ids`, separados por comas: IdsEnviados), así el archivo no puede
+     * traer otro universo. Los filtros viajan también, pero solo para escribir el subtítulo. Las filas pasan por la misma
      * visibilidad que la copia local (DominioMovilizaciones::visibles).
      *
      * Sin paginar a propósito: la pantalla muestra de 16 en 16, pero lo que se pide del
@@ -58,7 +59,7 @@ class MovilizacionController extends Controller
      */
     public function export(Request $request)
     {
-        $ids = array_map('intval', (array) $request->input('ids', []));
+        $ids = IdsEnviados::leer($request->input('ids'));
 
         $query = (new DominioMovilizaciones($request->user()))->visibles()->whereIn('ID_MOVILIZACION', $ids)->with([
             // Se traen los TRES identificadores porque la columna SERIAL es el primero que

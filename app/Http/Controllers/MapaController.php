@@ -292,7 +292,6 @@ class MapaController extends Controller
             if ($f['lat'] !== null) {
                 $hoja->setCellValue('K' . $r, number_format($f['lat'], 5, '.', '') . ', ' . number_format($f['lng'], 5, '.', ''));
                 $hoja->getCell('K' . $r)->getHyperlink()->setUrl('https://www.google.com/maps?q=' . $f['lat'] . ',' . $f['lng']);
-                $hoja->getStyle('K' . $r)->getFont()->setUnderline(true)->getColor()->setARGB('FF0563C1');
             } else {
                 $hoja->setCellValue('K' . $r, '—');
             }
@@ -300,7 +299,11 @@ class MapaController extends Controller
         }
         $fin = $r - 1;
 
-        // Estilo de las filas EN LOTE, como en Equipos: centradas salvo tipo y dirección, alto 30 y cebra.
+        // Estilo de las filas EN LOTE, como en Equipos: cebra (PRIMERO, ver rellenarFilas),
+        // centradas salvo tipo y dirección, y alto 30.
+        $numeros = $fin >= 6 ? range(6, $fin) : [];
+        $this->rellenarFilas($hoja, array_values(array_filter($numeros, fn ($n) => $n % 2 === 0)), $ultima, 'FFFFFFFF');
+        $this->rellenarFilas($hoja, array_values(array_filter($numeros, fn ($n) => $n % 2 === 1)), $ultima, 'FFF1F5F9');
         $hoja->getStyle("A6:{$ultima}{$fin}")->getAlignment()->setWrapText(true)
             ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
             ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
@@ -312,13 +315,15 @@ class MapaController extends Controller
             // columna J): Excel no ajusta solo el alto de una fila que ya lo trae fijado.
             $lineas = (int) ceil(mb_strlen((string) $hoja->getCell('J' . $f)->getValue()) / 75);
             $hoja->getRowDimension($f)->setRowHeight(max(30, $lineas * 13 + 6));
-            $hoja->getStyle("A{$f}:{$ultima}{$f}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                ->getStartColor()->setARGB((($f - 5) % 2 === 0) ? 'FFF1F5F9' : 'FFFFFFFF');
         }
-        // En línea en verde y en negrita (lo que más se busca en la hoja).
         foreach ($filas as $i => $f) {
+            // En línea en verde y en negrita (lo que más se busca en la hoja).
             if ($f['estado'] === 'EN LÍNEA') {
                 $hoja->getStyle('H' . ($i + 6))->getFont()->setBold(true)->getColor()->setARGB('FF15803D');
+            }
+            // Las coordenadas, con cara de enlace.
+            if ($f['lat'] !== null) {
+                $hoja->getStyle('K' . ($i + 6))->getFont()->setUnderline(true)->getColor()->setARGB('FF0563C1');
             }
         }
 

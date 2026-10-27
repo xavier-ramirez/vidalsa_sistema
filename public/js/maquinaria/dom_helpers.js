@@ -440,15 +440,21 @@
     };
 
     /**
-     * Pide un archivo por POST y lo DESCARGA (fetch → blob → <a download>) con el preloader
-     * puesto mientras el servidor lo genera. El nombre sale del Content-Disposition; si no
-     * viene, `nombre`. Lo usan los Excel del almacén, que mandan los ids que resolvió la copia.
+     * Pide un Excel al servidor y lo DESCARGA (fetch → blob → <a download>) con el preloader
+     * puesto mientras lo genera: por POST con `cuerpo` (los ids que resolvió la copia), o por
+     * GET si `cuerpo` es null (los filtros van en la url). El nombre sale del
+     * Content-Disposition; si no viene, `nombre`. Un segundo clic mientras se genera el mismo
+     * no pide otro. Si llega una página en vez del archivo (la sesión venció y redirigió al
+     * login) avisa del error en vez de bajar un .xlsx que no abre.
      */
+    var bajando = {};
     window.descargarArchivo = function (url, cuerpo, nombre, errMsg) {
+        if (bajando[url]) return bajando[url];
         if (window.showPreloader) window.showPreloader();
-        return window.apiFetch(url, { method: 'POST', body: cuerpo })
+        var pedido = cuerpo ? { method: 'POST', body: cuerpo } : {};
+        bajando[url] = window.apiFetch(url, pedido)
             .then(function (r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
+                if (!r.ok || /text\/html/i.test(r.headers.get('Content-Type') || '')) throw new Error('HTTP ' + r.status);
                 var m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(r.headers.get('Content-Disposition') || '');
                 if (m) nombre = decodeURIComponent(m[1]);
                 return r.blob();
@@ -462,6 +468,30 @@
                 window.toast('Excel descargado.', 'success');
             })
             .catch(function () { window.toast(errMsg, 'error'); })
+            .finally(function () {
+                delete bajando[url];
+                if (window.hidePreloader) window.hidePreloader();
+            });
+        return bajando[url];
+    };
+
+    /**
+     * Exportar a Excel desde una pantalla que pinta desde la copia local: con el preloader
+     * puesto, pone al día la copia del `dominio` (CopiaLocal.fresca: una pregunta que sale
+     * DESPUÉS del clic) y le pasa la vista a `armar`, que saca los ids y descarga (devuelve la
+     * promesa de descargarArchivo). Sin respuesta del servidor no se exporta: el Excel lo arma él.
+     */
+    window.exportarDesdeCopia = function (dominio, armar) {
+        if (window.showPreloader) window.showPreloader();
+        return window.CopiaLocal.fresca(dominio)
+            .then(function (vista) {
+                if (!vista.estado.conectado) {
+                    window.toast('El Excel se genera en el servidor: hace falta conexión.', 'error');
+                    return;
+                }
+                return armar(vista);
+            })
+            .catch(function () { window.toast('No se pudo generar el Excel.', 'error'); })
             .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
     };
 

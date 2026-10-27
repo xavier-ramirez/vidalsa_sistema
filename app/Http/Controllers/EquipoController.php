@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use App\Support\MensajeError;
+use App\Support\IdsEnviados;
 
 class EquipoController extends Controller
 {
@@ -204,20 +205,15 @@ class EquipoController extends Controller
 
     /**
      * Excel de lo que lista /admin/equipos. La pantalla filtra en el navegador (equipos_local.js)
-     * y manda aquí los ids, en el orden de la tabla: ids[] (equipos) y aux_ids[] (auxiliares).
-     * Se vuelven a recortar al alcance del usuario por si alguien manda ids ajenos. id_frente
-     * solo da el título; modo_aux = la tabla era de auxiliares (el libro lleva solo esa hoja).
+     * y manda aquí los ids, en el orden de la tabla y separados por comas (IdsEnviados): ids
+     * (equipos) y aux_ids (auxiliares). Se vuelven a recortar al alcance del usuario por si
+     * alguien manda ids ajenos. id_frente solo da el título; modo_aux = la tabla era de
+     * auxiliares (el libro lleva solo esa hoja).
      */
     public function export(Request $request)
     {
-        $request->validate([
-            'ids'       => 'array',
-            'ids.*'     => 'integer',
-            'aux_ids'   => 'array',
-            'aux_ids.*' => 'integer',
-        ]);
-        $ids    = array_map('intval', $request->input('ids', []));
-        $auxIds = array_map('intval', $request->input('aux_ids', []));
+        $ids    = IdsEnviados::leer($request->input('ids'));
+        $auxIds = IdsEnviados::leer($request->input('aux_ids'));
 
         $fileName = 'Listado_Maquinarias_Equipos_' . date('Y-m-d_H-i') . '.xlsx';
 
@@ -488,6 +484,11 @@ class EquipoController extends Controller
         if ($lastDataRow >= $firstDataRow) {
             $dataRange = "A{$firstDataRow}:{$lastCol}{$lastDataRow}";
 
+            // 0) Cebra: blanco y gris alternados. PRIMERO, antes de alinear (rellenarFilas).
+            $filas = range($firstDataRow, $lastDataRow);
+            $this->rellenarFilas($sheet, array_values(array_filter($filas, fn ($r) => ($r - $firstDataRow) % 2 === 0)), $lastCol, 'FFFFFFFF');
+            $this->rellenarFilas($sheet, array_values(array_filter($filas, fn ($r) => ($r - $firstDataRow) % 2 === 1)), $lastCol, 'FFF1F5F9');
+
             // 1) WrapText + alineacion vertical para TODAS las celdas de datos
             $sheet->getStyle($dataRange)->getAlignment()
                 ->setWrapText(true)
@@ -523,13 +524,9 @@ class EquipoController extends Controller
                     ->setHorizontal($align);
             }
 
-            // 6) Alto de fila + zebra striping (1 op por fila, no era el cuello de botella)
+            // 6) Alto de fila
             for ($r = $firstDataRow; $r <= $lastDataRow; $r++) {
                 $sheet->getRowDimension($r)->setRowHeight(30);
-                $argb = ((($r - $firstDataRow + 1) % 2) === 0) ? 'FFF1F5F9' : 'FFFFFFFF';
-                $sheet->getStyle("A{$r}:{$lastCol}{$r}")
-                    ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                    ->getStartColor()->setARGB($argb);
             }
 
             // 7) Italic + color tenue en columna TIPO de equipos anclados
@@ -5482,9 +5479,6 @@ class EquipoController extends Controller
                 $auxSheet->setCellValue("I{$row}", $r->ANIO ?? '—');
                 $auxSheet->setCellValue("J{$row}", mb_strtoupper($estadosLabels[$r->ESTADO_OPERATIVO] ?? $r->ESTADO_OPERATIVO ?? '—'));
 
-                $argb = ($counter % 2 === 0) ? 'FFF1F5F9' : 'FFFFFFFF';
-                $auxSheet->getStyle("A{$row}:{$lastCol}{$row}")->getFill()
-                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setARGB($argb);
                 $auxSheet->getRowDimension($row)->setRowHeight(25);
 
                 $row++;
@@ -5494,6 +5488,11 @@ class EquipoController extends Controller
 
         $lastDataRow = $row - 1;
         if ($lastDataRow >= 6) {
+            // Cebra PRIMERO, antes de alinear (rellenarFilas): la fila 6 es el ítem 1, blanca.
+            $filas = range(6, $lastDataRow);
+            $this->rellenarFilas($auxSheet, array_values(array_filter($filas, fn ($r) => $r % 2 === 0)), $lastCol, 'FFFFFFFF');
+            $this->rellenarFilas($auxSheet, array_values(array_filter($filas, fn ($r) => $r % 2 === 1)), $lastCol, 'FFF1F5F9');
+
             // Alineación de columnas de datos (en lote, fuera del loop — mismo patrón que la hoja de equipos)
             $auxSheet->getStyle("A6:{$lastCol}{$lastDataRow}")->getAlignment()
                 ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);

@@ -22,6 +22,8 @@
  *       fetch_interceptor.js (tras cada guardado que sale bien) y estado_red.js.
  *   CopiaLocal.alDia(dominio) → Promise. Se cumple cuando la copia ya trae el último guardado
  *       (o a los 10 s con la red colgada: ESPERA_AL_DIA_MS).
+ *   CopiaLocal.fresca(dominio) → Promise<vista>. Pregunta y espera la respuesta: la usan las
+ *       exportaciones a Excel antes de sacar la lista de filas.
  *   CopiaLocal.hayCambios() → el servidor avisó (tiempo-real.js): pregunta ya por todos.
  *   CopiaLocal.enVivo(conectado) → llegan (o dejaron de llegar) avisos del servidor.
  *   Evento 'copia-local' en window, detail { dominio, cambio, estado, campos }: cambio = true si
@@ -441,6 +443,14 @@
         alDia(d) {
             const p = copia(d).trasGuardar;
             return p ? Promise.race([p, new Promise((listo) => setTimeout(listo, ESPERA_AL_DIA_MS))]) : Promise.resolve();
+        },
+        // Exportar: la lista de filas sale de una pregunta que salió DESPUÉS del clic, así el
+        // Excel no deja fuera (ni mete) lo que alguien cambió hace segundos. Solo baja lo que
+        // cambió desde la última pregunta. → Promise<vista>; vista.estado.conectado = false si el
+        // servidor no contestó (sin él tampoco se puede armar el Excel).
+        fresca(d) {
+            const c = copia(d);
+            return cargar(d).then(() => (c.sinSesion || c.sinPermiso ? null : sincronizarTras(d))).then(() => c.vista);
         },
     };
 })();

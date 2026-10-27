@@ -48,7 +48,7 @@ class ExportHistorialMovilizacionesTest extends MySqlTestCase
 
     private function exportar(Usuario $usuario, array $ids, array $filtros = [])
     {
-        return $this->actingAs($usuario)->post('/admin/movilizaciones/export', $filtros + ['ids' => $ids]);
+        return $this->actingAs($usuario)->post('/admin/movilizaciones/export', $filtros + ['ids' => implode(',', $ids)]);
     }
 
     /** Ids de las últimas movilizaciones (las de la base real). */

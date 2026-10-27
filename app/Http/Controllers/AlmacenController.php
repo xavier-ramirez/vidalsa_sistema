@@ -20,6 +20,7 @@ use App\Traits\ConvertsImageToWebp;
 use RuntimeException;
 use Throwable;
 use App\Support\MensajeError;
+use App\Support\IdsEnviados;
 
 /**
  * Módulo de Almacén / Inventario.
@@ -268,22 +269,6 @@ class AlmacenController extends Controller
      * se busca exacto.
      */
     private const MAX_FORMAS_CON_PERDON   = 120;
-
-    /**
-     * IDs de producto de un parámetro CSV (`id_producto_in`): enteros > 0, sin repetidos.
-     * Lo mandan los buscadores del inventario y de la bitácora al elegir una sugerencia
-     * AGRUPADA (una descripción con varias presentaciones) y el modo "ver solo seleccionados".
-     * Devuelve [] si no vino nada usable — el llamador cae entonces a los demás filtros.
-     */
-    private function idsDesdeCsv($csv): array
-    {
-        return collect(explode(',', (string) $csv))
-            ->map(fn ($s) => (int) trim($s))
-            ->filter(fn ($n) => $n > 0)
-            ->unique()
-            ->values()
-            ->all();
-    }
 
     /**
      * "Despachos": notas que el general despacho y los almacenes de PROYECTO
@@ -1627,7 +1612,7 @@ class AlmacenController extends Controller
         // max_input_vars). Igual se acota a los almacenes que el usuario puede ver.
         $movs = MovimientoInventario::query()
             ->with(['producto:ID_PRODUCTO,CODIGO,NOMBRE,UM', 'almacen:ID_ALMACEN,NOMBRE', 'almacenContraparte:ID_ALMACEN,NOMBRE', 'frente:ID_FRENTE,NOMBRE_FRENTE'])
-            ->whereIn('ID_MOVIMIENTO', $this->idsDesdeCsv($request->input('ids')))
+            ->whereIn('ID_MOVIMIENTO', IdsEnviados::leer($request->input('ids')))
             ->whereIn('ID_ALMACEN', $visiblesIds)
             ->orderByDesc('FECHA')->orderByDesc('ID_MOVIMIENTO')
             ->get();
@@ -1693,9 +1678,13 @@ class AlmacenController extends Controller
         $hoja->getStyle("A4:{$ultima}4")->getFont()->setBold(true)->getColor()->setARGB('FFFFFFFF');
         $hoja->getStyle("A4:{$ultima}4")->getFill()->setFillType($SOLIDO)->getStartColor()->setARGB($AZUL);
 
+        // Ancho de cada columna = su texto más largo, medido aquí al escribir. setAutoSize()
+        // hacía lo mismo al guardar, pero midiendo celda por celda: 2,4 s de los 6,8 s de la
+        // bitácora entera (8.000 movimientos).
+        $largos = array_map('mb_strlen', $cols);
         $fila = 5;
         foreach ($movs as $m) {
-            $hoja->fromArray([
+            $valores = [
                 optional($m->FECHA)->format('d/m/Y H:i') ?: (string) $m->FECHA,
                 $m->TIPO,
                 $m->producto->CODIGO ?? '',
@@ -1711,10 +1700,16 @@ class AlmacenController extends Controller
                 ($b = $prestamos[$m->ID_MOVIMIENTO] ?? null) === null
                     ? ''
                     : InventarioService::rotuloBolsaPrestada($b, $nombreBolsa),
-            ], null, 'A' . $fila++);
+            ];
+            $hoja->fromArray($valores, null, 'A' . $fila++);
+            foreach ($valores as $i => $v) {
+                $largos[$i] = max($largos[$i], mb_strlen((string) $v));
+            }
         }
 
-        foreach (range('A', $ultima) as $c) $hoja->getColumnDimension($c)->setAutoSize(true);
+        foreach (range('A', $ultima) as $i => $c) {
+            $hoja->getColumnDimension($c)->setWidth(min(80, round($largos[$i] * 1.1) + 2));
+        }
         $hoja->freezePane('A5');
 
         $nombre = 'movimientos_' . now()->format('Y-m-d_Hi') . '.xlsx';
@@ -1754,7 +1749,7 @@ class AlmacenController extends Controller
         // local (AlmacenLocal.idsInventario) y manda sus ids en un solo campo separado por comas
         // (como ids[] se cortaría en max_input_vars, 1000). El Excel va alfabético a propósito
         // (se lee y se filtra con Excel) y salta las filas en saldo 0 (a pedido del cliente).
-        $productos = ProductoInventario::whereIn('ID_PRODUCTO', $this->idsDesdeCsv($request->input('ids')))
+        $productos = ProductoInventario::whereIn('ID_PRODUCTO', IdsEnviados::leer($request->input('ids')))
             ->orderBy('NOMBRE')
             ->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA']);
 
@@ -1931,6 +1926,11 @@ class AlmacenController extends Controller
         if ($rowNum > 6) {
             $ultimaFila = $rowNum - 1;
 
+            // ── Relleno de filas — PRIMERO y por lotes (rellenarFilas): copia el estilo entero,
+            // así que va antes de las alineaciones y la negrita de abajo, que se suman encima.
+            $this->rellenarFilas($sheet, $filasAlternas,   $lastCol, 'FFF8FAFC');   // gris muy claro alternado
+            $this->rellenarFilas($sheet, $filasBajoMinimo, $lastCol, 'FFFEF3C7');   // amarillo suave: saldo en o bajo el mínimo
+
             // ── Estilos por COLUMNA — UNA pasada, no celda-por-celda ───────────
             // getStyle() es costoso en PhpSpreadsheet; aplicarlo por rango de
             // columna completo (en vez de ~7 llamadas por fila dentro del loop)
@@ -1946,28 +1946,6 @@ class AlmacenController extends Controller
             if ($totalCol) {
                 $sheet->getStyle($totalCol . '6:' . $totalCol . $ultimaFila)->getFont()->setBold(true);
             }
-
-            // ── Relleno de filas — por LOTES, no fila por fila ─────────────────
-            // duplicateStyle() copia un estilo YA construido a otro rango; getStyle() lo
-            // construye de cero cada vez. Medido con el catálogo completo (1358 productos):
-            // 399 ms fila-por-fila contra 90 ms así, con el mismo resultado en pantalla.
-            // Se pinta una fila plantilla con getStyle y las demás se duplican de ella.
-            $pintar = function (array $filas, string $argb) use ($sheet, $lastCol) {
-                if (empty($filas)) {
-                    return;
-                }
-                $primera = array_shift($filas);
-                $rango   = 'A' . $primera . ':' . $lastCol . $primera;
-                $sheet->getStyle($rango)->getFill()
-                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                    ->getStartColor()->setARGB($argb);
-                $plantilla = $sheet->getStyle($rango);
-                foreach ($filas as $f) {
-                    $sheet->duplicateStyle($plantilla, 'A' . $f . ':' . $lastCol . $f);
-                }
-            };
-            $pintar($filasAlternas,   'FFF8FAFC');   // gris muy claro alternado
-            $pintar($filasBajoMinimo, 'FFFEF3C7');   // amarillo suave: saldo en o bajo el mínimo
 
             // Bordes a toda la zona de datos.
             $sheet->getStyle('A5:' . $lastCol . $ultimaFila)->getBorders()->getAllBorders()
@@ -2760,7 +2738,7 @@ class AlmacenController extends Controller
             $q = $base()->orderBy('NOMBRE');
             $idsRaw = trim((string) $request->query('ids', ''));
             if ($idsRaw !== '') {
-                $ids = $this->idsDesdeCsv($idsRaw);
+                $ids = IdsEnviados::leer($idsRaw);
                 abort_if(empty($ids), 404, 'No se indicaron productos válidos para las etiquetas.');
                 $q->whereIn('ID_PRODUCTO', $ids);
             } elseif ($request->filled('categoria') && $request->query('categoria') !== 'all') {
@@ -3316,7 +3294,7 @@ class AlmacenController extends Controller
         if ($numero !== '') {
             $q->where('NUMERO_NOTA', $numero);
         } elseif ($idsRaw !== '') {
-            $ids = $this->idsDesdeCsv($idsRaw);
+            $ids = IdsEnviados::leer($idsRaw);
             if (empty($ids)) return null;
             $q->whereIn('ID_MOVIMIENTO', $ids);
         } else {

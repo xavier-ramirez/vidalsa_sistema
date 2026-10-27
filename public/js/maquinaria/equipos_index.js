@@ -3464,48 +3464,18 @@ window.exportEquipos = function () {
     }
 
     // El Excel trae justo lo que lista la tabla (todas las filas, no solo el lote pintado), en su
-    // orden: los ids salen de la MISMA consulta (EquiposLocal.idsExportar). El servidor solo arma
-    // el archivo y vuelve a comprobar que el usuario puede verlos.
-    const ids = window.EquiposLocal.idsExportar(window._eqVista, filtros);
-    const cuerpo = new FormData();
-    ids.equipos.forEach((id) => cuerpo.append('ids[]', id));
-    ids.auxiliares.forEach((id) => cuerpo.append('aux_ids[]', id));
-    if (ids.modoAux) cuerpo.append('modo_aux', '1');
-    if (filtros.id_frente) cuerpo.append('id_frente', filtros.id_frente);   // título de la hoja
-
-    // Descargar vía fetch → blob (NO form.submit()): así se puede MOSTRAR el spinner
-    // mientras el servidor genera el Excel y ocultarlo al terminar.
-    if (window.showPreloader) window.showPreloader();
-
-    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-    var d = new Date();
-    var fname = 'Listado_Maquinarias_Equipos_' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '.xlsx';
-
-    window.apiFetch('/admin/equipos/export', {
-        method: 'POST',
-        body: cuerpo,
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }})
-        .then(function (r) {
-            if (!r.ok) throw new Error('No se pudo generar el Excel.');
-            return r.blob();
-        })
-        .then(function (blob) {
-            var burl = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = burl;
-            a.download = fname;
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 1500);
-        })
-        .catch(function (e) {
-            window.toast(e.message || 'Error al exportar el Excel.', 'error');
-        })
-        .finally(function () {
-            if (window.hidePreloader) window.hidePreloader();
-        });
+    // orden: los ids salen de la MISMA consulta (EquiposLocal.idsExportar), sobre la copia puesta
+    // al día en este momento (CopiaLocal.fresca). El servidor arma el archivo con los datos de la
+    // base y vuelve a comprobar que el usuario puede verlos.
+    window.exportarDesdeCopia('equipos', function (vista) {
+        const ids = window.EquiposLocal.idsExportar(vista, filtros);
+        const cuerpo = new FormData();
+        cuerpo.append('ids', ids.equipos.join(','));
+        cuerpo.append('aux_ids', ids.auxiliares.join(','));
+        if (ids.modoAux) cuerpo.append('modo_aux', '1');
+        if (filtros.id_frente) cuerpo.append('id_frente', filtros.id_frente);   // título de la hoja
+        return window.descargarArchivo('/admin/equipos/export', cuerpo, 'Listado_Maquinarias_Equipos.xlsx', 'No se pudo generar el Excel.');
+    });
 };
 
 // Resalte azul de "filtro activo" de la barra de búsqueda, según su valor ACTUAL.

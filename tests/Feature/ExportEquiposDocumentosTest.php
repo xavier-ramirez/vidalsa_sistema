@@ -33,7 +33,7 @@ class ExportEquiposDocumentosTest extends MySqlTestCase
         $ids = $this->idsExportarLocal($admin, ['search_query' => $serial]);
         $this->assertSame([$equipo->ID_EQUIPO], $ids['equipos']);
 
-        $resp = $this->actingAs($admin)->post(route('equipos.export'), ['ids' => $ids['equipos']]);
+        $resp = $this->actingAs($admin)->post(route('equipos.export'), ['ids' => implode(',', $ids['equipos'])]);
         $resp->assertOk();
         $hoja = \PhpOffice\PhpSpreadsheet\IOFactory::load($resp->baseResponse->getFile()->getPathname())->getSheetByName('Equipos');
 

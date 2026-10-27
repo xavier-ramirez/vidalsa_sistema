@@ -1846,13 +1846,14 @@
             case 'producto': if (window.almAbrirProducto)       window.almAbrirProducto();       break;
             case 'export':
                 // El Excel trae los productos que filtra la tabla, sin partir en páginas: los
-                // resuelve la copia local con filtros() —la única fuente de verdad de los
-                // filtros activos— y el servidor arma el archivo con esos ids.
-                almVista().then(function (vista) {
+                // resuelve la copia local, puesta al día en este momento, con filtros() —la única
+                // fuente de verdad de los filtros activos— y el servidor arma el archivo con esos
+                // ids y el stock de la base.
+                window.exportarDesdeCopia('almacen', function (vista) {
                     var fd = new FormData();
                     fd.append('id_almacen', val('almSelAlmacen'));
                     fd.append('ids', window.AlmacenLocal.idsInventario(vista, Object.fromEntries(filtros()), POR_DEFECTO).join(','));
-                    window.descargarArchivo(CFG.rutas.export, fd, 'Copia_Inventario.xlsx', 'No se pudo generar el Excel.');
+                    return window.descargarArchivo(CFG.rutas.export, fd, 'Copia_Inventario.xlsx', 'No se pudo generar el Excel.');
                 });
                 break;
         }

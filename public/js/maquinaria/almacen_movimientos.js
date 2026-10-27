@@ -396,17 +396,18 @@ window.almMovArrancar = function (CFG) {
     });
 
     // Descarga la bitácora en XLSX: los movimientos los resuelve la copia con los MISMOS
-    // filtros de la tabla (no puede salir un recorte distinto) y el servidor arma el archivo
+    // filtros de la tabla (no puede salir un recorte distinto), sobre la copia puesta al día en
+    // este momento (exportarDesdeCopia), y el servidor arma el archivo
     // con sus ids; los filtros viajan también para el encabezado del Excel.
     window.almMovExportarExcel = function () {
         var m = document.getElementById('splitDropdownMenuMovInv');
         if (m) m.style.display = 'none';
         var f = filtrosMov();
-        movVista().then(function (vista) {
+        window.exportarDesdeCopia('almacen', function (vista) {
             var fd = new FormData();
             Object.keys(f).forEach(function (k) { fd.append(k, f[k]); });
             fd.append('ids', window.AlmacenLocal.movimientos(vista, f, 1, { porDefecto: POR_DEFECTO }).ids.join(','));
-            window.descargarArchivo(CFG.rutas.exportar, fd, 'Bitacora_Movimientos.xlsx', 'No se pudo generar el Excel.');
+            return window.descargarArchivo(CFG.rutas.exportar, fd, 'Bitacora_Movimientos.xlsx', 'No se pudo generar el Excel.');
         });
     };
 

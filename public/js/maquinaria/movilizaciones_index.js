@@ -108,33 +108,21 @@ window._mvFiltrar = function (filas, p) {
     });
 };
 
-// Descarga el historial FILTRADO en XLSX: un POST con los ids que se están viendo (y los
-// filtros, que solo ponen el subtítulo). Un formulario normal deja que el navegador maneje
-// la descarga y el nombre del archivo (Content-Disposition). El Excel lo arma el servidor:
-// sin conexión el envío sacaría al usuario a la página de error del navegador.
+// Descarga el historial FILTRADO en XLSX: un POST con los ids que se están viendo, sacados de
+// la copia puesta al día en este momento (exportarDesdeCopia), y los filtros, que solo ponen
+// el subtítulo. El Excel lo arma el servidor: sin conexión no se intenta.
 window._exportarHistorial = function () {
-    if (!navigator.onLine || (window._mvVista && !window._mvVista.estado.conectado)) {
+    if (!navigator.onLine) {
         window.toast('Para exportar a Excel hace falta conexión a internet.', 'error');
         return;
     }
     const params = window._mvFiltrosActuales();
-    const filas = window._mvVista ? window._mvFiltrar(window._mvVista.filas('movilizaciones'), params) : [];
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '/admin/movilizaciones/export';
-    form.setAttribute('data-no-spa', 'true');
-    form.style.display = 'none';
-    const campo = function (nombre, valor) {
-        const i = document.createElement('input');
-        i.type = 'hidden'; i.name = nombre; i.value = valor;
-        form.appendChild(i);
-    };
-    campo('_token', window.getCsrf());
-    params.forEach(function (v, k) { campo(k, v); });
-    filas.forEach(function (m) { campo('ids[]', m.id); });
-    document.body.appendChild(form);
-    form.submit();
-    setTimeout(function () { if (form.parentNode) form.parentNode.removeChild(form); }, 800);
+    window.exportarDesdeCopia('movilizaciones', function (vista) {
+        const fd = new FormData();
+        params.forEach(function (v, k) { fd.append(k, v); });
+        fd.append('ids', window._mvFiltrar(vista.filas('movilizaciones'), params).map(function (m) { return m.id; }).join(','));
+        return window.descargarArchivo('/admin/movilizaciones/export', fd, 'Historial_Movilizaciones.xlsx', 'No se pudo generar el Excel.');
+    });
 };
 
 // ─── Filas ───────────────────────────────────────────────────────────────────

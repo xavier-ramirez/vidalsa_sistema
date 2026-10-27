@@ -151,6 +151,27 @@ trait ExcelLogoCorporativo
         return $ultima;
     }
 
+    /** Relleno de un color en filas enteras (A..$ultimaCol): la cebra, el amarillo de bajo mínimo.
+        Rápido: pinta la primera con getStyle y copia ese estilo a las demás con duplicateStyle
+        (getStyle fila por fila arma el estilo de cero en cada celda: eran 9 s de los 14 del Excel
+        de 1165 equipos). Pero duplicateStyle copia el estilo ENTERO de la celda A, no solo el
+        color, así que va ANTES de alinear o poner negritas: lo que venga después se suma
+        encima; lo que ya hubiera se perdería (el stock salía centrado en las filas grises). */
+    private function rellenarFilas(Worksheet $sheet, array $filas, string $ultimaCol, string $argb): void
+    {
+        $primera = array_shift($filas);
+        if ($primera === null) {
+            return;
+        }
+        $sheet->getStyle('A' . $primera . ':' . $ultimaCol . $primera)->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()->setARGB($argb);
+        $plantilla = $sheet->getStyle('A' . $primera);
+        foreach ($filas as $f) {
+            $sheet->duplicateStyle($plantilla, 'A' . $f . ':' . $ultimaCol . $f);
+        }
+    }
+
     /** Borde fino negro en toda la cuadrícula (encabezado y tabla), como en el export de Equipos. */
     private static function bordeFinoCorporativo(): array
     {

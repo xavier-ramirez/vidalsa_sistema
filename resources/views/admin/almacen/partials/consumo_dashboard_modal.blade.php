@@ -26,7 +26,7 @@
                 {{-- Descarga los DATOS (XLSX) con los filtros puestos, no una foto de los
                      graficos: una imagen se ve pero no se puede trabajar. Las camaras de
                      cada tarjeta siguen bajando su grafico como PNG. --}}
-                <button type="button" class="cdash-x" onclick="window._cdashDescargarExcel(this)" aria-label="Descargar Excel" title="Descargar los datos filtrados en Excel"><i class="material-icons">download</i></button>
+                <button type="button" class="cdash-x" onclick="window._cdashDescargarExcel()" aria-label="Descargar Excel" title="Descargar los datos filtrados en Excel"><i class="material-icons">download</i></button>
                 <button type="button" class="cdash-x" onclick="window.cerrarConsumoDashboard()" aria-label="Cerrar"><i class="material-icons">close</i></button>
             </div>
         </div>
@@ -289,46 +289,13 @@
         return p;
     };
 
-    // Descarga los DATOS filtrados en XLSX (4 hojas: detalle + las 3 agregaciones).
-    // Via fetch -> blob y NO window.open: asi se muestra el spinner mientras el backend
-    // arma el archivo, y se avisa si algo falla en vez de abrir una pestana en blanco.
-    window._cdashDescargarExcel = function (btn) {
-        if (btn && btn.dataset.bajando === '1') return;   // doble clic mientras genera
-        if (btn) { btn.dataset.bajando = '1'; btn.style.opacity = '.5'; }
-        if (window.showPreloader) window.showPreloader();
-
+    // Descarga los DATOS filtrados en XLSX (4 hojas: detalle + las 3 agregaciones). Los arma
+    // el servidor desde la base con los filtros del modal (GET); descargarArchivo pone el
+    // spinner, ignora el doble clic y avisa si algo falla.
+    window._cdashDescargarExcel = function () {
         var qs = window._cdashParams().toString();
-        var url = window.CONSUMO_DASH_EXPORT_URL + (qs ? ('?' + qs) : '');
-
-        window.apiFetch(url, { headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' } })
-            .then(function (r) {
-                if (!r.ok) throw new Error('No se pudo generar el Excel.');
-                // Si respondio HTML (p.ej. redireccion por sesion vencida) no lo bajamos
-                // como .xlsx corrupto.
-                var ct = (r.headers.get('Content-Type') || '').toLowerCase();
-                if (ct.indexOf('spreadsheet') === -1 && ct.indexOf('octet-stream') === -1) {
-                    throw new Error('La sesion expiro o no hay permiso para exportar.');
-                }
-                return r.blob();
-            })
-            .then(function (blob) {
-                var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-                var d = new Date();
-                var nombre = 'Dashboard_Consumo_' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
-                           + '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '.xlsx';
-                var burl = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = burl; a.download = nombre; a.style.display = 'none';
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 1500);
-            })
-            .catch(function (e) {
-                if (window.toast) window.toast(e.message || 'Error al exportar el Excel.', 'error');
-            })
-            .finally(function () {
-                if (window.hidePreloader) window.hidePreloader();
-                if (btn) { btn.dataset.bajando = ''; btn.style.opacity = ''; }
-            });
+        window.descargarArchivo(window.CONSUMO_DASH_EXPORT_URL + (qs ? ('?' + qs) : ''), null,
+            'Dashboard_Consumo.xlsx', 'No se pudo generar el Excel.');
     };
 
     // Lee los filtros PROPIOS del modal y pide los datos. Independiente del módulo.
