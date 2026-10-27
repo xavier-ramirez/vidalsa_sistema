@@ -97,8 +97,8 @@ window.refreshDashboardAlerts = async function () {
         if (!response.ok) throw new Error('Network response was not ok');
         aplicarAlertasDashboard(listContainer, await response.json());
     } catch (error) {
-        // Sin red (TypeError de fetch) es lo esperado trabajando sin conexión: aviso, no error.
-        (error instanceof TypeError ? console.warn : console.error)('Failed to refresh dashboard alerts:', error);
+        // Sin red (TypeError de fetch) es lo esperado trabajando sin conexión: no se registra.
+        if (!(error instanceof TypeError)) console.error('Failed to refresh dashboard alerts:', error);
         // En la primera carga (aún dice "Cargando alertas…") se avisa y se puede reintentar;
         // en un refresco se queda la lista que había.
         const cargando = listContainer.querySelector('.js-alertas-cargando');

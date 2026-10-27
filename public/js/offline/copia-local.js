@@ -23,8 +23,9 @@
  *   CopiaLocal.alDia(dominio) → Promise. Se cumple cuando la copia ya trae el último guardado.
  *   CopiaLocal.hayCambios() → el servidor avisó (tiempo-real.js): pregunta ya por todos.
  *   CopiaLocal.enVivo(conectado) → llegan (o dejaron de llegar) avisos del servidor.
- *   Evento 'copia-local' en window, detail { dominio, cambio, estado }: cambio = true si
+ *   Evento 'copia-local' en window, detail { dominio, cambio, estado, campos }: cambio = true si
  *       llegaron datos nuevos (la pantalla se repinta); con false solo cambió el estado.
+ *       campos = { tabla: [campos distintos] | '*' }, o null = puede ser todo (camposCambiados).
  *   estado = { listo, conectado, actualizado (ms) }.
  *
  * Una copia por usuario (meta usuario-id): en un equipo compartido nadie ve la de otro, y
@@ -181,8 +182,31 @@
     }
 
     // ── Sincronizar ──────────────────────────────────────────────────────────
-    function avisar(d, cambio) {
-        window.dispatchEvent(new CustomEvent('copia-local', { detail: { dominio: d, cambio, estado: copia(d).estado } }));
+    function avisar(d, cambio, campos) {
+        window.dispatchEvent(new CustomEvent('copia-local', { detail: { dominio: d, cambio, estado: copia(d).estado, campos: campos || null } }));
+    }
+
+    // Qué trae de distinto una respuesta, por tabla: los campos que cambiaron en las filas que
+    // ya estaban, o '*' (fila nueva o borrada). null = todo (copia entera o catálogos). Se mira
+    // ANTES de aplicarla y va en el evento ('campos'): navegacion.js no le pide la pantalla al
+    // servidor si no cambió nada de lo que el servidor pinta en ella.
+    function camposCambiados(c, r) {
+        if (r.completo || Object.keys(r.catalogos || {}).length) return null;
+        const campos = {};
+        const anotar = (t, k) => { if (campos[t] !== '*') (campos[t] || (campos[t] = new Set())).add(k); };
+        Object.entries(r.datos || {}).forEach(([t, fs]) => {
+            const m = c.tablas[t];
+            fs.forEach((f) => {
+                const antes = m && m.get(f.id);
+                if (!antes) { campos[t] = '*'; return; }
+                new Set(Object.keys(antes).concat(Object.keys(f))).forEach((k) => {
+                    if (JSON.stringify(antes[k]) !== JSON.stringify(f[k])) anotar(t, k);
+                });
+            });
+        });
+        Object.entries(r.borrados || {}).forEach(([t, ids]) => { if (ids.length) campos[t] = '*'; });
+        Object.keys(campos).forEach((t) => { if (campos[t] !== '*') campos[t] = Array.from(campos[t]); });
+        return campos;
     }
 
     function aplicar(d, r) {
@@ -277,7 +301,8 @@
                     const cambio = !!(r.completo || Object.keys(r.datos || {}).length
                         || Object.keys(r.borrados || {}).length || Object.keys(r.catalogos || {}).length);
                     c.estado.conectado = true;
-                    return aplicar(d, r).then(() => avisar(d, cambio));
+                    const campos = cambio ? camposCambiados(c, r) : null;
+                    return aplicar(d, r).then(() => avisar(d, cambio, campos));
                 });
             }).catch(() => {
                 const antes = c.estado.conectado;

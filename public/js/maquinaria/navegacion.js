@@ -275,17 +275,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Recién abierta desde la guardada, que puede ser de hace horas: se pone al día. Si se
     // guardó hace menos de 30 s (ir y volver entre módulos) no se pide otra vez, salvo que la
-    // copia local haya avisado de un cambio que aún no se pidió (refrescoPendiente, abajo).
+    // copia local haya avisado después de un cambio que la toca (cambioEn, abajo).
     function trasAbrirGuardada(url) {
         const ruta = rutaDe(url);
-        if (refrescoPendiente[ruta]) {
-            clearTimeout(refrescoPendiente[ruta]);
-            delete refrescoPendiente[ruta];
-            ponerAlDia(ruta);
-            return;
-        }
+        const desde = cambioEn[ruta];
+        clearTimeout(esperaAlDia[ruta]);
+        delete esperaAlDia[ruta];
+        delete cambioEn[ruta];
         respuestaGuardada(ruta).then((g) => {
-            if (!g || Date.now() - Number(g.headers.get('X-Guardada')) > 30000) ponerAlDia(ruta);
+            const guardada = g ? Number(g.headers.get('X-Guardada')) : 0;
+            if (!g || Date.now() - guardada > 30000 || (desde && guardada < desde)) ponerAlDia(ruta);
         });
     }
 
@@ -317,25 +316,49 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Cambiaron los datos de un dominio: su pantalla (los filtros) se vuelve a pedir en
-    // segundo plano, una vez que paren los cambios, y solo si la guardada es MÁS VIEJA que el
-    // cambio (la primera descarga de la copia llega justo cuando la pantalla se acaba de
-    // guardar). A la vista se pone al día en 1,5 s (ponerAlDia); si no, en 10 s solo se guarda.
-    const refrescoPendiente = {};
+    // Campos de la copia local que el servidor NO usa en la pantalla (ni en sus listas ni en
+    // data-en-vivo): si solo cambió eso, no se le pide la pantalla (~400 KB y medio segundo de
+    // servidor por cambio y por usuario). Lo que no está aquí —o una fila nueva o borrada, o
+    // un catálogo— sí se pide. El Menú no entra: sus números (data-en-vivo) salen del estado.
+    const DOCUMENTOS = /^(link|fecha|venc|anchor)|(Autor|Fecha)$/;
+    const NO_PINTA = {
+        '/admin/equipos': {
+            equipos: (k) => DOCUMENTOS.test(k) || ['estado', 'confirmado', 'falla', 'foto', 'fotoId', 'etiqueta', 'capacidad',
+                'codigo', 'chasis', 'motorSerial', 'consumo', 'placa', 'placaReal', 'titular', 'titularReal', 'nroDoc',
+                'seguro', 'aseguradoraReal', 'subCount'].includes(k),
+            auxiliares: (k) => ['estado', 'confirmado', 'fotoId', 'serial', 'codigo', 'capacidad', 'propiedad', 'certificado'].includes(k),
+        },
+    };
+    function tocaPantalla(ruta, campos) {
+        const fuera = NO_PINTA[ruta];
+        if (!fuera || !campos) return true;
+        return Object.keys(campos).some((t) => campos[t] === '*' || !fuera[t] || campos[t].some((k) => !fuera[t](k)));
+    }
+
+    // Cambiaron los datos de un dominio y tocan una pantalla: la que está a la vista se pone
+    // al día (ponerAlDia) cuando paran los cambios (1,5 s), y solo si la guardada es MÁS VIEJA
+    // que el cambio (la primera descarga de la copia llega justo cuando se acaba de guardar).
+    // Las que no están a la vista solo se anotan (cambioEn): se piden al abrirlas
+    // (trasAbrirGuardada), no en segundo plano cada vez que cambia algo.
+    const cambioEn = {};
+    const esperaAlDia = {};
     window.addEventListener('copia-local', (e) => {
         if (!e.detail || !e.detail.cambio) return;
         const cuando = Date.now();
-        Object.keys(PANTALLAS_LOCALES).filter((r) => PANTALLAS_LOCALES[r] === e.detail.dominio).forEach((r) => {
-            clearTimeout(refrescoPendiente[r]);
-            const vista = aLaVista(r);
-            refrescoPendiente[r] = setTimeout(() => {
-                delete refrescoPendiente[r];
+        Object.keys(PANTALLAS_LOCALES).forEach((r) => {
+            if (PANTALLAS_LOCALES[r] !== e.detail.dominio || !tocaPantalla(r, e.detail.campos)) return;
+            cambioEn[r] = cuando;   // el último: si la guardada es de después, ya los trae todos
+            if (!aLaVista(r)) return;
+            clearTimeout(esperaAlDia[r]);
+            esperaAlDia[r] = setTimeout(() => {
+                delete esperaAlDia[r];
+                if (!aLaVista(r)) return;   // se fue: queda anotada para cuando se abra
+                const desde = cambioEn[r];
+                delete cambioEn[r];
                 respuestaGuardada(r).then((g) => {
-                    if (g && Number(g.headers.get('X-Guardada')) >= cuando) return;
-                    if (vista && aLaVista(r)) ponerAlDia(r);
-                    else if (g) refrescarPantalla(r);
+                    if (!g || Number(g.headers.get('X-Guardada')) < desde) ponerAlDia(r);
                 });
-            }, vista ? 1500 : 10000);
+            }, 1500);
         });
     });
 

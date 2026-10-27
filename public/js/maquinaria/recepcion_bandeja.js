@@ -365,7 +365,8 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     // La tabla solo se reescribe si llegó distinta (_trHtml = la última pintada).
     var _trHtml = null;
     function trAplicar(body, data) {
-        if (data.html !== undefined && data.html !== _trHtml) { body.innerHTML = data.html; _trHtml = data.html; }
+        // Fila por fila: solo se crean las notas que cambiaron (las demás se quedan como están).
+        if (data.html !== undefined && data.html !== _trHtml) { window.repintarFilas(body, data.html); _trHtml = data.html; }
         var pg = el('trPagination'); if (pg && pg.innerHTML !== (data.pagination || '')) pg.innerHTML = data.pagination || '';
         // Refrescar las sugerencias del buscador con las del almacén/filtros actuales
         // (el backend las recalcula y las manda en cada respuesta). Sin esto, al
