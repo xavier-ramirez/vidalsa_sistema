@@ -424,7 +424,9 @@
     function init() {
         const cuerpo = document.getElementById('fallasTableBody');
         if (!cuerpo) return;
-        window.cargarFallas();   // "Cargando…" hasta que abra la copia
+        // "Cargando…" la primera vez. Si ya se abrió antes NO se pinta aún: recién reportada una
+        // falla, la lista de antes salía y un instante después aparecía la nueva.
+        if (!_vista) window.cargarFallas();
         window.CopiaLocal.usar('fallas', cuerpo)
             // Recién guardado algo (y vuelto aquí), se espera a que la copia lo traiga.
             .then(function (v) { return window.CopiaLocal.alDia('fallas').then(function () { return v; }); })

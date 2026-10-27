@@ -62,7 +62,8 @@
     // La COPIA LOCAL del almacén (window.CopiaLocal, dominio 'almacen'): de ella salen la tabla,
     // el Consolidado, el panel lateral, el historial de un producto y el catálogo de los
     // buscadores (almacen_local.js), con o sin internet. Tras un guardado se espera a que la
-    // copia lo traiga (alDia): el stock nunca se pinta con el dato de antes.
+    // copia lo traiga (alDia): el stock no se pinta con el dato de antes (con la red colgada,
+    // a los 10 s se pinta lo que hay y se corrige solo al llegar).
     var POR_DEFECTO = CFG.almacenPorDefecto;
     function almVista() {
         return window.layoutListo()

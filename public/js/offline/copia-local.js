@@ -20,7 +20,8 @@
  *   CopiaLocal.ahora(dominio) → Promise. Pregunta ya por ese dominio.
  *   CopiaLocal.alGuardar() → Promise. Pregunta ya por todos los dominios que mantiene; lo llaman
  *       fetch_interceptor.js (tras cada guardado que sale bien) y estado_red.js.
- *   CopiaLocal.alDia(dominio) → Promise. Se cumple cuando la copia ya trae el último guardado.
+ *   CopiaLocal.alDia(dominio) → Promise. Se cumple cuando la copia ya trae el último guardado
+ *       (o a los 10 s con la red colgada: ESPERA_AL_DIA_MS).
  *   CopiaLocal.hayCambios() → el servidor avisó (tiempo-real.js): pregunta ya por todos.
  *   CopiaLocal.enVivo(conectado) → llegan (o dejaron de llegar) avisos del servidor.
  *   Evento 'copia-local' en window, detail { dominio, cambio, estado, campos }: cambio = true si
@@ -272,6 +273,9 @@
         return borrar(d);
     }
 
+    // Tope para que el servidor EMPIECE a contestar (ver sincronizar).
+    const ESPERA_RESPUESTA_MS = 20000;
+
     function sincronizar(d) {
         const c = copia(d);
         if (c.enCurso) return c.enCurso;
@@ -279,9 +283,15 @@
         c.enCurso = cargar(d).then(() => {
             c.ultimo = Date.now();
             const q = new URLSearchParams({ desde: c.meta.hasta || '', firma: c.meta.firma || '', esquema: c.meta.esquema || '' });
+            // Con tope hasta que empieza la respuesta (no la descarga: una copia entera en un
+            // teléfono lento puede tardar más): con la red colgada la pregunta no terminaba
+            // nunca y todas las siguientes de este dominio quedaban encadenadas detrás.
+            const corta = typeof AbortController === 'function' ? new AbortController() : null;
+            const tope = corta ? setTimeout(() => corta.abort(), ESPERA_RESPUESTA_MS) : null;
             return (window.fetchSinInterceptor || window.fetch)('/sync/' + d + '?' + q, {
                 credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' },
-            }).then((res) => {
+                signal: corta ? corta.signal : undefined,
+            }).finally(() => clearTimeout(tope)).then((res) => {
                 if (res.status === 403) return olvidar(d).then(() => avisar(d, true));
                 if (res.status === 401) {
                     c.sinSesion = true;
@@ -354,6 +364,10 @@
     const vencida = (c) => Date.now() - c.ultimo >= Math.max(c.meta.espera || 15, enVivo ? RESPALDO_EN_VIVO_S : 0) * 1000;
     // usar(): pintar desde la copia pregunta si la última pregunta tiene más de esto.
     const PREGUNTA_AL_USAR_MS = 3000;
+    // alDia(): tope de la espera. Con la red colgada (conectada pero sin respuesta) la pregunta
+    // tarda hasta ESPERA_RESPUESTA_MS y el módulo seguía en blanco; pasado esto se pinta lo que
+    // hay, y si la pregunta llega después, el evento 'copia-local' trae el cambio.
+    const ESPERA_AL_DIA_MS = 10000;
 
     // El reloj solo pregunta con alguien usando la pantalla (tocó algo en los últimos 2 min).
     // Un aviso del servidor (hubo un cambio de verdad) o volver a la pantalla (forzar) preguntan
@@ -425,7 +439,8 @@
             enVivo = !!conectado;
         },
         alDia(d) {
-            return copia(d).trasGuardar || Promise.resolve();
+            const p = copia(d).trasGuardar;
+            return p ? Promise.race([p, new Promise((listo) => setTimeout(listo, ESPERA_AL_DIA_MS))]) : Promise.resolve();
         },
     };
 })();
