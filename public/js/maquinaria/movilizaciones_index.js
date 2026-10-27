@@ -313,11 +313,16 @@ function _mvInit() {
     if (panel) window.advancedFilterOpen = panel.style.display === 'block';
 
     const pagina = new URLSearchParams(window.location.search).get('page');
-    window.loadMovilizaciones(pagina);   // "Cargando…" hasta que abra la copia
-    window.CopiaLocal.usar('movilizaciones', tbody).then(function (vista) {
-        window._mvVista = vista;
-        if (document.getElementById('movilizacionesTableBody') === tbody) window.loadMovilizaciones(pagina);
-    });
+    // Tras movilizar, se espera a que la copia traiga ese movimiento (alDia), como en Equipos y
+    // Almacén: si no, salía la lista de antes y un instante después aparecía el nuevo. Mientras
+    // tanto, "Cargando…" (la primera vez) o la tabla vacía.
+    if (!window._mvVista) window.loadMovilizaciones(pagina);
+    window.CopiaLocal.usar('movilizaciones', tbody)
+        .then(function (vista) { return window.CopiaLocal.alDia('movilizaciones').then(function () { return vista; }); })
+        .then(function (vista) {
+            window._mvVista = vista;
+            if (document.getElementById('movilizacionesTableBody') === tbody) window.loadMovilizaciones(pagina);
+        });
 }
 
 // Carga directa (F5 o URL directa)

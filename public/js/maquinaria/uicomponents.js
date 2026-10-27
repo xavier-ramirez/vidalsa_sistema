@@ -1653,9 +1653,10 @@ window.toggleConfirmacionSitioAux = function (el) {
 
         var miTurno = ++turno;
         mostrarEstado('mov_cargando');
-        window.CopiaLocal.usar('movilizaciones').then(function (vista) {
-            if (miTurno === turno) pintarDesdeCopia(vista, equipoId);
-        });
+        // Recién movilizado: se espera a que la copia traiga ese movimiento (alDia).
+        window.CopiaLocal.usar('movilizaciones')
+            .then(function (vista) { return window.CopiaLocal.alDia('movilizaciones').then(function () { return vista; }); })
+            .then(function (vista) { if (miTurno === turno) pintarDesdeCopia(vista, equipoId); });
     }
 
     // Llegaron movilizaciones nuevas con el modal abierto: se repinta.
