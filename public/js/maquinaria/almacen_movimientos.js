@@ -116,7 +116,8 @@ window.almMovArrancar = function (CFG) {
             .finally(function () { if (conPre && window.hidePreloader) window.hidePreloader(); });
     };
 
-    // La copia se puso al día (un guardado propio o de otro equipo): se rehace la MISMA página.
+    // La copia se puso al día (un guardado propio o de otro equipo): se repinta la MISMA
+    // página, cambiando solo las filas distintas.
     winOn('copia-local', function (e) {
         if (e.detail.dominio !== 'almacen' || !el('almMovTableBody')) return;
         if (e.detail.cambio) window.loadMovimientos(_almMovPagina);

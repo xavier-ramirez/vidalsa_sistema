@@ -1609,12 +1609,13 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         .then((vista) => {
             window._eqVista = vista;
             if (!vigente() || !document.contains(tableBody)) return null;
-            // Al repintar porque llegó la copia nueva se rehace todo lo que ya estaba cargado.
+            // Al repintar porque llegó la copia nueva se consulta todo lo ya cargado (opts.cuantos);
+            // de eso solo se cambian en la tabla las filas distintas (eqRepintarFilas).
             return window.EquiposLocal.consultar(vista, filters, offset, puede, opts.cuantos);
         })
         .then((data) => {
             if (!data) return;
-            window._eqHasta = data.nextOffset;   // filas cargadas: las que rehace un repintado
+            window._eqHasta = data.nextOffset;   // filas cargadas: las que vuelve a consultar un repintado
             // Ya estaba toda la lista: el repintado la trae entera aunque haya crecido. Si pidiera
             // las mismas filas que había, un equipo que entra (de otro frente) dejaba fuera la
             // última fila y los auxiliares del final hasta volver a bajar.
@@ -3608,7 +3609,8 @@ function initEquipos() {
 if (!window._equiposWindowListenersReady) {
     window._equiposWindowListenersReady = true;
 
-    // La copia local se puso al día: se rehace lo que se ve, con las mismas filas cargadas.
+    // La copia local se puso al día: se repinta lo que se ve, con las mismas filas cargadas
+    // (solo cambian las filas distintas).
     window.addEventListener('copia-local', function (e) {
         if (e.detail.dominio !== 'equipos' || !e.detail.cambio || !document.getElementById('equiposTableBody')) return;
         window.loadEquipos(null, true, { sinHistorial: true, cuantos: window._eqCompleto ? Infinity : Math.max(150, window._eqHasta || 0) });

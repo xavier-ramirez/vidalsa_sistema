@@ -427,7 +427,7 @@
             });
     };
 
-    // La copia se puso al día: se rehace lo que se ve (tabla, Consolidado, panel y catálogo de
+    // La copia se puso al día: se repinta lo que se ve (tabla, Consolidado, panel y catálogo de
     // los buscadores). Si el usuario está escribiendo una cantidad en la tabla se espera a que
     // salga del campo, para no quitarle el foco a media cifra.
     var _almRepintarPendiente = false;
