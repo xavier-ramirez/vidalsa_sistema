@@ -50,12 +50,26 @@
     // NO usar navigator.onLine para decidir: miente con el servidor caído.
     let sinConexion = false;
 
+    // Desde cuándo no hay servidor: la última vez que contestó a la copia local (copia-local.js
+    // lo anota en el equipo cada vez, y pregunta cada 15 s). Hoy solo la hora; otro día, la fecha.
+    function desdeCuando() {
+        var u = (document.querySelector('meta[name="usuario-id"]') || {}).content || '';
+        var t = 0;
+        try { t = parseInt(localStorage.getItem('vidalsa_contacto_' + u), 10) || 0; } catch (e) {}
+        if (!t) return '';
+        var d = new Date(t);
+        var hora = d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+        return d.toDateString() === new Date().toDateString()
+            ? ' desde las ' + hora
+            : ' desde el ' + d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit' }) + ', ' + hora;
+    }
+
     // ── DUEÑO ÚNICO de "se fue la red" (lo llama también el interceptor de fetch) ──
     // Ya avisado no se repinta: cada petición fallida lo volvería a medir y animar.
     function mostrarOffline() {
         if (sinConexion) return;
         sinConexion = true;
-        showBanner('Sin internet · trabajando con la copia local', 'cloud_off', '#b45309', 0);
+        showBanner('Sin internet' + desdeCuando() + ' · trabajando con la copia local', 'cloud_off', '#b45309', 0);
         ajustarResondeo();   // a partir de aqui hay que vigilar si vuelve
     }
 

@@ -311,6 +311,9 @@
                     const cambio = !!(r.completo || Object.keys(r.datos || {}).length
                         || Object.keys(r.borrados || {}).length || Object.keys(r.catalogos || {}).length);
                     c.estado.conectado = true;
+                    // Última vez que contestó el servidor: el aviso «Sin internet» dice desde
+                    // cuándo (estado_red.js). En el equipo, porque la app puede abrirse ya sin red.
+                    try { localStorage.setItem('vidalsa_contacto_' + usuario(), String(Date.now())); } catch (e) {}
                     const campos = cambio ? camposCambiados(c, r) : null;
                     return aplicar(d, r).then(() => avisar(d, cambio, campos));
                 });
