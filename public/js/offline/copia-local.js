@@ -29,7 +29,7 @@
  *   Evento 'copia-local' en window, detail { dominio, cambio, estado, campos }: cambio = true si
  *       llegaron datos nuevos (la pantalla se repinta); con false solo cambió el estado.
  *       campos = { tabla: [campos distintos] | '*' }, o null = puede ser todo (camposCambiados).
- *   estado = { listo, conectado, actualizado (ms) }.
+ *   estado = { listo, conectado }.
  *
  * Una copia por usuario (meta usuario-id): en un equipo compartido nadie ve la de otro, y
  * al entrar otro usuario la del anterior se borra.
@@ -61,7 +61,7 @@
 
     // ── IndexedDB ────────────────────────────────────────────────────────────
     // bloques: { u, d, t, b, iv, ct }   clave [u, d, t, b] · ct = las filas del bloque, cifradas
-    // estado:  { u, d, iv, ct }         clave [u, d]       · ct = { hasta, firma, esquema, espera, actualizado }
+    // estado:  { u, d, iv, ct }         clave [u, d]       · ct = { hasta, firma, esquema, espera }
     // Si el navegador no deja abrirla (ventana privada), la copia vive solo en memoria.
     let dbPromesa = null;
     function db() {
@@ -110,7 +110,7 @@
         if (!copias[d]) {
             copias[d] = {
                 tablas: {}, arrays: {}, catalogos: {}, meta: {},
-                estado: { listo: false, conectado: true, actualizado: null },
+                estado: { listo: false, conectado: true },
                 vista: null, lista: null, enCurso: null, siguiente: null, ultimo: 0, anclas: new Set(),
             };
             copias[d].vista = {
@@ -162,7 +162,6 @@
                             c.tablas = tablas;
                             c.arrays = {};
                             c.meta = meta;
-                            c.estado.actualizado = meta.actualizado || null;
                             c.estado.listo = true;
                         })
                         // Cifrada con otra llave: no se puede abrir, se tira y se baja de nuevo.
@@ -235,7 +234,6 @@
         Object.assign(c.catalogos, r.catalogos || {});
         c.arrays = {};
         c.meta = { hasta: r.hasta, firma: r.firma, esquema: r.esquema, espera: r.espera };
-        c.estado.actualizado = Date.now();
         c.estado.listo = true;
 
         return Promise.all([db(), conLlave()]).then(async ([b, hayLlave]) => {
@@ -250,7 +248,7 @@
             });
             if (r.completo || Object.keys(r.catalogos || {}).length) escribir.push([CATALOGOS, 0, c.catalogos]);
             const cifrados = await Promise.all(escribir.map(([, , v]) => (v ? llave.cifrar(v) : null)));
-            const est = await llave.cifrar(Object.assign({ actualizado: c.estado.actualizado }, c.meta));
+            const est = await llave.cifrar(c.meta);
 
             const tx = b.transaction(['bloques', 'estado'], 'readwrite');
             const bloques = tx.objectStore('bloques');
