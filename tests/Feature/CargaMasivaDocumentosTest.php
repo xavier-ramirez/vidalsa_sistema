@@ -336,10 +336,10 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $vieja = \App\Models\CatalogoSeguro::create(['NOMBRE_ASEGURADORA' => 'ASEGURADORA VIEJA CM']);
         $nueva = \App\Models\CatalogoSeguro::create(['NOMBRE_ASEGURADORA' => 'ASEGURADORA NUEVA CM']);
         $vence = now()->addYear()->toDateString();
-        $soltar = function (string $driveId, ?string $aseguradora) use ($vence) {
+        $soltar = function (string $driveId, ?string $aseguradora, string $estado = VerificacionDocumento::APLICADO) use ($vence) {
             VerificacionDocumento::create([
                 'DRIVE_ID' => $driveId, 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA,
-                'TIPO' => 'poliza', 'ARCHIVO' => $driveId . '.pdf', 'ESTADO' => VerificacionDocumento::APLICADO,
+                'TIPO' => 'poliza', 'ARCHIVO' => $driveId . '.pdf', 'ESTADO' => $estado,
                 'A_MANO' => false, 'INTENTOS' => 0,
                 'PROPUESTA' => ['tipo' => 'poliza', 'link' => '/storage/google/' . $driveId, 'vence' => $vence,
                     'aseguradora' => $aseguradora, 'equipos' => []],
@@ -366,13 +366,21 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertTrue($r['ok'], $r['mensaje']);
         $this->assertSame($nueva->ID_SEGURO, (int) $equipo->documentacion()->first()->ID_SEGURO);
 
-        // La migración: la ficha que sigue con el PDF y quedó con otra aseguradora se corrige; la
-        // que ya no tiene ese PDF, no.
-        $otro = $this->equipo(['LINK_POLIZA_SEGURO' => '/storage/google/poliza-nueva-cm', 'ID_SEGURO' => $vieja->ID_SEGURO]);
+        // La migración: la ficha que sigue con el PDF y quedó con otra aseguradora se corrige —también
+        // la unidad ya enlazada de una póliza de flota que no terminó (no está "Aplicado")—; la que
+        // ya no tiene ese PDF, no. Correrla otra vez no cambia nada ni repite el historial.
+        $soltar('poliza-flota-cm', $nueva->NOMBRE_ASEGURADORA, VerificacionDocumento::POR_ENGANCHAR);
+        $otro  = $this->equipo(['LINK_POLIZA_SEGURO' => '/storage/google/poliza-nueva-cm', 'ID_SEGURO' => $vieja->ID_SEGURO]);
+        $flota = $this->equipo(['LINK_POLIZA_SEGURO' => '/storage/google/poliza-flota-cm', 'ID_SEGURO' => $vieja->ID_SEGURO]);
         $ajeno = $this->equipo(['LINK_POLIZA_SEGURO' => '/storage/google/otra-poliza-cm', 'ID_SEGURO' => $vieja->ID_SEGURO]);
-        (require database_path('migrations/2026_10_28_120000_aseguradora_de_polizas_de_carga_masiva.php'))->up();
+        $migracion = require database_path('migrations/2026_10_28_130000_aseguradora_de_polizas_de_carga_masiva.php');
+        $migracion->up();
         $this->assertSame($nueva->ID_SEGURO, (int) $otro->documentacion()->first()->ID_SEGURO);
+        $this->assertSame($nueva->ID_SEGURO, (int) $flota->documentacion()->first()->ID_SEGURO);
         $this->assertSame($vieja->ID_SEGURO, (int) $ajeno->documentacion()->first()->ID_SEGURO);
+        $registros = EquipoAuditLog::where('CAMBIOS', 'like', '%aseguradora del PDF%')->count();
+        $migracion->up();
+        $this->assertSame($registros, EquipoAuditLog::where('CAMBIOS', 'like', '%aseguradora del PDF%')->count(), 'repetirla no cambia nada');
     }
 
     /** El título de propiedad NO vence: ese sí entra sin fecha. */

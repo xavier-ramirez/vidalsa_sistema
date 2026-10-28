@@ -22,9 +22,10 @@ return new class extends Migration
         $catalogo = DB::table('catalogo_seguros')->pluck('ID_SEGURO', 'NOMBRE_ASEGURADORA')->all();
         $nombres  = array_flip($catalogo);
 
+        // En cualquier estado: una póliza de flota con alguna unidad todavía sin enlazar no está
+        // "Aplicado", pero las que sí se enlazaron se quedaron con la aseguradora vieja.
         $filas = DB::table('verificacion_documento_registro')
-            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
-            ->where('TIPO', 'poliza')->where('ESTADO', VerificacionDocumento::APLICADO)
+            ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->where('TIPO', 'poliza')
             ->get(['PROPUESTA']);
 
         foreach ($filas as $fila) {
