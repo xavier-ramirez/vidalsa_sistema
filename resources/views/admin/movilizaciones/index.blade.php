@@ -338,7 +338,6 @@
                     <span id="totalTransitoCount" style="font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -1px;">—</span>
                     <span style="font-size: 12px; font-weight: 500;">registros</span>
                 </div>
-                <div id="mvCopiaEstado" style="display: none; margin-top: 6px; font-size: 11px; font-weight: 600; opacity: 0.85;"></div>
             </div>
         </div>
 

@@ -398,7 +398,6 @@
 
                 {{-- Cards de fallas: las pinta fallas_index.js desde la copia local (dominio
                      'fallas'), con o sin internet; el Consolidado, también. --}}
-                <div id="fallasCopiaEstado" style="display:none; margin-bottom:8px; font-size:12px; font-weight:600; color:#b45309;"></div>
                 <div id="fallasTableBody" style="display:flex; flex-direction:column; gap:10px;"
                     data-puede-cerrar="{{ auth()->user()->can('equipos.edit') ? 1 : 0 }}"
                     data-super-admin="{{ auth()->user()->can('super.admin') ? 1 : 0 }}"></div>

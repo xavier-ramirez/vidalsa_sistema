@@ -55,7 +55,7 @@
     function mostrarOffline() {
         if (sinConexion) return;
         sinConexion = true;
-        showBanner('Sin internet · trabajando con la copia de este equipo', 'cloud_off', '#b45309', 0);
+        showBanner('Sin internet · trabajando con la copia local', 'cloud_off', '#b45309', 0);
         ajustarResondeo();   // a partir de aqui hay que vigilar si vuelve
     }
 

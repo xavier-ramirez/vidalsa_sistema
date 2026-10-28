@@ -604,18 +604,4 @@
             return !t || (Date.now() - t) < 2 * 60 * 1000;
         } catch (e) { return true; }
     };
-
-    /**
-     * Línea de estado de una pantalla que pinta desde la copia local (copia-local.js): solo dice
-     * algo cuando NO hay conexión, y entonces de cuándo son los datos que se están viendo.
-     */
-    window.pintarEstadoCopia = function (id, estado) {
-        var el = document.getElementById(id);
-        if (!el || !estado) return;
-        var cuando = estado.actualizado
-            ? new Date(estado.actualizado).toLocaleString('es-VE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-            : '';
-        el.textContent = estado.conectado ? '' : (cuando ? 'Sin conexión · datos del ' + cuando : 'Sin conexión');
-        el.style.display = el.textContent ? 'block' : 'none';
-    };
 })();

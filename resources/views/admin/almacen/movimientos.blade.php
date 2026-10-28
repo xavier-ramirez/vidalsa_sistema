@@ -337,8 +337,6 @@
                 <span id="almMovTotal" style="font-size:32px;font-weight:800;line-height:1;letter-spacing:-1px;">—</span>
                 <span style="font-size:12px;font-weight:500;">registros (según filtros)</span>
             </div>
-            {{-- Estado de la copia local: sin conexión / última puesta al día (pintarEstadoCopia). --}}
-            <div id="almMovCopiaEstado" style="display:none;margin-top:6px;font-size:11px;font-weight:600;opacity:0.85;"></div>
         </div>
     </div>
 

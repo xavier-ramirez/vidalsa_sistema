@@ -220,7 +220,6 @@ window.loadMovilizaciones = function (pagina) {
             : 'Cargando historial…');
         if (pag) pag.innerHTML = '';
         if (totalEl) totalEl.innerText = '—';
-        if (vista) window.pintarEstadoCopia('mvCopiaEstado', vista.estado);
         return;
     }
 
@@ -236,7 +235,6 @@ window.loadMovilizaciones = function (pagina) {
         : _mvMensaje('No se encontraron movilizaciones registradas.'));
     if (pag) pag.innerHTML = window.paginadorHtml(window._mvPagina, ultima);
     if (totalEl) totalEl.innerText = filas.length;
-    window.pintarEstadoCopia('mvCopiaEstado', vista.estado);
 
     // La URL refleja los filtros y la página (F5 o compartir el enlace vuelven aquí).
     if (window._mvPagina > 1) params.set('page', window._mvPagina);
@@ -269,13 +267,12 @@ if (!window._mvPaginationRegistered) {
     });
 }
 
-// La copia se puso al día (o cambió la conexión): se repinta la página en la que se está.
+// La copia se puso al día: se repinta la página en la que se está.
 if (!window._mvCopiaRegistered) {
     window._mvCopiaRegistered = true;
     window.addEventListener('copia-local', function (e) {
         if (e.detail.dominio !== 'movilizaciones' || !document.getElementById('movilizacionesTableBody')) return;
         if (e.detail.cambio) window.loadMovilizaciones(window._mvPagina);
-        else window.pintarEstadoCopia('mvCopiaEstado', e.detail.estado);
     });
 }
 

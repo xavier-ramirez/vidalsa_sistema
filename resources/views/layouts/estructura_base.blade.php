@@ -403,7 +403,7 @@
     </script>
 
     {{-- Banner global de estado de red, solo informativo: sin servidor avisa que se trabaja con
-         la copia de este equipo y persiste hasta que vuelva; entonces muestra brevemente
+         la copia local y persiste hasta que vuelva; entonces muestra brevemente
          "Conexion restaurada" en verde y desaparece. La logica vive en
          public/js/maquinaria/estado_red.js. --}}
     <div id="netStatusBanner" role="status" aria-live="polite"

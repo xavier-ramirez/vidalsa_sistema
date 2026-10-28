@@ -221,8 +221,6 @@
                 <span id="almNotTotalCount" style="font-size:32px;font-weight:800;line-height:1;letter-spacing:-1px;">—</span>
                 <span style="font-size:12px;font-weight:500;">notas (según filtros)</span>
             </div>
-            {{-- Estado de la copia local: sin conexión / última puesta al día (pintarEstadoCopia). --}}
-            <div id="almNotCopiaEstado" style="display:none;margin-top:6px;font-size:11px;font-weight:600;opacity:0.85;"></div>
         </div>
     </div>
 
@@ -273,7 +271,6 @@
             .then(function (v) { return window.CopiaLocal.alDia('almacen').then(function () { window.__almNotVista = v; return v; }); })
             .then(function (vista) {
                 if (!document.contains(body)) return;
-                window.pintarEstadoCopia('almNotCopiaEstado', vista.estado);
                 if (!vista.estado.listo) {
                     body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#64748b;">Sin conexión: este equipo todavía no tiene las notas guardadas.</td></tr>';
                     return;
@@ -319,7 +316,6 @@
     if (!_almNotBound) window.addEventListener('copia-local', function (e) {
         if (e.detail.dominio !== 'almacen' || !document.getElementById('almNotTableBody')) return;
         if (e.detail.cambio) window.loadNotas(window.__almNotPagina);
-        else window.pintarEstadoCopia('almNotCopiaEstado', e.detail.estado);
     });
     if (!_almNotBound) window.addEventListener('dropdown-selection', function (e) {
         if (!window.__almNotReady) return;

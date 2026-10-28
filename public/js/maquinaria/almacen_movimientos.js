@@ -95,7 +95,6 @@ window.almMovArrancar = function (CFG) {
         movVista()
             .then(function (vista) {
                 if (!document.contains(body)) return;
-                window.pintarEstadoCopia('almMovCopiaEstado', vista.estado);
                 if (!vista.estado.listo) {
                     body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#64748b;">Sin conexión: este equipo todavía no tiene la bitácora guardada.</td></tr>';
                     return;
@@ -121,7 +120,6 @@ window.almMovArrancar = function (CFG) {
     winOn('copia-local', function (e) {
         if (e.detail.dominio !== 'almacen' || !el('almMovTableBody')) return;
         if (e.detail.cambio) window.loadMovimientos(_almMovPagina);
-        else window.pintarEstadoCopia('almMovCopiaEstado', e.detail.estado);
     });
 
     // Filtro de fecha ROBUSTO (Desde/Hasta). Un <input type="date"> devuelve '' mientras

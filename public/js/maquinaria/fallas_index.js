@@ -204,7 +204,6 @@
                 : 'Cargando reportes…');
             if (pag) pag.innerHTML = '';
             pintarConsolidado(null);
-            if (_vista) window.pintarEstadoCopia('fallasCopiaEstado', _vista.estado);
             return;
         }
 
@@ -224,7 +223,6 @@
             : mensaje('No hay reportes que coincidan con los filtros.'));
         if (pag) pag.innerHTML = window.paginadorHtml(_pagina, ultima);
         pintarConsolidado(consolidado(filtrar(todas, p, false)));
-        window.pintarEstadoCopia('fallasCopiaEstado', _vista.estado);
     };
 
     // ─── Dona de tipo de mantenimiento (Consolidado) ───
@@ -280,11 +278,10 @@
         }
     }, true);
 
-    // La copia se puso al día (o cambió la conexión): se repinta la página en la que se está.
+    // La copia se puso al día: se repinta la página en la que se está.
     window.addEventListener('copia-local', function (e) {
         if (e.detail.dominio !== 'fallas' || !document.getElementById('fallasTableBody')) return;
         if (e.detail.cambio) window.cargarFallas(_pagina);
-        else window.pintarEstadoCopia('fallasCopiaEstado', e.detail.estado);
     });
 
     // Cerrar panel avanzado al hacer clic fuera

@@ -383,8 +383,6 @@
                     </div>
                 </div>
             </div>
-            {{-- Estado de la copia local: sin conexión / última puesta al día (pintarEstadoCopia). --}}
-            <div id="almCopiaEstado" style="display:none;margin-top:6px;font-size:11px;font-weight:600;opacity:0.85;"></div>
         </div>
     </div>
 

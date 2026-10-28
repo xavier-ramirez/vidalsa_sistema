@@ -328,7 +328,6 @@
         almVista()
             .then(function (vista) {
                 if (gen !== almLoadGen || !document.contains(body)) return;
-                window.pintarEstadoCopia('almCopiaEstado', vista.estado);
                 if (!vista.estado.listo) {
                     body.innerHTML = '<tr><td colspan="6" class="alm-vacio"><i class="material-icons">cloud_off</i>Sin conexión: este equipo todavía no tiene el inventario guardado.</td></tr>';
                     return;
@@ -442,7 +441,6 @@
     window.addEventListener('copia-local', function (e) {
         if (e.detail.dominio !== 'almacen' || !el('almTableBody')) return;
         if (e.detail.cambio) almRepintar();
-        else window.pintarEstadoCopia('almCopiaEstado', e.detail.estado);
     });
     // Guardar, subir o descartar algo sin internet cambia el stock que se ve (va encima de la copia).
     window.addEventListener('bandeja', function () { if (el('almTableBody')) almRepintar(); });
