@@ -37,9 +37,10 @@
         \App\Models\VerificacionDocumento::APLICADO      => 'Aplicado',
     ];
     // En el DESPLEGABLE cada opcion lleva su cuenta (con los demas filtros puestos, ver
-    // PanelDocumentos::datosDocumentos), y las que no tienen ninguna fila no se ofrecen: elegirlas daba la lista vacia y parecia que el filtro no hacia nada. La elegida
-    // se queda siempre (el desplegable saca de aqui su nombre). Es una copia: las etiquetas de
-    // las FILAS ($estadosDoc) van sin cuenta.
+    // PanelDocumentos::datosDocumentos), y las que no tienen ninguna fila no se ofrecen:
+    // elegirlas daba la lista vacia y parecia que el filtro no hacia nada. La elegida se queda
+    // siempre (el desplegable saca de aqui su nombre). Es una copia: las etiquetas de las
+    // FILAS ($estadosDoc) van sin cuenta.
     $opcionesEstadoDoc = $estadosDoc;
     if (isset($resumenDocs)) {
         $cuentas = ['revisar' => $cuentaRevisar ?? 0, 'corregibles' => $docsCorregibles ?? 0]
@@ -399,16 +400,18 @@
             </div>
             @endcan
             {{-- Cada tarjeta filtra la lista de abajo: se pulsa y se ve QUE filas son (cpdfPoner, con
-                 los demás filtros puestos). --}}
+                 los demás filtros puestos). El href solo sirve para abrirla en otra pestaña. --}}
             @fragment('revisar')
-            <a class="cpdf-caja cpdf-filtra" data-cpdf-parte="revisar" role="button" onclick="window.cpdfPoner({ estado_doc: 'revisar' })">
+            <a class="cpdf-caja cpdf-filtra" data-cpdf-parte="revisar" href="{{ route('historial-documentos.index', ['pestana' => 'documentos', 'estado_doc' => 'revisar']) }}"
+               onclick="event.preventDefault(); window.cpdfPoner({ estado_doc: 'revisar' })">
                 <small>Para revisar a mano</small>
                 <strong>{{ $cuentaRevisar }}</strong>
                 <span>ilegibles, ajenos o sin archivo</span>
             </a>
             @endfragment
             @fragment('sin-enlazar')
-            <a class="cpdf-caja cpdf-filtra" data-cpdf-parte="sin-enlazar" role="button" onclick="window.cpdfPoner({ estado_doc: @js(\App\Models\VerificacionDocumento::POR_ENGANCHAR) })">
+            <a class="cpdf-caja cpdf-filtra" data-cpdf-parte="sin-enlazar" href="{{ route('historial-documentos.index', ['pestana' => 'documentos', 'estado_doc' => \App\Models\VerificacionDocumento::POR_ENGANCHAR]) }}"
+               onclick="event.preventDefault(); window.cpdfPoner({ estado_doc: @js(\App\Models\VerificacionDocumento::POR_ENGANCHAR) })">
                 <small>Sin enlazar</small>
                 <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::POR_ENGANCHAR] ?? 0 }}</strong>
                 <span>de la carga masiva: reconocidos, no se pudieron enlazar solos</span>
@@ -424,7 +427,8 @@
             <div class="cpdf-caja cpdf-avance">
                 <small><i class="material-icons">fact_check</i> Por dónde va la revisión</small>
                 @foreach ($avanceDocs as $tipo => $a)
-                    <a class="cpdf-avance-fila" role="button" onclick="window.cpdfPoner({ tipo_doc: @js($tipo), estado_doc: null })">
+                    <a class="cpdf-avance-fila" href="{{ route('historial-documentos.index', ['pestana' => 'documentos', 'tipo_doc' => $tipo]) }}"
+                       onclick="event.preventDefault(); window.cpdfPoner({ tipo_doc: @js($tipo), estado_doc: null })">
                         <span class="cpdf-avance-nombre">{{ $a['nombre'] }}</span>
                         <span class="cpdf-avance-barra"><i style="width: {{ $a['total'] ? round($a['leidos'] * 100 / $a['total']) : 100 }}%;"></i></span>
                         <span class="cpdf-avance-cifra">
@@ -558,8 +562,7 @@
     // tocarlo muestra SOLO esas (?ids=, lo filtra el servidor) y "Limpiar" las suelta. Cada
     // filtro o página cambia las filas, y una acción vuelve a pintar la pestaña entera
     // (cpdfRecargar), así que la selección se guarda en window._cpdfSel mientras se siga en la
-    // MISMA pestaña; al cambiar de pestaña o salir del
-    // módulo empieza de cero. `revisables` son las elegidas que se pueden dar por revisadas y
+    // MISMA pestaña; al cambiar de pestaña o salir del módulo empieza de cero. `revisables` son las elegidas que se pueden dar por revisadas y
     // `descartables`, las que se pueden eliminar (id → enlace de su PDF, data-descartar).
     (function () {
         var pestana = @json($pestana), url = new URLSearchParams(location.search);
