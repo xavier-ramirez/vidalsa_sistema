@@ -1,5 +1,5 @@
 /**
- * Vidalsa PWA — Overlay "Actualizando…" (SOLO en el login)
+ * Vidalsa PWA — Overlay "Actualizando…" (al abrir la app)
  *
  * Problema: al desplegar muchos cambios, el service worker nuevo descarga los assets
  * frescos. Con internet flojo eso compite con el login → tarda o falla, y el usuario no
@@ -10,9 +10,14 @@
  * usuario inicia sesión normal — la navegación natural del login a /menu ya sirve los assets
  * frescos del SW nuevo, así que NO hace falta recargar a la fuerza.
  *
- * A PROPÓSITO no recarga la página ni se carga fuera del login:
- *  - Recargar en una página interna (formulario a medias) perdería el trabajo del usuario.
- *  - En el login no hay nada que perder, por eso el overlay vive solo aquí.
+ * Va en el login y en el layout interno. Con la sesión abierta, el login guardado salta al
+ * menú en ~1 s y el SW nuevo se descubre DESPUÉS, ya en el menú: si viviera solo en el login,
+ * el aviso no salía nunca. En las páginas internas solo cuenta una instalación que empieza
+ * en los primeros VENTANA_MS tras cargar la página (la app recién abierta): más tarde la
+ * persona ya puede estar llenando algo y no se le tapa la pantalla.
+ *
+ * A PROPÓSITO no recarga la página: en una página interna (formulario a medias) perdería
+ * el trabajo del usuario.
  * No re-registra el SW (el login ya lo registra): solo se engancha a la registración
  * existente para vigilar la instalación. Timeout de seguridad para no dejar al usuario
  * atrapado bajo el overlay si el internet no permite terminar (el SW viejo sigue sirviendo
@@ -25,6 +30,8 @@
 
     var OVERLAY_ID = 'pwaUpdateOverlay';
     var MAX_MS = 15000; // tope: si tarda demasiado (mal internet) se quita el overlay
+    var VENTANA_MS = 10000; // páginas internas: solo recién abierta la app (ver cabecera)
+    var enLogin = !!document.getElementById('loginForm');
     var timer = null;
 
     function showOverlay() {
@@ -68,6 +75,7 @@
     // o si la instalación falla. No se recarga (ver cabecera).
     function watchInstalling(sw) {
         if (!sw || !navigator.serviceWorker.controller) return;
+        if (!enLogin && performance.now() > VENTANA_MS) return;
         showOverlay();
         sw.addEventListener('statechange', function () {
             if (sw.state === 'activated' || sw.state === 'redundant') hideOverlay();

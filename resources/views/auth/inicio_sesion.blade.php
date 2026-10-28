@@ -554,8 +554,8 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(function(){});
 }
 </script>
-{{-- Overlay "Actualizando…": si hay un SW nuevo bajándose (tras un despliegue), avisa y
-     recarga al terminar. Solo en ese caso; en login normal no aparece. --}}
+{{-- Overlay "Actualizando…": si hay un SW nuevo bajándose (tras un despliegue), avisa hasta
+     que termina (no recarga). Solo en ese caso; en login normal no aparece. --}}
 <script src="{{ asset('js/pwa-update-overlay.js') }}?v={{ @filemtime(public_path('js/pwa-update-overlay.js')) }}" defer></script>
 {{-- La llave de lo guardado en el equipo: se prepara con la clave y se cierra aquí. --}}
 <script src="{{ asset('js/offline/llave-local.js') }}?v={{ @filemtime(public_path('js/offline/llave-local.js')) }}" defer></script>
