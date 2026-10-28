@@ -320,6 +320,11 @@
     // "boba fea") cuando el login no puede contactar al servidor. Con una sesión anterior
     // en este equipo se entra igual escribiendo la clave (lo llama la huella, que sí
     // necesita servidor); sin ella, la primera vez hace falta internet.
+    // El servidor contestó, pero con un error (o una página que no es la suya).
+    function avisarServidorConError() {
+        if (window.OfflineAuth) window.OfflineAuth.descartar();
+        mostrarMsgLogin('El servidor no respondió bien. Intenta de nuevo en un momento.');
+    }
     function avisarSinConexion() {
         mostrarMsgLogin(window.OfflineAuth && window.OfflineAuth.tieneOffline()
             ? 'Sin conexión.\nEscribe tu clave para entrar con los datos guardados en este equipo.'
@@ -359,7 +364,7 @@
     // la petición inútil) y antes de escribir (una petición YA en vuelo cuando empieza el
     // submit resolvería igual y pisaría el token bueno).
     function precalentarCsrf() {
-        if (!navigator.onLine) return; // sin red: el submit ya avisa "sin conexión"
+        if (!navigator.onLine) return; // sin red: el submit entra con lo guardado en el equipo
         if (window._loginEnCurso) return;
         fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
             .then(function (r) {
@@ -435,6 +440,9 @@
     if (loginForm) {
         loginForm.addEventListener('submit', function(e) {
             e.preventDefault(); // Stop native submission immediately
+            // Un intento a la vez: Enter otra vez durante la espera (el spinner tapa los clics,
+            // no el teclado) lanzaba un segundo intento que pisaba el verificador del primero.
+            if (window._loginEnCurso) return;
 
             // Limpia un mensaje previo y muestra el spinner. La bandera evita que el
             // guard de 4s lo oculte a mitad del intento (ver arriba); se limpia en
@@ -452,7 +460,9 @@
             // sesión normal no llega) se entra con lo guardado en el equipo si hubo una
             // sesión anterior aquí; si no, el aviso. El verificador a medio hacer se tira
             // dentro de entrarSinServidor: nadie validó esas credenciales.
-            const off = window.OfflineAuth;
+            // Solo si offline-auth.js cargó entero (un archivo a medias o de otra versión dejaba
+            // el spinner pegado al llamar a una función que no estaba).
+            const off = (window.OfflineAuth && window.OfflineAuth.conServidor) ? window.OfflineAuth : null;
             function seguirSinServidor() {
                 if (!(off && off.entrarSinServidor())) avisarSinConexion();
             }
@@ -473,8 +483,12 @@
 
                 // Bajón de red / servidor inalcanzable en el handshake O en el POST: NO se
                 // navega (eso dispara la página de error del navegador): se sigue sin servidor.
+                // Si el servidor SÍ contestó, pero con un error (503 al desplegar, 429, 500), no
+                // es falta de red: entrar con lo guardado lo dejaría sin sesión allá y la
+                // primera consulta lo sacaría. Se avisa y se reintenta.
                 intentarLogin(false).catch(function (error) {
                     console.error('Login failed:', error);
+                    if (error && error.contesto) { avisarServidorConError(); return; }
                     seguirSinServidor();
                 });
             });
@@ -499,7 +513,7 @@
                 //    caché del Service Worker (token viejo); forzamos red para el token actual.
                 return fetchConTope('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' }, 10000)
                     .then(response => {
-                        if (!response.ok) throw new Error('HTTP ' + response.status);
+                        if (!response.ok) throw Object.assign(new Error('HTTP ' + response.status), { contesto: true });
                         return response.text();
                     })
                     .then(newToken => {
@@ -520,16 +534,19 @@
                                 window.location.reload(); // segundo 419 seguido: último recurso
                                 return;
                             }
-                            return resp.json().then(function (data) {
+                            // Una respuesta que no es JSON (página 502/504 del proxy, portal del
+                            // wifi) llega como null: antes recargaba sin decir nada.
+                            return resp.json().catch(function () { return null; }).then(function (data) {
                                 if (resp.ok && data && data.success && data.redirect) {
                                     window.marcarLoginReciente();          // solo en éxito confirmado
                                     // El servidor validó ESTAS credenciales: recién ahora se
                                     // guardan como verificador de acceso sin conexión. Salvo
                                     // si toca cambiar la clave, que las invalidaría enseguida.
+                                    // Si guardarlo falla se entra igual: la sesión ya está abierta.
                                     const off = window.OfflineAuth;
                                     if (!off) { window.location.href = data.redirect; return; }
                                     if (data.redirect === RUTA_CAMBIO_CLAVE) off.descartar();
-                                    return off.sincronizar(data.clave_v).then(function () {
+                                    return off.sincronizar(data.clave_v).catch(function () {}).then(function () {
                                         window.location.href = data.redirect;  // → menú
                                     });
                                 }
@@ -537,10 +554,8 @@
                                 // tira (no se guarda una clave que el servidor rechazó) y se
                                 // muestra el mensaje, quedándose en el login.
                                 if (window.OfflineAuth) window.OfflineAuth.descartar();
-                                mostrarMsgLogin((data && data.message) || 'Usuario o clave incorrecta.');
-                            }).catch(function () {
-                                // Respuesta no-JSON inesperada: recargar para mostrar el server-render.
-                                window.location.reload();
+                                if (!data) { avisarServidorConError(); return; }
+                                mostrarMsgLogin(data.message || 'Usuario o clave incorrecta.');
                             });
                         });
                     });

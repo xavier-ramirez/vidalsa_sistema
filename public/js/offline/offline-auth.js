@@ -194,17 +194,19 @@
     }
 
     // ¿Contesta el servidor? Con tope: sin él, una red que traga los paquetes sin contestar
-    // dejaría la pantalla esperando para siempre.
+    // dejaría la pantalla esperando para siempre. true = contestó; false = la red falló;
+    // null = no contestó a tiempo (puede ser solo lento: recién desplegado, red floja).
     function hayServidor(ms) {
         if (!navigator.onLine) return Promise.resolve(false);
         const corta = (typeof AbortController === 'function') ? new AbortController() : null;
-        const tope = corta ? setTimeout(function () { corta.abort(); }, ms) : null;
+        let vencido = false;
+        const tope = corta ? setTimeout(function () { vencido = true; corta.abort(); }, ms) : null;
         return fetch('/up', {
             method: 'GET', cache: 'no-store', credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             signal: corta ? corta.signal : undefined
         })
-            .then(function () { return true; }, function () { return false; })
+            .then(function () { return true; }, function () { return vencido ? null : false; })
             .finally(function () { if (tope) clearTimeout(tope); });
     }
 
@@ -284,11 +286,13 @@
     // que no hay servidor, se vuelve a preguntar con algo más de paciencia: el sondeo pudo
     // fallar solo porque el servidor tardó (recién desplegado, red lenta), y entrar en local
     // teniendo servidor deja la sesión cerrada allá: la primera consulta devolvería al login.
+    // Solo un fallo de RED decide entrar en local; si no contestó a tiempo se intenta el
+    // inicio de sesión normal, que tiene sus propios topes y, si tampoco llega, entra en local.
     // Si la pantalla cree que sí hay, no se pregunta: el propio inicio de sesión lo descubre
     // (y si no llega, entrarSinServidor).
     window.OfflineAuth.conServidor = function () {
         if (!sinServidor) return Promise.resolve(true);
-        return hayServidor(6000).then(function (hay) { sinServidor = !hay; refrescarAccesos(); return hay; });
+        return hayServidor(6000).then(function (hay) { sinServidor = !hay; refrescarAccesos(); return hay !== false; });
     };
 
     // Un intento no llegó al servidor (el inicio de sesión o la huella): desde aquí cuenta
@@ -305,22 +309,32 @@
         window.OfflineAuth.noContesto();
         window.OfflineAuth.descartar();   // el verificador a medio hacer: nadie lo validó
         if (!window.OfflineAuth.tieneOffline()) return false;
-        entrarLocal((idEl && idEl.value || '').trim(), (pwEl && pwEl.value || ''));
+        const id = (idEl && idEl.value || '').trim();
+        const pw = (pwEl && pwEl.value || '');
+        if (!id || !pw) window.mostrarMsgLogin('Escribe tu correo y tu clave.');
+        else entrarLocal(id, pw);
         return true;
     };
 
     // La comprobación en el equipo, sin servidor.
     async function entrarLocal(id, pw) {
         const ok = await window.OfflineAuth.verificar(id, pw).catch(function () { return false; });
-        // La misma clave abre la copia cifrada que quedó en el equipo.
-        if (ok && window.LlaveLocal) await window.LlaveLocal.abrirConClave(id, pw).catch(function () { return false; });
-        if (ok) {
-            // El menú omite el spinner general en esta primera carga tras login.
-            if (window.marcarLoginReciente) window.marcarLoginReciente();
-            window.location.href = tomarVolverA() || '/menu';
-        } else {
+        if (!ok) {
             window.mostrarMsgLogin('Sin conexión, y el correo o la clave no coinciden con la última vez que se entró en este equipo.', true);
+            return;
         }
+        // La misma clave abre la copia cifrada que quedó en el equipo. Si no abre (la primera
+        // entrada aquí no llegó a guardarla: se cerró la app antes de que contestara
+        // /sync/llave), adentro no hay nada que leer y la página interna volvería a mandar
+        // aquí: un bucle con la clave correcta. Se avisa y se queda.
+        const abierta = !window.LlaveLocal || await window.LlaveLocal.abrirConClave(id, pw).catch(function () { return false; });
+        if (!abierta) {
+            window.mostrarMsgLogin('Sin conexión, y este equipo todavía no tiene tus datos guardados.\nEntra una vez con internet.', true);
+            return;
+        }
+        // El menú omite el spinner general en esta primera carga tras login.
+        if (window.marcarLoginReciente) window.marcarLoginReciente();
+        window.location.href = tomarVolverA() || '/menu';
     }
 
     // 'online' vuelve a SONDEAR (que haya red no significa que el servidor conteste);
