@@ -69,7 +69,8 @@
     .cpdf-aviso .cpdf-ahora:disabled { opacity: .5; cursor: default; }
     .cpdf-aviso .cpdf-ahora-pedida { margin-top: 6px; font-weight: 700; }
     /* Tarjetas que filtran la lista: son enlaces, pero se ven igual que las demas cajas. */
-    a.cpdf-filtra { text-decoration: none; transition: border-color .15s, transform .15s; }
+    /* Sin href: filtran con cpdfPoner, por eso el cursor va a mano. */
+    a.cpdf-filtra { text-decoration: none; cursor: pointer; transition: border-color .15s, transform .15s; }
     a.cpdf-filtra:hover { border-color: #0067b1; transform: translateY(-1px); }
     /* Misma letra que la tarjeta de distribución de Equipos ("Ubicación por Frente",
        admin/equipos/partials/distribution_stats): titulo de 13 px con raya debajo, nombre
@@ -80,7 +81,7 @@
     /* Dos lineas por documento: el nombre entero con su cifra, y debajo la barra. En la
        columna lateral (280 px) el nombre no cabe al lado de la barra sin recortarse. */
     .cpdf-avance-fila { display: grid; grid-template-columns: 1fr auto; align-items: flex-start;
-                        column-gap: 4px; text-decoration: none; padding: 0 0 4px; margin-bottom: 4px;
+                        column-gap: 4px; text-decoration: none; cursor: pointer; padding: 0 0 4px; margin-bottom: 4px;
                         border-bottom: 1px dashed #f1f5f9; transition: opacity .2s; }
     .cpdf-avance-fila:last-child { margin-bottom: 0; }
     .cpdf-avance-fila:hover { opacity: .7; }

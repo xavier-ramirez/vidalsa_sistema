@@ -36,13 +36,13 @@
         \App\Models\VerificacionDocumento::OTRO_DOCUMENTO => 'Otro documento (no se asoció)',
         \App\Models\VerificacionDocumento::APLICADO      => 'Aplicado',
     ];
-    // En el DESPLEGABLE cada opcion lleva su cuenta, y las que no tienen ninguna fila no se
-    // ofrecen: elegirlas daba la lista vacia y parecia que el filtro no hacia nada. La elegida
+    // En el DESPLEGABLE cada opcion lleva su cuenta (con los demas filtros puestos, ver
+    // PanelDocumentos::datosDocumentos), y las que no tienen ninguna fila no se ofrecen: elegirlas daba la lista vacia y parecia que el filtro no hacia nada. La elegida
     // se queda siempre (el desplegable saca de aqui su nombre). Es una copia: las etiquetas de
     // las FILAS ($estadosDoc) van sin cuenta.
     $opcionesEstadoDoc = $estadosDoc;
     if (isset($resumenDocs)) {
-        $cuentas = ['revisar' => $docsParaRevisar ?? 0, 'corregibles' => $docsCorregibles ?? 0]
+        $cuentas = ['revisar' => $cuentaRevisar ?? 0, 'corregibles' => $docsCorregibles ?? 0]
             + $resumenDocs->map(fn ($n) => (int) $n)->all();
         foreach ($opcionesEstadoDoc as $clave => $etiqueta) {
             $n = (int) ($cuentas[$clave] ?? 0);
@@ -82,7 +82,8 @@
         @endforeach
 
         {{-- Filtros: mismos componentes que Usuarios/Equipos (buscador + custom-dropdown).
-             Cada cambio vuelve a pedir la página con los filtros en la URL (cpdfFiltrar). --}}
+             Cada cambio pide por AJAX solo los @fragment de abajo (cpdfFiltrar): la tabla, las
+             páginas, las cuentas del lateral y las opciones de cada desplegable con su cuenta. --}}
         <div class="filter-toolbar-container cpdf-filtros">
             @includeWhen($pestana !== 'documentos', 'admin.compresion_pdf.partials.buscador')
 
@@ -106,7 +107,8 @@
                             </div>
                         </div>
                         <div class="dropdown-content" style="padding: 5px; max-height: none; overflow: visible;">
-                            <div class="dropdown-item-list" style="max-height: 250px; overflow-y: auto;">
+                            @fragment('opciones-' . $dd['nombre'])
+                            <div class="dropdown-item-list" data-cpdf-parte="opciones-{{ $dd['nombre'] }}" style="max-height: 250px; overflow-y: auto;">
                                 <div class="dropdown-item {{ !$dd['valor'] ? 'selected' : '' }}" data-value="all" data-label="{{ $dd['todos'] }}"
                                      onclick="selectOption('{{ $dd['id'] }}', this.dataset.value, this.dataset.label); window.cpdfFiltrar();">{{ $dd['todos'] }}</div>
                                 @foreach ($dd['opciones'] as $valor => $texto)
@@ -114,6 +116,7 @@
                                          onclick="selectOption('{{ $dd['id'] }}', this.dataset.value, this.dataset.label); window.cpdfFiltrar();">{{ $texto }}</div>
                                 @endforeach
                             </div>
+                            @endfragment
                         </div>
                     </div>
                 </div>
@@ -126,8 +129,10 @@
             @include('admin.historial_documentos.partials.acciones')
         </div>
 
+        {{-- La tabla y sus páginas son @fragment: es lo que repinta cada filtro (cpdfFiltrar). --}}
         @if ($pestana === 'documentos')
-        <div class="cpdf-tabla-caja cpdf-docs">
+        @fragment('tabla')
+        <div class="cpdf-tabla-caja cpdf-docs" data-cpdf-parte="tabla">
             <table class="admin-table">
                 <thead>
                     <tr class="tabla-cabecera">
@@ -279,9 +284,13 @@
                 </tbody>
             </table>
         </div>
-        <div style="margin-top:12px;">{{ $docs->links('vendor.pagination.custom-sliding') }}</div>
+        @endfragment
+        @fragment('paginas')
+        <div class="cpdf-paginas" data-cpdf-parte="paginas" style="margin-top:12px;">{{ $docs->links('vendor.pagination.custom-sliding') }}</div>
+        @endfragment
         @else
-        <div class="cpdf-tabla-caja cpdf-comp">
+        @fragment('tabla')
+        <div class="cpdf-tabla-caja cpdf-comp" data-cpdf-parte="tabla">
             <table class="admin-table">
                 <thead>
                     <tr class="tabla-cabecera">
@@ -329,19 +338,28 @@
                 </tbody>
             </table>
         </div>
-        <div style="margin-top:12px;">{{ $filas->links('vendor.pagination.custom-sliding') }}</div>
+        @endfragment
+        @fragment('paginas')
+        <div class="cpdf-paginas" data-cpdf-parte="paginas" style="margin-top:12px;">{{ $filas->links('vendor.pagination.custom-sliding') }}</div>
+        @endfragment
         @endif
     </div>
 
+    {{-- Las cuentas siguen a los filtros: son @fragment y cada filtro las repinta (cpdfFiltrar).
+         Lo demás (la lectura automática, "Por dónde va la revisión") no depende de ellos. --}}
     <aside class="cpdf-side">
         @if ($pestana === 'documentos')
-            <div class="cpdf-hero">
+            {{-- Lo que lista la tabla; filtrada, "de" cuántos hay en total. --}}
+            @fragment('hero')
+            <div class="cpdf-hero" data-cpdf-parte="hero">
                 <i class="material-icons">fact_check</i>
                 <div>
                     <small>Documentos leídos</small>
-                    <strong>{{ $resumenDocs->sum() }}</strong>
+                    <strong>{{ number_format($docs->total(), 0, ',', '.') }}</strong>
+                    @if ($docs->total() !== $totalDocs) <span>de {{ number_format($totalDocs, 0, ',', '.') }}</span> @endif
                 </div>
             </div>
+            @endfragment
             {{-- La lectura automática y "Revisar ahora": SOLO super.admin (pedido del cliente,
                  20-10-2026), igual que su ruta. --}}
             @can('super.admin')
@@ -380,17 +398,22 @@
                 </div>
             </div>
             @endcan
-            {{-- Cada tarjeta filtra la lista de abajo: se pulsa y se ve QUE filas son. --}}
-            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => 'revisar', 'page' => null]) }}">
+            {{-- Cada tarjeta filtra la lista de abajo: se pulsa y se ve QUE filas son (cpdfPoner, con
+                 los demás filtros puestos). --}}
+            @fragment('revisar')
+            <a class="cpdf-caja cpdf-filtra" data-cpdf-parte="revisar" role="button" onclick="window.cpdfPoner({ estado_doc: 'revisar' })">
                 <small>Para revisar a mano</small>
-                <strong>{{ $docsParaRevisar }}</strong>
+                <strong>{{ $cuentaRevisar }}</strong>
                 <span>ilegibles, ajenos o sin archivo</span>
             </a>
-            <a class="cpdf-caja cpdf-filtra" href="{{ request()->fullUrlWithQuery(['estado_doc' => \App\Models\VerificacionDocumento::POR_ENGANCHAR, 'page' => null]) }}">
+            @endfragment
+            @fragment('sin-enlazar')
+            <a class="cpdf-caja cpdf-filtra" data-cpdf-parte="sin-enlazar" role="button" onclick="window.cpdfPoner({ estado_doc: @js(\App\Models\VerificacionDocumento::POR_ENGANCHAR) })">
                 <small>Sin enlazar</small>
                 <strong>{{ $resumenDocs[\App\Models\VerificacionDocumento::POR_ENGANCHAR] ?? 0 }}</strong>
                 <span>de la carga masiva: reconocidos, no se pudieron enlazar solos</span>
             </a>
+            @endfragment
             <div class="cpdf-caja">
                 <small>Última lectura</small>
                 <strong style="font-size:16px;">{{ $ultimaLectura ? \Carbon\Carbon::parse($ultimaLectura)->format('d/m/Y H:i') : 'Todavía no' }}</strong>
@@ -401,7 +424,7 @@
             <div class="cpdf-caja cpdf-avance">
                 <small><i class="material-icons">fact_check</i> Por dónde va la revisión</small>
                 @foreach ($avanceDocs as $tipo => $a)
-                    <a class="cpdf-avance-fila" href="{{ request()->fullUrlWithQuery(['tipo_doc' => $tipo, 'estado_doc' => null, 'page' => null]) }}">
+                    <a class="cpdf-avance-fila" role="button" onclick="window.cpdfPoner({ tipo_doc: @js($tipo), estado_doc: null })">
                         <span class="cpdf-avance-nombre">{{ $a['nombre'] }}</span>
                         <span class="cpdf-avance-barra"><i style="width: {{ $a['total'] ? round($a['leidos'] * 100 / $a['total']) : 100 }}%;"></i></span>
                         <span class="cpdf-avance-cifra">
@@ -412,7 +435,9 @@
                 @endforeach
             </div>
         @else
-        <div class="cpdf-hero">
+        {{-- Las cuentas por estado llevan los demás filtros, no el de estado (PanelDocumentos::datosCompresion). --}}
+        @fragment('hero')
+        <div class="cpdf-hero" data-cpdf-parte="hero">
             <i class="material-icons">compress</i>
             <div>
                 <small>PDF comprimidos</small>
@@ -420,6 +445,7 @@
                 <span>{{ $mb(($comp->antes ?? 0) - ($comp->despues ?? 0)) }} MB ahorrados en Drive</span>
             </div>
         </div>
+        @endfragment
         <div class="cpdf-caja cpdf-aviso {{ $activa && $ghostscript ? 'ok' : 'apagada' }}">
             <i class="material-icons">{{ $activa && $ghostscript ? 'nights_stay' : 'block' }}</i>
             <div>
@@ -437,21 +463,27 @@
                 @endif
             </div>
         </div>
-        <div class="cpdf-caja">
+        @fragment('comprimidos')
+        <div class="cpdf-caja" data-cpdf-parte="comprimidos">
             <small>Comprimidos</small>
             <strong>{{ $comp->n ?? 0 }}</strong>
             <span>{{ $mb($comp->antes ?? 0) }} MB → {{ $mb($comp->despues ?? 0) }} MB</span>
         </div>
-        <div class="cpdf-caja">
+        @endfragment
+        @fragment('saltados')
+        <div class="cpdf-caja" data-cpdf-parte="saltados">
             <small>Saltados</small>
             <strong>{{ $resumen[\App\Models\CompresionPdf::SALTADO]->n ?? 0 }}</strong>
             <span>se dejaron como estaban</span>
         </div>
-        <div class="cpdf-caja">
+        @endfragment
+        @fragment('con-error')
+        <div class="cpdf-caja" data-cpdf-parte="con-error">
             <small>Con error</small>
             <strong>{{ $resumen[\App\Models\CompresionPdf::ERROR]->n ?? 0 }}</strong>
             <span>se reintentan otra noche</span>
         </div>
+        @endfragment
         <div class="cpdf-caja">
             <small>Última noche</small>
             <strong style="font-size:16px;">{{ $ultimaNoche ? \Carbon\Carbon::parse($ultimaNoche)->format('d/m/Y H:i') : 'Todavía no' }}</strong>
@@ -523,9 +555,10 @@
 
     // ── Elegir filas (contador común partials/chip_seleccion) ───────────────────────────
     // Igual que en el Historial: un clic elige o suelta la fila, el número cuenta las elegidas,
-    // tocarlo muestra SOLO esas (?ids=, lo filtra el servidor) y "Limpiar" las suelta. Aquí cada
-    // filtro o página vuelve a pintar la pestaña, así que la selección se guarda en
-    // window._cpdfSel mientras se siga en la MISMA pestaña; al cambiar de pestaña o salir del
+    // tocarlo muestra SOLO esas (?ids=, lo filtra el servidor) y "Limpiar" las suelta. Cada
+    // filtro o página cambia las filas, y una acción vuelve a pintar la pestaña entera
+    // (cpdfRecargar), así que la selección se guarda en window._cpdfSel mientras se siga en la
+    // MISMA pestaña; al cambiar de pestaña o salir del
     // módulo empieza de cero. `revisables` son las elegidas que se pueden dar por revisadas y
     // `descartables`, las que se pueden eliminar (id → enlace de su PDF, data-descartar).
     (function () {
@@ -598,35 +631,120 @@
     };
     cpdfSelPintar();
 
-    // Arma la URL con los filtros puestos y la abre por la SPA (sin recargar la página).
-    // Se redefine en cada visita: es solo una asignación, no suma listeners.
-    window.cpdfFiltrar = function (pestana) {
+    // Los filtros puestos en la pantalla, como parámetros de la URL.
+    var cpdfParametros = function () {
         var p = new URLSearchParams();
-        pestana = pestana || @json($pestana);
-        p.set('pestana', pestana);
-        // El buscador y los filtros se quedan en la pestaña donde se pusieron: al cambiar de
-        // pestaña se pide limpia, porque filtra por otras columnas.
-        if (pestana === @json($pestana)) {
-            var buscar = (document.getElementById('cpdfBuscar') || {}).value || '';
-            if (buscar.trim()) p.set('buscar', buscar.trim());
-            [['cpdfEstadoSelect', 'estado'], ['cpdfDocumentoSelect', 'documento'],
-             ['cpdfDocEstadoSelect', 'estado_doc'], ['cpdfDocTipoSelect', 'tipo_doc']].forEach(function (par) {
-                var input = document.querySelector('#' + par[0] + ' [data-filter-value]');
-                if (input && input.value && input.value !== 'all') p.set(par[1], input.value);
-            });
-            // "Ver solo las elegidas" (contador de selección): sus id.
-            var sel = window._cpdfSel;
-            if (sel && sel.solo && sel.ids.size) p.set('ids', Array.from(sel.ids).join(','));
-            // Las fechas de Filtros Avanzados (partials/filtro_fechas).
-            [['hdFechaDesde', 'fecha_desde'], ['hdFechaHasta', 'fecha_hasta']].forEach(function (par) {
-                var f = document.getElementById(par[0]);
-                if (f && f.value) p.set(par[1], f.value);
-            });
-        }
-        var url = @json(route('historial-documentos.index')) + (p.toString() ? '?' + p.toString() : '');
+        p.set('pestana', @json($pestana));
+        var buscar = (document.getElementById('cpdfBuscar') || {}).value || '';
+        if (buscar.trim()) p.set('buscar', buscar.trim());
+        document.querySelectorAll('.cpdf-filtros .custom-dropdown[data-filter-type]').forEach(function (dd) {
+            var input = dd.querySelector('[data-filter-value]');
+            if (input && input.value && input.value !== 'all') p.set(dd.dataset.filterType, input.value);
+        });
+        // "Ver solo las elegidas" (contador de selección): sus id.
+        var sel = window._cpdfSel;
+        if (sel && sel.solo && sel.ids.size) p.set('ids', Array.from(sel.ids).join(','));
+        // Las fechas de Filtros Avanzados (partials/filtro_fechas).
+        [['hdFechaDesde', 'fecha_desde'], ['hdFechaHasta', 'fecha_hasta']].forEach(function (par) {
+            var f = document.getElementById(par[0]);
+            if (f && f.value) p.set(par[1], f.value);
+        });
+        return p;
+    };
+    var cpdfUrl = function (p) { return @json(route('historial-documentos.index')) + '?' + p.toString(); };
+
+    // El desplegable con un valor elegido muestra el nombre de su opción con la cuenta de ahora:
+    // las opciones vuelven del servidor con cada filtro.
+    var cpdfEtiquetas = function () {
+        document.querySelectorAll('.cpdf-filtros .custom-dropdown').forEach(function (dd) {
+            var v = (dd.querySelector('[data-filter-value]') || {}).value;
+            var op = v && v !== 'all' ? dd.querySelector('.dropdown-item[data-value="' + CSS.escape(v) + '"]') : null;
+            var caja = dd.querySelector('[data-filter-search]');
+            if (op && caja) caja.placeholder = op.dataset.label;
+        });
+    };
+
+    // Filtrar (o cambiar de página) pide por AJAX solo los fragmentos del panel y los cambia en su
+    // sitio: la tabla, las páginas, las cuentas del lateral y las opciones de los desplegables
+    // (HistorialDocumentosController::index). Rehacer la pantalla entera por la SPA, con todos
+    // sus scripts, era lo que hacía lentos los filtros. Se redefine en cada visita: es solo una
+    // asignación, no suma listeners.
+    window.cpdfFiltrar = function (pagina) {
+        clearTimeout(window._cpdfEsperaBusqueda);   // la del buscar-mientras-escribes, si quedaba
+        var p = cpdfParametros();
+        if (pagina) p.set('page', pagina);
+        var url = cpdfUrl(p);
+        var tabla = document.querySelector('[data-cpdf-parte="tabla"]');
+        // Como en el Historial: la que siga en vuelo se cancela, para que una respuesta vieja
+        // no pise a la nueva.
+        if (window._cpdfAbort) window._cpdfAbort.abort();
+        var abort = window._cpdfAbort = new AbortController();
+        if (window.showPreloader) window.showPreloader();
+        if (tabla) tabla.style.opacity = '0.5';
+        window.apiFetch(url, { signal: abort.signal, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function (data) {
+                var nuevo = document.createElement('template');
+                nuevo.innerHTML = data.html || '';
+                nuevo.content.querySelectorAll('[data-cpdf-parte]').forEach(function (parte) {
+                    var viejo = document.querySelector('[data-cpdf-parte="' + parte.dataset.cpdfParte + '"]');
+                    if (viejo) viejo.replaceWith(parte);
+                });
+                cpdfSelPintar();
+                cpdfEtiquetas();
+                history.pushState(null, '', url);
+            })
+            .catch(function (e) {
+                if (e && e.name === 'AbortError') return;   // la más nueva pinta la tabla
+                if (tabla) tabla.style.opacity = '';
+                window.toast('No se pudo filtrar la lista', 'error');
+            })
+            .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
+    };
+
+    // Tras una acción (enlazar, revisar, descartar, pedir la lectura) cambia también lo que no
+    // depende de los filtros —"Por dónde va la revisión", la lectura pedida—: se pide la pantalla
+    // entera, con los mismos filtros.
+    window.cpdfRecargar = function () {
+        var url = cpdfUrl(cpdfParametros());
         if (typeof window.navigateTo === 'function') window.navigateTo(url);
         else window.location.href = url;
     };
+
+    // Las tarjetas del lateral y las filas de "Por dónde va la revisión" ponen SU filtro en el
+    // desplegable (null lo quita) y filtran con lo demás que haya puesto.
+    window.cpdfPoner = function (valores) {
+        Object.keys(valores).forEach(function (nombre) {
+            var dd = document.querySelector('.cpdf-filtros .custom-dropdown[data-filter-type="' + nombre + '"]');
+            if (!dd) return;
+            if (valores[nombre] === null) { window.clearDropdownFilter(dd.id); return; }
+            // Una opción sin filas no sale en la lista: se elige igual y su nombre llega con la
+            // respuesta (cpdfEtiquetas).
+            var op = dd.querySelector('.dropdown-item[data-value="' + CSS.escape(valores[nombre]) + '"]');
+            window.selectOption(dd.id, valores[nombre], op ? op.dataset.label : valores[nombre]);
+        });
+        window.cpdfFiltrar();
+    };
+
+    // Escuchadores en document, montados UNA vez (la vista se vuelve a ejecutar en cada visita).
+    if (!window.__cpdfFiltrosBound) {
+        window.__cpdfFiltrosBound = true;
+        // Las páginas, por AJAX y con los filtros. En captura: va antes que el de la SPA
+        // (navegacion.js), que ya no navega porque el clic llega con preventDefault.
+        document.addEventListener('click', function (e) {
+            var a = e.target.closest('[data-cpdf-parte="paginas"] a[href]');
+            if (!a || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+            e.preventDefault();
+            window.cpdfFiltrar(new URL(a.href, location.origin).searchParams.get('page'));
+        }, true);
+        // Buscar mientras se escribe, como en el Historial: con 4+ letras, 400 ms después de la
+        // última tecla. Enter o la X buscan al momento y cancelan esta espera (cpdfFiltrar).
+        document.addEventListener('input', function (e) {
+            if (!e.target || e.target.id !== 'cpdfBuscar') return;
+            clearTimeout(window._cpdfEsperaBusqueda);
+            if (e.target.value.trim().length >= 4) window._cpdfEsperaBusqueda = setTimeout(window.cpdfFiltrar, 400);
+        });
+    }
 
     {{-- "Revisado": con la carga masiva, igual que sus rutas. --}}
     @can('docs.carga.masiva')
@@ -689,7 +807,7 @@
                 if (!data || !data.success) throw new Error('sin exito');
                 window.toast('La revisión de ' + (tipo ? btn.dataset.nombre : 'todos los documentos')
                     + ' arranca en un minuto y sigue hasta que no quede nada', 'success');
-                window.cpdfFiltrar();
+                window.cpdfRecargar();
             })
             .catch(function () {
                 btn.disabled = false;
@@ -923,7 +1041,7 @@
         });
     }
 
-    var cpdfAtado = function (r) { window.closePdfPreview(); window.toast(r.message || 'Enlazado', 'success'); window.cpdfFiltrar(); };
+    var cpdfAtado = function (r) { window.closePdfPreview(); window.toast(r.message || 'Enlazado', 'success'); window.cpdfRecargar(); };
     // El atar() de lo que puede pisar un documento que la ficha ya tiene: si el servidor responde
     // requiere_pisar, se pregunta en la fila y, con un sí, se manda otra vez con reemplazar.
     var cpdfAtarPreguntando = function (url, datos) {
@@ -1001,7 +1119,7 @@
     };
     // Los escuchadores viven en document y la vista se vuelve a ejecutar en cada visita:
     // se montan UNA vez. Lo que cambia de visita en visita lo leen al dispararse
-    // (window._pdfVerif, window.cpdfFiltrar).
+    // (window._pdfVerif).
     if (!window.__cpdfRevisarBound) {
         window.__cpdfRevisarBound = true;
         var URL_REVISADO = @json(route('compresion-pdf.documento.revisado', ['id' => 0]));

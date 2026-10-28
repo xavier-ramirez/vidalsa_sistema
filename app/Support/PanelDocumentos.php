@@ -34,8 +34,12 @@ class PanelDocumentos
     /**
      * Todo lo que necesita panel.blade.php para la pestaña pedida. Las lecturas son las mismas
      * para todos los que entran; qué botones salen lo decide la vista con los permisos.
+     *
+     * $soloLista: lo pide un filtro (cpdfFiltrar), que solo repinta los @fragment del panel
+     * —la tabla, las páginas, las cuentas y las opciones—. "Por dónde va la revisión" no
+     * depende de los filtros y es la consulta cara de la pestaña: ahí no se hace.
      */
-    public static function datos(Request $request, string $pestana): array
+    public static function datos(Request $request, string $pestana, bool $soloLista = false): array
     {
         $buscar = trim((string) $request->input('buscar', ''));
 
@@ -46,7 +50,7 @@ class PanelDocumentos
         $zona = config('app.schedule_timezone', config('app.timezone'));
 
         $propias = $pestana === self::DOCUMENTOS
-            ? self::datosDocumentos($request, $buscar)
+            ? self::datosDocumentos($request, $buscar, $soloLista)
             : self::datosCompresion($request, $buscar);
 
         return $propias + [
@@ -71,7 +75,6 @@ class PanelDocumentos
         return 'de ' . $hora($franja[0]) . ' a ' . $hora($franja[1]);
     }
 
-    /** Pestaña "Compresión": filas, filtros y resumen de docs:comprimir. */
     /**
      * Filtros Avanzados (fecha_desde / fecha_hasta, partials/filtro_fechas): deja solo lo de esos
      * días en `$columna`, la fecha que muestra cada lista. Una fecha mal escrita no filtra.
@@ -100,6 +103,7 @@ class PanelDocumentos
         $q->whereIn('ID_REGISTRO', $ids ?: [0]);
     }
 
+    /** Pestaña "Compresión": filas, filtros y resumen de docs:comprimir. */
     private static function datosCompresion(Request $request, string $buscar): array
     {
         // Un valor que no esta en su lista (p. ej. 'all', "todos") es como no filtrar.
@@ -108,19 +112,24 @@ class PanelDocumentos
         $documentos = CompresionPdf::query()->distinct()->orderBy('DOCUMENTO')->pluck('DOCUMENTO');
         $documento  = $documentos->contains($request->input('documento')) ? $request->input('documento') : null;
 
-        $resumen = CompresionPdf::query()
+        // Los filtros de la lista MENOS el estado: el resumen cuenta cada estado con ellos, así
+        // que elegir "Saltados" no deja en cero a los comprimidos ni a los de error.
+        $filtrar = function ($q) use ($request, $documento, $buscar) {
+            self::entreFechas($q, $request, 'created_at');
+            self::soloElegidas($q, $request);
+            $q->when($documento, fn ($q) => $q->where('DOCUMENTO', $documento))
+              ->when($buscar !== '', function ($q) use ($buscar) {
+                  $like = '%' . addcslashes($buscar, '%_\\') . '%';
+                  $q->where(fn ($w) => $w->where('SERIAL', 'like', $like)->orWhere('DOCUMENTO', 'like', $like));
+              });
+        };
+
+        $resumen = CompresionPdf::query()->tap($filtrar)
             ->select('ESTADO', DB::raw('COUNT(*) as n'), DB::raw('SUM(BYTES_ANTES) as antes'), DB::raw('SUM(BYTES_DESPUES) as despues'))
             ->groupBy('ESTADO')->get()->keyBy('ESTADO');
 
-        $filas = CompresionPdf::query()
-            ->tap(fn ($q) => self::entreFechas($q, $request, 'created_at'))
-            ->tap(fn ($q) => self::soloElegidas($q, $request))
+        $filas = CompresionPdf::query()->tap($filtrar)
             ->when($estado, fn ($q) => $q->where('ESTADO', $estado))
-            ->when($documento, fn ($q) => $q->where('DOCUMENTO', $documento))
-            ->when($buscar !== '', function ($q) use ($buscar) {
-                $like = '%' . addcslashes($buscar, '%_\\') . '%';
-                $q->where(fn ($w) => $w->where('SERIAL', 'like', $like)->orWhere('DOCUMENTO', 'like', $like));
-            })
             ->orderByDesc('created_at')->orderByDesc('ID_REGISTRO')
             ->paginate(50)->withQueryString();
 
@@ -148,9 +157,8 @@ class PanelDocumentos
      * Pestaña "Documentos" (titulos, polizas, ROTC y RACDA): filas paginadas, cuantas hay de cada estado, cuando fue la
      * ultima lectura y cuantos documentos faltan por leer.
      */
-    private static function datosDocumentos(Request $request, string $buscar): array
+    private static function datosDocumentos(Request $request, string $buscar, bool $soloLista): array
     {
-        $avance = self::avance();
         // Los cinco de la revision nocturna mas los de la carga masiva (DE_LA_CARGA_TODOS): las
         // dos procedencias comparten esta tabla, que es la unica del modulo donde se ve el
         // estado de un documento.
@@ -170,21 +178,16 @@ class PanelDocumentos
                                     VerificacionDocumento::NOMBRES + \App\Services\CargaMasivaDocumentos::NOMBRES)
             ? $request->input('tipo_doc') : null;
 
-        $filas = VerificacionDocumento::query()
-            ->tap(fn ($q) => self::entreFechas($q, $request, 'updated_at'))
-            ->tap(fn ($q) => self::soloElegidas($q, $request))
-            ->when($estadoDoc === 'revisar', fn ($q) => $q->paraRevisar())
-            ->when($estadoDoc === 'corregibles', fn ($q) => $q->corregibles())
-            ->when($estadoDoc && !in_array($estadoDoc, ['revisar', 'corregibles'], true),
-                fn ($q) => $q->where('ESTADO', $estadoDoc))
-            ->when($tipoDoc, fn ($q) => $q->where('TIPO', $tipoDoc))
-            ->when($buscar !== '', function ($q) use ($buscar) {
+        // El buscador recorre el JSON de cada lectura (LEIDO, PROPUESTA): es lo caro de filtrar
+        // (~80 ms por consulta). Se busca UNA vez y la página y sus cuentas usan esos ID.
+        $encontrados = $buscar === '' ? null : VerificacionDocumento::query()
+            ->where(function ($w) use ($buscar) {
                 $like = '%' . addcslashes($buscar, '%_\\') . '%';
                 // LEIDO es JSON y Laravel lo guarda con los acentos escapados ("PIRÁMIDE" ->
                 // "PIR\u00c1MIDE"): para buscar un nombre acentuado hay que buscar tambien esa forma.
                 $json = json_encode($buscar, JSON_INVALID_UTF8_SUBSTITUTE);
                 $likeJson = $json === false ? $like : '%' . addcslashes(trim($json, '"'), '%_\\') . '%';
-                $q->where(fn ($w) => $w->where('PLACA', 'like', $like)->orWhere('SERIAL', 'like', $like)
+                $w->where('PLACA', 'like', $like)->orWhere('SERIAL', 'like', $like)
                     ->orWhere('MOTIVO', 'like', $like)
                     // Por el nombre del PDF: es como se busca lo que uno acaba de soltar.
                     ->orWhere('ARCHIVO', 'like', $like)
@@ -192,8 +195,25 @@ class PanelDocumentos
                     // Lo de la carga masiva, tambien por lo que leyo del PDF: un VIN, una placa o
                     // un serial que falta (el motivo ya no los nombra: los dice la linea de cada uno).
                     ->orWhere(fn ($c) => $c->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
-                        ->where(fn ($p) => $p->where('PROPUESTA', 'like', $like)->orWhere('PROPUESTA', 'like', $likeJson))));
+                        ->where(fn ($p) => $p->where('PROPUESTA', 'like', $like)->orWhere('PROPUESTA', 'like', $likeJson)));
             })
+            ->pluck('ID_REGISTRO')->all();
+
+        // Los filtros de la lista MENOS el estado: con ellos se cuenta cada estado (las opciones
+        // del desplegable y las tarjetas), así que las cuentas siguen al tipo, al buscador y a
+        // las fechas, y elegir un estado no deja en cero a los demás.
+        $filtrar = function ($q) use ($request, $tipoDoc, $encontrados) {
+            self::entreFechas($q, $request, 'updated_at');
+            self::soloElegidas($q, $request);
+            $q->when($tipoDoc, fn ($q) => $q->where('TIPO', $tipoDoc))
+              ->when($encontrados !== null, fn ($q) => $q->whereIn('ID_REGISTRO', $encontrados ?: [0]));
+        };
+
+        $filas = VerificacionDocumento::query()->tap($filtrar)
+            ->when($estadoDoc === 'revisar', fn ($q) => $q->paraRevisar())
+            ->when($estadoDoc === 'corregibles', fn ($q) => $q->corregibles())
+            ->when($estadoDoc && !in_array($estadoDoc, ['revisar', 'corregibles'], true),
+                fn ($q) => $q->where('ESTADO', $estadoDoc))
             // Lo soltado en la carga masiva en las ULTIMAS 24 HORAS va PRIMERO, lo mas nuevo
             // arriba, este como este: se enlaza solo y queda "Aplicado", y lo aplicado va al
             // final, detras de miles de filas de la noche; sin esto habia que filtrar para ver
@@ -231,15 +251,20 @@ class PanelDocumentos
             // Y las unidades de cada RACDA, ROTC o poliza de flota que se enlazan a mano (la placa
             // o el serial que falta, o un equipo suyo que no entro), cada una con su boton.
             'unidadesFaltan' => $carga->unidadesSinAtar($deLaCarga),
-            'resumenDocs'    => VerificacionDocumento::select('ESTADO', DB::raw('COUNT(*) as n'))->groupBy('ESTADO')->pluck('n', 'ESTADO'),
+            'resumenDocs'    => VerificacionDocumento::query()->tap($filtrar)
+                ->select('ESTADO', DB::raw('COUNT(*) as n'))->groupBy('ESTADO')->pluck('n', 'ESTADO'),
             // Los dos montones que se miran distinto: lo que la tarea todavia pone sola y lo
             // que pide una persona (ilegible, sin archivo, de otro vehiculo o leido a medias).
+            'cuentaRevisar'   => VerificacionDocumento::query()->tap($filtrar)->paraRevisar()->count(),
+            'docsCorregibles' => VerificacionDocumento::query()->tap($filtrar)->corregibles()->count(),
+            // El número de la pestaña es lo pendiente de TODO, sin filtros.
             'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
-            'docsCorregibles' => VerificacionDocumento::corregibles()->count(),
+            // Contra este total se dice "de cuántos" cuando la lista está filtrada.
+            'totalDocs'      => VerificacionDocumento::count(),
             'estadoDoc'      => $estadoDoc,
             'tipoDoc'        => $tipoDoc,
             'ultimaLectura'  => VerificacionDocumento::max('updated_at'),
-            'avanceDocs'     => $avance,
+            'avanceDocs'     => $soloLista ? [] : self::avance(),
             // Las de la otra pestaña: no se consultan, pero la vista las recibe siempre.
             'resumen'     => collect(),
             'ultimaNoche' => null,
