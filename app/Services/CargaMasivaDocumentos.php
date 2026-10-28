@@ -2131,6 +2131,17 @@ class CargaMasivaDocumentos
         return \App\Models\CatalogoSeguro::pluck('NOMBRE_ASEGURADORA', 'ID_SEGURO')->all();
     }
 
+    /**
+     * El ID_SEGURO de la aseguradora leída en el PDF de esa póliza (la propuesta guarda su nombre
+     * del catálogo), o null si no se leyó.
+     */
+    private function aseguradoraDelPdf(string $link): ?int
+    {
+        $nombre = $this->propuestaGuardada($link)['aseguradora'] ?? null;
+        $id = $nombre ? array_search($nombre, $this->catalogoAseguradoras(), true) : false;
+        return $id === false ? null : (int) $id;
+    }
+
     // ── Paso 2: aplicar lo que coincide (lo llama enlazarSolo) ───────────────────────────────────────────────
 
     /**
@@ -2213,11 +2224,21 @@ class CargaMasivaDocumentos
         if (isset(DocumentacionDeEquipo::EMISION[$tipo])) {
             $datos[DocumentacionDeEquipo::EMISION[$tipo]] = $emision ?: null;
         }
+        // La aseguradora de la póliza, la del membrete del PDF: quedarse con la de la ficha era
+        // dejar la de la póliza vieja. Si no se leyó, no se toca (la revisión de la noche la propone).
+        if ($tipo === LectorDocumentoPdf::POLIZA && ($idSeguro = $this->aseguradoraDelPdf($link))) {
+            $datos['ID_SEGURO'] = $idSeguro;
+        }
         $datos[DocumentacionDeEquipo::COLUMNAS[$tipo]['autor']] = auth()->id();
         $datos[DocumentacionDeEquipo::COLUMNAS[$tipo]['fecha']] = now();
 
-        // El diff se saca ANTES de guardar: es lo que ve el historial.
+        // El diff se saca ANTES de guardar: es lo que ve el historial. La aseguradora, con su
+        // nombre y no con su ID (como la registra la revisión de la noche).
         $diff = DocumentacionDeEquipo::diff($doc, $datos);
+        if (isset($diff['ID_SEGURO'])) {
+            $nombres = $this->catalogoAseguradoras();
+            $diff['ID_SEGURO'] = array_map(fn ($id) => $nombres[$id] ?? $id, $diff['ID_SEGURO']);
+        }
 
         // MODO ENSAYO: hasta aqui llegan solo los casos que de verdad se aplicarian. Se
         // devuelve lo que se escribiria y se sale sin tocar nada.

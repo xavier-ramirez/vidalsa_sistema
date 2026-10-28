@@ -326,6 +326,55 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertStringStartsWith($vigente, (string) $doc->getRawOriginal('FECHA_VENC_POLIZA'));
     }
 
+    /**
+     * Una póliza nueva lleva la aseguradora de SU membrete, no la de la póliza que reemplaza
+     * (pedido 28-10-2026: ~72 pólizas del servidor quedaron con la aseguradora vieja). Si el PDF
+     * no la trae, la de la ficha se queda. Y la migración del 28-10 arregla las ya enlazadas.
+     */
+    public function test_la_poliza_pone_la_aseguradora_de_su_pdf(): void
+    {
+        $vieja = \App\Models\CatalogoSeguro::create(['NOMBRE_ASEGURADORA' => 'ASEGURADORA VIEJA CM']);
+        $nueva = \App\Models\CatalogoSeguro::create(['NOMBRE_ASEGURADORA' => 'ASEGURADORA NUEVA CM']);
+        $vence = now()->addYear()->toDateString();
+        $soltar = function (string $driveId, ?string $aseguradora) use ($vence) {
+            VerificacionDocumento::create([
+                'DRIVE_ID' => $driveId, 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA,
+                'TIPO' => 'poliza', 'ARCHIVO' => $driveId . '.pdf', 'ESTADO' => VerificacionDocumento::APLICADO,
+                'A_MANO' => false, 'INTENTOS' => 0,
+                'PROPUESTA' => ['tipo' => 'poliza', 'link' => '/storage/google/' . $driveId, 'vence' => $vence,
+                    'aseguradora' => $aseguradora, 'equipos' => []],
+            ]);
+        };
+        $equipo = $this->equipo(['LINK_POLIZA_SEGURO' => '/storage/google/poliza-vieja-cm',
+            'FECHA_VENC_POLIZA' => now()->addMonth()->toDateString(), 'ID_SEGURO' => $vieja->ID_SEGURO]);
+        $this->actingAs($this->usuario());
+
+        $soltar('poliza-nueva-cm', $nueva->NOMBRE_ASEGURADORA);
+        $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'poliza', '/storage/google/poliza-nueva-cm', $vence, now()->toDateString(), true);
+
+        $this->assertTrue($r['ok'], $r['mensaje']);
+        $doc = $equipo->documentacion()->first();
+        $this->assertSame($nueva->ID_SEGURO, (int) $doc->ID_SEGURO, 'se quedó la aseguradora de la póliza vieja');
+        $this->assertStringStartsWith($vence, (string) $doc->getRawOriginal('FECHA_VENC_POLIZA'));
+        $log = EquipoAuditLog::where('ID_EQUIPO', $equipo->ID_EQUIPO)->where('ACCION', 'metadata_poliza')->latest('created_at')->first();
+        $this->assertSame(['antes' => 'ASEGURADORA VIEJA CM', 'despues' => 'ASEGURADORA NUEVA CM'], $log->CAMBIOS['ID_SEGURO'],
+            'el historial dice la aseguradora por su nombre');
+
+        // Sin aseguradora leída, la de la ficha no se toca.
+        $soltar('poliza-sin-aseg-cm', null);
+        $r = $this->servicio()->aplicar($equipo->ID_EQUIPO, 'poliza', '/storage/google/poliza-sin-aseg-cm', $vence, null, true);
+        $this->assertTrue($r['ok'], $r['mensaje']);
+        $this->assertSame($nueva->ID_SEGURO, (int) $equipo->documentacion()->first()->ID_SEGURO);
+
+        // La migración: la ficha que sigue con el PDF y quedó con otra aseguradora se corrige; la
+        // que ya no tiene ese PDF, no.
+        $otro = $this->equipo(['LINK_POLIZA_SEGURO' => '/storage/google/poliza-nueva-cm', 'ID_SEGURO' => $vieja->ID_SEGURO]);
+        $ajeno = $this->equipo(['LINK_POLIZA_SEGURO' => '/storage/google/otra-poliza-cm', 'ID_SEGURO' => $vieja->ID_SEGURO]);
+        (require database_path('migrations/2026_10_28_120000_aseguradora_de_polizas_de_carga_masiva.php'))->up();
+        $this->assertSame($nueva->ID_SEGURO, (int) $otro->documentacion()->first()->ID_SEGURO);
+        $this->assertSame($vieja->ID_SEGURO, (int) $ajeno->documentacion()->first()->ID_SEGURO);
+    }
+
     /** El título de propiedad NO vence: ese sí entra sin fecha. */
     public function test_el_titulo_de_propiedad_entra_sin_fecha_de_vencimiento(): void
     {
