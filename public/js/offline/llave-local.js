@@ -9,10 +9,10 @@
  *   · srv: con la llave que da el servidor solo con sesión abierta (GET /sync/llave). Con
  *     internet abre siempre, se haya entrado con clave o con huella.
  *   · pwd: con una llave sacada de la clave del usuario (PBKDF2). Es la que abre la copia
- *     SIN internet, en "Entrar sin conexión". Se rehace en cada inicio de sesión con clave.
+ *     SIN internet, al iniciar sesión sin servidor. Se rehace en cada inicio de sesión con clave.
  * Abierta, vive solo en sessionStorage (esta ventana): se borra al cerrar la app o el
  * navegador y al volver a la pantalla de inicio de sesión. Si se abrió con la clave SIN
- * servidor ("Entrar sin conexión"), o se siguió trabajando con la red caída (lo anota
+ * servidor (inicio de sesión sin red), o se siguió trabajando con la red caída (lo anota
  * partials/session_timeout), queda marcada hasta que el servidor vuelva a contestar con
  * sesión: es lo que deja usar el pase de reingreso (reingreso.js).
  *
@@ -21,7 +21,7 @@
  *   LlaveLocal.cifrarBytes(ArrayBuffer) / descifrarBytes({ iv, ct }) → para los archivos.
  *   LlaveLocal.preparar(id, clave) / confirmar() / descartar() → inicio de sesión con clave
  *       (los llama offline-auth.js, igual que su verificador).
- *   LlaveLocal.abrirConClave(id, clave) → Promise<boolean>. "Entrar sin conexión".
+ *   LlaveLocal.abrirConClave(id, clave) → Promise<boolean>. Inicio de sesión sin servidor.
  *   LlaveLocal.trabajaSinServidor() → boolean · marcarSinServidor() → la pone (se cortó la red
  *       con alguien trabajando) · conServidor() → la quita (el servidor contestó con sesión).
  *   LlaveLocal.cerrar() → olvida la llave abierta (pantalla de inicio de sesión y al salir:
@@ -115,7 +115,7 @@
     // pestañas de ayer (o se entra por un marcador) y el service worker sirve el módulo guardado,
     // pero sin servidor la llave solo la abre la clave, y aquí nadie la escribió. El módulo salía
     // vacío y sin aviso («en la PC no puedo entrar sin internet»; el teléfono arranca en el
-    // inicio y no pasaba). Se va al inicio de sesión, que ofrece «Entrar sin conexión», y
+    // inicio y no pasaba). Se va al inicio de sesión, que sin servidor entra con la clave, y
     // después se vuelve a esta misma página (offline-auth.js · VOLVER_A).
     let yendoAlInicio = false;
     function pedirClaveSinRed() {

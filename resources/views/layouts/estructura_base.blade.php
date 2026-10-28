@@ -1318,8 +1318,8 @@
              SW nuevo se aplica sin interrumpir (sw.js hace skipWaiting() al instalarse). --}}
 
         {{-- offline-auth.js NO se carga aquí a propósito: solo tiene trabajo en la pantalla
-             de login (preparar y confirmar el verificador de acceso sin conexión, y el botón
-             "Entrar sin conexión"). Antes se cargaba para "confirmar" un verificador que
+             de login (preparar y confirmar el verificador de acceso sin conexión, y entrar con él
+             cuando no hay servidor). Antes se cargaba para "confirmar" un verificador que
              quedaba pendiente en localStorage, y eso ascendía a bueno el de un intento
              FALLIDO cuando se llegaba al menú por otra vía (huella, o el cambio de clave
              obligatorio). Ahora el pendiente vive en memoria y lo resuelve el propio login. --}}

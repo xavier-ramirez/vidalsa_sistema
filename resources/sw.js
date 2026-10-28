@@ -91,8 +91,8 @@ self.addEventListener('install', (event) => {
             }).catch(() => {}),
             // Y el MENU y los módulos que trabajan con la copia local, si hay sesion (sin
             // sesion redirigen al login; sin permiso, 403: no se guardan). El menu es a donde
-            // lleva "Entrar sin conexion": si faltaba —recien actualizada la app y sin haber
-            // vuelto a abrirlo con red— ese boton devolvia al login una y otra vez. Los
+            // lleva el inicio de sesion sin servidor: si faltaba —recien actualizada la app y
+            // sin haberlo abierto con red— entrar sin internet devolvia al login una y otra vez. Los
             // módulos, para que abran sin internet aunque en este equipo nunca se hayan
             // abierto con red.
             guardarPaginasSinRed(false),

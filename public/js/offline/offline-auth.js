@@ -27,7 +27,7 @@
     // las credenciales. Esta constante queda únicamente para borrar los restos viejos.
     const PENDING_LEGACY = 'vidalsa_offline_auth_pending';
     // La página interna que mandó aquí por no poder abrir la llave sin red (llave-local.js):
-    // «Entrar sin conexión» vuelve a ella en vez de al menú. Solo rutas propias ('/x', no '//x').
+    // entrar sin servidor vuelve a ella en vez de al menú. Solo rutas propias ('/x', no '//x').
     const VOLVER_A = 'vidalsa_volver_a';
     function tomarVolverA() {
         let v = null;
@@ -62,11 +62,6 @@
     // Verificador a medio hacer: vive SOLO aquí, en memoria, mientras dura el intento de
     // login de esta página. Nunca toca localStorage hasta que sincronizar() lo asciende.
     let _preparado = null; // Promise<{identifier,salt,hash}|null>
-    // ¿El intento en curso salió de "Entrar sin conexión"? Ese botón pregunta antes al servidor
-    // y, si contesta, entra por el inicio de sesión normal. Con la red que va y viene el servidor
-    // podía contestar al sondeo y no al inicio de sesión: entonces se sigue con la entrada local
-    // (sinRespuesta) en vez de dejar al usuario con "Sin conexión". descartar() lo apaga.
-    let _vieneDeLocal = false;
 
     // ¿El candado guardado se hizo con OTRA clave? `claveV` es la huella de la clave
     // actual que manda el servidor (Usuario::claveVersion). Un candado sin `claveV` es de
@@ -127,7 +122,6 @@
         // se queda como estaba.
         descartar: function () {
             _preparado = null;
-            _vieneDeLocal = false;
             if (window.LlaveLocal) window.LlaveLocal.descartar();
         },
         verificar: async function (identifier, password) {
@@ -162,10 +156,12 @@
     // En el inicio de sesión no hay nadie dentro: la llave abierta de lo guardado se olvida.
     if (window.LlaveLocal) window.LlaveLocal.cerrar();
 
-    // Página de LOGIN: decide cuál de los tres accesos se ofrece según haya servidor.
-    const btnOff = document.getElementById('btnOfflineLogin');
-    const btnOn  = document.getElementById('btnOnlineLogin');
+    // Página de LOGIN. Hay UN solo botón, «Iniciar sesión», y con qué se entra lo decide la
+    // app: con servidor, el inicio de sesión normal; sin él (o si se cae a mitad del
+    // intento), la comprobación en el equipo contra el verificador de la última sesión.
+    // El usuario no elige: no hay un segundo botón «sin conexión».
     const btnBio = document.getElementById('btnBiometricLogin');
+    const nota   = document.getElementById('loginSinRedNota');
     const idEl   = document.getElementById('login_identifier');
     const pwEl   = document.getElementById('password');
 
@@ -177,29 +173,28 @@
 
     // ── ¿Hay SERVIDOR de verdad? ────────────────────────────────────────────────
     // navigator.onLine MIENTE: dice "online" con el wifi levantado y el servidor caído,
-    // que es justo el caso que este botón existe para cubrir. El resto de la app ya dejó
-    // de confiar en él (comprobarConexion() en estado_red.js) y aquí se hace lo mismo:
-    // se sondea /up (la ruta de salud de Laravel, sin sesión ni base de datos) y SOLO un
-    // fallo de red cuenta como sin conexión — cualquier respuesta HTTP significa servidor vivo.
-    // El service worker nunca cachea /up, así que el sondeo siempre va a la red.
-    // Se arranca en `!navigator.onLine` para no ofrecer el botón antes de saber nada: si
-    // el navegador ya se declara sin red, no hace falta preguntar.
+    // que es justo el caso que hay que cubrir. El resto de la app ya dejó de confiar en él
+    // (comprobarConexion() en estado_red.js) y aquí se hace lo mismo: se sondea /up (la
+    // ruta de salud de Laravel, sin sesión ni base de datos) y SOLO un fallo de red cuenta
+    // como sin conexión — cualquier respuesta HTTP significa servidor vivo. El service
+    // worker nunca cachea /up, así que el sondeo siempre va a la red.
+    // Se arranca en `!navigator.onLine`: si el navegador ya se declara sin red, no hace
+    // falta preguntar.
     let sinServidor = !navigator.onLine;
     // ¿Llegó a lanzarse el sondeo? El de la carga se salta cuando no hay nada que decidir;
     // si la huella se habilita después (llega por una promesa), ahí sí lo hay y se lanza.
     let sondeoLanzado = false;
-    // ¿El sondeo cambia algo de lo que se ve? Solo si existe credencial local (boton
-    // "Entrar sin conexion") o hay huella habilitada (que se oculta cuando el servidor no
-    // responde). En la mayoria de las sesiones —equipo nuevo, o quien nunca entro sin
-    // internet— no hay nada que decidir, y sondear seria una peticion de mas y un arranque
-    // de Laravel de mas en CADA carga del login. Lo consultan el sondeo y el re-sondeo:
-    // una sola definicion para que no puedan discrepar.
+    // ¿El sondeo cambia algo de lo que se ve? Solo si hay acceso local (la nota «sin
+    // internet: entrarás con los datos guardados») o huella habilitada (que se oculta
+    // cuando el servidor no responde). En la mayoría de las sesiones —equipo nuevo, o
+    // quien nunca entró aquí— no hay nada que decidir, y sondear sería una petición de
+    // más y un arranque de Laravel de más en CADA carga del login.
     function hayAlgoQueDecidir() {
         return window.OfflineAuth.tieneOffline() || huellaHabilitada;
     }
 
     // ¿Contesta el servidor? Con tope: sin él, una red que traga los paquetes sin contestar
-    // dejaría el botón de acceso local sin aparecer nunca.
+    // dejaría la pantalla esperando para siempre.
     function hayServidor(ms) {
         if (!navigator.onLine) return Promise.resolve(false);
         const corta = (typeof AbortController === 'function') ? new AbortController() : null;
@@ -219,31 +214,22 @@
         hayServidor(4000).then(function (hay) { sinServidor = !hay; refrescarAccesos(); });
     }
 
-    // Punto ÚNICO que decide qué accesos se ven. Sin él, el blade pintaba la huella por
-    // su cuenta y aquí se pintaban los otros dos: dos dueños del mismo estado.
+    // Punto ÚNICO que decide qué se ve según haya servidor.
     function refrescarAccesos() {
-        // Solo se ofrece el acceso offline si NO hay servidor y ya hay credencial local.
-        const mostrarOffline = sinServidor && window.OfflineAuth.tieneOffline();
-        if (btnOff) btnOff.style.display = mostrarOffline ? 'flex' : 'none';
-        // En ese caso ocultamos "Iniciar sesión" (requiere servidor y fallaría sin
-        // internet) para no mostrar DOS botones: offline → solo "Entrar sin conexión",
-        // online (o sin credencial local) → solo "Iniciar sesión".
-        if (btnOn) btnOn.style.display = mostrarOffline ? 'none' : '';
-        // La huella SIEMPRE necesita servidor, haya o no credencial local guardada.
+        // Sin servidor y con acceso local: se avisa ANTES de pulsar con qué se va a entrar.
+        if (nota) nota.style.display = (sinServidor && window.OfflineAuth.tieneOffline()) ? 'block' : 'none';
+        // La huella SIEMPRE necesita servidor.
         if (btnBio) btnBio.style.display = (huellaHabilitada && !sinServidor) ? 'flex' : 'none';
-        // Mientras se esté ofreciendo el acceso local hay que seguir preguntando: puede
-        // volver el servidor con el usuario mirando esta pantalla. Va aquí y no repartido
-        // por los sitios que sondean porque este es el punto que YA conoce el estado.
+        // Mientras no haya servidor hay que seguir preguntando: puede volver con el usuario
+        // mirando esta pantalla. Va aquí porque este es el punto que YA conoce el estado.
         ajustarResondeo();
     }
 
     // ── Re-sondeo mientras no hay servidor ────────────────────────────────────
-    // El evento 'online' NO basta. Solo salta cuando el navegador pasa de "sin interfaz
-    // de red" a "con interfaz", y el caso que este botón existe para cubrir es el otro:
-    // wifi levantado y servidor inalcanzable (router sin salida, portal cautivo, VPN,
-    // servidor caído). Ahí navigator.onLine nunca fue false, así que al volver el
-    // servidor no se dispara nada y el botón se queda en "Entrar sin conexión" hasta
-    // cerrar y reabrir la app — que es exactamente lo que había que hacer.
+    // El evento 'online' NO basta: solo salta cuando el navegador pasa de "sin interfaz de
+    // red" a "con interfaz", y el caso típico es el otro: wifi levantado y servidor
+    // inalcanzable (router sin salida, portal cautivo, VPN, servidor caído). Ahí
+    // navigator.onLine nunca fue false y al volver el servidor no se dispara nada.
     //
     // Coste: mientras no hay servidor las peticiones NI LLEGAN (fallan en red), o sea
     // que no arrancan Laravel; en cuanto una responde, sinServidor pasa a false y el
@@ -263,8 +249,7 @@
     }
 
     // Volver a la app (cambiar de pestaña, desbloquear el teléfono) es el momento con
-    // más probabilidad de que la conexión haya cambiado: se pregunta ya, sin esperar al
-    // siguiente tic.
+    // más probabilidad de que la conexión haya cambiado: se pregunta ya.
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden && sinServidor) sondearServidor();
     });
@@ -283,7 +268,7 @@
     };
     // Los mensajes salen por window.mostrarMsgLogin (inicio_sesion.blade.php): es el
     // único sitio que escribe #offlineLoginMsg y además apaga el spinner y rehabilita
-    // "Iniciar sesión". Este archivo tenía su propia versión a medias del mismo <div>.
+    // "Iniciar sesión".
 
     // Comodidad: precarga el correo de la última sesión local. Se hace en 'load'
     // (después del loginForm.reset() que corre en DOMContentLoaded) para que no se borre.
@@ -295,85 +280,63 @@
         refrescarAccesos();
     });
 
-    // Entrada local. Se expone porque la pantalla de login también la necesita: con el
-    // botón "Entrar sin conexión" a la vista, pulsar Enter en el formulario tiene que
-    // hacer ESTO y no el submit online — que sin servidor solo puede acabar en el aviso
-    // "sin conexión" (el botón "Iniciar sesión" está oculto justamente por eso). Si el
-    // acceso se está ofreciendo o no lo decide el blade con hayAccesoLocal(), que mira la
-    // visibilidad del botón — la misma que pinta refrescarAccesos() más arriba.
-    async function intentarOffline() {
-        const id = (idEl && idEl.value || '').trim();
-        const pw = (pwEl && pwEl.value || '');
-        if (!id || !pw) { window.mostrarMsgLogin('Escribe tu correo y tu clave.'); return; }
-        if (btnOff) btnOff.disabled = true;
-        // Primero el servidor, otra vez y con más paciencia: el sondeo al abrir la pantalla
-        // pudo fallar solo porque el servidor tardó (recién desplegado, red lenta). Si ahora
-        // contesta se entra por el inicio de sesión normal, CON sesión: entrar solo con la
-        // comprobación local dejaba la sesión cerrada en el servidor y la primera consulta
-        // devolvía al login.
-        if (await hayServidor(8000)) {
-            if (btnOff) btnOff.disabled = false;
-            sinServidor = false;
-            refrescarAccesos();
-            _vieneDeLocal = true;   // si la red se cae en medio, sinRespuesta() entra en local
-            if (loginForm.requestSubmit) loginForm.requestSubmit();
-            else loginForm.dispatchEvent(new Event('submit', { cancelable: true }));
-            return;
-        }
-        await entrarLocal(id, pw);
-    }
-    window.OfflineAuth.intentarOffline = intentarOffline;
+    // ¿Se intenta el inicio de sesión normal? Lo pregunta el submit. Si la pantalla ya sabe
+    // que no hay servidor, se vuelve a preguntar con algo más de paciencia: el sondeo pudo
+    // fallar solo porque el servidor tardó (recién desplegado, red lenta), y entrar en local
+    // teniendo servidor deja la sesión cerrada allá: la primera consulta devolvería al login.
+    // Si la pantalla cree que sí hay, no se pregunta: el propio inicio de sesión lo descubre
+    // (y si no llega, entrarSinServidor).
+    window.OfflineAuth.conServidor = function () {
+        if (!sinServidor) return Promise.resolve(true);
+        return hayServidor(6000).then(function (hay) { sinServidor = !hay; refrescarAccesos(); return hay; });
+    };
+
+    // Un intento no llegó al servidor (el inicio de sesión o la huella): desde aquí cuenta
+    // como sin servidor —sale la nota, se esconde la huella y se vuelve a sondear—.
+    window.OfflineAuth.noContesto = function () {
+        sinServidor = true;
+        refrescarAccesos();
+    };
+
+    // No hay servidor (sin red, o el inicio de sesión normal no llegó): se entra con lo
+    // guardado en el equipo si se puede. true = sigue la entrada local; false = en este
+    // equipo no hay acceso local y quien llama avisa "sin conexión".
+    window.OfflineAuth.entrarSinServidor = function () {
+        window.OfflineAuth.noContesto();
+        window.OfflineAuth.descartar();   // el verificador a medio hacer: nadie lo validó
+        if (!window.OfflineAuth.tieneOffline()) return false;
+        entrarLocal((idEl && idEl.value || '').trim(), (pwEl && pwEl.value || ''));
+        return true;
+    };
 
     // La comprobación en el equipo, sin servidor.
     async function entrarLocal(id, pw) {
-        if (btnOff) btnOff.disabled = true;
         const ok = await window.OfflineAuth.verificar(id, pw).catch(function () { return false; });
         // La misma clave abre la copia cifrada que quedó en el equipo.
         if (ok && window.LlaveLocal) await window.LlaveLocal.abrirConClave(id, pw).catch(function () { return false; });
-        if (btnOff) btnOff.disabled = false;
         if (ok) {
             // El menú omite el spinner general en esta primera carga tras login.
             if (window.marcarLoginReciente) window.marcarLoginReciente();
             window.location.href = tomarVolverA() || '/menu';
         } else {
-            window.mostrarMsgLogin('Correo o clave no coinciden con tu última sesión en este equipo.');
+            window.mostrarMsgLogin('Sin conexión, y el correo o la clave no coinciden con la última vez que se entró en este equipo.', true);
         }
     }
-
-    // El inicio de sesión normal no llegó al servidor (red caída o colgada, ver el submit en
-    // inicio_sesion.blade.php). Desde aquí cuenta como sin servidor —se ofrece "Entrar sin
-    // conexión" y se vuelve a sondear— y, si el intento salió de ese botón, se entra ya en
-    // local. true = sigue la entrada local; false = quien llama avisa "sin conexión".
-    window.OfflineAuth.sinRespuesta = function () {
-        const local = _vieneDeLocal;
-        sinServidor = true;
-        refrescarAccesos();
-        if (!local || !window.OfflineAuth.tieneOffline()) return false;
-        window.OfflineAuth.descartar();
-        entrarLocal((idEl && idEl.value || '').trim(), (pwEl && pwEl.value || ''));
-        return true;
-    };
-
-    if (btnOff) btnOff.addEventListener('click', intentarOffline);
 
     // 'online' vuelve a SONDEAR (que haya red no significa que el servidor conteste);
     // 'offline' es concluyente, así que ahí basta con repintar.
     //
     // Estos dos eventos NO son suficientes por sí solos: solo saltan cuando cambia la
-    // INTERFAZ de red, y el caso que este botón cubre —wifi levantado y servidor
-    // inalcanzable— no la cambia nunca. De la reconexión se encarga ajustarResondeo()
-    // (más arriba); esto es solo el atajo para cuando el evento sí llega.
-    // Repintar en 'offline' arma además ese re-sondeo, y eso se quiere: mientras no hay
-    // red el tic no gasta nada (sondearServidor() corta en su primera línea), pero
-    // recupera el caso en que navigator.onLine vuelve a true sin disparar 'online',
-    // que es justo lo que hacen algunos navegadores de teléfono.
+    // INTERFAZ de red, y el caso típico —wifi levantado y servidor inalcanzable— no la
+    // cambia nunca. De la reconexión se encarga ajustarResondeo(); esto es solo el atajo
+    // para cuando el evento sí llega. Repintar en 'offline' arma además ese re-sondeo:
+    // mientras no hay red el tic no gasta nada, pero recupera el caso en que
+    // navigator.onLine vuelve a true sin disparar 'online' (algunos teléfonos).
     window.addEventListener('online', sondearServidor);
     window.addEventListener('offline', function () { sinServidor = true; refrescarAccesos(); });
-    // Un solo arranque: sondearServidor() ya pinta en sus dos ramas — sin red llama a
-    // refrescarAccesos() de inmediato, y con red la llama al resolverse el sondeo. Si se
-    // salta por no haber nada que decidir, tampoco hay que pintar: el blade ya renderiza
-    // "Iniciar sesión" visible, y "Entrar sin conexión" y la huella con display:none, que
-    // es exactamente el estado de un equipo sin credencial local ni huella registrada.
+    // Un solo arranque: sondearServidor() ya pinta al resolverse. Si se salta por no haber
+    // nada que decidir, tampoco hay que pintar: el blade ya trae la nota y la huella con
+    // display:none, que es el estado de un equipo sin acceso local ni huella registrada.
     // (Cuando la huella sí existe, habilitarHuella() lanza el sondeo que faltaba.)
     sondearServidor();
 })();

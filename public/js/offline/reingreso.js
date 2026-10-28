@@ -1,7 +1,7 @@
 /**
  * Pase de reingreso — window.Reingreso (App\Support\PaseReingreso).
  *
- * Quien entra SIN conexión ("Entrar sin conexión") comprueba su clave en el equipo y el
+ * Quien entra SIN conexión (el inicio de sesión sin servidor) comprueba su clave en el equipo y el
  * servidor no se entera: allá no tiene sesión. Lo mismo quien entró con red y siguió
  * trabajando con ella caída más que la vida de la sesión: el servidor la cerró sin saber que
  * se usaba. Al volver la red, en vez de mandarlo otra vez al inicio de sesión estando ya

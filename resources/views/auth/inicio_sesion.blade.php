@@ -148,12 +148,12 @@
                         <i class="material-icons" style="font-size:48px;color:#00004d;transition:transform 0.15s ease;">fingerprint</i>
                         <span id="bioLabel" style="font-size:11px;font-weight:600;color:#6e7781;letter-spacing:0.2px;">Identificación biométrica</span>
                     </div>
-                    {{-- Botón de acceso OFFLINE: solo aparece sin internet y si ya iniciaste
-                         sesión con internet al menos una vez en este equipo. --}}
-                    <button type="button" id="btnOfflineLogin"
-                            style="display:none;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;background:#fff;color:#b45309;border:1.5px solid #fdba74;border-radius:8px;padding:11px;font-weight:800;font-size:14px;cursor:pointer;">
-                        Entrar sin conexión
-                    </button>
+                    {{-- Sin servidor y con una sesión anterior en este equipo: «Iniciar sesión»
+                         entra con lo guardado aquí, y esto lo dice antes de pulsar. La pinta
+                         refrescarAccesos() en offline-auth.js. --}}
+                    <div id="loginSinRedNota" style="display:none;margin-top:10px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;">
+                        Sin internet: entrarás con los datos guardados en este equipo.
+                    </div>
                     <div id="offlineLoginMsg" style="display:none;margin-top:20px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;white-space:pre-line;"></div>
                 </form>
             </div>
@@ -282,7 +282,7 @@
             volvio_conexion:  'Volvió la conexión.\nInicia sesión con tu clave para seguir.',
             // Se abrió una página interna sin internet y sin haber escrito la clave (la PC reabre
             // las pestañas de ayer): sin la clave no se abren los datos guardados (llave-local.js).
-            sin_conexion:     'Sin conexión.\nEscribe tu clave para entrar sin conexión.',
+            sin_conexion:     'Sin conexión.\nEscribe tu clave para entrar con los datos guardados en este equipo.',
             // «Salir» (window.salirDelSistema): solo se dice algo si quedó algo sin subir.
             salida:           ''
         };
@@ -316,22 +316,14 @@
         try { window.history.replaceState({}, '', window.location.pathname); } catch (e) {}
     })();
 
-    // ¿Se le está ofreciendo AHORA el acceso local? La visibilidad del botón es la única
-    // fuente de verdad (la pone refrescarAccesos() en offline-auth.js según haya servidor y
-    // credencial guardada). Lo preguntan el aviso "sin conexión" y el submit, que con el
-    // botón a la vista tiene que desviar el Enter a la entrada local.
-    function hayAccesoLocal() {
-        const b = document.getElementById('btnOfflineLogin');
-        return !!b && b.style.display !== 'none';
-    }
-
     // Aviso "sin conexión": evita que el navegador muestre su página de error (la
-    // "boba fea") cuando el login no puede contactar al servidor. Si hay credenciales
-    // offline guardadas, sugiere "Entrar sin conexión".
+    // "boba fea") cuando el login no puede contactar al servidor. Con una sesión anterior
+    // en este equipo se entra igual escribiendo la clave (lo llama la huella, que sí
+    // necesita servidor); sin ella, la primera vez hace falta internet.
     function avisarSinConexion() {
-        mostrarMsgLogin(hayAccesoLocal()
-            ? 'Sin conexión. Usa "Entrar sin conexión" o revisa tu red.'
-            : 'Sin conexión. Revisa tu red.');
+        mostrarMsgLogin(window.OfflineAuth && window.OfflineAuth.tieneOffline()
+            ? 'Sin conexión.\nEscribe tu clave para entrar con los datos guardados en este equipo.'
+            : 'Sin conexión.\nPara entrar por primera vez en este equipo hace falta internet.');
     }
 
     // Punto ÚNICO que escribe el token CSRF. Valida que lo recibido SEA un token (y no el
@@ -444,19 +436,6 @@
         loginForm.addEventListener('submit', function(e) {
             e.preventDefault(); // Stop native submission immediately
 
-            // Con el acceso local ofrecido (sin servidor y con credencial guardada en este
-            // equipo) "Iniciar sesión" está oculto, pero Enter sigue disparando el submit.
-            // Sin esto, pulsar Enter solo podía terminar en "Sin conexión": lo mandamos a
-            // la MISMA entrada local que el botón visible.
-            if (hayAccesoLocal() && window.OfflineAuth) {
-                window.OfflineAuth.intentarOffline();
-                return;
-            }
-
-            // Sin red según el navegador → no intentes navegar (evita la página de
-            // error fea); avisa y quédate en el login.
-            if (!navigator.onLine) { avisarSinConexion(); return; }
-
             // Limpia un mensaje previo y muestra el spinner. La bandera evita que el
             // guard de 4s lo oculte a mitad del intento (ver arriba); se limpia en
             // mostrarMsgLogin (todos los caminos de fallo pasan por ahí).
@@ -469,20 +448,40 @@
                 preloader.style.display = 'flex';
             }
 
-            // Deja LISTO el verificador OFFLINE (hash de correo+clave, nunca la clave en
-            // texto) mientras va la petición, para que el PBKDF2 no añada espera. Solo se
-            // guarda si el servidor CONFIRMA las credenciales (sincronizar(), más abajo); si
-            // el intento falla se descarta y el verificador anterior queda intacto.
-            if (window.OfflineAuth) {
-                window.OfflineAuth.preparar(
-                    (document.getElementById('login_identifier') || {}).value,
-                    (document.getElementById('password') || {}).value
-                );
+            // UN solo botón para con y sin internet. Sin servidor (sin red, o el inicio de
+            // sesión normal no llega) se entra con lo guardado en el equipo si hubo una
+            // sesión anterior aquí; si no, el aviso. El verificador a medio hacer se tira
+            // dentro de entrarSinServidor: nadie validó esas credenciales.
+            const off = window.OfflineAuth;
+            function seguirSinServidor() {
+                if (!(off && off.entrarSinServidor())) avisarSinConexion();
             }
 
+            (off ? off.conServidor() : Promise.resolve(navigator.onLine)).then(function (hay) {
+                if (!hay) { seguirSinServidor(); return; }
+
+                // Deja LISTO el verificador OFFLINE (hash de correo+clave, nunca la clave en
+                // texto) mientras va la petición, para que el PBKDF2 no añada espera. Solo se
+                // guarda si el servidor CONFIRMA las credenciales (sincronizar(), más abajo);
+                // si el intento falla se descarta y el verificador anterior queda intacto.
+                if (off) {
+                    off.preparar(
+                        (document.getElementById('login_identifier') || {}).value,
+                        (document.getElementById('password') || {}).value
+                    );
+                }
+
+                // Bajón de red / servidor inalcanzable en el handshake O en el POST: NO se
+                // navega (eso dispara la página de error del navegador): se sigue sin servidor.
+                intentarLogin(false).catch(function (error) {
+                    console.error('Login failed:', error);
+                    seguirSinServidor();
+                });
+            });
+
             // La red con tope: con el wifi levantado y sin salida (la señal que va y viene) un
-            // fetch no falla, se queda colgado minutos con el spinner encima y sin ofrecer
-            // "Entrar sin conexión". Pasado el tope cuenta como sin conexión (catch de abajo).
+            // fetch no falla, se queda colgado minutos con el spinner encima. Pasado el tope
+            // cuenta como sin servidor (el catch de intentarLogin, arriba).
             function fetchConTope(url, opciones, ms) {
                 const corta = new AbortController();
                 const tope = setTimeout(function () { corta.abort(); }, ms);
@@ -547,19 +546,6 @@
                     });
             }
 
-            intentarLogin(false)
-                .catch(error => {
-                    console.error('Login failed:', error);
-                    // Bajón de red / servidor inalcanzable en el handshake O en el POST: NO
-                    // navegamos (eso dispara la página de error del navegador). Desde aquí se
-                    // ofrece "Entrar sin conexión" (y si el intento salió de ese botón, se entra
-                    // ya en local: sinRespuesta, antes de descartar, que da el intento por
-                    // terminado). El verificador a medio hacer se tira: nadie validó esas credenciales.
-                    const off = window.OfflineAuth;
-                    if (off && off.sinRespuesta && off.sinRespuesta()) return;
-                    if (off) off.descartar();
-                    avisarSinConexion();
-                });
         });
     }
 </script>
@@ -573,7 +559,7 @@ if ('serviceWorker' in navigator) {
 <script src="{{ asset('js/pwa-update-overlay.js') }}?v={{ @filemtime(public_path('js/pwa-update-overlay.js')) }}" defer></script>
 {{-- La llave de lo guardado en el equipo: se prepara con la clave y se cierra aquí. --}}
 <script src="{{ asset('js/offline/llave-local.js') }}?v={{ @filemtime(public_path('js/offline/llave-local.js')) }}" defer></script>
-{{-- Login OFFLINE: botón "Entrar sin conexión" + verificación por hash local. --}}
+{{-- Login OFFLINE: sin servidor, «Iniciar sesión» verifica contra el hash local. --}}
 <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
 {{-- Helpers DOM compartidos (window.getCsrf / escapeHtml / escapeAttrJs / apiFetch).
      Esta pantalla NO extiende layouts.estructura_base, así que hay que cargarlos aquí:
@@ -650,7 +636,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 if (err.message === 'SIN_CONEXION') {
-                    if (window.OfflineAuth && window.OfflineAuth.sinRespuesta) window.OfflineAuth.sinRespuesta();
+                    // La huella firma contra el servidor: sin él no hay nada que hacer con ella,
+                    // pero la clave sí entra con lo guardado. Se espera a que la escriba.
+                    if (window.OfflineAuth) window.OfflineAuth.noContesto();
                     avisarSinConexion();
                     return;
                 }
