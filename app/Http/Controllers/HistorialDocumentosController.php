@@ -157,7 +157,7 @@ class HistorialDocumentosController extends Controller
      * arma un evento (una etiqueta, un campo): las listas ya guardadas con el formato viejo dejan
      * de leerse y se rehacen, sin esperar a que alguien cambie algo del historial.
      */
-    private const FORMATO = 3;
+    private const FORMATO = 4;
 
     /** Filas por pagina, y eventos por trozo de la lista guardada (20 paginas; ver guardarLista). */
     private const POR_PAGINA = 15;
