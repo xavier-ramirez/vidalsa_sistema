@@ -53,8 +53,8 @@
         d.innerHTML =
             '<div style="width:52px;height:52px;border:5px solid rgba(255,255,255,0.25);' +
                 'border-top-color:#fff;border-radius:50%;animation:pwaUpdSpin 0.9s linear infinite;"></div>' +
-            '<div style="font-size:18px;font-weight:800;">Actualizando aplicación…</div>' +
-            '<div style="font-size:13px;opacity:0.85;max-width:280px;line-height:1.4;">' +
+            '<div style="font-size:22px;font-weight:800;">Actualizando aplicación…</div>' +
+            '<div style="font-size:15px;opacity:0.85;max-width:320px;line-height:1.4;">' +
                 'Descargando los últimos cambios. Esto pasa una sola vez tras una actualización.</div>';
         (document.body || document.documentElement).appendChild(d);
         if (!document.getElementById('pwaUpdSpinKeyframes')) {
