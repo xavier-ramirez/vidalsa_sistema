@@ -127,7 +127,7 @@
                             <i class="material-icons search-icon">search</i>
                             <input type="text" id="searchEquipo" name="search_equipo"
                                 value="{{ request('search_equipo') }}"
-                                placeholder="Buscar placa o serial..."
+                                placeholder="Buscar serial..."
                                 class="search-input-field"
                                 style="height: 100%;"
                                 autocomplete="off"

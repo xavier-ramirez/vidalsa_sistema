@@ -33,6 +33,9 @@
     var VENTANA_MS = 10000; // páginas internas: solo recién abierta la app (ver cabecera)
     var enLogin = !!document.getElementById('loginForm');
     var timer = null;
+    // Pedido con el botón "Actualizar" (aviso de versión nueva, navegacion.js): el overlay se
+    // queda hasta que esa página recarga; ni el tope ni la activación del SW lo quitan.
+    var fijo = false;
 
     function showOverlay() {
         if (document.getElementById(OVERLAY_ID)) return;
@@ -65,10 +68,14 @@
     }
 
     function hideOverlay() {
+        if (fijo) return;
         clearTimeout(timer);
         var d = document.getElementById(OVERLAY_ID);
         if (d) d.remove();
     }
+
+    // El botón "Actualizar" lo muestra en el acto, sin esperar a que el navegador descubra el SW nuevo.
+    window.pwaMostrarActualizando = function () { fijo = true; showOverlay(); };
 
     // Vigila un SW que está instalando. Solo es "actualización" si YA había un controller
     // (en primera instalación no molestamos). Overlay mientras instala; se quita al activarse

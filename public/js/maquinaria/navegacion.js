@@ -1205,8 +1205,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 'background:none;border:none;color:#cbd5e1;display:flex;padding:2px;">' +
                 '<i class="material-icons" style="font-size:18px;">close</i></button>';
         document.body.appendChild(caja);
-        document.getElementById('avisoVersionRecargar').onclick = function () { window.location.reload(); };
+        document.getElementById('avisoVersionRecargar').onclick = actualizar;
         document.getElementById('avisoVersionCerrar').onclick = function () { caja.remove(); };
+    }
+
+    // "Actualizar": el aviso "Actualizando aplicación…" sale en el acto (pwa-update-overlay.js) y
+    // se recarga cuando el SW nuevo ya bajó los cambios (sw.js hace skipWaiting: se activa solo).
+    // Antes recargaba de golpe y el aviso salía segundos después, al descubrir la página el SW.
+    // Sin SW nuevo (o con un tope, por si el internet no deja terminar) se recarga igual.
+    function actualizar() {
+        var hecho = false;
+        var recargar = function () { if (!hecho) { hecho = true; window.location.reload(); } };
+        if (window.pwaMostrarActualizando) window.pwaMostrarActualizando();
+        if (!('serviceWorker' in navigator)) return recargar();
+        setTimeout(recargar, 15000);
+        navigator.serviceWorker.getRegistration()
+            .then(function (reg) { return reg ? reg.update().then(function () { return reg; }) : null; })
+            .then(function (reg) {
+                var sw = reg && (reg.installing || reg.waiting);
+                if (!sw) return recargar();
+                sw.addEventListener('statechange', function () {
+                    if (sw.state === 'activated' || sw.state === 'redundant') recargar();
+                });
+            })
+            .catch(recargar);
     }
 
     function revisar() {
