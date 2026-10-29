@@ -233,12 +233,6 @@ if (!window._hdBusquedaRegistrada) {
 if (!window._hdSelectedIds) {
     window._hdSelectedIds = new Set();
 }
-// De las elegidas, las que se pueden eliminar (data-del-* de su fila: super.admin y registro de
-// auditoría), con lo que pide deleteRegistro. Se guarda al elegir: la fila puede salir de la
-// página y seguir elegida. La usa el "Eliminar" del contador (hdEliminarElegidos).
-if (!window._hdBorrables) {
-    window._hdBorrables = new Map();
-}
 
 // ── Aplica/quita el estilo de selección ──
 window.applyRowStyleHd = function(tr, selected) {
@@ -262,9 +256,6 @@ window.updateChipHd = function() {
     } else {
         chip.classList.remove('active');
     }
-    // "Eliminar", sin cuenta (pedido del cliente, 22-10-2026): solo se ve si alguna elegida se puede eliminar.
-    const eliminar = document.getElementById('hd-selection-chip-eliminar');
-    if (eliminar) eliminar.hidden = !window._hdBorrables.size;
 };
 
 // ── Re-aplica estilos tras carga AJAX ──
@@ -291,11 +282,9 @@ if (!window._hdRowClickRegistered) {
 
         if (window._hdSelectedIds.has(id)) {
             window._hdSelectedIds.delete(id);
-            window._hdBorrables.delete(id);
             window.applyRowStyleHd(tr, false);
         } else {
             window._hdSelectedIds.add(id);
-            if (tr.dataset.delSource) window._hdBorrables.set(id, { source: tr.dataset.delSource, id: tr.dataset.delId });
             window.applyRowStyleHd(tr, true);
         }
         window.updateChipHd();
@@ -332,7 +321,6 @@ window.hdToggleSoloSel = function (e) {
 // ── Limpiar selección ──
 window.hdClearSelection = function() {
     window._hdSelectedIds.clear();
-    window._hdBorrables.clear();
     document.querySelectorAll('.hd-selectable-row.selected-row-maquinaria').forEach(tr => tr.classList.remove('selected-row-maquinaria'));
     // Si estaba "ver solo seleccionados", apagarlo y recargar la vista normal.
     if (window._hdSoloSel) {
@@ -359,8 +347,6 @@ window.addEventListener('spa:contentLoaded', function() {
     if (window._hdSelectedIds) {
         window._hdSelectedIds.clear();
     }
-    // Y lo que se iba a eliminar: si no, «Eliminar» borraba también lo elegido en la visita anterior.
-    if (window._hdBorrables) window._hdBorrables.clear();
     // Resetear "ver solo seleccionados" y quitar el círculo ámbar al cambiar de vista.
     window._hdSoloSel = false;
     const counter = document.querySelector('#hd-selection-chip .selection-counter');

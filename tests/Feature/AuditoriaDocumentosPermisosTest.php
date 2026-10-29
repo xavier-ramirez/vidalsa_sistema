@@ -114,7 +114,6 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
 
         // Eliminar: solo super.admin.
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.descartar'), [], $json)->assertForbidden();
-        $this->actingAs($u)->delete(route('historial-documentos.deleteRegistro'), [], $json)->assertForbidden();
     }
 
     public function test_super_admin_sin_la_clave_de_carga_masiva_ve_las_lecturas_pero_no_revisa(): void
@@ -134,12 +133,12 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         // La lectura automática y "Revisar ahora" sí: son de super.admin.
         $this->assertStringContainsString('Lectura automática', $html);
         $this->assertStringContainsString('window.cpdfLeerAhora', $html);
-        // En el historial sí elimina registros: el "Eliminar" del contador de selección. En la
-        // Revisión no descarta lo de la carga masiva (va con su clave).
+        // En la Revisión no descarta lo de la carga masiva (va con su clave). El historial no
+        // borra registros, ni para super.admin (pedido del cliente, 29-10-2026).
         $this->assertStringNotContainsString('id="cpdf-selection-chip-eliminar"', $html);
         $hist = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'historial']))->assertOk()->getContent();
-        $this->assertStringContainsString('id="hd-selection-chip-eliminar"', $hist);
-        $this->assertStringContainsString('window.hdEliminarElegidos', $hist);
+        $this->assertStringNotContainsString('id="hd-selection-chip-eliminar"', $hist);
+        $this->assertStringNotContainsString('data-del-source=', $hist);
 
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.analizar'), [], $json)->assertForbidden();
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.descartar'), [], $json)->assertForbidden();

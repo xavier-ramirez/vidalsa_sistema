@@ -196,8 +196,7 @@
 
 {{-- ─── CONTADOR FLOTANTE DE SELECCIÓN (el mismo de las tres pestañas) ─── --}}
 @include('admin.historial_documentos.partials.chip_seleccion', ['id' => 'hd-selection-chip',
-    'alTocar' => 'window.hdToggleSoloSel', 'alLimpiar' => 'window.hdClearSelection',
-    'eliminar' => auth()->user()->can('super.admin') ? 'window.hdEliminarElegidos' : null])
+    'alTocar' => 'window.hdToggleSoloSel', 'alLimpiar' => 'window.hdClearSelection'])
 
 <style>
     /* Hover en filas seleccionables. Los fondos llevan !important porque .admin-table
@@ -336,39 +335,6 @@
 </script>
 
 <script>
-// ── Eliminar los registros elegidos (solo super.admin: el botón del contador de selección) ──
-// Son los de AUDITORÍA que se vieron al elegirlos (data-del-*, window._hdBorrables): una
-// subida de documento o la creación de un vehículo no llegan aquí. Uno por uno, con una sola
-// pregunta; al terminar, las eliminadas salen de la selección y la tabla se vuelve a pedir.
-window.hdEliminarElegidos = function () {
-    // Solo los que SIGUEN elegidos (por si algún camino vacía la selección sin vaciar esto).
-    var borrar = Array.from(window._hdBorrables.entries()).filter(function (par) { return window._hdSelectedIds.has(par[0]); });
-    if (!borrar.length) return;
-    if (!confirm('¿Eliminar ' + (borrar.length === 1 ? 'este registro' : 'estos ' + borrar.length + ' registros') + ' del historial? Esta acción no se puede deshacer.')) return;
-    var ok = 0, fallos = [];
-    if (window.showPreloader) window.showPreloader();
-    borrar.reduce(function (cadena, par) {
-        return cadena.then(function () {
-            return window.apiFetch(@json(route('historial-documentos.deleteRegistro')), {
-                method: 'DELETE',
-                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source: par[1].source, id: par[1].id })
-            })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-            .then(function (res) {
-                if (res.ok && res.data.success) { ok++; window._hdSelectedIds.delete(par[0]); window._hdBorrables.delete(par[0]); }
-                else fallos.push(res.data.message || 'No se pudo eliminar.');
-            })
-            .catch(function () { fallos.push('Error de conexión.'); });
-        });
-    }, Promise.resolve()).then(function () {
-        if (window.hidePreloader) window.hidePreloader();
-        if (ok) window.toast(ok === 1 ? 'Registro eliminado.' : ok + ' registros eliminados.', 'success');
-        if (fallos.length) window.toast(fallos[0], 'error');
-        window.updateChipHd();
-        window.loadHistorialDocumentos();
-    });
-};
 // Los listeners van DELEGADOS en `document`, así funcionan con las filas cargadas por
 // AJAX (filtros/paginación) sin re-bindear. Guard anti-doble-registro: este bloque
 // inline se re-ejecuta en cada navegación SPA; sin el guard se acumulaban N copias del

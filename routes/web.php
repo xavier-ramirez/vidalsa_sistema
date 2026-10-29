@@ -582,11 +582,10 @@ Route::middleware(['auth'])->group(function () {
                     ->name('compresion-pdf.documentos.revisados');
             });
 
-            // Lo demás de Auditoría (desbloquear IP, eliminar del historial, la compresión, "Revisar ahora"): solo super.admin.
+            // Lo demás de Auditoría (desbloquear IP, la compresión, "Revisar ahora"): solo super.admin.
             Route::middleware('can:super.admin')->group(function () {
                 // Desbloquear IP: la tarjeta que la usa esta en /admin/usuarios (ver unlockIp).
                 Route::delete('historial-documentos/unlock-ip/{id}', [App\Http\Controllers\HistorialDocumentosController::class, 'unlockIp'])->name('historial-documentos.unlock-ip');
-                Route::delete('historial-documentos/registro', [App\Http\Controllers\HistorialDocumentosController::class, 'deleteRegistro'])->name('historial-documentos.deleteRegistro');
                 // La pantalla de compresion se mudo a Control de Auditoría: este GET solo
                 // lleva alli (los enlaces viejos y los favoritos siguen sirviendo).
                 Route::get('compresion-pdf', [App\Http\Controllers\CompresionPdfController::class, 'index'])->name('compresion-pdf.index');

@@ -5,8 +5,8 @@
        $alTocar   función de "ver solo las elegidas" (recibe el evento)
        $alLimpiar función de "Limpiar"
        $revisado  (opcional) con true, el botón "Revisado" de la Revisión automática
-       $eliminar  (opcional) función de "Eliminar" las elegidas; solo para quien puede eliminar
-                  (lo decide la pestaña). Va en lugar de la papelera de cada fila (pedido del
+       $eliminar  (opcional) función de "Eliminar" las elegidas; hoy solo la Revisión (descartar lo
+                  de la carga masiva) y solo para quien puede (lo decide ella). Va en lugar de la papelera de cada fila (pedido del
                   cliente, 22-10-2026) y se ve cuando alguna elegida se puede eliminar. --}}
 <div id="{{ $id }}" class="selection-floating-bar hd-chip-sel">
     <div class="selection-counter" onclick="{{ $alTocar }}(event)" style="cursor: pointer;" title="Ver solo las filas elegidas">
