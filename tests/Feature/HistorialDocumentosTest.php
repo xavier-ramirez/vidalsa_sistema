@@ -247,7 +247,7 @@ class HistorialDocumentosTest extends MySqlTestCase
 
     /**
      * Revisión automática: tipo, estado y el buscador al final; Compresión también con el
-     * buscador después de sus desplegables (29-10-2026) y UN "Certificado" para equipos y auxiliares.
+     * documento primero y el buscador después de sus desplegables (29-10-2026) y UN "Certificado" para equipos y auxiliares.
      */
     public function test_orden_de_los_filtros_y_un_solo_certificado(): void
     {
@@ -262,9 +262,9 @@ class HistorialDocumentosTest extends MySqlTestCase
 
         $comp = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'compresion']))->assertOk()->getContent();
         $this->assertSame(1, substr_count($comp, 'id="cpdfBuscar"'));
-        $this->assertTrue($pos($comp, 'cpdfEstadoSelect') < $pos($comp, 'cpdfDocumentoSelect')
-            && $pos($comp, 'cpdfDocumentoSelect') < $pos($comp, 'cpdfBuscar')
-            && $pos($comp, 'cpdfBuscar') < $pos($comp, 'hdBtnAcciones'), 'Estado, documento, buscador.');
+        $this->assertTrue($pos($comp, 'cpdfDocumentoSelect') < $pos($comp, 'cpdfEstadoSelect')
+            && $pos($comp, 'cpdfEstadoSelect') < $pos($comp, 'cpdfBuscar')
+            && $pos($comp, 'cpdfBuscar') < $pos($comp, 'hdBtnAcciones'), 'Documento, estado, buscador.');
         $this->assertStringNotContainsString('Certificado (auxiliar)', $comp);
         $this->assertSame('Certificado', collect(\App\Support\EnlacesDocumentos::DOCUMENTOS)->firstWhere(1, 'LINK_CERTIFICADO')[3]);
     }

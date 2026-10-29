@@ -59,19 +59,19 @@
     // cruda ('adicional') y el desplegable "Filtrar Documento" no las ofrecia.
     $tiposDoc = \App\Models\VerificacionDocumento::NOMBRES + \App\Services\CargaMasivaDocumentos::NOMBRES;
     // Los desplegables son iguales salvo su lista: se pintan con el mismo molde. Cada pestaña
-    // filtra por lo suyo (la de compresion, por estado y documento; la de documentos, por tipo y
-    // estado, el tipo primero, a la izquierda). El buscador va despues de ellos, a la derecha, en
-    // las dos (pedido del cliente: documentos 19-10-2026, compresion 29-10-2026).
+    // filtra por lo suyo (las dos, por documento y estado, el documento primero, a la izquierda).
+    // El buscador va despues de ellos, a la derecha, en las dos (pedido del cliente: documentos
+    // 19-10-2026, compresion 29-10-2026).
     $desplegables = $pestana === 'documentos' ? [
         ['id' => 'cpdfDocTipoSelect', 'nombre' => 'tipo_doc', 'etiqueta' => 'Filtrar Documento...', 'todos' => 'TODOS LOS DOCUMENTOS',
          'valor' => $tipoDoc, 'opciones' => $tiposDoc],
         ['id' => 'cpdfDocEstadoSelect', 'nombre' => 'estado_doc', 'etiqueta' => 'Filtrar Estado...', 'todos' => 'TODOS LOS ESTADOS',
          'valor' => $estadoDoc, 'opciones' => $opcionesEstadoDoc],
     ] : [
-        ['id' => 'cpdfEstadoSelect',    'nombre' => 'estado',    'etiqueta' => 'Filtrar Estado...',    'todos' => 'TODOS LOS ESTADOS',
-         'valor' => $estado,    'opciones' => $estados],
         ['id' => 'cpdfDocumentoSelect', 'nombre' => 'documento', 'etiqueta' => 'Filtrar Documento...', 'todos' => 'TODOS LOS DOCUMENTOS',
          'valor' => $documento, 'opciones' => $documentos->mapWithKeys(fn ($d) => [$d => $d])->all()],
+        ['id' => 'cpdfEstadoSelect',    'nombre' => 'estado',    'etiqueta' => 'Filtrar Estado...',    'todos' => 'TODOS LOS ESTADOS',
+         'valor' => $estado,    'opciones' => $estados],
     ];
 @endphp
 
