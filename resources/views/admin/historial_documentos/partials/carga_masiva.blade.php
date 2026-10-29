@@ -28,7 +28,7 @@
     /* SIN overflow:hidden: la lista del desplegable del tipo se sale de la tarjeta y con él
        quedaba cortada por el borde de abajo (solo se veían 3 de las 7 opciones). Las esquinas
        redondas del encabezado las pone él mismo. */
-    .hd-cm-modal { background: #fff; border-radius: 14px; width: 94%; max-width: 520px;
+    .hd-cm-modal { background: #fff; border-radius: 14px; width: 94%; max-width: 440px;
                    display: flex; flex-direction: column;
                    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
     /* Ícono y título van CENTRADOS juntos, como una sola pieza: los centra el
