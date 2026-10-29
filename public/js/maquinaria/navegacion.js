@@ -1223,10 +1223,10 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(function (reg) { return reg ? reg.update().then(function () { return reg; }) : null; })
             .then(function (reg) {
                 var sw = reg && (reg.installing || reg.waiting);
-                if (!sw) return recargar();
-                sw.addEventListener('statechange', function () {
-                    if (sw.state === 'activated' || sw.state === 'redundant') recargar();
-                });
+                var listo = function () { return !sw || sw.state === 'activated' || sw.state === 'redundant'; };
+                // Mirar antes de esperar: si ya se activó, el statechange no vuelve a llegar.
+                if (listo()) return recargar();
+                sw.addEventListener('statechange', function () { if (listo()) recargar(); });
             })
             .catch(recargar);
     }

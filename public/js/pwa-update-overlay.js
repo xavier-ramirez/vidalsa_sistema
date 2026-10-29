@@ -16,6 +16,9 @@
  * en los primeros VENTANA_MS tras cargar la página (la app recién abierta): más tarde la
  * persona ya puede estar llenando algo y no se le tapa la pantalla.
  *
+ * El botón "Actualizar" del aviso de versión nueva (navegacion.js) lo pide con
+ * window.pwaMostrarActualizando(): sale en el acto y se queda hasta que esa página recarga.
+ *
  * A PROPÓSITO no recarga la página: en una página interna (formulario a medias) perdería
  * el trabajo del usuario.
  * No re-registra el SW (el login ya lo registra): solo se engancha a la registración
