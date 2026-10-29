@@ -468,8 +468,10 @@ class HistorialDocumentosController extends Controller
         // recuenta sobre la lista guardada, sin rehacerla.
         $ficha = self::leerFicha($almacen, $cacheKey, $ver);
         if ($ficha && $ficha['dia'] !== now()->toDateString()) {
+            // Los trozos no cambian con el dia: solo se reescribe la ficha (~3,5 MB menos de escritura).
             $todo  = self::leerTodo($almacen, $cacheKey, $ficha);
-            $ficha = $todo ? self::guardarLista($almacen, $cacheKey, $ver, $todo) : null;
+            $ficha = $todo ? ['dia' => now()->toDateString(), 'resumen' => self::resumen($todo)] + $ficha : null;
+            if ($ficha) $almacen->put($cacheKey, $ficha, now()->addHours(6));
         }
         $filas = $ficha ? self::leerPagina($almacen, $cacheKey, $ficha, $page) : null;
 
