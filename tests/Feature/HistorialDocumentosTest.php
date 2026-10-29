@@ -246,8 +246,8 @@ class HistorialDocumentosTest extends MySqlTestCase
     }
 
     /**
-     * Revisión automática: tipo, estado y el buscador al final; Compresión sigue con el
-     * buscador primero y UN "Certificado" para equipos y auxiliares.
+     * Revisión automática: tipo, estado y el buscador al final; Compresión también con el
+     * buscador después de sus desplegables (29-10-2026) y UN "Certificado" para equipos y auxiliares.
      */
     public function test_orden_de_los_filtros_y_un_solo_certificado(): void
     {
@@ -262,9 +262,32 @@ class HistorialDocumentosTest extends MySqlTestCase
 
         $comp = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'compresion']))->assertOk()->getContent();
         $this->assertSame(1, substr_count($comp, 'id="cpdfBuscar"'));
-        $this->assertTrue($pos($comp, 'cpdfBuscar') < $pos($comp, 'cpdfEstadoSelect'));
+        $this->assertTrue($pos($comp, 'cpdfEstadoSelect') < $pos($comp, 'cpdfDocumentoSelect')
+            && $pos($comp, 'cpdfDocumentoSelect') < $pos($comp, 'cpdfBuscar')
+            && $pos($comp, 'cpdfBuscar') < $pos($comp, 'hdBtnAcciones'), 'Estado, documento, buscador.');
         $this->assertStringNotContainsString('Certificado (auxiliar)', $comp);
         $this->assertSame('Certificado', collect(\App\Support\EnlacesDocumentos::DOCUMENTOS)->firstWhere(1, 'LINK_CERTIFICADO')[3]);
+    }
+
+    /**
+     * El buscador de Compresión encuentra también por la placa del equipo (la fila no la guarda:
+     * en las de documentacion, FILA_ID es su ID_EQUIPO).
+     */
+    public function test_compresion_busca_por_placa(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        $idEquipo = DB::table('documentacion')->value('ID_EQUIPO');
+        $placa = 'PLC' . mt_rand(10000, 99999);
+        DB::table('documentacion')->where('ID_EQUIPO', $idEquipo)->update(['PLACA' => $placa]);
+        $serial = 'SERPLACA' . mt_rand(10000, 99999);
+        \App\Models\CompresionPdf::create([
+            'TABLA' => 'documentacion', 'COLUMNA' => 'LINK_ROTC', 'FILA_ID' => $idEquipo, 'DOCUMENTO' => 'ROTC',
+            'SERIAL' => $serial, 'DRIVE_ID_VIEJO' => 'x' . $serial, 'ESTADO' => \App\Models\CompresionPdf::COMPRIMIDO,
+        ]);
+
+        $html = $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'compresion', 'buscar' => $placa]))
+            ->assertOk()->getContent();
+        $this->assertStringContainsString($serial, $html);
     }
 
     /**

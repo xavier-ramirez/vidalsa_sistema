@@ -59,8 +59,9 @@
     // cruda ('adicional') y el desplegable "Filtrar Documento" no las ofrecia.
     $tiposDoc = \App\Models\VerificacionDocumento::NOMBRES + \App\Services\CargaMasivaDocumentos::NOMBRES;
     // Los desplegables son iguales salvo su lista: se pintan con el mismo molde. Cada pestaña
-    // filtra por lo suyo (la de compresion, por documento; la de documentos, por tipo y estado:
-    // el tipo primero, a la izquierda, y el buscador al final; pedido del cliente, 19-10-2026).
+    // filtra por lo suyo (la de compresion, por estado y documento; la de documentos, por tipo y
+    // estado, el tipo primero, a la izquierda). El buscador va despues de ellos, a la derecha, en
+    // las dos (pedido del cliente: documentos 19-10-2026, compresion 29-10-2026).
     $desplegables = $pestana === 'documentos' ? [
         ['id' => 'cpdfDocTipoSelect', 'nombre' => 'tipo_doc', 'etiqueta' => 'Filtrar Documento...', 'todos' => 'TODOS LOS DOCUMENTOS',
          'valor' => $tipoDoc, 'opciones' => $tiposDoc],
@@ -86,8 +87,6 @@
              Cada cambio pide por AJAX solo los @fragment de abajo (cpdfFiltrar): la tabla, las
              páginas, las cuentas del lateral y las opciones de cada desplegable con su cuenta. --}}
         <div class="filter-toolbar-container cpdf-filtros">
-            @includeWhen($pestana !== 'documentos', 'admin.compresion_pdf.partials.buscador')
-
             @foreach ($desplegables as $dd)
                 <div class="filter-item aligned-filter responsive-filter-item">
                     <div class="custom-dropdown" id="{{ $dd['id'] }}" data-filter-type="{{ $dd['nombre'] }}" data-default-label="{{ $dd['etiqueta'] }}" style="width: 100%;">
@@ -123,7 +122,7 @@
                 </div>
             @endforeach
 
-            @includeWhen($pestana === 'documentos', 'admin.compresion_pdf.partials.buscador')
+            @include('admin.compresion_pdf.partials.buscador')
 
             @include('admin.historial_documentos.partials.filtro_fechas', ['alCambiar' => 'window.cpdfFiltrar'])
 

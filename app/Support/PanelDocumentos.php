@@ -120,7 +120,10 @@ class PanelDocumentos
             $q->when($documento, fn ($q) => $q->where('DOCUMENTO', $documento))
               ->when($buscar !== '', function ($q) use ($buscar) {
                   $like = '%' . addcslashes($buscar, '%_\\') . '%';
-                  $q->where(fn ($w) => $w->where('SERIAL', 'like', $like)->orWhere('DOCUMENTO', 'like', $like));
+                  // La placa no se guarda en la fila: en las de documentacion, FILA_ID es su ID_EQUIPO.
+                  $q->where(fn ($w) => $w->where('SERIAL', 'like', $like)->orWhere('DOCUMENTO', 'like', $like)
+                      ->orWhere(fn ($p) => $p->where('TABLA', 'documentacion')
+                          ->whereIn('FILA_ID', DB::table('documentacion')->select('ID_EQUIPO')->where('PLACA', 'like', $like))));
               });
         };
 
