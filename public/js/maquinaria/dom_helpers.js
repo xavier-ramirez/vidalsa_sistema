@@ -22,8 +22,8 @@
  *   window.toast()          Aviso al usuario, con el guard y el respaldo a alert()
  *                           que estaban repetidos en 6 envoltorios locales.
  *
- *   window.usuarioActivo()  ¿Tocó algo en los últimos 2 min? Lo miran los sondeos
- *                           (copia local y aviso de versión) antes de preguntar.
+ *   window.usuarioActivo()  ¿Tocó algo en los últimos 2 min? Lo mira el aviso de versión
+ *                           antes de preguntar.
  *
  *   window.layoutListo()    Promise: ya corrieron los scripts del final del layout
  *                           (CopiaLocal, Bandeja…). Ver más abajo.
@@ -596,8 +596,8 @@
         return nuevas.map(function (i) { return orden[i]; });
     };
 
-    // Sin actividad en 2 min los sondeos no preguntan: cada petición alarga la sesión en el
-    // servidor y una pestaña olvidada no debe mantenerla viva. La marca la pone session_timeout.
+    // Sin actividad en 2 min el aviso de versión no pregunta: a quien no está, no hay a quién
+    // avisarle. La marca la pone session_timeout.
     window.usuarioActivo = function () {
         try {
             var t = parseInt(localStorage.getItem('vidalsa_last_activity'), 10);

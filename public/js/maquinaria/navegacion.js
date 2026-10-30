@@ -114,12 +114,13 @@ document.addEventListener('DOMContentLoaded', () => {
     //     que se abren, para la próxima.
     // NO entran los módulos que pintan sus filas y contadores en el servidor (Usuarios,
     // Documentos, Recepción, Catálogo): su pantalla guardada mostraría datos viejos.
+    // En este orden se guardan tras un despliegue: primero las que más se abren.
     const PANTALLAS_LOCALES = {
-        '/menu': 'equipos',
         '/admin/equipos': 'equipos',
+        '/admin/almacen': 'almacen',
+        '/menu': 'equipos',
         '/admin/movilizaciones': 'movilizaciones',
         '/admin/fallas': 'fallas',
-        '/admin/almacen': 'almacen',
         '/admin/almacen/movimientos': 'almacen',
         '/admin/consumibles/graficos': null,
         '/mapa': null,
@@ -302,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 .then((hay) => hay || refrescarPantalla(r)), Promise.resolve())))
             .then(() => baseDeLaCargaCompleta())
             .catch(() => {});
-    }, 4000);
+    }, 1500);
 
     // Abierta con carga completa (F5, login) no hay HTML con que comparar: el DOM ya lo tocó el
     // JS. Sirve la pantalla guardada; si es más vieja, ponerAlDia cambia de más listas que ya
