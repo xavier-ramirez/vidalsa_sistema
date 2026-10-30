@@ -1211,7 +1211,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // "Actualizar": el aviso "Actualizando aplicación…" sale en el acto (pwa-update-overlay.js) y
     // se recarga cuando el SW nuevo ya bajó los cambios (sw.js hace skipWaiting: se activa solo).
-    // Antes recargaba de golpe y el aviso salía segundos después, al descubrir la página el SW.
     // Sin SW nuevo (o con un tope, por si el internet no deja terminar) se recarga igual.
     function actualizar() {
         var hecho = false;

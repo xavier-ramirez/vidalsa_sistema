@@ -1313,9 +1313,10 @@
 
         {{-- ===== PWA: registro del Service Worker + banner "Instalar aplicacion" ===== --}}
         <script src="{{ asset('js/pwa-install.js') }}?v={{ @filemtime(public_path('js/pwa-install.js')) }}" defer></script>
-        {{-- Overlay "Actualizando…": aquí solo en los primeros segundos tras abrir la app (con la
-             sesión abierta el login salta al menú antes de que se descubra el SW nuevo). No
-             recarga: el SW nuevo se aplica sin interrumpir (sw.js hace skipWaiting()). --}}
+        {{-- Overlay "Actualizando…": aquí en los primeros segundos tras abrir la app (con la
+             sesión abierta el login salta al menú antes de que se descubra el SW nuevo) y al tocar
+             "Actualizar" en el aviso de versión nueva (navegacion.js). Por sí solo no recarga:
+             el SW nuevo se aplica sin interrumpir (sw.js hace skipWaiting()). --}}
         <script src="{{ asset('js/pwa-update-overlay.js') }}?v={{ @filemtime(public_path('js/pwa-update-overlay.js')) }}" defer></script>
 
         {{-- offline-auth.js NO se carga aquí a propósito: solo tiene trabajo en la pantalla
