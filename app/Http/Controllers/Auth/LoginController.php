@@ -148,10 +148,9 @@ class LoginController extends Controller
     }
 
     /**
-     * Cierra la sesión de este navegador. La usan logout y el login cuando llega del cierre
-     * por inactividad con la sesión todavía abierta (SystemController::loginPage).
+     * Cierra la sesión de este navegador.
      */
-    public static function cerrarSesion(Request $request): void
+    private static function cerrarSesion(Request $request): void
     {
         Auth::logout();
         $request->session()->invalidate();

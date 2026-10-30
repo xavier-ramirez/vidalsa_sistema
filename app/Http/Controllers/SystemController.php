@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Auth\LoginController;
 use Illuminate\Http\Request;
 
 class SystemController extends Controller
@@ -11,19 +10,16 @@ class SystemController extends Controller
     {
         if (auth()->check()) {
             // Llega de salir (cierre por inactividad de partials/session_timeout o el botón
-            // «Salir», los dos por window.salirDelSistema) con la sesión todavía abierta: su
-            // POST /logout no llegó (red lenta o caída). Se cierra aquí en vez de mandarla al
-            // menú ("se cerró la sesión y se abrió"). El JS del login hace lo mismo cuando la
-            // pantalla sale del caché del Service Worker, pero tras cada deploy ese caché está
-            // vacío, la petición llega aquí y antes volvía al menú sin que ese JS corriera.
+            // «Salir», los dos por window.salirDelSistema) y hay una sesión abierta: o su POST
+            // /logout no llegó, o se volvió a entrar desde otra pestaña mientras esta salía.
+            // Aquí no se distinguen: las dos comparten cookie y un GET no trae el token de la
+            // sesión que se cerró. Por eso NO se cierra nada: se da el login sin mandar al menú
+            // y su JS (precalentarCsrf) cierra la de ese token, o va al menú si la abierta es otra.
             // El aviso puede traer "_pendientes" (cambios sin subir en la bandeja).
-            // Solo si la navegación es de la propia app: un enlace de otro sitio no la cierra.
             // is_string: un ?aviso[]= llega como array y convertirlo a texto daría un 500.
             $aviso = $request->query('aviso');
             $aviso = is_string($aviso) ? preg_replace('/_pendientes$/', '', $aviso) : '';
-            if (in_array($aviso, ['inactividad', 'salida'], true)
-                && in_array($request->header('Sec-Fetch-Site', 'same-origin'), ['same-origin', 'none'], true)) {
-                LoginController::cerrarSesion($request);
+            if (in_array($aviso, ['inactividad', 'salida'], true)) {
                 return view('auth.inicio_sesion');
             }
             return redirect()->route('menu');
