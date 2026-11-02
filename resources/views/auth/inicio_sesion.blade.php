@@ -67,7 +67,7 @@
 
         <!-- Maquinaria en la parte inferior derecha -->
         <div class="machinery-fixed-bottom">
-            <div class="machinery-wrapper">
+            <div>
                 {{-- SIN loading="lazy". Esta imagen esta en position:absolute; bottom:0, o sea
                      DENTRO del primer viewport en escritorio: no hay que bajar para verla. Con
                      lazy el navegador la trata como diferida y vuelve a decidir si la pide cada

@@ -177,52 +177,27 @@ body {
     max-width: 100%;
     height: auto;
     display: block;
-    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.15));
     /* La foto se funde con el fondo blanco sin canto recto: bordes IZQUIERDO y SUPERIOR en curva
        suave, mas una elipse desde la esquina inferior derecha que redondea la esquina superior izquierda. */
-    --borde-izq: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.043) 3.25%, rgba(0, 0, 0, 0.156) 6.5%, rgba(0, 0, 0, 0.316) 9.75%, rgba(0, 0, 0, 0.5) 13%, rgba(0, 0, 0, 0.684) 16.25%, rgba(0, 0, 0, 0.844) 19.5%, rgba(0, 0, 0, 0.957) 22.75%, #000 26%);
+    --borde-izq: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.043) 2%, rgba(0, 0, 0, 0.156) 4%, rgba(0, 0, 0, 0.316) 6%, rgba(0, 0, 0, 0.5) 8%, rgba(0, 0, 0, 0.684) 10%, rgba(0, 0, 0, 0.844) 12%, rgba(0, 0, 0, 0.957) 14%, #000 16%);
     --borde-sup: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.043) 2.75%, rgba(0, 0, 0, 0.156) 5.5%, rgba(0, 0, 0, 0.316) 8.25%, rgba(0, 0, 0, 0.5) 11%, rgba(0, 0, 0, 0.684) 13.75%, rgba(0, 0, 0, 0.844) 16.5%, rgba(0, 0, 0, 0.957) 19.25%, #000 22%);
-    --esquina: radial-gradient(ellipse 125% 140% at 100% 100%, #000 60%, rgba(0, 0, 0, 0.957) 65%, rgba(0, 0, 0, 0.844) 70%, rgba(0, 0, 0, 0.684) 75%, rgba(0, 0, 0, 0.5) 80%, rgba(0, 0, 0, 0.316) 85%, rgba(0, 0, 0, 0.156) 90%, rgba(0, 0, 0, 0.043) 95%, transparent 100%);
+    --esquina: radial-gradient(ellipse 160% 170% at 100% 100%, #000 62%, rgba(0, 0, 0, 0.957) 66.75%, rgba(0, 0, 0, 0.844) 71.5%, rgba(0, 0, 0, 0.684) 76.25%, rgba(0, 0, 0, 0.5) 81%, rgba(0, 0, 0, 0.316) 85.75%, rgba(0, 0, 0, 0.156) 90.5%, rgba(0, 0, 0, 0.043) 95.25%, transparent 100%);
     -webkit-mask-image: var(--borde-izq), var(--borde-sup), var(--esquina);
             mask-image: var(--borde-izq), var(--borde-sup), var(--esquina);
     -webkit-mask-composite: source-in;
             mask-composite: intersect;
-    position: relative;
-    z-index: 10;
-    /* Imagen al frente de la figura azul */
-}
-
-.machinery-wrapper {
-    position: relative;
-    display: inline-block;
 }
 
 /* Entrada de la foto. La clase la pone el script del login cuando la foto ya esta decodificada. */
 .machinery-fixed-bottom img.foto-lista {
     transform-origin: right bottom;
-    animation: foto-entrada 1.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation: foto-entrada 1.4s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 @keyframes foto-entrada {
     from {
         opacity: 0;
         transform: scale(1.04);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .machinery-fixed-bottom img.foto-lista {
-        animation: none;
-    }
-}
-
-/* Hasta aqui la foto mide el 66% de la pantalla (.login-container es 110% de ancho por su
-   padding) y el atributo width la frena en 1600px. Desde ese punto sigue creciendo con la
-   pantalla; el tope de alto evita que en las ultrawide suba hasta las tarjetas del titulo. */
-@media (min-width: 2425px) {
-    .machinery-fixed-bottom img {
-        width: min(66vw, 135vh);
-        max-width: none;
     }
 }
 
@@ -487,5 +462,21 @@ input:-webkit-autofill:active {
     .page-title-container {
         display: none;
         /* Ocultar título y cards si la pantalla es mediana para evitar solapamiento */
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .machinery-fixed-bottom img.foto-lista {
+        animation: none;
+    }
+}
+
+/* Hasta aqui la foto mide el 66% de la pantalla (.login-container es 110% de ancho por su
+   padding) y el atributo width la frena en 1600px. Desde ese punto sigue creciendo con la
+   pantalla; el tope de alto evita que en las ultrawide suba hasta las tarjetas del titulo. */
+@media (min-width: 2425px) {
+    .machinery-fixed-bottom img {
+        width: min(66vw, 135vh);
+        max-width: none;
     }
 }
