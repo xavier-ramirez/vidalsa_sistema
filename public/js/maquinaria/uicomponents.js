@@ -1506,8 +1506,8 @@ window.toggleConfirmacionSitioAux = function (el) {
 /* ═══════════════════════════════════════════════════════════════════════════════
    MODAL "MOVILIZACIONES DEL EQUIPO"  (#movilizacionesModal)
 
-   Lo abre el boton "Movilizaciones" del modal de detalles. Vive aqui, junto a
-   showDetailsImproved/closeDetailsModal, y no en un archivo aparte cargado en
+   Lo abre el boton "Movilizaciones" del modal de detalles del equipo o del auxiliar.
+   Vive aqui, junto a showDetailsImproved/closeDetailsModal, y no en un archivo aparte cargado en
    perezoso: es parte del mismo flujo, y traerlo al pulsar solo anadiria un viaje de
    red JUSTO cuando el usuario acaba de hacer clic y esta mirando el spinner.
 
@@ -1535,7 +1535,7 @@ window.toggleConfirmacionSitioAux = function (el) {
     // Turno de la apertura: abrir otro equipo (o cerrar) mientras la copia aun se abre
     // descarta lo que llegue tarde, para no pintar el historial equivocado.
     var turno = 0;
-    var ultimoEquipoId = null;   // lo reusan "Reintentar" y el repintado
+    var ultimo = null;   // { campo, id } de lo abierto: lo reusan "Reintentar" y el repintado
 
     function $(id) { return document.getElementById(id); }
 
@@ -1622,15 +1622,15 @@ window.toggleConfirmacionSitioAux = function (el) {
         return f ? f.slice(8, 10) + '/' + f.slice(5, 7) + '/' + f.slice(0, 4) : null;
     }
 
-    /** Las del equipo, la mas reciente primero (mismo orden que /admin/movilizaciones). */
-    function pintarDesdeCopia(vista, equipoId) {
+    /** Las del equipo o auxiliar, la mas reciente primero (mismo orden que /admin/movilizaciones). */
+    function pintarDesdeCopia(vista, quien) {
         if (!vista.estado.listo) {
             pintarError('No hay copia de las movilizaciones en este equipo. Conéctate a internet una vez para bajarla.');
             return;
         }
-        var id = Number(equipoId);
+        var id = Number(quien.id);
         var filas = vista.filas('movilizaciones')
-            .filter(function (m) { return m.idEquipo === id; })
+            .filter(function (m) { return m[quien.campo] === id; })
             .sort(function (x, y) { return x.fecha === y.fecha ? y.id - x.id : (x.fecha < y.fecha ? 1 : -1); });
         if (!filas.length) { mostrarEstado('mov_vacio'); return; }
         pintarLista(filas.map(function (m) {
@@ -1648,33 +1648,33 @@ window.toggleConfirmacionSitioAux = function (el) {
     }
 
     /** Abre la copia y pinta. Separada de abrir() para que "Reintentar" la reuse. */
-    function cargar(equipoId) {
-        if (!equipoId) { pintarError('No se pudo identificar el equipo.'); return; }
+    function cargar(quien) {
+        if (!quien.id) { pintarError('No se pudo identificar el equipo.'); return; }
 
         var miTurno = ++turno;
         mostrarEstado('mov_cargando');
         // Recién movilizado: se espera a que la copia traiga ese movimiento (alDia).
         window.CopiaLocal.usar('movilizaciones')
             .then(function (vista) { return window.CopiaLocal.alDia('movilizaciones').then(function () { return vista; }); })
-            .then(function (vista) { if (miTurno === turno) pintarDesdeCopia(vista, equipoId); });
+            .then(function (vista) { if (miTurno === turno) pintarDesdeCopia(vista, quien); });
     }
 
     // Llegaron movilizaciones nuevas con el modal abierto: se repinta.
     window.addEventListener('copia-local', function (e) {
         var modal = $(ID_MODAL);
         if (e.detail.dominio !== 'movilizaciones' || !e.detail.cambio || !modal || !modal.classList.contains('active')) return;
-        window.CopiaLocal.usar('movilizaciones').then(function (vista) { pintarDesdeCopia(vista, ultimoEquipoId); });
+        window.CopiaLocal.usar('movilizaciones').then(function (vista) { pintarDesdeCopia(vista, ultimo); });
     });
 
-    window.abrirMovilizacionesEquipo = function (equipoId) {
+    function abrir(quien, idTitulo) {
         var modal = $(ID_MODAL);
         if (!modal) return;
 
-        ultimoEquipoId = equipoId;
+        ultimo = quien;
 
-        // Subtitulo: el nombre del equipo abierto. Se LEE del modal de detalles en vez de
+        // Subtitulo: el nombre de lo abierto. Se LEE del modal de detalles en vez de
         // guardarlo aparte, para que no haya dos sitios que puedan discrepar.
-        var titulo = $('modal_equipo_title');
+        var titulo = $(idTitulo);
         var sub = $('mov_subtitulo');
         if (sub) sub.textContent = titulo ? (titulo.textContent || '').trim() : '';
 
@@ -1691,7 +1691,15 @@ window.toggleConfirmacionSitioAux = function (el) {
             modal.classList.add('active');
         });
 
-        cargar(equipoId);
+        cargar(quien);
+    }
+
+    window.abrirMovilizacionesEquipo = function (equipoId) {
+        abrir({ campo: 'idEquipo', id: equipoId }, 'modal_equipo_title');
+    };
+
+    window.abrirMovilizacionesAuxiliar = function (auxId) {
+        abrir({ campo: 'idAuxiliar', id: auxId }, 'auxDetailsTitle');
     };
 
     window.cerrarMovilizacionesEquipo = function () {
@@ -1725,7 +1733,7 @@ window.toggleConfirmacionSitioAux = function (el) {
         // Un clic en el fondo NO lo cierra: solo la X (pedido 01-10-2026).
 
         if (e.target.closest && e.target.closest('#mov_reintentar')) {
-            cargar(ultimoEquipoId);
+            cargar(ultimo);
         }
     });
 

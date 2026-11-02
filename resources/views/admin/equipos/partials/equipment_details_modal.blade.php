@@ -308,21 +308,12 @@ Estructura: overlay > modal-content > header + sub-header + body
                      equipos, DominioMovilizaciones::puede). BOTON y no un <details> como los
                      bloques de arriba: abre su propio modal con el historial, que sale de la
                      copia local de Movilizaciones (uicomponents.js).
-                     El id del equipo lo pone showDetailsImproved en data-equipo-id. --}}
+                     El id del equipo lo pone showDetailsImproved en data-equipo-id.
+                     .btn-ficha-movilizaciones lo comparte con el modal del auxiliar. --}}
                 @if(\App\Support\Sincronizacion\DominioMovilizaciones::puede(auth()->user()))
-                <button type="button" id="btn_ver_movilizaciones" data-equipo-id=""
-                    onclick="window.abrirMovilizacionesEquipo(this.dataset.equipoId)"
-                    {{-- Mismos valores que la cabecera de los acordeones de arriba (padding,
-                         fondo, borde, radio, tipografia y el icono suelto de 20px en #64748b),
-                         para que se lea como uno mas de la lista y no como un boton aparte.
-                         Sin chevron: ninguno de los otros lo lleva.
-                         En TELEFONO ese "igual que los acordeones" lo sostiene el bloque
-                         @media de estilos_globales.css, donde este id comparte selector con
-                         #detailsModal details>summary. Si se cambia el estilo de aqui, hay
-                         que mirar alla: por ser <button> y no <summary>, es facil que se
-                         quede fuera y vuelva a verse mas grande que el resto en movil. --}}
-                    style="background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; padding: 15px 20px; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; font-family: inherit; font-size: inherit; font-weight: 700; color: #1e293b; text-align: left; cursor: pointer;">
-                    <i class="material-icons" style="font-size: 20px; color: #64748b;">local_shipping</i>
+                <button type="button" id="btn_ver_movilizaciones" class="btn-ficha-movilizaciones" data-equipo-id=""
+                    onclick="window.abrirMovilizacionesEquipo(this.dataset.equipoId)">
+                    <i class="material-icons">local_shipping</i>
                     <span>Movilizaciones</span>
                 </button>
                 @endif
@@ -335,7 +326,7 @@ Estructura: overlay > modal-content > header + sub-header + body
 
 {{-- ═══════════════════════════════════════════════════════════
 MODAL MOVILIZACIONES DEL EQUIPO
-Lo abre el boton "Movilizaciones" del modal de detalles. Lo pinta el bloque
+Lo abre el boton "Movilizaciones" del modal de detalles (equipo o auxiliar). Lo pinta el bloque
 "MODAL MOVILIZACIONES DEL EQUIPO" del final de uicomponents.js desde la copia local.
 
 z-index 10002: uicomponents.js sube #detailsModal a 10000 al abrirlo, y el visor de

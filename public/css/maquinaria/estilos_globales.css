@@ -2702,19 +2702,19 @@ body:has(.mobile-menu.active) .selection-floating-bar {
     }
 
     /* Accordions: reducir padding de las cabeceras y los cuerpos.
-       #btn_ver_movilizaciones va en el MISMO selector, no en reglas aparte: es un
+       .btn-ficha-movilizaciones va en el MISMO selector, no en reglas aparte: es un
        <button> y no un <details><summary>, asi que estas reglas no lo alcanzaban y en
        telefono se quedaba con el tamano de escritorio — mas alto y con letra e icono
-       mas grandes que los acordeones de encima, justo lo que su estilo inline dice que
-       quiere evitar. Compartiendo selector no se pueden volver a separar. */
+       mas grandes que los acordeones de encima. Compartiendo selector no se pueden
+       volver a separar. Cubre tambien el boton de #auxDetailsModal. */
     #detailsModal details>summary,
-    #detailsModal #btn_ver_movilizaciones {
+    .btn-ficha-movilizaciones {
         padding: 10px 14px !important;
         font-size: 13px !important;
     }
 
     #detailsModal details>summary i.material-icons,
-    #detailsModal #btn_ver_movilizaciones i.material-icons {
+    .btn-ficha-movilizaciones i.material-icons {
         font-size: 17px !important;
     }
 
@@ -2737,6 +2737,32 @@ body:has(.mobile-menu.active) .selection-floating-bar {
     #detailsModal .modal-content>div:first-child>div:first-child {
         padding: 10px 14px !important;
     }
+}
+
+/* Boton "Movilizaciones" de las fichas de equipo y auxiliar: los mismos valores que la
+   cabecera de sus acordeones, para que se lea como uno mas de la lista. Sin chevron:
+   ninguno de los otros lo lleva. */
+.btn-ficha-movilizaciones {
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 15px 20px;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 700;
+    color: #1e293b;
+    text-align: left;
+    cursor: pointer;
+}
+
+.btn-ficha-movilizaciones i.material-icons {
+    font-size: 20px;
+    color: #64748b;
 }
 
 /* El modal de Movilizaciones sale DESDE #detailsModal, asi que en telefono se ajusta al

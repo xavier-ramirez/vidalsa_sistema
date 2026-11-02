@@ -46,8 +46,20 @@
 
         {{-- BODY --}}
         <div class="modal-body-scroll" style="padding: 25px; max-height: 80vh; overflow-y: auto; overflow-x: hidden;">
-            <div id="auxDetailsBody" style="display: flex; flex-direction: column; gap: 15px;">
-                {{-- Contenido inyectado via JS (renderAuxDetailsModal) --}}
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <div id="auxDetailsBody" style="display: flex; flex-direction: column; gap: 15px;">
+                    {{-- Contenido inyectado via JS (renderAuxDetailsModal) --}}
+                </div>
+
+                {{-- Mismo boton y mismo modal de historial que el detalle del equipo. Va fuera de
+                     #auxDetailsBody porque renderAuxDetailsModal lo reescribe; el id lo pone ahi. --}}
+                @if(\App\Support\Sincronizacion\DominioMovilizaciones::puede(auth()->user()))
+                <button type="button" id="btn_ver_movilizaciones_aux" class="btn-ficha-movilizaciones" data-aux-id=""
+                    onclick="window.abrirMovilizacionesAuxiliar(this.dataset.auxId)">
+                    <i class="material-icons">local_shipping</i>
+                    <span>Movilizaciones</span>
+                </button>
+                @endif
             </div>
         </div>
     </div>
@@ -128,6 +140,9 @@
             confBtn.style.color = conf ? '#4ade80' : 'white';
             confBtn.title = conf ? 'Confirmado en sitio (click para quitar)' : 'Confirmar presencia en sitio';
         }
+
+        const movBtn = document.getElementById('btn_ver_movilizaciones_aux');
+        if (movBtn) movBtn.dataset.auxId = d.id;
 
         // Enlazar edit en el boton del header (usa SPA navigateTo si esta disponible).
         // Pasa la URL actual como ?ref= para que el formulario de edición sepa
