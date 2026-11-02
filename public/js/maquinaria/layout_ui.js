@@ -514,6 +514,7 @@ const _pdfCargadorHasta = function (idCargador, frame) {
     const cargador = document.getElementById(idCargador);
     if (!cargador || !frame) return;
 
+    clearTimeout(_pdfCargadorTopes[idCargador]);
     cargador.style.opacity = '1';
     cargador.style.display = 'flex';
 
@@ -527,7 +528,7 @@ const _pdfCargadorHasta = function (idCargador, frame) {
         frame.removeEventListener('load', alCargar);
         cerrar();
     });
-    setTimeout(cerrar, PDF_CARGADOR_MAX_MS);
+    _pdfCargadorTopes[idCargador] = setTimeout(cerrar, PDF_RENDICION_MS);
 };
 
 /**
@@ -685,8 +686,9 @@ const PDF_PINTADO_MS = 200;
    apertura SIGUIENTE y le quitaria el desenfoque cuando acababa de ponerselo. */
 let _pdfEnfoqueTimeout = null;
 
-/** Tope del cargador de un panel: pasado esto se apaga aunque no haya llegado el load. */
-const PDF_CARGADOR_MAX_MS = 8000;
+/* Tope de cada cargador de panel (_pdfCargadorHasta), por id. Hay que poder cancelarlo: uno
+   que quedara armado le apagaba el cargador a la apertura siguiente con su documento sin llegar. */
+const _pdfCargadorTopes = {};
 
 /* Los dos tiempos del respaldo del visor (ver openPdfPreview).
 
@@ -706,6 +708,9 @@ const PDF_RENDICION_MS   = 90000;
 
 /** Handle del aviso "el documento es grande". Se cancela igual que los otros dos. */
 let _pdfAvisoTimeout = null;
+
+/** Handle del fin del fundido del cargador: no debe apagar el de una apertura nueva. */
+let _pdfApagadoTimeout = null;
 
 /** Momento (performance.now) en que se le puso el src al iframe: mide si tardo o no. */
 let _pdfCargaDesde = 0;
@@ -857,6 +862,8 @@ const _pdfCancelarCargaIzq = function () {
     clearTimeout(_pdfLoaderTimeout);
     clearTimeout(_pdfAvisoTimeout);
     clearTimeout(_pdfEnfoqueTimeout);
+    clearTimeout(_pdfApagadoTimeout);
+    clearTimeout(_pdfCargadorTopes.pdfViewerLoader);
     const texto = document.getElementById('pdfViewerLoaderTexto');
     if (texto) texto.textContent = PDF_TEXTO_CARGANDO;
     _pdfPreviaQuitar(false);
@@ -1117,7 +1124,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
         const apagarLoader = () => {
             if (!loader) return;
             loader.style.opacity = '0';
-            setTimeout(() => { if (loader) loader.style.display = 'none'; }, 200);
+            _pdfApagadoTimeout = setTimeout(() => { if (loader) loader.style.display = 'none'; }, 200);
         };
 
         // ── ¿Salio de una, o hubo que esperarlo? ────────────────────────────────

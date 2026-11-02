@@ -8,11 +8,12 @@ window.equiposData     = window.equiposData     || {};
 // ── CONTROLLED IMAGE LOADER ───────────────────────────────────────────────
 // Usa IntersectionObserver para diferir la carga hasta que la imagen es visible,
 // más un semáforo que limita a MAX_CONCURRENT peticiones simultáneas.
-// Esto evita el congelamiento del browser cuando el usuario vuelve a la pestaña
-// y el browser intenta cargar decenas de imágenes al mismo tiempo contra el
-// servidor de un solo hilo (php artisan serve).
+// Las fotos salen de /storage/google, o sea de PHP, y la primera vez PHP las pide a Drive
+// (varios segundos cada una). El servidor atiende 12 peticiones a la vez para TODOS los
+// usuarios (docker/php-fpm-pool.conf): sin este tope, unas búsquedas seguidas lo ocupaban
+// entero y el PDF que se abría detrás esperaba en la fila.
 (function () {
-    const MAX_CONCURRENT = 20; // Incrementado: Google CDN maneja alta concurrencia
+    const MAX_CONCURRENT = 6;
     let _active = 0;
     let _queue  = [];
     let _observer = null;

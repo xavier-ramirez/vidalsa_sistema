@@ -486,7 +486,7 @@
         const etiqueta = a.serial || a.codigo || txt((a.marca || '') + ' ' + (a.modelo || '')) || ('Auxiliar #' + a.id);
         const venta = etiquetaVenta(ctx.venta(a.idFrente));
         const foto = a.fotoId
-            ? '<div class="table-image-wrapper" style="cursor: default;"><img src="/storage/google/' + encodeURIComponent(a.fotoId) + '?sz=w300" alt="Foto" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:contain;" onerror="this.style.opacity=\'0.3\';">' + venta + '</div>'
+            ? '<div class="table-image-wrapper" style="cursor: default;"><img data-src="/storage/google/' + encodeURIComponent(a.fotoId) + '?sz=w300" alt="Foto" style="width:100%; height:100%; object-fit:contain;">' + venta + '</div>'
             : '<div class="table-image-wrapper placeholder"><span class="material-icons">image_not_supported</span>' + venta + '</div>';
         const estado = puede.editar
             ? '<div class="aux-status-trigger" data-aux-id="' + a.id + '" data-status="' + h(a.estado || '') + '" data-status-url="/admin/equipos-auxiliares/' + a.id + '/estado"'
