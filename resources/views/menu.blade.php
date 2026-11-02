@@ -321,23 +321,24 @@
     <!-- Partial Modal for Equipment Details (Used by Alerts) -->
     @include('admin.equipos.partials.equipment_details_modal')
 
+    {{-- ?v=filemtime: el service worker sirve /images/ con match EXACTO de URL, asi que
+         sin la firma una imagen reemplazada seguiria saliendo de cache. --}}
+    @php $heroRespaldo = asset('images/maquinaria_login_new.webp')
+         . '?v=' . @filemtime(public_path('images/maquinaria_login_new.webp')); @endphp
     {{-- Scripts inline del dashboard. Van dentro de @section('content') (no en
          @yield('extra_js')) para que el navegador SPA los re-ejecute al volver
          a /menu desde otra página — si vivieran en extra_js quedarían fuera de
          .main-viewport y window.descargarReporteAlertas sería undefined tras
          navegar via SPA. --}}
-    {{-- ?v=filemtime: el service worker sirve /images/ con match EXACTO de URL, asi que
-         sin la firma una imagen reemplazada seguiria saliendo de cache. --}}
-    @php $heroRespaldo = asset('images/maquinaria_login_new.webp')
-         . '?v=' . @filemtime(public_path('images/maquinaria_login_new.webp')); @endphp
     <script>
         // ── Encabezado: la misma foto del login en las tres franjas, otra en cada apertura ──
         // Sin red o sin esa foto (la ruta no responde por http con IP de la red local): la
-        // imagen de siempre, que el Service Worker sí guarda.
+        // imagen de siempre. Se pide siempre para que el Service Worker la tenga guardada.
         (function () {
             var fotos = @json(\App\Support\FotosLogin::urls());
             var respaldo = @json($heroRespaldo);
             var total = fotos.length;
+            new Image().src = respaldo;
 
             var ultima = NaN;
             try { ultima = parseInt(localStorage.getItem('menu_foto'), 10); } catch (e) {}
