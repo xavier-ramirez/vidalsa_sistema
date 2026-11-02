@@ -1605,8 +1605,12 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
 
     // Tras un guardado (movilizar, cambiar estado…) se espera a que la copia lo traiga (alDia),
     // como en Almacén: si no, la tabla se repinta un instante con el frente de antes.
+    // Solo si es la misma consulta que está a la vista: con el servidor lento esa espera dura hasta
+    // 10 s y dejaba la X y los filtros sin efecto. Si el usuario cambió de filtro, se pinta ya con
+    // lo que hay y lo guardado llega con el evento 'copia-local'.
+    const esperaGuardado = !append && paramStr === window._eqConsultaPintada;
     return window.CopiaLocal.usar('equipos', tableBody)
-        .then((vista) => window.CopiaLocal.alDia('equipos').then(() => vista))
+        .then((vista) => (esperaGuardado ? window.CopiaLocal.alDia('equipos') : Promise.resolve()).then(() => vista))
         .then((vista) => {
             window._eqVista = vista;
             if (!vigente() || !document.contains(tableBody)) return null;
@@ -1616,6 +1620,7 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         })
         .then((data) => {
             if (!data) return;
+            window._eqConsultaPintada = paramStr;
             window._eqHasta = data.nextOffset;   // filas cargadas: las que vuelve a consultar un repintado
             // Ya estaba toda la lista: el repintado la trae entera aunque haya crecido. Si pidiera
             // las mismas filas que había, un equipo que entra (de otro frente) dejaba fuera la
