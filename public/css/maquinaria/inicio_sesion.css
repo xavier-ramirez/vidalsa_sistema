@@ -166,7 +166,7 @@ body {
     bottom: 0;
     width: 60%;
     z-index: 100;
-    /* Delante de los svgs, detras del titulo y las cards */
+    /* Delante de los svgs, detras del titulo, sus tarjetas y la tarjeta de datos */
     pointer-events: none;
     display: flex;
     justify-content: flex-end;
@@ -217,7 +217,8 @@ body {
 
 .login-container-float-center {
     position: relative;
-    z-index: 10;
+    /* Delante de la foto: en pantallas de menos de 1475px de ancho le llega por debajo. */
+    z-index: 102;
     width: 400px;
     background-color: #fff;
     box-shadow: 0 0 25px -5px rgba(0, 0, 0, 0.25), 0 0 10px -5px rgba(0, 0, 0, 0.15);
@@ -462,6 +463,24 @@ input:-webkit-autofill:active {
     .page-title-container {
         display: none;
         /* Ocultar título y cards si la pantalla es mediana para evitar solapamiento */
+    }
+}
+
+/* Tablet en vertical: tarjeta centrada y la foto como franja de borde a borde, fundida solo por arriba. */
+@media (min-width: 769px) and (max-width: 1200px) and (orientation: portrait) {
+    .login-container {
+        padding-left: 0;
+        justify-content: center;
+    }
+
+    .machinery-fixed-bottom {
+        right: 0;
+        width: 100%;
+    }
+
+    .machinery-fixed-bottom img {
+        -webkit-mask-image: var(--borde-sup);
+                mask-image: var(--borde-sup);
     }
 }
 
