@@ -1912,6 +1912,11 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
         });
 };
 
+// Repinta lo que se ve desde la copia, con las mismas filas cargadas: solo cambian las distintas.
+window.eqRepintarDesdeCopia = function () {
+    return window.loadEquipos(null, true, { sinHistorial: true, cuantos: window._eqCompleto ? Infinity : Math.max(150, window._eqHasta || 0) });
+};
+
 /**
  * Modal de asignacion masiva de DETALLE_UBICACION_ACTUAL.
  * Todos los equipos seleccionados deben estar en el MISMO frente
@@ -2506,11 +2511,8 @@ window.openBulkModal = function (event) {
 
             const data = await res.json();
 
-            // Cerrar modal y limpiar selección, pero NO apagamos el preloader:
-            // lo mantenemos activo hasta que loadEquipos termine su primer render
-            // (loadEquipos en modo no-silent gestiona el hidePreloader en su .finally).
-            // Así evitamos el "parpadeo" donde el spinner desaparece antes de que
-            // la tabla se haya redibujado con los datos nuevos.
+            // Cerrar modal y limpiar selección; el preloader sigue activo hasta que la tabla
+            // muestre el cambio (más abajo).
             removePortal();
             overlay.remove();
             window.clearSelection();
@@ -2542,15 +2544,13 @@ window.openBulkModal = function (event) {
                 window.eqRegisterNuevoFrente(data.frente);
             }
 
-            // Refrescar tabla con preloader visible hasta completar el render inicial.
-            // loadEquipos(no-silent) hace su PROPIO show+hide del preloader (neto 0), así que
-            // muestra el spinner ANTES de que este hide corra → el contador nunca cae a 0 aquí.
-            window.loadEquipos(null, false);
-            // Balance del showPreloader() del inicio de ejecutarCommit (línea ~2200): sin este
-            // hide, ese show quedaba SIN cerrar y _preloaderRefs se colgaba en 1 → el spinner
-            // seguía girando tras el toast de éxito hasta que un watchdog lo forzaba. loadEquipos
-            // (y, si aplica, la descarga del acta) mantienen el spinner visible hasta terminar.
-            if (window.hidePreloader) window.hidePreloader();
+            // La tabla se repinta ANTES de quitar el spinner y avisar: con la copia local ya
+            // abierta loadEquipos no muestra spinner propio, y si no se espera aquí el aviso
+            // sale y la fila cambia un segundo después. El repintado va tras alDia porque el
+            // evento 'copia-local' también repinta y dejaría obsoleta una consulta anterior.
+            // Lo guardado ya está en el servidor: un fallo aquí no es error de la movilización.
+            await window.CopiaLocal.alDia('equipos');
+            await window.eqRepintarDesdeCopia().catch((err) => console.error('[Movilización] repintado', err));
 
             // Descarga del acta si aplica.
             // Antes usabamos un <a href> + click(): el navegador inicia la
@@ -2622,6 +2622,10 @@ window.openBulkModal = function (event) {
                         });
                 }
             }
+
+            // Balance del showPreloader() del inicio de ejecutarCommit. Va tras abrir el del
+            // acta, que mantiene el spinner hasta que llega el PDF.
+            if (window.hidePreloader) window.hidePreloader();
 
             // Toast de éxito. Si algún equipo ya estaba en el frente destino, el backend
             // lo omite (no se movilizó) y lo informa en data.omitidos.
@@ -3583,7 +3587,7 @@ if (!window._equiposWindowListenersReady) {
     // (solo cambian las filas distintas).
     window.addEventListener('copia-local', function (e) {
         if (e.detail.dominio !== 'equipos' || !e.detail.cambio || !document.getElementById('equiposTableBody')) return;
-        window.loadEquipos(null, true, { sinHistorial: true, cuantos: window._eqCompleto ? Infinity : Math.max(150, window._eqHasta || 0) });
+        window.eqRepintarDesdeCopia();
     });
 
     // Reinicializar módulo al navegar A equipos, limpiar al salir
