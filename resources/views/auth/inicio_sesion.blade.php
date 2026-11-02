@@ -579,7 +579,7 @@
             // Handshake + POST, con UN reintento automático si el primer intento da 419.
             // Antes ese 419 hacía reload() silencioso: el usuario veía "presioné Entrar
             // y no pasó nada" y tenía que darle Entrar otra vez. Ahora el segundo intento
-            // (con la cookie de sesión que dejó el POST fallido + token fresco) sale solo.
+            // (con cookie de sesión y token frescos de /refresh-csrf) sale solo.
             function intentarLogin(esReintento) {
                 // 1. Handshake: pedir un token CSRF fresco.
                 //    cache:'no-store' es OBLIGATORIO: el HTML del login se sirve desde la
