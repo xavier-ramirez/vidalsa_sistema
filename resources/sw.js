@@ -24,8 +24,8 @@ const RUNTIME_CACHE = 'vidalsa-runtime-' + CACHE_VERSION;
 // assets de aquí, así que no queda esperando a nadie.
 //
 // NO se precachean las fotos de /foto-login/ a propósito: el CSS esconde esa zona por
-// debajo de 769px, o sea que en TELÉFONO —el caso que importa para arrancar rápido— nunca se
-// piden, y en escritorio el propio login deja lista la siguiente. Precacharlas serían más de
+// debajo de 769px, o sea que el login de un TELÉFONO —el caso que importa para arrancar rápido—
+// no las pide, y en escritorio deja lista la siguiente. Precacharlas serían más de
 // 2 MB por dispositivo y por versión de caché a cambio de nada.
 const PRECACHE_URLS = [
     '/img/app-iconos/icon-192.png',

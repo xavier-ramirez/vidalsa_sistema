@@ -1,17 +1,9 @@
-/* Estilos Banco de Venezuela - Identidad Visual Refinada */
-@charset "UTF-8";
-
 :root {
     /* Solo modo claro — misma razon y detalle en :root de estilos_globales.css. */
     color-scheme: only light;
 
     --maquinaria-blue: #00004d;
-    --maquinaria-light-grey: #d1d3d4;
-    --maquinaria-white: #ffffff;
-    --maquinaria-gray-text: #666666;
     --maquinaria-red: #a91d28;
-    --maquinaria-accent-blue: #0067b1;
-    /* Azul más brillante para el título principal */
 }
 
 

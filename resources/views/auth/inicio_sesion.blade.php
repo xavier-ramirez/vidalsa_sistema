@@ -86,12 +86,6 @@
                      Blade: el Service Worker sirve '/' desde su cache, asi que una foto elegida
                      aqui se quedaria fija. Sin src en el HTML: el CSS esconde esta zona por
                      debajo de 769px y el telefono no debe descargar una foto que no ve. --}}
-                @php
-                    $fotosLogin = array_map(
-                        fn ($f) => url('foto-login/' . basename($f, '.webp')) . '?v=' . filemtime($f),
-                        glob(resource_path('fotos_login/*.webp')) ?: []
-                    );
-                @endphp
                 <img id="fotoLogin" width="1600" height="912" alt="Maquinaria Vidalsa" decoding="async" fetchpriority="low">
                 <script>
                 (function () {
@@ -107,7 +101,7 @@
                             || (ctrl && e.shiftKey && /^[ijc]$/.test(tecla))) e.preventDefault();
                     });
 
-                    var fotos = @json($fotosLogin);
+                    var fotos = @json(\App\Support\FotosLogin::urls());
                     var img = document.getElementById('fotoLogin');
                     var escritorio = window.matchMedia('(min-width: 769px)');
                     var total = fotos.length;

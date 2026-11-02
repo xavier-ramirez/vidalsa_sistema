@@ -20,14 +20,11 @@
 
     {{-- ── Hero: imagen de fondo con overlay oscuro y título blanco ── --}}
     <section class="menu-hero">
-        <div class="menu-hero-stripes">
-            {{-- ?v=filemtime: el service worker sirve /images/ con match EXACTO de URL, asi que
-                 sin la firma una imagen reemplazada seguiria saliendo de cache. --}}
-            @php $heroImg = asset('images/maquinaria_login_new.webp')
-                 . '?v=' . @filemtime(public_path('images/maquinaria_login_new.webp')); @endphp
-            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: left center;"></div>
-            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;"></div>
-            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: 85% 20%;"></div>
+        {{-- Las fotos las pone el script de abajo, en cada apertura. --}}
+        <div class="menu-hero-stripes" id="heroFranjas">
+            <div><img alt="" draggable="false" loading="lazy"></div>
+            <div><img alt="" draggable="false" loading="lazy"></div>
+            <div><img alt="" draggable="false" loading="lazy"></div>
         </div>
         <div class="menu-hero-overlay"></div>
         <div class="menu-hero-content">
@@ -329,7 +326,39 @@
          a /menu desde otra página — si vivieran en extra_js quedarían fuera de
          .main-viewport y window.descargarReporteAlertas sería undefined tras
          navegar via SPA. --}}
+    {{-- ?v=filemtime: el service worker sirve /images/ con match EXACTO de URL, asi que
+         sin la firma una imagen reemplazada seguiria saliendo de cache. --}}
+    @php $heroRespaldo = asset('images/maquinaria_login_new.webp')
+         . '?v=' . @filemtime(public_path('images/maquinaria_login_new.webp')); @endphp
     <script>
+        // ── Encabezado: una foto del login en cada franja, otras tres en cada apertura ──
+        // Avanza de 4 en 4: de 3 en 3, con 9 fotos, se repetirían siempre los mismos tríos.
+        // loading="lazy": la franja que el CSS esconde en el teléfono no descarga su foto.
+        // Sin red o sin esa foto (la ruta no responde por http con IP de la red local): la
+        // imagen de siempre, que el Service Worker sí guarda.
+        (function () {
+            var fotos = @json(\App\Support\FotosLogin::urls());
+            var respaldo = @json($heroRespaldo);
+            var franjas = document.querySelectorAll('#heroFranjas img');
+            var total = fotos.length;
+
+            var ultima = NaN;
+            try { ultima = parseInt(localStorage.getItem('menu_foto'), 10); } catch (e) {}
+            var inicio = isNaN(ultima) ? Math.floor(Math.random() * total) : (ultima + 4) % total;
+            if (total) { try { localStorage.setItem('menu_foto', inicio); } catch (e) {} }
+
+            franjas.forEach(function (img, i) {
+                // Oculta aqui y no en el CSS: un menu guardado de antes de este cambio no la
+                // mostraria nunca.
+                img.style.opacity = 0;
+                img.onload = function () {
+                    img.decode().catch(function () {}).then(function () { img.style.opacity = ''; });
+                };
+                img.onerror = function () { img.onerror = null; img.src = respaldo; };
+                img.src = total ? fotos[(inicio + i) % total] : respaldo;
+            });
+        })();
+
         // Las Alertas de Documentos llegan en segundo plano, con el menú ya a la vista. En una
         // carga completa (tras el login, al recargar) menu.js va al final del body y aún no
         // llegó: se espera al DOM. Por la navegación de la app ya está cargado.
