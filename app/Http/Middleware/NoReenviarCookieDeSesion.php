@@ -7,29 +7,33 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * A un INVITADO que ya trae su cookie de sesión no se le vuelve a mandar.
+ * Un INVITADO solo recibe cookie de sesión cuando la pide de verdad.
  *
  * El problema que evita ("inicio sesión, entro y me saca con 'Tu sesión expiró'"):
- * mientras la pantalla de login está abierta salen peticiones en segundo plano con la
- * cookie de invitado A — el service worker renueva la copia de "/", /refresh-csrf, la
- * precarga de la huella, la revisión de /sw.js. Laravel reenvía la cookie de sesión en
- * CADA respuesta, así que si una de ellas llega DESPUÉS del login (red lenta: medido de
- * 1 a 17 s por petición en el servidor), el navegador vuelve a poner la cookie A encima
- * de la B del usuario ya autenticado, y la pantalla siguiente lo trata como invitado.
+ * mientras la pantalla de login está abierta salen peticiones en segundo plano que
+ * pueden llegar DESPUÉS del login (red lenta: medido de 1 a 17 s por petición en el
+ * servidor): el service worker renueva la copia de "/", descarga las páginas guardadas
+ * y revisa /sw.js. Su Set-Cookie de invitado pisaba la cookie del usuario ya
+ * autenticado y la petición siguiente lo trataba como invitado.
  *
- * Reenviar la misma cookie a un invitado no aporta nada (el navegador ya la tiene), así
- * que se quita de la respuesta. Se deja en todos los casos donde sí hace falta:
- *   · la petición no traía cookie (primera visita) → hay que darle una;
- *   · la sesión cambió de id durante la petición (login, logout, sesión inexistente) →
- *     el navegador tiene que recibir la nueva;
- *   · el usuario está autenticado → la cookie se renueva para que no caduque mientras
- *     trabaja.
+ * Pasa sobre todo al volver a abrir el sistema: la cookie vence a la vez que la sesión
+ * (SESSION_LIFETIME), así que el navegador llega SIN cookie y Laravel le crea una distinta
+ * en cada respuesta. Por eso no basta con no reenviar la misma cookie.
+ *
+ * Se manda solo en los dos sitios que la necesitan para iniciar sesión, y solo si el
+ * navegador aún no tiene esa sesión (RUTAS_QUE_LA_ENTREGAN). El login los pide en orden y
+ * corta los que sigan en vuelo al pulsar Entrar (cortarPrecalentar). El resto de
+ * respuestas a un invitado, incluido el cierre de sesión, no tocan la cookie. El usuario
+ * autenticado sí la recibe siempre: se renueva para que no caduque mientras trabaja.
  *
  * Global (bootstrap/app.php) y no en el grupo web: tiene que ver la respuesta DESPUÉS de
  * StartSession y VerifyCsrfToken, que son los que añaden las dos cookies.
  */
 class NoReenviarCookieDeSesion
 {
+    /** /refresh-csrf: el token del login. login-options: el reto de la huella queda en sesión. */
+    private const RUTAS_QUE_LA_ENTREGAN = ['refresh-csrf', 'webauthn/login-options'];
+
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
@@ -41,8 +45,8 @@ class NoReenviarCookieDeSesion
         // Tras pasar por EncryptCookies, la cookie de la petición ya está descifrada: es el
         // id de sesión con el que llegó.
         $nombre = config('session.cookie');
-        $traia  = $request->cookies->get($nombre);
-        if (!is_string($traia) || $traia === '' || $traia !== $request->session()->getId()) {
+        if ($request->is(...self::RUTAS_QUE_LA_ENTREGAN)
+            && $request->cookies->get($nombre) !== $request->session()->getId()) {
             return $response;
         }
 

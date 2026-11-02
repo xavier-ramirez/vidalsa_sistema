@@ -420,10 +420,22 @@
     // nada, tuve que darle otra vez". El guard va DOS VECES a propósito: al entrar (evita
     // la petición inútil) y antes de escribir (una petición YA en vuelo cuando empieza el
     // submit resolvería igual y pisaría el token bueno).
+    //
+    // Uno a la vez, y se corta al pulsar Entrar (cortarPrecalentar): sin cookie de sesión, su
+    // respuesta trae una de invitado que, si llegara después de entrar, pisaría la sesión
+    // recién abierta. Cortado no hace falta: el inicio de sesión pide su propio token.
+    var precalentando = null;
+    function cortarPrecalentar() {
+        if (precalentando) precalentando.corta.abort();
+        precalentando = null;
+    }
     function precalentarCsrf() {
-        if (!navigator.onLine) return; // sin red: el submit entra con lo guardado en el equipo
-        if (window._loginEnCurso) return;
-        fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin' })
+        if (!navigator.onLine) return Promise.resolve(); // sin red: el submit entra con lo guardado en el equipo
+        if (window._loginEnCurso) return Promise.resolve();
+        if (precalentando) return precalentando.promesa;
+        const este = { corta: new AbortController() };
+        precalentando = este;
+        este.promesa = fetch('/refresh-csrf', { cache: 'no-store', credentials: 'same-origin', signal: este.corta.signal })
             .then(function (r) {
                 if (!r.ok) return null;
                 // El Service Worker sirve ESTA pantalla desde el caché aunque la sesión
@@ -459,7 +471,9 @@
                 if (window._loginEnCurso) return; // el submit manda: no le pises el token
                 aplicarTokenCsrf(token);
             })
-            .catch(function () {});
+            .catch(function () {})
+            .finally(function () { if (precalentando === este) precalentando = null; });
+        return este.promesa;
     }
     // Mismo cierre que window.salirDelSistema (POST /logout, exenta de CSRF), con X-Solo-Sesion:
     // un cierre que llegue tarde, con la persona ya adentro otra vez, no saca la sesión nueva.
@@ -471,7 +485,8 @@
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-Solo-Sesion': window.__cierreToken }
         }).then(function (r) { return r.json(); }).then(function (d) { return d.cerrada; }).catch(function () {});
     }
-    precalentarCsrf();
+    // Promesa: la precarga de la huella espera a que el navegador ya tenga su cookie.
+    const primerToken = precalentarCsrf();
     // Al volver de otra pestaña o del bfcache el token pudo caducar: refréscalo para
     // que el primer clic siga entrando a la primera.
     document.addEventListener('visibilitychange', function () {
@@ -505,6 +520,7 @@
             // guard de 4s lo oculte a mitad del intento (ver arriba); se limpia en
             // mostrarMsgLogin (todos los caminos de fallo pasan por ahí).
             window._loginEnCurso = true;
+            cortarPrecalentar();
             const msgPrev = document.getElementById('offlineLoginMsg');
             if (msgPrev) msgPrev.style.display = 'none';
             const preloader = document.getElementById('loginPreloader');
@@ -656,13 +672,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Arranca el ciclo de precarga del challenge (prefetch + refresh
         // periódico + eventos online/visible): al tocar el botón el lector
         // de huella se abre de inmediato, sin esperar la red.
-        VidalsaWebAuthn.iniciarPrecarga();
+        primerToken.then(VidalsaWebAuthn.iniciarPrecarga);
     });
 
     var bioLabel = document.getElementById('bioLabel');
 
     btnBio.addEventListener('click', function() {
         window._loginEnCurso = true; // el guard de 4s no debe quitar el spinner a mitad del intento
+        cortarPrecalentar();
         btnBio.style.pointerEvents = 'none';
         btnBio.style.opacity = '0.6';
         if (bioLabel) bioLabel.textContent = 'Verificando...';
