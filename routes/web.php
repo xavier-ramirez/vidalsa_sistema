@@ -62,6 +62,24 @@ Route::get('/sw.js', function () {
         ->header('Service-Worker-Allowed', '/');
 });
 
+// Fotos del login: solo se entregan a un <img> de esta misma web. Abrir el enlace directo en el
+// navegador (Sec-Fetch-Dest: document) da 404. Vary para que esa visita no salga de la cache del
+// navegador. Sin el grupo web: es una foto, no necesita sesion ni cookies.
+Route::get('/foto-login/{nombre}', function (Illuminate\Http\Request $request, string $nombre) {
+    $ruta = resource_path("fotos_login/{$nombre}.webp");
+    abort_unless(
+        $request->header('Sec-Fetch-Dest') === 'image'
+            && $request->header('Sec-Fetch-Site') === 'same-origin'
+            && is_file($ruta),
+        404
+    );
+    return response()->file($ruta, [
+        'Content-Type'  => 'image/webp',
+        'Cache-Control' => 'max-age=604800',
+        'Vary'          => 'Sec-Fetch-Dest, Sec-Fetch-Site',
+    ])->setPrivate();
+})->where('nombre', '[a-z0-9_]+')->withoutMiddleware('web');
+
 Route::post('/', [App\Http\Controllers\Auth\LoginController::class, 'login'])->name('login.post');
 // Quien entró sin conexión vuelve a tener sesión con su pase al volver el servidor (PaseReingreso).
 // El tope es por IP y la oficina sale por una sola: holgado (adivinar un pase de 256 bits no es posible).

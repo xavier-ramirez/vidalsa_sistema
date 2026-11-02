@@ -79,20 +79,34 @@
                      formulario, y fetchpriority="low" porque es decorativa y no debe competir
                      con el CSS ni con el logo.
 
-                     Las fotos son TODAS las de public/images/login/ (misma proporcion: 1600x912);
-                     para quitar o agregar una basta con el archivo. Elige el navegador y no
+                     Las fotos son TODAS las de resources/fotos_login/ (misma proporcion: 1600x912);
+                     para quitar o agregar una basta con el archivo. Fuera de public/ para que
+                     solo las entregue la ruta /foto-login (ver routes/web.php), que no responde
+                     al abrir el enlace directo. Elige el navegador y no
                      Blade: el Service Worker sirve '/' desde su cache, asi que una foto elegida
                      aqui se quedaria fija. Sin src en el HTML: el CSS esconde esta zona por
                      debajo de 769px y el telefono no debe descargar una foto que no ve. --}}
                 @php
                     $fotosLogin = array_map(
-                        fn ($f) => asset('images/login/' . basename($f)) . '?v=' . filemtime($f),
-                        glob(public_path('images/login/*.webp')) ?: []
+                        fn ($f) => url('foto-login/' . basename($f, '.webp')) . '?v=' . filemtime($f),
+                        glob(resource_path('fotos_login/*.webp')) ?: []
                     );
                 @endphp
                 <img id="fotoLogin" width="1600" height="912" alt="Maquinaria Vidalsa" decoding="async" fetchpriority="low">
                 <script>
                 (function () {
+                    // Disuasion para no guardar la pagina con sus fotos: clic derecho (menos en
+                    // los campos, que lo usan para pegar), Ctrl+S, Ctrl+U y herramientas.
+                    document.addEventListener('contextmenu', function (e) {
+                        if (!e.target.closest('input')) e.preventDefault();
+                    });
+                    document.addEventListener('keydown', function (e) {
+                        var ctrl = e.ctrlKey || e.metaKey;
+                        var tecla = (e.key || '').toLowerCase(); // el autocompletado dispara keydown sin key
+                        if (e.key === 'F12' || (ctrl && (tecla === 's' || tecla === 'u'))
+                            || (ctrl && e.shiftKey && 'ijc'.indexOf(tecla) !== -1)) e.preventDefault();
+                    });
+
                     var fotos = @json($fotosLogin);
                     var img = document.getElementById('fotoLogin');
                     var escritorio = window.matchMedia('(min-width: 769px)');

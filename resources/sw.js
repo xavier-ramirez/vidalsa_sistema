@@ -23,7 +23,7 @@ const RUNTIME_CACHE = 'vidalsa-runtime-' + CACHE_VERSION;
 // ícono de la PWA instalada, '/' sale del caché (stale-while-revalidate, más abajo) y sus
 // assets de aquí, así que no queda esperando a nadie.
 //
-// NO se precachean las fotos de /images/login/ a propósito: el CSS esconde esa zona por
+// NO se precachean las fotos de /foto-login/ a propósito: el CSS esconde esa zona por
 // debajo de 769px, o sea que en TELÉFONO —el caso que importa para arrancar rápido— nunca se
 // piden, y en escritorio el propio login deja lista la siguiente. Precacharlas serían más de
 // 2 MB por dispositivo y por versión de caché a cambio de nada.
@@ -286,7 +286,8 @@ self.addEventListener('fetch', (event) => {
     if (url.origin !== self.location.origin) return;
 
     // Nunca cachear API/acciones, la sincronización de la copia local (/sync/: una respuesta
-    // vieja pisaría datos más nuevos), el sondeo de conexión (/up), ni el manifest (el manifest
+    // vieja pisaría datos más nuevos), el sondeo de conexión (/up), las fotos del login (una
+    // copia aquí saldría al abrir su enlace directo, que la ruta rechaza), ni el manifest (el manifest
     // debe leerse fresco siempre: si cachea uno viejo, el navegador no detecta cambios
     // en display_override / tab_strip y nunca activa el modo pestañas aunque reinstales
     // el PWA). OJO: /admin/ y /dashboard/ YA NO se excluyen — sus navegaciones se
@@ -296,6 +297,7 @@ self.addEventListener('fetch', (event) => {
         url.pathname.startsWith('/webauthn/') ||
         url.pathname.startsWith('/api/') ||
         url.pathname === '/up' ||
+        url.pathname.startsWith('/foto-login/') ||
         url.pathname.startsWith('/sync/') ||
         url.pathname.startsWith('/storage/') ||
         url.pathname.includes('/export') ||
