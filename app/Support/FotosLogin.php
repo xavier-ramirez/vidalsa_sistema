@@ -3,7 +3,7 @@
 namespace App\Support;
 
 /**
- * Enlaces de las fotos de resources/fotos_login, que comparten el login y el encabezado del menu.
+ * Enlaces de las fotos de resources/fotos_login, que rota el login.
  * Agregar o quitar una foto = agregar o quitar el archivo. Las entrega la ruta /foto-login.
  */
 class FotosLogin

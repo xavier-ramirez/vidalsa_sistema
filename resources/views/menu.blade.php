@@ -20,11 +20,14 @@
 
     {{-- ── Hero: imagen de fondo con overlay oscuro y título blanco ── --}}
     <section class="menu-hero">
-        {{-- La foto la pone el script de abajo, en cada apertura. --}}
-        <div class="menu-hero-stripes" id="heroFranjas">
-            <div><img alt="" draggable="false" style="object-position: left center;"></div>
-            <div><img alt="" draggable="false" style="object-position: center center;"></div>
-            <div><img alt="" draggable="false" style="object-position: 85% 20%;"></div>
+        <div class="menu-hero-stripes">
+            {{-- ?v=filemtime: el service worker sirve /images/ con match EXACTO de URL, asi que
+                 sin la firma una imagen reemplazada seguiria saliendo de cache. --}}
+            @php $heroImg = asset('images/maquinaria_login_new.webp')
+                 . '?v=' . @filemtime(public_path('images/maquinaria_login_new.webp')); @endphp
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: left center;"></div>
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: center center;"></div>
+            <div><img src="{{ $heroImg }}" alt="" draggable="false" style="object-position: 85% 20%;"></div>
         </div>
         <div class="menu-hero-overlay"></div>
         <div class="menu-hero-content">
@@ -321,42 +324,12 @@
     <!-- Partial Modal for Equipment Details (Used by Alerts) -->
     @include('admin.equipos.partials.equipment_details_modal')
 
-    {{-- ?v=filemtime: el service worker sirve /images/ con match EXACTO de URL, asi que
-         sin la firma una imagen reemplazada seguiria saliendo de cache. --}}
-    @php $heroRespaldo = asset('images/maquinaria_login_new.webp')
-         . '?v=' . @filemtime(public_path('images/maquinaria_login_new.webp')); @endphp
     {{-- Scripts inline del dashboard. Van dentro de @section('content') (no en
          @yield('extra_js')) para que el navegador SPA los re-ejecute al volver
          a /menu desde otra página — si vivieran en extra_js quedarían fuera de
          .main-viewport y window.descargarReporteAlertas sería undefined tras
          navegar via SPA. --}}
     <script>
-        // ── Encabezado: la misma foto del login en las tres franjas, otra en cada apertura ──
-        // Sin red o sin esa foto (la ruta no responde por http con IP de la red local): la
-        // imagen de siempre. Se pide siempre para que el Service Worker la tenga guardada.
-        (function () {
-            var fotos = @json(\App\Support\FotosLogin::urls());
-            var respaldo = @json($heroRespaldo);
-            var total = fotos.length;
-            new Image().src = respaldo;
-
-            var ultima = NaN;
-            try { ultima = parseInt(localStorage.getItem('menu_foto'), 10); } catch (e) {}
-            var actual = isNaN(ultima) ? Math.floor(Math.random() * total) : (ultima + 1) % total;
-            if (total) { try { localStorage.setItem('menu_foto', actual); } catch (e) {} }
-
-            document.querySelectorAll('#heroFranjas img').forEach(function (img) {
-                // Oculta aqui y no en el CSS: un menu guardado de antes de este cambio no la
-                // mostraria nunca.
-                img.style.opacity = 0;
-                img.onload = function () {
-                    img.decode().catch(function () {}).then(function () { img.style.opacity = ''; });
-                };
-                img.onerror = function () { img.onerror = null; img.src = respaldo; };
-                img.src = total ? fotos[actual] : respaldo;
-            });
-        })();
-
         // Las Alertas de Documentos llegan en segundo plano, con el menú ya a la vista. En una
         // carga completa (tras el login, al recargar) menu.js va al final del body y aún no
         // llegó: se espera al DOM. Por la navegación de la app ya está cargado.
