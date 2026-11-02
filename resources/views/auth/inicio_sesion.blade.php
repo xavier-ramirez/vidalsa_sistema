@@ -120,7 +120,10 @@
                     var inicio = isNaN(ultima) ? Math.floor(Math.random() * total) : ultima + 1;
 
                     function actual() { return (inicio + fallidas) % total; }
-                    function pintar() { img.src = fotos[actual()]; }
+                    // Oculta aqui y no en el CSS: una pagina vieja servida por el SW con el CSS nuevo
+                    // nunca pondria la clase y se quedaria sin foto.
+                    function pintar() { img.style.opacity = 0; img.src = fotos[actual()]; }
+                    function entrar() { img.style.opacity = ''; img.classList.add('foto-lista'); }
 
                     // Sin red o sin esa foto: prueba las demas, alguna esta guardada en cache.
                     img.onerror = function () {
@@ -129,6 +132,7 @@
                     };
                     // Guarda solo la que cargo y deja lista la siguiente para abrir al instante.
                     img.onload = function () {
+                        (img.decode ? img.decode() : Promise.resolve()).then(entrar, entrar);
                         try { localStorage.setItem('login_foto', actual()); } catch (e) {}
                         var siguiente = fotos[(actual() + 1) % total];
                         setTimeout(function () { new Image().src = siguiente; }, 1500);

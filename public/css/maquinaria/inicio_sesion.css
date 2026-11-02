@@ -179,8 +179,10 @@ body {
     display: block;
     filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.15));
     /* Bordes IZQUIERDO y SUPERIOR desvanecidos para que la foto se funda con el fondo blanco (sin canto duro). */
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 15%), linear-gradient(to bottom, transparent 0%, #000 14%);
-            mask-image: linear-gradient(to right, transparent 0%, #000 15%), linear-gradient(to bottom, transparent 0%, #000 14%);
+    --borde-izq: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.12) 4%, rgba(0, 0, 0, 0.42) 8%, rgba(0, 0, 0, 0.78) 12%, #000 15%);
+    --borde-sup: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.12) 4%, rgba(0, 0, 0, 0.42) 8%, rgba(0, 0, 0, 0.78) 11%, #000 14%);
+    -webkit-mask-image: var(--borde-izq), var(--borde-sup);
+            mask-image: var(--borde-izq), var(--borde-sup);
     -webkit-mask-composite: source-in;
             mask-composite: intersect;
     position: relative;
@@ -191,6 +193,35 @@ body {
 .machinery-wrapper {
     position: relative;
     display: inline-block;
+}
+
+/* Entrada de la foto. La clase la pone el script del login cuando la foto ya esta decodificada. */
+.machinery-fixed-bottom img.foto-lista {
+    transform-origin: right bottom;
+    animation: foto-entrada 1.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes foto-entrada {
+    from {
+        opacity: 0;
+        transform: scale(1.04);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .machinery-fixed-bottom img.foto-lista {
+        animation: none;
+    }
+}
+
+/* Hasta aqui la foto mide el 66% de la pantalla (.login-container es 110% de ancho por su
+   padding) y el atributo width la frena en 1600px. Desde ese punto sigue creciendo con la
+   pantalla; el tope de alto evita que en las ultrawide suba hasta las tarjetas del titulo. */
+@media (min-width: 2425px) {
+    .machinery-fixed-bottom img {
+        width: min(66vw, 135vh);
+        max-width: none;
+    }
 }
 
 
