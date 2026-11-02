@@ -227,7 +227,7 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->assertSame(5.0, $this->saldo($alm->ID_ALMACEN, $p->ID_PRODUCTO), 'Una petición rechazada movió stock.');
 
         // Sin la clave almacen.movimiento no se registra.
-        $sinClave = Usuario::all()->first(fn ($u) => !$u->can('almacen.movimiento'));
+        $sinClave = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->get()->first(fn ($u) => !$u->can('almacen.movimiento'));
         if ($sinClave) {
             $this->actingAs($sinClave)->postJson(route('almacen.devolucion.store'), [
                 'numero' => $nota, 'lineas' => [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]],

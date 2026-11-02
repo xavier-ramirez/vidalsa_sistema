@@ -2765,8 +2765,8 @@ body:has(.mobile-menu.active) .selection-floating-bar {
     color: #64748b;
 }
 
-/* El modal de Movilizaciones sale DESDE #detailsModal, asi que en telefono se ajusta al
-   mismo ancho: con 460px acababa siendo mas ancho que el modal del que salio en
+/* El modal de Movilizaciones sale DESDE #detailsModal o #auxDetailsModal, asi que en telefono
+   se ajusta a su ancho: con 460px acababa siendo mas ancho que el modal del que salio en
    pantallas de ~430px, y se leia como si fuera otra cosa. */
 @media (max-width: 768px) {
     #movilizacionesModal .modal-content {

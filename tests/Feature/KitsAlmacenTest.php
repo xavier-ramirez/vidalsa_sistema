@@ -185,7 +185,7 @@ class KitsAlmacenTest extends MySqlTestCase
     public function test_verlos_es_para_todos_pero_armarlos_exige_almacen_productos(): void
     {
         $p = $this->producto('FILTRO PERMISO');
-        $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->can('almacen.productos'));
+        $sinPermiso = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->get()->first(fn ($u) => ! $u->can('almacen.productos'));
         $this->assertNotNull($sinPermiso, 'Hace falta un usuario sin almacen.productos.');
 
         $this->assertNotNull($this->kitsDeLaCopia($sinPermiso));

@@ -95,7 +95,7 @@ class EliminarCorreccionAnexaTest extends MySqlTestCase
         $equipo = $this->equipoConDocumentacion();
         $anexo  = $this->anexoDe($equipo);
 
-        $raso = Usuario::all()->first(function ($usr) {
+        $raso = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->get()->first(function ($usr) {
             $p = array_map('strtolower', is_array($usr->PERMISOS) ? $usr->PERMISOS : []);
             return !in_array('super.admin', $p, true);
         });

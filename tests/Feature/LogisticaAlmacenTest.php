@@ -215,7 +215,7 @@ class LogisticaAlmacenTest extends MySqlTestCase
     public function test_sin_permiso_no_ve_la_logistica(): void
     {
         [$alm] = $this->almacen();
-        $sin = Usuario::all()->first(fn ($u) => !$u->can('almacen.movimiento') && !$u->can('super.admin'));
+        $sin = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->get()->first(fn ($u) => !$u->can('almacen.movimiento') && !$u->can('super.admin'));
         $this->assertNotNull($sin, 'Hace falta un usuario sin almacen.movimiento ni super.admin.');
         $this->actingAs($sin)->getJson(route('almacen.almacenes.logistica', ['id' => $alm->ID_ALMACEN]))->assertForbidden();
     }

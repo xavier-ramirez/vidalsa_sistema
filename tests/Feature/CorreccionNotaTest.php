@@ -234,19 +234,19 @@ class CorreccionNotaTest extends MySqlTestCase
         // movimientos el modal abre igual, con la corrección apagada y su porqué; sin ninguna
         // de las dos, ni abre.
         $ver = fn ($u) => $this->actingAs($u)->getJson(route('almacen.ajuste-nota.show', ['numero' => $nota, 'id_producto' => $p->ID_PRODUCTO]));
-        $sin = Usuario::all()->first(fn ($u) => !$u->can('almacen.nota.corregir'));
+        $sin = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->get()->first(fn ($u) => !$u->can('almacen.nota.corregir'));
         if ($sin) {
             $this->actingAs($sin)->postJson(route('almacen.correccion-nota.store'), [
                 'numero' => $nota, 'id_producto' => $p->ID_PRODUCTO, 'cantidad' => 100, 'motivo' => 'x',
             ])->assertForbidden();
         }
-        $soloDevuelve = Usuario::all()->first(fn ($u) => !$u->can('almacen.nota.corregir') && $u->can('almacen.movimiento') && Almacen::usuarioEsGlobal($u));
+        $soloDevuelve = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->get()->first(fn ($u) => !$u->can('almacen.nota.corregir') && $u->can('almacen.movimiento') && Almacen::usuarioEsGlobal($u));
         if ($soloDevuelve) {
             $ver($soloDevuelve)->assertOk()
                 ->assertJsonPath('correccion.motivo_no', 'Corregir una nota pide la clave «almacen.nota.corregir».')
                 ->assertJsonPath('devolucion.motivo_no', null);
         }
-        $ninguna = Usuario::all()->first(fn ($u) => !$u->can('almacen.nota.corregir') && !$u->can('almacen.movimiento'));
+        $ninguna = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->get()->first(fn ($u) => !$u->can('almacen.nota.corregir') && !$u->can('almacen.movimiento'));
         if ($ninguna) {
             $ver($ninguna)->assertForbidden();
         }

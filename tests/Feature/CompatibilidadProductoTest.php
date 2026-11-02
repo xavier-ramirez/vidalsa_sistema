@@ -191,7 +191,7 @@ class CompatibilidadProductoTest extends MySqlTestCase
     public function test_sin_permiso_de_productos_no_se_cambia(): void
     {
         $p = $this->producto();
-        $sinPermiso = Usuario::all()->first(fn ($u) => ! $u->can('almacen.productos'));
+        $sinPermiso = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->get()->first(fn ($u) => ! $u->can('almacen.productos'));
         $this->assertNotNull($sinPermiso, 'Hace falta un usuario sin almacen.productos.');
 
         $this->actingAs($sinPermiso)->postJson(route('almacen.productos.equivalencias.store', ['id' => $p->ID_PRODUCTO]), ['numero_parte' => 'X1'])
