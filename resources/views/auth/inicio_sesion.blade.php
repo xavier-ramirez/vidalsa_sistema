@@ -99,20 +99,11 @@
                     var total = fotos.length;
                     var fallidas = 0;
 
-                    function leer(almacen) {
-                        try { return parseInt(window[almacen].getItem('login_foto'), 10); }
-                        catch (e) { return NaN; }
-                    }
-                    function guardar(almacen, indice) {
-                        try { window[almacen].setItem('login_foto', indice); } catch (e) {}
-                    }
-
-                    // Abrir desde cero = la siguiente foto; F5 en la misma pestaña = la misma.
-                    var inicio = leer('sessionStorage');
-                    if (isNaN(inicio)) {
-                        var ultima = leer('localStorage');
-                        inicio = isNaN(ultima) ? Math.floor(Math.random() * total) : ultima + 1;
-                    }
+                    // Cada carga del login = la siguiente foto. Sin sessionStorage: la PWA conserva
+                    // la ventana al cerrar sesion y con el se quedaba siempre en la misma.
+                    var ultima = NaN;
+                    try { ultima = parseInt(localStorage.getItem('login_foto'), 10); } catch (e) {}
+                    var inicio = isNaN(ultima) ? Math.floor(Math.random() * total) : ultima + 1;
 
                     function actual() { return (inicio + fallidas) % total; }
                     function pintar() { img.src = fotos[actual()]; }
@@ -124,8 +115,7 @@
                     };
                     // Guarda solo la que cargo y deja lista la siguiente para abrir al instante.
                     img.onload = function () {
-                        guardar('sessionStorage', actual());
-                        guardar('localStorage', actual());
+                        try { localStorage.setItem('login_foto', actual()); } catch (e) {}
                         var siguiente = fotos[(actual() + 1) % total];
                         setTimeout(function () { new Image().src = siguiente; }, 1500);
                     };
