@@ -75,17 +75,70 @@
                      todo menos la maquinaria y aparecia unos segundos despues. Lazy solo ayuda
                      con lo que esta por debajo del pliegue.
 
-                     decoding="async" para que decodificarla (1324x755 con transparencia) no
-                     retrase el pintado del formulario, y fetchpriority="low" porque es
-                     decorativa y no debe competir con el CSS ni con el logo.
+                     decoding="async" para que decodificarla no retrase el pintado del
+                     formulario, y fetchpriority="low" porque es decorativa y no debe competir
+                     con el CSS ni con el logo.
 
-                     COSTE en telefono: el CSS la esconde con display:none por debajo de 768px
-                     (inicio_sesion.css:447) y lazy evitaba bajarla ahi; sin lazy se descargan
-                     esos 194 KB aunque no se vean. Si molesta, la via limpia es sacarla del
-                     HTML y ponerla como background-image dentro de un @media (min-width:769px):
-                     una regla que no aplica no descarga su imagen. --}}
-                <img src="{{ asset('images/maquinaria_login_new.webp') }}?v={{ @filemtime(public_path('images/maquinaria_login_new.webp')) }}"
-                     alt="Maquinaria Vidalsa" decoding="async" fetchpriority="low">
+                     Las fotos son TODAS las de public/images/login/ (misma proporcion: 1600x912);
+                     para quitar o agregar una basta con el archivo. Elige el navegador y no
+                     Blade: el Service Worker sirve '/' desde su cache, asi que una foto elegida
+                     aqui se quedaria fija. Sin src en el HTML: el CSS esconde esta zona por
+                     debajo de 769px y el telefono no debe descargar una foto que no ve. --}}
+                @php
+                    $fotosLogin = array_map(
+                        fn ($f) => asset('images/login/' . basename($f)) . '?v=' . filemtime($f),
+                        glob(public_path('images/login/*.webp')) ?: []
+                    );
+                @endphp
+                <img id="fotoLogin" width="1600" height="912" alt="Maquinaria Vidalsa" decoding="async" fetchpriority="low">
+                <script>
+                (function () {
+                    var fotos = @json($fotosLogin);
+                    var img = document.getElementById('fotoLogin');
+                    var escritorio = window.matchMedia('(min-width: 769px)');
+                    var total = fotos.length;
+                    var fallidas = 0;
+
+                    function leer(almacen) {
+                        try { return parseInt(window[almacen].getItem('login_foto'), 10); }
+                        catch (e) { return NaN; }
+                    }
+                    function guardar(almacen, indice) {
+                        try { window[almacen].setItem('login_foto', indice); } catch (e) {}
+                    }
+
+                    // Abrir desde cero = la siguiente foto; F5 en la misma pestaña = la misma.
+                    var inicio = leer('sessionStorage');
+                    if (isNaN(inicio)) {
+                        var ultima = leer('localStorage');
+                        inicio = isNaN(ultima) ? Math.floor(Math.random() * total) : ultima + 1;
+                    }
+
+                    function actual() { return (inicio + fallidas) % total; }
+                    function pintar() { img.src = fotos[actual()]; }
+
+                    // Sin red o sin esa foto: prueba las demas, alguna esta guardada en cache.
+                    img.onerror = function () {
+                        fallidas++;
+                        if (fallidas < total) pintar(); else img.style.display = 'none';
+                    };
+                    // Guarda solo la que cargo y deja lista la siguiente para abrir al instante.
+                    img.onload = function () {
+                        guardar('sessionStorage', actual());
+                        guardar('localStorage', actual());
+                        var siguiente = fotos[(actual() + 1) % total];
+                        setTimeout(function () { new Image().src = siguiente; }, 1500);
+                    };
+
+                    if (!total) { img.style.display = 'none'; return; }
+                    if (escritorio.matches) { pintar(); return; }
+                    escritorio.addEventListener('change', function alCrecer(e) {
+                        if (!e.matches) return;
+                        escritorio.removeEventListener('change', alCrecer);
+                        pintar();
+                    });
+                })();
+                </script>
             </div>
         </div>
 

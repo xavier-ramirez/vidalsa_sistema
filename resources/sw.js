@@ -23,11 +23,10 @@ const RUNTIME_CACHE = 'vidalsa-runtime-' + CACHE_VERSION;
 // ícono de la PWA instalada, '/' sale del caché (stale-while-revalidate, más abajo) y sus
 // assets de aquí, así que no queda esperando a nadie.
 //
-// NO se precachea /images/maquinaria_login_new.webp (194 KB) a propósito: el CSS la pone
-// en display:none por debajo de 768px, o sea que en TELÉFONO —el caso que importa para
-// arrancar rápido— no se pinta nunca, y encima va con loading="lazy", así que tampoco
-// bloquea el primer pintado en escritorio. Precacharla sería medio mega por dispositivo y
-// por versión de caché a cambio de nada.
+// NO se precachean las fotos de /images/login/ a propósito: el CSS esconde esa zona por
+// debajo de 769px, o sea que en TELÉFONO —el caso que importa para arrancar rápido— nunca se
+// piden, y en escritorio el propio login deja lista la siguiente. Precacharlas serían más de
+// 2 MB por dispositivo y por versión de caché a cambio de nada.
 const PRECACHE_URLS = [
     '/img/app-iconos/icon-192.png',
     '/img/app-iconos/icon-512.png',
