@@ -31,7 +31,12 @@ window.equiposData     = window.equiposData     || {};
         img.onerror = function () {
             const w = img.closest('.table-image-wrapper');
             if (w) {
-                w.innerHTML = '<span class="material-icons" style="color:#cbd5e0;font-size:24px;">image_not_supported</span>';
+                // Solo la imagen: el recuadro también lleva la etiqueta de venta.
+                const icono = document.createElement('span');
+                icono.className = 'material-icons';
+                icono.style.cssText = 'color:#cbd5e0;font-size:24px;';
+                icono.textContent = 'image_not_supported';
+                img.replaceWith(icono);
                 w.classList.add('placeholder');
             }
             _active--;
