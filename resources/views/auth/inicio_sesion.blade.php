@@ -104,7 +104,7 @@
                         var ctrl = e.ctrlKey || e.metaKey;
                         var tecla = (e.key || '').toLowerCase(); // el autocompletado dispara keydown sin key
                         if (e.key === 'F12' || (ctrl && (tecla === 's' || tecla === 'u'))
-                            || (ctrl && e.shiftKey && 'ijc'.indexOf(tecla) !== -1)) e.preventDefault();
+                            || (ctrl && e.shiftKey && /^[ijc]$/.test(tecla))) e.preventDefault();
                     });
 
                     var fotos = @json($fotosLogin);
