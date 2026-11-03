@@ -491,3 +491,34 @@ input:-webkit-autofill:active {
         max-width: none;
     }
 }
+
+/* Portatiles de 1201-1365px de ancho (1280x720, 1280x800): el titulo entero choca con la
+   tarjeta de datos y tapa el icono de la 1.a tarjeta azul. Se achica sin moverlo de sitio. */
+@media (min-width: 1201px) and (max-width: 1365px) {
+    .page-title-container {
+        zoom: 0.82;
+    }
+}
+
+/* Pantallas grandes: la tarjeta de datos y el titulo miden en px y se quedaban diminutos
+   junto a la foto y a las figuras (que si crecen). Escalan con la pantalla, contando ancho Y
+   alto para no desbordar en las ultrawide (3440x1440 escala como 2560x1440). */
+@media (min-width: 2300px) and (min-height: 1250px) {
+    .login-container-float-center,
+    .page-title-container { zoom: 1.25; }
+}
+
+@media (min-width: 2500px) and (min-height: 1400px) {
+    .login-container-float-center,
+    .page-title-container { zoom: 1.33; }
+}
+
+@media (min-width: 3000px) and (min-height: 1700px) {
+    .login-container-float-center,
+    .page-title-container { zoom: 1.6; }
+}
+
+@media (min-width: 3600px) and (min-height: 2000px) {
+    .login-container-float-center,
+    .page-title-container { zoom: 2; }
+}
