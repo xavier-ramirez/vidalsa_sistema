@@ -284,7 +284,10 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertStringNotContainsString('dist-rotulo', $filas[0][1], 'Sin rótulo: su nombre ya lo dice.');
 
         foreach ([$especial->ID_FRENTE, 78] as $id) {
-            $this->assertStringContainsString('dist-barra-roja', $this->consultaLocal($admin, ['id_frente' => (string) $id])['distribution']);
+            $dentro = $this->consultaLocal($admin, ['id_frente' => (string) $id]);
+            $this->assertStringContainsString('dist-barra-roja', $dentro['distribution']);
+            // Dentro del frente, el TOTAL también cuenta lo desincorporado que la lista muestra.
+            $this->assertSame(DB::table('equipos')->where('ID_FRENTE_ACTUAL', $id)->whereNull('deleted_at')->count(), $dentro['stats']['total']);
         }
     }
 

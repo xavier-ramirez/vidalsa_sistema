@@ -242,11 +242,10 @@
         const restar = restaVenta(f.id_frente);
         const disponible = (e) => !restar || !ctx.venta(e.frenteId);
         const base = todos.filter(filtroEquipos(f, ctx)).filter(disponible);
-        // Con la lista por frente, el TOTAL cuenta también lo desincorporado: la lista lo muestra.
-        const conDesinc = porFrente(f) || norm(txt(f.estado)) === 'DESINCORPORADO';
         const cuenta = (filas, estado) => filas.filter((e) => igual(e.estado, estado)).length;
         const stats = {
-            total: conDesinc ? base.length : base.filter((e) => e.estado != null && !igual(e.estado, 'DESINCORPORADO')).length,
+            // Todo lo que la tabla y la distribución muestran, desincorporados incluidos.
+            total: base.length,
             activos: cuenta(base, 'OPERATIVO'),
             inactivos: cuenta(base, 'INOPERATIVO'),
             mantenimiento: cuenta(base, 'EN MANTENIMIENTO'),
@@ -255,8 +254,7 @@
         // Con un documento tildado: cuántos lo tienen y cuántos no, sobre el universo sin ese recorte.
         const docs = docsActivos(f);
         if (docs.length) {
-            const universo = todos.filter(filtroEquipos(f, ctx, Object.keys(DOCS))).filter(disponible)
-                .filter((e) => conDesinc || (e.estado != null && !igual(e.estado, 'DESINCORPORADO')));
+            const universo = todos.filter(filtroEquipos(f, ctx, Object.keys(DOCS))).filter(disponible);
             stats.doc_mode = true;
             stats.doc_label = docs.length === 1 ? DOCS_ROTULO[docs[0]] : 'Documentos';
             stats.doc_total = universo.length;
