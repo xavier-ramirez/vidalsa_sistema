@@ -53,6 +53,16 @@ class FrenteTrabajo extends Model
      */
     public const TIPOS_FUERA_DE_FLOTA = ['ESPECIAL', self::TIPO_VENDIDO, self::TIPO_TRAMITE_VENTA];
 
+    /**
+     * Frentes de OPERACION cuyos equipos NO cuentan en la flota del desglose de Equipos: van en
+     * rojo y al final de "Ubicación por Frente", como los vendidos (pedido del usuario,
+     * 03-11-2026). 2 POR DEFINIR · 25 PATIO EL LECHON · 45 MINISTERIO DE OBRAS PÚBLICAS ·
+     * 78 EQUIPOS DESINCORPORADOS. Llega al navegador como `sinContar` en el catálogo de frentes
+     * de la copia local (DominioEquipos). Por ahora solo Equipos: el menú y el tablero de Flota
+     * siguen con TIPOS_FUERA_DE_FLOTA.
+     */
+    public const FRENTES_SIN_CONTAR_EN_FLOTA = [2, 25, 45, 78];
+
     protected $table = 'frentes_trabajo';
     protected $primaryKey = 'ID_FRENTE';
 

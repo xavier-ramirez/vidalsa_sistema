@@ -40,6 +40,16 @@ class SincronizacionEquiposTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/^c:\d+$/', $r->json('hasta'));
     }
 
+    /** El catálogo marca `sinContar` justo en FrenteTrabajo::FRENTES_SIN_CONTAR_EN_FLOTA (Equipos los pinta en rojo). */
+    public function test_el_catalogo_marca_los_frentes_que_no_cuentan_en_la_flota(): void
+    {
+        $frentes = collect($this->sync($this->superAdminGlobal())->assertOk()->json('catalogos.frentes'));
+        $marcados = $frentes->where('sinContar', true)->pluck('id')->sort()->values()->all();
+        $esperados = $frentes->pluck('id')->intersect(FrenteTrabajo::FRENTES_SIN_CONTAR_EN_FLOTA)->sort()->values()->all();
+        $this->assertNotEmpty($esperados, 'La base tiene al menos uno de esos frentes.');
+        $this->assertSame($esperados, $marcados);
+    }
+
     public function test_despues_solo_baja_lo_que_cambio(): void
     {
         [$usuario, $suyo] = $this->escenario();

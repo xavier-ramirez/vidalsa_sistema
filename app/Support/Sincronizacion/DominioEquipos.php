@@ -27,8 +27,12 @@ use App\Models\Usuario;
  */
 class DominioEquipos
 {
-    /** Súbelo cuando cambie la forma de las filas: los clientes recargan su copia. */
-    public const ESQUEMA = 2;
+    /**
+     * Súbelo cuando cambie la forma de las filas o de los catálogos: los clientes recargan su
+     * copia. 3: el catálogo de frentes trae `sinContar` (los catálogos solo se reenvían si cambia
+     * un frente o un tipo, así que sin subirlo una copia vieja no lo recibiría).
+     */
+    public const ESQUEMA = 3;
 
     public function __construct(private Usuario $usuario)
     {
@@ -294,6 +298,7 @@ class DominioEquipos
                 'estatus'      => $f->ESTATUS_FRENTE,
                 'tipo'         => $f->TIPO_FRENTE,
                 'fueraDeFlota' => in_array($f->TIPO_FRENTE, FrenteTrabajo::TIPOS_FUERA_DE_FLOTA, true),
+                'sinContar'    => in_array((int) $f->ID_FRENTE, FrenteTrabajo::FRENTES_SIN_CONTAR_EN_FLOTA, true),
                 'venta'        => FrenteTrabajo::avisoVentaDe($f->TIPO_FRENTE),
             ])
             ->all();
