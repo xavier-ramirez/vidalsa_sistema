@@ -500,13 +500,14 @@ input:-webkit-autofill:active {
     }
 }
 
-/* Escritorio con poca altura util (1366x768 o 1280x720 con las barras del navegador quedan
-   en ~620-700px): la tarjeta de datos ocupaba casi todo el alto y cortaba sus figuras de abajo. */
-@media (min-width: 769px) and (max-height: 700px) {
+/* Escritorio MUY bajo (1280x720, o 1366x768 con barra de favoritos: ~620-640px utiles): la
+   tarjeta ocupaba casi todo el alto. No subir de 640: 1920x1080 al 125% (1536x864) deja
+   ~690-730px y ahi la tarjeta cabe a su tamano normal. */
+@media (min-width: 769px) and (max-height: 640px) {
     .login-container-float-center { zoom: 0.85; }
 }
 
-/* Telefono acostado (~850-930 x 390-430): ni a 0.85 cabe la tarjeta. */
+/* Telefono acostado (~850-930 x 390-430): ni a 0,85 cabe la tarjeta. */
 @media (min-width: 769px) and (max-height: 500px) {
     .login-container-float-center { zoom: 0.72; }
 }
