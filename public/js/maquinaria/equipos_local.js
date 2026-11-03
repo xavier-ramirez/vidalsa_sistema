@@ -62,6 +62,9 @@
     // Los que los auxiliares también tienen (título de propiedad y certificado).
     const DOCS_COMPARTIDOS = ['filter_propiedad', 'filter_adicional'];
 
+    // Frente EQUIPOS DESINCORPORADOS: en la base es de OPERACION, pero sus equipos están de baja.
+    const FRENTE_DESINCORPORADOS = 78;
+
     // ── Contexto: catálogos de la copia ───────────────────────────────────────
     function contexto(vista) {
         const frentes = new Map(vista.catalogo('frentes').map((f) => [f.id, f]));
@@ -74,6 +77,8 @@
             permitidos: (alcance.frentes || []).map(Number),
             fuera: (id) => id != null && !!(frentes.get(id) || {}).fueraDeFlota,
             venta: (id) => (id != null && (frentes.get(id) || {}).venta) || null,
+            // Van en rojo: vendidos, en trámite de venta, especiales y desincorporados.
+            rojo: (id) => id === FRENTE_DESINCORPORADOS || (id != null && !!(frentes.get(id) || {}).fueraDeFlota),
         };
     }
     const etiquetaAux = (ctx, tipo) => ctx.tiposAux.get(tipo) || norm(String(tipo || '').replace(/_/g, ' '));
@@ -237,7 +242,8 @@
         const restar = restaVenta(f.id_frente);
         const disponible = (e) => !restar || !ctx.venta(e.frenteId);
         const base = todos.filter(filtroEquipos(f, ctx)).filter(disponible);
-        const conDesinc = norm(txt(f.estado)) === 'DESINCORPORADO';
+        // Con la lista por frente, el TOTAL cuenta también lo desincorporado: la lista lo muestra.
+        const conDesinc = porFrente(f) || norm(txt(f.estado)) === 'DESINCORPORADO';
         const cuenta = (filas, estado) => filas.filter((e) => igual(e.estado, estado)).length;
         const stats = {
             total: conDesinc ? base.length : base.filter((e) => e.estado != null && !igual(e.estado, 'DESINCORPORADO')).length,
@@ -303,7 +309,9 @@
         });
         return Array.from(grupos.values());
     }
-    const ventaAlFinal = (grupos, ctx) => grupos.filter((g) => !ctx.venta(g.clave)).concat(grupos.filter((g) => ctx.venta(g.clave)));
+    const rojosAlFinal = (grupos, ctx) => grupos.filter((g) => !ctx.rojo(g.clave)).concat(grupos.filter((g) => ctx.rojo(g.clave)));
+    // Dentro de un frente en rojo, sus filas por tipo también van en rojo.
+    const barraDe = (idFrente, ctx, color) => (/^\d+$/.test(txt(idFrente)) && ctx.rojo(Number(txt(idFrente))) ? 'roja' : color);
 
     function filaDistribucion(alTocar, nombre, total, pct, barra, ventaFila, vendidos, enTramite, pctVenta) {
         const nota = [];
@@ -313,7 +321,7 @@
             + (ventaFila ? '<small class="dist-rotulo">' + h(ventaFila.etiqueta) + ':</small> ' : '') + h(nombre)
             + (nota.length ? '<small class="dist-nota">' + nota.join(' · ') + '</small>' : '')
             + '</span><span class="dist-cant">' + total + '</span></div>'
-            + '<div class="dist-barra"><div class="dist-barra-' + (ventaFila ? 'roja' : barra) + '" style="width: ' + pct + '%;"></div>'
+            + '<div class="dist-barra"><div class="dist-barra-' + barra + '" style="width: ' + pct + '%;"></div>'
             + (pctVenta > 0 ? '<div class="dist-barra-roja" style="width: ' + pctVenta + '%;"></div>' : '') + '</div></li>';
     }
     function tituloDistribucion(icono, color, titulo, camara) {
@@ -325,14 +333,14 @@
     }
     const filtrarFrente = (id, nombre) => "selectOption('frenteFilterSelect', '" + hj(id) + "', '" + hj(txt(nombre)) + "'); loadEquipos();";
 
-    // Lista por frente (cada fila un frente; los de venta en rojo y al final).
+    // Lista por frente (cada fila un frente; los de ctx.rojo en rojo y al final).
     function listaFrentes(grupos, ctx, camara) {
         const suma = grupos.reduce((n, g) => n + g.total, 0);
         return tituloDistribucion('map', '#10b981', 'Ubicación por Frente', camara) + '<ul class="dist-lista custom-scrollbar">'
             + grupos.map((g) => {
                 const nombre = g.clave != null && ctx.frentes.has(g.clave) ? ctx.frentes.get(g.clave).nombre : null;
                 return filaDistribucion(filtrarFrente(g.clave == null ? '' : g.clave, nombre || 'Sin Asignar'), nombre || 'Sin Asignar',
-                    g.total, suma > 0 ? (g.total / suma) * 100 : 0, 'verde', ctx.venta(g.clave), 0, 0, 0);
+                    g.total, suma > 0 ? (g.total / suma) * 100 : 0, ctx.rojo(g.clave) ? 'roja' : 'verde', ctx.venta(g.clave), 0, 0, 0);
             }).join('') + '</ul>';
     }
     // Lista por tipo: la barra se mide sobre todo (disponible + en venta); lo en venta, en rojo.
@@ -348,12 +356,12 @@
             const filas = todos.filter(filtroEquipos(f, ctx, ['id_frente'])).filter((e) => e.frenteId != null);
             const grupos = agrupar(filas, (e) => e.frenteId, (e) => e.frenteId, ctx, false)
                 .sort((a, b) => ordenNulos((ctx.frentes.get(a.clave) || {}).nombre, (ctx.frentes.get(b.clave) || {}).nombre));
-            return listaFrentes(ventaAlFinal(grupos, ctx), ctx, 'ubicacion_por_frente');
+            return listaFrentes(rojosAlFinal(grupos, ctx), ctx, 'ubicacion_por_frente');
         }
         const grupos = agrupar(todos.filter(filtroEquipos(f, ctx, ['id_tipo'])), (e) => e.idTipo, (e) => e.frenteId, ctx, restaVenta(f.id_frente))
             .map((g) => Object.assign(g, { nombre: nombreTipo(ctx, g.fila) }))
             .sort((a, b) => ordenNulos(a.nombre, b.nombre));
-        return listaTipos(grupos, 'autorenew', '#3b82f6', 'Equipos y Maquinaria', 'azul', 'equipos_y_maquinaria',
+        return listaTipos(grupos, 'autorenew', '#3b82f6', 'Equipos y Maquinaria', barraDe(f.id_frente, ctx, 'azul'), 'equipos_y_maquinaria',
             (g) => "selectOption('tipoFilterSelect', '" + (g.clave == null ? '' : g.clave) + "', '" + hj(txt(g.nombre)) + "'); loadEquipos();",
             (g) => g.nombre || 'Desconocido');
     }
@@ -366,9 +374,9 @@
         if (lleno(r.tipo) && r.tipo !== 'all' && !(lleno(r.id_frente) && r.id_frente !== 'all')) {
             const grupos = agrupar(aux.filter(filtroAux(r, ctx)), (a) => a.idFrente, (a) => a.idFrente, ctx, false)
                 .sort((a, b) => b.total - a.total || ordenNulos((ctx.frentes.get(a.clave) || {}).nombre, (ctx.frentes.get(b.clave) || {}).nombre));
-            if (grupos.length) return listaFrentes(ventaAlFinal(grupos, ctx), ctx, null);
+            if (grupos.length) return listaFrentes(rojosAlFinal(grupos, ctx), ctx, null);
         }
-        return listaTipos(porTipo, 'autorenew', '#10b981', 'Auxiliares', 'verde', null,
+        return listaTipos(porTipo, 'autorenew', '#10b981', 'Auxiliares', barraDe(r.id_frente, ctx, 'verde'), null,
             (g) => "selectOption('tipoFilterSelect', 'tipo_aux:" + hj(g.fila.tipo) + "', '" + hj(g.nombre) + "'); loadEquipos();",
             (g) => g.nombre);
     }

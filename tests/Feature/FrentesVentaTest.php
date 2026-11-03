@@ -234,22 +234,58 @@ class FrentesVentaTest extends MySqlTestCase
         $tipo = $equipo->id_tipo_equipo;
 
         $esperado = $admin->aplicarScopeFrentesEquipos(Equipo::where('id_tipo_equipo', $tipo))
-            ->where('ESTADO_OPERATIVO', '!=', 'DESINCORPORADO')->excludeEnVenta()->count();
+            ->excludeEnVenta()->count();
         $j = $this->consultaLocal($admin, ['id_tipo' => (string) $tipo]);
-        $this->assertSame($esperado, $j['stats']['total'], 'El TOTAL es lo disponible: sin el vendido.');
+        $this->assertSame($esperado, $j['stats']['total'], 'El TOTAL es lo disponible (con lo desincorporado, que la lista muestra), sin el vendido.');
 
         $html = (string) $j['distribution'];
         $fila = '/<li class="dist-fila"[^>]*>\s*<div class="dist-cab">\s*<span class="dist-nombre">\s*<small class="dist-rotulo">VENDIDO:<\/small> '
             . preg_quote(e($frente->NOMBRE_FRENTE), '/') . '.*?<span class="dist-cant">1<\/span>.*?<div class="dist-barra-roja"/s';
         $this->assertMatchesRegularExpression($fila, $html, 'El frente vendido: "VENDIDO: NOMBRE" en una línea, su cantidad y la barra en rojo.');
 
-        // Dentro del frente vendido, a propósito: sus cifras normales, y sus filas por TIPO sin el
-        // rótulo ni la barra roja.
+        // Dentro del frente vendido, a propósito: sus cifras normales, y sus filas por TIPO con la
+        // barra roja y sin el rótulo.
         $dentro = $this->consultaLocal($admin, ['id_frente' => (string) $frente->ID_FRENTE]);
         $this->assertSame(1, $dentro['stats']['total']);
         $this->assertStringContainsString('dist-fila', $dentro['distribution']);
         $this->assertStringNotContainsString('dist-rotulo', $dentro['distribution']);
-        $this->assertStringNotContainsString('dist-barra-roja', $dentro['distribution']);
+        $this->assertStringContainsString('dist-barra-roja', $dentro['distribution']);
+    }
+
+    /**
+     * Los frentes ESPECIAL y EQUIPOS DESINCORPORADOS también van en rojo y al final de la lista, y
+     * el TOTAL por tipo suma lo desincorporado que la lista muestra.
+     */
+    public function test_especial_y_desincorporados_van_en_rojo_y_el_total_cuadra_con_la_lista(): void
+    {
+        [$especial, $equipo] = $this->frenteConEquipo('ESPECIAL');
+        $tipo = $equipo->id_tipo_equipo;
+        $admin = $this->superAdminGlobal();
+        $normal = FrenteTrabajo::whereNotIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
+            ->where('ID_FRENTE', '!=', 78)->value('ID_FRENTE');
+
+        // Se reparten los equipos del tipo: el de la prueba en ESPECIAL, otro normal y otro de baja.
+        DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['ESTADO_OPERATIVO' => 'OPERATIVO']);
+        $otros = DB::table('equipos')->where('id_tipo_equipo', $tipo)->whereNull('deleted_at')
+            ->where('ID_EQUIPO', '!=', $equipo->ID_EQUIPO)->pluck('ID_EQUIPO');
+        $this->assertGreaterThanOrEqual(2, $otros->count(), 'Hacen falta dos equipos más de ese tipo.');
+        DB::table('equipos')->whereIn('ID_EQUIPO', $otros->slice(2))->update(['deleted_at' => now()]);
+        DB::table('equipos')->where('ID_EQUIPO', $otros[0])->update(['ID_FRENTE_ACTUAL' => 78, 'ESTADO_OPERATIVO' => 'DESINCORPORADO']);
+        DB::table('equipos')->where('ID_EQUIPO', $otros[1])->update(['ID_FRENTE_ACTUAL' => $normal, 'ESTADO_OPERATIVO' => 'OPERATIVO']);
+
+        $j = $this->consultaLocal($admin, ['id_tipo' => (string) $tipo]);
+        $this->assertSame(3, $j['stats']['total'], 'El TOTAL cuadra con la suma de la lista.');
+        $this->assertSame(2, $j['stats']['activos']);
+        preg_match_all('/<li class="dist-fila".*?<\/li>/s', (string) $j['distribution'], $filas);
+        $this->assertCount(3, $filas[0]);
+        $this->assertStringContainsString('dist-barra-verde', $filas[0][0], 'El frente normal va primero, en verde.');
+        $this->assertStringContainsString('dist-barra-roja', $filas[0][1]);
+        $this->assertStringContainsString('dist-barra-roja', $filas[0][2]);
+        $this->assertStringNotContainsString('dist-rotulo', $filas[0][1], 'Sin rótulo: su nombre ya lo dice.');
+
+        foreach ([$especial->ID_FRENTE, 78] as $id) {
+            $this->assertStringContainsString('dist-barra-roja', $this->consultaLocal($admin, ['id_frente' => (string) $id])['distribution']);
+        }
     }
 
     public function test_auxiliares_por_tipo_el_total_no_cuenta_lo_vendido_pero_la_lista_si(): void
