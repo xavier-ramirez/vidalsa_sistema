@@ -126,9 +126,9 @@ window.maquinariaArrancar = function () {
         menu.innerHTML = '';
         Object.entries(AUX_STATUS_CFG).forEach(([key, cfg]) => {
             const item = document.createElement('div');
-            item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer; border-bottom:1px solid #f8fafc;';
+            item.style.cssText = 'display:flex; align-items:center; gap:8px; padding:5px 12px; cursor:pointer; border-bottom:1px solid #f8fafc;';
             item.innerHTML = `
-                <div style="background:${cfg.bg}; padding:4px; border-radius:4px; display:flex;">
+                <div style="background:${cfg.bg}; padding:3px; border-radius:4px; display:flex;">
                     <i class="material-icons" style="font-size:16px; color:${cfg.color};">${cfg.icon}</i>
                 </div>
                 <span style="font-size:12px; font-weight:600; color:#334155;">${cfg.label}</span>

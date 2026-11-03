@@ -1660,7 +1660,9 @@
             if (window.handleFallaCreatedAux)    window.handleFallaCreatedAux();
             if (window.handleFallaCreatedEquipo) window.handleFallaCreatedEquipo(falla);
         },
-        onClosed:  function () { if (window.loadEquipos) window.loadEquipos(); }
+        // Repinta las filas cargadas (como tras movilizar) y devuelve la promesa: el modal de
+        // cierre mantiene el spinner hasta que la fila sale con su estado nuevo.
+        onClosed:  function () { return window.eqRepintarDesdeCopia ? window.eqRepintarDesdeCopia() : null; }
     };
 </script>
 {{-- falla_create_modal.js se carga GLOBAL en el layout (SPA-safe). --}}

@@ -52,7 +52,7 @@
     /* Cancelar / Confirmar del modal de cierre: la MISMA letra en los dos. .fl-submit-btn
        trae 14.5px/800 para el botón ancho de crear; al lado de Cancelar se veía más grande. */
     .fl-acciones-par { display: flex; gap: 10px; }
-    .fl-acciones-par > button { flex: 1; height: 44px; border-radius: 10px; font-size: 13.5px; font-weight: 700; letter-spacing: normal; }
+    .fl-acciones-par > button { flex: 1; height: 36px; border-radius: 10px; font-size: 13.5px; font-weight: 700; letter-spacing: normal; }
     .fl-btn-cancelar {
         display: inline-flex; align-items: center; justify-content: center;
         border: 1px solid #e2e8f0; background: white; color: #475569; cursor: pointer;

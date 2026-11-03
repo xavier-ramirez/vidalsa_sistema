@@ -235,10 +235,14 @@
         .then(r => r.json())
         .then(body => {
             if (body.success) {
-                window.toast(body.message || 'Reporte cerrado. El equipo vuelve a OPERATIVO.', 'success');
                 window.flCerrarCierreModal();
+                // El spinner sigue hasta que la página se redibuja (onClosed devuelve la promesa
+                // del repintado): si se quitaba antes, la fila seguía con el estado viejo unos
+                // segundos sin ninguna señal de que algo pasaba. El aviso sale con la fila ya al día.
                 const cb = CFG().onClosed;
-                if (typeof cb === 'function') cb();
+                return Promise.resolve(typeof cb === 'function' ? cb() : null)
+                    .catch(err => console.error('[Cierre de falla] repintado', err))
+                    .then(() => window.toast(body.message || 'Reporte cerrado. El equipo vuelve a OPERATIVO.', 'success'));
             } else {
                 window.toast(body.message || 'No se pudo cerrar el reporte.', 'error');
             }
