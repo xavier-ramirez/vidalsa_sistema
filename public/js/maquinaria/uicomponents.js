@@ -755,17 +755,7 @@ window.showDetailsImproved = function (target, event) {
     createDocBtn("d_btn_poliza", "poliza", d.linkSeguro, "Póliza", eqId);
     createDocBtn("d_btn_rotc", "rotc", d.linkRotc, "ROTC", eqId);
     createDocBtn("d_btn_racda", "racda", d.linkRacda, "RACDA", eqId);
-    // Ambas rows siempre visibles: "Certificado Asociado" y "Compraventa".
-    const rowAdicional  = document.getElementById('d_row_adicional');
-    const rowAdicional2 = document.getElementById('d_row_adicional_2');
-    if (rowAdicional)  rowAdicional.style.display  = 'flex';
-    if (rowAdicional2) rowAdicional2.style.display = 'flex';
-
-    const labelAdicionalEl  = document.getElementById('d_label_adicional');
-    const labelAdicional2El = document.getElementById('d_label_adicional_2');
-    if (labelAdicionalEl)  labelAdicionalEl.textContent  = 'Certificado Asociado';
-    if (labelAdicional2El) labelAdicional2El.textContent = 'Compraventa';
-
+    // "Certificado Asociado" y "Compraventa" se ven siempre, con su rótulo fijo en la vista.
     createDocBtn("d_btn_adicional", "adicional", d.linkAdicional, 'Certificado Asociado', eqId);
     createDocBtn("d_btn_adicional_2", "adicional_2", d.linkAdicional2, 'Compraventa', eqId);
 
