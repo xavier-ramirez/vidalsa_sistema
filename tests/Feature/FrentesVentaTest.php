@@ -256,26 +256,32 @@ class FrentesVentaTest extends MySqlTestCase
     }
 
     /**
-     * El frente POR DEFINIR va como los vendidos: en «Flota con la que no contamos» (solo la cifra, sin el porqué)
-     * y en rojo al final de "Ubicación por Frente".
+     * Los frentes POR DEFINIR y PATIO EL LECHON van como los vendidos: en «Flota con la que no
+     * contamos» (solo la cifra, sin el porqué) y en rojo al final de "Ubicación por Frente".
      */
-    public function test_por_definir_no_cuenta_en_la_flota_y_va_en_rojo(): void
+    public function test_por_definir_y_patio_el_lechon_no_cuentan_en_la_flota_y_van_en_rojo(): void
     {
         $admin = $this->superAdminGlobal();
-        $equipo = DB::table('equipos')->whereNull('deleted_at')->whereNotNull('id_tipo_equipo')
-            ->whereNotIn('ID_FRENTE_ACTUAL', [2, 78])->first();
-        DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['ID_FRENTE_ACTUAL' => 2, 'ESTADO_OPERATIVO' => 'OPERATIVO']);
+        $tipo = DB::table('equipos')->whereNull('deleted_at')->whereNotNull('id_tipo_equipo')
+            ->whereNotIn('ID_FRENTE_ACTUAL', [2, 25, 78])->groupBy('id_tipo_equipo')
+            ->havingRaw('COUNT(*) >= 2')->value('id_tipo_equipo');
+        $dos = DB::table('equipos')->whereNull('deleted_at')->where('id_tipo_equipo', $tipo)
+            ->whereNotIn('ID_FRENTE_ACTUAL', [2, 25, 78])->limit(2)->pluck('ID_EQUIPO');
+        DB::table('equipos')->where('ID_EQUIPO', $dos[0])->update(['ID_FRENTE_ACTUAL' => 2, 'ESTADO_OPERATIVO' => 'OPERATIVO']);
+        DB::table('equipos')->where('ID_EQUIPO', $dos[1])->update(['ID_FRENTE_ACTUAL' => 25, 'ESTADO_OPERATIVO' => 'OPERATIVO']);
 
-        $j = $this->consultaLocal($admin, ['id_tipo' => (string) $equipo->id_tipo_equipo]);
+        $j = $this->consultaLocal($admin, ['id_tipo' => (string) $tipo]);
         $flota = $j['stats']['flota'];
-        $this->assertGreaterThanOrEqual(1, $flota['no_cuentan'], 'POR DEFINIR va en la flota con la que no contamos.');
+        $this->assertGreaterThanOrEqual(2, $flota['no_cuentan'], 'Los dos van en la flota con la que no contamos.');
         $this->assertSame($j['stats']['total'], $flota['cuentan'] + $flota['no_cuentan'], 'Cuentan + no cuentan = el TOTAL.');
         $this->assertStringContainsString('Flota con la que no contamos</span><b>' . $flota['no_cuentan'] . '</b>', $j['flotaHtml'], 'Solo la cifra, sin el porqué.');
 
         preg_match_all('/<li class="dist-fila".*?<\/li>/s', (string) $j['distribution'], $filas);
-        $porDefinir = array_values(array_filter($filas[0], fn ($f) => str_contains($f, 'POR DEFINIR')));
-        $this->assertCount(1, $porDefinir);
-        $this->assertStringContainsString('dist-barra-roja', $porDefinir[0], 'POR DEFINIR en rojo, como los vendidos.');
+        foreach (['POR DEFINIR', 'PATIO EL LECHON'] as $nombre) {
+            $fila = array_values(array_filter($filas[0], fn ($f) => str_contains($f, $nombre)));
+            $this->assertCount(1, $fila, $nombre . ' sale una vez.');
+            $this->assertStringContainsString('dist-barra-roja', $fila[0], $nombre . ' en rojo, como los vendidos.');
+        }
         $primeraRoja = array_search(true, array_map(fn ($f) => str_contains($f, 'dist-barra-roja'), $filas[0]), true);
         foreach (array_slice($filas[0], $primeraRoja) as $f) {
             $this->assertStringContainsString('dist-barra-roja', $f, 'Los rojos van todos al final.');
@@ -292,7 +298,7 @@ class FrentesVentaTest extends MySqlTestCase
         $tipo = $equipo->id_tipo_equipo;
         $admin = $this->superAdminGlobal();
         $normal = FrenteTrabajo::whereNotIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
-            ->whereNotIn('ID_FRENTE', [2, 78])->value('ID_FRENTE');
+            ->whereNotIn('ID_FRENTE', [2, 25, 78])->value('ID_FRENTE');
 
         // Se reparten los equipos del tipo: el de la prueba en ESPECIAL, otro normal y otro de baja.
         DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['ESTADO_OPERATIVO' => 'OPERATIVO']);

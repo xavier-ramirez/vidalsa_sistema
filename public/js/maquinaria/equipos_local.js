@@ -23,7 +23,7 @@
  *     flota (ESPECIAL, VENDIDO, TRÁMITE DE VENTA). Con un filtro concreto entran y suman en el
  *     TOTAL y van en rojo en la Distribución. Filtrando SOLO por un tipo, el desglose del
  *     Consolidado (flota) los pone en «Flota con la que no contamos», junto con los desincorporados y los
- *     del frente POR DEFINIR (que va en rojo, como ellos).
+ *     de los frentes POR DEFINIR y PATIO EL LECHON (que van en rojo, como ellos).
  *   · Elegir un tipo de auxiliar (tipo_aux:X) o categoría AUXILIARES = la tabla es de
  *     auxiliares. Con un eje compartido (frente, búsqueda, año, título o certificado) y sin
  *     un filtro solo de equipos, los auxiliares que coinciden salen al final de la tabla.
@@ -65,12 +65,11 @@
     // Los que los auxiliares también tienen (título de propiedad y certificado).
     const DOCS_COMPARTIDOS = ['filter_propiedad', 'filter_adicional'];
 
-    // Frente EQUIPOS DESINCORPORADOS: en la base es de OPERACION, pero sus equipos están de baja
-    // (el mismo id está en DashboardController::FRENTES_FUERA_DE_ALERTAS).
-    const FRENTE_DESINCORPORADOS = 78;
-    // Frente POR DEFINIR: equipos sin destino; en rojo y fuera de la flota, como los vendidos
-    // (pedido del usuario, 03-11-2026).
-    const FRENTE_POR_DEFINIR = 2;
+    // Frentes de OPERACION en la base que van en rojo y fuera de la flota, como los vendidos
+    // (los ids también están en DashboardController::FRENTES_FUERA_DE_ALERTAS):
+    //   78 EQUIPOS DESINCORPORADOS (equipos de baja) · 2 POR DEFINIR (sin destino) ·
+    //   25 PATIO EL LECHON. Los dos últimos, pedido del usuario del 03-11-2026.
+    const FRENTES_EN_ROJO = [78, 2, 25];
 
     // ── Contexto: catálogos de la copia ───────────────────────────────────────
     function contexto(vista) {
@@ -85,8 +84,8 @@
             permitidos: (alcance.frentes || []).map(Number),
             fuera,
             venta: (id) => (id != null && (frentes.get(id) || {}).venta) || null,
-            // Van en rojo: vendidos, en trámite de venta, especiales, desincorporados y por definir.
-            rojo: (id) => id === FRENTE_DESINCORPORADOS || id === FRENTE_POR_DEFINIR || fuera(id),
+            // Van en rojo: vendidos, en trámite de venta, especiales y FRENTES_EN_ROJO.
+            rojo: (id) => FRENTES_EN_ROJO.includes(id) || fuera(id),
         };
     }
     const etiquetaAux = (ctx, tipo) => ctx.tiposAux.get(tipo) || norm(String(tipo || '').replace(/_/g, ' '));
