@@ -239,8 +239,7 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame($esperado, $j['stats']['total'], 'El TOTAL es el total general: todo lo que la lista muestra.');
         $flota = $j['stats']['flota'];
         $this->assertSame($j['stats']['total'], $flota['cuentan'] + $flota['no_cuentan'], 'Cuentan + no cuentan = el TOTAL.');
-        $this->assertGreaterThanOrEqual(1, $flota['motivos']['vendidos'], 'El vendido va en «No cuentan».');
-        $this->assertStringContainsString('Vendidos ' . $flota['motivos']['vendidos'], $j['flotaHtml']);
+        $this->assertGreaterThanOrEqual(1, $flota['no_cuentan'], 'El vendido va en «No cuentan».');
 
         $html = (string) $j['distribution'];
         $fila = '/<li class="dist-fila"[^>]*>\s*<div class="dist-cab">\s*<span class="dist-nombre">\s*<small class="dist-rotulo">VENDIDO:<\/small> '
@@ -257,10 +256,10 @@ class FrentesVentaTest extends MySqlTestCase
     }
 
     /**
-     * Los frentes ESPECIAL y EQUIPOS DESINCORPORADOS también van en rojo y al final de la lista; el
-     * TOTAL por tipo suma todo lo que la lista muestra y el desglose separa cuentan / no cuentan.
+     * El frente POR DEFINIR va como los vendidos: en «No cuentan» (solo la cifra, sin el porqué)
+     * y en rojo al final de "Ubicación por Frente".
      */
-    public function test_por_definir_no_cuenta_en_la_flota(): void
+    public function test_por_definir_no_cuenta_en_la_flota_y_va_en_rojo(): void
     {
         $admin = $this->superAdminGlobal();
         $equipo = DB::table('equipos')->whereNull('deleted_at')->whereNotNull('id_tipo_equipo')
@@ -269,11 +268,24 @@ class FrentesVentaTest extends MySqlTestCase
 
         $j = $this->consultaLocal($admin, ['id_tipo' => (string) $equipo->id_tipo_equipo]);
         $flota = $j['stats']['flota'];
-        $this->assertSame(1, $flota['motivos']['porDefinir'], 'POR DEFINIR va en «No cuentan».');
+        $this->assertGreaterThanOrEqual(1, $flota['no_cuentan'], 'POR DEFINIR va en «No cuentan».');
         $this->assertSame($j['stats']['total'], $flota['cuentan'] + $flota['no_cuentan'], 'Cuentan + no cuentan = el TOTAL.');
-        $this->assertStringContainsString('Por definir 1', $j['flotaHtml']);
+        $this->assertStringContainsString('No cuentan</span><b>' . $flota['no_cuentan'] . '</b>', $j['flotaHtml'], 'Solo la cifra, sin el porqué.');
+
+        preg_match_all('/<li class="dist-fila".*?<\/li>/s', (string) $j['distribution'], $filas);
+        $porDefinir = array_values(array_filter($filas[0], fn ($f) => str_contains($f, 'POR DEFINIR')));
+        $this->assertCount(1, $porDefinir);
+        $this->assertStringContainsString('dist-barra-roja', $porDefinir[0], 'POR DEFINIR en rojo, como los vendidos.');
+        $primeraRoja = array_search(true, array_map(fn ($f) => str_contains($f, 'dist-barra-roja'), $filas[0]), true);
+        foreach (array_slice($filas[0], $primeraRoja) as $f) {
+            $this->assertStringContainsString('dist-barra-roja', $f, 'Los rojos van todos al final.');
+        }
     }
 
+    /**
+     * Los frentes ESPECIAL y EQUIPOS DESINCORPORADOS también van en rojo y al final de la lista; el
+     * TOTAL por tipo suma todo lo que la lista muestra y el desglose separa cuentan / no cuentan.
+     */
     public function test_especial_y_desincorporados_van_en_rojo_y_el_total_cuadra_con_la_lista(): void
     {
         [$especial, $equipo] = $this->frenteConEquipo('ESPECIAL');
@@ -296,9 +308,8 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame(2, $j['stats']['activos']);
         $this->assertSame(1, $j['stats']['flota']['cuentan'], 'Cuenta solo el del frente normal.');
         $this->assertSame(2, $j['stats']['flota']['no_cuentan']);
-        $this->assertSame(['desincorporados' => 1, 'vendidos' => 0, 'tramite' => 0, 'especiales' => 1, 'porDefinir' => 0], $j['stats']['flota']['motivos']);
         $this->assertSame(['DESINCORPORADO' => 1], $j['stats']['flota']['otros']);
-        $this->assertMatchesRegularExpression('/Cuentan en la flota<\/span><b>1<\/b>.*No cuentan<small>Desincorporados 1 · Asignaciones especiales 1<\/small><\/span><b>2<\/b>/s', $j['flotaHtml']);
+        $this->assertMatchesRegularExpression('/Cuentan en la flota<\/span><b>1<\/b>.*No cuentan<\/span><b>2<\/b>/s', $j['flotaHtml']);
         $this->assertStringNotContainsString('Total general', $j['flotaHtml'], 'El total ya está arriba: no se repite.');
 
         // Un estado que no es ni operativo ni inoperativo (el «DESCONOCIDO» de la base) se nombra

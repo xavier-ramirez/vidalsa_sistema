@@ -23,7 +23,7 @@
  *     flota (ESPECIAL, VENDIDO, TRÁMITE DE VENTA). Con un filtro concreto entran y suman en el
  *     TOTAL y van en rojo en la Distribución. Filtrando SOLO por un tipo, el desglose del
  *     Consolidado (flota) los cuenta como «No cuentan», junto con los desincorporados y los
- *     del frente POR DEFINIR.
+ *     del frente POR DEFINIR (que va en rojo, como ellos).
  *   · Elegir un tipo de auxiliar (tipo_aux:X) o categoría AUXILIARES = la tabla es de
  *     auxiliares. Con un eje compartido (frente, búsqueda, año, título o certificado) y sin
  *     un filtro solo de equipos, los auxiliares que coinciden salen al final de la tabla.
@@ -68,7 +68,8 @@
     // Frente EQUIPOS DESINCORPORADOS: en la base es de OPERACION, pero sus equipos están de baja
     // (el mismo id está en DashboardController::FRENTES_FUERA_DE_ALERTAS).
     const FRENTE_DESINCORPORADOS = 78;
-    // Frente POR DEFINIR: equipos sin destino; no cuentan en la flota (pedido del usuario, 03-11-2026).
+    // Frente POR DEFINIR: equipos sin destino; en rojo y fuera de la flota, como los vendidos
+    // (pedido del usuario, 03-11-2026).
     const FRENTE_POR_DEFINIR = 2;
 
     // ── Contexto: catálogos de la copia ───────────────────────────────────────
@@ -84,8 +85,8 @@
             permitidos: (alcance.frentes || []).map(Number),
             fuera,
             venta: (id) => (id != null && (frentes.get(id) || {}).venta) || null,
-            // Van en rojo: vendidos, en trámite de venta, especiales y desincorporados.
-            rojo: (id) => id === FRENTE_DESINCORPORADOS || fuera(id),
+            // Van en rojo: vendidos, en trámite de venta, especiales, desincorporados y por definir.
+            rojo: (id) => id === FRENTE_DESINCORPORADOS || id === FRENTE_POR_DEFINIR || fuera(id),
         };
     }
     const etiquetaAux = (ctx, tipo) => ctx.tiposAux.get(tipo) || norm(String(tipo || '').replace(/_/g, ' '));
@@ -249,45 +250,31 @@
         (x.creado === y.creado ? y.id - x.id : (String(x.creado || '') < String(y.creado || '') ? 1 : -1)));
 
     // ── Cifras ────────────────────────────────────────────────────────────────
-    // Por qué un equipo NO cuenta en la flota (null = sí cuenta): estar en un frente en rojo
-    // (ctx.rojo), en POR DEFINIR o tener estado DESINCORPORADO, esté donde esté.
-    function motivoFuera(e, ctx) {
-        const venta = ctx.venta(e.frenteId);
-        if (venta) return venta.clase === 'vendido' ? 'vendidos' : 'tramite';
-        if (ctx.fuera(e.frenteId)) return 'especiales';
-        // Lo que queda en rojo, tras venta y especiales, es el frente EQUIPOS DESINCORPORADOS.
-        if (ctx.rojo(e.frenteId) || igual(e.estado, 'DESINCORPORADO')) return 'desincorporados';
-        if (e.frenteId === FRENTE_POR_DEFINIR) return 'porDefinir';
-        return null;
-    }
+    // Un equipo NO cuenta en la flota si está en un frente en rojo (ctx.rojo) o tiene estado
+    // DESINCORPORADO, esté donde esté.
+    const noCuenta = (e, ctx) => ctx.rojo(e.frenteId) || igual(e.estado, 'DESINCORPORADO');
 
-    // Desglose del TOTAL: cuántos cuentan en la flota, cuántos no y por qué, y los estados que
-    // no son ni operativo ni inoperativo (para que las tres cifras de arriba se entiendan).
+    // Desglose del TOTAL: cuántos cuentan en la flota y cuántos no (solo la cifra, sin el porqué:
+    // pedido del usuario, 03-11-2026), y los estados que no son ni operativo ni inoperativo (para
+    // que las tres cifras de arriba se entiendan).
     function flota(filas, ctx) {
-        const motivos = { desincorporados: 0, vendidos: 0, tramite: 0, especiales: 0, porDefinir: 0 };
         const otros = {};
         let noCuentan = 0;
         filas.forEach((e) => {
-            const m = motivoFuera(e, ctx);
-            if (m) { motivos[m]++; noCuentan++; }
+            if (noCuenta(e, ctx)) noCuentan++;
             if (!igual(e.estado, 'OPERATIVO') && !igual(e.estado, 'INOPERATIVO')) {
                 const est = lleno(e.estado) ? txt(e.estado) : 'SIN ESTADO';
                 otros[est] = (otros[est] || 0) + 1;
             }
         });
-        return { cuentan: filas.length - noCuentan, no_cuentan: noCuentan, motivos, otros };
+        return { cuentan: filas.length - noCuentan, no_cuentan: noCuentan, otros };
     }
-
-    const MOTIVOS_FUERA = [['desincorporados', 'Desincorporados'], ['vendidos', 'Vendidos'],
-        ['tramite', 'En trámite de venta'], ['especiales', 'Asignaciones especiales'], ['porDefinir', 'Por definir']];
 
     // El desglose bajo las tres cifras del Consolidado: cuentan + no cuentan = el TOTAL de arriba.
     function desgloseFlota(fl) {
-        const por = MOTIVOS_FUERA.filter(([k]) => fl.motivos[k] > 0).map(([k, t]) => t + ' ' + fl.motivos[k]);
         const otros = Object.keys(fl.otros).sort().map((k) => h(k) + ' ' + fl.otros[k]);
         return '<div class="eq-flota-fila eq-flota-si"><span>Cuentan en la flota</span><b>' + fl.cuentan + '</b></div>'
-            + '<div class="eq-flota-fila eq-flota-no"><span>No cuentan'
-            + (por.length ? '<small>' + por.join(' · ') + '</small>' : '') + '</span><b>' + fl.no_cuentan + '</b></div>'
+            + '<div class="eq-flota-fila eq-flota-no"><span>No cuentan</span><b>' + fl.no_cuentan + '</b></div>'
             + (otros.length ? '<div class="eq-flota-nota">Ni operativo ni inoperativo: ' + otros.join(' · ') + '</div>' : '');
     }
 

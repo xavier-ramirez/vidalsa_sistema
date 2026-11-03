@@ -359,7 +359,6 @@
     border-radius: 6px;
 }
 .eq-flota-fila b { font-size: 13px; font-weight: 800; white-space: nowrap; }
-.eq-flota-fila small { display: block; margin-top: 1px; font-size: 10px; font-weight: 600; opacity: 0.85; }
 .eq-flota-si { background: rgba(34, 197, 94, 0.22); }
 .eq-flota-no { background: rgba(239, 68, 68, 0.32); }
 .eq-flota-nota { padding: 0 2px; font-size: 10px; opacity: 0.85; }
