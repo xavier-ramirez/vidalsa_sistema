@@ -123,7 +123,7 @@
     // El id del frente elegido, o null con "todos los frentes" / "sin asignar".
     const frenteConcreto = (idFrente) => (/^\d+$/.test(txt(idFrente)) ? Number(txt(idFrente)) : null);
     // Con "todos los frentes" la Distribución separa lo de frentes en venta (en rojo); dentro de un frente, no.
-    const restaVenta = (idFrente) => frenteConcreto(idFrente) === null;
+    const separaVenta = (idFrente) => frenteConcreto(idFrente) === null;
 
     // ── Filtro de EQUIPOS ─────────────────────────────────────────────────────
     function coincideBusqueda(e, texto) {
@@ -244,12 +244,14 @@
         (x.creado === y.creado ? y.id - x.id : (String(x.creado || '') < String(y.creado || '') ? 1 : -1)));
 
     // ── Cifras ────────────────────────────────────────────────────────────────
-    // Por qué un equipo NO cuenta en la flota (null = sí cuenta): lo que la Distribución pinta en rojo.
+    // Por qué un equipo NO cuenta en la flota (null = sí cuenta): estar en un frente en rojo
+    // (ctx.rojo) o tener estado DESINCORPORADO, esté donde esté.
     function motivoFuera(e, ctx) {
         const venta = ctx.venta(e.frenteId);
         if (venta) return venta.clase === 'vendido' ? 'vendidos' : 'tramite';
         if (ctx.fuera(e.frenteId)) return 'especiales';
-        if (e.frenteId === FRENTE_DESINCORPORADOS || igual(e.estado, 'DESINCORPORADO')) return 'desincorporados';
+        // Lo que queda en rojo, tras venta y especiales, es el frente EQUIPOS DESINCORPORADOS.
+        if (ctx.rojo(e.frenteId) || igual(e.estado, 'DESINCORPORADO')) return 'desincorporados';
         return null;
     }
 
@@ -336,15 +338,15 @@
     }
 
     // ── Distribución ──────────────────────────────────────────────────────────
-    // Agrupa filas por una clave; con `restar`, las de frentes en venta se cuentan aparte
+    // Agrupa filas por una clave; con `separar`, las de frentes en venta se cuentan aparte
     // (vendidos / en trámite) para pintarlas en rojo.
-    function agrupar(filas, clave, frenteDe, ctx, restar) {
+    function agrupar(filas, clave, frenteDe, ctx, separar) {
         const grupos = new Map();
         filas.forEach((x) => {
             const k = clave(x);
             let g = grupos.get(k);
             if (!g) grupos.set(k, g = { clave: k, fila: x, total: 0, vendidos: 0, en_tramite: 0 });
-            const venta = restar ? ctx.venta(frenteDe(x)) : null;
+            const venta = separar ? ctx.venta(frenteDe(x)) : null;
             if (venta && venta.clase === 'vendido') g.vendidos++;
             else if (venta) g.en_tramite++;
             else g.total++;
@@ -401,7 +403,7 @@
                 .sort((a, b) => ordenNulos((ctx.frentes.get(a.clave) || {}).nombre, (ctx.frentes.get(b.clave) || {}).nombre));
             return listaFrentes(rojosAlFinal(grupos, ctx), ctx, 'ubicacion_por_frente');
         }
-        const grupos = agrupar(todos.filter(filtroEquipos(f, ctx, ['id_tipo'])), (e) => e.idTipo, (e) => e.frenteId, ctx, restaVenta(f.id_frente))
+        const grupos = agrupar(todos.filter(filtroEquipos(f, ctx, ['id_tipo'])), (e) => e.idTipo, (e) => e.frenteId, ctx, separaVenta(f.id_frente))
             .map((g) => Object.assign(g, { nombre: nombreTipo(ctx, g.fila) }))
             .sort((a, b) => ordenNulos(a.nombre, b.nombre));
         return listaTipos(grupos, 'autorenew', '#3b82f6', 'Equipos y Maquinaria', barraDe(f.id_frente, ctx, 'azul'), 'equipos_y_maquinaria',
@@ -411,7 +413,7 @@
 
     function distribucionAux(aux, r, ctx) {
         const filas = aux.filter(filtroAux(r, ctx, ['tipo'])).filter((a) => lleno(a.tipo));
-        const porTipo = agrupar(filas, (a) => norm(a.tipo), (a) => a.idFrente, ctx, restaVenta(r.id_frente))
+        const porTipo = agrupar(filas, (a) => norm(a.tipo), (a) => a.idFrente, ctx, separaVenta(r.id_frente))
             .map((g) => Object.assign(g, { nombre: etiquetaAux(ctx, g.fila.tipo) }))
             .sort((a, b) => (b.total + b.vendidos + b.en_tramite) - (a.total + a.vendidos + a.en_tramite) || orden.compare(a.nombre, b.nombre));
         if (lleno(r.tipo) && r.tipo !== 'all' && !(lleno(r.id_frente) && r.id_frente !== 'all')) {

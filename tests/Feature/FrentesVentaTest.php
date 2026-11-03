@@ -257,8 +257,8 @@ class FrentesVentaTest extends MySqlTestCase
     }
 
     /**
-     * Los frentes ESPECIAL y EQUIPOS DESINCORPORADOS también van en rojo y al final de la lista, y
-     * el TOTAL por tipo suma lo desincorporado que la lista muestra.
+     * Los frentes ESPECIAL y EQUIPOS DESINCORPORADOS también van en rojo y al final de la lista; el
+     * TOTAL por tipo suma todo lo que la lista muestra y el desglose separa cuentan / no cuentan.
      */
     public function test_especial_y_desincorporados_van_en_rojo_y_el_total_cuadra_con_la_lista(): void
     {
