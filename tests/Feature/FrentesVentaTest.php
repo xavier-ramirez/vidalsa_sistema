@@ -270,7 +270,7 @@ class FrentesVentaTest extends MySqlTestCase
         $flota = $j['stats']['flota'];
         $this->assertGreaterThanOrEqual(1, $flota['no_cuentan'], 'POR DEFINIR va en «No cuentan».');
         $this->assertSame($j['stats']['total'], $flota['cuentan'] + $flota['no_cuentan'], 'Cuentan + no cuentan = el TOTAL.');
-        $this->assertStringContainsString('No cuentan</span><b>' . $flota['no_cuentan'] . '</b>', $j['flotaHtml'], 'Solo la cifra, sin el porqué.');
+        $this->assertStringContainsString('No cuentan en la flota</span><b>' . $flota['no_cuentan'] . '</b>', $j['flotaHtml'], 'Solo la cifra, sin el porqué.');
 
         preg_match_all('/<li class="dist-fila".*?<\/li>/s', (string) $j['distribution'], $filas);
         $porDefinir = array_values(array_filter($filas[0], fn ($f) => str_contains($f, 'POR DEFINIR')));
@@ -309,7 +309,7 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame(1, $j['stats']['flota']['cuentan'], 'Cuenta solo el del frente normal.');
         $this->assertSame(2, $j['stats']['flota']['no_cuentan']);
         $this->assertSame(['DESINCORPORADO' => 1], $j['stats']['flota']['otros']);
-        $this->assertMatchesRegularExpression('/Cuentan en la flota<\/span><b>1<\/b>.*No cuentan<\/span><b>2<\/b>/s', $j['flotaHtml']);
+        $this->assertMatchesRegularExpression('/Cuentan en la flota<\/span><b>1<\/b>.*No cuentan en la flota<\/span><b>2<\/b>/s', $j['flotaHtml']);
         $this->assertStringNotContainsString('Total general', $j['flotaHtml'], 'El total ya está arriba: no se repite.');
 
         // Un estado que no es ni operativo ni inoperativo (el «DESCONOCIDO» de la base) se nombra

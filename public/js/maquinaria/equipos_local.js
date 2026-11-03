@@ -274,7 +274,7 @@
     function desgloseFlota(fl) {
         const otros = Object.keys(fl.otros).sort().map((k) => h(k) + ' ' + fl.otros[k]);
         return '<div class="eq-flota-fila eq-flota-si"><span>Cuentan en la flota</span><b>' + fl.cuentan + '</b></div>'
-            + '<div class="eq-flota-fila eq-flota-no"><span>No cuentan</span><b>' + fl.no_cuentan + '</b></div>'
+            + '<div class="eq-flota-fila eq-flota-no"><span>No cuentan en la flota</span><b>' + fl.no_cuentan + '</b></div>'
             + (otros.length ? '<div class="eq-flota-nota">Ni operativo ni inoperativo: ' + otros.join(' · ') + '</div>' : '');
     }
 
