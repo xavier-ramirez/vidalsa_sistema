@@ -832,6 +832,8 @@
                 <span id="mobile_stats_inactivos" style="color:white; font-size:22px; font-weight:800; line-height:1;">--</span>
             </div>
         </div>
+        {{-- Desglose del TOTAL (flotaHtml de equipos_local.js): lo pinta loadEquipos(). --}}
+        <div id="eqFlotaMobile" class="eq-flota mobstat-row" hidden></div>
     </div>
 
     {{-- Consolidado de Auxiliares en móvil (en móvil el sidebar desktop se oculta).
@@ -928,6 +930,9 @@
                     <span id="stats_inop_label" class="consolidado-stat-label" style="margin-top: 4px;">Inoperativo</span>
                 </div>
             </div>
+            {{-- Desglose del TOTAL: cuántos cuentan en la flota y cuántos no (flotaHtml de
+                 equipos_local.js). Lo pinta loadEquipos(); oculto sin filtro y en modo documento. --}}
+            <div id="eqFlota" class="eq-flota" hidden></div>
         </div>
     </div>
 

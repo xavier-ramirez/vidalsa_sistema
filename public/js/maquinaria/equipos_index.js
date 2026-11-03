@@ -1688,6 +1688,16 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 setEl('mobile_stats_activos',   displayStat(operVal));
                 setEl('mobile_stats_inactivos', displayStat(inopVal));
 
+                // Desglose del TOTAL (cuentan / no cuentan en la flota): solo con filtro, en
+                // equipos y fuera del modo documento (equipos_local.js deja flotaHtml vacío).
+                const flotaHtml = hasActiveFilters ? (data.flotaHtml || '') : '';
+                ['eqFlota', 'eqFlotaMobile'].forEach(function (id) {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    if (el.innerHTML !== flotaHtml) el.innerHTML = flotaHtml;
+                    el.hidden = !flotaHtml;
+                });
+
                 // ── Consolidado de Equipos Auxiliares (panel propio, debajo del de equipos) ──
                 // Refleja el filtro de FRENTE (mismas reglas de display: '--' sin filtro).
                 // Se oculta en modo aux: ahí el consolidado principal de arriba ya es de
@@ -3434,11 +3444,11 @@ window.openAnchorModal = async function (event) {
 };
 
 window.updateLocalStats = function (oldStatus, newStatus) {
-    // El Consolidado muestra: Total · Operativo · Inoperativo (Mantenimiento ya
-    // no se lista). Ajustamos en caliente Operativo/Inoperativo tanto en la vista
-    // de escritorio (stats_*) como en las pills móviles (mobile_stats_*). El Total
-    // no cambia con un simple cambio de estatus (mantenimiento sigue contando en
-    // total); solo se recalcula al refrescar desde el servidor.
+    // El Consolidado muestra: Total · Operativo · Inoperativo. Ajustamos en caliente
+    // Operativo/Inoperativo tanto en la vista de escritorio (stats_*) como en las pills
+    // móviles (mobile_stats_*), con la misma regla que equipos_local.js (Inoperativo =
+    // solo INOPERATIVO). El Total y el desglose no cambian con un cambio de estatus;
+    // se recalculan cuando la copia local trae el cambio y la vista se repinta.
     const elOper = document.getElementById("stats_activos");
     const elInop = document.getElementById("stats_inactivos");
 
@@ -3453,11 +3463,11 @@ window.updateLocalStats = function (oldStatus, newStatus) {
 
     // Restar del estatus anterior
     if (oldStatus === "OPERATIVO") { adjust(elOper, -1); adjustMirror("mobile_stats_activos", -1); }
-    if (oldStatus === "INOPERATIVO" || oldStatus === "DESINCORPORADO") { adjust(elInop, -1); adjustMirror("mobile_stats_inactivos", -1); }
+    if (oldStatus === "INOPERATIVO") { adjust(elInop, -1); adjustMirror("mobile_stats_inactivos", -1); }
 
     // Sumar al nuevo estatus
     if (newStatus === "OPERATIVO") { adjust(elOper, 1); adjustMirror("mobile_stats_activos", 1); }
-    if (newStatus === "INOPERATIVO" || newStatus === "DESINCORPORADO") { adjust(elInop, 1); adjustMirror("mobile_stats_inactivos", 1); }
+    if (newStatus === "INOPERATIVO") { adjust(elInop, 1); adjustMirror("mobile_stats_inactivos", 1); }
 };
 
 window.exportEquipos = function () {

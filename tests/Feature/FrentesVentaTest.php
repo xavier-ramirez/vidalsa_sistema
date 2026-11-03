@@ -223,20 +223,24 @@ class FrentesVentaTest extends MySqlTestCase
 
     /**
      * Filtrando por TIPO con "todos los frentes" el listado trae también lo de frentes en venta:
-     * el TOTAL cuenta solo lo disponible y "Ubicación por Frente" muestra el frente vendido en
-     * rojo (con su cantidad). Dentro del frente vendido, sus cifras son las suyas.
+     * el TOTAL es el total general (todo lo listado), el desglose lo pone en «No cuentan» y
+     * "Ubicación por Frente" muestra el frente vendido en rojo (con su cantidad). Dentro del
+     * frente vendido, sus cifras son las suyas.
      */
-    public function test_por_tipo_el_total_no_cuenta_lo_vendido_y_el_frente_sale_en_rojo(): void
+    public function test_por_tipo_el_total_suma_lo_vendido_y_el_frente_sale_en_rojo(): void
     {
         [$frente, $equipo] = $this->frenteConEquipo(FrenteTrabajo::TIPO_VENDIDO);
         DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['ESTADO_OPERATIVO' => 'OPERATIVO']);
         $admin = $this->superAdminGlobal();
         $tipo = $equipo->id_tipo_equipo;
 
-        $esperado = $admin->aplicarScopeFrentesEquipos(Equipo::where('id_tipo_equipo', $tipo))
-            ->excludeEnVenta()->count();
+        $esperado = $admin->aplicarScopeFrentesEquipos(Equipo::where('id_tipo_equipo', $tipo))->count();
         $j = $this->consultaLocal($admin, ['id_tipo' => (string) $tipo]);
-        $this->assertSame($esperado, $j['stats']['total'], 'El TOTAL es lo disponible (con lo desincorporado, que la lista muestra), sin el vendido.');
+        $this->assertSame($esperado, $j['stats']['total'], 'El TOTAL es el total general: todo lo que la lista muestra.');
+        $flota = $j['stats']['flota'];
+        $this->assertSame($j['stats']['total'], $flota['cuentan'] + $flota['no_cuentan'], 'Total general = cuentan + no cuentan.');
+        $this->assertGreaterThanOrEqual(1, $flota['motivos']['vendidos'], 'El vendido va en «No cuentan».');
+        $this->assertStringContainsString('Vendidos ' . $flota['motivos']['vendidos'], $j['flotaHtml']);
 
         $html = (string) $j['distribution'];
         $fila = '/<li class="dist-fila"[^>]*>\s*<div class="dist-cab">\s*<span class="dist-nombre">\s*<small class="dist-rotulo">VENDIDO:<\/small> '
@@ -276,6 +280,18 @@ class FrentesVentaTest extends MySqlTestCase
         $j = $this->consultaLocal($admin, ['id_tipo' => (string) $tipo]);
         $this->assertSame(3, $j['stats']['total'], 'El TOTAL cuadra con la suma de la lista.');
         $this->assertSame(2, $j['stats']['activos']);
+        $this->assertSame(1, $j['stats']['flota']['cuentan'], 'Cuenta solo el del frente normal.');
+        $this->assertSame(2, $j['stats']['flota']['no_cuentan']);
+        $this->assertSame(['desincorporados' => 1, 'vendidos' => 0, 'tramite' => 0, 'especiales' => 1], $j['stats']['flota']['motivos']);
+        $this->assertSame(['DESINCORPORADO' => 1], $j['stats']['flota']['otros']);
+        $this->assertMatchesRegularExpression('/Cuentan en la flota<\/span><b>1<\/b>.*No cuentan<small>Desincorporados 1 · Asignaciones especiales 1<\/small><\/span><b>2<\/b>.*Total general<\/span><b>3<\/b>/s', $j['flotaHtml']);
+
+        // Un estado que no es ni operativo ni inoperativo (el «DESCONOCIDO» de la base) se nombra
+        // en el desglose: así se entiende por qué Operativo + Inoperativo no llega al TOTAL.
+        DB::table('equipos')->where('ID_EQUIPO', $otros[1])->update(['ESTADO_OPERATIVO' => 'DESCONOCIDO']);
+        $j = $this->consultaLocal($admin, ['id_tipo' => (string) $tipo]);
+        $this->assertEquals(['DESCONOCIDO' => 1, 'DESINCORPORADO' => 1], $j['stats']['flota']['otros']);
+        $this->assertStringContainsString('Ni operativo ni inoperativo: DESCONOCIDO 1 · DESINCORPORADO 1', $j['flotaHtml']);
         preg_match_all('/<li class="dist-fila".*?<\/li>/s', (string) $j['distribution'], $filas);
         $this->assertCount(3, $filas[0]);
         $this->assertStringContainsString('dist-barra-verde', $filas[0][0], 'El frente normal va primero, en verde.');
@@ -291,7 +307,7 @@ class FrentesVentaTest extends MySqlTestCase
         }
     }
 
-    public function test_auxiliares_por_tipo_el_total_no_cuenta_lo_vendido_pero_la_lista_si(): void
+    public function test_auxiliares_por_tipo_el_total_suma_lo_vendido_y_la_lista_lo_marca(): void
     {
         [$frente] = $this->frenteConEquipo(FrenteTrabajo::TIPO_VENDIDO);
         $otro = FrenteTrabajo::whereNotIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)->value('ID_FRENTE');
@@ -302,9 +318,10 @@ class FrentesVentaTest extends MySqlTestCase
             ]);
         }
         $j = $this->consultaLocal($this->superAdminGlobal(), ['id_tipo' => 'tipo_aux:PRUEBAVENTA2']);
-        $this->assertSame(2, $j['stats']['total'], 'TOTAL: los 2 disponibles, sin el vendido.');
-        $this->assertSame(2, $j['stats']['activos']);
-        $this->assertCount(3, $j['auxData'], 'La lista sí los trae a los 3.');
+        $this->assertSame(3, $j['stats']['total'], 'TOTAL: los 3 que lista, como en equipos.');
+        $this->assertSame(3, $j['stats']['activos']);
+        $this->assertCount(3, $j['auxData']);
+        $this->assertSame('', $j['flotaHtml'], 'Con auxiliares no hay desglose de flota.');
         $this->assertStringContainsString('<small class="dist-rotulo">VENDIDO:</small>', (string) $j['distribution']);
     }
 

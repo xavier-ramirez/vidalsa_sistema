@@ -8,7 +8,8 @@
  *
  *   EquiposLocal.consultar(vista, filtros, offset, puede, cuantos) → el objeto que pinta
  *       loadEquipos (equipos_index.js): html de las filas (y `filas`, el de cada <tr>), equiposData / auxData de los modales,
- *       Consolidado (stats y auxConsolidado), Distribución, Detalles y aviso de venta.
+ *       Consolidado (stats, su desglose flotaHtml y auxConsolidado), Distribución, Detalles y
+ *       aviso de venta.
  *       `filtros` = window.eqFiltrosActivos() (+ ids_in); `puede` = { editar, superAdmin,
  *       subirPdf } de la página; `cuantos` = filas del lote (150 si no se dice).
  *   EquiposLocal.idsExportar(vista, filtros) → { equipos, auxiliares, modoAux }: lo que el
@@ -19,8 +20,9 @@
  * Reglas (las mismas que tenía el servidor):
  *   · Sin ningún filtro la tabla abre VACÍA y las cifras en '--' (pedido del cliente).
  *   · "Todos los frentes" sin búsqueda ni filtro concreto deja fuera los frentes fuera de la
- *     flota (ESPECIAL, VENDIDO, TRÁMITE DE VENTA). Con un filtro concreto entran, pero sus
- *     cifras no suman (los de venta van aparte, en rojo, en la Distribución).
+ *     flota (ESPECIAL, VENDIDO, TRÁMITE DE VENTA). Con un filtro concreto entran y suman en el
+ *     TOTAL; van en rojo en la Distribución y el desglose del Consolidado (flota) los cuenta
+ *     como «No cuentan», junto con los desincorporados.
  *   · Elegir un tipo de auxiliar (tipo_aux:X) o categoría AUXILIARES = la tabla es de
  *     auxiliares. Con un eje compartido (frente, búsqueda, año, título o certificado) y sin
  *     un filtro solo de equipos, los auxiliares que coinciden salen al final de la tabla.
@@ -120,7 +122,7 @@
         && ((lleno(f.id_tipo) && f.id_tipo !== 'all') || lleno(f.modelo));
     // El id del frente elegido, o null con "todos los frentes" / "sin asignar".
     const frenteConcreto = (idFrente) => (/^\d+$/.test(txt(idFrente)) ? Number(txt(idFrente)) : null);
-    // Con "todos los frentes" las cifras van sin lo de frentes en venta; dentro de un frente, enteras.
+    // Con "todos los frentes" la Distribución separa lo de frentes en venta (en rojo); dentro de un frente, no.
     const restaVenta = (idFrente) => frenteConcreto(idFrente) === null;
 
     // ── Filtro de EQUIPOS ─────────────────────────────────────────────────────
@@ -242,21 +244,62 @@
         (x.creado === y.creado ? y.id - x.id : (String(x.creado || '') < String(y.creado || '') ? 1 : -1)));
 
     // ── Cifras ────────────────────────────────────────────────────────────────
+    // Por qué un equipo NO cuenta en la flota (null = sí cuenta): lo que la Distribución pinta en rojo.
+    function motivoFuera(e, ctx) {
+        const venta = ctx.venta(e.frenteId);
+        if (venta) return venta.clase === 'vendido' ? 'vendidos' : 'tramite';
+        if (ctx.fuera(e.frenteId)) return 'especiales';
+        if (e.frenteId === FRENTE_DESINCORPORADOS || igual(e.estado, 'DESINCORPORADO')) return 'desincorporados';
+        return null;
+    }
+
+    // Desglose del TOTAL: cuántos cuentan en la flota, cuántos no y por qué, y los estados que
+    // no son ni operativo ni inoperativo (para que las tres cifras de arriba se entiendan).
+    function flota(filas, ctx) {
+        const motivos = { desincorporados: 0, vendidos: 0, tramite: 0, especiales: 0 };
+        const otros = {};
+        let noCuentan = 0;
+        filas.forEach((e) => {
+            const m = motivoFuera(e, ctx);
+            if (m) { motivos[m]++; noCuentan++; }
+            if (!igual(e.estado, 'OPERATIVO') && !igual(e.estado, 'INOPERATIVO')) {
+                const est = lleno(e.estado) ? txt(e.estado) : 'SIN ESTADO';
+                otros[est] = (otros[est] || 0) + 1;
+            }
+        });
+        return { cuentan: filas.length - noCuentan, no_cuentan: noCuentan, motivos, otros };
+    }
+
+    const MOTIVOS_FUERA = [['desincorporados', 'Desincorporados'], ['vendidos', 'Vendidos'],
+        ['tramite', 'En trámite de venta'], ['especiales', 'Asignaciones especiales']];
+
+    // El desglose bajo las tres cifras del Consolidado: TOTAL = cuentan + no cuentan.
+    function desgloseFlota(s) {
+        const fl = s.flota;
+        const por = MOTIVOS_FUERA.filter(([k]) => fl.motivos[k] > 0).map(([k, t]) => t + ' ' + fl.motivos[k]);
+        const otros = Object.keys(fl.otros).sort().map((k) => h(k) + ' ' + fl.otros[k]);
+        return '<div class="eq-flota-fila eq-flota-si"><span>Cuentan en la flota</span><b>' + fl.cuentan + '</b></div>'
+            + '<div class="eq-flota-fila eq-flota-no"><span>No cuentan'
+            + (por.length ? '<small>' + por.join(' · ') + '</small>' : '') + '</span><b>' + fl.no_cuentan + '</b></div>'
+            + '<div class="eq-flota-fila eq-flota-total"><span>Total general</span><b>' + s.total + '</b></div>'
+            + (otros.length ? '<div class="eq-flota-nota">Ni operativo ni inoperativo: ' + otros.join(' · ') + '</div>' : '');
+    }
+
     function statsEquipos(todos, f, ctx) {
-        const restar = restaVenta(f.id_frente);
-        const disponible = (e) => !restar || !ctx.venta(e.frenteId);
-        const base = todos.filter(filtroEquipos(f, ctx)).filter(disponible);
+        // Todo lo que la tabla y la distribución muestran: desincorporados, vendidos y especiales
+        // incluidos. El desglose (flota) dice cuáles cuentan y cuáles no.
+        const base = todos.filter(filtroEquipos(f, ctx));
         const cuenta = (filas, estado) => filas.filter((e) => igual(e.estado, estado)).length;
         const stats = {
-            // Todo lo que la tabla y la distribución muestran, desincorporados incluidos.
             total: base.length,
             activos: cuenta(base, 'OPERATIVO'),
             inactivos: cuenta(base, 'INOPERATIVO'),
+            flota: flota(base, ctx),
         };
         // Con un documento tildado: cuántos lo tienen y cuántos no, sobre el universo sin ese recorte.
         const docs = docsActivos(f);
         if (docs.length) {
-            const universo = todos.filter(filtroEquipos(f, ctx, Object.keys(DOCS))).filter(disponible);
+            const universo = todos.filter(filtroEquipos(f, ctx, Object.keys(DOCS)));
             stats.doc_mode = true;
             stats.doc_label = docs.length === 1 ? DOCS_ROTULO[docs[0]] : 'Documentos';
             stats.doc_total = universo.length;
@@ -266,19 +309,18 @@
         return stats;
     }
 
-    function statsAux(filas, r, ctx, docs) {
-        const restar = restaVenta(r.id_frente);
-        const disp = filas.filter((a) => !restar || !ctx.venta(a.idFrente));
+    // Como los equipos: el TOTAL es todo lo que se lista, también lo de frentes en venta.
+    function statsAux(filas, docs) {
         const stats = {
-            total: disp.length,
-            activos: disp.filter((a) => igual(a.estado, 'OPERATIVO')).length,
-            inactivos: disp.filter((a) => igual(a.estado, 'INOPERATIVO')).length,
+            total: filas.length,
+            activos: filas.filter((a) => igual(a.estado, 'OPERATIVO')).length,
+            inactivos: filas.filter((a) => igual(a.estado, 'INOPERATIVO')).length,
         };
         if (docs && docs.length) {
             stats.doc_mode = true;
             stats.doc_label = docs.length === 2 ? 'Documentos' : (docs[0] === 'propiedad' ? 'Propiedad' : 'Certificado');
             stats.doc_total = stats.total;
-            stats.doc_con = disp.filter((a) => docs.every((d) => cargado(a[d]))).length;
+            stats.doc_con = filas.filter((a) => docs.every((d) => cargado(a[d]))).length;
             stats.doc_sin = stats.doc_total - stats.doc_con;
         }
         return stats;
@@ -290,12 +332,12 @@
         const docs = [];
         if (r.con_propiedad) docs.push('propiedad');
         if (r.con_certificado) docs.push('certificado');
-        return statsAux(base, r, ctx, docs);
+        return statsAux(base, docs);
     }
 
     // ── Distribución ──────────────────────────────────────────────────────────
-    // Agrupa filas por una clave; con `restar`, las de frentes en venta van aparte (vendidos /
-    // en trámite) y no suman en total.
+    // Agrupa filas por una clave; con `restar`, las de frentes en venta se cuentan aparte
+    // (vendidos / en trámite) para pintarlas en rojo.
     function agrupar(filas, clave, frenteDe, ctx, restar) {
         const grupos = new Map();
         filas.forEach((x) => {
@@ -343,11 +385,12 @@
                     g.total, suma > 0 ? (g.total / suma) * 100 : 0, ctx.rojo(g.clave) ? 'roja' : 'verde', ctx.venta(g.clave), 0, 0, 0);
             }).join('') + '</ul>';
     }
-    // Lista por tipo: la barra se mide sobre todo (disponible + en venta); lo en venta, en rojo.
+    // Lista por tipo: la cifra y la barra van sobre todo (disponible + en venta), como el TOTAL;
+    // lo en venta, en rojo.
     function listaTipos(grupos, icono, color, titulo, barra, camara, alTocar, nombre) {
         const suma = grupos.reduce((n, g) => n + g.total + g.vendidos + g.en_tramite, 0);
         return tituloDistribucion(icono, color, titulo, camara) + '<ul class="dist-lista custom-scrollbar">'
-            + grupos.map((g) => filaDistribucion(alTocar(g), nombre(g), g.total, suma > 0 ? (g.total / suma) * 100 : 0, barra, null,
+            + grupos.map((g) => filaDistribucion(alTocar(g), nombre(g), g.total + g.vendidos + g.en_tramite, suma > 0 ? (g.total / suma) * 100 : 0, barra, null,
                 g.vendidos, g.en_tramite, suma > 0 ? ((g.vendidos + g.en_tramite) / suma) * 100 : 0)).join('') + '</ul>';
     }
 
@@ -576,7 +619,7 @@
         const inicio = offset === 0;
         const r = {
             mode: enAux ? 'aux' : 'equipos', html: '', filas: [], equiposData: {}, auxData: {}, hasMore: false, nextOffset: offset,
-            stats: { total: 0, activos: 0, inactivos: 0, mantenimiento: 0 },
+            stats: { total: 0, activos: 0, inactivos: 0 }, flotaHtml: '',
             distribution: '', auxDistribution: '', ubicaciones: '', showUbicaciones: false, frenteVenta: null,
             auxConsolidado: null, showAuxConsolidado: false,
         };
@@ -595,7 +638,7 @@
             const pagina = lote(lista);
             r.filas = pagina.length ? conAux(pagina) : [filaMensaje('search_off', 'NO SE ENCONTRARON EQUIPOS AUXILIARES CON LOS FILTROS APLICADOS.')];
             if (inicio) {
-                r.stats = statsAux(lista, req, ctx);
+                r.stats = statsAux(lista);
                 r.distribution = distribucionAux(aux, req, ctx);
             }
         } else if (hay) {
@@ -610,6 +653,7 @@
             r.filas = filas.length ? filas : [filaMensaje('search_off', 'NO SE ENCONTRARON EQUIPOS CON LOS FILTROS APLICADOS.')];
             if (inicio) {
                 r.stats = statsEquipos(todos, f, ctx);
+                if (!r.stats.doc_mode) r.flotaHtml = desgloseFlota(r.stats);
                 r.distribution = distribucionEquipos(todos, f, ctx);
                 if (frenteElegido && frenteElegido.fueraDeFlota) {
                     r.showUbicaciones = true;

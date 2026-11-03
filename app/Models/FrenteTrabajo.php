@@ -53,13 +53,6 @@ class FrenteTrabajo extends Model
      */
     public const TIPOS_FUERA_DE_FLOTA = ['ESPECIAL', self::TIPO_VENDIDO, self::TIPO_TRAMITE_VENTA];
 
-    /**
-     * Tipos de frente EN VENTA (vendidos o en trámite): activos con los que la empresa ya no
-     * cuenta. Cuando un listado de Equipos los incluye (búsqueda o filtro concreto con "todos
-     * los frentes"), sus cifras NO entran en el TOTAL y la distribución los marca en rojo.
-     */
-    public const TIPOS_VENTA = [self::TIPO_VENDIDO, self::TIPO_TRAMITE_VENTA];
-
     protected $table = 'frentes_trabajo';
     protected $primaryKey = 'ID_FRENTE';
 
@@ -76,7 +69,6 @@ class FrenteTrabajo extends Model
     {
         $bust = static function () {
             Cache::forget('frentes_fuera_de_flota_ids');
-            Cache::forget('frentes_en_venta');
             Cache::forget('frentes_activos_form');
             // Sube el contador que invalida todas las variantes de plantilla cacheadas.
             // Por CacheVersion (punto único del idiom add-or-increment): la primera vez
@@ -223,37 +215,6 @@ class FrenteTrabajo extends Model
             'frentes_fuera_de_flota_ids', 300,
             fn() => static::whereIn('TIPO_FRENTE', self::TIPOS_FUERA_DE_FLOTA)->pluck('ID_FRENTE')->toArray()
         );
-    }
-
-    /**
-     * Filas de una distribución por frente (con TIPO_FRENTE) con las de frentes EN VENTA al
-     * final, conservando el orden de las demás.
-     */
-    public static function enVentaAlFinal($filas)
-    {
-        [$venta, $resto] = collect($filas)->partition(fn ($f) => in_array($f->TIPO_FRENTE ?? null, self::TIPOS_VENTA, true));
-        return $resto->concat($venta)->values();
-    }
-
-    /**
-     * Frentes EN VENTA (TIPOS_VENTA): ID => tipo. Cache 5 min; invalidado en booted().
-     */
-    public static function frentesEnVenta(): array
-    {
-        return Cache::remember(
-            'frentes_en_venta', 300,
-            fn() => static::whereIn('TIPO_FRENTE', self::TIPOS_VENTA)->pluck('TIPO_FRENTE', 'ID_FRENTE')->all()
-        );
-    }
-
-    /**
-     * Condición SQL "esta columna es un frente en venta" (de un tipo, o de los dos), para los
-     * SUM(CASE…) de las cifras. Los IDs salen de la BD como enteros: van escritos, sin bindings.
-     */
-    public static function sqlEnVenta(string $columna, ?string $tipo = null): string
-    {
-        $ids = array_keys(array_filter(static::frentesEnVenta(), fn ($t) => $tipo === null || $t === $tipo));
-        return $ids ? $columna . ' IN (' . implode(',', array_map('intval', $ids)) . ')' : '1 = 0';
     }
 
     /**
