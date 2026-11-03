@@ -22,7 +22,7 @@
  *   · "Todos los frentes" sin búsqueda ni filtro concreto deja fuera los frentes fuera de la
  *     flota (ESPECIAL, VENDIDO, TRÁMITE DE VENTA). Con un filtro concreto entran y suman en el
  *     TOTAL y van en rojo en la Distribución. Filtrando SOLO por un tipo, el desglose del
- *     Consolidado (flota) los cuenta como «No cuentan», junto con los desincorporados y los
+ *     Consolidado (flota) los pone en «Flota con la que no contamos», junto con los desincorporados y los
  *     del frente POR DEFINIR (que va en rojo, como ellos).
  *   · Elegir un tipo de auxiliar (tipo_aux:X) o categoría AUXILIARES = la tabla es de
  *     auxiliares. Con un eje compartido (frente, búsqueda, año, título o certificado) y sin
@@ -263,8 +263,8 @@
 
     // El desglose bajo las tres cifras del Consolidado: cuentan + no cuentan = el TOTAL de arriba.
     function desgloseFlota(fl) {
-        return '<div class="eq-flota-fila eq-flota-si"><span>Cuentan en la flota</span><b>' + fl.cuentan + '</b></div>'
-            + '<div class="eq-flota-fila eq-flota-no"><span>No cuentan en la flota</span><b>' + fl.no_cuentan + '</b></div>';
+        return '<div class="eq-flota-fila eq-flota-si"><span>Flota con la que contamos</span><b>' + fl.cuentan + '</b></div>'
+            + '<div class="eq-flota-fila eq-flota-no"><span>Flota con la que no contamos</span><b>' + fl.no_cuentan + '</b></div>';
     }
 
     function statsEquipos(todos, f, ctx) {

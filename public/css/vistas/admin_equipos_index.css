@@ -338,7 +338,7 @@
     }
 
 /* Desglose del TOTAL en el Consolidado (#eqFlota / #eqFlotaMobile, flotaHtml de
-   equipos_local.js): cuentan en la flota (verde) + no cuentan (rojo) = el TOTAL de arriba. */
+   equipos_local.js): flota con la que contamos (verde) + con la que no contamos (rojo) = el TOTAL. */
 .eq-flota {
     display: flex;
     flex-direction: column;

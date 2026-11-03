@@ -223,7 +223,7 @@ class FrentesVentaTest extends MySqlTestCase
 
     /**
      * Filtrando por TIPO con "todos los frentes" el listado trae también lo de frentes en venta:
-     * el TOTAL es el total general (todo lo listado), el desglose lo pone en «No cuentan» y
+     * el TOTAL es el total general (todo lo listado), el desglose lo pone en «Flota con la que no contamos» y
      * "Ubicación por Frente" muestra el frente vendido en rojo (con su cantidad). Dentro del
      * frente vendido, sus cifras son las suyas.
      */
@@ -239,7 +239,7 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame($esperado, $j['stats']['total'], 'El TOTAL es el total general: todo lo que la lista muestra.');
         $flota = $j['stats']['flota'];
         $this->assertSame($j['stats']['total'], $flota['cuentan'] + $flota['no_cuentan'], 'Cuentan + no cuentan = el TOTAL.');
-        $this->assertGreaterThanOrEqual(1, $flota['no_cuentan'], 'El vendido va en «No cuentan».');
+        $this->assertGreaterThanOrEqual(1, $flota['no_cuentan'], 'El vendido va en la flota con la que no contamos.');
 
         $html = (string) $j['distribution'];
         $fila = '/<li class="dist-fila"[^>]*>\s*<div class="dist-cab">\s*<span class="dist-nombre">\s*<small class="dist-rotulo">VENDIDO:<\/small> '
@@ -256,7 +256,7 @@ class FrentesVentaTest extends MySqlTestCase
     }
 
     /**
-     * El frente POR DEFINIR va como los vendidos: en «No cuentan» (solo la cifra, sin el porqué)
+     * El frente POR DEFINIR va como los vendidos: en «Flota con la que no contamos» (solo la cifra, sin el porqué)
      * y en rojo al final de "Ubicación por Frente".
      */
     public function test_por_definir_no_cuenta_en_la_flota_y_va_en_rojo(): void
@@ -268,9 +268,9 @@ class FrentesVentaTest extends MySqlTestCase
 
         $j = $this->consultaLocal($admin, ['id_tipo' => (string) $equipo->id_tipo_equipo]);
         $flota = $j['stats']['flota'];
-        $this->assertGreaterThanOrEqual(1, $flota['no_cuentan'], 'POR DEFINIR va en «No cuentan».');
+        $this->assertGreaterThanOrEqual(1, $flota['no_cuentan'], 'POR DEFINIR va en la flota con la que no contamos.');
         $this->assertSame($j['stats']['total'], $flota['cuentan'] + $flota['no_cuentan'], 'Cuentan + no cuentan = el TOTAL.');
-        $this->assertStringContainsString('No cuentan en la flota</span><b>' . $flota['no_cuentan'] . '</b>', $j['flotaHtml'], 'Solo la cifra, sin el porqué.');
+        $this->assertStringContainsString('Flota con la que no contamos</span><b>' . $flota['no_cuentan'] . '</b>', $j['flotaHtml'], 'Solo la cifra, sin el porqué.');
 
         preg_match_all('/<li class="dist-fila".*?<\/li>/s', (string) $j['distribution'], $filas);
         $porDefinir = array_values(array_filter($filas[0], fn ($f) => str_contains($f, 'POR DEFINIR')));
@@ -308,7 +308,7 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame(2, $j['stats']['activos']);
         $this->assertSame(1, $j['stats']['flota']['cuentan'], 'Cuenta solo el del frente normal.');
         $this->assertSame(2, $j['stats']['flota']['no_cuentan']);
-        $this->assertMatchesRegularExpression('/Cuentan en la flota<\/span><b>1<\/b>.*No cuentan en la flota<\/span><b>2<\/b>/s', $j['flotaHtml']);
+        $this->assertMatchesRegularExpression('/Flota con la que contamos<\/span><b>1<\/b>.*Flota con la que no contamos<\/span><b>2<\/b>/s', $j['flotaHtml']);
         $this->assertStringNotContainsString('Total general', $j['flotaHtml'], 'El total ya está arriba: no se repite.');
 
         $this->assertStringNotContainsString('Ni operativo', $j['flotaHtml'], 'Sin la nota de estados aparte.');
