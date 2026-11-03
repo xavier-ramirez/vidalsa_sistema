@@ -308,16 +308,10 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame(2, $j['stats']['activos']);
         $this->assertSame(1, $j['stats']['flota']['cuentan'], 'Cuenta solo el del frente normal.');
         $this->assertSame(2, $j['stats']['flota']['no_cuentan']);
-        $this->assertSame(['DESINCORPORADO' => 1], $j['stats']['flota']['otros']);
         $this->assertMatchesRegularExpression('/Cuentan en la flota<\/span><b>1<\/b>.*No cuentan en la flota<\/span><b>2<\/b>/s', $j['flotaHtml']);
         $this->assertStringNotContainsString('Total general', $j['flotaHtml'], 'El total ya está arriba: no se repite.');
 
-        // Un estado que no es ni operativo ni inoperativo (el «DESCONOCIDO» de la base) se nombra
-        // en el desglose: así se entiende por qué Operativo + Inoperativo no llega al TOTAL.
-        DB::table('equipos')->where('ID_EQUIPO', $otros[1])->update(['ESTADO_OPERATIVO' => 'DESCONOCIDO']);
-        $j = $this->consultaLocal($admin, ['id_tipo' => (string) $tipo]);
-        $this->assertEquals(['DESCONOCIDO' => 1, 'DESINCORPORADO' => 1], $j['stats']['flota']['otros']);
-        $this->assertStringContainsString('Ni operativo ni inoperativo: DESCONOCIDO 1 · DESINCORPORADO 1', $j['flotaHtml']);
+        $this->assertStringNotContainsString('Ni operativo', $j['flotaHtml'], 'Sin la nota de estados aparte.');
         preg_match_all('/<li class="dist-fila".*?<\/li>/s', (string) $j['distribution'], $filas);
         $this->assertCount(3, $filas[0]);
         $this->assertStringContainsString('dist-barra-verde', $filas[0][0], 'El frente normal va primero, en verde.');

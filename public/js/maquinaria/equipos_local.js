@@ -254,28 +254,17 @@
     // DESINCORPORADO, esté donde esté.
     const noCuenta = (e, ctx) => ctx.rojo(e.frenteId) || igual(e.estado, 'DESINCORPORADO');
 
-    // Desglose del TOTAL: cuántos cuentan en la flota y cuántos no (solo la cifra, sin el porqué:
-    // pedido del usuario, 03-11-2026), y los estados que no son ni operativo ni inoperativo (para
-    // que las tres cifras de arriba se entiendan).
+    // Desglose del TOTAL: cuántos cuentan en la flota y cuántos no. Solo las dos cifras, sin el
+    // porqué ni los estados aparte (pedido del usuario, 03-11-2026).
     function flota(filas, ctx) {
-        const otros = {};
-        let noCuentan = 0;
-        filas.forEach((e) => {
-            if (noCuenta(e, ctx)) noCuentan++;
-            if (!igual(e.estado, 'OPERATIVO') && !igual(e.estado, 'INOPERATIVO')) {
-                const est = lleno(e.estado) ? txt(e.estado) : 'SIN ESTADO';
-                otros[est] = (otros[est] || 0) + 1;
-            }
-        });
-        return { cuentan: filas.length - noCuentan, no_cuentan: noCuentan, otros };
+        const noCuentan = filas.filter((e) => noCuenta(e, ctx)).length;
+        return { cuentan: filas.length - noCuentan, no_cuentan: noCuentan };
     }
 
     // El desglose bajo las tres cifras del Consolidado: cuentan + no cuentan = el TOTAL de arriba.
     function desgloseFlota(fl) {
-        const otros = Object.keys(fl.otros).sort().map((k) => h(k) + ' ' + fl.otros[k]);
         return '<div class="eq-flota-fila eq-flota-si"><span>Cuentan en la flota</span><b>' + fl.cuentan + '</b></div>'
-            + '<div class="eq-flota-fila eq-flota-no"><span>No cuentan en la flota</span><b>' + fl.no_cuentan + '</b></div>'
-            + (otros.length ? '<div class="eq-flota-nota">Ni operativo ni inoperativo: ' + otros.join(' · ') + '</div>' : '');
+            + '<div class="eq-flota-fila eq-flota-no"><span>No cuentan en la flota</span><b>' + fl.no_cuentan + '</b></div>';
     }
 
     function statsEquipos(todos, f, ctx) {
