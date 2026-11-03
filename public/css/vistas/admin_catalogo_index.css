@@ -310,6 +310,13 @@
         align-items: center;
         margin-top: 4px;
     }
+    /* En PC todo va en UN renglón: con wrap, a 1366 px los tres filtros (mínimo 180 c/u
+       más el de Tipo a 260) no dejaban sitio y «Nuevo» bajaba solo a una segunda fila.
+       Los filtros se encogen; el botón de filtros avanzados y «Nuevo» no. */
+    @media (min-width: 769px) {
+        #catalogoFilters { flex-wrap: nowrap; }
+        #catalogoFilters .cat-filter { min-width: 0; }
+    }
     .cat-filter {
         flex: 1 1 220px;
         min-width: 180px;
