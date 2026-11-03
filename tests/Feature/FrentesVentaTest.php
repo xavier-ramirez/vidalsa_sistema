@@ -260,13 +260,27 @@ class FrentesVentaTest extends MySqlTestCase
      * Los frentes ESPECIAL y EQUIPOS DESINCORPORADOS también van en rojo y al final de la lista; el
      * TOTAL por tipo suma todo lo que la lista muestra y el desglose separa cuentan / no cuentan.
      */
+    public function test_por_definir_no_cuenta_en_la_flota(): void
+    {
+        $admin = $this->superAdminGlobal();
+        $equipo = DB::table('equipos')->whereNull('deleted_at')->whereNotNull('id_tipo_equipo')
+            ->whereNotIn('ID_FRENTE_ACTUAL', [2, 78])->first();
+        DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['ID_FRENTE_ACTUAL' => 2, 'ESTADO_OPERATIVO' => 'OPERATIVO']);
+
+        $j = $this->consultaLocal($admin, ['id_tipo' => (string) $equipo->id_tipo_equipo]);
+        $flota = $j['stats']['flota'];
+        $this->assertSame(1, $flota['motivos']['porDefinir'], 'POR DEFINIR va en «No cuentan».');
+        $this->assertSame($j['stats']['total'], $flota['cuentan'] + $flota['no_cuentan'], 'Cuentan + no cuentan = el TOTAL.');
+        $this->assertStringContainsString('Por definir 1', $j['flotaHtml']);
+    }
+
     public function test_especial_y_desincorporados_van_en_rojo_y_el_total_cuadra_con_la_lista(): void
     {
         [$especial, $equipo] = $this->frenteConEquipo('ESPECIAL');
         $tipo = $equipo->id_tipo_equipo;
         $admin = $this->superAdminGlobal();
         $normal = FrenteTrabajo::whereNotIn('TIPO_FRENTE', FrenteTrabajo::TIPOS_FUERA_DE_FLOTA)
-            ->where('ID_FRENTE', '!=', 78)->value('ID_FRENTE');
+            ->whereNotIn('ID_FRENTE', [2, 78])->value('ID_FRENTE');
 
         // Se reparten los equipos del tipo: el de la prueba en ESPECIAL, otro normal y otro de baja.
         DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['ESTADO_OPERATIVO' => 'OPERATIVO']);
@@ -282,7 +296,7 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame(2, $j['stats']['activos']);
         $this->assertSame(1, $j['stats']['flota']['cuentan'], 'Cuenta solo el del frente normal.');
         $this->assertSame(2, $j['stats']['flota']['no_cuentan']);
-        $this->assertSame(['desincorporados' => 1, 'vendidos' => 0, 'tramite' => 0, 'especiales' => 1], $j['stats']['flota']['motivos']);
+        $this->assertSame(['desincorporados' => 1, 'vendidos' => 0, 'tramite' => 0, 'especiales' => 1, 'porDefinir' => 0], $j['stats']['flota']['motivos']);
         $this->assertSame(['DESINCORPORADO' => 1], $j['stats']['flota']['otros']);
         $this->assertMatchesRegularExpression('/Cuentan en la flota<\/span><b>1<\/b>.*No cuentan<small>Desincorporados 1 · Asignaciones especiales 1<\/small><\/span><b>2<\/b>/s', $j['flotaHtml']);
         $this->assertStringNotContainsString('Total general', $j['flotaHtml'], 'El total ya está arriba: no se repite.');

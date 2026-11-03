@@ -22,7 +22,8 @@
  *   · "Todos los frentes" sin búsqueda ni filtro concreto deja fuera los frentes fuera de la
  *     flota (ESPECIAL, VENDIDO, TRÁMITE DE VENTA). Con un filtro concreto entran y suman en el
  *     TOTAL y van en rojo en la Distribución. Filtrando SOLO por un tipo, el desglose del
- *     Consolidado (flota) los cuenta como «No cuentan», junto con los desincorporados.
+ *     Consolidado (flota) los cuenta como «No cuentan», junto con los desincorporados y los
+ *     del frente POR DEFINIR.
  *   · Elegir un tipo de auxiliar (tipo_aux:X) o categoría AUXILIARES = la tabla es de
  *     auxiliares. Con un eje compartido (frente, búsqueda, año, título o certificado) y sin
  *     un filtro solo de equipos, los auxiliares que coinciden salen al final de la tabla.
@@ -67,6 +68,8 @@
     // Frente EQUIPOS DESINCORPORADOS: en la base es de OPERACION, pero sus equipos están de baja
     // (el mismo id está en DashboardController::FRENTES_FUERA_DE_ALERTAS).
     const FRENTE_DESINCORPORADOS = 78;
+    // Frente POR DEFINIR: equipos sin destino; no cuentan en la flota (pedido del usuario, 03-11-2026).
+    const FRENTE_POR_DEFINIR = 2;
 
     // ── Contexto: catálogos de la copia ───────────────────────────────────────
     function contexto(vista) {
@@ -247,20 +250,21 @@
 
     // ── Cifras ────────────────────────────────────────────────────────────────
     // Por qué un equipo NO cuenta en la flota (null = sí cuenta): estar en un frente en rojo
-    // (ctx.rojo) o tener estado DESINCORPORADO, esté donde esté.
+    // (ctx.rojo), en POR DEFINIR o tener estado DESINCORPORADO, esté donde esté.
     function motivoFuera(e, ctx) {
         const venta = ctx.venta(e.frenteId);
         if (venta) return venta.clase === 'vendido' ? 'vendidos' : 'tramite';
         if (ctx.fuera(e.frenteId)) return 'especiales';
         // Lo que queda en rojo, tras venta y especiales, es el frente EQUIPOS DESINCORPORADOS.
         if (ctx.rojo(e.frenteId) || igual(e.estado, 'DESINCORPORADO')) return 'desincorporados';
+        if (e.frenteId === FRENTE_POR_DEFINIR) return 'porDefinir';
         return null;
     }
 
     // Desglose del TOTAL: cuántos cuentan en la flota, cuántos no y por qué, y los estados que
     // no son ni operativo ni inoperativo (para que las tres cifras de arriba se entiendan).
     function flota(filas, ctx) {
-        const motivos = { desincorporados: 0, vendidos: 0, tramite: 0, especiales: 0 };
+        const motivos = { desincorporados: 0, vendidos: 0, tramite: 0, especiales: 0, porDefinir: 0 };
         const otros = {};
         let noCuentan = 0;
         filas.forEach((e) => {
@@ -275,7 +279,7 @@
     }
 
     const MOTIVOS_FUERA = [['desincorporados', 'Desincorporados'], ['vendidos', 'Vendidos'],
-        ['tramite', 'En trámite de venta'], ['especiales', 'Asignaciones especiales']];
+        ['tramite', 'En trámite de venta'], ['especiales', 'Asignaciones especiales'], ['porDefinir', 'Por definir']];
 
     // El desglose bajo las tres cifras del Consolidado: cuentan + no cuentan = el TOTAL de arriba.
     function desgloseFlota(fl) {
