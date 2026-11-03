@@ -1688,9 +1688,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
                 setEl('mobile_stats_activos',   displayStat(operVal));
                 setEl('mobile_stats_inactivos', displayStat(inopVal));
 
-                // Desglose del TOTAL (cuentan / no cuentan en la flota): solo con filtro, en
-                // equipos y fuera del modo documento (equipos_local.js deja flotaHtml vacío).
-                const flotaHtml = hasActiveFilters ? (data.flotaHtml || '') : '';
+                // Desglose del TOTAL (cuentan / no cuentan en la flota): solo filtrando por un
+                // tipo de equipo y nada más; si no, equipos_local.js deja flotaHtml vacío.
+                const flotaHtml = data.flotaHtml || '';
                 ['eqFlota', 'eqFlotaMobile'].forEach(function (id) {
                     const el = document.getElementById(id);
                     if (!el) return;

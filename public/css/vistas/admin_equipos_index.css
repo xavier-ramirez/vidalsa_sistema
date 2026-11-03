@@ -338,7 +338,7 @@
     }
 
 /* Desglose del TOTAL en el Consolidado (#eqFlota / #eqFlotaMobile, flotaHtml de
-   equipos_local.js): cuentan en la flota (verde) + no cuentan (rojo) = total general. */
+   equipos_local.js): cuentan en la flota (verde) + no cuentan (rojo) = el TOTAL de arriba. */
 .eq-flota {
     display: flex;
     flex-direction: column;
@@ -362,5 +362,4 @@
 .eq-flota-fila small { display: block; margin-top: 1px; font-size: 10px; font-weight: 600; opacity: 0.85; }
 .eq-flota-si { background: rgba(34, 197, 94, 0.22); }
 .eq-flota-no { background: rgba(239, 68, 68, 0.32); }
-.eq-flota-total { background: rgba(255, 255, 255, 0.15); font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
 .eq-flota-nota { padding: 0 2px; font-size: 10px; opacity: 0.85; }

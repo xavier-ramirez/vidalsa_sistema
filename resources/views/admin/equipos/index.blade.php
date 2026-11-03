@@ -931,7 +931,7 @@
                 </div>
             </div>
             {{-- Desglose del TOTAL: cuántos cuentan en la flota y cuántos no (flotaHtml de
-                 equipos_local.js). Lo pinta loadEquipos(); oculto sin filtro y en modo documento. --}}
+                 equipos_local.js). Lo pinta loadEquipos(); solo se ve filtrando únicamente por tipo. --}}
             <div id="eqFlota" class="eq-flota" hidden></div>
         </div>
     </div>

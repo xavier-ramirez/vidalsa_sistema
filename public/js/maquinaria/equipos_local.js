@@ -21,8 +21,8 @@
  *   · Sin ningún filtro la tabla abre VACÍA y las cifras en '--' (pedido del cliente).
  *   · "Todos los frentes" sin búsqueda ni filtro concreto deja fuera los frentes fuera de la
  *     flota (ESPECIAL, VENDIDO, TRÁMITE DE VENTA). Con un filtro concreto entran y suman en el
- *     TOTAL; van en rojo en la Distribución y el desglose del Consolidado (flota) los cuenta
- *     como «No cuentan», junto con los desincorporados.
+ *     TOTAL y van en rojo en la Distribución. Filtrando SOLO por un tipo, el desglose del
+ *     Consolidado (flota) los cuenta como «No cuentan», junto con los desincorporados.
  *   · Elegir un tipo de auxiliar (tipo_aux:X) o categoría AUXILIARES = la tabla es de
  *     auxiliares. Con un eje compartido (frente, búsqueda, año, título o certificado) y sin
  *     un filtro solo de equipos, los auxiliares que coinciden salen al final de la tabla.
@@ -106,6 +106,8 @@
         return siNo(f.gps) || siNo(f.confirmado) || docsActivos(f).length > 0;
     }
     const hayFiltro = (f) => lleno(f.id_frente) || lleno(f.id_tipo) || lleno(f.confirmado) || lleno(f.gps) || filtroConcreto(f);
+    // Un tipo de equipo y ningún otro filtro: solo así sale el desglose de la flota.
+    const soloTipo = (f) => !!tipoPedido(f) && !(f.ids_in && f.ids_in.length) && !hayFiltro(Object.assign({}, f, { id_tipo: '' }));
     const modoAux = (f) => txt(f.id_tipo).indexOf('tipo_aux:') === 0 || norm(txt(f.categoria)) === 'AUXILIARES';
 
     // Un atributo de vehículo o un documento que solo tienen los equipos: sin auxiliares.
@@ -275,29 +277,27 @@
     const MOTIVOS_FUERA = [['desincorporados', 'Desincorporados'], ['vendidos', 'Vendidos'],
         ['tramite', 'En trámite de venta'], ['especiales', 'Asignaciones especiales']];
 
-    // El desglose bajo las tres cifras del Consolidado: TOTAL = cuentan + no cuentan.
-    function desgloseFlota(s) {
-        const fl = s.flota;
+    // El desglose bajo las tres cifras del Consolidado: cuentan + no cuentan = el TOTAL de arriba.
+    function desgloseFlota(fl) {
         const por = MOTIVOS_FUERA.filter(([k]) => fl.motivos[k] > 0).map(([k, t]) => t + ' ' + fl.motivos[k]);
         const otros = Object.keys(fl.otros).sort().map((k) => h(k) + ' ' + fl.otros[k]);
         return '<div class="eq-flota-fila eq-flota-si"><span>Cuentan en la flota</span><b>' + fl.cuentan + '</b></div>'
             + '<div class="eq-flota-fila eq-flota-no"><span>No cuentan'
             + (por.length ? '<small>' + por.join(' · ') + '</small>' : '') + '</span><b>' + fl.no_cuentan + '</b></div>'
-            + '<div class="eq-flota-fila eq-flota-total"><span>Total general</span><b>' + s.total + '</b></div>'
             + (otros.length ? '<div class="eq-flota-nota">Ni operativo ni inoperativo: ' + otros.join(' · ') + '</div>' : '');
     }
 
     function statsEquipos(todos, f, ctx) {
         // Todo lo que la tabla y la distribución muestran: desincorporados, vendidos y especiales
-        // incluidos. El desglose (flota) dice cuáles cuentan y cuáles no.
+        // incluidos. Filtrando solo por tipo, el desglose (flota) dice cuáles cuentan y cuáles no.
         const base = todos.filter(filtroEquipos(f, ctx));
         const cuenta = (filas, estado) => filas.filter((e) => igual(e.estado, estado)).length;
         const stats = {
             total: base.length,
             activos: cuenta(base, 'OPERATIVO'),
             inactivos: cuenta(base, 'INOPERATIVO'),
-            flota: flota(base, ctx),
         };
+        if (soloTipo(f)) stats.flota = flota(base, ctx);
         // Con un documento tildado: cuántos lo tienen y cuántos no, sobre el universo sin ese recorte.
         const docs = docsActivos(f);
         if (docs.length) {
@@ -655,7 +655,7 @@
             r.filas = filas.length ? filas : [filaMensaje('search_off', 'NO SE ENCONTRARON EQUIPOS CON LOS FILTROS APLICADOS.')];
             if (inicio) {
                 r.stats = statsEquipos(todos, f, ctx);
-                if (!r.stats.doc_mode) r.flotaHtml = desgloseFlota(r.stats);
+                if (r.stats.flota) r.flotaHtml = desgloseFlota(r.stats.flota);
                 r.distribution = distribucionEquipos(todos, f, ctx);
                 if (frenteElegido && frenteElegido.fueraDeFlota) {
                     r.showUbicaciones = true;

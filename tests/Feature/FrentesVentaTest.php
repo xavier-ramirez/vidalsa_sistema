@@ -238,7 +238,7 @@ class FrentesVentaTest extends MySqlTestCase
         $j = $this->consultaLocal($admin, ['id_tipo' => (string) $tipo]);
         $this->assertSame($esperado, $j['stats']['total'], 'El TOTAL es el total general: todo lo que la lista muestra.');
         $flota = $j['stats']['flota'];
-        $this->assertSame($j['stats']['total'], $flota['cuentan'] + $flota['no_cuentan'], 'Total general = cuentan + no cuentan.');
+        $this->assertSame($j['stats']['total'], $flota['cuentan'] + $flota['no_cuentan'], 'Cuentan + no cuentan = el TOTAL.');
         $this->assertGreaterThanOrEqual(1, $flota['motivos']['vendidos'], 'El vendido va en «No cuentan».');
         $this->assertStringContainsString('Vendidos ' . $flota['motivos']['vendidos'], $j['flotaHtml']);
 
@@ -284,7 +284,8 @@ class FrentesVentaTest extends MySqlTestCase
         $this->assertSame(2, $j['stats']['flota']['no_cuentan']);
         $this->assertSame(['desincorporados' => 1, 'vendidos' => 0, 'tramite' => 0, 'especiales' => 1], $j['stats']['flota']['motivos']);
         $this->assertSame(['DESINCORPORADO' => 1], $j['stats']['flota']['otros']);
-        $this->assertMatchesRegularExpression('/Cuentan en la flota<\/span><b>1<\/b>.*No cuentan<small>Desincorporados 1 · Asignaciones especiales 1<\/small><\/span><b>2<\/b>.*Total general<\/span><b>3<\/b>/s', $j['flotaHtml']);
+        $this->assertMatchesRegularExpression('/Cuentan en la flota<\/span><b>1<\/b>.*No cuentan<small>Desincorporados 1 · Asignaciones especiales 1<\/small><\/span><b>2<\/b>/s', $j['flotaHtml']);
+        $this->assertStringNotContainsString('Total general', $j['flotaHtml'], 'El total ya está arriba: no se repite.');
 
         // Un estado que no es ni operativo ni inoperativo (el «DESCONOCIDO» de la base) se nombra
         // en el desglose: así se entiende por qué Operativo + Inoperativo no llega al TOTAL.
@@ -304,6 +305,14 @@ class FrentesVentaTest extends MySqlTestCase
             $this->assertStringContainsString('dist-barra-roja', $dentro['distribution']);
             // Dentro del frente, el TOTAL también cuenta lo desincorporado que la lista muestra.
             $this->assertSame(DB::table('equipos')->where('ID_FRENTE_ACTUAL', $id)->whereNull('deleted_at')->count(), $dentro['stats']['total']);
+            $this->assertSame('', $dentro['flotaHtml'], 'Dentro de un frente no hay desglose.');
+        }
+
+        // El desglose sale SOLO filtrando por tipo: combinado con otro filtro, no.
+        foreach ([['id_frente' => (string) $normal], ['search_query' => 'A'], ['estado' => 'OPERATIVO']] as $otro) {
+            $combinado = $this->consultaLocal($admin, ['id_tipo' => (string) $tipo] + $otro);
+            $this->assertSame('', $combinado['flotaHtml'], 'Tipo + ' . key($otro) . ': sin desglose.');
+            $this->assertArrayNotHasKey('flota', $combinado['stats']);
         }
     }
 
