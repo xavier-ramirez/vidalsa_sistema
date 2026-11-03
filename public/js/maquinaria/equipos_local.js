@@ -62,23 +62,25 @@
     // Los que los auxiliares también tienen (título de propiedad y certificado).
     const DOCS_COMPARTIDOS = ['filter_propiedad', 'filter_adicional'];
 
-    // Frente EQUIPOS DESINCORPORADOS: en la base es de OPERACION, pero sus equipos están de baja.
+    // Frente EQUIPOS DESINCORPORADOS: en la base es de OPERACION, pero sus equipos están de baja
+    // (el mismo id está en DashboardController::FRENTES_FUERA_DE_ALERTAS).
     const FRENTE_DESINCORPORADOS = 78;
 
     // ── Contexto: catálogos de la copia ───────────────────────────────────────
     function contexto(vista) {
         const frentes = new Map(vista.catalogo('frentes').map((f) => [f.id, f]));
         const alcance = vista.catalogo('alcance')[0] || { local: false, frentes: [] };
+        const fuera = (id) => id != null && !!(frentes.get(id) || {}).fueraDeFlota;
         return {
             frentes,
             tipos: new Map(vista.catalogo('tipos').map((t) => [t.id, t])),
             tiposAux: new Map(vista.catalogo('tiposAux').map((t) => [t.id, t.nombre])),
             local: !!alcance.local,
             permitidos: (alcance.frentes || []).map(Number),
-            fuera: (id) => id != null && !!(frentes.get(id) || {}).fueraDeFlota,
+            fuera,
             venta: (id) => (id != null && (frentes.get(id) || {}).venta) || null,
             // Van en rojo: vendidos, en trámite de venta, especiales y desincorporados.
-            rojo: (id) => id === FRENTE_DESINCORPORADOS || (id != null && !!(frentes.get(id) || {}).fueraDeFlota),
+            rojo: (id) => id === FRENTE_DESINCORPORADOS || fuera(id),
         };
     }
     const etiquetaAux = (ctx, tipo) => ctx.tiposAux.get(tipo) || norm(String(tipo || '').replace(/_/g, ' '));
@@ -116,8 +118,10 @@
         || DOCS_COMPARTIDOS.some((p) => f[p] === 'true');
     const porFrente = (f) => !(lleno(f.id_frente) && f.id_frente !== 'all')
         && ((lleno(f.id_tipo) && f.id_tipo !== 'all') || lleno(f.modelo));
+    // El id del frente elegido, o null con "todos los frentes" / "sin asignar".
+    const frenteConcreto = (idFrente) => (/^\d+$/.test(txt(idFrente)) ? Number(txt(idFrente)) : null);
     // Con "todos los frentes" las cifras van sin lo de frentes en venta; dentro de un frente, enteras.
-    const restaVenta = (idFrente) => !/^\d+$/.test(txt(idFrente));
+    const restaVenta = (idFrente) => frenteConcreto(idFrente) === null;
 
     // ── Filtro de EQUIPOS ─────────────────────────────────────────────────────
     function coincideBusqueda(e, texto) {
@@ -248,8 +252,6 @@
             total: base.length,
             activos: cuenta(base, 'OPERATIVO'),
             inactivos: cuenta(base, 'INOPERATIVO'),
-            mantenimiento: cuenta(base, 'EN MANTENIMIENTO'),
-            desincorporados: cuenta(base, 'DESINCORPORADO'),
         };
         // Con un documento tildado: cuántos lo tienen y cuántos no, sobre el universo sin ese recorte.
         const docs = docsActivos(f);
@@ -309,7 +311,7 @@
     }
     const rojosAlFinal = (grupos, ctx) => grupos.filter((g) => !ctx.rojo(g.clave)).concat(grupos.filter((g) => ctx.rojo(g.clave)));
     // Dentro de un frente en rojo, sus filas por tipo también van en rojo.
-    const barraDe = (idFrente, ctx, color) => (/^\d+$/.test(txt(idFrente)) && ctx.rojo(Number(txt(idFrente))) ? 'roja' : color);
+    const barraDe = (idFrente, ctx, color) => (ctx.rojo(frenteConcreto(idFrente)) ? 'roja' : color);
 
     function filaDistribucion(alTocar, nombre, total, pct, barra, ventaFila, vendidos, enTramite, pctVenta) {
         const nota = [];
@@ -585,7 +587,7 @@
             return pagina;
         };
         const conAux = (lista) => lista.map((a) => { r.auxData[a.id] = detalleAux(a, puede); return filaAux(a, ctx, puede); });
-        const frenteElegido = /^\d+$/.test(txt(f.id_frente)) ? ctx.frentes.get(Number(txt(f.id_frente))) : null;
+        const frenteElegido = ctx.frentes.get(frenteConcreto(f.id_frente)) || null;
 
         if (enAux) {
             const req = auxModo(f);
