@@ -265,7 +265,6 @@
         }
         #catalogoFilters .cat-filter {
             max-width: none !important;
-            min-width: 0 !important;
             width: 100% !important;
             flex: 1 1 100% !important;
             box-sizing: border-box !important;
@@ -302,24 +301,20 @@
     }
 
     /* Filtros: replica del estilo /admin/equipos-auxiliares/catalogo
-       (autocomplete con dropdown, sin boton "Aplicar") */
+       (autocomplete con dropdown, sin boton "Aplicar").
+       Un solo renglón: con wrap y min-width 180, a 1366 px «Nuevo» bajaba solo a otra
+       fila. Los filtros se encogen; el botón de filtros avanzados y «Nuevo» no. En el
+       teléfono la barra pasa a columna (@media 768 de arriba). */
     #catalogoFilters {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 10px;
         align-items: center;
         margin-top: 4px;
     }
-    /* En PC todo va en UN renglón: con wrap, a 1366 px los tres filtros (mínimo 180 c/u
-       más el de Tipo a 260) no dejaban sitio y «Nuevo» bajaba solo a una segunda fila.
-       Los filtros se encogen; el botón de filtros avanzados y «Nuevo» no. */
-    @media (min-width: 769px) {
-        #catalogoFilters { flex-wrap: nowrap; }
-        #catalogoFilters .cat-filter { min-width: 0; }
-    }
     .cat-filter {
         flex: 1 1 220px;
-        min-width: 180px;
+        min-width: 0;
         max-width: 280px;
         position: relative;
     }
@@ -395,7 +390,7 @@
        (display:contents); en el teléfono van juntos en un renglón (ver @media arriba). */
     .cat-fila-marca { display: contents; }
     .cat-adv { position: relative; flex: 0 0 auto; }
-    .cat-adv .panel-filtro-avanzado .cat-filter { max-width: none; min-width: 0; }
+    .cat-adv .panel-filtro-avanzado .cat-filter { max-width: none; }
     /* Panel de Filtros Avanzados con las MISMAS medidas que el de /admin/equipos
        (#advancedFilterPanel .adv-trigger): caja de 32px y esquinas de 6px, lupa de 16px con
        6px a cada lado, texto y opciones de 12px. Antes la caja medía 47px. */
