@@ -500,6 +500,17 @@ input:-webkit-autofill:active {
     }
 }
 
+/* Escritorio con poca altura util (1366x768 o 1280x720 con las barras del navegador quedan
+   en ~620-700px): la tarjeta de datos ocupaba casi todo el alto y cortaba sus figuras de abajo. */
+@media (min-width: 769px) and (max-height: 700px) {
+    .login-container-float-center { zoom: 0.85; }
+}
+
+/* Telefono acostado (~850-930 x 390-430): ni a 0.85 cabe la tarjeta. */
+@media (min-width: 769px) and (max-height: 500px) {
+    .login-container-float-center { zoom: 0.72; }
+}
+
 /* Pantallas grandes: la tarjeta de datos y el titulo miden en px y se quedaban diminutos
    junto a la foto y a las figuras (que si crecen). Escalan con la pantalla, contando ancho Y
    alto para no desbordar en las ultrawide (3440x1440 escala como 2560x1440). */
@@ -511,6 +522,11 @@ input:-webkit-autofill:active {
 @media (min-width: 2500px) and (min-height: 1400px) {
     .login-container-float-center,
     .page-title-container { zoom: 1.33; }
+}
+
+@media (min-width: 2800px) and (min-height: 1650px) {
+    .login-container-float-center,
+    .page-title-container { zoom: 1.5; }
 }
 
 @media (min-width: 3000px) and (min-height: 1700px) {
