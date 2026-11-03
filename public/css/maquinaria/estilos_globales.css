@@ -2584,6 +2584,9 @@ body:has(.mobile-menu.active) .selection-floating-bar {
     border-bottom: 1px solid #f1f5f9;
     gap: 15px;
 }
+/* Fila escondida (la del BL cuando el equipo no tiene): gana al display:flex !important
+   de abajo en el teléfono, que si no la dejaba a la vista con el botón como si hubiera PDF. */
+.detail-row-doc[hidden] { display: none !important; }
 
 @media (max-width: 768px) {
 

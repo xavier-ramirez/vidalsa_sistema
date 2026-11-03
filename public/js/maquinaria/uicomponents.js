@@ -776,7 +776,9 @@ window.showDetailsImproved = function (target, event) {
     // el reset viviera dentro del if, un equipo sin id dejaria en pantalla la fila del anterior
     // —visible y con su boton armado— y abriria el BL de otro.
     if (rowEmbarque) {
-        rowEmbarque.style.display = 'none';
+        // hidden y no style.display: en el teléfono .detail-row-doc lleva display:flex !important
+        // y le ganaba al display:none (la fila salía con el botón aunque no hubiera BL).
+        rowEmbarque.hidden = true;
         const btnEmbarque = document.getElementById('d_btn_embarque');
         if (btnEmbarque) btnEmbarque.onclick = null;
     }
@@ -818,7 +820,7 @@ window.showDetailsImproved = function (target, event) {
                 };
 
                 // Siempre debajo del titulo de propiedad (su sitio en la vista).
-                rowEmbarque.style.display = 'flex';
+                rowEmbarque.hidden = false;
             })
             .catch(() => {});   // sin embarque la ficha se ve como siempre
     }

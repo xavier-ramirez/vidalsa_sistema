@@ -104,8 +104,8 @@ Estructura: overlay > modal-content > header + sub-header + body
                             {{-- Documento de embarque (BL), justo debajo del título de propiedad (pedido del
                                  cliente, 22-10-2026). Solo se ve si el equipo tiene uno: lo pide
                                  uicomponents.js al abrir el detalle y lo pone la carga masiva. --}}
-                            <div id="d_row_embarque" class="detail-row-doc"
-                                style="display:none;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px dashed #f1f5f9;">
+                            <div id="d_row_embarque" class="detail-row-doc" hidden
+                                style="display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0;border-bottom:1px dashed #f1f5f9;">
                                 {{-- El nombre del documento, junto ("Embarque BL": antes el rótulo decía
                                      "Embarque" y el valor empezaba por "BL", pedido del cliente 30-09-2026).
                                      uicomponents.js lo cambia a "Certificado de origen" si es uno
