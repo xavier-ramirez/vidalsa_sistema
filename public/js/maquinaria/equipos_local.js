@@ -23,7 +23,7 @@
  *     flota (ESPECIAL, VENDIDO, TRÁMITE DE VENTA). Con un filtro concreto entran y suman en el
  *     TOTAL y van en rojo en la Distribución. Filtrando SOLO por un tipo, el desglose del
  *     Consolidado (flota) los pone en «Flota con la que no contamos», junto con los desincorporados y los
- *     de los frentes POR DEFINIR y PATIO EL LECHON (que van en rojo, como ellos).
+ *     de los frentes de FRENTES_EN_ROJO (que van en rojo, como ellos).
  *   · Elegir un tipo de auxiliar (tipo_aux:X) o categoría AUXILIARES = la tabla es de
  *     auxiliares. Con un eje compartido (frente, búsqueda, año, título o certificado) y sin
  *     un filtro solo de equipos, los auxiliares que coinciden salen al final de la tabla.
@@ -68,8 +68,9 @@
     // Frentes de OPERACION en la base que van en rojo y fuera de la flota, como los vendidos
     // (los ids también están en DashboardController::FRENTES_FUERA_DE_ALERTAS):
     //   78 EQUIPOS DESINCORPORADOS (equipos de baja) · 2 POR DEFINIR (sin destino) ·
-    //   25 PATIO EL LECHON. Los dos últimos, pedido del usuario del 03-11-2026.
-    const FRENTES_EN_ROJO = [78, 2, 25];
+    //   25 PATIO EL LECHON · 45 MINISTERIO DE OBRAS PÚBLICAS. Los tres últimos, pedido del
+    //   usuario del 03-11-2026.
+    const FRENTES_EN_ROJO = [78, 2, 25, 45];
 
     // ── Contexto: catálogos de la copia ───────────────────────────────────────
     function contexto(vista) {
