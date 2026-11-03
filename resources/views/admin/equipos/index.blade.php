@@ -1660,9 +1660,13 @@
             if (window.handleFallaCreatedAux)    window.handleFallaCreatedAux();
             if (window.handleFallaCreatedEquipo) window.handleFallaCreatedEquipo(falla);
         },
-        // Repinta las filas cargadas (como tras movilizar) y devuelve la promesa: el modal de
-        // cierre mantiene el spinner hasta que la fila sale con su estado nuevo.
-        onClosed:  function () { return window.eqRepintarDesdeCopia ? window.eqRepintarDesdeCopia() : null; }
+        // Como tras movilizar: se espera a que la copia traiga el cierre (alDia) y se repintan las
+        // filas cargadas. El repintado va DESPUÉS de alDia porque el evento 'copia-local' también
+        // repinta y dejaría obsoleta una consulta anterior (se resolvería sin pintar). Devuelve la
+        // promesa: el modal de cierre mantiene el spinner hasta que la fila sale con su estado nuevo.
+        onClosed:  function () {
+            return window.CopiaLocal.alDia('equipos').then(function () { return window.eqRepintarDesdeCopia(); });
+        }
     };
 </script>
 {{-- falla_create_modal.js se carga GLOBAL en el layout (SPA-safe). --}}

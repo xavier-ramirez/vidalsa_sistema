@@ -228,7 +228,7 @@ window.maquinariaArrancar = function () {
 
     // El cierre de reporte desde la tabla usa el modal COMPARTIDO
     // (falla_create_modal.js → flAbrirCierre / flConfirmarCierre), igual que equipos.
-    // FALLA_MODAL_CFG.onClosed (en equipos/index.blade.php) recarga la lista.
+    // FALLA_MODAL_CFG.onClosed (en equipos/index.blade.php) repinta la lista.
 
 
     // ═══════════════════════════════════════════════════════════

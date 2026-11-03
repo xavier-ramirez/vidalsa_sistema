@@ -7,7 +7,8 @@
  *     urlStore:  ruta POST de creación de reporte,
  *     urlBase:   base de /admin/fallas (preview del acta: urlBase + '/preview'),
  *     onCreated: function(falla) — callback tras crear (recargar lista / marcar fila),
- *     onClosed:  function() — callback tras cerrar un reporte desde la tabla (recargar),
+ *     onClosed:  function() — callback tras cerrar un reporte desde la tabla (repintar); si
+ *                devuelve una promesa, el spinner sigue hasta que se cumple,
  *   }
  *
  * Crear: el reporte EXTENSO pasa por una VISTA PREVIA del acta (Editar/Confirmar)
