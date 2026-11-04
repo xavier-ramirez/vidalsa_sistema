@@ -47,6 +47,7 @@
         height: 38px; width: 100%; border: none; border-radius: 8px; cursor: pointer;
         display: inline-flex; align-items: center; justify-content: center; gap: 6px;
         background: #0067b1; color: white; font-size: 13.5px; font-weight: 700;
+        font-family: inherit;   /* un <button> no hereda la letra de la página: salía con otra */
     }
     .fl-submit-btn .material-icons { font-size: 17px; }
     .fl-submit-btn:hover { background: #0a5599; }
@@ -55,7 +56,7 @@
     .fl-acciones-par > button { flex: 1; height: 36px; border-radius: 10px; font-size: 13.5px; font-weight: 700; letter-spacing: normal; }
     .fl-btn-cancelar {
         display: inline-flex; align-items: center; justify-content: center;
-        border: 1px solid #e2e8f0; background: white; color: #475569; cursor: pointer;
+        border: 1px solid #e2e8f0; background: white; color: #475569; cursor: pointer; font-family: inherit;
     }
     /* Datos del equipo bajo el título de los modales de cierre (flEncabezadoCierre en
        falla_create_modal.js). Deja sitio a la X, que va en absoluto a la derecha. */
