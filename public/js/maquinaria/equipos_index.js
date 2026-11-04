@@ -833,11 +833,11 @@ window.unanchorEquipos = async function (e) {
             // podía ejecutarse.
 
             if (resp.ok && data.success) {
-                // Refrescar tabla; reApplySelections() (dentro de loadEquipos) mantiene
-                // la selección activa y actualiza anchorId desde el DOM fresco.
-                if (typeof window.loadEquipos === 'function') {
-                    await window.loadEquipos(null, true);
-                }
+                // Igual que Movilización: se espera a que la copia traiga el cambio y solo se
+                // repintan las filas distintas (no se recarga la tabla entera ni sus fotos).
+                // reApplySelections() (dentro de loadEquipos) mantiene la selección activa.
+                await window.CopiaLocal.alDia('equipos');
+                await window.eqRepintarDesdeCopia().catch((err) => console.error('[Desanclaje] repintado', err));
 
                 window.toast('Desanclaje completado con éxito', 'success');
             } else {
@@ -2152,12 +2152,12 @@ window.openUbicacionBulkModal = function (event) {
 
             if (typeof window.clearSelection === 'function') window.clearSelection();
             closeModal();
-            // Esperar a que la tabla termine el primer render antes de apagar el preloader.
-            // Evita el parpadeo donde el spinner se quita mientras la tabla aun se esta
-            // redibujando con los datos nuevos.
-            if (typeof window.loadEquipos === 'function') {
-                await window.loadEquipos(null, true);
-            }
+            // Igual que Movilización: se espera a que la copia traiga el detalle y solo se
+            // repintan las filas distintas, antes de apagar el preloader. Recargar la tabla
+            // entera (loadEquipos sin `cuantos`) la devolvía a las primeras filas y volvía a
+            // pedir todas las fotos.
+            await window.CopiaLocal.alDia('equipos');
+            await window.eqRepintarDesdeCopia().catch((err) => console.error('[Ubicacion bulk] repintado', err));
             const toastMsg = valorFinal
                 ? 'Detalle actualizado en ' + total + (total === 1 ? ' registro.' : ' registros.')
                 : 'Detalle borrado en ' + total + (total === 1 ? ' registro.' : ' registros.');
@@ -2565,15 +2565,8 @@ window.openBulkModal = function (event) {
                 window.eqRegisterNuevoFrente(data.frente);
             }
 
-            // La tabla se repinta ANTES de quitar el spinner y avisar: con la copia local ya
-            // abierta loadEquipos no muestra spinner propio, y si no se espera aquí el aviso
-            // sale y la fila cambia un segundo después. El repintado va tras alDia porque el
-            // evento 'copia-local' también repinta y dejaría obsoleta una consulta anterior.
-            // Lo guardado ya está en el servidor: un fallo aquí no es error de la movilización.
-            await window.CopiaLocal.alDia('equipos');
-            await window.eqRepintarDesdeCopia().catch((err) => console.error('[Movilización] repintado', err));
-
-            // Descarga del acta si aplica.
+            // Descarga del acta si aplica. Se pide YA, en paralelo con la puesta al día de
+            // la tabla (abajo): el spinner espera solo a la que tarde más, no a las dos seguidas.
             // Antes usabamos un <a href> + click(): el navegador inicia la
             // descarga en background y nuestro preloader se apagaba ANTES de
             // que el PDF estuviera listo. Ahora hacemos fetch->blob: el
@@ -2643,6 +2636,14 @@ window.openBulkModal = function (event) {
                         });
                 }
             }
+
+            // La tabla se repinta ANTES de quitar el spinner y avisar: con la copia local ya
+            // abierta loadEquipos no muestra spinner propio, y si no se espera aquí el aviso
+            // sale y la fila cambia un segundo después. El repintado va tras alDia porque el
+            // evento 'copia-local' también repinta y dejaría obsoleta una consulta anterior.
+            // Lo guardado ya está en el servidor: un fallo aquí no es error de la movilización.
+            await window.CopiaLocal.alDia('equipos');
+            await window.eqRepintarDesdeCopia().catch((err) => console.error('[Movilización] repintado', err));
 
             // Balance del showPreloader() del inicio de ejecutarCommit. Va tras abrir el del
             // acta, que mantiene el spinner hasta que llega el PDF.
