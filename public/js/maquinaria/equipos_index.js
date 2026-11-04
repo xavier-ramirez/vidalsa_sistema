@@ -2281,7 +2281,7 @@ window.openBulkModal = function (event) {
 
     // 6. Create Content Box
     const content = document.createElement("div");
-    content.style.cssText = "background:white;border-radius:16px;width:90%;max-width:480px;max-height:92vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.30);animation:slideDown 0.2s ease-out;display:flex;flex-direction:column;";
+    content.style.cssText = "background:white;border-radius:16px;width:90%;max-width:440px;max-height:92vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.30);animation:slideDown 0.2s ease-out;display:flex;flex-direction:column;";
 
     // 7. Header — mismo patron que Anclaje/Ubicacion: fondo #1e293b solido,
     // titulo centrado con icono de acento, close button absoluto arriba-derecha.
@@ -2340,7 +2340,7 @@ window.openBulkModal = function (event) {
                     <input type="text" id="bm-frente-search"
                         placeholder="Buscar frente de destino..."
                         autocomplete="off"
-                        style="flex:1;border:none;outline:none;padding:11px 6px;font-size:14px;background:transparent;">
+                        style="flex:1;border:none;outline:none;padding:11px 6px;font-size:14px;font-family:inherit;background:transparent;">
                     <i class="material-icons" id="bm-frente-clear" style="padding:0 10px;color:#94a3b8;font-size:18px;cursor:pointer;display:none;">close</i>
                 </div>
                 <input type="hidden" id="bm-frente-value">
@@ -2352,8 +2352,8 @@ window.openBulkModal = function (event) {
                 </label>
             </div>
         </div>
-        <button type="button" id="bm-submit-btn" style="width:100%;height:48px;border-radius:10px;font-weight:700;font-size:15px;background:#1e293b;color:white;border:none;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:background 0.2s;">
-            <i class="material-icons" style="font-size:18px;">send</i> Confirmar Movilización
+        <button type="button" id="bm-submit-btn" style="width:100%;height:38px;border-radius:8px;font-weight:700;font-size:13.5px;font-family:inherit;background:#1e293b;color:white;border:none;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:background 0.2s;">
+            <i class="material-icons" style="font-size:17px;">send</i> Confirmar Movilización
         </button>
     `;
 
@@ -2491,7 +2491,7 @@ window.openBulkModal = function (event) {
         // tabla, descargar acta final). Se llama directo si NO se genera acta, o
         // desde el botón "Confirmar" de la VISTA PREVIA cuando sí se genera.
         const ejecutarCommit = async function () {
-        btn.innerHTML = '<i class="material-icons" style="font-size:18px;animation:spin 1s linear infinite;">sync</i> Procesando...';
+        btn.innerHTML = '<i class="material-icons" style="font-size:17px;animation:spin 1s linear infinite;">sync</i> Procesando...';
         btn.disabled = true;
         btn.style.opacity = "0.7";
         if (window.showPreloader) window.showPreloader();
@@ -2673,7 +2673,7 @@ window.openBulkModal = function (event) {
 
             // Restaurar el botón solo si el overlay aún existe
             if (document.body.contains(overlay)) {
-                btn.innerHTML = '<i class="material-icons" style="font-size:18px;">send</i> Confirmar Movilización';
+                btn.innerHTML = '<i class="material-icons" style="font-size:17px;">send</i> Confirmar Movilización';
                 btn.disabled = false;
                 btn.style.opacity = "1";
                 btn.style.cursor = "pointer";

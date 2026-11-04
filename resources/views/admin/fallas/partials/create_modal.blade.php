@@ -21,11 +21,11 @@
     .fl-field-label { display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 5px; }
     .fl-input, .fl-textarea {
         width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px;
-        font-size: 13.5px; box-sizing: border-box; background: white; color: #1e293b;
+        font-size: 13.5px; box-sizing: border-box; background: white; color: #1e293b; font-family: inherit;
         outline: none; transition: all 0.2s;
     }
     .fl-input:focus, .fl-textarea:focus { border-color: #0067b1; box-shadow: 0 0 0 3px rgba(0, 103, 177, 0.1); }
-    .fl-textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+    .fl-textarea { resize: vertical; min-height: 80px; }
     .fl-toggle-row { display: flex; gap: 8px; }
     .fl-toggle-btn {
         flex: 1; padding: 8px 10px; border: 1.5px solid #cbd5e1; border-radius: 8px;
