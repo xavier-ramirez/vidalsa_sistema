@@ -10,7 +10,7 @@
     }
     .fl-modal-overlay.active { display: flex; }
     .fl-modal {
-        background: white; width: 100%; max-width: 520px; max-height: 92vh;
+        background: white; width: 100%; max-width: 460px; max-height: 92vh;
         overflow-y: auto; border-radius: 14px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     }
     .fl-modal-header {
@@ -44,13 +44,13 @@
     .fl-search-result img { width: 88px; height: 72px; border-radius: 8px; object-fit: contain; background: #f8fafc; flex-shrink: 0; }
     /* Botón de crear (autocontenido: no depende de .falla-btn de la página de fallas). */
     .fl-submit-btn {
-        height: 44px; width: 100%; border: none; border-radius: 8px; cursor: pointer;
+        height: 38px; width: 100%; border: none; border-radius: 8px; cursor: pointer;
         display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-        background: #0067b1; color: white; font-size: 14.5px; font-weight: 800; letter-spacing: 0.3px;
+        background: #0067b1; color: white; font-size: 13.5px; font-weight: 700;
     }
+    .fl-submit-btn .material-icons { font-size: 17px; }
     .fl-submit-btn:hover { background: #0a5599; }
-    /* Cancelar / Confirmar del modal de cierre: la MISMA letra en los dos. .fl-submit-btn
-       trae 14.5px/800 para el botón ancho de crear; al lado de Cancelar se veía más grande. */
+    /* Cancelar / Confirmar del modal de cierre: la MISMA letra y alto en los dos. */
     .fl-acciones-par { display: flex; gap: 10px; }
     .fl-acciones-par > button { flex: 1; height: 36px; border-radius: 10px; font-size: 13.5px; font-weight: 700; letter-spacing: normal; }
     .fl-btn-cancelar {
