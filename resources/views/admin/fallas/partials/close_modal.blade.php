@@ -17,9 +17,8 @@
                 style="position:absolute; right:14px; background:transparent; border:none; color:white; cursor:pointer; opacity:0.7;"><i class="material-icons">close</i></button>
         </div>
         <div class="fl-modal-body">
-            <div style="font-size:12.5px; color:#64748b; text-align:center; line-height:1.5;">
-                Al cerrar, el equipo vuelve a <strong>OPERATIVO</strong><br>
-                (si no le quedan otros reportes abiertos).
+            <div style="font-size:11px; color:#64748b; text-align:center; line-height:1.5; white-space:nowrap; margin:0 -8px;">
+                Al cerrar, el equipo vuelve a <strong>OPERATIVO</strong> (si no le quedan otros reportes abiertos).
             </div>
             <div>
                 <label class="fl-field-label" for="flCierreObs">Observaciones de cierre (opcional)</label>
