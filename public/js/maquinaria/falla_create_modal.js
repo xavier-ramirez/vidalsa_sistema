@@ -37,6 +37,11 @@
     // (window.Bandeja, mismo endpoint) y suben al volver internet. El acta PDF del
     // reporte extenso se genera en el servidor: sin red no hay vista previa.
     const sinRed = () => !!(window.Bandeja && window.Bandeja.sinConexion());
+    // Guardar sin red con el spinner de siempre: hasta que queda en la bandeja y la fila se
+    // repinta (Equipos; en otra pantalla no hay fila que repintar).
+    const guardarSinRed = (url, opciones, meta) => window.preloaderMientras(window.Bandeja.enviar(url, opciones, meta)
+        .then(() => (window.eqRepintarDesdeCopia ? window.eqRepintarDesdeCopia(true) : null))
+        .catch((err) => console.error('[Falla sin red]', err)));
 
     // ─── Abrir / cerrar ───
     window.openNuevoReporteModal = function () {
@@ -243,7 +248,7 @@
         // Sin red se guarda si el modal vino de la fila de un equipo (changeStatusLite manda activo).
         if (sinRed() && _cierreActivo) {
             const act = _cierreActivo;
-            window.Bandeja.enviar(CFG().urlBase + '/' + _cierreId + '/close', { method: 'POST', body: fd }, {
+            guardarSinRed(CFG().urlBase + '/' + _cierreId + '/close', { method: 'POST', body: fd }, {
                 titulo: 'Cerrar reporte · ' + act.label + ' → OPERATIVO',
                 tipo: 'estado', datos: { id_equipo: act.id, status: 'OPERATIVO', falla: 'cerrada' },
             });
@@ -293,7 +298,7 @@
                 return;
             }
             const destino = fd.get('estado_destino') || 'INOPERATIVO';
-            window.Bandeja.enviar(CFG().urlStore, { method: 'POST', body: fd }, {
+            guardarSinRed(CFG().urlStore, { method: 'POST', body: fd }, {
                 titulo: 'Reporte de falla · ' + (_activoNombre || ('#' + fd.get('activo_id'))) + ' → ' + destino,
                 tipo: 'estado', datos: { id_equipo: Number(fd.get('activo_id')), status: destino,
                     falla: { desc: fd.get('descripcion') || '', resumen: 'Sin subir todavía' } },

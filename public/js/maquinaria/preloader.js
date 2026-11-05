@@ -88,6 +88,20 @@ window.hidePreloader = function (force) {
     _preloaderQuitar();
 };
 
+// Spinner mientras dura `promesa`; se va tras el paint (doble rAF). Lo usan los modales que
+// guardan SIN red (bandeja + repintado de la fila): el usuario ve lo mismo que con red, solo
+// que dura lo que tarda el equipo y no el servidor. Si entretanto un hidePreloader(true)
+// reinició el contador, esta referencia ya no existe y no se devuelve.
+window.preloaderMientras = function (promesa) {
+    window.showPreloader();
+    const gen = _preloaderGen;
+    return Promise.resolve(promesa).finally(function () {
+        requestAnimationFrame(function () { requestAnimationFrame(function () {
+            if (gen === _preloaderGen) window.hidePreloader();
+        }); });
+    });
+};
+
 // Ocultar el preloader INICIAL cuando todo (imágenes/iconos) haya cargado,
 // PERO solo si ninguna operación lo está usando (refs===0). Si el script de
 // init de un módulo ya pidió el spinner para su primer window.apiFetch(refs>0), NO lo

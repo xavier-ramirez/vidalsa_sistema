@@ -2502,12 +2502,13 @@ window.openBulkModal = function (event) {
                 window.toast('Lo seleccionado ya está en ' + matchedFrente.nombre + '.', 'error');
                 return;
             }
-            window.Bandeja.enviar('/admin/equipos/bulk-mobilize', {
+            // Con el spinner de siempre: hasta que queda en la bandeja y las filas se repintan.
+            window.preloaderMientras(window.Bandeja.enviar('/admin/equipos/bulk-mobilize', {
                 method: 'POST', body: { ids: idsOff, destination: matchedFrente.nombre, generar_pdf: false },
             }, {
                 titulo: 'Movilizar ' + idsOff.length + ' equipo(s) → ' + matchedFrente.nombre,
                 tipo: 'movilizar', datos: { ids: idsOff, id_frente_destino: Number(matchedFrente.id) },
-            });
+            }).then(() => window.eqRepintarDesdeCopia(true)).catch((err) => console.error('[Movilización sin red]', err)));
             _closeModal();
             window.clearSelection();
             window.toast('Movilización guardada. Se registra al volver internet.', 'success');
