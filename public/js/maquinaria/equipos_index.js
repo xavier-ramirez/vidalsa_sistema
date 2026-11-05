@@ -1611,9 +1611,11 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     }
     if (!repintado) tableBody.style.opacity = "0.5";
 
-    // El preloader solo se ve mientras la copia local no está lista (la primera descarga):
-    // con copia, la consulta es inmediata. La llamada que lo abre es la que lo cierra.
-    const _didShowPreloader = !silent && !!window.showPreloader && !window._eqVista;
+    // Al abrir y en CADA filtro (pedido del usuario 04-11): el spinner tapa mientras se arma la
+    // tabla y se va tras el paint de la primera tanda (más abajo). Con la copia es local, así que
+    // sale y se va enseguida. No en los silenciosos (repintados, scroll). La llamada que lo abre
+    // es la que lo cierra.
+    const _didShowPreloader = !silent && !append && !!window.showPreloader;
     if (_didShowPreloader) window.showPreloader();
 
     // Permisos de quien mira (los pone el Blade en el <tbody>): botones de las filas.
