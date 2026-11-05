@@ -4,6 +4,15 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
+// Apache de XAMPP en Windows (el servidor local) atiende cada petición en un HILO del mismo
+// proceso, y putenv/getenv son del proceso entero: con varias peticiones a la vez un hilo veía
+// el .env vacío → cookie «laravel-session» en vez de la de la app → 401 suelto → el sistema
+// sacaba al usuario sin el aviso de tiempo. Sin putenv, el .env se lee de $_SERVER/$_ENV, que
+// son de cada petición. Solo ahí: producción (Linux) y la consola siguen igual.
+if (PHP_OS_FAMILY === 'Windows' && PHP_SAPI === 'apache2handler') {
+    Illuminate\Support\Env::disablePutenv();
+}
+
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
