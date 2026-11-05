@@ -21,6 +21,7 @@ use Tests\MySqlTestCase;
  *  - una salida hecha sin internet sale con el número de Nota apartado para el dispositivo, y
  *    ese número no se puede usar dos veces ni por otro usuario;
  *  - una salida sin stock se rechaza igual que con internet (422): queda en rojo en la bandeja;
+ *  - una movilización que al subir encuentra todo ya en el destino se da por hecha (200);
  *  - mientras espera, la pantalla ya cuenta con ella: el stock de la copia la descuenta.
  * Todo corre en la transacción de la prueba.
  */
@@ -177,6 +178,27 @@ class BandejaServidorTest extends MySqlTestCase
 
         // Con OTRA clave ya no es una repetición: es un serial ocupado, y se rechaza (422).
         $alta($equipo, (string) Str::uuid())->assertStatus(422)->assertJsonValidationErrors('SERIAL_CHASIS');
+    }
+
+    public function test_movilizar_desde_la_bandeja_a_donde_ya_esta_cuenta_como_hecho(): void
+    {
+        // Sin frentes bloqueados: así cualquier equipo con frente sirve para la prueba.
+        $u = Usuario::all()->first(fn ($u) => $u->can('equipos.assign') && $u->veTodosLosFrentesEquipos() && ! $u->getFrentesBloqueadosIds());
+        $this->assertNotNull($u, 'Hace falta un usuario con equipos.assign, que vea todos los frentes y sin frentes bloqueados.');
+        $equipo = DB::table('equipos')
+            ->join('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'equipos.ID_FRENTE_ACTUAL')
+            ->whereNull('equipos.deleted_at')->whereNull('frentes_trabajo.deleted_at')
+            ->first(['equipos.ID_EQUIPO', 'frentes_trabajo.NOMBRE_FRENTE']);
+        $this->assertNotNull($equipo, 'Hace falta un equipo ubicado en un frente.');
+        $cuerpo = ['ids' => [$equipo->ID_EQUIPO], 'destination' => $equipo->NOMBRE_FRENTE, 'generar_pdf' => false];
+        $antes = DB::table('movilizacion_historial')->count();
+
+        // Desde la bandeja (con clave): ya está hecho, se da por subido y no queda en rojo.
+        $this->actingAs($u)->postJson(route('equipos.bulkMobilize'), $cuerpo, [OperacionUnica::CABECERA => (string) Str::uuid()])
+            ->assertOk()->assertJson(['success' => true]);
+        // Con internet (sin clave) sigue avisando que no hay nada que movilizar.
+        $this->actingAs($u)->postJson(route('equipos.bulkMobilize'), $cuerpo)->assertStatus(422);
+        $this->assertSame($antes, DB::table('movilizacion_historial')->count());
     }
 
     public function test_lo_que_espera_en_la_bandeja_ya_se_descuenta_en_pantalla(): void

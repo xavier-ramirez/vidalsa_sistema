@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\OperacionUnica;
 use App\Models\Movilizacion;
 use App\Models\FrenteTrabajo;
 use App\Support\IdsEnviados;
@@ -350,6 +351,15 @@ class MovilizacionController extends Controller
 
             if ($aMovilizar->isEmpty() && $auxAMovilizar->isEmpty()) {
                 DB::rollBack();
+                // Lo guardado sin internet (bandeja, con su clave de operación) que al subir
+                // encuentra todo ya en el destino quedó hecho: se da por subido. Antes salía en
+                // rojo con «Reintentar», y reintentar no podía servir de nada.
+                if ($request->hasHeader(OperacionUnica::CABECERA)) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Ya estaba en el frente «' . $destNombre . '».',
+                    ]);
+                }
                 return response()->json([
                     'success' => false,
                     'message' => 'Todo lo seleccionado ya está en el frente «' . $destNombre . '». No hay nada que movilizar.',
