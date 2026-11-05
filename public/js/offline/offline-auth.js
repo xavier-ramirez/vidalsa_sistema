@@ -136,9 +136,12 @@
             for (let i = 0; i < h.length; i++) dif |= h.charCodeAt(i) ^ v.hash.charCodeAt(i);
             return dif === 0;
         },
+        // También la huella sin servidor: el candado se tira cuando la clave cambió, y cambiar
+        // la clave borra las huellas en el servidor (Usuario::establecerClave).
         olvidar: function () {
             _preparado = null;
             try { localStorage.removeItem(KEY); } catch (e) {}
+            if (window.LlaveLocal) window.LlaveLocal.olvidarHuellas();
         }
     };
 
@@ -166,9 +169,9 @@
     const pwEl   = document.getElementById('password');
 
     // La huella la HABILITA el blade (cuando el dispositivo la soporta y hay credencial
-    // registrada), pero quien la PINTA es refrescarAccesos(): firmar el challenge necesita
-    // servidor, así que sin conexión el ícono no debe ni aparecer — antes salía y al
-    // tocarlo solo podía dar "sin conexión".
+    // registrada), pero quien la PINTA es refrescarAccesos(): sin servidor solo sale si su
+    // llave ya quedó guardada en este equipo (webauthn.js · puedeSinServidor); si no, al
+    // tocarla solo podría dar "sin conexión".
     let huellaHabilitada = false;
 
     // ── ¿Hay SERVIDOR de verdad? ────────────────────────────────────────────────
@@ -186,7 +189,7 @@
     let sondeoLanzado = false;
     // ¿El sondeo cambia algo de lo que se ve? Solo si hay acceso local (la nota «sin
     // internet: entrarás con los datos guardados») o huella habilitada (que se oculta
-    // cuando el servidor no responde). En la mayoría de las sesiones —equipo nuevo, o
+    // cuando el servidor no responde, salvo que abra lo guardado sin él). En la mayoría de las sesiones —equipo nuevo, o
     // quien nunca entró aquí— no hay nada que decidir, y sondear sería una petición de
     // más y un arranque de Laravel de más en CADA carga del login.
     function hayAlgoQueDecidir() {
@@ -220,8 +223,7 @@
     function refrescarAccesos() {
         // Sin servidor y con acceso local: se avisa ANTES de pulsar con qué se va a entrar.
         if (nota) nota.style.display = (sinServidor && window.OfflineAuth.tieneOffline()) ? 'block' : 'none';
-        // La huella SIEMPRE necesita servidor.
-        if (btnBio) btnBio.style.display = (huellaHabilitada && !sinServidor) ? 'flex' : 'none';
+        if (btnBio) btnBio.style.display = (huellaHabilitada && (!sinServidor || huellaSinServidor())) ? 'flex' : 'none';
         // Mientras no haya servidor hay que seguir preguntando: puede volver con el usuario
         // mirando esta pantalla. Va aquí porque este es el punto que YA conoce el estado.
         ajustarResondeo();
@@ -255,6 +257,12 @@
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden && sinServidor) sondearServidor();
     });
+
+    function huellaSinServidor() {
+        return typeof VidalsaWebAuthn !== 'undefined' && VidalsaWebAuthn.puedeSinServidor();
+    }
+    // El blade decide con esto si la huella va al servidor o se comprueba en el equipo.
+    window.OfflineAuth.estaSinServidor = function () { return sinServidor; };
 
     // La llama el blade cuando ya sabe que el dispositivo tiene lector y credencial.
     window.OfflineAuth.habilitarHuella = function () {
@@ -296,7 +304,7 @@
     };
 
     // Un intento no llegó al servidor (el inicio de sesión o la huella): desde aquí cuenta
-    // como sin servidor —sale la nota, se esconde la huella y se vuelve a sondear—.
+    // como sin servidor —sale la nota, la huella queda solo si abre sin servidor y se vuelve a sondear—.
     window.OfflineAuth.noContesto = function () {
         sinServidor = true;
         refrescarAccesos();
@@ -332,10 +340,15 @@
             window.mostrarMsgLogin('Sin conexión, y este equipo todavía no tiene tus datos guardados.\nEntra una vez con internet.', true);
             return;
         }
+        window.OfflineAuth.adentroSinServidor();
+    }
+
+    // Lo guardado ya quedó abierto sin servidor (con la clave o con la huella): adentro.
+    window.OfflineAuth.adentroSinServidor = function () {
         // El menú omite el spinner general en esta primera carga tras login.
         if (window.marcarLoginReciente) window.marcarLoginReciente();
         window.location.href = tomarVolverA() || '/menu';
-    }
+    };
 
     // 'online' vuelve a SONDEAR (que haya red no significa que el servidor conteste);
     // 'offline' es concluyente, así que ahí basta con repintar.

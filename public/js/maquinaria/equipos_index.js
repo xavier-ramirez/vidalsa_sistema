@@ -323,6 +323,20 @@ function _applyStatusVisual(triggerEl, status) {
     triggerEl.dataset.status = status;
 }
 
+// El reporte ABIERTO que trae la fila (data-falla-*, mismos datos que el 409:
+// Falla::datosActivo), listo para flAbrirCierre. Con y sin conexión; `activo` es la fila
+// que pinta el cierre si se guarda en la bandeja (la red puede caerse con el modal abierto).
+function _fallaDeFila(triggerEl, id) {
+    return {
+        activo:  { id: Number(id), label: triggerEl.dataset.label || ('Equipo #' + id) },
+        id:      triggerEl.dataset.fallaId,
+        codigo:  triggerEl.dataset.fallaCodigo || '',
+        tipo:    triggerEl.dataset.fallaTipo || '',
+        equipo:  triggerEl.dataset.fallaEquipo || '',
+        detalle: triggerEl.dataset.fallaDetalle || '',
+    };
+}
+
 // Manejador de cambio de estatus para el menú compartido
 window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     // Usa STATUS_CONFIG del ámbito de módulo (definido al inicio del archivo)
@@ -340,14 +354,7 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
                 window.toast('El reporte de falla de este equipo todavía no subió: ciérralo al volver internet.', 'error');
                 return;
             }
-            window.flAbrirCierre({
-                id:      triggerEl.dataset.fallaId,
-                codigo:  triggerEl.dataset.fallaCodigo || '',
-                tipo:    triggerEl.dataset.fallaTipo || '',
-                equipo:  triggerEl.dataset.fallaEquipo || '',
-                detalle: triggerEl.dataset.fallaDetalle || '',
-                activo:  { tipo: 'equipo', id: Number(id), label: label },
-            });
+            window.flAbrirCierre(_fallaDeFila(triggerEl, id));
             return;
         }
         if (newStatus === 'INOPERATIVO' || newStatus === 'EN MANTENIMIENTO') {
@@ -378,13 +385,7 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     // (data-falla-*, eager-loaded), abrimos el modal de cierre AL INSTANTE sin el
     // round-trip al PATCH (ni el parpadeo de optimistic UI + revert).
     if ((oldStatus === 'INOPERATIVO' || oldStatus === 'EN MANTENIMIENTO') && triggerEl.dataset.fallaId && typeof window.flAbrirCierre === 'function') {
-        window.flAbrirCierre({
-            id:      triggerEl.dataset.fallaId,
-            codigo:  triggerEl.dataset.fallaCodigo || '',
-            tipo:    triggerEl.dataset.fallaTipo || '',
-            equipo:  triggerEl.dataset.fallaEquipo || '',    // mismos datos que el 409 (Falla::datosActivo)
-            detalle: triggerEl.dataset.fallaDetalle || '',
-        });
+        window.flAbrirCierre(_fallaDeFila(triggerEl, id));
         return;
     }
 
@@ -2274,9 +2275,8 @@ window.openBulkModal = function (event) {
         });
     }
     // Refresco async: si hay frentes creados DESPUÉS de cargar la página, se suman
-    // al datalist y a frentesData en cuanto respondan — la lista del buscador se
-    // repinta sola en el próximo input/focus del usuario.
-    // Sin red, los que falten salen de la copia local.
+    // al datalist y a frentesData en cuanto respondan (sin red, de la copia local) — la
+    // lista del buscador se repinta sola en el próximo input/focus del usuario.
     if (sinRed) {
         window.CopiaLocal.usar('equipos').then(function (vista) {
             const ids = new Set(frentesData.map((f) => String(f.id)));
@@ -2481,6 +2481,10 @@ window.openBulkModal = function (event) {
         // Sin red: solo a un frente que ya existe (crearlo lo hace el servidor), sin acta.
         // Va a la bandeja con el mismo endpoint y la tabla lo muestra al instante.
         if (window.EquiposLocal.sinConexion()) {
+            if (auxSel.length) {
+                window.toast('Se cortó la conexión: los auxiliares se movilizan con internet. Quítalos de la selección para seguir.', 'error');
+                return;
+            }
             if (isNewFrente || !matchedFrente.id) {
                 inputBox.style.borderColor = "#ef4444";
                 window.toast('Sin conexión solo se puede movilizar a un frente ya registrado. Elígelo de la lista.', 'error');

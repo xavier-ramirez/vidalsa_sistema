@@ -72,6 +72,7 @@
     };
 
     function _resetModal() {
+        _activoNombre = '';
         const searchInput = document.getElementById('fl_search_activo');
         if (searchInput) { searchInput.value = ''; searchInput.placeholder = 'Ej: ABC123 / 1HGCM82...'; }
         const resBox = document.getElementById('fl_search_results');
@@ -217,7 +218,7 @@
     };
 
     let _cierreId = null;
-    let _cierreActivo = null;   // { tipo, id, label }: lo manda equipos sin red (la fila a pintar)
+    let _cierreActivo = null;   // { id, label }: el equipo de la fila (lo manda equipos_index.js)
     window.flAbrirCierre = function (falla) {
         _cierreId = falla.id;
         _cierreActivo = falla.activo || null;
@@ -238,12 +239,12 @@
         fd.append('_method', 'PATCH');
         const obs = document.getElementById('flCierreObs');
         fd.append('observaciones_cierre', obs ? obs.value : '');
-        if (sinRed()) {
+        // Sin red se guarda si el modal vino de la fila de un equipo (changeStatusLite manda activo).
+        if (sinRed() && _cierreActivo) {
             const act = _cierreActivo;
             window.Bandeja.enviar(CFG().urlBase + '/' + _cierreId + '/close', { method: 'POST', body: fd }, {
-                titulo: 'Cerrar reporte · ' + ((act && act.label) || ('Reporte #' + _cierreId)) + ' → OPERATIVO',
-                tipo: act && act.tipo === 'equipo' ? 'estado' : 'falla',
-                datos: act && act.tipo === 'equipo' ? { id_equipo: act.id, status: 'OPERATIVO', falla: 'cerrada' } : null,
+                titulo: 'Cerrar reporte · ' + act.label + ' → OPERATIVO',
+                tipo: 'estado', datos: { id_equipo: act.id, status: 'OPERATIVO', falla: 'cerrada' },
             });
             window.flCerrarCierreModal();
             window.toast('Cierre guardado. Se registra al volver internet.', 'success');
@@ -284,12 +285,15 @@
             return;
         }
         if (sinRed()) {
-            const esEquipo = fd.get('activo_tipo') === 'equipo';
+            // Sin red solo equipos: es lo que la tabla sabe pintar encima de la copia.
+            if (fd.get('activo_tipo') !== 'equipo') {
+                window.toast('Los reportes de auxiliares se registran con conexión.', 'error');
+                return;
+            }
             const destino = fd.get('estado_destino') || 'INOPERATIVO';
             window.Bandeja.enviar(CFG().urlStore, { method: 'POST', body: fd }, {
                 titulo: 'Reporte de falla · ' + (_activoNombre || ('#' + fd.get('activo_id'))) + ' → ' + destino,
-                tipo: esEquipo ? 'estado' : 'falla',
-                datos: esEquipo ? { id_equipo: Number(fd.get('activo_id')), status: destino, falla: 'nueva' } : null,
+                tipo: 'estado', datos: { id_equipo: Number(fd.get('activo_id')), status: destino },
             });
             _pendingCancel = null;           // guardado: NO revertir el estado
             window.closeNuevoReporteModal();

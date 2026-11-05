@@ -656,8 +656,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     VidalsaWebAuthn.plataformaDisponible().then(function(ok) {
         // Quien PINTA el ícono es refrescarAccesos() en offline-auth.js (dueño único de qué
-        // acceso se ofrece): la huella firma un challenge contra el servidor, así que sin
-        // conexión no debe salir. Aquí solo se avisa de que el dispositivo puede usarla.
+        // acceso se ofrece): sin conexión solo sale si la huella abre lo guardado en el
+        // equipo. Aquí solo se avisa de que el dispositivo puede usarla.
         if (!ok || !window.OfflineAuth) return;
         window.OfflineAuth.habilitarHuella();
         // Arranca el ciclo de precarga del challenge (prefetch + refresh
@@ -690,9 +690,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // El re-primado del challenge tras cada intento lo maneja el propio
-        // módulo VidalsaWebAuthn (dueño único del precache).
-        VidalsaWebAuthn.autenticar()
+        // módulo VidalsaWebAuthn (dueño único del precache). Sin servidor, la huella se
+        // comprueba en el equipo (abre lo guardado con su llave, como la clave sin red).
+        var sinServidor = window.OfflineAuth && window.OfflineAuth.estaSinServidor();
+        (sinServidor ? VidalsaWebAuthn.autenticarSinServidor() : VidalsaWebAuthn.autenticar())
             .then(function(data) {
+                if (data && data.sinServidor) {
+                    window.OfflineAuth.adentroSinServidor();
+                    return;
+                }
                 if (data && data.success && data.redirect) {
                     window.marcarLoginReciente(); // solo en éxito confirmado
                     // Mismo punto que el login con contraseña. Aquí no hay verificador que
@@ -715,9 +721,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     mostrarMsgLogin('Este teléfono no tiene la huella vinculada. Entre con su clave y podrá activarla.');
                     return;
                 }
+                if (err.message === 'HUELLA_NO_ABRE') {
+                    mostrarMsgLogin('Sin conexión, y la huella no abrió los datos guardados en este equipo.\nEntra con tu clave.', true);
+                    return;
+                }
                 if (err.message === 'SIN_CONEXION') {
-                    // La huella firma contra el servidor: sin él no hay nada que hacer con ella,
-                    // pero la clave sí entra con lo guardado. Se espera a que la escriba.
+                    // No llegó al servidor y la huella no pudo abrir lo guardado (nunca entró
+                    // con ella y con internet aquí, o el teléfono no tiene PRF): la clave sí
+                    // entra con lo guardado. Se espera a que la escriba.
                     if (window.OfflineAuth) window.OfflineAuth.noContesto();
                     avisarSinConexion();
                     return;

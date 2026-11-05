@@ -10,6 +10,10 @@
  *     internet abre siempre, se haya entrado con clave o con huella.
  *   · pwd: con una llave sacada de la clave del usuario (PBKDF2). Es la que abre la copia
  *     SIN internet, al iniciar sesión sin servidor. Se rehace en cada inicio de sesión con clave.
+ * Y una tercera, por huella ('vidalsa_llaves_huella', { credencial: { u, rpId, salt, iv, ct } }):
+ *   · con la llave que da la propia huella (extensión PRF de WebAuthn: el lector solo la
+ *     entrega tras leer el dedo). Se rehace en cada inicio de sesión con huella CON servidor y
+ *     es la que deja entrar con huella SIN internet. Si el teléfono no tiene PRF, no se crea.
  * Abierta, vive solo en sessionStorage (esta ventana): se borra al cerrar la app o el
  * navegador y al volver a la pantalla de inicio de sesión. Si se abrió con la clave SIN
  * servidor (inicio de sesión sin red), o se siguió trabajando con la red caída (lo anota
@@ -22,6 +26,10 @@
  *   LlaveLocal.preparar(id, clave) / confirmar() / descartar() → inicio de sesión con clave
  *       (los llama offline-auth.js, igual que su verificador).
  *   LlaveLocal.abrirConClave(id, clave) → Promise<boolean>. Inicio de sesión sin servidor.
+ *   LlaveLocal.salHuella(cred) → la sal PRF de esa credencial (se crea la primera vez).
+ *       huellaPreparada(cred, rpId, prf) → el servidor aceptó la huella: la página siguiente
+ *       envuelve la llave también con ella. huellasLocales(creds) → las que abren sin servidor.
+ *       abrirConHuella(cred, prf) → Promise<boolean>. olvidarHuellas() → las tira todas.
  *   LlaveLocal.trabajaSinServidor() → boolean · marcarSinServidor() → la pone (se cortó la red
  *       con alguien trabajando) · conServidor() → la quita (el servidor contestó con sesión).
  *   LlaveLocal.cerrar() → olvida la llave abierta (pantalla de inicio de sesión y al salir:
@@ -34,6 +42,8 @@
     const LLAVES = 'vidalsa_llaves';
     const SESION = 'vidalsa_llave_sesion';
     const PENDIENTE = 'vidalsa_llave_pendiente';
+    const HUELLAS = 'vidalsa_llaves_huella';
+    const PENDIENTE_HUELLA = 'vidalsa_llave_pendiente_huella';
     const ITER = 120000; // el mismo costo que el verificador de offline-auth.js
     const sub = window.crypto && window.crypto.subtle;
     const usuario = () => (document.querySelector('meta[name="usuario-id"]') || {}).content || '';
@@ -70,8 +80,9 @@
         let dek = s && s.u === u ? deB64(s.k) : null;
         let sinServidor = !!(dek && s.sinServidor);
         const pend = leer(sessionStorage, PENDIENTE);
+        const pendHuella = leer(sessionStorage, PENDIENTE_HUELLA);
         let sinRed = false;   // el servidor no contestó (no un 401: eso lo atiende el interceptor)
-        if (!dek || pend) {
+        if (!dek || pend || pendHuella) {
             // Con internet: la del servidor abre la guardada (o se crea la primera vez) y, si se
             // acaba de entrar con clave, se envuelve también con ella para poder entrar sin red.
             let r = null;
@@ -98,6 +109,17 @@
                     todas[u] = mia;
                     escribir(localStorage, LLAVES, todas);
                     escribir(sessionStorage, PENDIENTE, null);
+                    // Se acaba de entrar con huella: la llave queda envuelta también con ella
+                    // (con la sal que se usó al leer el dedo; si cambió, no se toca).
+                    if (pendHuella) {
+                        const hs = leer(localStorage, HUELLAS) || {};
+                        const e = hs[pendHuella.cred];
+                        if (e && e.salt === pendHuella.salt) {
+                            hs[pendHuella.cred] = Object.assign({ u, rpId: pendHuella.rpId, salt: e.salt }, await envolver(deB64(pendHuella.kek), dek));
+                            escribir(localStorage, HUELLAS, hs);
+                        }
+                        escribir(sessionStorage, PENDIENTE_HUELLA, null);
+                    }
                     return dek;
                 });
             }
@@ -193,6 +215,38 @@
             }
             return false;
         },
+        // ── Huella (PRF) ──
+        salHuella(cred) {
+            const hs = leer(localStorage, HUELLAS) || {};
+            if (!hs[cred] || !hs[cred].salt) {
+                hs[cred] = { salt: b64(crypto.getRandomValues(new Uint8Array(32))) };
+                escribir(localStorage, HUELLAS, hs);
+            }
+            return deB64(hs[cred].salt);
+        },
+        huellaPreparada(cred, rpId, prf) {
+            const hs = leer(localStorage, HUELLAS) || {};
+            if (!sub || !prf || !hs[cred] || !hs[cred].salt) return;
+            escribir(sessionStorage, PENDIENTE_HUELLA, { cred, rpId: rpId || location.hostname, salt: hs[cred].salt, kek: b64(prf) });
+        },
+        huellasLocales(creds) {
+            const hs = leer(localStorage, HUELLAS) || {};
+            return (creds || []).filter((c) => hs[c] && hs[c].ct)
+                .map((c) => ({ cred: c, rpId: hs[c].rpId, salt: deB64(hs[c].salt) }));
+        },
+        async abrirConHuella(cred, prf) {
+            const e = (leer(localStorage, HUELLAS) || {})[cred];
+            if (!sub || !prf || !e || !e.ct) return false;
+            try {
+                const dek = await desenvolver(new Uint8Array(prf), e);
+                escribir(sessionStorage, SESION, { u: e.u, k: b64(dek), sinServidor: true });
+                return true;
+            } catch (err) { return false; }   // otra huella u otra sal: no abre
+        },
+        olvidarHuellas() {
+            escribir(localStorage, HUELLAS, null);
+            escribir(sessionStorage, PENDIENTE_HUELLA, null);
+        },
         trabajaSinServidor() {
             const s = leer(sessionStorage, SESION);
             return !!(s && s.u === usuario() && s.sinServidor);
@@ -209,6 +263,7 @@
             llave = null;
             escribir(sessionStorage, SESION, null);
             escribir(sessionStorage, PENDIENTE, null);
+            escribir(sessionStorage, PENDIENTE_HUELLA, null);
         },
     };
 })();

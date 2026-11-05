@@ -173,6 +173,13 @@ window.maquinariaArrancar = function () {
         const oldStatus = trigger.dataset.status;
         if (oldStatus === newStatus) return;
 
+        // Sin red los auxiliares no cambian de estado (igual que al movilizar): la tabla no
+        // sabría mostrarlo hasta que suba, y se repetirían reportes.
+        if (window.Bandeja && window.Bandeja.sinConexion()) {
+            window.toast('Los auxiliares cambian de estado con conexión.', 'error');
+            return;
+        }
+
         // INOPERATIVO se gestiona CREANDO un reporte de falla (el backend deja el
         // auxiliar inoperativo). Abrimos el modal "Nuevo Reporte" pre-seleccionado; si
         // se cancela no cambia nada; al crear, handleFallaCreatedAux marca el estado.

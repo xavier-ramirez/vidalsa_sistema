@@ -9,6 +9,11 @@
  * a pedir vincular la huella aunque siguiera registrada: en el servidor había usuarios con
  * la misma huella registrada hasta 8 veces. Ahora, tras entrar con clave, los IDs se
  * RECUPERAN del servidor (sin preguntar nada) y solo se pregunta si de verdad no hay.
+ *
+ * SIN SERVIDOR: al leer el dedo se pide también la extensión PRF (una llave que el lector
+ * solo entrega tras la huella). Entrando con servidor, llave-local.js envuelve con ella la
+ * llave de los datos guardados; sin servidor, esa misma lectura los abre
+ * (autenticarSinServidor). Si el teléfono no tiene PRF, la huella sigue pidiendo internet.
  */
 const VidalsaWebAuthn = (() => {
     const STORAGE_KEY = 'vidalsa_webauthn_creds';
@@ -65,6 +70,27 @@ const VidalsaWebAuthn = (() => {
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
         return bytes;
+    }
+
+    // Las claves de evalByCredential van en base64url sin relleno.
+    function bytesToBase64Url(bytes) {
+        return bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    // PRF para cada credencial (su sal, guardada en llave-local.js). null sin LlaveLocal.
+    function extensionPrf(allowCredentials) {
+        if (!window.LlaveLocal || !allowCredentials || !allowCredentials.length) return null;
+        const porCredencial = {};
+        allowCredentials.forEach((c) => {
+            porCredencial[bytesToBase64Url(c.id)] = { first: window.LlaveLocal.salHuella(bytesToBase64(c.id)) };
+        });
+        return { prf: { evalByCredential: porCredencial } };
+    }
+    function resultadoPrf(assertion) {
+        try {
+            const r = assertion.getClientExtensionResults().prf;
+            return (r && r.results && r.results.first) || null;
+        } catch { return null; }
     }
 
     function bytesToBase64(bytes) {
@@ -351,7 +377,8 @@ const VidalsaWebAuthn = (() => {
 
             let assertion;
             try {
-                assertion = await navigator.credentials.get({ publicKey });
+                const ext = extensionPrf(publicKey.allowCredentials);
+                assertion = await navigator.credentials.get({ publicKey: ext ? { ...publicKey, extensions: ext } : publicKey });
             } catch {
                 // Con IDs recuperados del servidor y nunca probados aquí, que el lector no
                 // encuentre la huella casi siempre es porque son de OTRO teléfono. Se
@@ -375,6 +402,7 @@ const VidalsaWebAuthn = (() => {
 
             _precachedPublicKey = null;
             _precachedAt = 0;
+            const prf = resultadoPrf(assertion);
 
             let res;
             try {
@@ -385,7 +413,9 @@ const VidalsaWebAuthn = (() => {
                 }, LOGIN_TIMEOUT_MS);
             } catch {
                 // Timeout o bajón de red con el POST ya despachado: el botón no
-                // debe quedarse en "Verificando...".
+                // debe quedarse en "Verificando...". El dedo ya se leyó: si su llave
+                // abre lo guardado en el equipo, se entra sin servidor sin pedirlo otra vez.
+                if (prf && await window.LlaveLocal.abrirConHuella(body.credential_id, prf)) return { sinServidor: true };
                 throw new Error('SIN_CONEXION');
             }
             // 419 (CSRF/sesión), 422 (challenge expirado o vencido por el TTL de
@@ -398,7 +428,10 @@ const VidalsaWebAuthn = (() => {
             if (esRespuestaDeSesion(res)) { window.location.reload(); return; }
             const data = await res.json();
             if (!res.ok) throw new Error(textoError(data, 'Error de autenticación'));
-            if (data && data.success) quitar(SIN_VERIFICAR_KEY); // la huella SÍ es de este teléfono
+            if (data && data.success) {
+                quitar(SIN_VERIFICAR_KEY); // la huella SÍ es de este teléfono
+                if (prf) window.LlaveLocal.huellaPreparada(body.credential_id, publicKey.rpId, prf);
+            }
             return data;
         } finally {
             _autenticando = false;
@@ -413,6 +446,41 @@ const VidalsaWebAuthn = (() => {
 
     function tieneCredenciales() {
         return getCredIds().length > 0;
+    }
+
+    // ¿Puede entrar con huella SIN servidor? Solo con una huella de este teléfono cuya llave
+    // ya quedó guardada (entró con ella y con internet al menos una vez, y el teléfono tiene PRF).
+    function huellasSinServidor() {
+        return window.LlaveLocal ? window.LlaveLocal.huellasLocales(getCredIds()) : [];
+    }
+    function puedeSinServidor() {
+        return huellasSinServidor().length > 0;
+    }
+
+    // Entrar con huella sin servidor: el reto es local (nadie lo comprueba), lo que importa es
+    // la llave PRF, que el lector solo da tras leer el dedo. true = lo guardado quedó abierto.
+    async function autenticarSinServidor() {
+        const locales = huellasSinServidor();
+        if (!locales.length) throw new Error('SIN_CONEXION');
+        const porCredencial = {};
+        locales.forEach((l) => { porCredencial[bytesToBase64Url(base64UrlToBytes(l.cred))] = { first: l.salt }; });
+        let assertion;
+        try {
+            assertion = await navigator.credentials.get({ publicKey: {
+                challenge:        crypto.getRandomValues(new Uint8Array(32)),
+                rpId:             locales[0].rpId,
+                allowCredentials: locales.map((l) => ({ type: 'public-key', id: base64UrlToBytes(l.cred) })),
+                userVerification: 'required',
+                timeout:          60000,
+                extensions:       { prf: { evalByCredential: porCredencial } },
+            } });
+        } catch {
+            throw new Error('USER_CANCELLED');
+        }
+        const prf = resultadoPrf(assertion);
+        const cred = bytesToBase64(new Uint8Array(assertion.rawId));
+        if (!prf || !(await window.LlaveLocal.abrirConHuella(cred, prf))) throw new Error('HUELLA_NO_ABRE');
+        return { sinServidor: true };
     }
 
     function detectarDispositivo() {
@@ -463,5 +531,5 @@ const VidalsaWebAuthn = (() => {
         quitar(VINCULAR_ESTE_KEY);
     }
 
-    return { soportado, plataformaDisponible, registrar, autenticar, iniciarPrecarga, tieneCredenciales, debeOfrecerRegistro, noPreguntarPorAhora };
+    return { soportado, plataformaDisponible, registrar, autenticar, autenticarSinServidor, puedeSinServidor, iniciarPrecarga, tieneCredenciales, debeOfrecerRegistro, noPreguntarPorAhora };
 })();
