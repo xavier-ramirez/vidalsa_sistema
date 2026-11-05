@@ -469,7 +469,7 @@
             ? '<div class="status-trigger-lite" data-equipo-id="' + e.id + '" data-status="' + h(e.estado || '') + '"'
                 + ' data-status-url="/admin/equipos/' + e.id + '/status"'
                 + ' data-label="' + h(placa || e.chasis || e.codigo || ('Equipo #' + e.id)) + '"'
-                + (falla ? ' data-falla-id="' + falla.id + '" data-falla-codigo="' + h(falla.codigo || '') + '" data-falla-tipo="' + h(falla.tipo || '') + '" data-falla-equipo="' + h(falla.equipo || '') + '" data-falla-detalle="' + h(falla.detalle || '') + '"' : '')
+                + (falla && falla.id ? ' data-falla-id="' + falla.id + '" data-falla-codigo="' + h(falla.codigo || '') + '" data-falla-tipo="' + h(falla.tipo || '') + '" data-falla-equipo="' + h(falla.equipo || '') + '" data-falla-detalle="' + h(falla.detalle || '') + '"' : '')
                 + ' onclick="event.stopPropagation(); openSharedStatusMenu(this)" style="--eq-st-color: ' + est.color + '">'
                 + '<div class="eq-status-izq"><i class="material-icons">' + est.icon + '</i><span class="eq-status-txt">' + est.label + '</span></div>'
                 + '<i class="material-icons eq-status-chevron">expand_more</i></div>'
@@ -567,17 +567,24 @@
         can_upload_pdf: !!puede.subirPdf,
     });
 
-    // ── Lo que aún no subió (sin conexión) va encima de la copia ──────────────
+    // ── Lo que aún no llegó a la copia va encima ──────────────────────────────
+    // Dos fuentes con la misma forma { tipo, datos }: lo guardado SIN conexión que espera en la
+    // bandeja, y lo recién guardado CON conexión que la copia todavía no trae (recientes, ver
+    // eqAplicarYa). Lo de la bandeja va después: se aplicará más tarde, así que manda.
+    const recientes = [];
     function encima(filas, ctx) {
-        const pendientes = window.Bandeja.pendientes().filter((it) => it.estado === 'pendiente' && it.datos);
+        const pendientes = recientes.concat(window.Bandeja.pendientes().filter((it) => it.estado === 'pendiente' && it.datos));
         if (!pendientes.length) return filas;
         const cambios = new Map();
         pendientes.forEach((it) => {
             const p = it.datos;
             if (it.tipo === 'estado') {
-                // Cerrar el reporte sin red (falla_create_modal.js) quita su aviso de la fila.
+                // falla: 'cerrada' quita el aviso del reporte; un objeto (el reporte recién creado,
+                // con o sin red) lo pone, con la forma de la copia (DominioEquipos: id, codigo, tipo,
+                // desc, resumen...). Sin id = todavía no subió.
                 const c = { estado: p.status };
                 if (p.falla === 'cerrada') c.falla = null;
+                else if (p.falla) c.falla = p.falla;
                 cambios.set(Number(p.id_equipo), Object.assign(cambios.get(Number(p.id_equipo)) || {}, c));
             } else if (it.tipo === 'movilizar') {
                 const destino = ctx.frentes.get(Number(p.id_frente_destino));
@@ -696,9 +703,32 @@
     // y sube al volver la red. Lo llama changeStatusLite (equipos_index.js) si sinConexion().
     // La movilización y los reportes de falla usan sus modales de siempre, que también
     // guardan en la bandeja (openBulkModal, falla_create_modal.js).
-    function repintar() {
-        if (document.getElementById('equiposTableBody') && window.loadEquipos) window.loadEquipos(null, true);
+    // Solo cambian las filas distintas (eqRepintarDesdeCopia): sin rehacer la tabla ni volver
+    // a pedir las fotos. Sin esperar a la copia: quien llama ya esperó (repintar) o pinta encima
+    // lo guardado (eqAplicarYa).
+    function repintarYa() {
+        if (document.getElementById('equiposTableBody') && window.eqRepintarDesdeCopia) window.eqRepintarDesdeCopia(true);
     }
+    // Cambió la bandeja. Si algo SUBIÓ, la copia todavía no lo trae: repintar ya devolvía la fila
+    // al estado viejo hasta la próxima pregunta. Se espera a que llegue (alDia; sin nada que
+    // esperar, al instante).
+    function repintar() {
+        window.CopiaLocal.alDia('equipos').then(repintarYa);
+    }
+
+    // Lo guardado CON conexión se ve en la fila al instante, pintado igual que sin red, en vez
+    // de esperar (con spinner) a que la copia lo traiga. Se quita cuando la copia ya está al día:
+    // la pregunta la lanzó el interceptor de fetch al contestar el servidor (alGuardar).
+    window.eqAplicarYa = function (tipo, datos) {
+        const it = { tipo, datos };
+        recientes.push(it);
+        repintarYa();
+        window.CopiaLocal.alDia('equipos').then(() => {
+            const i = recientes.indexOf(it);
+            if (i >= 0) recientes.splice(i, 1);
+            repintarYa();
+        });
+    };
 
     window.eqOffSetEstado = function (id, status, label) {
         window.Bandeja.enviar('/admin/equipos/' + Number(id) + '/status', { method: 'PATCH', body: { status: status } }, {

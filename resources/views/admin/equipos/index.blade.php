@@ -1660,11 +1660,12 @@
             if (window.handleFallaCreatedAux)    window.handleFallaCreatedAux();
             if (window.handleFallaCreatedEquipo) window.handleFallaCreatedEquipo(falla);
         },
-        // Como tras movilizar: se espera a que la copia traiga el cierre (alDia) y se repintan las
-        // filas cargadas. El repintado va DESPUÉS de alDia porque el evento 'copia-local' también
-        // repinta y dejaría obsoleta una consulta anterior (se resolvería sin pintar). Devuelve la
-        // promesa: el modal de cierre mantiene el spinner hasta que la fila sale con su estado nuevo.
-        onClosed:  function () {
+        // Cerrado desde la fila de un equipo: la fila pasa a OPERATIVO al instante (eqAplicarYa,
+        // igual que sin red) y el spinner no espera a la copia. Un auxiliar sí: se espera a que la
+        // copia traiga el cierre (alDia) y se repintan las filas cargadas (tras alDia, porque el
+        // evento 'copia-local' también repinta); la promesa mantiene el spinner hasta entonces.
+        onClosed:  function (activo) {
+            if (activo) { window.eqAplicarYa('estado', { id_equipo: activo.id, status: 'OPERATIVO', falla: 'cerrada' }); return null; }
             return window.CopiaLocal.alDia('equipos').then(function () { return window.eqRepintarDesdeCopia(); });
         }
     };

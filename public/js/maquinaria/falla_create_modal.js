@@ -7,7 +7,8 @@
  *     urlStore:  ruta POST de creación de reporte,
  *     urlBase:   base de /admin/fallas (preview del acta: urlBase + '/preview'),
  *     onCreated: function(falla) — callback tras crear (recargar lista / marcar fila),
- *     onClosed:  function() — callback tras cerrar un reporte desde la tabla (repintar); si
+ *     onClosed:  function(activo) — callback tras cerrar un reporte desde la tabla (repintar);
+ *                activo = { id, label } si se cerró desde la fila de un equipo (o null); si
  *                devuelve una promesa, el spinner sigue hasta que se cumple,
  *   }
  *
@@ -259,12 +260,13 @@
         .then(r => r.json())
         .then(body => {
             if (body.success) {
+                const activo = _cierreActivo;   // flCerrarCierreModal lo borra
                 window.flCerrarCierreModal();
                 // El spinner sigue hasta que la página se redibuja (onClosed devuelve la promesa
                 // del repintado): si se quitaba antes, la fila seguía con el estado viejo unos
                 // segundos sin ninguna señal de que algo pasaba. El aviso sale con la fila ya al día.
                 const cb = CFG().onClosed;
-                return Promise.resolve(typeof cb === 'function' ? cb() : null)
+                return Promise.resolve(typeof cb === 'function' ? cb(activo) : null)
                     .catch(err => console.error('[Cierre de falla] repintado', err))
                     .then(() => window.toast(body.message || 'Reporte cerrado. El equipo vuelve a OPERATIVO.', 'success'));
             } else {
@@ -293,7 +295,8 @@
             const destino = fd.get('estado_destino') || 'INOPERATIVO';
             window.Bandeja.enviar(CFG().urlStore, { method: 'POST', body: fd }, {
                 titulo: 'Reporte de falla · ' + (_activoNombre || ('#' + fd.get('activo_id'))) + ' → ' + destino,
-                tipo: 'estado', datos: { id_equipo: Number(fd.get('activo_id')), status: destino },
+                tipo: 'estado', datos: { id_equipo: Number(fd.get('activo_id')), status: destino,
+                    falla: { desc: fd.get('descripcion') || '', resumen: 'Sin subir todavía' } },
             });
             _pendingCancel = null;           // guardado: NO revertir el estado
             window.closeNuevoReporteModal();

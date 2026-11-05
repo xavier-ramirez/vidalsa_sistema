@@ -405,6 +405,8 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     .then(({ status, body }) => {
         if (status === 200 && body && body.success) {
             if (window.updateLocalStats) window.updateLocalStats(oldStatus, newStatus);
+            // Hasta que la copia lo traiga, un repintado (el reloj de 15 s) no lo devuelve al de antes.
+            window.eqAplicarYa('estado', { id_equipo: Number(id), status: newStatus });
             window.toast('Estatus actualizado correctamente.', 'success');
             return;
         }
@@ -480,14 +482,12 @@ window.handleFallaCreatedEquipo = function (falla) {
     if (!ctx || !ctx.triggerEl) return;
     const target = ctx.targetStatus || 'INOPERATIVO';
     _applyStatusVisual(ctx.triggerEl, target);
-    // La celda toma la descripción del reporte recién creado (lo que table_rows pone al
-    // cargar), así el aviso sobre el estado ya la muestra sin recargar la tabla.
-    const celda = ctx.triggerEl.closest('.eq-td-estatus');
-    if (celda && falla) {
-        celda.dataset.fallaDesc    = falla.DESCRIPCION_AVERIA || '';
-        celda.dataset.fallaResumen = falla.resumen || '';
-    }
     if (window.updateLocalStats) window.updateLocalStats(ctx.oldStatus, target);
+    // La fila toma el reporte recién creado (aviso al pasar el mouse y su cierre) sin esperar a la
+    // copia, igual que sin red. Con la forma de la copia (DominioEquipos::filasEquipos).
+    if (falla) window.eqAplicarYa('estado', { id_equipo: Number(ctx.triggerEl.dataset.equipoId), status: target, falla: {
+        id: falla.ID_FALLA, codigo: falla.CODIGO_REPORTE, tipo: falla.TIPO_REPORTE, desc: falla.DESCRIPCION_AVERIA, resumen: falla.resumen,
+    } });
 };
 
 // Barra flotante de selección: UNA sola para equipos y auxiliares (antes cada uno tenía
@@ -1627,8 +1627,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // como en Almacén: si no, la tabla se repinta un instante con el frente de antes.
     // Solo si es la misma consulta que está a la vista: con el servidor lento esa espera dura hasta
     // 10 s y dejaba la X y los filtros sin efecto. Si el usuario cambió de filtro, se pinta ya con
-    // lo que hay y lo guardado llega con el evento 'copia-local'.
-    const esperaGuardado = !append && paramStr === window._eqConsultaPintada;
+    // lo que hay y lo guardado llega con el evento 'copia-local'. opts.yaMismo (eqAplicarYa): lo
+    // guardado ya va encima de la copia, así que se pinta sin esperar.
+    const esperaGuardado = !append && !opts.yaMismo && paramStr === window._eqConsultaPintada;
     return window.CopiaLocal.usar('equipos', tableBody)
         .then((vista) => (esperaGuardado ? window.CopiaLocal.alDia('equipos') : Promise.resolve()).then(() => vista))
         .then((vista) => {
@@ -1949,8 +1950,9 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
 };
 
 // Repinta lo que se ve desde la copia, con las mismas filas cargadas: solo cambian las distintas.
-window.eqRepintarDesdeCopia = function () {
-    return window.loadEquipos(null, true, { sinHistorial: true, cuantos: window._eqCompleto ? Infinity : Math.max(150, window._eqHasta || 0) });
+// yaMismo: sin esperar a que la copia traiga lo guardado (ver loadEquipos).
+window.eqRepintarDesdeCopia = function (yaMismo) {
+    return window.loadEquipos(null, true, { sinHistorial: true, yaMismo: yaMismo === true, cuantos: window._eqCompleto ? Infinity : Math.max(150, window._eqHasta || 0) });
 };
 
 /**
@@ -2477,6 +2479,9 @@ window.openBulkModal = function (event) {
         const matchedFrente = frentesData.find(f => (f.nombre || '').toUpperCase() === destUpper);
         const isNewFrente = !matchedFrente;
         const needsUbicacion = isNewFrente || !matchedFrente.ubicacion;
+        // Lo que se pinta como movido: sin los que ya están en ese frente (el servidor los omite;
+        // pintarlos les quitaba la confirmación en sitio hasta que llegaba la copia).
+        const noEstanEn = (ids, idFrente) => ids.filter((id) => String((window.selectedEquipos[id] || {}).frenteId) !== String(idFrente));
 
         // Sin red: solo a un frente que ya existe (crearlo lo hace el servidor), sin acta.
         // Va a la bandeja con el mismo endpoint y la tabla lo muestra al instante.
@@ -2490,7 +2495,11 @@ window.openBulkModal = function (event) {
                 window.toast('Sin conexión solo se puede movilizar a un frente ya registrado. Elígelo de la lista.', 'error');
                 return;
             }
-            const idsOff = Object.keys(window.selectedEquipos).map(Number);
+            const idsOff = noEstanEn(Object.keys(window.selectedEquipos), matchedFrente.id).map(Number);
+            if (!idsOff.length) {
+                window.toast('Lo seleccionado ya está en ' + matchedFrente.nombre + '.', 'error');
+                return;
+            }
             window.Bandeja.enviar('/admin/equipos/bulk-mobilize', {
                 method: 'POST', body: { ids: idsOff, destination: matchedFrente.nombre, generar_pdf: false },
             }, {
@@ -2576,11 +2585,19 @@ window.openBulkModal = function (event) {
 
             const data = await res.json();
 
-            // Cerrar modal y limpiar selección; el preloader sigue activo hasta que la tabla
-            // muestre el cambio (más abajo).
+            // Destino que ya existía (la vista previa puede haberlo cambiado) y sin auxiliares:
+            // las filas se pintan YA, igual que sin red (eqAplicarYa), y el spinner no espera a la
+            // copia. Frente nuevo o con auxiliares: se espera a la copia (más abajo), que es la
+            // única que los conoce.
+            const frenteFinal = frentesData.find(f => (f.nombre || '').toUpperCase() === (actaState.destination || '').toUpperCase());
+            const pintarYa = !!(frenteFinal && frenteFinal.id) && !actaState.aux_ids.length;
+            const idsPintar = pintarYa ? noEstanEn(actaState.ids, frenteFinal.id) : [];
+
+            // Cerrar modal y limpiar selección.
             removePortal();
             overlay.remove();
             window.clearSelection();
+            if (pintarYa && idsPintar.length) window.eqAplicarYa('movilizar', { ids: idsPintar, id_frente_destino: Number(frenteFinal.id) });
 
             // ── Actualizar el frente en memoria (frentesData) si se guardó una
             // ubicación nueva para él. Sin esto, al reabrir el modal en la misma
@@ -2681,13 +2698,14 @@ window.openBulkModal = function (event) {
                 }
             }
 
-            // La tabla se repinta ANTES de quitar el spinner y avisar: con la copia local ya
-            // abierta loadEquipos no muestra spinner propio, y si no se espera aquí el aviso
+            // Sin pintarYa la tabla se repinta ANTES de quitar el spinner y avisar: si no, el aviso
             // sale y la fila cambia un segundo después. El repintado va tras alDia porque el
             // evento 'copia-local' también repinta y dejaría obsoleta una consulta anterior.
             // Lo guardado ya está en el servidor: un fallo aquí no es error de la movilización.
-            await window.CopiaLocal.alDia('equipos');
-            await window.eqRepintarDesdeCopia().catch((err) => console.error('[Movilización] repintado', err));
+            if (!pintarYa) {
+                await window.CopiaLocal.alDia('equipos');
+                await window.eqRepintarDesdeCopia().catch((err) => console.error('[Movilización] repintado', err));
+            }
 
             // Balance del showPreloader() del inicio de ejecutarCommit. Va tras abrir el del
             // acta, que mantiene el spinner hasta que llega el PDF.
