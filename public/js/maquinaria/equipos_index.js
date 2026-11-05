@@ -3487,10 +3487,12 @@ window.openAnchorModal = async function (event) {
             const data = await response.json();
             if (data.success) {
                 overlay.remove();
-                // Awaited: reApplySelections (dentro de loadEquipos) sincroniza anchorId y
-                // actualiza botones antes de mostrar el toast, evitando que btnAnclar quede
-                // visible con estado obsoleto durante el render (permitiría doble-POST).
-                await window.loadEquipos();
+                // Igual que el desanclaje: se espera a la copia y solo se repintan las filas
+                // distintas. Awaited: reApplySelections (dentro del repintado) sincroniza
+                // anchorId y los botones antes del toast, evitando que btnAnclar quede
+                // visible con estado obsoleto (permitiría doble-POST).
+                await window.CopiaLocal.alDia('equipos');
+                await window.eqRepintarDesdeCopia().catch((err) => console.error('[Anclaje] repintado', err));
                 if (typeof window.showToast === 'function') {
                     window.showToast(data.message || 'Equipos anclados mutuamente con éxito', 'success');
                 }
