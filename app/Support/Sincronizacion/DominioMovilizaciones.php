@@ -23,7 +23,7 @@ use App\Models\Usuario;
 class DominioMovilizaciones
 {
     /** Súbelo cuando cambie la forma de las filas: los clientes recargan su copia. */
-    public const ESQUEMA = 3;
+    public const ESQUEMA = 4;
 
     public function __construct(private Usuario $usuario)
     {
@@ -67,7 +67,7 @@ class DominioMovilizaciones
 
     /**
      * Movilizaciones cuya FILA cambia: las anotadas y las que copian datos de un equipo, un
-     * auxiliar o un frente que cambió (serial, placa, foto, tipo, nombre del frente).
+     * auxiliar o un frente que cambió (serial, placa, marca, modelo, foto, tipo, nombre del frente).
      *
      * @return array<int>
      */
@@ -149,6 +149,8 @@ class DominioMovilizaciones
                         'tipo'     => $e->tipo->nombre ?? null,
                         'serial'   => $e->SERIAL_CHASIS,
                         'placa'    => $e->documentacion->PLACA ?? null,
+                        'marca'    => $e->MARCA,
+                        'modelo'   => $e->MODELO,
                         'codigo'   => $e->CODIGO_PATIO,
                         'etiqueta' => $e->NUMERO_ETIQUETA,
                         'fotoId'   => $e->fotoDriveId(),

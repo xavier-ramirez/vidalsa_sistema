@@ -75,7 +75,8 @@ function _mvCoincideBusqueda(m, search) {
     }
     if (/\d{2}-\d{2}-\d{4}/.test(search)) return !!e && _mvContiene(e.codigo, S);
     if (search.charAt(0) === '#') return !!e && _mvContiene(e.etiqueta, S.slice(1));
-    return (!!e && (_mvContiene(e.serial, S) || _mvContiene(e.codigo, S) || _mvContiene(e.placa, S)))
+    return (!!e && (_mvContiene(e.serial, S) || _mvContiene(e.codigo, S) || _mvContiene(e.placa, S)
+            || _mvContiene(e.marca, S) || _mvContiene(e.modelo, S)))
         || (!!a && (_mvContiene(a.serial, S) || _mvContiene(a.marca, S) || _mvContiene(a.modelo, S)));
 }
 
@@ -132,6 +133,12 @@ function _mvFoto(fotoId) {
         : '<div class="table-image-wrapper placeholder"><span class="material-icons">image_not_supported</span></div>';
 }
 
+// Marca y modelo bajo los datos de la fila (equipo o auxiliar); sin ninguno de los dos, nada.
+function _mvMarcaModelo(marca, modelo) {
+    const texto = [marca, modelo].filter(Boolean).join(' ');
+    return texto ? '<div style="color: #475569; font-size: 12.5px; text-transform: uppercase;">' + window.escapeHtml(texto) + '</div>' : '';
+}
+
 function _mvFila(m, superAdmin) {
     const h = window.escapeHtml;
     const e = m.equipo, a = m.aux;
@@ -147,10 +154,11 @@ function _mvFila(m, superAdmin) {
     const equipo = a
         ? _mvFoto(a.fotoId) + datos(a.tipoLabel || 'AUXILIAR',
             '<div style="color: #4a5568; font-size: 13px;"><strong>S:</strong> ' + h(a.serial || '—') + '</div>'
-            + '<div style="color: #475569; font-size: 12.5px; text-transform: uppercase;">' + h((a.marca || '') + ' ' + (a.modelo || '')) + '</div>')
+            + _mvMarcaModelo(a.marca, a.modelo))
         : _mvFoto(e && e.fotoId) + datos((e && e.tipo) || 'N/A',
             '<div style="color: #4a5568; font-size: 13px;"><strong>S:</strong> ' + h((e && e.serial) || 'S/S') + '</div>'
-            + '<div style="color: var(--maquinaria-blue); font-size: 13px;"><strong>P:</strong> ' + h((e && e.placa) || 'S/P') + '</div>');
+            + '<div style="color: var(--maquinaria-blue); font-size: 13px;"><strong>P:</strong> ' + h((e && e.placa) || 'S/P') + '</div>'
+            + _mvMarcaModelo(e && e.marca, e && e.modelo));
 
     const tramo = function (etiqueta, color, nombre, peso, colorNombre) {
         return '<div class="mv-trayecto-item" style="display: flex; flex-direction: column; align-items: center; max-width: 160px; text-align: center;">'

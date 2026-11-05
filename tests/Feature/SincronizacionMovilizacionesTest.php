@@ -62,6 +62,9 @@ class SincronizacionMovilizacionesTest extends MySqlTestCase
         $this->assertMatchesRegularExpression('/^MV-\d{5,}$/', $f['mv']);
         $this->assertSame($mov->created_at->format('Y-m-d H:i:s'), $f['fecha']);
         $this->assertArrayHasKey('placa', $f['equipo']);
+        $equipo = $mov->equipo()->withTrashed()->first();
+        $this->assertSame($equipo->MARCA, $f['equipo']['marca']);
+        $this->assertSame($equipo->MODELO, $f['equipo']['modelo']);
         // El modal «Movilizaciones» del detalle del equipo las busca y pinta con esto.
         $this->assertSame((int) $mov->ID_EQUIPO, $f['idEquipo']);
         $this->assertSame($mov->DETALLE_UBICACION, $f['detalle']);
