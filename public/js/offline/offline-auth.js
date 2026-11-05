@@ -104,18 +104,27 @@
         //    correspondiendo a la clave de hoy. Si no —típico: la cambió un admin desde
         //    otro equipo— se tira, y lo rehace el próximo inicio de sesión con contraseña,
         //    que es el que sí demuestra saberla.
+        // En los dos, si la clave cambió desde el último candado se tira también la huella sin
+        // internet (cambiar la clave borra las huellas en el servidor). Se mira ANTES de
+        // guardar el candado nuevo, que ya trae la versión de hoy.
         sincronizar: async function (claveV) {
             tomarVolverA();   // entró con servidor: va a donde lo lleve el inicio de sesión
+            const desfasado = !!claveV && candadoDesfasado(claveV);
             const p = _preparado;
             _preparado = null;
             if (window.LlaveLocal) await window.LlaveLocal.confirmar();
             if (p) {
                 try {
                     const v = await p;
-                    if (v) { v.claveV = claveV || null; localStorage.setItem(KEY, JSON.stringify(v)); return; }
+                    if (v) {
+                        v.claveV = claveV || null;
+                        localStorage.setItem(KEY, JSON.stringify(v));
+                        if (desfasado && window.LlaveLocal) window.LlaveLocal.olvidarHuellas();
+                        return;
+                    }
                 } catch (e) {}
             }
-            if (claveV && candadoDesfasado(claveV)) this.olvidar();
+            if (desfasado) this.olvidar();
         },
         // El intento no prosperó (credenciales rechazadas, red caída, o la clave está a
         // punto de cambiarse): el verificador a medio hacer se tira y el guardado de antes
@@ -277,8 +286,7 @@
         refrescarAccesos();
     };
     // Los mensajes salen por window.mostrarMsgLogin (inicio_sesion.blade.php): es el
-    // único sitio que escribe #offlineLoginMsg y además apaga el spinner y rehabilita
-    // "Iniciar sesión".
+    // único sitio que escribe #offlineLoginMsg y además apaga el spinner.
 
     // Comodidad: precarga el correo de la última sesión local. Se hace en 'load'
     // (después del loginForm.reset() que corre en DOMContentLoaded) para que no se borre.

@@ -246,15 +246,21 @@
     // hasta el redirect o el error — sin esta condición, un login de >4s quitaba
     // el spinner, se veía el formulario un instante y recién después el menú.
     window._loginEnCurso = false;
-    setTimeout(function () {
-        if (window._loginEnCurso) return;
+    // Punto ÚNICO que muestra u oculta el spinner del inicio de sesión (.fade-out lleva
+    // visibility:hidden: oculto no tapa clics). Lo usan el formulario, la huella, los
+    // mensajes y la vuelta desde el bfcache.
+    window.spinnerLogin = function (ver) {
         var pl = document.getElementById('loginPreloader');
-        if (pl) pl.classList.add('fade-out');
+        if (!pl) return;
+        if (ver) { pl.classList.remove('fade-out'); pl.style.display = 'flex'; }
+        else pl.classList.add('fade-out');
+    };
+    setTimeout(function () {
+        if (!window._loginEnCurso) window.spinnerLogin(false);
     }, 4000);
 
     document.addEventListener('DOMContentLoaded', () => {
-        var preloader = document.getElementById('loginPreloader');
-        if (preloader) preloader.classList.add('fade-out');
+        window.spinnerLogin(false);
 
         // Estamos en el login: limpia cualquier bandera "login reciente" que haya
         // quedado de un intento fallido/cancelado, para que no suprima el spinner
@@ -293,21 +299,21 @@
         try { sessionStorage.setItem('vidalsaJustLoggedIn', '1'); } catch (e) {}
     };
 
-    // ÚNICO sitio que escribe #offlineLoginMsg: muestra el mensaje, apaga el spinner y
-    // rehabilita "Iniciar sesión". Lo usan el aviso "sin conexión", los errores de
-    // credenciales, el login biométrico y —por eso es global— offline-auth.js, que antes
-    // tenía su propia versión a medias del mismo <div>.
+    // ÚNICO sitio que escribe #offlineLoginMsg: muestra el mensaje y apaga el spinner. Lo
+    // usan el aviso "sin conexión", los errores de credenciales, el login biométrico y
+    // —por eso es global— offline-auth.js, que antes tenía su propia versión a medias del
+    // mismo <div>.
     // `rojo`: los avisos de sesión cerrada (?aviso=, abajo) van en rojo; el resto en ámbar.
     // El color se pone en cada llamada porque el <div> es el mismo para todos los mensajes.
     window.mostrarMsgLogin = function (texto, rojo) {
         window._loginEnCurso = false; // el intento terminó: el guard de 4s vuelve a aplicar
-        const pl = document.getElementById('loginPreloader');
-        if (pl) { pl.classList.add('fade-out'); pl.style.display = 'none'; }
+        window.spinnerLogin(false);
         const msg = document.getElementById('offlineLoginMsg');
         if (msg) { msg.textContent = texto; msg.style.color = rojo ? '#dc2626' : '#b45309'; msg.style.display = 'block'; }
-        const btnOn = document.getElementById('btnOnlineLogin');
-        if (btnOn) btnOn.disabled = false;
     };
+    // Sin servidor y con una sesión anterior en este equipo (lo dicen el aviso de la URL y
+    // avisarSinConexion): un solo texto.
+    const TEXTO_SIN_CONEXION = 'Sin conexión.\nEscribe tu clave para entrar con los datos guardados en este equipo.';
     // Avisos que llegan por la URL (?aviso=). Los mandan el middleware ValidarSesionUnica
     // y los handlers de sesión caducada de bootstrap/app.php. Van en la URL y no en flash
     // porque esta pantalla se sirve desde el caché del Service Worker: un flash se
@@ -330,7 +336,7 @@
             volvio_conexion:  'Volvió la conexión.\nInicia sesión con tu clave para seguir.',
             // Se abrió una página interna sin internet y sin haber escrito la clave (la PC reabre
             // las pestañas de ayer): sin la clave no se abren los datos guardados (llave-local.js).
-            sin_conexion:     'Sin conexión.\nEscribe tu clave para entrar con los datos guardados en este equipo.',
+            sin_conexion:     TEXTO_SIN_CONEXION,
             // «Salir» (window.salirDelSistema): solo se dice algo si quedó algo sin subir.
             salida:           ''
         };
@@ -364,18 +370,18 @@
         try { window.history.replaceState({}, '', window.location.pathname); } catch (e) {}
     })();
 
-    // Aviso "sin conexión": evita que el navegador muestre su página de error (la
-    // "boba fea") cuando el login no puede contactar al servidor. Con una sesión anterior
-    // en este equipo se entra igual escribiendo la clave (lo llama la huella, que sí
-    // necesita servidor); sin ella, la primera vez hace falta internet.
     // El servidor contestó, pero con un error (o una página que no es la suya).
     function avisarServidorConError() {
         if (window.OfflineAuth) window.OfflineAuth.descartar();
         mostrarMsgLogin('El servidor no respondió bien. Intenta de nuevo en un momento.');
     }
+    // Aviso "sin conexión": evita que el navegador muestre su página de error (la
+    // "boba fea") cuando el login no puede contactar al servidor. Con una sesión anterior
+    // en este equipo se entra igual escribiendo la clave (lo llama también la huella cuando
+    // no pudo abrir lo guardado); sin ella, la primera vez hace falta internet.
     function avisarSinConexion() {
         mostrarMsgLogin(window.OfflineAuth && window.OfflineAuth.tieneOffline()
-            ? 'Sin conexión.\nEscribe tu clave para entrar con los datos guardados en este equipo.'
+            ? TEXTO_SIN_CONEXION
             : 'Sin conexión.\nPara entrar por primera vez en este equipo hace falta internet.');
     }
 
@@ -486,13 +492,22 @@
     // Del bfcache (Atrás desde el menú) vuelve la página tal como se fue: con el spinner del
     // inicio de sesión que ya terminó y _loginEnCurso puesto, que además frenaba a
     // precalentarCsrf. Se apaga y se pregunta: con la sesión abierta lleva al menú.
+    // El botón de la huella también vuelve como se fue («Verificando...» y sin responder).
     window.addEventListener('pageshow', function (e) {
         if (!e.persisted) return;
         window._loginEnCurso = false;
-        const pl = document.getElementById('loginPreloader');
-        if (pl) { pl.classList.add('fade-out'); pl.style.display = 'none'; }
+        window.spinnerLogin(false);
+        restaurarBotonHuella();
         precalentarCsrf();
     });
+    // Deja el botón de la huella listo para otro intento (tras uno que no acabó en
+    // redirección, o al volver del bfcache).
+    function restaurarBotonHuella() {
+        const btn = document.getElementById('btnBiometricLogin');
+        const label = document.getElementById('bioLabel');
+        if (btn) { btn.style.pointerEvents = ''; btn.style.opacity = ''; }
+        if (label) label.textContent = 'Identificación biométrica';
+    }
 
     // Destino que el servidor devuelve cuando toca cambiar la clave obligatoriamente.
     // Se compara con data.redirect para NO guardar el verificador offline en ese caso:
@@ -514,11 +529,7 @@
             cortarPrecalentar();
             const msgPrev = document.getElementById('offlineLoginMsg');
             if (msgPrev) msgPrev.style.display = 'none';
-            const preloader = document.getElementById('loginPreloader');
-            if (preloader) {
-                preloader.classList.remove('fade-out');
-                preloader.style.display = 'flex';
-            }
+            window.spinnerLogin(true);
 
             // UN solo botón para con y sin internet. Sin servidor (sin red, o el inicio de
             // sesión normal no llega) se entra con lo guardado en el equipo si hubo una
@@ -674,26 +685,23 @@ document.addEventListener('DOMContentLoaded', function() {
         btnBio.style.pointerEvents = 'none';
         btnBio.style.opacity = '0.6';
         if (bioLabel) bioLabel.textContent = 'Verificando...';
+        window.spinnerLogin(true);
 
-        var preloader = document.getElementById('loginPreloader');
-        if (preloader) { preloader.classList.remove('fade-out'); preloader.style.display = 'flex'; }
-
-        // Deja el botón como estaba tras un intento que no acabó en redirección. Estaba
-        // escrito dos veces (éxito-sin-redirect y error); una sola versión evita que se
-        // arreglen por separado y queden distintas.
+        // Tras un intento que no acabó en redirección (éxito sin redirect o error).
         function restaurarBio() {
             window._loginEnCurso = false;
-            if (preloader) preloader.classList.add('fade-out');
-            btnBio.style.pointerEvents = '';
-            btnBio.style.opacity = '';
-            if (bioLabel) bioLabel.textContent = 'Identificación biométrica';
+            window.spinnerLogin(false);
+            restaurarBotonHuella();
         }
 
         // El re-primado del challenge tras cada intento lo maneja el propio
         // módulo VidalsaWebAuthn (dueño único del precache). Sin servidor, la huella se
         // comprueba en el equipo (abre lo guardado con su llave, como la clave sin red).
-        var sinServidor = window.OfflineAuth && window.OfflineAuth.estaSinServidor();
-        (sinServidor ? VidalsaWebAuthn.autenticarSinServidor() : VidalsaWebAuthn.autenticar())
+        // Igual que «Iniciar sesión»: si la pantalla cree que no hay servidor, se vuelve a
+        // preguntar (conServidor contesta al instante si ya lo hay, o si no hay red).
+        var off = window.OfflineAuth;
+        (off ? off.conServidor() : Promise.resolve(true))
+            .then(function (hay) { return hay ? VidalsaWebAuthn.autenticar() : VidalsaWebAuthn.autenticarSinServidor(); })
             .then(function(data) {
                 if (data && data.sinServidor) {
                     window.OfflineAuth.adentroSinServidor();

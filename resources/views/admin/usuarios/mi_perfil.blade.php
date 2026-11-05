@@ -158,8 +158,10 @@
                     if (response.ok && data.success) {
                         // Esta sesión sigue abierta, pero el candado para entrar sin internet
                         // (offline-auth.js) se hizo con la clave vieja: fuera. Se rehace solo
-                        // la próxima vez que se entre con la nueva.
+                        // la próxima vez que se entre con la nueva. Lo mismo la huella sin
+                        // internet: cambiar la clave borra las huellas en el servidor.
                         try { localStorage.removeItem('vidalsa_offline_auth'); } catch (e) { /* sin almacenamiento */ }
+                        if (window.LlaveLocal) window.LlaveLocal.olvidarHuellas();
                         frmClave.reset();
                         const msgEl = document.getElementById('pw-strength-msg');
                         if (msgEl) { msgEl.textContent = ''; }

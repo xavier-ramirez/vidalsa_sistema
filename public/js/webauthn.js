@@ -160,7 +160,11 @@ const VidalsaWebAuthn = (() => {
             pubKeyCredParams:       options.pubKeyCredParams,
             timeout:                options.timeout,
             authenticatorSelection: options.authenticatorSelection,
-            attestation:            options.attestation
+            attestation:            options.attestation,
+            // PRF desde el registro: varios lectores (los de llave de seguridad y Windows
+            // Hello) solo la dan después si la credencial nació con ella. Sin PRF no pasa
+            // nada: la huella sigue entrando con servidor.
+            extensions:             { prf: {} }
         };
 
         let credential;
@@ -259,9 +263,14 @@ const VidalsaWebAuthn = (() => {
         } catch {
             throw new Error('SIN_CONEXION');
         }
-        // Sesión/CSRF caducada o HTML del login servido en vez de JSON → recargar.
+        // Sesión/CSRF caducada o HTML del login servido en vez de JSON → recargar, pero
+        // solo si lo pidió el usuario: la precarga de fondo recargaba el login mientras
+        // escribía la clave (un proxy con su página de error al desplegar, un portal wifi).
         // OJO: se comprueba ANTES de res.json() para no parsear "<!DOCTYPE...".
-        if (esRespuestaDeSesion(resOpt)) { window.location.reload(); return null; }
+        if (esRespuestaDeSesion(resOpt)) {
+            if (!silencioso) window.location.reload();
+            return null;
+        }
         if (resOpt.status === 404) {
             // Borrar aquí es IRREVERSIBLE: deja al usuario sin huella y obligado a
             // registrarla de cero. Así que solo se borra cuando se cumplen las DOS cosas:

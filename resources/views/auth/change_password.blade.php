@@ -153,7 +153,9 @@
     </script>
     {{-- Solo por la API window.OfflineAuth (esta vista no tiene formulario de login, así
          que el script sale enseguida): al cambiar la clave hay que borrar el verificador
-         de acceso sin conexión, que guarda un hash de la clave ANTERIOR. --}}
+         de acceso sin conexión, que guarda un hash de la clave ANTERIOR. llave-local.js va
+         antes: olvidar() también tira la huella sin internet (LlaveLocal.olvidarHuellas). --}}
+    <script src="{{ asset('js/offline/llave-local.js') }}?v={{ @filemtime(public_path('js/offline/llave-local.js')) }}" defer></script>
     <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
 </body>
 </html>
