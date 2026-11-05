@@ -4420,7 +4420,12 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     line-height: 1.3 !important;
     border: none !important;
 }
+/* width/height auto: el buscador es una .leaflet-bar, y en pantalla táctil Leaflet pone sus enlaces
+   en 30×30 (.leaflet-touch .leaflet-bar a, los botones +/−). En el teléfono cada sugerencia salía
+   en una columna de 30 px cortada ("Matu / rín, / Cort…"). */
 .leaflet-control-geocoder-alternatives li a {
+    width: auto !important;
+    height: auto !important;
     padding: 7px 12px !important;
     font-size: 13px !important;
     font-weight: 500 !important;
@@ -4599,15 +4604,14 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     /* Desplegado: la BARRA toma un ANCHO FIJO (width, no solo max-width: si no, se encogía a
        su contenido y quedaba comprimida) = pantalla menos todo lo que comparte esa primera
        fila. A la IZQUIERDA el cuadrado de la lupa, que sigue al lado y sirve para volver a
-       recogerla: 10 (su margen) + 34 (botón) + 10 (margen de la barra). A la DERECHA el
-       cuadrado de capas, que está a la misma altura: 34 + 10 de margen, más 10 de aire para
-       que no se toquen. Total 108 px — sin descontar la parte derecha, en una pantalla de
-       412 px la barra se metía debajo del botón de capas. border-box para que su padding no
-       la desborde. El input la llena y deja sitio a la "X". La lista va anclada left/right:0. */
+       recogerla: 10 (su margen) + 34 (botón) + 10 (margen de la barra). A la DERECHA solo 10
+       de aire: el botón de capas en teléfono está ABAJO (mapa_index.js, capasAbajo). Total
+       64 px. border-box para que su padding no la desborde. El input la llena y deja sitio a
+       la "X". La lista va anclada left/right:0. */
     #mapa-leaflet.mapa-buscar-abierto .leaflet-control-geocoder {
         display: flex !important;
-        width: calc(100vw - 108px) !important;
-        max-width: calc(100vw - 108px) !important;
+        width: calc(100vw - 64px) !important;
+        max-width: calc(100vw - 64px) !important;
         box-sizing: border-box !important;
     }
     .leaflet-control-geocoder-form { min-width: 0 !important; }
@@ -5295,7 +5299,7 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     #mapa-leaflet .mapa-buscar-toggle { display: flex; }
 }
 
-/* Caja de capas (ARRIBA-derecha): el botón "Capas" y, al tocarlo (.abierto), las miniaturas en
+/* Caja de capas (ARRIBA-derecha; en teléfono ABAJO-derecha, ver .abajo): el botón "Capas" y, al tocarlo (.abierto), las miniaturas en
    FILA a su IZQUIERDA. row-reverse en las dos: el botón queda a la derecha y la primera capa
    (Equipos) pegada a él. Recogida por defecto: sueltas tapaban mapa.
    align-items: flex-start porque ahora cuelga de arriba — abajo-derecha se alineaba al pie. */
@@ -5328,7 +5332,7 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 .mapa-capas-toggle.activo { border-color: #0067b1; color: #0067b1; box-shadow: 0 0 0 2px rgba(0, 103, 177, 0.35), 0 1px 4px rgba(0, 0, 0, 0.35); }
 .mapa-capas-toggle.activo .mapa-capas-toggle-lbl { background: #0067b1; }
 
-/* Botones MINIATURA de capas (en la caja de abajo-derecha): "Equipos", "Municipios", "Faja" y "Bloques". Sustituyen al
+/* Botones MINIATURA de capas (en la caja de capas): "Equipos", "Municipios", "Faja" y "Bloques". Sustituyen al
    control de capas de Leaflet (icono gris que al pasar el mouse se abría en un checkbox): cada
    uno enseña un mini mapa de Venezuela con lo que enciende. Las imágenes están pre-generadas
    (tools/generar_miniaturas_mapa.php), así los botones no descargan los geojson pesados. */
@@ -5381,7 +5385,14 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 @media (max-width: 1024px) and (min-height: 501px) {
     .mapa-capas-box, .mapa-capas-panel { flex-direction: column; gap: 6px; }
     .mapa-capas-box.abierto .mapa-capas-panel { animation-name: mapaCapasBaja; }
+    /* Teléfono: la caja va ABAJO-derecha (.abajo, la pone mapa_index.js): el botón queda al pie y
+       las capas SUBEN hacia el mapa libre. Acostado (poco alto) sigue en fila, a su izquierda. */
+    .mapa-capas-box.abajo, .mapa-capas-box.abajo .mapa-capas-panel { flex-direction: column-reverse; }
+    .mapa-capas-box.abajo.abierto .mapa-capas-panel { animation-name: mapaCapasSube; }
 }
+@keyframes mapaCapasSube { from { opacity: 0; transform: translateY(8px); } }
+/* Abajo, lejos de la barra de gestos del teléfono (safe-area). */
+#mapa-leaflet .leaflet-bottom .mapa-capas-box.abajo { margin-bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
 /* Teléfono: todo algo más chico. */
 @media (max-width: 640px) {
     .mapa-mini-capa, .mapa-capas-toggle { width: 54px; height: 51px; }

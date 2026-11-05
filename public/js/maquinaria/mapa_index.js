@@ -898,7 +898,7 @@
             _btnMuni.classList.toggle('activo', hayMunicipiosVisibles());
             _btnMuni.title = todosMuniOn ? 'Ocultar los municipios' : 'Ver TODOS los municipios (colores por municipio)';
         }
-        // ── CAJA DE CAPAS (arriba-derecha) ────────────────────────────────────────────
+        // ── CAJA DE CAPAS (arriba-derecha; en teléfono, abajo-derecha) ────────────────
         // UN solo botón "Capas" (icono + rótulo) que agrupa los botones-miniatura (Equipos,
         // Municipios, Faja, Bloques), en PC y en teléfono por igual: al tocarlo se despliegan
         // (en PC en fila hacia la izquierda, en teléfono hacia abajo), cada uno marcado si
@@ -907,10 +907,17 @@
         // distinguía (pedido del cliente, 29-09-2026). Arriba-derecha quedó libre al mudarse el
         // panel de equipos a su columna, y es la esquina más despejada: arriba-izquierda está el
         // buscador con sus botones y abajo-izquierda, las leyendas.
+        // En TELÉFONO (el diseño de <=900 px del módulo, ver eqEsTelefono) va ABAJO-derecha, al
+        // alcance del pulgar y sin apretar al buscador (pedido del cliente, 04-11-2026): ahí no
+        // queda nada, la escala y la brújula no salen en teléfono. Las miniaturas suben (.abajo).
+        var capasAbajo = window.matchMedia('(max-width: 900px)');
         var capasBox, capasPanel; // los rellena onAdd, síncrono en el addControl de abajo
         var CapasCtrl = L.Control.extend({
-            options: { position: 'topright' },
+            options: { position: capasAbajo.matches ? 'bottomright' : 'topright' },
             onAdd: function () {
+                // setPosition (girar el teléfono) quita y vuelve a poner el control: se devuelve la
+                // MISMA caja, que ya tiene las miniaturas dentro.
+                if (capasBox) return capasBox;
                 capasBox = L.DomUtil.create('div', 'mapa-capas-box');
                 var toggle = L.DomUtil.create('button', 'mapa-capas-toggle', capasBox);
                 toggle.type = 'button';
@@ -930,7 +937,15 @@
                 return capasBox;
             }
         });
-        map.addControl(new CapasCtrl()); // deja listos capasBox/capasPanel (onAdd es síncrono)
+        var capasCtrl = new CapasCtrl();
+        map.addControl(capasCtrl); // deja listos capasBox/capasPanel (onAdd es síncrono)
+        function ubicarCapas() {
+            var pos = capasAbajo.matches ? 'bottomright' : 'topright';
+            if (capasCtrl.getPosition() !== pos) capasCtrl.setPosition(pos);
+            capasBox.classList.toggle('abajo', pos === 'bottomright');
+        }
+        ubicarCapas();
+        capasAbajo.addEventListener('change', ubicarCapas);
         // Cierra la caja de capas. La usan el clic en el mapa (tocar fuera la recoge) y el
         // molde de las miniaturas (elegir una capa tambien la recoge).
         function cerrarCapas() { capasBox.classList.remove('abierto'); }
@@ -1305,12 +1320,19 @@
         function resCoord(c) { return [{ name: '📍 ' + c.lat.toFixed(5) + ', ' + c.lng.toFixed(5), center: c, bbox: c.toBounds(1200) }]; }
         // Deja SOLO resultados de Venezuela (countrycode 'VE'). La bbox ya recorta en el
         // servidor, pero puede colar bordes de Colombia/Brasil/Guyana; esto los descarta.
-        // Un resultado sin countrycode se conserva (por si Photon lo omite). Máx 8 tras filtrar.
+        // Un resultado sin countrycode se conserva (por si Photon lo omite). Tampoco se repite un
+        // nombre que ya salió (Photon trae caseríos distintos con el mismo rótulo y en la lista no se
+        // distinguen): queda el primero, el mejor puesto. Máx 8 tras filtrar.
         function soloVenezuela(results) {
             if (!results || !results.length) return results || [];
+            var vistos = {};
             return results.filter(function (r) {
                 var cc = r && r.properties && r.properties.countrycode;
-                return !cc || cc === 'VE';
+                if (cc && cc !== 'VE') return false;
+                var nom = String((r && r.name) || '').trim().toLowerCase();
+                if (vistos[nom]) return false;
+                vistos[nom] = true;
+                return true;
             }).slice(0, 8);
         }
         // Sesga la búsqueda hacia DONDE ESTÁ MIRANDO EL MAPA (como Google Maps): antes lat/lon
@@ -1363,7 +1385,11 @@
         }
         // Y además ordena los resultados por CERCANÍA a ese centro: el sesgo del servidor solo
         // desempata, esto garantiza que "Arecuna 2 / Arecuna 3" salgan primero si estás encima.
+        // Solo ACERCADO (la misma vara que sesgarPorMapa): viendo el país, el centro del mapa no
+        // dice nada y ordenar por él ponía caseríos de Miranda por delante de la ciudad de Maturín;
+        // ahí manda el orden de Photon, que pone primero lo importante.
         function porCercania(results, centro) {
+            if (vistaLocalKm() > BUSQUEDA_LOCAL_KM) return results || [];
             return (results || []).slice().sort(function (a, b) {
                 var ca = a && a.center, cb2 = b && b.center;
                 if (!ca || !cb2) return 0;
@@ -1711,6 +1737,7 @@
             document.removeEventListener('fullscreenchange', onFsChange);
             document.removeEventListener('webkitfullscreenchange', onFsChange);
             window.removeEventListener('orientationchange', onOrientacion);
+            capasAbajo.removeEventListener('change', ubicarCapas);
             if (obsTam) obsTam.disconnect();
             // Salir con el diálogo de "Descargar imagen" abierto dejaba sus listeners de
             // scroll/resize en window y su marco y barra en la página.
