@@ -702,19 +702,30 @@
     // Va a la bandeja con el endpoint de siempre; la tabla lo muestra al instante (encima())
     // y sube al volver la red. Lo llama changeStatusLite (equipos_index.js) si sinConexion().
     // La movilización y los reportes de falla usan sus modales de siempre, que también
-    // guardan en la bandeja (openBulkModal, falla_create_modal.js).
+    // guardan en la bandeja, con spinner (eqGuardarSinRed: openBulkModal, falla_create_modal.js).
     // Solo cambian las filas distintas (eqRepintarDesdeCopia): sin rehacer la tabla ni volver
     // a pedir las fotos. Sin esperar a la copia: quien llama ya esperó (repintar) o pinta encima
     // lo guardado (eqAplicarYa).
     function repintarYa() {
-        if (document.getElementById('equiposTableBody') && window.eqRepintarDesdeCopia) window.eqRepintarDesdeCopia(true);
+        if (document.getElementById('equiposTableBody') && window.eqRepintarDesdeCopia) return window.eqRepintarDesdeCopia(true);
     }
     // Cambió la bandeja. Si algo SUBIÓ, la copia todavía no lo trae: repintar ya devolvía la fila
     // al estado viejo hasta la próxima pregunta. Se espera a que llegue (alDia; sin nada que
     // esperar, al instante).
+    let repintandoBandeja = Promise.resolve();
     function repintar() {
-        window.CopiaLocal.alDia('equipos').then(repintarYa);
+        repintandoBandeja = window.CopiaLocal.alDia('equipos').then(repintarYa);
     }
+
+    // Guardar sin red desde un modal, con el spinner de siempre (como con red): se va cuando lo
+    // guardado está en la bandeja y la fila ya lo muestra. Bandeja.enviar avisa ('bandeja') antes
+    // de resolver, así que se espera ESE repintado, no se lanza otro. Fuera de Equipos no hay
+    // fila: el spinner se va al guardar.
+    window.eqGuardarSinRed = function (url, opciones, meta) {
+        return window.preloaderMientras(window.Bandeja.enviar(url, opciones, meta)
+            .then(() => repintandoBandeja)
+            .catch((err) => console.error('[Guardado sin red]', err)));
+    };
 
     // Lo guardado CON conexión se ve en la fila al instante, pintado igual que sin red, en vez
     // de esperar (con spinner) a que la copia lo traiga. Se quita cuando la copia ya está al día:

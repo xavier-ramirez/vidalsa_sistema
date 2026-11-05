@@ -88,9 +88,9 @@ window.hidePreloader = function (force) {
     _preloaderQuitar();
 };
 
-// Spinner mientras dura `promesa`; se va tras el paint (doble rAF). Lo usan los modales que
-// guardan SIN red (bandeja + repintado de la fila): el usuario ve lo mismo que con red, solo
-// que dura lo que tarda el equipo y no el servidor. Si entretanto un hidePreloader(true)
+// Spinner mientras dura `promesa`; se va tras el paint (doble rAF). Lo usa eqGuardarSinRed
+// (equipos_local.js): sin red se ve lo mismo que con red, solo que dura lo que tarda el
+// equipo y no el servidor. Si entretanto un hidePreloader(true)
 // reinició el contador, esta referencia ya no existe y no se devuelve.
 window.preloaderMientras = function (promesa) {
     window.showPreloader();
