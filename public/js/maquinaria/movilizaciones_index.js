@@ -133,12 +133,6 @@ function _mvFoto(fotoId) {
         : '<div class="table-image-wrapper placeholder"><span class="material-icons">image_not_supported</span></div>';
 }
 
-// Marca y modelo bajo los datos de la fila (equipo o auxiliar); sin ninguno de los dos, nada.
-function _mvMarcaModelo(marca, modelo) {
-    const texto = [marca, modelo].filter(Boolean).join(' ');
-    return texto ? '<div style="color: #475569; font-size: 12.5px; text-transform: uppercase;">' + window.escapeHtml(texto) + '</div>' : '';
-}
-
 function _mvFila(m, superAdmin) {
     const h = window.escapeHtml;
     const e = m.equipo, a = m.aux;
@@ -146,19 +140,22 @@ function _mvFila(m, superAdmin) {
     const dd = function (n) { return String(n).padStart(2, '0'); };
     const dia = fecha ? dd(fecha.getDate()) + '/' + dd(fecha.getMonth() + 1) + '/' + fecha.getFullYear() : '--';
     const hora = fecha ? dd(fecha.getHours() % 12 || 12) + ':' + dd(fecha.getMinutes()) + ' ' + (fecha.getHours() < 12 ? 'AM' : 'PM') : '';
-    const datos = function (tipo, lineas) {
+    // Tipo y, justo debajo, marca y modelo (sin ninguno de los dos, ese renglón no va); luego
+    // las líneas propias de equipo o auxiliar.
+    const datos = function (tipo, marca, modelo, lineas) {
+        const marcaModelo = [marca, modelo].filter(Boolean).join(' ');
         return '<div style="display: flex; flex-direction: column; flex: 1; min-width: 0; word-break: break-word; overflow-wrap: break-word;">'
-            + '<span style="font-size: 13px; color: #718096; font-weight: 700; text-transform: uppercase;">' + h(tipo) + '</span>' + lineas + '</div>';
+            + '<span style="font-size: 13px; color: #718096; font-weight: 700; text-transform: uppercase;">' + h(tipo) + '</span>'
+            + (marcaModelo ? '<div style="color: #475569; font-size: 12.5px; text-transform: uppercase;">' + h(marcaModelo) + '</div>' : '')
+            + lineas + '</div>';
     };
 
     const equipo = a
-        ? _mvFoto(a.fotoId) + datos(a.tipoLabel || 'AUXILIAR',
-            '<div style="color: #4a5568; font-size: 13px;"><strong>S:</strong> ' + h(a.serial || '—') + '</div>'
-            + _mvMarcaModelo(a.marca, a.modelo))
-        : _mvFoto(e && e.fotoId) + datos((e && e.tipo) || 'N/A',
+        ? _mvFoto(a.fotoId) + datos(a.tipoLabel || 'AUXILIAR', a.marca, a.modelo,
+            '<div style="color: #4a5568; font-size: 13px;"><strong>S:</strong> ' + h(a.serial || '—') + '</div>')
+        : _mvFoto(e && e.fotoId) + datos((e && e.tipo) || 'N/A', e && e.marca, e && e.modelo,
             '<div style="color: #4a5568; font-size: 13px;"><strong>S:</strong> ' + h((e && e.serial) || 'S/S') + '</div>'
-            + '<div style="color: var(--maquinaria-blue); font-size: 13px;"><strong>P:</strong> ' + h((e && e.placa) || 'S/P') + '</div>'
-            + _mvMarcaModelo(e && e.marca, e && e.modelo));
+            + '<div style="color: var(--maquinaria-blue); font-size: 13px;"><strong>P:</strong> ' + h((e && e.placa) || 'S/P') + '</div>');
 
     const tramo = function (etiqueta, color, nombre, peso, colorNombre) {
         return '<div class="mv-trayecto-item" style="display: flex; flex-direction: column; align-items: center; max-width: 160px; text-align: center;">'
