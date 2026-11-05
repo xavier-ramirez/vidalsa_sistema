@@ -18,7 +18,9 @@
  *   Bandeja.tomarNumeroNota() → el siguiente número de Nota apartado para este equipo (o null).
  *   Bandeja.numerosLibres() → cuántos números de Nota apartados le quedan a este equipo.
  *   Bandeja.apartarNumeros() → pide al servidor el bloque de números (con conexión).
- *   Evento 'bandeja' en window cada vez que cambia lo pendiente.
+ *   Evento 'bandeja' en window cada vez que cambia lo pendiente, y 'bandeja-subida' por cada
+ *   cosa que el servidor aceptó ({ tipo, datos }): la copia todavía no la trae, y la pantalla
+ *   la sigue poniendo encima hasta que llegue.
  *
  * Lo que el servidor rechaza (sin stock, falla abierta, sin permiso…) se queda en ROJO con su
  * motivo: no se vuelve a mandar solo. Desde el panel se puede reintentar o descartar. Un 5xx,
@@ -221,6 +223,7 @@
             if (r.ok) {
                 await borrarItem(it.clave);
                 subidos++;
+                window.dispatchEvent(new CustomEvent('bandeja-subida', { detail: { tipo: it.tipo, datos: it.datos } }));
                 if (b && b.nota_url && window.descargarPdf) {
                     window.descargarPdf(b.nota_url, b.numero_nota ? 'Nota_' + b.numero_nota + '.pdf' : 'nota_entrega.pdf');
                 }

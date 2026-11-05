@@ -751,4 +751,12 @@
 
     // Guardar, subir o descartar algo cambia lo que va encima de la copia: se repinta.
     window.addEventListener('bandeja', repintar);
+    // Lo que la bandeja acaba de SUBIR sale de ella, pero la copia todavía no lo trae: se pone
+    // encima como lo guardado con red, hasta que llega. Al abrir la app con red la bandeja sube
+    // enseguida, y la tabla se pintaba con lo de antes hasta la siguiente pregunta: con la red
+    // lenta del teléfono, la movilización hecha sin internet parecía no haberse hecho nunca.
+    window.addEventListener('bandeja-subida', (e) => {
+        // (Lo que no es de Equipos, como un ajuste de Almacén, encima() lo ignora.)
+        if (e.detail && e.detail.datos) window.eqAplicarYa(e.detail.tipo, e.detail.datos);
+    });
 })();
