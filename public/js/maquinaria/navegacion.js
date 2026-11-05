@@ -1201,13 +1201,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 (window.matchMedia('(max-width: 768px)').matches ? 'Hay cambios nuevos' : 'Hay cambios nuevos en el sistema') +
             '</span>' +
             '<button type="button" id="avisoVersionRecargar" style="font:inherit;font-weight:700;cursor:pointer;' +
-                'background:#0067b1;color:#fff;border:none;border-radius:8px;padding:6px 12px;">Actualizar</button>' +
-            '<button type="button" id="avisoVersionCerrar" aria-label="Ahora no" style="font:inherit;cursor:pointer;' +
-                'background:none;border:none;color:#cbd5e1;display:flex;padding:2px;">' +
-                '<i class="material-icons" style="font-size:18px;">close</i></button>';
+                'background:#0067b1;color:#fff;border:none;border-radius:8px;padding:6px 12px;">Actualizar</button>';
         document.body.appendChild(caja);
         document.getElementById('avisoVersionRecargar').onclick = actualizar;
-        document.getElementById('avisoVersionCerrar').onclick = function () { caja.remove(); };
     }
 
     // "Actualizar": el aviso "Actualizando aplicación…" sale en el acto (pwa-update-overlay.js) y
