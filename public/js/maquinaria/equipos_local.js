@@ -575,7 +575,10 @@
         pendientes.forEach((it) => {
             const p = it.datos;
             if (it.tipo === 'estado') {
-                cambios.set(Number(p.id_equipo), Object.assign(cambios.get(Number(p.id_equipo)) || {}, { estado: p.status }));
+                // Cerrar el reporte sin red (falla_create_modal.js) quita su aviso de la fila.
+                const c = { estado: p.status };
+                if (p.falla === 'cerrada') c.falla = null;
+                cambios.set(Number(p.id_equipo), Object.assign(cambios.get(Number(p.id_equipo)) || {}, c));
             } else if (it.tipo === 'movilizar') {
                 const destino = ctx.frentes.get(Number(p.id_frente_destino));
                 (p.ids || []).forEach((id) => cambios.set(Number(id), Object.assign(cambios.get(Number(id)) || {}, {
@@ -688,10 +691,11 @@
 
     window.EquiposLocal = { consultar, idsExportar, opcionesDocumento, hayFiltro, sinConexion };
 
-    // ── Sin conexión: cambio de estado y movilización ─────────────────────────
-    // Van a la bandeja con los mismos endpoints de siempre; la tabla los muestra al instante
-    // (encima()) y suben al volver la red. Los llaman changeStatusLite y openBulkModal
-    // (equipos_index.js) si sinConexion().
+    // ── Sin conexión: cambio de estado ────────────────────────────────────────
+    // Va a la bandeja con el endpoint de siempre; la tabla lo muestra al instante (encima())
+    // y sube al volver la red. Lo llama changeStatusLite (equipos_index.js) si sinConexion().
+    // La movilización y los reportes de falla usan sus modales de siempre, que también
+    // guardan en la bandeja (openBulkModal, falla_create_modal.js).
     function repintar() {
         if (document.getElementById('equiposTableBody') && window.loadEquipos) window.loadEquipos(null, true);
     }
@@ -702,67 +706,6 @@
             tipo: 'estado', datos: { id_equipo: Number(id), status: status },
         });
         window.toast('Cambio guardado. Se subirá al volver internet.', 'success');
-    };
-
-    window.abrirModalMovilizarOffline = function (seleccion) {
-        if (!seleccion || !seleccion.length) { window.toast('Selecciona equipos primero.', 'error'); return; }
-        document.querySelectorAll('.eq-off-mov-modal').forEach((m) => m.remove());
-        window.CopiaLocal.usar('equipos').then((vista) => {
-            const frentes = vista.catalogo('frentes').filter((fr) => fr.estatus === 'ACTIVO');
-            let elegido = null;
-            const overlay = document.createElement('div');
-            overlay.className = 'eq-off-mov-modal';
-            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10001;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(3px);';
-            overlay.innerHTML = '<div style="background:white;border-radius:16px;width:90%;max-width:440px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.3);">'
-                + '<div style="background:#1e293b;padding:16px;color:white;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;">'
-                + '<i class="material-icons" style="color:#f59e0b;font-size:20px;">cloud_off</i><h2 style="margin:0;font-size:15px;font-weight:700;">Movilizar sin conexión</h2>'
-                + '<button type="button" data-cerrar style="position:absolute;right:12px;background:transparent;border:none;color:white;cursor:pointer;opacity:.8;"><i class="material-icons">close</i></button></div>'
-                + '<div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">'
-                + '<div style="font-size:13px;color:#475569;"><strong>' + seleccion.length + '</strong> equipo(s) a un frente <strong>existente</strong>. Se registra al volver internet.</div>'
-                + '<div><label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">Frente de destino *</label>'
-                + '<input type="text" data-buscar placeholder="Buscar frente..." autocomplete="off" style="width:100%;box-sizing:border-box;border:2px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:14px;outline:none;">'
-                + '<div data-lista style="margin-top:6px;max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;"></div></div>'
-                + '<div data-elegido style="font-size:12.5px;color:#0067b1;font-weight:700;min-height:16px;"></div></div>'
-                + '<div style="padding:14px 20px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #f1f5f9;">'
-                + '<button type="button" data-cerrar class="btn-primary-maquinaria btn-secondary">Cancelar</button>'
-                + '<button type="button" data-ok class="btn-primary-maquinaria" disabled style="opacity:.5;">Movilizar</button></div></div>';
-            document.body.appendChild(overlay);
-
-            const lista = overlay.querySelector('[data-lista]');
-            const ok = overlay.querySelector('[data-ok]');
-            const pintarLista = (q) => {
-                const quedan = frentes.filter((fr) => !q || como(fr.nombre, q));
-                lista.innerHTML = quedan.length
-                    ? quedan.map((fr) => '<div data-id="' + fr.id + '" style="padding:10px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f1f5f9;">' + h(fr.nombre) + '</div>').join('')
-                    : '<div style="padding:12px;text-align:center;color:#94a3b8;font-size:12px;">Sin frentes en la copia local.</div>';
-            };
-            pintarLista('');
-            overlay.querySelector('[data-buscar]').addEventListener('input', (ev) => pintarLista(txt(ev.target.value)));
-            lista.addEventListener('click', (ev) => {
-                const op = ev.target.closest('[data-id]');
-                if (!op) return;
-                elegido = frentes.find((fr) => fr.id === Number(op.dataset.id));
-                overlay.querySelector('[data-elegido]').textContent = 'Destino: ' + elegido.nombre;
-                ok.disabled = false; ok.style.opacity = '1';
-            });
-            // Un clic en el fondo NO lo cierra: solo la X o Cancelar, igual que en línea.
-            overlay.querySelectorAll('[data-cerrar]').forEach((b) => { b.onclick = () => overlay.remove(); });
-            ok.onclick = () => {
-                if (!elegido) return;
-                const ids = seleccion.map((s) => Number(s.id));
-                window.Bandeja.enviar('/admin/equipos/bulk-mobilize', {
-                    method: 'POST', body: { ids: ids, destination: elegido.nombre, generar_pdf: false },
-                }, {
-                    titulo: 'Movilizar ' + ids.length + ' equipo(s) → ' + elegido.nombre,
-                    tipo: 'movilizar', datos: { ids: ids, id_frente_destino: elegido.id },
-                });
-                window.selectedEquipos = {};
-                const barra = document.getElementById('bulkFloatingBar');
-                if (barra) barra.classList.remove('active');
-                window.toast('Movilización guardada. Se registra al volver internet.', 'success');
-                overlay.remove();
-            };
-        });
     };
 
     // Guardar, subir o descartar algo cambia lo que va encima de la copia: se repinta.

@@ -329,18 +329,32 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     const oldStatus = triggerEl.dataset.status;
     if (oldStatus === newStatus) return;
 
-    // ── Sin conexión: va a la bandeja y la tabla lo muestra al instante
-    // (equipos_local.js · eqOffSetEstado). ──
+    // ── Sin conexión: los MISMOS modales que con internet (reporte de falla / cierre);
+    // lo que guardan va a la bandeja (falla_create_modal.js) y la tabla lo muestra al
+    // instante. El resto de los cambios, directo a la bandeja (equipos_local.js · eqOffSetEstado). ──
     if (window.EquiposLocal.sinConexion()) {
-        // INOPERATIVO y EN MANTENIMIENTO exigen crear un reporte de falla (modal no
-        // disponible offline).
-        if (newStatus === 'INOPERATIVO' || newStatus === 'EN MANTENIMIENTO') {
-            window.toast('Ese estado requiere crear un reporte de falla; hazlo con internet.', 'error');
+        const label = triggerEl.dataset.label || ('Equipo #' + id);
+        // Con reporte ABIERTO, cualquier cambio pasa por cerrarlo (el servidor responde 409).
+        if (oldStatus === 'INOPERATIVO' || oldStatus === 'EN MANTENIMIENTO') {
+            if (!triggerEl.dataset.fallaId) {
+                window.toast('El reporte de falla de este equipo todavía no subió: ciérralo al volver internet.', 'error');
+                return;
+            }
+            window.flAbrirCierre({
+                id:      triggerEl.dataset.fallaId,
+                codigo:  triggerEl.dataset.fallaCodigo || '',
+                tipo:    triggerEl.dataset.fallaTipo || '',
+                equipo:  triggerEl.dataset.fallaEquipo || '',
+                detalle: triggerEl.dataset.fallaDetalle || '',
+                activo:  { tipo: 'equipo', id: Number(id), label: label },
+            });
             return;
         }
-        if (typeof window.eqOffSetEstado === 'function') {
-            window.eqOffSetEstado(Number(id), newStatus, triggerEl.dataset.label);
+        if (newStatus === 'INOPERATIVO' || newStatus === 'EN MANTENIMIENTO') {
+            window.flOpenForActivo('equipo', id, label, null, newStatus);
+            return;
         }
+        window.eqOffSetEstado(Number(id), newStatus, label);
         return;
     }
 
@@ -2232,16 +2246,11 @@ window.openBulkModal = function (event) {
         return;
     }
 
-    // ── Sin conexión: el modal online crea frentes, pide ubicación y genera acta
-    // (todo en el servidor). Sin internet se abre un modal SIMPLE que solo mueve a un
-    // frente EXISTENTE y lo deja en la bandeja; se registra al volver internet.
-    if (window.EquiposLocal.sinConexion()) {
-        // Sin internet solo van equipos.
-        if (auxSel.length) {
-            window.toast('Los auxiliares se movilizan con conexión. Quítalos de la selección para seguir sin internet.', 'error');
-            return;
-        }
-        window.abrirModalMovilizarOffline(Object.values(window.selectedEquipos));
+    // ── Sin conexión: el MISMO modal. Lo que necesita al servidor (frente nuevo, acta PDF)
+    // no se ofrece; la movilización va a la bandeja y se registra al volver internet.
+    const sinRed = window.EquiposLocal.sinConexion();
+    if (sinRed && auxSel.length) {
+        window.toast('Los auxiliares se movilizan con conexión. Quítalos de la selección para seguir sin internet.', 'error');
         return;
     }
 
@@ -2267,9 +2276,19 @@ window.openBulkModal = function (event) {
     // Refresco async: si hay frentes creados DESPUÉS de cargar la página, se suman
     // al datalist y a frentesData en cuanto respondan — la lista del buscador se
     // repinta sola en el próximo input/focus del usuario.
-    window.refrescarFrentesMovilizacion(function (nuevos) {
-        nuevos.forEach(function (f) { frentesData.push(f); });
-    });
+    // Sin red, los que falten salen de la copia local.
+    if (sinRed) {
+        window.CopiaLocal.usar('equipos').then(function (vista) {
+            const ids = new Set(frentesData.map((f) => String(f.id)));
+            vista.catalogo('frentes').forEach(function (fr) {
+                if (fr.estatus === 'ACTIVO' && !ids.has(String(fr.id))) frentesData.push({ nombre: fr.nombre, id: String(fr.id), ubicacion: '' });
+            });
+        });
+    } else {
+        window.refrescarFrentesMovilizacion(function (nuevos) {
+            nuevos.forEach(function (f) { frentesData.push(f); });
+        });
+    }
 
     // 5. Create Overlay
     const overlay = document.createElement("div");
@@ -2346,9 +2365,9 @@ window.openBulkModal = function (event) {
                 <input type="hidden" id="bm-frente-value">
             </div>
             <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <input type="checkbox" id="bm-generar-pdf" style="width: 16px; height: 16px; cursor: pointer; accent-color: #1e293b;">
-                <label for="bm-generar-pdf" style="font-size: 13px; font-weight: 600; color: #475569; cursor: pointer; user-select: none; margin: 0;">
-                    Acta de Traslado en formato PDF
+                <input type="checkbox" id="bm-generar-pdf" ${sinRed ? 'disabled' : ''} style="width: 16px; height: 16px; cursor: ${sinRed ? 'not-allowed' : 'pointer'}; accent-color: #1e293b;">
+                <label for="bm-generar-pdf" style="font-size: 13px; font-weight: 600; color: ${sinRed ? '#94a3b8' : '#475569'}; cursor: ${sinRed ? 'not-allowed' : 'pointer'}; user-select: none; margin: 0;">
+                    Acta de Traslado en formato PDF${sinRed ? ' (requiere conexión)' : ''}
                 </label>
             </div>
         </div>
@@ -2458,6 +2477,27 @@ window.openBulkModal = function (event) {
         const matchedFrente = frentesData.find(f => (f.nombre || '').toUpperCase() === destUpper);
         const isNewFrente = !matchedFrente;
         const needsUbicacion = isNewFrente || !matchedFrente.ubicacion;
+
+        // Sin red: solo a un frente que ya existe (crearlo lo hace el servidor), sin acta.
+        // Va a la bandeja con el mismo endpoint y la tabla lo muestra al instante.
+        if (window.EquiposLocal.sinConexion()) {
+            if (isNewFrente || !matchedFrente.id) {
+                inputBox.style.borderColor = "#ef4444";
+                window.toast('Sin conexión solo se puede movilizar a un frente ya registrado. Elígelo de la lista.', 'error');
+                return;
+            }
+            const idsOff = Object.keys(window.selectedEquipos).map(Number);
+            window.Bandeja.enviar('/admin/equipos/bulk-mobilize', {
+                method: 'POST', body: { ids: idsOff, destination: matchedFrente.nombre, generar_pdf: false },
+            }, {
+                titulo: 'Movilizar ' + idsOff.length + ' equipo(s) → ' + matchedFrente.nombre,
+                tipo: 'movilizar', datos: { ids: idsOff, id_frente_destino: Number(matchedFrente.id) },
+            });
+            _closeModal();
+            window.clearSelection();
+            window.toast('Movilización guardada. Se registra al volver internet.', 'success');
+            return;
+        }
 
         // Si el frente es nuevo o no tiene ubicación registrada, su ubicación se captura
         // en el formulario del Acta (ed-destubic) — pero SOLO cuando se genera el PDF (la

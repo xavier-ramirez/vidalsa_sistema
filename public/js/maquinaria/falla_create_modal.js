@@ -29,6 +29,13 @@
 
     // Callback de cancelación pendiente (solo cuando se abre pre-seleccionado).
     let _pendingCancel = null;
+    // Nombre del activo elegido: el título de lo que queda en la bandeja sin red.
+    let _activoNombre = '';
+
+    // Sin conexión los modales son los mismos: crear y cerrar van a la bandeja
+    // (window.Bandeja, mismo endpoint) y suben al volver internet. El acta PDF del
+    // reporte extenso se genera en el servidor: sin red no hay vista previa.
+    const sinRed = () => !!(window.Bandeja && window.Bandeja.sinConexion());
 
     // ─── Abrir / cerrar ───
     window.openNuevoReporteModal = function () {
@@ -163,6 +170,7 @@
     };
 
     window.flSelectActivo = function (prefix, tipo, id, tipoNom, info) {
+        _activoNombre = [tipoNom, info].filter(Boolean).join(' ');
         document.getElementById(prefix + '_activo_tipo').value = tipo;
         document.getElementById(prefix + '_activo_id').value = id;
         const box = document.getElementById(prefix + '_activo_seleccionado');
@@ -209,8 +217,10 @@
     };
 
     let _cierreId = null;
+    let _cierreActivo = null;   // { tipo, id, label }: lo manda equipos sin red (la fila a pintar)
     window.flAbrirCierre = function (falla) {
         _cierreId = falla.id;
+        _cierreActivo = falla.activo || null;
         window.flEncabezadoCierre(document.getElementById('flCierreEquipo'), falla);
         const obs = document.getElementById('flCierreObs');
         if (obs) obs.value = '';
@@ -219,6 +229,7 @@
     window.flCerrarCierreModal = function () {
         document.getElementById('flCierreOverlay').classList.remove('active');
         _cierreId = null;
+        _cierreActivo = null;
     };
     window.flConfirmarCierre = function () {
         if (!_cierreId) return;
@@ -227,6 +238,17 @@
         fd.append('_method', 'PATCH');
         const obs = document.getElementById('flCierreObs');
         fd.append('observaciones_cierre', obs ? obs.value : '');
+        if (sinRed()) {
+            const act = _cierreActivo;
+            window.Bandeja.enviar(CFG().urlBase + '/' + _cierreId + '/close', { method: 'POST', body: fd }, {
+                titulo: 'Cerrar reporte · ' + ((act && act.label) || ('Reporte #' + _cierreId)) + ' → OPERATIVO',
+                tipo: act && act.tipo === 'equipo' ? 'estado' : 'falla',
+                datos: act && act.tipo === 'equipo' ? { id_equipo: act.id, status: 'OPERATIVO', falla: 'cerrada' } : null,
+            });
+            window.flCerrarCierreModal();
+            window.toast('Cierre guardado. Se registra al volver internet.', 'success');
+            return;
+        }
         if (btn) btn.disabled = true;
         if (window.showPreloader) window.showPreloader();
         window.apiFetch(CFG().urlBase + '/' + _cierreId + '/close', { headers: { 'Accept': 'application/json' },
@@ -259,6 +281,21 @@
         const fd = new FormData(form);
         if (!fd.get('activo_id')) {
             window.toast('Selecciona un equipo primero.', 'error');
+            return;
+        }
+        if (sinRed()) {
+            const esEquipo = fd.get('activo_tipo') === 'equipo';
+            const destino = fd.get('estado_destino') || 'INOPERATIVO';
+            window.Bandeja.enviar(CFG().urlStore, { method: 'POST', body: fd }, {
+                titulo: 'Reporte de falla · ' + (_activoNombre || ('#' + fd.get('activo_id'))) + ' → ' + destino,
+                tipo: esEquipo ? 'estado' : 'falla',
+                datos: esEquipo ? { id_equipo: Number(fd.get('activo_id')), status: destino, falla: 'nueva' } : null,
+            });
+            _pendingCancel = null;           // guardado: NO revertir el estado
+            window.closeNuevoReporteModal();
+            window.toast(fd.get('tipo_reporte') === 'extenso'
+                ? 'Reporte guardado. Se registra al volver internet; el acta se descarga desde Fallas.'
+                : 'Reporte guardado. Se registra al volver internet.', 'success');
             return;
         }
         if (window.showPreloader) window.showPreloader();
@@ -300,7 +337,7 @@
             return;
         }
         if (!form.checkValidity()) { form.reportValidity(); return; }   // exige descripción
-        if (document.getElementById('fl_tipo_reporte').value === 'extenso') {
+        if (document.getElementById('fl_tipo_reporte').value === 'extenso' && !sinRed()) {
             window.flPreviewActa();        // acta: previsualizar antes de guardar
         } else {
             window.submitNuevoReporte();   // corto: sin acta, guarda directo
