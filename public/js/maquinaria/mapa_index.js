@@ -901,19 +901,23 @@
         // ── CAJA DE CAPAS (arriba-derecha; en teléfono, abajo-derecha) ────────────────
         // UN solo botón "Capas" (icono + rótulo) que agrupa los botones-miniatura (Equipos,
         // Municipios, Faja, Bloques), en PC y en teléfono por igual: al tocarlo se despliegan
-        // (en PC en fila hacia la izquierda, en teléfono hacia abajo), cada uno marcado si
+        // (en PC en fila hacia la izquierda, en teléfono hacia arriba), cada uno marcado si
         // está encendido.
         // Estuvo abajo-derecha, apretado entre la escala y la brújula, donde el botón apenas se
         // distinguía (pedido del cliente, 29-09-2026). Arriba-derecha quedó libre al mudarse el
         // panel de equipos a su columna, y es la esquina más despejada: arriba-izquierda está el
         // buscador con sus botones y abajo-izquierda, las leyendas.
-        // En TELÉFONO (el diseño de <=900 px del módulo, ver eqEsTelefono) va ABAJO-derecha, al
-        // alcance del pulgar y sin apretar al buscador (pedido del cliente, 04-11-2026): ahí no
-        // queda nada, la escala y la brújula no salen en teléfono. Las miniaturas suben (.abajo).
-        var capasAbajo = window.matchMedia('(max-width: 900px)');
+        // En TELÉFONO va ABAJO-derecha, al alcance del pulgar y sin apretar al buscador (pedido del
+        // cliente, 04-11-2026): ahí no queda nada, la escala y la brújula no salen en teléfono. Las
+        // miniaturas suben (.abajo).
+        // Teléfono = el diseño de <=900 px del módulo (el mismo corte que estilos_globales.css), en el
+        // que también el panel de equipos va DEBAJO del mapa (eqEsTelefono). Se declara AQUÍ porque
+        // la caja de capas es lo primero que lo usa.
+        var MEDIA_TELEFONO = window.matchMedia('(max-width: 900px)');
+        function posicionCapas() { return MEDIA_TELEFONO.matches ? 'bottomright' : 'topright'; }
         var capasBox, capasPanel; // los rellena onAdd, síncrono en el addControl de abajo
         var CapasCtrl = L.Control.extend({
-            options: { position: capasAbajo.matches ? 'bottomright' : 'topright' },
+            options: { position: posicionCapas() },
             onAdd: function () {
                 // setPosition (girar el teléfono) quita y vuelve a poner el control: se devuelve la
                 // MISMA caja, que ya tiene las miniaturas dentro.
@@ -940,12 +944,12 @@
         var capasCtrl = new CapasCtrl();
         map.addControl(capasCtrl); // deja listos capasBox/capasPanel (onAdd es síncrono)
         function ubicarCapas() {
-            var pos = capasAbajo.matches ? 'bottomright' : 'topright';
+            var pos = posicionCapas();
             if (capasCtrl.getPosition() !== pos) capasCtrl.setPosition(pos);
             capasBox.classList.toggle('abajo', pos === 'bottomright');
         }
         ubicarCapas();
-        capasAbajo.addEventListener('change', ubicarCapas);
+        MEDIA_TELEFONO.addEventListener('change', ubicarCapas);
         // Cierra la caja de capas. La usan el clic en el mapa (tocar fuera la recoge) y el
         // molde de las miniaturas (elegir una capa tambien la recoge).
         function cerrarCapas() { capasBox.classList.remove('abierto'); }
@@ -1345,6 +1349,7 @@
             var b = map.getBounds();
             return map.distance(b.getNorthWest(), b.getNorthEast()) / 1000;
         }
+        function acercado() { return vistaLocalKm() <= BUSQUEDA_LOCAL_KM; }
         function sesgarPorMapa() {
             var c = map.getCenter();
             var p = _photon.options.geocodingQueryParams;
@@ -1358,7 +1363,7 @@
             p.location_bias_scale = 0.9;
             // Y lo decisivo: acotar la CAJA a lo que se ve (con margen) cuando estás acercado,
             // para que el servidor busque ahí. Lejos se mantiene el país entero.
-            if (vistaLocalKm() <= BUSQUEDA_LOCAL_KM) {
+            if (acercado()) {
                 var b = map.getBounds().pad(0.5);
                 p.bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]
                     .map(function (n) { return n.toFixed(4); }).join(',');
@@ -1385,11 +1390,11 @@
         }
         // Y además ordena los resultados por CERCANÍA a ese centro: el sesgo del servidor solo
         // desempata, esto garantiza que "Arecuna 2 / Arecuna 3" salgan primero si estás encima.
-        // Solo ACERCADO (la misma vara que sesgarPorMapa): viendo el país, el centro del mapa no
+        // Solo acercado() (la misma vara que sesgarPorMapa): viendo el país, el centro del mapa no
         // dice nada y ordenar por él ponía caseríos de Miranda por delante de la ciudad de Maturín;
         // ahí manda el orden de Photon, que pone primero lo importante.
         function porCercania(results, centro) {
-            if (vistaLocalKm() > BUSQUEDA_LOCAL_KM) return results || [];
+            if (!acercado()) return results || [];
             return (results || []).slice().sort(function (a, b) {
                 var ca = a && a.center, cb2 = b && b.center;
                 if (!ca || !cb2) return 0;
@@ -1737,7 +1742,7 @@
             document.removeEventListener('fullscreenchange', onFsChange);
             document.removeEventListener('webkitfullscreenchange', onFsChange);
             window.removeEventListener('orientationchange', onOrientacion);
-            capasAbajo.removeEventListener('change', ubicarCapas);
+            MEDIA_TELEFONO.removeEventListener('change', ubicarCapas);
             if (obsTam) obsTam.disconnect();
             // Salir con el diálogo de "Descargar imagen" abierto dejaba sus listeners de
             // scroll/resize en window y su marco y barra en la página.
@@ -4071,9 +4076,8 @@
             window.clearDropdownFilter('mapaEqTipo');
             return true;
         }
-        // Teléfono = el diseño en el que el panel va DEBAJO del mapa (el mismo corte de 900 px que
-        // estilos_globales.css). Solo ahí el panel se pliega.
-        function eqEsTelefono() { return window.matchMedia('(max-width: 900px)').matches; }
+        // Teléfono (MEDIA_TELEFONO, arriba junto a la caja de capas): solo ahí el panel se pliega.
+        function eqEsTelefono() { return MEDIA_TELEFONO.matches; }
         // Devuelve true si cambió algo (el mapa cambió de alto), false si ya estaba así.
         function eqPlegarPanel(recoger) {
             if (!_mapaLayout || _mapaLayout.classList.contains('panel-recogido') === recoger) return false;

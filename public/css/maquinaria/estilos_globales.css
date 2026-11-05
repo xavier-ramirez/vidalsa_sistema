@@ -4605,7 +4605,7 @@ body:has(.mapa-page) { --mapa-col: 380px; }
        su contenido y quedaba comprimida) = pantalla menos todo lo que comparte esa primera
        fila. A la IZQUIERDA el cuadrado de la lupa, que sigue al lado y sirve para volver a
        recogerla: 10 (su margen) + 34 (botón) + 10 (margen de la barra). A la DERECHA solo 10
-       de aire: el botón de capas en teléfono está ABAJO (mapa_index.js, capasAbajo). Total
+       de aire: el botón de capas en teléfono está ABAJO (mapa_index.js, MEDIA_TELEFONO). Total
        64 px. border-box para que su padding no la desborde. El input la llena y deja sitio a
        la "X". La lista va anclada left/right:0. */
     #mapa-leaflet.mapa-buscar-abierto .leaflet-control-geocoder {
