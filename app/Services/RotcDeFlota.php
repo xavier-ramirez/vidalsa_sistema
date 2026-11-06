@@ -83,6 +83,34 @@ class RotcDeFlota
     }
 
     /**
+     * ¿El PDF trae el certificado de circulacion del vehiculo de ese serial? null si no se pudo
+     * leer. $codigo normaliza los seriales para compararlos (LectorDocumentoPdf::codigo).
+     * Lo que manda es el texto del certificado: una parte armada de un PDF mal hecho puede traer
+     * el de otro camion aunque la carga creyera que era el suyo (05-11-2026, ficha 546).
+     */
+    public function traeCertificadoDe(string $pdf, string $serial, callable $codigo): ?bool
+    {
+        try {
+            $paginas = $this->paginasConLineas($pdf);
+        } catch (\Throwable) {
+            return null;
+        }
+        if (!$paginas) return null;
+
+        $leidos = ['certificados' => []];
+        foreach ($paginas as $n => $lineas) {
+            $texto = implode("\n", array_column($lineas, 'texto'));
+            if (!preg_match('/FLOTA\s+VEHICULAR/u', $texto) && preg_match('/CERTIFICADO\s+DE\s+CIRCULACI/u', $texto)) {
+                $this->leerCertificados($n, $lineas, null, $leidos);
+            }
+        }
+        foreach ($leidos['certificados'] as $c) {
+            if ($c['serial'] && $codigo($c['serial']) === $codigo($serial)) return true;
+        }
+        return false;
+    }
+
+    /**
      * Arma en $destino la parte de UN equipo: la portada, la hoja de la tabla con su fila y su
      * certificado recortado (o la pagina entera del certificado si no se pudo medir donde esta).
      * $certificado es el de leer(), o null si el documento no trae el de este equipo.

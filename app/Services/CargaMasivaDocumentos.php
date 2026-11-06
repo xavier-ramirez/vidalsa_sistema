@@ -158,6 +158,9 @@ class CargaMasivaDocumentos
      */
     public const ENLAZAR_Y_REVISAR = 'enlazar_y_revisar';
 
+    /** Motivo de una unidad de un ROTC de flota cuyo ROTC actual no se pudo leer: queda por enlazar. */
+    private const SIN_LEER_EL_SUYO = 'No se pudo leer el ROTC que ya tiene: se reintenta.';
+
     /** Lo que responden atar y enlazar cuando el PDF ya se enlazo o se descarto. */
     private const YA_NO_POR_ENLAZAR = 'Ese PDF ya no esta por enlazar. Recarga la tabla.';
 
@@ -651,22 +654,28 @@ class CargaMasivaDocumentos
     /** Arma la parte del equipo con el ROTC original (la copia local, o de Drive) y la sube. */
     private function subirParte(string $link, array $parte): string
     {
-        $idOriginal = DocumentoAnexo::driveIdDeLink($link);
-        $ruta = GoogleDriveService::rutaCopiaLocal($idOriginal);
-        $disco = Storage::disk('local');
-        if (!$disco->exists($ruta)) {
-            $disco->put($ruta, (string) GoogleDriveService::getInstance()->getStreamById($idOriginal)->getContents());
-        }
+        $original = $this->copiaLocal(DocumentoAnexo::driveIdDeLink($link));
 
         $rotc = $parte['ficha']['rotc'];
         $destino = tempnam(sys_get_temp_dir(), 'rotc_parte_');
         try {
-            $this->rotcFlota()->parte($disco->path($ruta), ['portada' => $parte['portada']], (int) $rotc['tabla'], $rotc['cert'] ?? null, $destino);
+            $this->rotcFlota()->parte($original, ['portada' => $parte['portada']], (int) $rotc['tabla'], $rotc['cert'] ?? null, $destino);
             $placa = preg_replace('/[^A-Z0-9]/', '', strtoupper((string) ($parte['ficha']['placa'] ?? ''))) ?: 'equipo';
             return GoogleDriveService::getInstance()->subirPdf(new \Illuminate\Http\File($destino), 'rotc_' . time() . '_' . $placa . '.pdf');
         } finally {
             @unlink($destino);
         }
+    }
+
+    /** La ruta de la copia local de un PDF de Drive; si no esta, se baja una vez. */
+    private function copiaLocal(string $driveId): string
+    {
+        $ruta = GoogleDriveService::rutaCopiaLocal($driveId);
+        $disco = Storage::disk('local');
+        if (!$disco->exists($ruta)) {
+            $disco->put($ruta, (string) GoogleDriveService::getInstance()->getStreamById($driveId)->getContents());
+        }
+        return $disco->path($ruta);
     }
 
     /** Recuerda que parte se le enlazo a cada equipo (para "Ya estaba enlazado"). */
@@ -715,19 +724,21 @@ class CargaMasivaDocumentos
      * de seguro de 3 unidades: 1 enlazada, 2 por enlazar."). CUALES lo dice cada linea de su fila,
      * con su boton. Y lo que haya que mirar: leido con la IA, sin vencimiento, sin numero de BL.
      */
-    private function resumenDeVarias(array $p, int $porEnlazar): string
+    private function resumenDeVarias(array $p, int $porEnlazar, int $seQuedan = 0): string
     {
         $bl = ($p['tipo'] ?? null) === self::EMBARQUE;
         $total = $bl
             ? ((int) ($p['embarque']['unidades'] ?? 0) ?: count($p['equipos'] ?? []) + count($p['embarque']['no_registrados'] ?? []))
             : count($p['equipos'] ?? []) + count($p['faltan'] ?? []);
-        $enlazadas = max(0, $total - $porEnlazar);
+        $enlazadas = max(0, $total - $porEnlazar - $seQuedan);
         $nombre = $bl ? trim('BL ' . ($p['embarque']['nro'] ?? '')) : self::NOMBRES[$p['tipo']];
         $texto = "$nombre de $total unidades: " . match (true) {
-            !$porEnlazar => 'todas enlazadas.',
-            !$enlazadas  => 'ninguna enlazada.',
-            default      => $enlazadas . ($enlazadas === 1 ? ' enlazada, ' : ' enlazadas, ') . "$porEnlazar por enlazar.",
+            !$porEnlazar && !$seQuedan => 'todas enlazadas.',
+            !$enlazadas  => 'ninguna enlazada' . ($porEnlazar ? '.' : ','),
+            default      => $enlazadas . ($enlazadas === 1 ? ' enlazada' : ' enlazadas') . ($porEnlazar ? ", $porEnlazar por enlazar." : ','),
         };
+        // Los de un ROTC de flota que ya tenian el suyo (ver porQueSeQuedaElSuyo).
+        if ($seQuedan) $texto .= " $seQuedan ya tenia" . ($seQuedan === 1 ? '' : 'n') . ' el suyo.';
         $mirar = match (true) {
             !empty($p['ia'])                     => 'Leido con IA: compruebalo.',
             ($p['estado'] ?? null) === 'revisar' => (string) ($p['aviso'] ?? ''),
@@ -997,8 +1008,10 @@ class CargaMasivaDocumentos
         if (!empty($propuesta['ia']) || empty($propuesta['equipos']) || empty($propuesta['link'])) return;
         if (!in_array($propuesta['estado'] ?? null, ['listo', self::ENLAZAR_Y_REVISAR], true)) return;
 
-        // Cuantos se quedan sin enlazar, por motivo.
+        // Cuantos se quedan sin enlazar, por motivo; y de un ROTC de flota, cuantos ya tenian
+        // uno igual o mejor (no quedan pendientes: no hay nada que enlazarles).
         $pendientes = [];
+        $seQuedan = 0;
         foreach ($propuesta['equipos'] as $f) {
             // Un ROTC de flota arma y sube la parte de cada equipo (~2-3 s): el tope de tiempo
             // va por ficha, no por PDF. Si aun asi se corta, lo termina enlazarLoPendiente().
@@ -1006,7 +1019,19 @@ class CargaMasivaDocumentos
             $aplicarlo = fn (bool $pisar) => $this->aplicar((int) $f['id'], $tipo, $propuesta['link'], $propuesta['vence'] ?? null,
                 $propuesta['emision'] ?? null, $pisar, false, !empty($f['auxiliar']), false);
             $r = $aplicarlo(false);
-            if (!empty($r['requiere_pisar']) && $this->venceDespues($propuesta, $f)) $r = $aplicarlo(true);
+            if (!empty($r['requiere_pisar'])) {
+                $porQue = $this->porQueSeQuedaElSuyo($propuesta, $f);
+                if ($porQue === null) {
+                    $r = $aplicarlo(true);
+                } elseif ($porQue === self::SIN_LEER_EL_SUYO) {
+                    $r = ['ok' => false, 'mensaje' => $porQue];
+                } elseif (!empty($propuesta['flota_rotc'])) {
+                    $r = ['ok' => true, 'mensaje' => $porQue ?: $r['mensaje']];
+                    $seQuedan++;
+                } elseif ($porQue !== '') {
+                    $r['mensaje'] = $porQue;
+                }
+            }
             if (!$r['ok']) $pendientes[$r['mensaje']] = ($pendientes[$r['mensaje']] ?? 0) + 1;
         }
         // El motivo, corto: de varias unidades, cuantas faltan (cuales, en las lineas de la fila);
@@ -1016,7 +1041,7 @@ class CargaMasivaDocumentos
             ->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)->first();
         if (!$fila) return;
         $motivo = $this->esDeVarias($propuesta)
-            ? $this->resumenDeVarias($propuesta, array_sum($pendientes) + $this->faltanDeVarias($propuesta))
+            ? $this->resumenDeVarias($propuesta, array_sum($pendientes) + $this->faltanDeVarias($propuesta), $seQuedan)
             : VerificacionDocumento::motivoQueCabe($pendientes ? 'No se enlazo: ' . array_key_first($pendientes)
                 : trim('Enlazado solo. ' . ($propuesta['aviso'] ?? '')));
         if ($fila->MOTIVO !== $motivo) $fila->update(['MOTIVO' => $motivo]);
@@ -1036,6 +1061,65 @@ class CargaMasivaDocumentos
             $por = array_diff($por, ['numero']);
         }
         return (bool) $por;
+    }
+
+    /**
+     * Si la ficha ya tiene ese documento: null = se reemplaza; '' = se queda el suyo con el
+     * motivo de siempre; SIN_LEER_EL_SUYO = queda por enlazar (se reintenta cada hora); otro
+     * texto = se queda el suyo y ese es el motivo.
+     *
+     * Un ROTC de flota tiene dos reglas propias (05-11-2026). El INTT renueva la LISTA con toda
+     * la flota, pero solo trae certificado nuevo para los vehiculos que entran en esa renovacion;
+     * a los que ya estaban les anexa el certificado viejo:
+     *   1. Un vehiculo con su ROTC VIGENTE y sin certificado nuevo en este documento se queda
+     *      con el suyo, aunque la lista nueva venza despues (pedido del cliente: el de cada
+     *      vehiculo es el de la renovacion en que recibio su certificado).
+     *   2. Si ya se le enlazo una parte de ESTA renovacion SIN su certificado (otro PDF de la
+     *      misma flota que no lo traia) y este si lo trae, se cambia por esta.
+     * El 05-11 se soltaron 390 PDF de la misma flota, uno por placa: el primero de cada grupo
+     * le ponia a 17 vehiculos una parte sin certificado y a los viejos les cambiaba el suyo.
+     */
+    private function porQueSeQuedaElSuyo(array $propuesta, array $ficha): ?string
+    {
+        if (empty($propuesta['flota_rotc']) || !empty($ficha['auxiliar']) || !isset($ficha['rotc'])) {
+            return $this->venceDespues($propuesta, $ficha) ? null : '';
+        }
+
+        $rotc = $ficha['rotc'];
+        $certNuevo = !empty($rotc['cert']) && ($rotc['cert']['vence'] ?? null) === ($rotc['vence'] ?? null);
+        $doc = DB::table('documentacion')->where('ID_EQUIPO', $ficha['id'])->first(['FECHA_ROTC', 'LINK_ROTC']);
+        $venceFicha = $this->soloFecha($doc?->FECHA_ROTC);
+
+        if (!$certNuevo && $venceFicha && $venceFicha >= now()->toDateString()) {
+            return 'Ya tenia su ROTC vigente y este no le trae certificado nuevo: se quedo el suyo.';
+        }
+        if ($this->venceDespues($propuesta, $ficha)) return null;
+        if ($certNuevo && $venceFicha === ($rotc['vence'] ?? null)) {
+            $sinCert = $this->rotcSinSuCertificado((int) $ficha['id'], $doc?->LINK_ROTC);
+            if ($sinCert === null) return self::SIN_LEER_EL_SUYO;
+            if ($sinCert) return null;
+        }
+        return '';
+    }
+
+    /**
+     * El ROTC que tiene la ficha NO trae el certificado de circulacion de este equipo: se lee el
+     * PDF de verdad, no lo que dijo la carga que lo armo (un PDF mal hecho le dio a 5 fichas el
+     * certificado de otro camion). null = no se pudo leer (Drive caido, PDF roto): no se decide
+     * nada y la unidad queda por enlazar; ni se cambia ni se da por buena.
+     */
+    private function rotcSinSuCertificado(int $idEquipo, ?string $link): ?bool
+    {
+        $driveId = DocumentoAnexo::driveIdDeLink((string) $link);
+        $serial = (string) DB::table('equipos')->where('ID_EQUIPO', $idEquipo)->value('SERIAL_CHASIS');
+        if (!$driveId || trim($serial) === '') return false;
+        try {
+            $trae = $this->rotcFlota()->traeCertificadoDe($this->copiaLocal($driveId), $serial, fn ($s) => $this->lector->codigo($s));
+        } catch (\Throwable $e) {
+            Log::warning('Carga masiva: no se pudo leer el ROTC de la ficha', ['equipo' => $idEquipo, 'error' => $e->getMessage()]);
+            return null;
+        }
+        return $trae === null ? null : !$trae;
     }
 
     /**
