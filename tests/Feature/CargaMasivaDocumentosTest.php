@@ -778,6 +778,8 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
 
         $grupos = $this->servicio()->unidadesDeVarias([$flota])[0];
         $this->assertSame(['/storage/google/parte-a'], array_column($grupos['este'], 'link'));
+        $this->assertSame([(int) $parte->ID_EQUIPO], array_column($grupos['este'], 'id'), 'con su ficha, para ver sus datos al lado');
+        $this->assertSame([false], array_column($grupos['este'], 'aux'));
         $this->assertSame(['/storage/google/rotc-viejo'], array_column($grupos['otro'], 'link'));
         $this->assertSame([], $grupos['sin']);
 

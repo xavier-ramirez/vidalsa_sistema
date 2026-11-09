@@ -1055,6 +1055,7 @@
     window.cpdfCerrarAtar = function () {
         // La lista de equipos (cpdfAbrirUnidades) no tiene casa: se arma en cada apertura.
         document.querySelectorAll('.cpdf-uni-caja').forEach(function (c) { c.remove(); });
+        document.querySelectorAll('.cpdf-uni-visor, .cpdf-uni-abierto').forEach(function (n) { n.classList.remove('cpdf-uni-visor', 'cpdf-uni-abierto'); });
         document.querySelectorAll('.cpdf-atar-visor').forEach(function (v) {
             v.classList.remove('cpdf-atar-visor');
             v.querySelectorAll('.cpdf-atar-caja').forEach(function (c) {
@@ -1130,15 +1131,21 @@
     // cada equipo según lo que tiene HOY su ficha, y al pulsarlo el visor enseña el PDF de esa ficha
     // (de un ROTC de flota, su parte de 3 hojas; de un BL, el mismo para todos). Al final lo que falta
     // por enlazar, con su botón. Los datos los deja la fila en #cpdfUni<ID> (unidadesDeVarias).
+    // Con un equipo elegido, a la derecha sale el panel de datos de SU ficha (el del visor), para
+    // ver que se cargó bien; aquí solo se mira: sin Subir, Eliminar ni Anexar (.cpdf-uni-abierto).
     window.cpdfAbrirUnidades = function (id) {
         var nodo = document.getElementById('cpdfUni' + id);
         if (!nodo) return;
         var d = JSON.parse(nodo.textContent);
         window.cpdfCerrarAtar();
-        var ver = function (link, titulo) { window.openPdfPreview(link, d.tipo, d.doc + ' · ' + titulo, null, '', true); };
-        ver(d.link, d.archivo);
+        window._pdfVerif = null;
+        var ver = function (link, titulo, u) {
+            window.openPdfPreview(link, d.tipo, d.doc + ' · ' + titulo, u ? u.id : null, '', !u, u && u.aux ? 'auxiliar' : 'equipo');
+        };
+        ver(d.link, d.archivo, null);
         var visor = document.getElementById('pdfVisorIzq').parentNode;
-        visor.classList.add('cpdf-atar-visor');
+        visor.classList.add('cpdf-atar-visor', 'cpdf-uni-visor');
+        document.getElementById('pdfPreviewModal').classList.add('cpdf-uni-abierto');
 
         var el = function (tag, clase, texto) {
             var n = document.createElement(tag);
@@ -1161,7 +1168,7 @@
         var activo = null;
         var marcar = function (op) { if (activo) activo.classList.remove('activo'); activo = op; op.classList.add('activo'); };
         // Una línea: la placa (o lo que se lea) y el serial debajo; con PDF, se pulsa para verlo.
-        var linea = function (clase, placa, serial, link) {
+        var linea = function (clase, placa, serial, link, u) {
             var op = el(link ? 'button' : 'div', 'cpdf-uni-op ' + clase);
             if (link) op.type = 'button';
             var txt = el('span', 'cpdf-uni-txt');
@@ -1169,7 +1176,7 @@
             if (serial && serial !== placa) txt.appendChild(el('small', null, serial));
             op.appendChild(txt);
             op.dataset.buscar = (placa + ' ' + (serial || '')).toUpperCase();
-            if (link) op.onclick = function () { marcar(op); ver(link, placa); };
+            if (link) op.onclick = function () { marcar(op); ver(link, placa, u); };
             return op;
         };
         var seccion = function (titulo, filas) {
@@ -1184,7 +1191,7 @@
         lista.appendChild(completo);
         marcar(completo);
         ['este', 'otro', 'sin'].forEach(function (g) {
-            seccion(d.titulos[g], (d.grupos[g] || []).map(function (u) { return linea(g, u.placa, u.serial, u.link); }));
+            seccion(d.titulos[g], (d.grupos[g] || []).map(function (u) { return linea(g, u.placa, u.serial, u.link, u); }));
         });
         // Lo que falta por enlazar: la misma acción que la línea de la fila (cpdfAtarFalta / cpdfAtarVin).
         var enlazar = function (op, accion) {

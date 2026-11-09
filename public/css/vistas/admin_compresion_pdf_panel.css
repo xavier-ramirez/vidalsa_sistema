@@ -230,8 +230,8 @@
        (.cpdf-atar-visor, ver cpdfAbrirAtar), con el MISMO aspecto que el panel de datos del visor
        (#pdfMetadataPanel, layout_ui.js): fondo oscuro y cada dato con su rótulo arriba y el valor
        abajo, de dos en dos para que no se alargue (pedidos del cliente, 22-10-2026). En el teléfono
-       va debajo del PDF. El panel de datos del visor no se usa aquí. */
-    .cpdf-atar-visor #pdfMetadataPanel { display: none !important; }
+       va debajo del PDF. El panel de datos del visor no se usa aquí (sí con la lista de equipos). */
+    .cpdf-atar-visor:not(.cpdf-uni-visor) #pdfMetadataPanel { display: none !important; }
     .cpdf-atar-caja { width: 350px; max-width: 45%; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;
                       background: #282828; border-left: 1px solid #3a3a3a; color: #fff; }
     .cpdf-atar-cuerpo { display: flex; flex-direction: column; gap: 12px; padding: 12px; min-height: 0; flex: 1; overflow-y: auto; }
@@ -300,6 +300,8 @@
        del PDF. Una línea por equipo: el que se ve, con el borde azul; los enlazados con su punto
        verde, los que tienen otro en gris; sin PDF no se pulsa; lo que falta, en ámbar con su botón. */
     .cpdf-uni-caja { border-left: 0; border-right: 1px solid #3a3a3a; }
+    /* Con la lista se mira la ficha del equipo, no se gestiona su documento. */
+    .cpdf-uni-abierto #pdfUpdateLabel, .cpdf-uni-abierto #pdfDeleteBtn, .cpdf-uni-abierto #pdfAnexarZona { display: none !important; }
     .cpdf-uni-lista, .cpdf-uni-grupo { display: flex; flex-direction: column; gap: 4px; }
     .cpdf-uni-grupo[hidden], .cpdf-uni-op[hidden] { display: none; }
     .cpdf-uni-tit { margin-top: 10px; font-size: 12px; font-weight: 600; color: #cbd5e0; }

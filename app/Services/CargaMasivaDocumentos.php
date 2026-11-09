@@ -1253,7 +1253,8 @@ class CargaMasivaDocumentos
      * de la fila. 'este' = tiene este PDF (de un ROTC de flota, SU parte de 3 hojas); 'otro' =
      * tiene otro documento de ese tipo (el que ya tenia, o uno que se puso despues); 'sin' = no
      * tiene ninguno. Se mira la ficha y no lo que anoto la carga: una parte enlazada y luego
-     * cambiada ya no es "este". Cada unidad lleva el PDF de su ficha, que abre su boton.
+     * cambiada ya no es "este". Cada unidad lleva el PDF de su ficha, que abre su boton, y su
+     * id (aux: es un auxiliar) para enseñar al lado los datos de esa ficha.
      * Unas pocas consultas por pagina, no por fila.
      *
      * @return array<int, array{este: list<array>, otro: list<array>, sin: list<array>}>
@@ -1301,6 +1302,8 @@ class CargaMasivaDocumentos
                     'placa'  => (string) (($e['placa'] ?? null) ?: ($e['serial'] ?? '')),
                     'serial' => (string) ($e['serial'] ?? ''),
                     'link'   => $grupo === 'sin' ? null : $actual,
+                    'id'     => (int) $e['id'],
+                    'aux'    => !empty($e['auxiliar']),
                 ];
             }
             $porFila[$k] = $grupos;
