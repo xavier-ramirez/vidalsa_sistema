@@ -219,9 +219,8 @@ class PanelDocumentos
             ->when($estadoDoc && !in_array($estadoDoc, ['revisar', 'corregibles'], true),
                 fn ($q) => $q->where('ESTADO', $estadoDoc))
             // Lo soltado en la carga masiva va SIEMPRE PRIMERO, lo mas nuevo arriba, este como
-            // este (pedido 09-11-2026). Antes era solo 24 horas: pasado ese tiempo lo "Aplicado"
-            // se iba al final, detras de miles de filas de la noche, y el ROTC de flota subido
-            // no se encontraba.
+            // este (pedido 09-11-2026): lo "Aplicado" no se pierde detras de miles de filas de
+            // la noche.
             ->orderByRaw('CASE WHEN ORIGEN = ? THEN 0 ELSE 1 END', [VerificacionDocumento::DE_CARGA_MASIVA])
             ->orderByRaw('CASE WHEN ORIGEN = ? THEN ID_REGISTRO END DESC', [VerificacionDocumento::DE_CARGA_MASIVA])
             // Despues, primero lo que hay que resolver; dentro de cada montón, lo ultimo leido

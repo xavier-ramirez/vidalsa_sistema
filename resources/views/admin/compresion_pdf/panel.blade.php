@@ -1140,7 +1140,7 @@
         window.cpdfCerrarAtar();
         window._pdfVerif = null;
         var ver = function (link, titulo, u) {
-            window.openPdfPreview(link, d.tipo, d.doc + ' · ' + titulo, u ? u.id : null, '', !u, u && u.aux ? 'auxiliar' : 'equipo');
+            window.openPdfPreview(link, u ? u.tipo : d.tipo, d.doc + ' · ' + titulo, u ? u.id : null, '', !u, u && u.aux ? 'auxiliar' : 'equipo');
         };
         ver(d.link, d.archivo, null);
         var visor = document.getElementById('pdfVisorIzq').parentNode;

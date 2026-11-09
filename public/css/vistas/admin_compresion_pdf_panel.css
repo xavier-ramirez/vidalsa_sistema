@@ -297,7 +297,7 @@
     .cpdf-atar-btn.gris { background: #4a5568; padding: 5px 12px; font-size: 12px; }
     .cpdf-atar-btn.gris:hover:not(:disabled) { background: #2d3748; }
     /* La lista de equipos de un PDF de varias (cpdfAbrirUnidades): la misma caja, a la IZQUIERDA
-       del PDF. Una línea por equipo: el que se ve, con el borde azul; los enlazados con su punto
+       del PDF. Una línea por equipo: el que se ve, con el borde azul; los enlazados con su borde
        verde, los que tienen otro en gris; sin PDF no se pulsa; lo que falta, en ámbar con su botón. */
     .cpdf-uni-caja { border-left: 0; border-right: 1px solid #3a3a3a; }
     .cpdf-uni-caja > .cpdf-atar-buscar { flex-shrink: 0; height: 36px; margin: 12px 12px 0; }
@@ -306,6 +306,7 @@
     .cpdf-uni-lista, .cpdf-uni-grupo { display: flex; flex-direction: column; gap: 4px; }
     .cpdf-uni-grupo[hidden], .cpdf-uni-op[hidden] { display: none; }
     .cpdf-uni-tit { margin-top: 10px; font-size: 12px; font-weight: 600; color: #cbd5e0; }
+    .cpdf-uni-grupo:first-child .cpdf-uni-tit { margin-top: 0; }
     .cpdf-uni-op { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 6px 10px;
                    border: 1px solid #444; border-left-width: 3px; border-radius: 6px; background: rgba(255,255,255,.04);
                    color: #fff; font-family: inherit; font-size: 13px; text-align: left; }

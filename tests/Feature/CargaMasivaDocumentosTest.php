@@ -780,8 +780,18 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame(['/storage/google/parte-a'], array_column($grupos['este'], 'link'));
         $this->assertSame([(int) $parte->ID_EQUIPO], array_column($grupos['este'], 'id'), 'con su ficha, para ver sus datos al lado');
         $this->assertSame([false], array_column($grupos['este'], 'aux'));
+        $this->assertSame(['rotc'], array_column($grupos['este'], 'tipo'));
         $this->assertSame(['/storage/google/rotc-viejo'], array_column($grupos['otro'], 'link'));
         $this->assertSame([], $grupos['sin']);
+
+        // Un auxiliar abre los datos de SU ficha con el nombre que el documento tiene alli
+        // (el certificado del equipo es 'adicional'; el del auxiliar, 'certificado').
+        $eq = $this->equipo(['LINK_DOC_ADICIONAL' => '/storage/google/cert-det']);
+        $aux = $this->auxiliar(['LINK_CERTIFICADO' => '/storage/google/cert-det']);
+        $this->propuesta('cert-det', [$eq, $aux], VerificacionDocumento::POR_ENGANCHAR, CargaMasivaDocumentos::CERTIFICADO);
+        $grupos = $this->servicio()->unidadesDeVarias([VerificacionDocumento::where('DRIVE_ID', 'cert-det')->first()])[0];
+        $this->assertSame([[false, 'adicional'], [true, 'certificado']],
+            array_map(fn ($u) => [$u['aux'], $u['tipo']], $grupos['este']));
 
         // Un documento de un solo equipo no lleva detalle.
         $this->propuesta('uno-det', [$sin], VerificacionDocumento::POR_ENGANCHAR, 'racda');

@@ -1254,7 +1254,8 @@ class CargaMasivaDocumentos
      * tiene otro documento de ese tipo (el que ya tenia, o uno que se puso despues); 'sin' = no
      * tiene ninguno. Se mira la ficha y no lo que anoto la carga: una parte enlazada y luego
      * cambiada ya no es "este". Cada unidad lleva el PDF de su ficha, que abre su boton, y su
-     * id (aux: es un auxiliar) para enseñar al lado los datos de esa ficha.
+     * id, aux (es un auxiliar) y tipo (el nombre del documento en su ficha) para enseñar al lado
+     * los datos de esa ficha.
      * Unas pocas consultas por pagina, no por fila.
      *
      * @return array<int, array{este: list<array>, otro: list<array>, sin: list<array>}>
@@ -1304,6 +1305,7 @@ class CargaMasivaDocumentos
                     'link'   => $grupo === 'sin' ? null : $actual,
                     'id'     => (int) $e['id'],
                     'aux'    => !empty($e['auxiliar']),
+                    'tipo'   => empty($e['auxiliar']) ? $p['tipo'] : (self::TIPOS_AUXILIAR[$p['tipo']] ?? $p['tipo']),
                 ];
             }
             $porFila[$k] = $grupos;
