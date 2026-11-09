@@ -300,8 +300,7 @@
        del PDF. Una línea por equipo: el que se ve, con el borde azul; los enlazados con su punto
        verde, los que tienen otro en gris; sin PDF no se pulsa; lo que falta, en ámbar con su botón. */
     .cpdf-uni-caja { border-left: 0; border-right: 1px solid #3a3a3a; }
-    .cpdf-uni-lista { display: flex; flex-direction: column; gap: 4px; }
-    .cpdf-uni-grupo { display: flex; flex-direction: column; gap: 4px; }
+    .cpdf-uni-lista, .cpdf-uni-grupo { display: flex; flex-direction: column; gap: 4px; }
     .cpdf-uni-grupo[hidden], .cpdf-uni-op[hidden] { display: none; }
     .cpdf-uni-tit { margin-top: 10px; font-size: 12px; font-weight: 600; color: #cbd5e0; }
     .cpdf-uni-op { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 6px 10px;
