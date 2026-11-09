@@ -1101,7 +1101,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             }
             $this->assertSame(VerificacionDocumento::APLICADO, VerificacionDocumento::where('DRIVE_ID', "solo-$tipo")->value('ESTADO'), $tipo);
             $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => "solo-$tipo.pdf"]))
-                ->assertOk()->assertDontSee('cpdfAtarFalta(', false);
+                ->assertOk()->assertDontSee('event.stopPropagation(); window.cpdfAtarFalta(', false);
         }
     }
 
@@ -1191,7 +1191,10 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO, 'lo reconocido se enlaza solo');
 
         $ver = fn () => $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-falta.pdf']))->assertOk();
-        $ver()->assertSee('Falta la placa QQ123ZZ')->assertSee('cpdfAtarFalta(', false);
+        $ver()->assertSee('Falta la placa QQ123ZZ')->assertSee('event.stopPropagation(); window.cpdfAtarFalta(', false)
+            // Y sus equipos se ven en el visor (cpdfAbrirUnidades): el enlazado y la placa que falta.
+            ->assertSee('window.cpdfAbrirUnidades(' . $fila->ID_REGISTRO . ')', false)
+            ->assertSee('"codigo":"QQ123ZZ"', false)->assertSee('Ver equipos: 1 enlazado');
 
         $atar = fn ($e, string $codigo = 'QQ-123-ZZ') => $this->postJson(route('historial-documentos.carga-masiva.atar-falta'),
             ['link' => '/storage/google/racda-falta', 'codigo' => $codigo, 'id_equipo' => $e->ID_EQUIPO]);
@@ -1203,7 +1206,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame([], $fila->PROPUESTA['faltan']);
         $this->assertCount(2, $fila->PROPUESTA['equipos']);
         $this->assertSame('RACDA de 2 unidades: todas enlazadas.', $fila->MOTIVO);
-        $ver()->assertDontSee('cpdfAtarFalta(', false);
+        $ver()->assertDontSee('event.stopPropagation(); window.cpdfAtarFalta(', false);
         $atar($b)->assertStatus(422)->assertJsonFragment(['message' => 'Esa unidad ya no falta en este PDF. Recarga la tabla.']);
     }
 

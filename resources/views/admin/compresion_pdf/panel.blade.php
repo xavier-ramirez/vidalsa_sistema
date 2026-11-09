@@ -214,38 +214,33 @@
                                 @endforelse
                                 {{-- Un PDF de varias unidades (BL, RACDA, ROTC o póliza de flota), en cualquier
                                      estado: qué tiene HOY la ficha de cada una (CargaMasivaDocumentos::unidadesDeVarias).
-                                     Cada placa abre el PDF de su ficha; las que no están en el sistema y las que
-                                     faltan por enlazar van debajo, con su botón para atarlas. --}}
+                                     Este botón y el del PDF abren el visor con TODOS sus equipos al lado
+                                     (cpdfAbrirUnidades): cada uno enseña el PDF de su ficha, y los que faltan por
+                                     enlazar traen su botón. Los datos van aquí, una vez, para los dos botones. --}}
                                 @if ($cpdfUni = $unidadesPdf[$d->ID_REGISTRO] ?? null)
                                     @php
                                         $cpdfNom = $tiposDoc[$d->TIPO] ?? $d->TIPO;
-                                        $cpdfTits = [
-                                            'este' => empty($d->PROPUESTA['flota_rotc']) ? 'Enlazadas: tienen este PDF'
-                                                : 'Enlazadas: su PDF de 3 hojas (portada, su hoja de la tabla y su etiqueta QR)',
-                                            'otro' => 'Con otro ' . $cpdfNom . ' en su ficha (el que ya tenían o uno posterior)',
-                                            'sin'  => 'Sin ' . $cpdfNom . ' en su ficha',
+                                        $cpdfAtar = auth()->user()->can('docs.carga.masiva');
+                                        $cpdfDatos = [
+                                            'doc' => $cpdfNom, 'tipo' => $d->TIPO, 'link' => $d->PROPUESTA['link'], 'archivo' => $d->ARCHIVO ?: 'Documento',
+                                            'fechas' => ['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null],
+                                            'titulos' => [
+                                                'este' => empty($d->PROPUESTA['flota_rotc']) ? 'Enlazados: tienen este PDF'
+                                                    : 'Enlazados: su PDF de 3 hojas (portada, su hoja de la tabla y su etiqueta QR)',
+                                                'otro' => 'Con otro ' . $cpdfNom . ' en su ficha (el que ya tenían o uno posterior)',
+                                                'sin'  => 'Sin ' . $cpdfNom . ' en su ficha',
+                                            ],
+                                            'grupos' => $cpdfUni,
+                                            'faltan' => $cpdfAtar ? ($unidadesFaltan[$d->ID_REGISTRO] ?? []) : [],
+                                            'vines'  => $cpdfAtar && $d->TIPO === \App\Services\CargaMasivaDocumentos::EMBARQUE ? ($vinesFaltan[$d->ID_REGISTRO] ?? []) : [],
                                         ];
-                                        $cpdfCuenta = array_filter(['este' => 'enlazadas', 'otro' => 'con otro', 'sin' => 'sin ninguno'],
+                                        $cpdfCuenta = array_filter(['este' => count($cpdfUni['este']) === 1 ? 'enlazado' : 'enlazados', 'otro' => 'con otro', 'sin' => 'sin ninguno'],
                                             fn ($g) => $cpdfUni[$g], ARRAY_FILTER_USE_KEY);
                                     @endphp
-                                    <details class="cpdf-flota" onclick="event.stopPropagation()">
-                                        <summary>Ver detalle: {{ implode(' · ', array_map(fn ($g, $t) => count($cpdfUni[$g]) . ' ' . $t, array_keys($cpdfCuenta), $cpdfCuenta)) }}</summary>
-                                        @foreach ($cpdfTits as $cpdfGrupo => $cpdfTit)
-                                            @if ($cpdfUni[$cpdfGrupo])
-                                                <div class="cpdf-flota-tit">{{ $cpdfTit }} ({{ count($cpdfUni[$cpdfGrupo]) }})</div>
-                                                <div class="cpdf-flota-lista">
-                                                    @foreach ($cpdfUni[$cpdfGrupo] as $cpdfU)
-                                                        @if ($cpdfU['link'])
-                                                            <button type="button" class="cpdf-flota-eq{{ $cpdfGrupo === 'este' ? ' nueva' : '' }}" title="{{ $cpdfU['serial'] }}"
-                                                                onclick="window.openPdfPreview(@js($cpdfU['link']), @js($d->TIPO), @js($cpdfNom . ' ' . $cpdfU['placa']), null, '', true)">{{ $cpdfU['placa'] }}</button>
-                                                        @else
-                                                            <span class="cpdf-flota-eq sin" title="{{ $cpdfU['serial'] }}">{{ $cpdfU['placa'] }}</span>
-                                                        @endif
-                                                    @endforeach
-                                                </div>
-                                            @endif
-                                        @endforeach
-                                    </details>
+                                    <script type="application/json" id="cpdfUni{{ $d->ID_REGISTRO }}">@json($cpdfDatos)</script>
+                                    <button type="button" class="cpdf-uni-ver" onclick="window.cpdfAbrirUnidades({{ $d->ID_REGISTRO }})">
+                                        <i class="material-icons">format_list_bulleted</i>Ver equipos: {{ implode(' · ', array_map(fn ($g, $t) => count($cpdfUni[$g]) . ' ' . $t, array_keys($cpdfCuenta), $cpdfCuenta)) }}
+                                    </button>
                                 @endif
                                 {{-- Un PDF de la carga que no se enlazó solo (no se supo de quién es, lo
                                      leyó la IA, venía con algo que mirar): se enlaza a mano buscando el
@@ -300,8 +295,13 @@
                                          por el documento de la ficha, y su "Eliminar" o "Reemplazar" actuaban
                                          sobre el documento MONTADO del equipo; y guardar el panel la daba por
                                          revisada ("Coincide") sin haberse aplicado. --}}
+                                    {{-- El de varias unidades, con sus equipos al lado (cpdfAbrirUnidades). --}}
                                     <button type="button" class="pdf-doc-btn" title="Ver el PDF soltado"
-                                        onclick="window.openPdfPreview('/storage/google/{{ $d->DRIVE_ID }}', @js($d->TIPO), @js($d->ARCHIVO ?: 'Documento'), null, '', true)">
+                                        @if (isset($unidadesPdf[$d->ID_REGISTRO]))
+                                            onclick="window.cpdfAbrirUnidades({{ $d->ID_REGISTRO }})"
+                                        @else
+                                            onclick="window.openPdfPreview('/storage/google/{{ $d->DRIVE_ID }}', @js($d->TIPO), @js($d->ARCHIVO ?: 'Documento'), null, '', true)"
+                                        @endif>
                                         <i class="material-icons">description</i>
                                     </button>
                                 @elseif ($d->DRIVE_ID)
@@ -1053,6 +1053,8 @@
     };
     // La caja vuelve a su casa (o, si la vista ya no está, se va) y el visor queda como siempre.
     window.cpdfCerrarAtar = function () {
+        // La lista de equipos (cpdfAbrirUnidades) no tiene casa: se arma en cada apertura.
+        document.querySelectorAll('.cpdf-uni-caja').forEach(function (c) { c.remove(); });
         document.querySelectorAll('.cpdf-atar-visor').forEach(function (v) {
             v.classList.remove('cpdf-atar-visor');
             v.querySelectorAll('.cpdf-atar-caja').forEach(function (c) {
@@ -1121,6 +1123,93 @@
         window.cpdfAbrirAtar({ doc: doc, leidoEti: que === 'placa' ? 'Placa' : 'Serial', leido: codigo, fechas: fechas,
             link: link, inicial: codigo, tipo: tipo, bloquearConBl: false,
             atar: cpdfAtarPreguntando(@json(route('historial-documentos.carga-masiva.atar-falta')), { link: link, codigo: codigo }) });
+    };
+
+    // Un PDF de varias unidades (BL, RACDA, ROTC o póliza de flota): el visor con TODOS sus equipos
+    // a un lado, como la caja de enlazar y con su aspecto. Arriba el documento completo; después
+    // cada equipo según lo que tiene HOY su ficha, y al pulsarlo el visor enseña el PDF de esa ficha
+    // (de un ROTC de flota, su parte de 3 hojas; de un BL, el mismo para todos). Al final lo que falta
+    // por enlazar, con su botón. Los datos los deja la fila en #cpdfUni<ID> (unidadesDeVarias).
+    window.cpdfAbrirUnidades = function (id) {
+        var nodo = document.getElementById('cpdfUni' + id);
+        if (!nodo) return;
+        var d = JSON.parse(nodo.textContent);
+        window.cpdfCerrarAtar();
+        var ver = function (link, titulo) { window.openPdfPreview(link, d.tipo, d.doc + ' · ' + titulo, null, '', true); };
+        ver(d.link, d.archivo);
+        var visor = document.getElementById('pdfVisorIzq').parentNode;
+        visor.classList.add('cpdf-atar-visor');
+
+        var el = function (tag, clase, texto) {
+            var n = document.createElement(tag);
+            if (clase) n.className = clase;
+            if (texto != null) n.textContent = texto;
+            return n;
+        };
+        var caja = el('div', 'cpdf-atar-caja cpdf-uni-caja'), cuerpo = el('div', 'cpdf-atar-cuerpo');
+        caja.setAttribute('role', 'dialog');
+        caja.appendChild(cuerpo);
+        cuerpo.appendChild(el('h3', 'cpdf-atar-tit', d.doc + ' · equipos'));
+        var buscar = el('label', 'cpdf-atar-buscar'), campo = el('input');
+        buscar.appendChild(el('i', 'material-icons', 'search'));
+        campo.type = 'search'; campo.placeholder = 'Placa o serial'; campo.autocomplete = 'off';
+        buscar.appendChild(campo);
+        cuerpo.appendChild(buscar);
+        var lista = el('div', 'cpdf-uni-lista');
+        cuerpo.appendChild(lista);
+
+        var activo = null;
+        var marcar = function (op) { if (activo) activo.classList.remove('activo'); activo = op; op.classList.add('activo'); };
+        // Una línea: la placa (o lo que se lea) y el serial debajo; con PDF, se pulsa para verlo.
+        var linea = function (clase, placa, serial, link) {
+            var op = el(link ? 'button' : 'div', 'cpdf-uni-op ' + clase);
+            if (link) op.type = 'button';
+            var txt = el('span', 'cpdf-uni-txt');
+            txt.appendChild(el('b', null, placa));
+            if (serial && serial !== placa) txt.appendChild(el('small', null, serial));
+            op.appendChild(txt);
+            op.dataset.buscar = (placa + ' ' + (serial || '')).toUpperCase();
+            if (link) op.onclick = function () { marcar(op); ver(link, placa); };
+            return op;
+        };
+        var seccion = function (titulo, filas) {
+            if (!filas.length) return;
+            var s = el('div', 'cpdf-uni-grupo');
+            s.appendChild(el('div', 'cpdf-uni-tit', titulo + ' (' + filas.length + ')'));
+            filas.forEach(function (f) { s.appendChild(f); });
+            lista.appendChild(s);
+        };
+
+        var completo = linea('completo', 'Documento completo', d.archivo, d.link);
+        lista.appendChild(completo);
+        marcar(completo);
+        ['este', 'otro', 'sin'].forEach(function (g) {
+            seccion(d.titulos[g], (d.grupos[g] || []).map(function (u) { return linea(g, u.placa, u.serial, u.link); }));
+        });
+        // Lo que falta por enlazar: la misma acción que la línea de la fila (cpdfAtarFalta / cpdfAtarVin).
+        var enlazar = function (op, accion) {
+            var b = el('button', 'cpdf-vin-btn');
+            b.type = 'button';
+            b.appendChild(el('i', 'material-icons', 'link'));
+            b.appendChild(document.createTextNode('Equipo'));
+            b.title = 'Enlazar a un equipo';
+            b.onclick = function () { window.cpdfCerrarAtar(); accion(); };
+            op.appendChild(b);
+            return op;
+        };
+        seccion('Por enlazar', (d.faltan || []).map(function (u) {
+            return enlazar(linea('falta', (u.suyo ? 'Sin enlazar ' : 'Falta ') + (u.que === 'placa' ? 'la placa ' : 'el serial ') + u.codigo, '', null),
+                function () { window.cpdfAtarFalta(d.link, u.codigo, u.que, d.tipo, d.doc, d.fechas); });
+        }).concat((d.vines || []).map(function (vin) {
+            return enlazar(linea('falta', 'Falta el VIN ' + vin, '', null), function () { window.cpdfAtarVin(d.link, vin, { emision: d.fechas.emision, vence: null }); });
+        })));
+
+        campo.oninput = function () {
+            var q = campo.value.trim().toUpperCase();
+            lista.querySelectorAll('.cpdf-uni-op').forEach(function (op) { op.hidden = !!q && op.dataset.buscar.indexOf(q) < 0; });
+            lista.querySelectorAll('.cpdf-uni-grupo').forEach(function (s) { s.hidden = !s.querySelector('.cpdf-uni-op:not([hidden])'); });
+        };
+        visor.insertBefore(caja, visor.firstChild);
     };
 
     // "Eliminar" del contador de selección: descarta los PDF elegidos que se pueden descartar (lo
