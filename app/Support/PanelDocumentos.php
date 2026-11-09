@@ -218,14 +218,12 @@ class PanelDocumentos
             ->when($estadoDoc === 'corregibles', fn ($q) => $q->corregibles())
             ->when($estadoDoc && !in_array($estadoDoc, ['revisar', 'corregibles'], true),
                 fn ($q) => $q->where('ESTADO', $estadoDoc))
-            // Lo soltado en la carga masiva en las ULTIMAS 24 HORAS va PRIMERO, lo mas nuevo
-            // arriba, este como este: se enlaza solo y queda "Aplicado", y lo aplicado va al
-            // final, detras de miles de filas de la noche; sin esto habia que filtrar para ver
-            // lo que uno acababa de subir.
-            ->orderByRaw('CASE WHEN ORIGEN = ? AND created_at >= ? THEN 0 ELSE 1 END',
-                [VerificacionDocumento::DE_CARGA_MASIVA, now()->subDay()])
-            ->orderByRaw('CASE WHEN ORIGEN = ? AND created_at >= ? THEN ID_REGISTRO END DESC',
-                [VerificacionDocumento::DE_CARGA_MASIVA, now()->subDay()])
+            // Lo soltado en la carga masiva va SIEMPRE PRIMERO, lo mas nuevo arriba, este como
+            // este (pedido 09-11-2026). Antes era solo 24 horas: pasado ese tiempo lo "Aplicado"
+            // se iba al final, detras de miles de filas de la noche, y el ROTC de flota subido
+            // no se encontraba.
+            ->orderByRaw('CASE WHEN ORIGEN = ? THEN 0 ELSE 1 END', [VerificacionDocumento::DE_CARGA_MASIVA])
+            ->orderByRaw('CASE WHEN ORIGEN = ? THEN ID_REGISTRO END DESC', [VerificacionDocumento::DE_CARGA_MASIVA])
             // Despues, primero lo que hay que resolver; dentro de cada montón, lo ultimo leido
             // arriba. El ID desempata: el comando escribe varias filas en el mismo segundo y
             // sin el una misma fila podia salir en dos paginas (o en ninguna).

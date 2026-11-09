@@ -1272,7 +1272,9 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
     {
         $this->actingAs($this->usuario());
         $html = $this->get(route('historial-documentos.index', ['pestana' => 'documentos']))->assertOk()->getContent();
-        preg_match_all('~<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>~is', $html, $m);
+        // Sin los bloques de datos (type="application/json", los equipos de un PDF de varias
+        // unidades): no son JavaScript.
+        preg_match_all('~<script(?![^>]*\bsrc=)(?![^>]*application/json)[^>]*>(.*?)</script>~is', $html, $m);
         $js = implode(";\n", array_filter(array_map('trim', $m[1])));
         $this->assertStringContainsString('window.cpdfAbrirAtar', $js);
         $this->assertStringContainsString('id="cpdfAtarCaja"', $html);

@@ -114,7 +114,8 @@ class AuditoriaDocumentosFiltrosTest extends MySqlTestCase
         }
         // Ni "Por dónde va la revisión" (la consulta cara, no depende de los filtros) ni scripts.
         $this->assertStringNotContainsString('Por dónde va la revisión', $html);
-        $this->assertStringNotContainsString('<script', $html);
+        // (los bloques de datos de un PDF de varias unidades sí vienen: no son código)
+        $this->assertDoesNotMatchRegularExpression('~<script(?![^>]*application/json)~i', $html);
 
         // La pantalla entera sí lo trae.
         $this->actingAs($this->usuario())->get('/admin/historial-documentos?pestana=documentos')
