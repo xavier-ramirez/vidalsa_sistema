@@ -219,6 +219,16 @@
     .cpdf-vin-btn { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #1e40af; background: #fff; color: #1e40af; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
     .cpdf-vin-btn .material-icons { font-size: 15px; }
 
+    /* El detalle de un ROTC de flota aplicado: las placas enlazadas (verde) y las que se quedaron
+       con el suyo (gris); cada una abre su PDF. */
+    .cpdf-flota { margin-top: 6px; font-size: 13px; }
+    .cpdf-flota summary { cursor: pointer; color: #1e40af; font-weight: 600; }
+    .cpdf-flota-tit { margin: 8px 0 4px; color: #334155; font-weight: 600; }
+    .cpdf-flota-lista { display: flex; flex-wrap: wrap; gap: 4px; max-height: 220px; overflow-y: auto; }
+    .cpdf-flota-eq { border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; border-radius: 6px; padding: 1px 7px; font-size: 12px; cursor: pointer; }
+    .cpdf-flota-eq.nueva { border-color: #16a34a; background: #f0fdf4; color: #166534; }
+    .cpdf-flota-eq.sin { cursor: default; color: #94a3b8; }
+
     /* "Enlazar a un equipo" (partials/atar_modal): un panel al lado del PDF, dentro del visor
        (.cpdf-atar-visor, ver cpdfAbrirAtar), con el MISMO aspecto que el panel de datos del visor
        (#pdfMetadataPanel, layout_ui.js): fondo oscuro y cada dato con su rótulo arriba y el valor

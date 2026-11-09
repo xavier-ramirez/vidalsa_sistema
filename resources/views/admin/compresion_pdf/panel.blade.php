@@ -212,6 +212,28 @@
                                 @empty
                                     <span class="cpdf-motivo">{{ $d->motivoParaVer() ?: 'Todo coincide con el documento' }}</span>
                                 @endforelse
+                                {{-- ROTC de flota aplicado: cuáles recibieron su parte y cuáles se quedaron con el
+                                     suyo (VerificacionDocumento::unidadesDeFlota); cada placa abre SU PDF. --}}
+                                @if ($cpdfFlota = $d->unidadesDeFlota())
+                                    <details class="cpdf-flota" onclick="event.stopPropagation()">
+                                        <summary>Ver detalle: {{ count($cpdfFlota['enlazadas']) }} enlazadas, {{ count($cpdfFlota['suyas']) }} se quedaron con el suyo</summary>
+                                        @foreach (['enlazadas' => 'Enlazadas: su PDF de 3 hojas (portada, su hoja de la tabla y su etiqueta QR)', 'suyas' => 'Se quedaron con el ROTC que ya tenían'] as $cpdfGrupo => $cpdfTit)
+                                            @if ($cpdfFlota[$cpdfGrupo])
+                                                <div class="cpdf-flota-tit">{{ $cpdfTit }} ({{ count($cpdfFlota[$cpdfGrupo]) }})</div>
+                                                <div class="cpdf-flota-lista">
+                                                    @foreach ($cpdfFlota[$cpdfGrupo] as $cpdfU)
+                                                        @if ($cpdfU['link'])
+                                                            <button type="button" class="cpdf-flota-eq{{ $cpdfGrupo === 'enlazadas' ? ' nueva' : '' }}" title="{{ $cpdfU['serial'] }}"
+                                                                onclick="window.openPdfPreview(@js($cpdfU['link']), 'rotc', @js('ROTC ' . $cpdfU['placa']), null, '', true)">{{ $cpdfU['placa'] }}</button>
+                                                        @else
+                                                            <span class="cpdf-flota-eq sin" title="Sin ROTC en la ficha">{{ $cpdfU['placa'] }}</span>
+                                                        @endif
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        @endforeach
+                                    </details>
+                                @endif
                                 {{-- Un PDF de la carga que no se enlazó solo (no se supo de quién es, lo
                                      leyó la IA, venía con algo que mirar): se enlaza a mano buscando el
                                      equipo por serial, placa o código. El BL va VIN por VIN (abajo),

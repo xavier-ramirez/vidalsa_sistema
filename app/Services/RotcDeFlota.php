@@ -62,16 +62,7 @@ class RotcDeFlota
         $cajas = $this->cajas($pdf);
 
         $flota = ['portada' => [], 'emision' => null, 'vence' => null, 'filas' => [], 'certificados' => []];
-        $primeraTabla = null;
-        foreach ($paginas as $n => $lineas) {
-            $texto = implode("\n", array_column($lineas, 'texto'));
-            if (preg_match('/FLOTA\s+VEHICULAR/u', $texto)) {
-                $primeraTabla ??= $n;
-                $this->leerTabla($n, $lineas, $texto, $flota);
-            } elseif (preg_match('/CERTIFICADO\s+DE\s+CIRCULACI/u', $texto)) {
-                $this->leerCertificados($n, $lineas, $cajas[$n] ?? null, $flota);
-            }
-        }
+        $primeraTabla = $this->recorrer($paginas, $cajas, $flota);
         // Menos de dos filas no es una flota: es un ROTC de un vehiculo y va entero, como siempre.
         if ($primeraTabla === null || count($flota['filas']) < 2) return null;
 
@@ -85,8 +76,8 @@ class RotcDeFlota
     /**
      * ¿El PDF trae el certificado de circulacion del vehiculo de ese serial? null si no se pudo
      * leer. $codigo normaliza los seriales para compararlos (LectorDocumentoPdf::codigo).
-     * Lo que manda es el texto del certificado: una parte armada de un PDF mal hecho puede traer
-     * el de otro camion aunque la carga creyera que era el suyo (05-11-2026, ficha 546).
+     * Lo que manda es el texto del certificado: una parte mal armada puede traer el de otro
+     * camion aunque la carga creyera que era el suyo. Sin medir cajas: aqui no se recorta.
      */
     public function traeCertificadoDe(string $pdf, string $serial, callable $codigo): ?bool
     {
@@ -97,17 +88,32 @@ class RotcDeFlota
         }
         if (!$paginas) return null;
 
-        $leidos = ['certificados' => []];
-        foreach ($paginas as $n => $lineas) {
-            $texto = implode("\n", array_column($lineas, 'texto'));
-            if (!preg_match('/FLOTA\s+VEHICULAR/u', $texto) && preg_match('/CERTIFICADO\s+DE\s+CIRCULACI/u', $texto)) {
-                $this->leerCertificados($n, $lineas, null, $leidos);
-            }
-        }
+        $leidos = ['emision' => null, 'vence' => null, 'filas' => [], 'certificados' => []];
+        $this->recorrer($paginas, [], $leidos);
         foreach ($leidos['certificados'] as $c) {
             if ($c['serial'] && $codigo($c['serial']) === $codigo($serial)) return true;
         }
         return false;
+    }
+
+    /**
+     * Pasa por cada pagina: la de la tabla de la flota llena las filas; la de certificados, los
+     * certificados ($cajas = donde esta cada uno, para recortarlo; vacio si no se recorta).
+     * Devuelve la primera pagina de la tabla, o null si no hay tabla.
+     */
+    private function recorrer(array $paginas, array $cajas, array &$flota): ?int
+    {
+        $primeraTabla = null;
+        foreach ($paginas as $n => $lineas) {
+            $texto = implode("\n", array_column($lineas, 'texto'));
+            if (preg_match('/FLOTA\s+VEHICULAR/u', $texto)) {
+                $primeraTabla ??= $n;
+                $this->leerTabla($n, $lineas, $texto, $flota);
+            } elseif (preg_match('/CERTIFICADO\s+DE\s+CIRCULACI/u', $texto)) {
+                $this->leerCertificados($n, $lineas, $cajas[$n] ?? null, $flota);
+            }
+        }
+        return $primeraTabla;
     }
 
     /**

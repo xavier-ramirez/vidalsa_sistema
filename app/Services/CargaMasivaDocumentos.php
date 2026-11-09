@@ -43,7 +43,8 @@ use Illuminate\Support\Facades\Storage;
  *
  * Lo que NUNCA hace solo:
  *   · Pisar un documento que la ficha ya tiene, salvo que el nuevo venza DESPUES
- *     (enlazarSolo / venceDespues): si no, se queda el suyo.
+ *     (enlazarSolo / reemplazaElSuyo; el ROTC de flota tiene reglas propias): si no,
+ *     se queda el suyo.
  *   · Poner un documento ANTERIOR al que ya esta (la regla de VerificacionDocumento::
  *     documentoAnterior, la misma de la revision nocturna): eso retrocederia un
  *     vencimiento bueno. Ahi se niega incluso con pisar=true.
@@ -737,7 +738,7 @@ class CargaMasivaDocumentos
             !$enlazadas  => 'ninguna enlazada' . ($porEnlazar ? '.' : ','),
             default      => $enlazadas . ($enlazadas === 1 ? ' enlazada' : ' enlazadas') . ($porEnlazar ? ", $porEnlazar por enlazar." : ','),
         };
-        // Los de un ROTC de flota que ya tenian el suyo (ver porQueSeQuedaElSuyo).
+        // Los de un ROTC de flota que ya tenian el suyo (ver reemplazaElSuyo).
         if ($seQuedan) $texto .= " $seQuedan ya tenia" . ($seQuedan === 1 ? '' : 'n') . ' el suyo.';
         $mirar = match (true) {
             !empty($p['ia'])                     => 'Leido con IA: compruebalo.',
@@ -1020,16 +1021,14 @@ class CargaMasivaDocumentos
                 $propuesta['emision'] ?? null, $pisar, false, !empty($f['auxiliar']), false);
             $r = $aplicarlo(false);
             if (!empty($r['requiere_pisar'])) {
-                $porQue = $this->porQueSeQuedaElSuyo($propuesta, $f);
-                if ($porQue === null) {
+                $reemplaza = $this->reemplazaElSuyo($propuesta, $f);
+                if ($reemplaza) {
                     $r = $aplicarlo(true);
-                } elseif ($porQue === self::SIN_LEER_EL_SUYO) {
-                    $r = ['ok' => false, 'mensaje' => $porQue];
+                } elseif ($reemplaza === null) {
+                    $r = ['ok' => false, 'mensaje' => self::SIN_LEER_EL_SUYO];
                 } elseif (!empty($propuesta['flota_rotc'])) {
-                    $r = ['ok' => true, 'mensaje' => $porQue ?: $r['mensaje']];
+                    $r = ['ok' => true];
                     $seQuedan++;
-                } elseif ($porQue !== '') {
-                    $r['mensaje'] = $porQue;
                 }
             }
             if (!$r['ok']) $pendientes[$r['mensaje']] = ($pendientes[$r['mensaje']] ?? 0) + 1;
@@ -1064,11 +1063,10 @@ class CargaMasivaDocumentos
     }
 
     /**
-     * Si la ficha ya tiene ese documento: null = se reemplaza; '' = se queda el suyo con el
-     * motivo de siempre; SIN_LEER_EL_SUYO = queda por enlazar (se reintenta cada hora); otro
-     * texto = se queda el suyo y ese es el motivo.
+     * Si la ficha ya tiene ese documento: true = se reemplaza; false = se queda el suyo;
+     * null = no se pudo leer el suyo y queda por enlazar (se reintenta cada hora).
      *
-     * Un ROTC de flota tiene dos reglas propias (05-11-2026). El INTT renueva la LISTA con toda
+     * Un ROTC de flota tiene dos reglas propias. El INTT renueva la LISTA con toda
      * la flota, pero solo trae certificado nuevo para los vehiculos que entran en esa renovacion;
      * a los que ya estaban les anexa el certificado viejo:
      *   1. Un vehiculo con su ROTC VIGENTE y sin certificado nuevo en este documento se queda
@@ -1076,13 +1074,11 @@ class CargaMasivaDocumentos
      *      vehiculo es el de la renovacion en que recibio su certificado).
      *   2. Si ya se le enlazo una parte de ESTA renovacion SIN su certificado (otro PDF de la
      *      misma flota que no lo traia) y este si lo trae, se cambia por esta.
-     * El 05-11 se soltaron 390 PDF de la misma flota, uno por placa: el primero de cada grupo
-     * le ponia a 17 vehiculos una parte sin certificado y a los viejos les cambiaba el suyo.
      */
-    private function porQueSeQuedaElSuyo(array $propuesta, array $ficha): ?string
+    private function reemplazaElSuyo(array $propuesta, array $ficha): ?bool
     {
         if (empty($propuesta['flota_rotc']) || !empty($ficha['auxiliar']) || !isset($ficha['rotc'])) {
-            return $this->venceDespues($propuesta, $ficha) ? null : '';
+            return $this->venceDespues($propuesta, $ficha);
         }
 
         $rotc = $ficha['rotc'];
@@ -1090,21 +1086,17 @@ class CargaMasivaDocumentos
         $doc = DB::table('documentacion')->where('ID_EQUIPO', $ficha['id'])->first(['FECHA_ROTC', 'LINK_ROTC']);
         $venceFicha = $this->soloFecha($doc?->FECHA_ROTC);
 
-        if (!$certNuevo && $venceFicha && $venceFicha >= now()->toDateString()) {
-            return 'Ya tenia su ROTC vigente y este no le trae certificado nuevo: se quedo el suyo.';
-        }
-        if ($this->venceDespues($propuesta, $ficha)) return null;
+        if (!$certNuevo && $venceFicha && $venceFicha >= now()->toDateString()) return false;
+        if ($this->venceDespues($propuesta, $ficha)) return true;
         if ($certNuevo && $venceFicha === ($rotc['vence'] ?? null)) {
-            $sinCert = $this->rotcSinSuCertificado((int) $ficha['id'], $doc?->LINK_ROTC);
-            if ($sinCert === null) return self::SIN_LEER_EL_SUYO;
-            if ($sinCert) return null;
+            return $this->rotcSinSuCertificado((int) $ficha['id'], $doc?->LINK_ROTC);
         }
-        return '';
+        return false;
     }
 
     /**
      * El ROTC que tiene la ficha NO trae el certificado de circulacion de este equipo: se lee el
-     * PDF de verdad, no lo que dijo la carga que lo armo (un PDF mal hecho le dio a 5 fichas el
+     * PDF de verdad, no lo que dijo la carga que lo armo (una parte mal armada puede traer el
      * certificado de otro camion). null = no se pudo leer (Drive caido, PDF roto): no se decide
      * nada y la unidad queda por enlazar; ni se cambia ni se da por buena.
      */
