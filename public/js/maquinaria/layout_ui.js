@@ -2342,6 +2342,14 @@ window.loadMetadata = async function () {
             // quedaría diciendo lo de antes.
             const TIPOS_QUE_VENCEN = window.TIPOS_QUE_VENCEN || ['poliza', 'rotc', 'racda', 'adicional'];
             const vencimientoAlFinal = TIPOS_QUE_VENCEN.indexOf(ctx.docType) !== -1;
+            // Póliza, ROTC, RACDA y BL: placa y serial de la ficha, para cotejarlos con el PDF.
+            // Solo lectura y SIN name: no viajan al guardar ni los toman las pistas de Control
+            // de Auditoría (se editan en el título).
+            const verStyle = `${commonInputStyle} opacity: 0.7; cursor: default;`;
+            const vehiculo = !info.vehiculo ? '' : `
+                <div style="${containerStyle}"><label for="meta_ver_placa_${ctx.equipoId}" style="${labelStyle}">Placa</label><input type="text" id="meta_ver_placa_${ctx.equipoId}" value="${esc(info.vehiculo.placa)}" readonly tabindex="-1" style="${verStyle}"></div>
+                <div style="${containerStyle}"><label for="meta_ver_chasis_${ctx.equipoId}" style="${labelStyle}">Serial Chasis</label><input type="text" id="meta_ver_chasis_${ctx.equipoId}" value="${esc(info.vehiculo.serial_chasis)}" readonly tabindex="-1" style="${verStyle}"></div>
+            `;
 
             if (ctx.docType === 'embarque') {
                 // Datos del BL. Salen del texto del PDF: van escapados (nunca como HTML).
@@ -2354,11 +2362,13 @@ window.loadMetadata = async function () {
                 // Certificado de origen guardado como embarque: es de UN equipo y no tiene buque
                 // ni unidades; esos campos no se muestran (el guardado solo toca los que llegan).
                 html += info.certificado ? `
+                ${vehiculo}
                 ${campo('nro_bl', 'Nro. de control', 'text', 'maxlength="40"')}
                 ${campo('fecha_embarque', 'Fecha de emisión', 'date')}
                 ${campo('vin', 'Serial de este equipo', 'text', 'maxlength="40"')}
             ` : `
                 <p style="color:#94a3b8;font-size:12px;margin:0 0 12px;">Datos de todo el embarque: lo que se guarde vale para sus ${esc(info.equipos)} equipo(s). El VIN es solo de este.</p>
+                ${vehiculo}
                 ${campo('nro_bl', 'Nro. BL', 'text', 'maxlength="40"')}
                 ${campo('buque', 'Buque', 'text', 'maxlength="120"')}
                 ${campo('fecha_embarque', 'Fecha del Embarque', 'date')}
@@ -2398,16 +2408,8 @@ window.loadMetadata = async function () {
                 </div>
             `;
             }
-            // Póliza, ROTC y RACDA: placa y serial de la ficha, para cotejarlos con el PDF. Debajo
-            // de la aseguradora y antes de las fechas. Solo lectura y SIN name: no viajan al
-            // guardar ni los toman las pistas de Control de Auditoría (se editan en el título).
-            if (info.vehiculo) {
-                const verStyle = `${commonInputStyle} opacity: 0.7; cursor: default;`;
-                html += `
-                <div style="${containerStyle}"><label for="meta_ver_placa_${ctx.equipoId}" style="${labelStyle}">Placa</label><input type="text" id="meta_ver_placa_${ctx.equipoId}" value="${esc(info.vehiculo.placa)}" readonly tabindex="-1" style="${verStyle}"></div>
-                <div style="${containerStyle}"><label for="meta_ver_chasis_${ctx.equipoId}" style="${labelStyle}">Serial Chasis</label><input type="text" id="meta_ver_chasis_${ctx.equipoId}" value="${esc(info.vehiculo.serial_chasis)}" readonly tabindex="-1" style="${verStyle}"></div>
-            `;
-            }
+            // La placa y el serial (vehiculo, arriba), debajo de la aseguradora y antes de las fechas.
+            html += vehiculo;
             // Las FECHAS, al final y en el orden en que ocurren: primero se emite el documento y
             // después vence. Estaban al revés —vencimiento arriba del todo y emisión al final,
             // con la aseguradora en medio— y se leía dando saltos (pedido del cliente).

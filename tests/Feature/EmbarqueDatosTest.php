@@ -64,12 +64,16 @@ class EmbarqueDatosTest extends MySqlTestCase
 
     public function test_el_panel_trae_los_datos_del_bl(): void
     {
-        $this->actingAs($this->editor)->getJson("/admin/equipos/{$this->equipo}/metadata?type=embarque")
-            ->assertOk()->assertJsonPath('data', [
-                'nro_bl' => 'RAQDLA16_PRUEBA', 'buque' => 'Rui An Yang V.2524',
-                'fecha_embarque' => '2025-08-20', 'unidades' => 10,
-                'vin' => 'LEZDD2CC8SF132435', 'equipos' => 2, 'certificado' => false,
-            ]);
+        $data = $this->actingAs($this->editor)->getJson("/admin/equipos/{$this->equipo}/metadata?type=embarque")
+            ->assertOk()->json('data');
+        // La placa y el serial de la ficha, para cotejar el VIN del BL (solo para mirar).
+        $this->assertSame(DB::table('equipos')->where('ID_EQUIPO', $this->equipo)->value('SERIAL_CHASIS'), $data['vehiculo']['serial_chasis']);
+        unset($data['vehiculo']);
+        $this->assertSame([
+            'nro_bl' => 'RAQDLA16_PRUEBA', 'buque' => 'Rui An Yang V.2524',
+            'fecha_embarque' => '2025-08-20', 'unidades' => 10,
+            'vin' => 'LEZDD2CC8SF132435', 'equipos' => 2, 'certificado' => false,
+        ], $data);
     }
 
     public function test_un_certificado_de_origen_se_nombra_como_tal(): void

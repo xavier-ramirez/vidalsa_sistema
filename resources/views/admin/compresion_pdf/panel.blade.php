@@ -1127,8 +1127,8 @@
     };
 
     // Un PDF de varias unidades (BL, RACDA, ROTC o póliza de flota): el visor con TODOS sus equipos
-    // a un lado, como la caja de enlazar y con su aspecto. Arriba el documento completo; después
-    // cada equipo según lo que tiene HOY su ficha, y al pulsarlo el visor enseña el PDF de esa ficha
+    // a un lado, como la caja de enlazar y con su aspecto. Se abre con el documento completo; la
+    // lista tiene cada equipo según lo que tiene HOY su ficha, y al pulsarlo el visor enseña el PDF de esa ficha
     // (de un ROTC de flota, su parte de 3 hojas; de un BL, el mismo para todos). Al final lo que falta
     // por enlazar, con su botón. Los datos los deja la fila en #cpdfUni<ID> (unidadesDeVarias).
     // Con un equipo elegido, a la derecha sale el panel de datos de SU ficha (el del visor), para
@@ -1153,15 +1153,16 @@
             if (texto != null) n.textContent = texto;
             return n;
         };
+        // El buscador queda fijo arriba, fuera de lo que se desplaza.
         var caja = el('div', 'cpdf-atar-caja cpdf-uni-caja'), cuerpo = el('div', 'cpdf-atar-cuerpo');
         caja.setAttribute('role', 'dialog');
-        caja.appendChild(cuerpo);
-        cuerpo.appendChild(el('h3', 'cpdf-atar-tit', d.doc + ' · equipos'));
+        caja.setAttribute('aria-label', d.doc + ' · equipos');
         var buscar = el('label', 'cpdf-atar-buscar'), campo = el('input');
         buscar.appendChild(el('i', 'material-icons', 'search'));
         campo.type = 'search'; campo.placeholder = 'Placa o serial'; campo.autocomplete = 'off';
         buscar.appendChild(campo);
-        cuerpo.appendChild(buscar);
+        caja.appendChild(buscar);
+        caja.appendChild(cuerpo);
         var lista = el('div', 'cpdf-uni-lista');
         cuerpo.appendChild(lista);
 
@@ -1187,9 +1188,6 @@
             lista.appendChild(s);
         };
 
-        var completo = linea('completo', 'Documento completo', d.archivo, d.link);
-        lista.appendChild(completo);
-        marcar(completo);
         ['este', 'otro', 'sin'].forEach(function (g) {
             seccion(d.titulos[g], (d.grupos[g] || []).map(function (u) { return linea(g, u.placa, u.serial, u.link, u); }));
         });

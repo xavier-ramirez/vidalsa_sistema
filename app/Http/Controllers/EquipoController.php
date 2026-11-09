@@ -2514,9 +2514,10 @@ class EquipoController extends Controller
             $data['fecha_emision'] = $doc?->{$campoEmision} ? $doc->{$campoEmision}->format('Y-m-d') : '';
         }
 
-        // Poliza, ROTC y RACDA: la placa y el serial de la ficha, SOLO para mirarlos contra el
-        // PDF (que el documento sea de este vehiculo). Se editan en el titulo de propiedad.
-        if (in_array($type, ['poliza', 'rotc', 'racda'], true)) {
+        // Poliza, ROTC, RACDA y BL: la placa y el serial de la ficha, SOLO para mirarlos contra el
+        // PDF (que el documento sea de este vehiculo; en el BL, contra su VIN). Se editan en el
+        // titulo de propiedad. El BL que este equipo ya no tiene no lleva nada.
+        if (in_array($type, ['poliza', 'rotc', 'racda'], true) || ($type === 'embarque' && $data)) {
             $data['vehiculo'] = [
                 'placa'         => $doc?->PLACA ?? '',
                 'serial_chasis' => $equipo->SERIAL_CHASIS ?? '',
