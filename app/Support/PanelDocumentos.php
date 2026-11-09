@@ -148,6 +148,7 @@ class PanelDocumentos
             'docs'        => null,
             'vinesFaltan' => [],
             'unidadesFaltan' => [],
+            'unidadesPdf' => [],
             'avanceDocs'  => [],
             'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
             'estadoDoc'   => null,
@@ -254,6 +255,8 @@ class PanelDocumentos
             // Y las unidades de cada RACDA, ROTC o poliza de flota que se enlazan a mano (la placa
             // o el serial que falta, o un equipo suyo que no entro), cada una con su boton.
             'unidadesFaltan' => $carga->unidadesSinAtar($deLaCarga),
+            // Y el detalle de cada PDF de varias: que tiene hoy la ficha de cada unidad, con su PDF.
+            'unidadesPdf'    => $carga->unidadesDeVarias($deLaCarga),
             'resumenDocs'    => VerificacionDocumento::query()->tap($filtrar)
                 ->select('ESTADO', DB::raw('COUNT(*) as n'))->groupBy('ESTADO')->pluck('n', 'ESTADO'),
             // Los dos montones que se miran distinto: lo que la tarea todavia pone sola y lo

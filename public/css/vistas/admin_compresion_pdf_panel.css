@@ -219,8 +219,9 @@
     .cpdf-vin-btn { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #1e40af; background: #fff; color: #1e40af; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
     .cpdf-vin-btn .material-icons { font-size: 15px; }
 
-    /* El detalle de un ROTC de flota aplicado: las placas enlazadas (verde) y las que se quedaron
-       con el suyo (gris); cada una abre su PDF. */
+    /* El detalle de un PDF de varias unidades (BL, RACDA, ROTC o póliza de flota): las placas que
+       tienen este PDF (verde), las que tienen otro (gris) y las que no tienen ninguno (.sin, sin
+       botón); cada una con PDF abre el de su ficha. */
     .cpdf-flota { margin-top: 6px; font-size: 13px; }
     .cpdf-flota summary { cursor: pointer; color: #1e40af; font-weight: 600; }
     .cpdf-flota-tit { margin: 8px 0 4px; color: #334155; font-weight: 600; }

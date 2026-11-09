@@ -212,21 +212,34 @@
                                 @empty
                                     <span class="cpdf-motivo">{{ $d->motivoParaVer() ?: 'Todo coincide con el documento' }}</span>
                                 @endforelse
-                                {{-- ROTC de flota aplicado: cuáles recibieron su parte y cuáles se quedaron con el
-                                     suyo (VerificacionDocumento::unidadesDeFlota); cada placa abre SU PDF. --}}
-                                @if ($cpdfFlota = $d->unidadesDeFlota())
+                                {{-- Un PDF de varias unidades (BL, RACDA, ROTC o póliza de flota), en cualquier
+                                     estado: qué tiene HOY la ficha de cada una (CargaMasivaDocumentos::unidadesDeVarias).
+                                     Cada placa abre el PDF de su ficha; las que no están en el sistema y las que
+                                     faltan por enlazar van debajo, con su botón para atarlas. --}}
+                                @if ($cpdfUni = $unidadesPdf[$d->ID_REGISTRO] ?? null)
+                                    @php
+                                        $cpdfNom = $tiposDoc[$d->TIPO] ?? $d->TIPO;
+                                        $cpdfTits = [
+                                            'este' => empty($d->PROPUESTA['flota_rotc']) ? 'Enlazadas: tienen este PDF'
+                                                : 'Enlazadas: su PDF de 3 hojas (portada, su hoja de la tabla y su etiqueta QR)',
+                                            'otro' => 'Con otro ' . $cpdfNom . ' en su ficha (el que ya tenían o uno posterior)',
+                                            'sin'  => 'Sin ' . $cpdfNom . ' en su ficha',
+                                        ];
+                                        $cpdfCuenta = array_filter(['este' => 'enlazadas', 'otro' => 'con otro', 'sin' => 'sin ninguno'],
+                                            fn ($g) => $cpdfUni[$g], ARRAY_FILTER_USE_KEY);
+                                    @endphp
                                     <details class="cpdf-flota" onclick="event.stopPropagation()">
-                                        <summary>Ver detalle: {{ count($cpdfFlota['enlazadas']) }} enlazadas, {{ count($cpdfFlota['suyas']) }} se quedaron con el suyo</summary>
-                                        @foreach (['enlazadas' => 'Enlazadas: su PDF de 3 hojas (portada, su hoja de la tabla y su etiqueta QR)', 'suyas' => 'Se quedaron con el ROTC que ya tenían'] as $cpdfGrupo => $cpdfTit)
-                                            @if ($cpdfFlota[$cpdfGrupo])
-                                                <div class="cpdf-flota-tit">{{ $cpdfTit }} ({{ count($cpdfFlota[$cpdfGrupo]) }})</div>
+                                        <summary>Ver detalle: {{ implode(' · ', array_map(fn ($g, $t) => count($cpdfUni[$g]) . ' ' . $t, array_keys($cpdfCuenta), $cpdfCuenta)) }}</summary>
+                                        @foreach ($cpdfTits as $cpdfGrupo => $cpdfTit)
+                                            @if ($cpdfUni[$cpdfGrupo])
+                                                <div class="cpdf-flota-tit">{{ $cpdfTit }} ({{ count($cpdfUni[$cpdfGrupo]) }})</div>
                                                 <div class="cpdf-flota-lista">
-                                                    @foreach ($cpdfFlota[$cpdfGrupo] as $cpdfU)
+                                                    @foreach ($cpdfUni[$cpdfGrupo] as $cpdfU)
                                                         @if ($cpdfU['link'])
-                                                            <button type="button" class="cpdf-flota-eq{{ $cpdfGrupo === 'enlazadas' ? ' nueva' : '' }}" title="{{ $cpdfU['serial'] }}"
-                                                                onclick="window.openPdfPreview(@js($cpdfU['link']), 'rotc', @js('ROTC ' . $cpdfU['placa']), null, '', true)">{{ $cpdfU['placa'] }}</button>
+                                                            <button type="button" class="cpdf-flota-eq{{ $cpdfGrupo === 'este' ? ' nueva' : '' }}" title="{{ $cpdfU['serial'] }}"
+                                                                onclick="window.openPdfPreview(@js($cpdfU['link']), @js($d->TIPO), @js($cpdfNom . ' ' . $cpdfU['placa']), null, '', true)">{{ $cpdfU['placa'] }}</button>
                                                         @else
-                                                            <span class="cpdf-flota-eq sin" title="Sin ROTC en la ficha">{{ $cpdfU['placa'] }}</span>
+                                                            <span class="cpdf-flota-eq sin" title="{{ $cpdfU['serial'] }}">{{ $cpdfU['placa'] }}</span>
                                                         @endif
                                                     @endforeach
                                                 </div>

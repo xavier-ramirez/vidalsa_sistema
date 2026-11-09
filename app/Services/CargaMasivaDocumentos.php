@@ -1248,6 +1248,67 @@ class CargaMasivaDocumentos
     }
 
     /**
+     * El detalle de cada PDF de varias unidades (un BL, un RACDA, un ROTC o una póliza de flota),
+     * con las MISMAS claves que $filas: que tiene HOY la ficha de cada unidad, en cualquier estado
+     * de la fila. 'este' = tiene este PDF (de un ROTC de flota, SU parte de 3 hojas); 'otro' =
+     * tiene otro documento de ese tipo (el que ya tenia, o uno que se puso despues); 'sin' = no
+     * tiene ninguno. Se mira la ficha y no lo que anoto la carga: una parte enlazada y luego
+     * cambiada ya no es "este". Cada unidad lleva el PDF de su ficha, que abre su boton.
+     * Unas pocas consultas por pagina, no por fila.
+     *
+     * @return array<int, array{este: list<array>, otro: list<array>, sin: list<array>}>
+     */
+    public function unidadesDeVarias(iterable $filas): array
+    {
+        $varias = [];
+        foreach ($filas as $k => $fila) {
+            $p = $fila?->PROPUESTA;
+            if ($p && !empty($p['link']) && $this->esDeVarias($p) && !empty($p['equipos'])) $varias[$k] = $p;
+        }
+
+        // Los enlaces de hoy, por tipo y por tabla: [tipo][aux|eq][id] => link.
+        $ids = [];
+        foreach ($varias as $p) {
+            foreach ($p['equipos'] as $e) $ids[$p['tipo']][empty($e['auxiliar']) ? 'eq' : 'aux'][] = (int) $e['id'];
+        }
+        $hoy = [];
+        foreach ($ids as $tipo => $porTabla) {
+            foreach ($porTabla as $tabla => $lista) {
+                $lista = array_values(array_unique($lista));
+                $colAux = EquipoAuxiliar::DOCS[self::TIPOS_AUXILIAR[$tipo] ?? ''] ?? null;
+                $colEq = DocumentacionDeEquipo::COLUMNAS[$tipo]['link'] ?? null;
+                $hoy[$tipo][$tabla] = match (true) {
+                    $tabla === 'aux'         => $colAux ? DB::table('equipos_auxiliares')->whereIn('ID_AUXILIAR', $lista)->pluck($colAux, 'ID_AUXILIAR')->all() : [],
+                    $tipo === self::EMBARQUE => DB::table('embarque_equipo as ee')->join('embarques as e', 'e.ID_EMBARQUE', '=', 'ee.ID_EMBARQUE')
+                                                    ->whereIn('ee.ID_EQUIPO', $lista)->pluck('e.LINK', 'ee.ID_EQUIPO')->all(),
+                    default                  => $colEq ? DB::table('documentacion')->whereIn('ID_EQUIPO', $lista)->pluck($colEq, 'ID_EQUIPO')->all() : [],
+                };
+            }
+        }
+
+        $porFila = [];
+        foreach ($varias as $k => $p) {
+            $piezas = $p['flota_rotc']['piezas'] ?? [];
+            $grupos = ['este' => [], 'otro' => [], 'sin' => []];
+            foreach ($p['equipos'] as $e) {
+                $actual = $hoy[$p['tipo']][empty($e['auxiliar']) ? 'eq' : 'aux'][(int) $e['id']] ?? null;
+                $grupo = match (true) {
+                    $this->mismoArchivo($actual, $piezas[$e['id']] ?? $p['link']) => 'este',
+                    (string) $actual !== ''                                        => 'otro',
+                    default                                                        => 'sin',
+                };
+                $grupos[$grupo][] = [
+                    'placa'  => (string) (($e['placa'] ?? null) ?: ($e['serial'] ?? '')),
+                    'serial' => (string) ($e['serial'] ?? ''),
+                    'link'   => $grupo === 'sin' ? null : $actual,
+                ];
+            }
+            $porFila[$k] = $grupos;
+        }
+        return $porFila;
+    }
+
+    /**
      * Las unidades de cada PDF de varias que se atan a mano desde su fila (la vista pinta una
      * linea "Falta la placa X" con su boton de enlazar por cada una), con las MISMAS claves que $filas:
      * lo que el PDF nombra y no esta en el sistema y, mientras la fila siga sin enlazar, sus

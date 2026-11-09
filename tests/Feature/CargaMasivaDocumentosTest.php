@@ -750,6 +750,42 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame('/storage/google/racda-cm', $b->documentacion()->first()->LINK_RACDA);
     }
 
+    /**
+     * El detalle de un PDF de varias unidades dice lo que tiene HOY cada ficha, en cualquier
+     * estado de la fila: una unidad a la que luego se le cambio el documento ya no sale como
+     * enlazada, y la de un ROTC de flota cuenta con SU parte, no con el PDF entero.
+     */
+    public function test_el_detalle_de_un_pdf_de_varias_mira_la_ficha_de_hoy(): void
+    {
+        $con = $this->equipo(['LINK_RACDA' => '/storage/google/racda-det']);
+        $otro = $this->equipo(['LINK_RACDA' => '/storage/google/otro-racda']);
+        $sin = $this->equipo();
+        $this->propuesta('racda-det', [$con, $otro, $sin], VerificacionDocumento::POR_ENGANCHAR, 'racda');
+        $fila = VerificacionDocumento::where('DRIVE_ID', 'racda-det')->first();
+
+        $grupos = $this->servicio()->unidadesDeVarias([7 => $fila])[7];
+        $this->assertSame(['/storage/google/racda-det'], array_column($grupos['este'], 'link'));
+        $this->assertSame(['/storage/google/otro-racda'], array_column($grupos['otro'], 'link'));
+        $this->assertSame([null], array_column($grupos['sin'], 'link'), 'sin documento no hay PDF que abrir');
+        $this->assertSame('3 unidades', $fila->identificador());
+
+        // ROTC de flota: la unidad tiene SU parte (este); la otra ya tenia uno suyo (otro).
+        $parte = $this->equipo(['LINK_ROTC' => '/storage/google/parte-a']);
+        $suyo = $this->equipo(['LINK_ROTC' => '/storage/google/rotc-viejo']);
+        $this->propuesta('flota-det', [$parte, $suyo], VerificacionDocumento::APLICADO);
+        $flota = VerificacionDocumento::where('DRIVE_ID', 'flota-det')->first();
+        $flota->PROPUESTA = $flota->PROPUESTA + ['flota_rotc' => ['piezas' => [$parte->ID_EQUIPO => '/storage/google/parte-a']]];
+
+        $grupos = $this->servicio()->unidadesDeVarias([$flota])[0];
+        $this->assertSame(['/storage/google/parte-a'], array_column($grupos['este'], 'link'));
+        $this->assertSame(['/storage/google/rotc-viejo'], array_column($grupos['otro'], 'link'));
+        $this->assertSame([], $grupos['sin']);
+
+        // Un documento de un solo equipo no lleva detalle.
+        $this->propuesta('uno-det', [$sin], VerificacionDocumento::POR_ENGANCHAR, 'racda');
+        $this->assertSame([], $this->servicio()->unidadesDeVarias([VerificacionDocumento::where('DRIVE_ID', 'uno-det')->first()]));
+    }
+
     /** "Dar por revisada" una propuesta de la carga la dejaba "Coincide" sin haberse enlazado. */
     public function test_una_propuesta_de_la_carga_no_se_da_por_revisada(): void
     {

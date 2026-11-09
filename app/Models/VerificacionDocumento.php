@@ -600,42 +600,13 @@ class VerificacionDocumento extends Model
      * El dato que identifica la fila en la tabla de Revisión (pedido del cliente, 21-10-2026):
      * el serial de chasis; sin él, el de motor (de la ficha); sin él, la placa; si no hay
      * ninguno, vacío. Con el equipo cargado (PanelDocumentos::datosDocumentos).
-     * Un ROTC de flota es de muchas unidades: dice cuántas, no el serial de la primera.
+     * Un PDF de varias unidades (un BL, un RACDA, un ROTC o una póliza de flota) dice cuántas,
+     * no el serial de la primera.
      */
     public function identificador(): string
     {
-        if (!empty($this->PROPUESTA['flota_rotc'])) return count($this->PROPUESTA['equipos'] ?? []) . ' unidades';
+        $unidades = count($this->PROPUESTA['equipos'] ?? []);
+        if ($unidades > 1 || !empty($this->PROPUESTA['flota_rotc'])) return $unidades . ' unidades';
         return (string) ($this->SERIAL ?: ($this->equipo?->SERIAL_DE_MOTOR ?: ($this->PLACA ?: '')));
-    }
-
-    /**
-     * Las unidades de un ROTC de flota ya aplicado, en dos grupos: las que recibieron SU parte
-     * (portada, su hoja de la tabla y su etiqueta QR) y las que se quedaron con el ROTC que ya
-     * tenían. Cada una con el PDF que abre su botón (null si la ficha no tiene ROTC).
-     * null si la fila no es un ROTC de flota aplicado.
-     *
-     * @return array{enlazadas: array<int, array{placa: string, serial: string, link: ?string}>,
-     *               suyas: array<int, array{placa: string, serial: string, link: ?string}>}|null
-     */
-    public function unidadesDeFlota(): ?array
-    {
-        if (empty($this->PROPUESTA['flota_rotc']) || $this->ESTADO !== self::APLICADO) return null;
-
-        $piezas = $this->PROPUESTA['flota_rotc']['piezas'] ?? [];
-        $equipos = collect($this->PROPUESTA['equipos'] ?? []);
-        $suyos = DB::table('documentacion')
-            ->whereIn('ID_EQUIPO', $equipos->pluck('id')->reject(fn ($id) => isset($piezas[$id]))->all())
-            ->pluck('LINK_ROTC', 'ID_EQUIPO');
-
-        $grupos = ['enlazadas' => [], 'suyas' => []];
-        foreach ($equipos as $e) {
-            $enlazada = isset($piezas[$e['id']]);
-            $grupos[$enlazada ? 'enlazadas' : 'suyas'][] = [
-                'placa'  => (string) ($e['placa'] ?: $e['serial']),
-                'serial' => (string) $e['serial'],
-                'link'   => $enlazada ? $piezas[$e['id']] : ($suyos[$e['id']] ?? null),
-            ];
-        }
-        return $grupos;
     }
 }
