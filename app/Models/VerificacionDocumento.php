@@ -605,7 +605,8 @@ class VerificacionDocumento extends Model
      */
     public function identificador(): string
     {
-        $unidades = count($this->PROPUESTA['equipos'] ?? []);
+        // Las que nombra el PDF, como su resumen ("BL ... de 7 unidades"), no solo las del sistema.
+        $unidades = \App\Services\CargaMasivaDocumentos::totalDeUnidades($this->PROPUESTA ?? []);
         if ($unidades > 1 || !empty($this->PROPUESTA['flota_rotc'])) return $unidades . ' unidades';
         return (string) ($this->SERIAL ?: ($this->equipo?->SERIAL_DE_MOTOR ?: ($this->PLACA ?: '')));
     }

@@ -735,12 +735,21 @@ class CargaMasivaDocumentos
      * de seguro de 3 unidades: 1 enlazada, 2 por enlazar."). CUALES lo dice cada linea de su fila,
      * con su boton. Y lo que haya que mirar: leido con la IA, sin vencimiento, sin numero de BL.
      */
+    /**
+     * Cuantas unidades nombra un PDF de varias: las que dice el BL (o las que trae), o las del
+     * sistema mas las que no estan. La misma cuenta en el resumen y en la columna de la tabla.
+     */
+    public static function totalDeUnidades(array $p): int
+    {
+        return ($p['tipo'] ?? null) === self::EMBARQUE
+            ? ((int) ($p['embarque']['unidades'] ?? 0) ?: count($p['equipos'] ?? []) + count($p['embarque']['no_registrados'] ?? []))
+            : count($p['equipos'] ?? []) + count($p['faltan'] ?? []);
+    }
+
     private function resumenDeVarias(array $p, int $porEnlazar, int $seQuedan = 0): string
     {
         $bl = ($p['tipo'] ?? null) === self::EMBARQUE;
-        $total = $bl
-            ? ((int) ($p['embarque']['unidades'] ?? 0) ?: count($p['equipos'] ?? []) + count($p['embarque']['no_registrados'] ?? []))
-            : count($p['equipos'] ?? []) + count($p['faltan'] ?? []);
+        $total = self::totalDeUnidades($p);
         $enlazadas = max(0, $total - $porEnlazar - $seQuedan);
         $nombre = $bl ? trim('BL ' . ($p['embarque']['nro'] ?? '')) : self::NOMBRES[$p['tipo']];
         $texto = "$nombre de $total unidades: " . match (true) {
@@ -1281,6 +1290,27 @@ class CargaMasivaDocumentos
             if ($p && !empty($p['link']) && $this->esDeVarias($p) && !empty($p['equipos'])) $varias[$k] = $p;
         }
 
+        // Los VIN de un BL que no estaban en el sistema y se ataron DESPUES a mano (atarVin) no
+        // estan en 'equipos': se suman, con su ficha, para que la lista tenga todas las unidades.
+        $bls = array_filter($varias, fn ($p) => $p['tipo'] === self::EMBARQUE && !empty($p['embarque']['no_registrados']));
+        $suEmbarque = $bls ? array_filter($this->embarquesDe($bls)) : [];
+        if ($suEmbarque) {
+            $atados = DB::table('embarque_equipo as ee')->join('equipos as e', 'e.ID_EQUIPO', '=', 'ee.ID_EQUIPO')
+                ->leftJoin('documentacion as d', 'd.ID_EQUIPO', '=', 'ee.ID_EQUIPO')
+                ->whereIn('ee.ID_EMBARQUE', array_unique($suEmbarque))->whereNotNull('ee.VIN')
+                ->get(['ee.ID_EMBARQUE', 'ee.ID_EQUIPO', 'ee.VIN', 'e.SERIAL_CHASIS', 'd.PLACA']);
+            foreach ($suEmbarque as $k => $idEmbarque) {
+                $vins = array_flip(array_map(fn ($v) => $this->lector->codigo((string) $v), $varias[$k]['embarque']['no_registrados']));
+                $ya = array_flip(array_column($varias[$k]['equipos'], 'id'));
+                foreach ($atados as $r) {
+                    if ((int) $r->ID_EMBARQUE !== (int) $idEmbarque || isset($ya[$r->ID_EQUIPO])
+                        || !isset($vins[$this->lector->codigo((string) $r->VIN)])) continue;
+                    $varias[$k]['equipos'][] = ['id' => (int) $r->ID_EQUIPO, 'auxiliar' => false,
+                        'placa' => $r->PLACA, 'serial' => $r->SERIAL_CHASIS];
+                }
+            }
+        }
+
         // Los enlaces de hoy, por tipo y por tabla: [tipo][aux|eq][id] => link.
         $ids = [];
         foreach ($varias as $p) {
@@ -1420,26 +1450,7 @@ class CargaMasivaDocumentos
     {
         $conFaltan = array_filter($propuestas, fn ($p) => ($p['tipo'] ?? null) === self::EMBARQUE
             && !empty($p['embarque']['no_registrados']));
-        // Los embarques, como embarqueDelBl: por numero, todos de una vez; el de un BL sin
-        // numero (o que no se encuentre por el), por su PDF.
-        $nros = array_values(array_unique(array_filter(array_map(fn ($p) => $p['embarque']['nro'] ?? null, $conFaltan))));
-        $idDe = [];
-        if ($nros) {
-            foreach (Embarque::whereIn('NRO_BL', $nros)->get(['ID_EMBARQUE', 'NRO_BL']) as $e) {
-                $idDe[self::claveBl($e->NRO_BL)] = $e->ID_EMBARQUE;
-            }
-        }
-        $sinNumero = array_values(array_filter(array_map(fn ($p) => isset($idDe[self::claveBl($p['embarque']['nro'] ?? null)])
-            ? null : DocumentoAnexo::driveIdDeLink($p['link'] ?? null), $conFaltan)));
-        $idPorPdf = [];
-        if ($sinNumero) {
-            $porPdf = Embarque::where(function ($q) use ($sinNumero) {
-                foreach ($sinNumero as $driveId) $q->orWhere('LINK', 'like', '/storage/google/' . $driveId . '%');
-            })->get(['ID_EMBARQUE', 'LINK']);
-            foreach ($porPdf as $e) $idPorPdf[DocumentoAnexo::driveIdDeLink($e->LINK)] = $e->ID_EMBARQUE;
-        }
-        $suEmbarque = array_map(fn ($p) => $idDe[self::claveBl($p['embarque']['nro'] ?? null)]
-            ?? $idPorPdf[DocumentoAnexo::driveIdDeLink($p['link'] ?? null) ?? ''] ?? null, $conFaltan);
+        $suEmbarque = $this->embarquesDe($conFaltan);
 
         $atados = [];   // ID_EMBARQUE => [codigo del VIN => true]
         if ($ids = array_values(array_unique(array_filter($suEmbarque)))) {
@@ -1456,6 +1467,33 @@ class CargaMasivaDocumentos
                 fn ($v) => !isset($suyos[$this->lector->codigo($v)])));
         }
         return $faltan;
+    }
+
+    /**
+     * El ID_EMBARQUE de cada BL, con las MISMAS claves (null si no se encuentra). Como
+     * embarqueDelBl: por numero, todos de una vez; el de un BL sin numero (o que no se encuentre
+     * por el), por su PDF.
+     */
+    private function embarquesDe(array $conFaltan): array
+    {
+        $nros = array_values(array_unique(array_filter(array_map(fn ($p) => $p['embarque']['nro'] ?? null, $conFaltan))));
+        $idDe = [];
+        if ($nros) {
+            foreach (Embarque::whereIn('NRO_BL', $nros)->get(['ID_EMBARQUE', 'NRO_BL']) as $e) {
+                $idDe[self::claveBl($e->NRO_BL)] = $e->ID_EMBARQUE;
+            }
+        }
+        $sinNumero = array_values(array_filter(array_map(fn ($p) => isset($idDe[self::claveBl($p['embarque']['nro'] ?? null)])
+            ? null : DocumentoAnexo::driveIdDeLink($p['link'] ?? null), $conFaltan)));
+        $idPorPdf = [];
+        if ($sinNumero) {
+            $porPdf = Embarque::where(function ($q) use ($sinNumero) {
+                foreach ($sinNumero as $driveId) $q->orWhere('LINK', 'like', '/storage/google/' . $driveId . '%');
+            })->get(['ID_EMBARQUE', 'LINK']);
+            foreach ($porPdf as $e) $idPorPdf[DocumentoAnexo::driveIdDeLink($e->LINK)] = $e->ID_EMBARQUE;
+        }
+        return array_map(fn ($p) => $idDe[self::claveBl($p['embarque']['nro'] ?? null)]
+            ?? $idPorPdf[DocumentoAnexo::driveIdDeLink($p['link'] ?? null) ?? ''] ?? null, $conFaltan);
     }
 
     /**

@@ -998,7 +998,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame($b->ID_EQUIPO, $this->servicio()->buscarEquipo($vinBl)[0]['id'] ?? null, 'el parecido sale primero');
         // El panel lo pinta con su boton (los VIN de la pagina se calculan de una vez).
         $panel = fn () => $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => $vinBl]));
-        $panel()->assertOk()->assertSee("Falta el VIN $vinBl", false);
+        $panel()->assertOk()->assertSee("Falta el VIN $vinBl", false)->assertSee('Ver equipos: 1 enlazado');
 
         // Uno que ya esta en ESTE BL no recibe otro VIN.
         $this->postJson(route('historial-documentos.carga-masiva.atar-vin'), ['link' => $p['link'], 'vin' => $vinBl, 'id_equipo' => $a->ID_EQUIPO])
@@ -1015,6 +1015,11 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $motivo = $this->filaDeLaCarga($p)->MOTIVO;
         $this->assertSame('BL HCLKGTAT de 2 unidades: todas enlazadas.', $motivo);
         $this->assertStringNotContainsString('No se consiguio', $motivo);
+        // Y la lista de sus equipos lo trae, con su ficha: el BL tiene sus 2 unidades.
+        $grupos = $this->servicio()->unidadesDeVarias([$this->filaDeLaCarga($p)])[0];
+        $this->assertEqualsCanonicalizing([$a->ID_EQUIPO, $b->ID_EQUIPO], array_column($grupos['este'], 'id'));
+        $this->assertSame('2 unidades', $this->filaDeLaCarga($p)->identificador());
+        $panel()->assertSee('Ver equipos: 2 enlazados');
 
         // Atarlo otra vez ya no se puede, y el mismo BL soltado de nuevo ya no lo da por perdido.
         $this->postJson(route('historial-documentos.carga-masiva.atar-vin'), ['link' => $p['link'], 'vin' => $vinBl, 'id_equipo' => $b->ID_EQUIPO])
