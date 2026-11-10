@@ -719,6 +719,7 @@
         // no pise a la nueva.
         if (window._cpdfAbort) window._cpdfAbort.abort();
         var abort = window._cpdfAbort = new AbortController();
+        window._cpdfEnVuelo = true;
         if (!silencio) {
             if (window.showPreloader) window.showPreloader();
             if (tabla) tabla.style.opacity = '0.5';
@@ -743,22 +744,27 @@
                 if (tabla) tabla.style.opacity = '';
                 window.toast('No se pudo filtrar la lista', 'error');
             })
-            .finally(function () { if (!silencio && window.hidePreloader) window.hidePreloader(); });
+            .finally(function () {
+                if (abort === window._cpdfAbort) window._cpdfEnVuelo = false;   // la última en vuelo
+                if (!silencio && window.hidePreloader) window.hidePreloader();
+            });
     };
 
     // Mientras la carga masiva lee o enlaza un PDF (la tabla trae data-cpdf-en-marcha), la
     // tabla se pide de nuevo cada 15 s en la página en que está, hasta que el servidor la
     // devuelva sin la marca. Sin esto, la fila se quedaba en "Sin enlazar" hasta recargar a
-    // mano aunque la carga ya hubiera terminado. Con la pestaña oculta o con algo abierto
-    // encima (el visor, enlazar a mano) espera a la siguiente vuelta: cambiar la tabla debajo
-    // dejaría lo abierto sin su fila. Un solo reloj: cada llamada quita el anterior.
+    // mano aunque la carga ya hubiera terminado. Con la pestaña oculta, con algo abierto
+    // encima (el visor, enlazar a mano) o con un filtro del usuario en vuelo espera a la
+    // siguiente vuelta: cambiar la tabla debajo dejaría lo abierto sin su fila, y cancelar el
+    // filtro lo pintaría sin su página. Un solo reloj: cada llamada quita el anterior.
     window.cpdfVigilarCarga = function () {
         clearTimeout(window._cpdfVigia);
         var tabla = document.querySelector('[data-cpdf-parte="tabla"]');
         if (!tabla || !tabla.hasAttribute('data-cpdf-en-marcha')) return;
         window._cpdfVigia = setTimeout(function () {
             if (!tabla.isConnected) return;   // se fue de la pantalla o la cambió un filtro
-            var ocupada = document.hidden || document.querySelector('#pdfPreviewModal.active, .cpdf-atar-visor');
+            var ocupada = document.hidden || window._cpdfEnVuelo
+                || document.querySelector('#pdfPreviewModal.active, .cpdf-atar-visor');
             if (ocupada) { window.cpdfVigilarCarga(); return; }
             window.cpdfFiltrar(new URLSearchParams(window.location.search).get('page'), true);
         }, 15000);

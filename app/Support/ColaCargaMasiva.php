@@ -91,12 +91,18 @@ class ColaCargaMasiva
      */
     public static function enMarcha(): bool
     {
-        return (bool) glob(self::ruta('*.json')) || self::hayLectorVivo();
+        return self::hayEsperando() || self::hayLectorVivo();
     }
 
     public static function hayPendientes(): bool
     {
-        return (bool) glob(self::ruta('*.json')) || (bool) self::leyendo(false);
+        return self::hayEsperando() || (bool) self::leyendo(false);
+    }
+
+    /** Hay un PDF subido que nadie empezo a leer (su .json). */
+    private static function hayEsperando(): bool
+    {
+        return (bool) glob(self::ruta('*.json'));
     }
 
     /**
