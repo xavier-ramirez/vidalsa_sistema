@@ -636,6 +636,10 @@ function _pdfSoltarBlobLocal(salvo) {
    comparada pasaron a ser dos juegos distintos y repetirlos era pedir que uno se
    quedara atras. El de comparar es PDF_PARAMS_COMPARA, mas abajo. */
 const PDF_PARAMS_LECTURA = '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
+// Lectura en un hueco angosto (el visor marcado data-pdf-ajuste="ancho", p. ej. con una lista a
+// un lado y los datos al otro): la hoja ajustada al ancho, entera y centrada; al 100 % no cabe y
+// sale recortada, pegada a la izquierda.
+const PDF_PARAMS_LECTURA_ANCHO = '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
 
 /* "Esto es un TELEFONO". Distinto de PDF_COMPARA_ANCHO_MIN (mas abajo), que responde
    otra pregunta: "¿caben dos hojas una al lado de la otra?". Entre los dos numeros
@@ -1254,7 +1258,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             } else {
                 iframe.src = url + (_pdfAbrePartido(url, docType, equipoId, module)
                     ? PDF_PARAMS_COMPARA
-                    : PDF_PARAMS_LECTURA);
+                    : (iframe.closest('[data-pdf-ajuste="ancho"]') ? PDF_PARAMS_LECTURA_ANCHO : PDF_PARAMS_LECTURA));
             }
         } else {
             iframe.style.display = 'block';

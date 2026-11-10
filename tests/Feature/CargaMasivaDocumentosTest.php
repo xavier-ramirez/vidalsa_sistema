@@ -792,6 +792,12 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $grupos = $this->servicio()->unidadesDeVarias([VerificacionDocumento::where('DRIVE_ID', 'cert-det')->first()])[0];
         $this->assertSame([[false, 'adicional'], [true, 'certificado']],
             array_map(fn ($u) => [$u['aux'], $u['tipo']], $grupos['este']));
+        // Y la tarjeta dice que tipo de equipo es.
+        $this->assertSame('PRUEBA', $grupos['este'][1]['clase']);
+        $tipo = \App\Models\TipoEquipo::firstOrCreate(['nombre' => 'CAMIONETA PRUEBA CM']);
+        $eq->update(['id_tipo_equipo' => $tipo->id]);
+        $this->assertSame('CAMIONETA PRUEBA CM',
+            $this->servicio()->unidadesDeVarias([VerificacionDocumento::where('DRIVE_ID', 'cert-det')->first()])[0]['este'][0]['clase']);
 
         // Un documento de un solo equipo no lleva detalle.
         $this->propuesta('uno-det', [$sin], VerificacionDocumento::POR_ENGANCHAR, 'racda');

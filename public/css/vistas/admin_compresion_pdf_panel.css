@@ -319,6 +319,7 @@
     .cpdf-uni-op.activo { border-color: #3182ce; }
     .cpdf-uni-txt { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
     .cpdf-uni-txt small { font-size: 11.5px; color: #94a3b8; }
+    .cpdf-uni-txt .cpdf-uni-clase { color: #cbd5e0; }
     /* Teléfono: el panel va debajo del PDF, a lo ancho (también la lista de equipos). */
     @media (max-width: 640px) {
         .cpdf-atar-visor { flex-direction: column; }

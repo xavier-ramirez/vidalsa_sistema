@@ -1055,7 +1055,10 @@
     window.cpdfCerrarAtar = function () {
         // La lista de equipos (cpdfAbrirUnidades) no tiene casa: se arma en cada apertura.
         document.querySelectorAll('.cpdf-uni-caja').forEach(function (c) { c.remove(); });
-        document.querySelectorAll('.cpdf-uni-visor, .cpdf-uni-abierto').forEach(function (n) { n.classList.remove('cpdf-uni-visor', 'cpdf-uni-abierto'); });
+        document.querySelectorAll('.cpdf-uni-visor, .cpdf-uni-abierto').forEach(function (n) {
+            n.classList.remove('cpdf-uni-visor', 'cpdf-uni-abierto');
+            delete n.dataset.pdfAjuste;
+        });
         document.querySelectorAll('.cpdf-atar-visor').forEach(function (v) {
             v.classList.remove('cpdf-atar-visor');
             v.querySelectorAll('.cpdf-atar-caja').forEach(function (c) {
@@ -1142,9 +1145,12 @@
         var ver = function (link, titulo, u) {
             window.openPdfPreview(link, u ? u.tipo : d.tipo, d.doc + ' · ' + titulo, u ? u.id : null, '', !u, u && u.aux ? 'auxiliar' : 'equipo');
         };
-        ver(d.link, d.archivo, null);
         var visor = document.getElementById('pdfVisorIzq').parentNode;
         visor.classList.add('cpdf-atar-visor', 'cpdf-uni-visor');
+        // Con la lista y los datos a los lados el hueco del PDF es angosto: cada hoja, AJUSTADA
+        // AL ANCHO (centrada y entera), no al 100 % recortada por la derecha. Antes de abrir.
+        visor.dataset.pdfAjuste = 'ancho';
+        ver(d.link, d.archivo, null);
         document.getElementById('pdfPreviewModal').classList.add('cpdf-uni-abierto');
 
         var el = function (tag, clase, texto) {
@@ -1159,7 +1165,7 @@
         caja.setAttribute('aria-label', d.doc + ' · equipos');
         var buscar = el('label', 'cpdf-atar-buscar'), campo = el('input');
         buscar.appendChild(el('i', 'material-icons', 'search'));
-        campo.type = 'search'; campo.placeholder = 'Placa o serial'; campo.autocomplete = 'off';
+        campo.type = 'search'; campo.placeholder = 'Placa, tipo o serial'; campo.autocomplete = 'off';
         buscar.appendChild(campo);
         caja.appendChild(buscar);
         caja.appendChild(cuerpo);
@@ -1168,15 +1174,17 @@
 
         var activo = null;
         var marcar = function (op) { if (activo) activo.classList.remove('activo'); activo = op; op.classList.add('activo'); };
-        // Una línea: la placa (o lo que se lea) y el serial debajo; con PDF, se pulsa para verlo.
+        // Una línea: la placa (o lo que se lea), su tipo de equipo y el serial debajo; con PDF,
+        // se pulsa para verlo.
         var linea = function (clase, placa, serial, link, u) {
             var op = el(link ? 'button' : 'div', 'cpdf-uni-op ' + clase);
             if (link) op.type = 'button';
-            var txt = el('span', 'cpdf-uni-txt');
+            var txt = el('span', 'cpdf-uni-txt'), tipoEq = u && u.clase;
             txt.appendChild(el('b', null, placa));
+            if (tipoEq) txt.appendChild(el('small', 'cpdf-uni-clase', tipoEq));
             if (serial && serial !== placa) txt.appendChild(el('small', null, serial));
             op.appendChild(txt);
-            op.dataset.buscar = (placa + ' ' + (serial || '')).toUpperCase();
+            op.dataset.buscar = [placa, tipoEq, serial].join(' ').toUpperCase();
             if (link) op.onclick = function () { marcar(op); ver(link, placa, u); };
             return op;
         };

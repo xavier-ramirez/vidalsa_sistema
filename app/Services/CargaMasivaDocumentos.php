@@ -8,6 +8,7 @@ use App\Models\Embarque;
 use App\Models\Equipo;
 use App\Models\EquipoAuditLog;
 use App\Models\EquipoAuxiliar;
+use App\Models\TipoEquipo;
 use App\Models\VerificacionDocumento;
 use App\Support\BillOfLading;
 use App\Support\DocumentacionDeEquipo;
@@ -1255,7 +1256,7 @@ class CargaMasivaDocumentos
      * tiene ninguno. Se mira la ficha y no lo que anoto la carga: una parte enlazada y luego
      * cambiada ya no es "este". Cada unidad lleva el PDF de su ficha, que abre su boton, y su
      * id, aux (es un auxiliar) y tipo (el nombre del documento en su ficha) para enseñar al lado
-     * los datos de esa ficha.
+     * los datos de esa ficha, y clase: su tipo de equipo (CAMIONETA, PAYLOADER...).
      * Unas pocas consultas por pagina, no por fila.
      *
      * @return array<int, array{este: list<array>, otro: list<array>, sin: list<array>}>
@@ -1288,6 +1289,16 @@ class CargaMasivaDocumentos
             }
         }
 
+        // El tipo de cada equipo, para la tarjeta: [aux|eq][id] => nombre.
+        $todos = ['eq' => [], 'aux' => []];
+        foreach ($ids as $porTabla) foreach ($porTabla as $tabla => $lista) array_push($todos[$tabla], ...$lista);
+        $clase = [
+            'eq'  => $todos['eq'] ? DB::table('equipos as e')->join((new TipoEquipo)->getTable() . ' as t', 't.id', '=', 'e.id_tipo_equipo')
+                         ->whereIn('e.ID_EQUIPO', array_unique($todos['eq']))->pluck('t.nombre', 'e.ID_EQUIPO')->all() : [],
+            'aux' => array_map(fn ($t) => EquipoAuxiliar::etiquetaTipo((string) $t), $todos['aux']
+                         ? DB::table('equipos_auxiliares')->whereIn('ID_AUXILIAR', array_unique($todos['aux']))->pluck('TIPO', 'ID_AUXILIAR')->all() : []),
+        ];
+
         $porFila = [];
         foreach ($varias as $k => $p) {
             $piezas = $p['flota_rotc']['piezas'] ?? [];
@@ -1306,6 +1317,7 @@ class CargaMasivaDocumentos
                     'id'     => (int) $e['id'],
                     'aux'    => !empty($e['auxiliar']),
                     'tipo'   => empty($e['auxiliar']) ? $p['tipo'] : (self::TIPOS_AUXILIAR[$p['tipo']] ?? $p['tipo']),
+                    'clase'  => (string) ($clase[empty($e['auxiliar']) ? 'eq' : 'aux'][(int) $e['id']] ?? ''),
                 ];
             }
             $porFila[$k] = $grupos;
