@@ -804,6 +804,34 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame([], $this->servicio()->unidadesDeVarias([VerificacionDocumento::where('DRIVE_ID', 'uno-det')->first()]));
     }
 
+    /**
+     * Un corte de la conexion al bajar de Drive el PDF que ya tiene una ficha se reintenta al
+     * momento: antes esa ficha esperaba al reintento de la hora (le paso a A90DT6V en el ensayo).
+     */
+    public function test_un_corte_al_bajar_de_drive_se_reintenta_al_momento(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $drive = new class extends \Tests\DriveFalso {
+            public int $cortes = 2;
+            public function getStreamById($fileId)
+            {
+                if ($this->cortes-- > 0) throw new \RuntimeException('SSL: el host remoto interrumpio la conexion');
+                return parent::getStreamById($fileId);
+            }
+        };
+        (new \ReflectionProperty(\App\Services\GoogleDriveService::class, 'instance'))->setValue(null, $drive);
+        try {
+            $copia = (fn (string $id) => $this->copiaLocal($id))->call($this->servicio(), 'corte-1');
+            $this->assertStringStartsWith('%PDF', file_get_contents($copia), 'al tercer intento llega');
+
+            $drive->cortes = 3;
+            $this->expectException(\RuntimeException::class);
+            (fn (string $id) => $this->copiaLocal($id))->call($this->servicio(), 'corte-2');
+        } finally {
+            \Tests\DriveFalso::quitar();
+        }
+    }
+
     /** "Dar por revisada" una propuesta de la carga la dejaba "Coincide" sin haberse enlazado. */
     public function test_una_propuesta_de_la_carga_no_se_da_por_revisada(): void
     {

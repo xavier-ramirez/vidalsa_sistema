@@ -225,10 +225,9 @@
                                             'doc' => $cpdfNom, 'tipo' => $d->TIPO, 'link' => $d->PROPUESTA['link'], 'archivo' => $d->ARCHIVO ?: 'Documento',
                                             'fechas' => ['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null],
                                             'titulos' => [
-                                                'este' => empty($d->PROPUESTA['flota_rotc']) ? 'Enlazados: tienen este PDF'
-                                                    : 'Enlazados: su PDF de 3 hojas (portada, su hoja de la tabla y su etiqueta QR)',
-                                                'otro' => 'Con otro ' . $cpdfNom . ' en su ficha (el que ya tenían o uno posterior)',
-                                                'sin'  => 'Sin ' . $cpdfNom . ' en su ficha',
+                                                'este' => empty($d->PROPUESTA['flota_rotc']) ? 'Enlazados' : 'Enlazados · 3 hojas',
+                                                'otro' => 'Con otro ' . $cpdfNom,
+                                                'sin'  => 'Sin ' . $cpdfNom,
                                             ],
                                             'grupos' => $cpdfUni,
                                             'faltan' => $cpdfAtar ? ($unidadesFaltan[$d->ID_REGISTRO] ?? []) : [],

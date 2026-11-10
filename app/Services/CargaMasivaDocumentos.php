@@ -669,13 +669,22 @@ class CargaMasivaDocumentos
         }
     }
 
-    /** La ruta de la copia local de un PDF de Drive; si no esta, se baja una vez. */
+    /**
+     * La ruta de la copia local de un PDF de Drive; si no esta, se baja una vez. Un corte de la
+     * conexion a medias (pasa) se reintenta al momento, dos veces: si no, esa ficha esperaba al
+     * reintento de la hora siguiente.
+     */
     private function copiaLocal(string $driveId): string
     {
         $ruta = GoogleDriveService::rutaCopiaLocal($driveId);
         $disco = Storage::disk('local');
-        if (!$disco->exists($ruta)) {
-            $disco->put($ruta, (string) GoogleDriveService::getInstance()->getStreamById($driveId)->getContents());
+        for ($intento = 1; !$disco->exists($ruta); $intento++) {
+            try {
+                $disco->put($ruta, (string) GoogleDriveService::getInstance()->getStreamById($driveId)->getContents());
+            } catch (\Throwable $e) {
+                if ($intento >= 3) throw $e;
+                usleep(500000 * $intento);
+            }
         }
         return $disco->path($ruta);
     }
