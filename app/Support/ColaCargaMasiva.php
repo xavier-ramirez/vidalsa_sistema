@@ -21,15 +21,21 @@ use Illuminate\Support\Facades\Storage;
  *
  * Cada PDF es un par de archivos en storage/app/private/carga_masiva_cola: el PDF y su .json
  * (tipo pedido y lo que devolvio la subida). Al tomarlo, el .json pasa a .leyendo (rename es
- * atomico): dos lectores no leen nunca el mismo.
+ * atomico): dos lectores no leen nunca el mismo. Mientras se lee, el .leyendo se toca en cada
+ * paso (renovarTope): un PDF largo (un ROTC de flota de 388 equipos tarda mas de 15 min) sigue
+ * vivo y nadie lo da por abandonado ni lo vuelve a leer; ni el reintento de cada hora se mete
+ * con lo suyo aunque el candado ya haya vencido (hayLectorVivo).
  */
 class ColaCargaMasiva
 {
     private const CARPETA = 'carga_masiva_cola';
     /** El candado del lector; lo toma tambien el reintento de cada hora (enlazarLoPendiente). */
     public const CANDADO = 'carga-masiva-lector';
-    /** Un lector que murio a medias deja su .leyendo: pasado esto vuelve a la fila. */
+    /** Un lector que murio a medias deja su .leyendo: pasado esto sin tocarlo, vuelve a la fila. */
     public const ABANDONADO_SEG = 900;
+
+    /** El .leyendo del PDF que se lee ahora en este proceso (lo toca renovarTope). */
+    private static ?string $leyendo = null;
 
     /**
      * Hasta cuando se puede seguir con el candado tomado: antes de que venza (ABANDONADO_SEG), con
@@ -54,11 +60,18 @@ class ColaCargaMasiva
     /**
      * Renueva el tope de tiempo de la peticion: leer un PDF o enlazar una ficha tarda. Solo si ya
      * hay tope (la web); en consola no hay ninguno (0) y ponerlo se lo dejaba a lo que corriera
-     * despues en el mismo proceso.
+     * despues en el mismo proceso. Y avisa que el lector sigue vivo: toca su .leyendo.
      */
     public static function renovarTope(): void
     {
         if ((int) ini_get('max_execution_time') > 0) set_time_limit(180);
+        if (self::$leyendo) @touch(self::$leyendo);
+    }
+
+    /** Hay un PDF leyendose ahora (su .leyendo se toco hace menos de ABANDONADO_SEG). */
+    public static function hayLectorVivo(): bool
+    {
+        return (bool) self::leyendo(true);
     }
 
     /** Deja el PDF en la fila para leerlo despues. */
@@ -74,7 +87,7 @@ class ColaCargaMasiva
 
     public static function hayPendientes(): bool
     {
-        return (bool) glob(self::ruta('*.json')) || (bool) self::abandonados();
+        return (bool) glob(self::ruta('*.json')) || (bool) self::leyendo(false);
     }
 
     /**
@@ -86,7 +99,7 @@ class ColaCargaMasiva
     public static function leer(CargaMasivaDocumentos $servicio): int
     {
         $leidos = 0;
-        foreach (self::abandonados() as $leyendo) {
+        foreach (self::leyendo(false) as $leyendo) {
             @rename($leyendo, substr($leyendo, 0, -strlen('.leyendo')) . '.json');
         }
         // Tope de vueltas sin tomar nada: un .json que no se deja renombrar no deja al lector
@@ -128,6 +141,7 @@ class ColaCargaMasiva
     private static function leerUno(CargaMasivaDocumentos $servicio, string $leyendo): int
     {
         $pdf = substr($leyendo, 0, -strlen('.leyendo')) . '.pdf';
+        self::$leyendo = $leyendo;
         try {
             $datos = json_decode((string) @file_get_contents($leyendo), true);
             if (!is_array($datos) || !is_file($pdf)) {
@@ -147,16 +161,18 @@ class ColaCargaMasiva
             Log::error('Carga masiva: no se pudo leer un PDF de la fila', ['archivo' => basename($pdf), 'error' => $e->getMessage()]);
             return 0;
         } finally {
+            self::$leyendo = null;
             @unlink($leyendo);
             @unlink($pdf);
         }
     }
 
-    /** Los .leyendo de un lector que murio a medias. */
-    private static function abandonados(): array
+    /** Los .leyendo de un lector en marcha ($vivos) o de uno que murio a medias (sin tocarlo en ABANDONADO_SEG). */
+    private static function leyendo(bool $vivos): array
     {
+        clearstatcache();   // la fecha del .leyendo, la de AHORA: PHP la guarda y no veria el ultimo touch
         return array_values(array_filter(glob(self::ruta('*.leyendo')) ?: [],
-            fn ($f) => @filemtime($f) < time() - self::ABANDONADO_SEG));
+            fn ($f) => (@filemtime($f) >= time() - self::ABANDONADO_SEG) === $vivos));
     }
 
     private static function ruta(string $patron): string

@@ -1148,6 +1148,9 @@ class CargaMasivaDocumentos
      */
     public function enlazarLoPendiente(): int
     {
+        // Un lector en marcha (un PDF largo puede pasar del candado) enlaza lo suyo: meterse a la
+        // vez subiria partes y escribiria historial dos veces.
+        if (ColaCargaMasiva::hayLectorVivo()) return 0;
         $candado = Cache::lock(ColaCargaMasiva::CANDADO, ColaCargaMasiva::ABANDONADO_SEG);
         if (!$candado->get()) return 0;
 

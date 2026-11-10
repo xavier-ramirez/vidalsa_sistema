@@ -218,4 +218,42 @@ class CargaMasivaSubidaTest extends MySqlTestCase
         }
         $this->assertSame(1, ColaCargaMasiva::leer($svc));
     }
+
+    /**
+     * Un PDF que tarda mas de 15 min (un ROTC de flota de 388 equipos) sigue vivo mientras avanza:
+     * nadie lo da por abandonado para volver a leerlo, ni el reintento de cada hora se mete con
+     * lo suyo aunque el candado ya haya vencido. Antes, los dos podian subir partes otra vez.
+     */
+    public function test_un_pdf_largo_que_avanza_no_se_da_por_abandonado(): void
+    {
+        $base = $this->servicio('POLIZA DE SEGURO');
+        ColaCargaMasiva::encolar($this->pdfBueno(), 'poliza', $base->subir($this->pdfBueno(), 'poliza'));
+        // Una fila que el reintento de cada hora tomaria (si pudiera).
+        VerificacionDocumento::create([
+            'DRIVE_ID' => 'pendiente-larga', 'ORIGEN' => VerificacionDocumento::DE_CARGA_MASIVA, 'TIPO' => 'poliza',
+            'ARCHIVO' => 'p.pdf', 'ESTADO' => VerificacionDocumento::POR_ENGANCHAR, 'A_MANO' => true, 'INTENTOS' => 0,
+            'PROPUESTA' => ['tipo' => 'poliza'],
+        ]);
+
+        $visto = [];
+        $svc = \Mockery::mock(CargaMasivaDocumentos::class)->makePartial();
+        $svc->shouldReceive('leer')->once()->andReturnUsing(function () use (&$visto) {
+            // Pasaron mas de 15 min y el candado vencio...
+            $leyendo = glob(Storage::disk('local')->path('carga_masiva_cola/*.leyendo'))[0];
+            touch($leyendo, time() - ColaCargaMasiva::ABANDONADO_SEG - 60);
+            Cache::lock(ColaCargaMasiva::CANDADO)->forceRelease();
+            $visto['parecia abandonado'] = ColaCargaMasiva::hayPendientes();
+            // ...pero el lector acaba de terminar otro equipo.
+            ColaCargaMasiva::renovarTope();
+            $visto['vivo'] = ColaCargaMasiva::hayLectorVivo();
+            $visto['pendientes'] = ColaCargaMasiva::hayPendientes();
+            $visto['reintento'] = app(CargaMasivaDocumentos::class)->enlazarLoPendiente();
+            return [];
+        });
+
+        $this->assertSame(1, ColaCargaMasiva::leer($svc));
+        $this->assertSame(['parecia abandonado' => true, 'vivo' => true, 'pendientes' => false, 'reintento' => 0], $visto);
+        $this->assertFalse(ColaCargaMasiva::hayLectorVivo(), 'Al terminar ya no queda lector');
+        $this->assertSame(1, app(CargaMasivaDocumentos::class)->enlazarLoPendiente(), 'Sin lector, el reintento si trabaja');
+    }
 }
