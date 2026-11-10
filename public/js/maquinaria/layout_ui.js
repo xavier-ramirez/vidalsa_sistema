@@ -640,6 +640,11 @@ const PDF_PARAMS_LECTURA = '#toolbar=0&navpanes=0&scrollbar=0&zoom=100';
 // un lado y los datos al otro): la hoja ajustada al ancho, entera y centrada; al 100 % no cabe y
 // sale recortada, pegada a la izquierda.
 const PDF_PARAMS_LECTURA_ANCHO = '#toolbar=0&navpanes=0&scrollbar=0&view=FitH';
+// Los de lectura que le tocan al iframe donde va a ir el PDF (todos los sitios que lo abren o lo
+// recargan para leer pasan por aqui, para que ninguno vuelva al 100 % en un hueco angosto).
+function _pdfParamsLectura(iframe) {
+    return iframe && iframe.closest('[data-pdf-ajuste="ancho"]') ? PDF_PARAMS_LECTURA_ANCHO : PDF_PARAMS_LECTURA;
+}
 
 /* "Esto es un TELEFONO". Distinto de PDF_COMPARA_ANCHO_MIN (mas abajo), que responde
    otra pregunta: "¿caben dos hojas una al lado de la otra?". Entre los dos numeros
@@ -944,7 +949,7 @@ function _pdfDibujarEnTelefono(url, loader) {
             // Falló la descarga con conexión: se vuelve al visor del navegador (enseñará
             // su botón, pero es algo). Los fallos al DIBUJAR los avisa pintarPdfEnCanvas.
             lienzo.style.display = 'none';
-            if (iframe) { iframe.style.display = 'block'; iframe.src = url + PDF_PARAMS_LECTURA; }
+            if (iframe) { iframe.style.display = 'block'; iframe.src = url + _pdfParamsLectura(iframe); }
         })
         .finally(() => {
             _pdfCancelarCargaIzq();
@@ -1258,7 +1263,7 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
             } else {
                 iframe.src = url + (_pdfAbrePartido(url, docType, equipoId, module)
                     ? PDF_PARAMS_COMPARA
-                    : (iframe.closest('[data-pdf-ajuste="ancho"]') ? PDF_PARAMS_LECTURA_ANCHO : PDF_PARAMS_LECTURA));
+                    : _pdfParamsLectura(iframe));
             }
         } else {
             iframe.style.display = 'block';
@@ -1836,15 +1841,15 @@ window.pdfCompararToggle = function () {
         window._pdfComparaApagar();
         _pdfComparaMarcarChips(ctx.activo);
 
-        // Vuelve al modo lectura de un solo documento (zoom 100, como lo abre
-        // openPdfPreview). Solo aqui: apagar por cierre del visor o por cambio de
+        // Vuelve al modo lectura de un solo documento (con los parametros de lectura que le
+        // tocan, como lo abre openPdfPreview). Solo aqui: apagar por cierre del visor o por cambio de
         // documento ya reemplaza el iframe, y re-navegarlo seria trabajo de balde.
         //
         // ESTRENANDO el iframe: de comparar a leer solo cambia el fragmento
         // (#view=Fit → #zoom=100) y eso no reinicia el visor nativo — el panel se
         // quedaria en negro (ver _pdfRenovarVisorIzq).
         const izqLectura = document.getElementById('pdfPreviewFrame');
-        const destinoLectura = ctx.principal + PDF_PARAMS_LECTURA;
+        const destinoLectura = ctx.principal + _pdfParamsLectura(izqLectura);
         if (izqLectura && izqLectura.getAttribute('src') !== destinoLectura) {
             _pdfRenovarVisorIzq(destinoLectura);
         }
@@ -3345,7 +3350,7 @@ function _subirDesdeVisor(file, type, equipoId, label, module, vencimiento) {
                         // "?upd=" producia una URL con DOS '?' (invalida) y el iframe NO cargaba
                         // el PDF nuevo ("no se ve que cargue"). Usamos '&' si ya hay query string.
                         var _sep = data.link.indexOf('?') > -1 ? '&' : '?';
-                        iframe.src = data.link + _sep + 'upd=' + new Date().getTime() + PDF_PARAMS_LECTURA;
+                        iframe.src = data.link + _sep + 'upd=' + new Date().getTime() + _pdfParamsLectura(iframe);
                         // El documento ya está arriba: el PDF local que se estuvo mirando
                         // para copiar la fecha se suelta de memoria (aquí no se pasa por
                         // openPdfPreview, que es quien lo hace en el resto de los casos), y
