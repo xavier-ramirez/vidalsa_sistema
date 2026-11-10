@@ -299,7 +299,7 @@
     /* La lista de equipos de un PDF de varias (cpdfAbrirUnidades): la misma caja, a la IZQUIERDA
        del PDF. Una línea por equipo: el que se ve, con el borde azul; los enlazados con su borde
        verde, los que tienen otro en gris; sin PDF no se pulsa; lo que falta, en ámbar con su botón. */
-    .cpdf-uni-caja { border-left: 0; border-right: 1px solid #3a3a3a; }
+    .cpdf-uni-caja { width: 230px; border-left: 0; border-right: 1px solid #3a3a3a; }
     .cpdf-uni-caja > .cpdf-atar-buscar { flex-shrink: 0; height: 36px; margin: 12px 12px 0; }
     /* Con la lista se mira la ficha del equipo, no se gestiona su documento. */
     .cpdf-uni-abierto #pdfUpdateLabel, .cpdf-uni-abierto #pdfDeleteBtn, .cpdf-uni-abierto #pdfAnexarZona { display: none !important; }

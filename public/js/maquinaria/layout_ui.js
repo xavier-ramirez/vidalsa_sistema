@@ -1363,8 +1363,15 @@ window.openPdfPreview = function (url, docType, label, equipoId, uploadUrl, skip
     // queda colapsado y no se llama loadMetadata para evitar mostrar campos
     // de la tabla equivocada.
     const panel = document.getElementById('pdfMetadataPanel');
+    // Con el panel YA abierto (se pasa de un documento con datos a otro, como de un equipo a
+    // otro en la lista de un PDF de varias) se queda abierto y solo cambian los datos: cerrarlo
+    // y volverlo a sacar hacía que se recogiera y saliera de nuevo en cada cambio.
+    const panelAbierto = _pdfYaAbierto && !!panel && !!panel.style.width && parseFloat(panel.style.width) !== 0;
     window._pdfDatosCargados = false;
-    if (panel) {
+    if (panel && !skipMetadata && panelAbierto && window.innerWidth > PDF_ANCHO_TELEFONO) {
+        window._pdfDatosCargados = true;
+        loadMetadata();
+    } else if (panel) {
         panel.style.width = '0';
         if (!skipMetadata) {
             setTimeout(() => {
