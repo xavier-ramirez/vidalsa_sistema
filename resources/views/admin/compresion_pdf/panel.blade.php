@@ -132,7 +132,9 @@
         {{-- La tabla y sus páginas son @fragment: es lo que repinta cada filtro (cpdfFiltrar). --}}
         @if ($pestana === 'documentos')
         @fragment('tabla')
-        <div class="cpdf-tabla-caja cpdf-docs" data-cpdf-parte="tabla">
+        {{-- data-cpdf-en-marcha: la carga masiva lee o enlaza un PDF ahora; la tabla se pone al
+             día sola hasta que termine (cpdfVigilarCarga). --}}
+        <div class="cpdf-tabla-caja cpdf-docs" data-cpdf-parte="tabla" @if (\App\Support\ColaCargaMasiva::enMarcha()) data-cpdf-en-marcha @endif>
             <table class="admin-table">
                 <thead>
                     <tr class="tabla-cabecera">
@@ -705,7 +707,9 @@
     // (HistorialDocumentosController::index). Rehacer la pantalla entera por la SPA, con todos
     // sus scripts, era lo que hacía lentos los filtros. Se redefine en cada visita: es solo una
     // asignación, no suma listeners.
-    window.cpdfFiltrar = function (pagina) {
+    // silencio: la puesta al día sola de cpdfVigilarCarga, en la misma página y sin spinner,
+    // sin atenuar la tabla, sin aviso de error y sin tocar el historial del navegador.
+    window.cpdfFiltrar = function (pagina, silencio) {
         clearTimeout(window._cpdfEsperaBusqueda);   // la del buscar-mientras-escribes, si quedaba
         var p = cpdfParametros();
         if (pagina) p.set('page', pagina);
@@ -715,8 +719,10 @@
         // no pise a la nueva.
         if (window._cpdfAbort) window._cpdfAbort.abort();
         var abort = window._cpdfAbort = new AbortController();
-        if (window.showPreloader) window.showPreloader();
-        if (tabla) tabla.style.opacity = '0.5';
+        if (!silencio) {
+            if (window.showPreloader) window.showPreloader();
+            if (tabla) tabla.style.opacity = '0.5';
+        }
         window.apiFetch(url, { signal: abort.signal, headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
             .then(function (data) {
@@ -728,15 +734,36 @@
                 });
                 cpdfSelPintar();
                 cpdfEtiquetas();
-                history.pushState(null, '', url);
+                if (!silencio) history.pushState(null, '', url);
+                window.cpdfVigilarCarga();
             })
             .catch(function (e) {
                 if (e && e.name === 'AbortError') return;   // la más nueva pinta la tabla
+                if (silencio) { window.cpdfVigilarCarga(); return; }   // la próxima vuelta lo reintenta
                 if (tabla) tabla.style.opacity = '';
                 window.toast('No se pudo filtrar la lista', 'error');
             })
-            .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
+            .finally(function () { if (!silencio && window.hidePreloader) window.hidePreloader(); });
     };
+
+    // Mientras la carga masiva lee o enlaza un PDF (la tabla trae data-cpdf-en-marcha), la
+    // tabla se pide de nuevo cada 15 s en la página en que está, hasta que el servidor la
+    // devuelva sin la marca. Sin esto, la fila se quedaba en "Sin enlazar" hasta recargar a
+    // mano aunque la carga ya hubiera terminado. Con la pestaña oculta o con algo abierto
+    // encima (el visor, enlazar a mano) espera a la siguiente vuelta: cambiar la tabla debajo
+    // dejaría lo abierto sin su fila. Un solo reloj: cada llamada quita el anterior.
+    window.cpdfVigilarCarga = function () {
+        clearTimeout(window._cpdfVigia);
+        var tabla = document.querySelector('[data-cpdf-parte="tabla"]');
+        if (!tabla || !tabla.hasAttribute('data-cpdf-en-marcha')) return;
+        window._cpdfVigia = setTimeout(function () {
+            if (!tabla.isConnected) return;   // se fue de la pantalla o la cambió un filtro
+            var ocupada = document.hidden || document.querySelector('#pdfPreviewModal.active, .cpdf-atar-visor');
+            if (ocupada) { window.cpdfVigilarCarga(); return; }
+            window.cpdfFiltrar(new URLSearchParams(window.location.search).get('page'), true);
+        }, 15000);
+    };
+    window.cpdfVigilarCarga();
 
     // Tras una acción (enlazar, revisar, descartar, pedir la lectura) cambia también lo que no
     // depende de los filtros —"Por dónde va la revisión", la lectura pedida—: se pide la pantalla

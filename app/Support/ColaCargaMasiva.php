@@ -85,6 +85,15 @@ class ColaCargaMasiva
         $disco->put($base . '.json', json_encode(['tipo' => $tipo, 'subido' => $subido, 'usuario' => auth()->id()]));
     }
 
+    /**
+     * Hay un PDF esperando o leyendose de verdad (no uno abandonado): la tabla de Revision se
+     * pone al dia sola mientras tanto (panel.blade.php, cpdfVigilarCarga).
+     */
+    public static function enMarcha(): bool
+    {
+        return (bool) glob(self::ruta('*.json')) || self::hayLectorVivo();
+    }
+
     public static function hayPendientes(): bool
     {
         return (bool) glob(self::ruta('*.json')) || (bool) self::leyendo(false);

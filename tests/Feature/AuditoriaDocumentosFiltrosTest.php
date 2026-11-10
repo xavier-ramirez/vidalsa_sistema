@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\CompresionPdf;
 use App\Models\Usuario;
 use App\Models\VerificacionDocumento;
+use App\Support\ColaCargaMasiva;
+use Illuminate\Support\Facades\Storage;
 use Tests\MySqlTestCase;
 
 /**
@@ -120,6 +122,26 @@ class AuditoriaDocumentosFiltrosTest extends MySqlTestCase
         // La pantalla entera sí lo trae.
         $this->actingAs($this->usuario())->get('/admin/historial-documentos?pestana=documentos')
             ->assertOk()->assertSee('Por dónde va la revisión');
+    }
+
+    /**
+     * Con un PDF de la carga masiva esperando o leyendose, la tabla trae la marca con que se
+     * pone al dia sola (cpdfVigilarCarga); sin nada en marcha, no: no se pide cada 15 s de balde.
+     */
+    public function test_la_tabla_se_pone_al_dia_sola_solo_mientras_la_carga_trabaja(): void
+    {
+        Storage::fake('local');
+        $this->assertStringNotContainsString('data-cpdf-en-marcha', $this->filtrar(['pestana' => 'documentos']));
+
+        Storage::disk('local')->put('carga_masiva_cola/20261109000000_abcd.json', '{}');
+        $this->assertStringContainsString('data-cpdf-en-marcha', $this->filtrar(['pestana' => 'documentos']));
+
+        // Leyendose (su .leyendo vivo) tambien; uno abandonado ya no.
+        $disco = Storage::disk('local');
+        $disco->move('carga_masiva_cola/20261109000000_abcd.json', 'carga_masiva_cola/20261109000000_abcd.leyendo');
+        $this->assertStringContainsString('data-cpdf-en-marcha', $this->filtrar(['pestana' => 'documentos']));
+        touch($disco->path('carga_masiva_cola/20261109000000_abcd.leyendo'), time() - ColaCargaMasiva::ABANDONADO_SEG - 60);
+        $this->assertStringNotContainsString('data-cpdf-en-marcha', $this->filtrar(['pestana' => 'documentos']));
     }
 
     public function test_cada_filtro_de_la_compresion_deja_sus_filas_y_cuenta_por_estado(): void
