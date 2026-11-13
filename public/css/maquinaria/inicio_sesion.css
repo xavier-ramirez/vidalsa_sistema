@@ -78,25 +78,25 @@ body {
 }
 
 
-/* --- INDEPENDENT TITLE (TOP-RIGHT) --- */
+/* --- TITULO (sobre el panel de la foto) --- */
 .page-title-container {
     position: absolute;
     top: 10%;
-    right: 27%;
-    transform: none;
+    /* Un poco a la derecha del borde del panel (--foto-izq). Entre --z: el zoom de las
+       pantallas grandes tambien multiplica el left y lo sacaria del panel. */
+    left: calc((var(--foto-izq) + 3.5vw) / var(--z, 1));
     text-align: left;
-    /* Alineado a la izquierda */
     width: auto;
     z-index: 101;
-    /* Delante de la foto (.machinery-fixed-bottom): es opaca y en pantallas bajas sube hasta el titulo. */
+    /* Delante de la foto (.machinery-fixed-bottom) */
     pointer-events: none;
 }
 
 .page-title {
     margin: 0;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    /* En pantallas bajas la foto sube hasta el titulo: el halo lo despega del cielo. */
-    text-shadow: 0 0 14px #ffffff, 0 0 4px #ffffff;
+    color: #fff;
+    text-shadow: 0 2px 14px rgba(0, 0, 30, 0.45);
 }
 
 /* --- FEATURE CARDS (Nuevos servicios) --- */
@@ -112,8 +112,12 @@ body {
 }
 
 .feature-card {
-    /* Gradiente AZUL de marca (navy → azul), el mismo del boton */
-    background: linear-gradient(135deg, #00004d 0%, #0067b1 100%);
+    /* Azul de marca translucido con filo blanco: deja ver la foto detras */
+    background: linear-gradient(135deg, rgba(0, 0, 77, 0.78) 0%, rgba(0, 103, 177, 0.62) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+    box-shadow: 0 4px 14px rgba(0, 0, 30, 0.25);
     padding: 8px 12px;
     border-radius: 9px;
     display: flex;
@@ -138,7 +142,6 @@ body {
     display: block;
     font-size: 1.5rem;
     font-weight: 600;
-    color: #000000;
     letter-spacing: 0.2px;
 }
 
@@ -146,43 +149,66 @@ body {
     display: block;
     font-size: 2.8rem;
     font-weight: 800;
-    color: #000000;
     margin-top: 5px;
     line-height: 1;
 }
 
-/* --- MACHINERY (BOTTOM-RIGHT) --- */
+/* --- FOTO: panel derecho de arriba abajo --- */
 .machinery-fixed-bottom {
     position: absolute;
-    right: 5%;
+    top: 0;
     bottom: 0;
-    width: 60%;
+    /* En vw y no en %: .login-container mide 110% de ancho por su padding. El panel empieza
+       despues de la tarjeta de datos (10% + 400px + aire) o, en pantallas anchas, en el 36%. */
+    left: var(--foto-izq);
+    width: calc(100vw - var(--foto-izq));
     z-index: 100;
     /* Delante de los svgs, detras del titulo, sus tarjetas y la tarjeta de datos */
     pointer-events: none;
-    display: flex;
-    justify-content: flex-end;
+    overflow: hidden;
+    /* Azul de fondo: arriba lleva el titulo y la foto se funde en el por su borde superior */
+    background: linear-gradient(to bottom, #061848 0%, #0c2a66 100%);
+    /* Canto izquierdo recto con un escalon curvo a media altura: arriba el panel sale 32px
+       mas a la izquierda que abajo. Dos capas: el cuerpo (todo menos esa franja) y la franja,
+       un SVG estirado a lo alto. */
+    --escalon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 100' preserveAspectRatio='none'%3E%3Cpath d='M0 0H32V100H32V66C32 62 28 61 16 60C4 59 0 58 0 54Z'/%3E%3C/svg%3E");
+    -webkit-mask: linear-gradient(#000, #000) right top / calc(100% - 32px) 100% no-repeat,
+                  var(--escalon) left top / 32px 100% no-repeat;
+            mask: linear-gradient(#000, #000) right top / calc(100% - 32px) 100% no-repeat,
+                  var(--escalon) left top / 32px 100% no-repeat;
 }
 
+.machinery-fixed-bottom > div {
+    height: 100%;
+}
 
+/* Velo azul suave sobre la foto, un poco mas oscuro abajo */
+.machinery-fixed-bottom::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(to top, rgba(5, 20, 64, 0.35) 0%, rgba(5, 20, 64, 0) 20%),
+        rgba(10, 40, 110, 0.12);
+}
+
+/* La foto entera, a su proporcion (sin agrandarla ni recortarla), abajo y a todo el ancho;
+   su borde de arriba se funde con el azul */
 .machinery-fixed-bottom img {
-    max-width: 100%;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
     height: auto;
     display: block;
-    /* La foto se funde con el fondo blanco sin canto recto: bordes IZQUIERDO y SUPERIOR en curva
-       suave, mas una elipse desde la esquina inferior derecha que redondea la esquina superior izquierda. */
-    --borde-izq: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.043) 3.25%, rgba(0, 0, 0, 0.156) 6.5%, rgba(0, 0, 0, 0.316) 9.75%, rgba(0, 0, 0, 0.5) 13%, rgba(0, 0, 0, 0.684) 16.25%, rgba(0, 0, 0, 0.844) 19.5%, rgba(0, 0, 0, 0.957) 22.75%, #000 26%);
     --borde-sup: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.043) 2.75%, rgba(0, 0, 0, 0.156) 5.5%, rgba(0, 0, 0, 0.316) 8.25%, rgba(0, 0, 0, 0.5) 11%, rgba(0, 0, 0, 0.684) 13.75%, rgba(0, 0, 0, 0.844) 16.5%, rgba(0, 0, 0, 0.957) 19.25%, #000 22%);
-    --esquina: radial-gradient(ellipse 125% 140% at 100% 100%, #000 60%, rgba(0, 0, 0, 0.957) 65%, rgba(0, 0, 0, 0.844) 70%, rgba(0, 0, 0, 0.684) 75%, rgba(0, 0, 0, 0.5) 80%, rgba(0, 0, 0, 0.316) 85%, rgba(0, 0, 0, 0.156) 90%, rgba(0, 0, 0, 0.043) 95%, transparent 100%);
-    -webkit-mask-image: var(--borde-izq), var(--borde-sup), var(--esquina);
-            mask-image: var(--borde-izq), var(--borde-sup), var(--esquina);
-    -webkit-mask-composite: source-in;
-            mask-composite: intersect;
+    -webkit-mask-image: var(--borde-sup);
+            mask-image: var(--borde-sup);
 }
 
 /* Entrada de la foto. La clase la pone el script del login cuando la foto ya esta decodificada. */
 .machinery-fixed-bottom img.foto-lista {
-    transform-origin: right bottom;
+    transform-origin: center bottom;
     animation: foto-entrada 1.4s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
@@ -196,6 +222,8 @@ body {
 
 
 .login-container {
+    /* Donde empieza el panel de la foto (lo usan la foto y el titulo) */
+    --foto-izq: max(36vw, calc(10vw + 480px));
     position: relative;
     width: 100%;
     height: 100%;
@@ -466,13 +494,20 @@ input:-webkit-autofill:active {
     }
 
     .machinery-fixed-bottom {
-        right: 0;
-        width: 100%;
+        top: auto;
+        left: 0;
+        width: 100vw;
+        background: none;
+        -webkit-mask: none;
+                mask: none;
+    }
+
+    .machinery-fixed-bottom::after {
+        content: none;
     }
 
     .machinery-fixed-bottom img {
-        -webkit-mask-image: var(--borde-sup);
-                mask-image: var(--borde-sup);
+        position: static;
     }
 }
 
@@ -482,21 +517,12 @@ input:-webkit-autofill:active {
     }
 }
 
-/* Hasta aqui la foto mide el 66% de la pantalla (.login-container es 110% de ancho por su
-   padding) y el atributo width la frena en 1600px. Desde ese punto sigue creciendo con la
-   pantalla; el tope de alto evita que en las ultrawide suba hasta las tarjetas del titulo. */
-@media (min-width: 2425px) {
-    .machinery-fixed-bottom img {
-        width: min(66vw, 135vh);
-        max-width: none;
-    }
-}
-
-/* Portatiles de 1201-1365px de ancho (1280x720, 1280x800): el titulo entero choca con la
-   tarjeta de datos y tapa el icono de la 1.a tarjeta azul. Se achica sin moverlo de sitio. */
+/* Portatiles de 1201-1365px de ancho (1280x720, 1280x800): el panel es angosto y las tres
+   tarjetas del titulo se salian por la derecha. Se achica. */
 @media (min-width: 1201px) and (max-width: 1365px) {
     .page-title-container {
         zoom: 0.82;
+        --z: 0.82;
     }
 }
 
@@ -518,24 +544,34 @@ input:-webkit-autofill:active {
 @media (min-width: 2300px) and (min-height: 1250px) {
     .login-container-float-center,
     .page-title-container { zoom: 1.25; }
+
+    .page-title-container { --z: 1.25; }
 }
 
 @media (min-width: 2500px) and (min-height: 1400px) {
     .login-container-float-center,
     .page-title-container { zoom: 1.33; }
+
+    .page-title-container { --z: 1.33; }
 }
 
 @media (min-width: 2800px) and (min-height: 1650px) {
     .login-container-float-center,
     .page-title-container { zoom: 1.5; }
+
+    .page-title-container { --z: 1.5; }
 }
 
 @media (min-width: 3000px) and (min-height: 1700px) {
     .login-container-float-center,
     .page-title-container { zoom: 1.6; }
+
+    .page-title-container { --z: 1.6; }
 }
 
 @media (min-width: 3600px) and (min-height: 2000px) {
     .login-container-float-center,
     .page-title-container { zoom: 2; }
+
+    .page-title-container { --z: 2; }
 }
