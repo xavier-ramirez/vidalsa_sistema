@@ -86,8 +86,6 @@ body {
        multiplica el left y lo sacaria del panel. */
     left: calc((var(--foto-izq) + 3.5vw) / var(--z));
     zoom: var(--z);
-    text-align: left;
-    width: auto;
     z-index: 101;
     /* Delante de la foto (.machinery-fixed-bottom) */
     pointer-events: none;
@@ -162,9 +160,8 @@ body {
     /* Delante de los svgs, detras del titulo, sus tarjetas y la tarjeta de datos */
     pointer-events: none;
     overflow: hidden;
-    /* Azul de fondo: arriba lleva el titulo y la foto se funde en el por su borde superior.
-       Se aclara hacia abajo para que el paso al cielo de la foto sea suave. */
-    background: linear-gradient(to bottom, #173a76 0%, #2d5791 50%, #5880b2 100%);
+    /* Azul de fondo: arriba lleva el titulo y la foto se funde en el por su borde superior */
+    background: linear-gradient(to bottom, #061848 0%, #0c2a66 100%);
     /* Canto izquierdo recto con un escalon curvo a media altura: arriba el panel sale 32px
        mas a la izquierda que abajo. Dos capas: el cuerpo (todo menos esa franja) y la franja,
        un SVG estirado a lo alto. Se pisan 1px: con el corte justo en 32px quedaba entre las
@@ -186,8 +183,8 @@ body {
         rgba(10, 40, 110, 0.08);
 }
 
-/* La foto entera, a su proporcion (sin agrandarla ni recortarla), abajo y a todo el ancho;
-   su borde de arriba se funde con el azul */
+/* La foto entera, a su proporcion (sin agrandarla ni recortarla), abajo y a todo el ancho.
+   Su mitad de arriba se funde con el azul poco a poco: con un fundido corto se veia el corte. */
 .machinery-fixed-bottom img {
     position: absolute;
     left: 0;
@@ -195,9 +192,8 @@ body {
     width: 100%;
     height: auto;
     display: block;
-    --borde-sup: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.043) 4%, rgba(0, 0, 0, 0.156) 8%, rgba(0, 0, 0, 0.316) 12%, rgba(0, 0, 0, 0.5) 16%, rgba(0, 0, 0, 0.684) 20%, rgba(0, 0, 0, 0.844) 24%, rgba(0, 0, 0, 0.957) 28%, #000 32%);
-    -webkit-mask-image: var(--borde-sup);
-            mask-image: var(--borde-sup);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.02) 4.5%, rgba(0, 0, 0, 0.07) 9.1%, rgba(0, 0, 0, 0.15) 13.6%, rgba(0, 0, 0, 0.26) 18.2%, rgba(0, 0, 0, 0.39) 22.7%, rgba(0, 0, 0, 0.53) 27.3%, rgba(0, 0, 0, 0.67) 31.8%, rgba(0, 0, 0, 0.79) 36.4%, rgba(0, 0, 0, 0.89) 40.9%, rgba(0, 0, 0, 0.96) 45.5%, #000 50%);
+            mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.02) 4.5%, rgba(0, 0, 0, 0.07) 9.1%, rgba(0, 0, 0, 0.15) 13.6%, rgba(0, 0, 0, 0.26) 18.2%, rgba(0, 0, 0, 0.39) 22.7%, rgba(0, 0, 0, 0.53) 27.3%, rgba(0, 0, 0, 0.67) 31.8%, rgba(0, 0, 0, 0.79) 36.4%, rgba(0, 0, 0, 0.89) 40.9%, rgba(0, 0, 0, 0.96) 45.5%, #000 50%);
 }
 
 /* Entrada de la foto. La clase la pone el script del login cuando la foto ya esta decodificada. */
