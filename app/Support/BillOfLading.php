@@ -74,7 +74,7 @@ class BillOfLading
 
         return [
             'nro'             => self::nro($texto),
-            'buque'           => self::buqueConViaje($lineas) ?? $buque ?? self::buqueDelAnexo($texto),
+            'buque'           => self::soloNombre(self::buqueConViaje($lineas) ?? $buque ?? self::buqueDelAnexo($texto)),
             'puerto_carga'    => $puertoCarga,
             'puerto_descarga' => self::lineaTras($lineas, '/^PORT OF DISCHARGE$/i'),
             'fecha'           => self::fecha($lineas),
@@ -96,6 +96,17 @@ class BillOfLading
             if (preg_match(self::RE_BUQUE, mb_strtoupper($l))) return mb_substr($l, 0, 120);
         }
         return null;
+    }
+
+    /**
+     * Del buque se guarda solo el NOMBRE del barco: "HONCHO V2512" -> "HONCHO",
+     * "RUI AN YANG V.2524" -> "RUI AN YANG" (el viaje no le dice nada a quien ve la ficha).
+     */
+    private static function soloNombre(?string $buque): ?string
+    {
+        if ($buque === null) return null;
+        $nombre = trim(preg_replace('/\s+V\.?\s?\d{3,5}[A-Z]?$/iu', '', $buque));
+        return $nombre !== '' ? $nombre : null;
     }
 
     /** "V/V:HONCHO V2512   BL NO.:..." del anexo, si la cabecera no lo dio: corta antes del nro. */

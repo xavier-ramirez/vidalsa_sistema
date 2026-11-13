@@ -974,7 +974,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
                 'archivo' => $driveId . '.pdf',
                 'equipos' => array_map(fn ($e) => ['id' => $e->ID_EQUIPO, 'auxiliar' => false, 'serial' => $e->SERIAL_CHASIS,
                     'vin_bl' => $e->SERIAL_CHASIS], $equipos),
-                'embarque' => ['nro' => $nro, 'buque' => 'HONCHO V.2512', 'puerto_carga' => 'LONGKOU,CHINA',
+                'embarque' => ['nro' => $nro, 'buque' => 'HONCHO', 'puerto_carga' => 'LONGKOU,CHINA',
                     'puerto_descarga' => 'GUANTA, VENEZUELA', 'fecha' => '2025-07-20', 'unidades' => count($equipos), 'no_registrados' => []]],
         ]);
     }
@@ -1519,7 +1519,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             . "DK-1253 Copenhagen K\nTelefax + 4533931184\nby authority of the Baltic\nCouncil\n(BIMCO)\nNumber of original Bs/L\n"
             . "Signature\nTHREE\nLA GUAIRA,VENEZUELA,2025-11-22\n");
         $this->assertSame('RAQDLA16', $bl['nro']);
-        $this->assertSame('RUI AN YANG V.2524', $bl['buque']);
+        $this->assertSame('RUI AN YANG', $bl['buque']);
         $this->assertSame('2025-11-22', $bl['fecha']);
         $this->assertSame(['LEZDD2CC8SF132435'], $bl['vins']);
     }
@@ -1529,7 +1529,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $bl = \App\Support\BillOfLading::leer($this->textoBl(['LZZPCMSC9SJ380599', 'LZZPCMSC7SJ389205']) . "\nLZZWADG49ST501 039");
 
         $this->assertSame('HCLKGT99', $bl['nro']);
-        $this->assertSame('HONCHO V.2512', $bl['buque']);
+        $this->assertSame('HONCHO', $bl['buque']);
         $this->assertSame('LONGKOU,CHINA', $bl['puerto_carga']);
         $this->assertSame('GUANTA, VENEZUELA', $bl['puerto_descarga']);
         $this->assertSame('2025-07-20', $bl['fecha']);
@@ -1786,7 +1786,7 @@ Fecha de Vencimiento 10/10/2027",
 
         $emb = \App\Models\Embarque::where('NRO_BL', 'HCLKGT99')->firstOrFail();
         $this->assertSame('/storage/google/bl-uno', $emb->LINK);
-        $this->assertSame('HONCHO V.2512', $emb->BUQUE);
+        $this->assertSame('HONCHO', $emb->BUQUE);
         $this->assertSame('2025-07-20', $emb->FECHA_EMBARQUE->format('Y-m-d'));
         $this->assertEqualsCanonicalizing([$a->ID_EQUIPO, $b->ID_EQUIPO], $emb->equipos()->pluck('equipos.ID_EQUIPO')->all());
         $this->assertSame($a->SERIAL_CHASIS, $a->embarques()->first()->pivot->VIN);

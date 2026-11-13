@@ -5,14 +5,25 @@ namespace Tests\Unit;
 use App\Support\BillOfLading;
 use PHPUnit\Framework\TestCase;
 
-/** El buque sale una sola vez: sin el nro de BL pegado y sin tomar el puerto por buque. */
+/** Del buque solo el nombre: sin el viaje, sin el nro de BL pegado y sin tomar el puerto por buque. */
 class BillOfLadingBuqueTest extends TestCase
 {
     public function test_el_anexo_no_arrastra_el_nro_de_bl(): void
     {
         foreach (["V/V:HONCHO V2512 BL NO.:HCLKGT03", "V/V:HONCHO V2512   BL NO.:HCLKGT03", "V/V: HONCHO V2512 B/L NO. RAQDLA12\nITEM"] as $texto) {
-            $this->assertSame('HONCHO V2512', BillOfLading::leer($texto)['buque'], $texto);
+            $this->assertSame('HONCHO', BillOfLading::leer($texto)['buque'], $texto);
         }
+    }
+
+    public function test_sin_el_viaje(): void
+    {
+        $this->assertSame('RUI AN YANG', BillOfLading::leer("RUI AN YANG V.2524
+QINGDAO,CHINA")['buque']);
+        $this->assertSame('HONCHO', BillOfLading::leer("Port of loading
+HONCHO
+V.2512
+LONGKOU,CHINA
+Port of discharge")['buque']);
     }
 
     public function test_una_sola_linea_con_coma_es_el_puerto(): void

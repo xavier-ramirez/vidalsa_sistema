@@ -787,22 +787,17 @@ window.showDetailsImproved = function (target, event) {
                 const emb = res && res.embarque;
                 // Otro equipo abierto mientras llegaba la respuesta: no se pinta aqui.
                 if (!emb || String(window._quickEditEquipoId || '') !== String(eqId)) return;
-                // textContent: el numero y el buque salen del texto del PDF, asi que nunca como HTML.
-                // El rotulo de la fila dice que papel es ("Embarque BL" o "Certificado de origen"),
-                // asi que en el valor va solo el numero.
+                // textContent: el buque sale del texto del PDF, asi que nunca como HTML.
+                // El rotulo de la fila dice que papel es ("Embarque BL" o "Certificado de origen").
                 const rotulo = emb.rotulo || 'Embarque BL';
                 const rotuloEl = document.getElementById('d_embarque_rotulo');
                 if (rotuloEl) rotuloEl.textContent = rotulo;
-                document.getElementById('d_embarque_txt').textContent =
-                    (emb.nro || 's/n') + (emb.fecha ? ' · ' + emb.fecha : '');
-                // El buque, debajo: es el dato por el que se identifica un embarque cuando se
-                // habla con la naviera, y antes solo estaba escondido en el globo del boton.
-                const buque = document.getElementById('d_embarque_buque');
-                if (buque) {
-                    buque.textContent = emb.buque || '';
-                    buque.style.display = emb.buque ? '' : 'none';
-                    buque.title = emb.buque || '';
-                }
+                // En la fila, solo el nombre del barco y la fecha (pedido del cliente 13-11-2026;
+                // el lector del BL ya guarda el buque sin el viaje). Sin buque, el numero del
+                // documento. El numero y lo demas estan en el globo y en el visor.
+                const txt = document.getElementById('d_embarque_txt');
+                txt.textContent = (emb.buque || emb.nro || 's/n') + (emb.fecha ? ' · ' + emb.fecha : '');
+                txt.title = [emb.nro && 'BL ' + emb.nro, emb.buque].filter(Boolean).join(' · ');
                 const btn = document.getElementById('d_btn_embarque');
                 btn.title = 'Ver ' + rotulo.toLowerCase() + (emb.buque ? ' (' + emb.buque + ')' : '');
                 // El MISMO visor que el resto de los documentos, con su panel de datos (los del

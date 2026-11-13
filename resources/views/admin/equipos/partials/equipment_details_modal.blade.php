@@ -112,13 +112,9 @@ Estructura: overlay > modal-content > header + sub-header + body
                                      (Embarque::rotulo, según TIPO_DOCUMENTO). --}}
                                 <span id="d_embarque_rotulo" style="color:#64748b;font-size:12px;font-weight:500;white-space:nowrap;">Embarque BL</span>
                                 <div style="display:flex;align-items:center;gap:6px;min-width:0;">
-                                    {{-- El número y la fecha en el renglón de arriba y el BUQUE
-                                         debajo: los tres juntos en una línea no caben en el modal. --}}
-                                    <span style="display:flex;flex-direction:column;align-items:flex-end;min-width:0;">
-                                        <span id="d_embarque_txt" style="color:#333;font-size:13px;text-align:right;"></span>
-                                        <small id="d_embarque_buque"
-                                            style="color:#64748b;font-size:11px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;"></small>
-                                    </span>
+                                    {{-- Solo el nombre del barco y la fecha (uicomponents.js); el número
+                                         del BL y el viaje quedan en el globo y en el visor. --}}
+                                    <span id="d_embarque_txt" style="color:#333;font-size:13px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;"></span>
                                     {{-- Botón, no enlace: el BL se abre en el MISMO visor de PDF que el
                                          resto de los documentos (openPdfPreview). Era un <a target="_blank">
                                          y se iba a otra pestaña, fuera de la aplicación.
