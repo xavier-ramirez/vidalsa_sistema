@@ -133,9 +133,13 @@
         if (s.indexOf('#') >= 0) return como(e.etiqueta, s.replace(/#/g, ''));
         if (como(e.chasis, s) || como(e.motorSerial, s) || como(e.codigo, s) || como(e.etiqueta, s)) return true;
         // La placa se teclea con letra O o con cero: se prueban las variantes.
-        return [s, s.replace(/O/g, '0'), s.replace(/0/g, 'O'), s.replace(/O/g, '0').replace(/0/g, 'O')]
-            .some((v) => como(e.placaReal, v));
+        if ([s, s.replace(/O/g, '0'), s.replace(/0/g, 'O'), s.replace(/O/g, '0').replace(/0/g, 'O')]
+            .some((v) => como(e.placaReal, v))) return true;
+        // Última opción: el serial del brazo (equipos de izaje).
+        return porBrazo(e, s);
     }
+    // La búsqueda dio con el equipo por el serial de su brazo (la fila lo muestra en «B:»).
+    const porBrazo = (e, texto) => lleno(texto) && como(e.serialBrazoReal, txt(texto));
 
     // `sin`: ejes que no cuentan (para que una lista no se recorte por su propio filtro).
     function filtroEquipos(f, ctx, sin) {
@@ -447,7 +451,8 @@
     const finalizado = (frente) => (frente && frente.estatus === 'FINALIZADO');
     const burbuja = (detalle) => (lleno(detalle) ? '<div class="tooltip-bubble">📍 ' + h(detalle) + '<div class="eq-tip-flecha"></div></div>' : '');
 
-    function filaEquipo(e, ctx, puede) {
+    // `busqueda`: el texto del buscador; si dio con el serial del brazo, la fila lo enseña.
+    function filaEquipo(e, ctx, puede, busqueda) {
         const est = ESTADO_EQ[e.estado] || ESTADO_EQ.DESINCORPORADO;
         const frente = ctx.frentes.get(e.frenteId);
         const cfd = e.confirmado ? 1 : 0;
@@ -491,6 +496,7 @@
             + '<td class="table-cell-custom eq-td-serial">'
             + '<div class="eq-ser-linea"><strong class="eq-lbl">S:</strong> <span class="eq-val">' + h(e.chasis || '—') + '</span></div>'
             + (lleno(e.motorSerial) ? '<div class="eq-ser-linea eq-ser-sep"><strong class="eq-lbl">M:</strong> <span class="eq-val">' + h(e.motorSerial) + '</span></div>' : '')
+            + (porBrazo(e, busqueda) ? '<div class="eq-ser-linea eq-ser-sep"><strong class="eq-lbl">B:</strong> <span class="eq-val">' + h(e.serialBrazoReal) + '</span></div>' : '')
             + (placa ? '<div class="eq-ser-corta eq-ser-sep"><strong class="eq-lbl">P:</strong> <span class="eq-val-placa">' + h(placa) + '</span></div>'
                 : '<div class="eq-ser-simple eq-ser-sep"><strong class="eq-lbl">P:</strong> <span class="eq-val-vacio">Sin Placa</span></div>')
             + (lleno(e.codigo) ? '<div class="eq-id-line eq-ser-corta eq-ser-sep"><strong class="eq-lbl">ID:</strong> <span class="eq-val-id">#' + h(e.codigo) + '</span></div>' : '')
@@ -632,7 +638,7 @@
             const lista = ordenarEquipos(todos.filter(filtroEquipos(f, ctx)), ctx);
             const pagina = lote(lista);
             pagina.forEach((e) => { r.equiposData[e.id] = e; });
-            let filas = pagina.map((e) => filaEquipo(e, ctx, puede));
+            let filas = pagina.map((e) => filaEquipo(e, ctx, puede, f.search_query));
             // Los auxiliares que coinciden van al final del último lote.
             if (!r.hasMore && !soloEquipos(f) && ejeCompartido(f)) {
                 filas = filas.concat(conAux(ordenarAux(aux.filter(filtroAux(auxCompartido(f), ctx)))));

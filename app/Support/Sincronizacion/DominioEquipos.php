@@ -31,9 +31,10 @@ class DominioEquipos
      * Súbelo cuando cambie la forma de las filas o de los catálogos: los clientes recargan su
      * copia. 3: el catálogo de frentes trae `sinContar` (los catálogos solo se reenvían si cambia
      * un frente o un tipo, así que sin subirlo una copia vieja no lo recibiría). 4: el payload
-     * del modal trae `serialBrazo` (Equipo::toDetailsPayload).
+     * del modal trae `serialBrazo` (Equipo::toDetailsPayload). 5: `serialBrazoReal`, para que el
+     * buscador de seriales encuentre el equipo por el serial del brazo.
      */
-    public const ESQUEMA = 4;
+    public const ESQUEMA = 5;
 
     public function __construct(private Usuario $usuario)
     {
@@ -220,6 +221,7 @@ class DominioEquipos
             'titularReal'       => $doc?->NOMBRE_DEL_TITULAR,
             'aseguradoraReal'   => $doc?->seguro?->NOMBRE_ASEGURADORA,
             'combustibleReal'   => $e->COMBUSTIBLE,
+            'serialBrazoReal'   => $e->SERIAL_BRAZO,
             'fotoId'            => $e->fotoDriveId(),
             'falla'             => $falla ? [
                 'id'      => (int) $falla->ID_FALLA,
