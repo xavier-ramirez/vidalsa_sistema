@@ -175,6 +175,15 @@
         @error('SERIAL_DE_MOTOR') <span class="error-message-inline">{{ $message }}</span> @enderror
     </div>
 
+    <!-- Serial del brazo: solo los tipos con brazo o grúa (TipoEquipo::llevaBrazo). Al cambiar
+         el tipo lo muestra/esconde form_logic.js (__mostrarSerialBrazo) con data-patron. -->
+    @php $conBrazo = \App\Models\TipoEquipo::llevaBrazo(old('TIPO_EQUIPO', optional($equipo->tipo ?? null)->nombre)) || filled($equipo->SERIAL_BRAZO ?? null); @endphp
+    <div id="serialBrazoWrap" data-patron="{{ \App\Models\TipoEquipo::PATRON_BRAZO }}" @unless($conBrazo) style="display: none;" @endunless>
+        <label for="serial_brazo" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Serial del Brazo</label>
+        <input type="text" id="serial_brazo" name="SERIAL_BRAZO" class="form-input-custom @error('SERIAL_BRAZO') is-invalid @enderror" value="{{ old('SERIAL_BRAZO', $equipo->SERIAL_BRAZO ?? '') }}" placeholder="Serial de la grúa" maxlength="100" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
+        @error('SERIAL_BRAZO') <span class="error-message-inline">{{ $message }}</span> @enderror
+    </div>
+
     <!-- Combustible (por UNIDAD, no por modelo: un mismo MODELO puede traer motor a
          gasolina o a gasoil — HILUX 2.7 vs 2.4 diésel, F-350 Triton vs Power Stroke.
          Las opciones salen de Equipo::COMBUSTIBLES, fuente única compartida

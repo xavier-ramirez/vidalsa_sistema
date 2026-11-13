@@ -843,6 +843,7 @@ class EquipoController extends Controller
             'CODIGO_PATIO' => (trim($request->CODIGO_PATIO ?? '') === '') ? null : strtoupper($request->CODIGO_PATIO),
             'SERIAL_CHASIS' => strtoupper($request->SERIAL_CHASIS),
             'SERIAL_DE_MOTOR' => (trim($request->SERIAL_DE_MOTOR ?? '') === '') ? null : strtoupper(trim($request->SERIAL_DE_MOTOR)),
+            'SERIAL_BRAZO' => (trim($request->SERIAL_BRAZO ?? '') === '') ? null : mb_strtoupper(trim($request->SERIAL_BRAZO)),
             'COMBUSTIBLE' => (trim($request->COMBUSTIBLE ?? '') === '') ? null : mb_strtoupper(trim($request->COMBUSTIBLE)),
         ]);
 
@@ -870,6 +871,7 @@ class EquipoController extends Controller
                 'CONSUMO_PROMEDIO' => 'nullable|numeric|min:0|max:99999',
                 'SERIAL_CHASIS' => 'required|unique:equipos,SERIAL_CHASIS',
                 'SERIAL_DE_MOTOR' => 'nullable|unique:equipos,SERIAL_DE_MOTOR',
+                'SERIAL_BRAZO' => 'nullable|string|max:100',
                 'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA',
                 'ESTADO_OPERATIVO' => 'required',
                 'ID_ESPEC' => 'nullable|exists:caracteristicas_modelo,ID_ESPEC', // Security: Validate catalog link exists
@@ -1275,6 +1277,7 @@ class EquipoController extends Controller
             'CODIGO_PATIO' => (trim($request->CODIGO_PATIO ?? '') === '') ? null : strtoupper(trim($request->CODIGO_PATIO)),
             'SERIAL_CHASIS' => strtoupper($request->SERIAL_CHASIS),
             'SERIAL_DE_MOTOR' => (trim($request->SERIAL_DE_MOTOR ?? '') === '') ? null : strtoupper(trim($request->SERIAL_DE_MOTOR)),
+            'SERIAL_BRAZO' => (trim($request->SERIAL_BRAZO ?? '') === '') ? null : mb_strtoupper(trim($request->SERIAL_BRAZO)),
             'COMBUSTIBLE' => (trim($request->COMBUSTIBLE ?? '') === '') ? null : mb_strtoupper(trim($request->COMBUSTIBLE)),
         ]);
 
@@ -1302,6 +1305,7 @@ class EquipoController extends Controller
             'ID_ESPEC' => 'nullable',
             'SERIAL_CHASIS' => 'required|unique:equipos,SERIAL_CHASIS,' . $id . ',ID_EQUIPO',
             'SERIAL_DE_MOTOR' => 'nullable|unique:equipos,SERIAL_DE_MOTOR,' . $id . ',ID_EQUIPO',
+            'SERIAL_BRAZO' => 'nullable|string|max:100',
             'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA,' . ($equipo->documentacion ? $equipo->documentacion->ID_EQUIPO : 'NULL') . ',ID_EQUIPO',
             // Las fechas de documento se validan como FECHA. Este validate() no las miraba
             // en absoluto: mandar "abc" pasaba, el PDF YA se habia subido a Drive y reventaba
@@ -2380,6 +2384,7 @@ class EquipoController extends Controller
             'ANIO' => 'Año',
             'SERIAL_CHASIS' => 'Serial de Chasis',
             'SERIAL_DE_MOTOR' => 'Serial de Motor',
+            'SERIAL_BRAZO' => 'Serial del Brazo',
             'COMBUSTIBLE' => 'Combustible',
             'CONSUMO_PROMEDIO' => 'Consumo (L/día)',
             'documentacion.PLACA' => 'Placa',

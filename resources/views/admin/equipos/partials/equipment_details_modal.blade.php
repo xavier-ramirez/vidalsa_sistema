@@ -235,6 +235,12 @@ Estructura: overlay > modal-content > header + sub-header + body
                                 <span id="d_consumo" style="color: #333333;"></span>
                             </div>
 
+                            {{-- Solo equipos con brazo o grúa (serialBrazo del payload; null = no lleva) --}}
+                            <div id="d_serial_brazo_row" style="display: none; justify-content: space-between; border-bottom: 1px dashed #f1f5f9; padding-bottom: 8px;">
+                                <span style="color: #64748b;">Serial del Brazo:</span>
+                                <span id="d_serial_brazo" style="color: #333333;"></span>
+                            </div>
+
                         </div>
                     </div>
                 </details>

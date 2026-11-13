@@ -46,6 +46,7 @@
         'NRO_DE_DOCUMENTO'        => 'Nº de documento',
         'COMBUSTIBLE'             => 'Combustible',
         'CONSUMO_PROMEDIO'        => 'Consumo promedio',
+        'SERIAL_BRAZO'            => 'Serial del brazo',
         'ID_ESPEC'                => 'Ficha del catálogo (nº)',
         'SERIAL'                  => 'Serial',
         'CODIGO_INTERNO'          => 'Código interno',

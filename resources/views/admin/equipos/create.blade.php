@@ -249,6 +249,14 @@
                     <input type="text" id="serial_motor" name="SERIAL_DE_MOTOR" class="form-input-custom" value="{{ old('SERIAL_DE_MOTOR') }}" placeholder="Opcional" autocomplete="off" style="text-transform: uppercase;">
                 </div>
 
+                {{-- SERIAL DEL BRAZO (solo equipo, y solo si el tipo lleva brazo o grúa: ver
+                     TipoEquipo::llevaBrazo). Lo muestra/esconde form_logic.js (__mostrarSerialBrazo)
+                     al escribir el tipo; en modo auxiliar el input se deshabilita (setMode). --}}
+                <div id="serialBrazoWrap" data-patron="{{ \App\Models\TipoEquipo::PATRON_BRAZO }}" @unless(\App\Models\TipoEquipo::llevaBrazo(old('TIPO_EQUIPO'))) style="display: none;" @endunless>
+                    <label for="serial_brazo" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Serial del Brazo</label>
+                    <input type="text" id="serial_brazo" name="SERIAL_BRAZO" class="form-input-custom" value="{{ old('SERIAL_BRAZO') }}" placeholder="Serial de la grúa" maxlength="100" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
+                </div>
+
                 {{-- COLOR (solo equipo). Vivía en la rejilla de más abajo; se sube aquí, al
                      lado del serial de motor, a pedido del cliente. Al salir de
                      #equipoFieldsSection pierde el ocultado y el `disabled` que esa sección
@@ -643,6 +651,12 @@
             var combInput = document.getElementById('input_combustible');
             if (combInput) combInput.disabled = isAux;
         }
+
+        // Serial del brazo (solo equipo): el input se deshabilita en modo auxiliar y la
+        // visibilidad la decide __mostrarSerialBrazo (tipo con brazo y modo equipo).
+        var serialBrazo = document.getElementById('serial_brazo');
+        if (serialBrazo) serialBrazo.disabled = isAux;
+        window.__mostrarSerialBrazo();
 
         // Consumo diario (solo equipo): mismo patron que #combustibleWrap.
         var consumoWrap = document.getElementById('consumoWrap');

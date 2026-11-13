@@ -690,6 +690,14 @@ window.showDetailsImproved = function (target, event) {
     set("d_categoria", d.categoria);
     set("d_combustible", d.combustible);
     set("d_consumo", d.consumo);
+    // Serial del brazo: la fila solo existe para los equipos con brazo o grúa
+    // (Equipo::toDetailsPayload manda null en los demás; viejos data-* sin el dato, undefined).
+    const brazoRow = document.getElementById("d_serial_brazo_row");
+    if (brazoRow) {
+        const conBrazo = d.serialBrazo != null;
+        brazoRow.style.display = conBrazo ? "flex" : "none";
+        if (conBrazo) set("d_serial_brazo", d.serialBrazo);
+    }
 
     // ID del equipo activo: usado por saveResponsable y otros flujos del modal
     window._quickEditEquipoId = d.equipoId || '';

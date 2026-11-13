@@ -30,9 +30,10 @@ class DominioEquipos
     /**
      * Súbelo cuando cambie la forma de las filas o de los catálogos: los clientes recargan su
      * copia. 3: el catálogo de frentes trae `sinContar` (los catálogos solo se reenvían si cambia
-     * un frente o un tipo, así que sin subirlo una copia vieja no lo recibiría).
+     * un frente o un tipo, así que sin subirlo una copia vieja no lo recibiría). 4: el payload
+     * del modal trae `serialBrazo` (Equipo::toDetailsPayload).
      */
-    public const ESQUEMA = 3;
+    public const ESQUEMA = 4;
 
     public function __construct(private Usuario $usuario)
     {

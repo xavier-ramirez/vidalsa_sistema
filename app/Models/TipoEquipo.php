@@ -10,6 +10,19 @@ class TipoEquipo extends Model
     protected $fillable = ['nombre', 'ROL_ANCLAJE'];
 
     /**
+     * Tipos de IZAJE que llevan brazo o grúa montada (CAMION CON BRAZO 4 TON, CHUTO CON BRAZO
+     * 16 TON, CAMION GRUA, BRAZO HIDRAULICO…): son los que tienen «Serial del brazo». Se mira
+     * el NOMBRE porque el tipo es texto libre (se crea al escribirlo en el formulario). Sin
+     * delimitadores: el formulario lo usa tal cual como RegExp de JavaScript.
+     */
+    public const PATRON_BRAZO = 'BRAZO|GR[UÚ]A';
+
+    public static function llevaBrazo(?string $nombre): bool
+    {
+        return (bool) preg_match('/' . self::PATRON_BRAZO . '/iu', (string) $nombre);
+    }
+
+    /**
      * Invalida la plantilla bulk y el selector "Tipo" del formulario de equipos
      * cuando se agregan/renombran tipos. Sin el forget de `tipos_equipo_list_form`,
      * un tipo creado por TipoEquipo::firstOrCreate() al registrar un equipo no salía

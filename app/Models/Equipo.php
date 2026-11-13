@@ -48,6 +48,7 @@ class Equipo extends Model
         'ID_ESPEC',
         'SERIAL_CHASIS',
         'SERIAL_DE_MOTOR',
+        'SERIAL_BRAZO',
         'COMBUSTIBLE',
         'CONSUMO_PROMEDIO',
         'LINK_GPS',
@@ -252,6 +253,10 @@ class Equipo extends Model
             'ubicacion'       => optional($this->frenteActual)->NOMBRE_FRENTE ?? 'Sin Asignar',
             'motorSerial'     => $this->SERIAL_DE_MOTOR,
             'chasis'          => $this->SERIAL_CHASIS,
+            // null = este equipo no lleva brazo (el modal esconde la fila). Si un tipo deja de
+            // llevarlo pero el serial ya estaba puesto, se sigue mostrando.
+            'serialBrazo'     => (TipoEquipo::llevaBrazo($this->tipo->nombre ?? null) || $this->SERIAL_BRAZO)
+                                     ? ($this->SERIAL_BRAZO ?: 'N/A') : null,
             // COMBUSTIBLE vive en `equipos`, NO en la ficha del modelo: un mismo
             // MODELO puede traer motor a gasolina o a gasoil segun la unidad.
             'combustible'     => $this->COMBUSTIBLE ?? 'N/A',
