@@ -180,12 +180,12 @@ body {
     position: absolute;
     inset: 0;
     background:
-        linear-gradient(to bottom, rgba(6, 24, 72, 0.96) 0%, rgba(6, 24, 72, 0.86) 18%, rgba(8, 30, 84, 0.6) 32%, rgba(10, 34, 92, 0.3) 46%, rgba(10, 34, 92, 0.1) 58%, rgba(10, 34, 92, 0) 68%),
+        linear-gradient(to bottom, rgba(6, 24, 72, 0.96) 0%, rgba(6, 24, 72, 0.84) 12%, rgba(8, 30, 84, 0.58) 22%, rgba(10, 34, 92, 0.3) 32%, rgba(10, 34, 92, 0.1) 42%, rgba(10, 34, 92, 0) 52%),
         linear-gradient(to top, rgba(5, 20, 64, 0.35) 0%, rgba(5, 20, 64, 0) 20%),
         rgba(10, 40, 110, 0.1);
 }
 
-/* La foto abajo y a todo el ancho, alta hasta cerca del titulo (70% del panel). Si a su
+/* La foto abajo y a todo el ancho, alta hasta cerca del titulo (78% del panel). Si a su
    proporcion no llega, se agranda lo justo y se recortan un poco los lados (cover); sin el
    tope la foto llenaba todo el alto y salia demasiado agrandada. Su canto de arriba se funde
    con el azul del fondo, debajo del velo. */
@@ -195,7 +195,7 @@ body {
     bottom: 0;
     width: 100%;
     height: auto;
-    min-height: 70%;
+    min-height: 78%;
     object-fit: cover;
     object-position: center bottom;
     display: block;
