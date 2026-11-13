@@ -218,7 +218,7 @@
                                      estado: qué tiene HOY la ficha de cada una (CargaMasivaDocumentos::unidadesDeVarias).
                                      Este botón y el del PDF abren el visor con TODOS sus equipos al lado
                                      (cpdfAbrirUnidades): cada uno enseña el PDF de su ficha, y los que faltan por
-                                     enlazar traen su botón. Los datos van aquí, una vez, para los dos botones. --}}
+                                     enlazar traen sus botones (enlazar y quitar). Los datos van aquí, una vez, para los dos botones. --}}
                                 {{-- Los botones de enlazar y quitar de lo que falta viven SOLO en este visor (no en la
                                      tabla): por eso se monta tambien sin ninguna unidad reconocida, si algo falta. --}}
                                 @php
@@ -1184,7 +1184,7 @@
     // a un lado, como la caja de enlazar y con su aspecto. Se abre con el documento completo; la
     // lista tiene cada equipo según lo que tiene HOY su ficha, y al pulsarlo el visor enseña el PDF de esa ficha
     // (de un ROTC de flota, su parte de 3 hojas; de un BL, el mismo para todos). Al final lo que falta
-    // por enlazar, con su botón. Los datos los deja la fila en #cpdfUni<ID> (unidadesDeVarias).
+    // por enlazar, con sus botones (enlazar y quitar). Los datos los deja la fila en #cpdfUni<ID> (unidadesDeVarias).
     // Con un equipo elegido, a la derecha sale el panel de datos de SU ficha (el del visor), para
     // ver que se cargó bien; aquí solo se mira: sin Subir, Eliminar ni Anexar (.cpdf-uni-abierto).
     window.cpdfAbrirUnidades = function (id) {
@@ -1250,8 +1250,8 @@
         ['este', 'otro', 'sin'].forEach(function (g) {
             seccion(d.titulos[g], (d.grupos[g] || []).map(function (u) { return linea(g, u.placa, u.serial, u.link, u); }));
         });
-        // Lo que falta por enlazar: la misma acción que la línea de la fila (cpdfAtarFalta / cpdfAtarVin).
-        // Cada una con dos botones de solo icono: enlazar (link) y quitar de la lista (papelera).
+        // Lo que falta por enlazar, con dos botones de solo icono: enlazar (cpdfAtarFalta / cpdfAtarVin)
+        // y quitar de la lista (cpdfQuitarFalta). Es el UNICO sitio con esos botones: la fila solo lo nombra.
         var boton = function (op, icono, titulo, clase, accion) {
             var b = el('button', 'cpdf-vin-btn' + (clase ? ' ' + clase : ''));
             b.type = 'button';
@@ -1261,17 +1261,17 @@
             b.onclick = accion;
             op.appendChild(b);
         };
-        var enlazar = function (op, accion, codigo, nombre) {
+        var conBotones = function (op, accion, codigo, nombre) {
             boton(op, 'link', 'Enlazar a un equipo', '', function () { window.cpdfCerrarAtar(); accion(); });
             boton(op, 'delete', 'Quitar de la lista', 'cpdf-vin-quitar', function () { window.cpdfQuitarFalta(d.link, codigo, nombre); });
             return op;
         };
         seccion('Por enlazar', (d.faltan || []).map(function (u) {
             var nombre = (u.que === 'placa' ? 'la placa ' : 'el serial ') + u.codigo;
-            return enlazar(linea('falta', (u.suyo ? 'Sin enlazar ' : 'Falta ') + nombre, '', null),
+            return conBotones(linea('falta', (u.suyo ? 'Sin enlazar ' : 'Falta ') + nombre, '', null),
                 function () { window.cpdfAtarFalta(d.link, u.codigo, u.que, d.tipo, d.doc, d.fechas); }, u.codigo, nombre);
         }).concat((d.vines || []).map(function (vin) {
-            return enlazar(linea('falta', 'Falta el VIN ' + vin, '', null),
+            return conBotones(linea('falta', 'Falta el VIN ' + vin, '', null),
                 function () { window.cpdfAtarVin(d.link, vin, { emision: d.fechas.emision, vence: null }); }, vin, 'el VIN ' + vin);
         })));
 

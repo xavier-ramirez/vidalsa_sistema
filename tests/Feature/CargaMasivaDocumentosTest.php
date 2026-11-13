@@ -1316,6 +1316,28 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             ->assertStatus(422);
     }
 
+    /** Un VIN quitado de la lista no vuelve a faltar si el mismo BL se suelta otra vez. */
+    public function test_el_vin_quitado_no_vuelve_a_faltar_al_soltar_el_mismo_bl(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo();
+        $falta = 'LZZ1ELSF4SJ' . substr((string) hexdec(substr(md5(uniqid()), 0, 6)), 0, 6);
+        $texto = $this->textoBl([$a->SERIAL_CHASIS, $falta], 'HCLKGTQ2');
+        $p1 = $this->soltar($texto, CargaMasivaDocumentos::EMBARQUE);
+        $this->assertTrue($this->servicio()->quitarFalta($p1['link'], $falta)['ok']);
+        // El Drive de la prueba vuelve a numerar desde 1: la primera copia, en su propio id.
+        $fila = $this->filaDeLaCarga($p1);
+        $fila->update(['DRIVE_ID' => 'bl-quitado-1', 'PROPUESTA' => ['link' => '/storage/google/bl-quitado-1'] + $fila->PROPUESTA]);
+        \App\Models\Embarque::where('NRO_BL', 'HCLKGTQ2')->update(['LINK' => '/storage/google/bl-quitado-1']);
+
+        $p2 = $this->soltar($texto, CargaMasivaDocumentos::EMBARQUE);
+
+        $this->assertSame([], $p2['embarque']['no_registrados']);
+        $this->assertSame([$falta], $p2['quitados']);
+        $this->assertSame(2, CargaMasivaDocumentos::totalDeUnidades($p2));
+        $this->assertSame([], $this->servicio()->vinesSinAtar($this->filaDeLaCarga($p2)->PROPUESTA));
+    }
+
     /** Sin ninguna unidad registrada la fila queda "sin ficha"; con la ultima atada, Aplicado y con su equipo. */
     public function test_un_pdf_de_varias_sin_ninguna_registrada_se_completa_atando(): void
     {

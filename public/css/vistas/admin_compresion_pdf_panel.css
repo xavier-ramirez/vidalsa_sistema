@@ -212,14 +212,11 @@
     .cpdf-motivo { font-size: 13px; color: #334155; }
     .cpdf-flecha { font-size: 14px; color: #64748b; align-self: center; }
 
-    /* Cada línea que se enlaza a mano desde su fila (un PDF sin enlazar, el VIN de un BL que no
-       casó, una unidad de un RACDA, un ROTC o una póliza de flota) y su botón. */
+    /* Lo que falta, en la fila: un PDF sin enlazar (con su botón) y el VIN de un BL que no casó o
+       una unidad de un RACDA, un ROTC o una póliza de flota (solo el aviso: sus botones, en "Ver equipos"). */
     .cpdf-vin-falta { margin-top: 6px; font-size: 13px; color: #d97706; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-    /* El botón de enlazar de cada línea: el ícono de enlazar y "Equipo" (pedido del cliente, 22-10-2026). */
-    .cpdf-vin-btn { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #1e40af; background: #fff; color: #1e40af; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
-    .cpdf-vin-btn .material-icons { font-size: 15px; }
-    /* Solo icono (enlazar y papelera): cuadrado. La papelera, en rojo. */
-    .cpdf-vin-btn { justify-content: center; min-width: 28px; padding: 3px 5px; }
+    /* Los botones de solo icono de cada línea: enlazar y, en "Ver equipos", la papelera (en rojo). */
+    .cpdf-vin-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; border: 1px solid #1e40af; background: #fff; color: #1e40af; border-radius: 6px; padding: 3px 5px; cursor: pointer; }
     .cpdf-vin-btn .material-icons { font-size: 17px; }
     .cpdf-vin-btn.cpdf-vin-quitar { border-color: #dc2626; color: #dc2626; }
     .cpdf-vin-btn.cpdf-vin-quitar:hover { background: #fef2f2; }

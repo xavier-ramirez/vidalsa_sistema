@@ -15,6 +15,7 @@ use App\Support\DocumentacionDeEquipo;
 use App\Support\ColaCargaMasiva;
 use App\Support\EnlacesDocumentos;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -962,6 +963,10 @@ class CargaMasivaDocumentos
         // Los que ya se ataron a mano a una ficha (atarVin) no faltan: estan en el embarque.
         $noEstan = $this->vinesSinAtar(['tipo' => self::EMBARQUE, 'link' => $link,
             'embarque' => ['nro' => $bl['nro'], 'no_registrados' => $noEstan]]);
+        // Ni los que ya se quitaron de la lista en otra fila de este BL (quitarFalta).
+        $yaQuitados = $this->vinesQuitadosDelBl($bl['nro']);
+        $quitados = array_values(array_filter($noEstan, fn ($v) => isset($yaQuitados[$this->lector->codigo($v)])));
+        $noEstan = array_values(array_diff($noEstan, $quitados));
 
         $fichas = $filas->map(fn ($f) => ['coincide_por' => 'el VIN ' . $f->SERIAL_CHASIS] + $this->ficha($f)
             + ['vin_bl' => $impreso[$this->lector->codigo((string) $f->SERIAL_CHASIS)] ?? $f->SERIAL_CHASIS])->values()->all();
@@ -978,7 +983,7 @@ class CargaMasivaDocumentos
                 'puerto_carga' => $bl['puerto_carga'], 'puerto_descarga' => $bl['puerto_descarga'],
                 'fecha' => $bl['fecha'], 'unidades' => $unidades, 'no_registrados' => $noEstan,
             ],
-        ];
+        ] + ($quitados ? ['quitados' => $quitados] : []);
 
         if (!$fichas) {
             $propuesta['estado'] = 'sin_equipo';
@@ -1637,17 +1642,9 @@ class CargaMasivaDocumentos
         // Las filas de ESE BL (pudo soltarse varias veces) cuentan cuantas faltan ahora. Sin
         // numero de BL, solo la suya: el numero es lo unico que dice que dos filas son el mismo BL.
         $serial = Equipo::whereKey($idEquipo)->value('SERIAL_CHASIS');
-        $faltan = $this->vinesSinAtar($p);
-        $embarque = $this->embarqueDelBl($nro, $link);
-        $enEl = $embarque ? DB::table('embarque_equipo')->where('ID_EMBARQUE', $embarque->ID_EMBARQUE)->pluck('ID_EQUIPO')->all() : [];
-        $porEnlazar = count($faltan) + count(array_diff(array_column($p['equipos'] ?? [], 'id'), $enEl));
+        [$porEnlazar] = $this->porEnlazarDelBl($p, $link);
         $driveId = DocumentoAnexo::driveIdDeLink($link);
-        VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
-            ->where('TIPO', self::EMBARQUE)
-            ->when($nro,
-                fn ($q) => $q->whereRaw("UPPER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(PROPUESTA, '$.embarque.nro')))) = ?", [self::claveBl($nro)]),
-                fn ($q) => $q->where('DRIVE_ID', $driveId))
-            ->get()
+        $this->filasDelBl($nro, $driveId)
             ->each(fn ($fila) => $fila->update(['MOTIVO' => $this->resumenDeVarias($fila->PROPUESTA, $porEnlazar)]));
 
         // La fila que al leerlo no reconocio ninguna ("sin ficha") se queda con el equipo enlazado
@@ -1676,6 +1673,7 @@ class CargaMasivaDocumentos
         $cod = $this->lector->codigo($codigo);
         $driveId = DocumentoAnexo::driveIdDeLink($link);
         $mismoCodigo = fn ($v) => $this->lector->codigo((string) $v) === $cod;
+        $enEl = [];   // de un BL: los equipos que ya estan en su embarque
 
         if ($tipo === self::EMBARQUE) {
             $vin = collect($this->vinesSinAtar($p))->first($mismoCodigo);
@@ -1686,18 +1684,10 @@ class CargaMasivaDocumentos
                 return $q;
             };
             // Todas las filas de ESE BL (pudo soltarse varias veces), como atarVin: si no, el VIN
-            // volveria a faltar desde la otra fila. Sin numero, solo la suya.
-            $nro = $p['embarque']['nro'] ?? null;
-            $filas = VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
-                ->where('TIPO', self::EMBARQUE)
-                ->when($nro,
-                    fn ($q) => $q->whereRaw("UPPER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(PROPUESTA, '$.embarque.nro')))) = ?", [self::claveBl($nro)]),
-                    fn ($q) => $q->where('DRIVE_ID', $driveId))
-                ->get();
+            // volveria a faltar desde la otra fila.
+            $filas = $this->filasDelBl($p['embarque']['nro'] ?? null, $driveId);
             $nueva = $quitar($p);
-            $embarque = $this->embarqueDelBl($nro, $link);
-            $enEl = $embarque ? DB::table('embarque_equipo')->where('ID_EMBARQUE', $embarque->ID_EMBARQUE)->pluck('ID_EQUIPO')->all() : [];
-            $porEnlazar = count($this->vinesSinAtar($nueva)) + count(array_diff(array_column($nueva['equipos'] ?? [], 'id'), $enEl));
+            [$porEnlazar, $enEl] = $this->porEnlazarDelBl($nueva, $link);
             DB::transaction(function () use ($filas, $quitar, $porEnlazar) {
                 foreach ($filas as $fila) {
                     $q = $quitar($fila->PROPUESTA);
@@ -1731,6 +1721,48 @@ class CargaMasivaDocumentos
         if (!$porEnlazar && $hayEnlazadas) $this->cerrarPropuesta($link, $this->quedaPorRevisar($nueva));
 
         return ['ok' => true, 'mensaje' => "$quitado quitado de la lista."];
+    }
+
+    /**
+     * Las filas de la carga de un BL: todas las de su numero (el mismo BL pudo soltarse varias
+     * veces) o, sin numero, solo la de su PDF: el numero es lo unico que dice que dos filas son
+     * el mismo BL.
+     */
+    private function filasDelBl(?string $nro, ?string $driveId): Collection
+    {
+        if (!$nro && !$driveId) return collect();
+        return VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+            ->where('TIPO', self::EMBARQUE)
+            ->when($nro,
+                fn ($q) => $q->whereRaw("UPPER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(PROPUESTA, '$.embarque.nro')))) = ?", [self::claveBl($nro)]),
+                fn ($q) => $q->where('DRIVE_ID', $driveId))
+            ->get();
+    }
+
+    /**
+     * Cuantas unidades de un BL quedan por enlazar: los VIN que faltan y sus equipos reconocidos
+     * que aun no estan en el embarque. Tambien devuelve los ID_EQUIPO que ya estan en el.
+     *
+     * @return array{0: int, 1: list<int>}
+     */
+    private function porEnlazarDelBl(array $p, string $link): array
+    {
+        $embarque = $this->embarqueDelBl($p['embarque']['nro'] ?? null, $link);
+        $enEl = $embarque ? DB::table('embarque_equipo')->where('ID_EMBARQUE', $embarque->ID_EMBARQUE)->pluck('ID_EQUIPO')->all() : [];
+        return [count($this->vinesSinAtar($p)) + count(array_diff(array_column($p['equipos'] ?? [], 'id'), $enEl)), $enEl];
+    }
+
+    /**
+     * Los VIN de un BL que la persona ya quito de la lista (quitarFalta) en otra fila de ese
+     * mismo numero: al soltarlo otra vez no vuelven a faltar.
+     */
+    private function vinesQuitadosDelBl(?string $nro): array
+    {
+        $quitados = [];
+        foreach ($this->filasDelBl($nro, null) as $fila) {
+            foreach ($fila->PROPUESTA['quitados'] ?? [] as $v) $quitados[$this->lector->codigo((string) $v)] = (string) $v;
+        }
+        return $quitados;
     }
 
     /** El numero de un BL como lo compara MySQL: sin mayusculas ni espacios al final. */
