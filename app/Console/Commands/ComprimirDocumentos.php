@@ -50,7 +50,7 @@ class ComprimirDocumentos extends Command
 {
     protected $signature = 'docs:comprimir
                             {--lote=5 : Cuantos archivos procesar en esta pasada}
-                            {--min-kb=1000 : Solo los PDF que pesen mas que esto}
+                            {--min-kb=800 : Solo los PDF que pesen mas que esto}
                             {--simular : Baja, comprime y valida, pero no sube ni cambia nada}
                             {--solo= : Procesar solo este ID de Drive}';
 
