@@ -380,13 +380,17 @@ window.almMovArrancar = function (CFG) {
     // clearDropdownFilter ya emite el evento dropdown-selection — el listener de arriba
     // dispara loadMovimientos, asi que no lo llamamos dos veces.
     window.almMovLimpiarFechas = function () {
-        ['Desde', 'Hasta'].forEach(function (k) {   // igual que Notas: valor, su ✕ y el fondo
-            if (el('almMov' + k)) el('almMov' + k).value = '';
+        // Las fechas: valor, su ✕, el fondo y lastApplied (si no, volver a elegir la MISMA
+        // fecha no recargaba: almMovFechaFiltro la daba por ya aplicada).
+        ['Desde', 'Hasta'].forEach(function (k) {
+            var f = el('almMov' + k);
+            if (f) { f.value = ''; f.dataset.lastApplied = ''; }
             if (el('almMov' + k + 'Clear')) el('almMov' + k + 'Clear').style.display = 'none';
             if (el('almMov' + k + 'Box')) el('almMov' + k + 'Box').style.background = 'white';
         });
         if (el('almMovNota')) el('almMovNota').value = '';
         if (el('almMovNotaClear')) el('almMovNotaClear').style.display = 'none';
+        if (el('almMovNotaBox')) el('almMovNotaBox').style.background = '#fff';
         if (typeof window.almMovNotaSuggestHide === 'function') window.almMovNotaSuggestHide();
         if (document.getElementById('almMovTipoDropdown')
             && typeof window.clearDropdownFilter === 'function') {

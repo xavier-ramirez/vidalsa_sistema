@@ -100,14 +100,29 @@ class SerialBrazoEquipoTest extends MySqlTestCase
     {
         $editor = $this->editor();
 
-        $con = $this->actingAs($editor)->get(route('equipos.edit', $this->equipoDeTipo(true)->ID_EQUIPO));
-        $con->assertOk()->assertSee('name="SERIAL_BRAZO"', false)
-            ->assertSee('id="serialBrazoWrap" data-patron="' . e(TipoEquipo::PATRON_BRAZO) . '" >', false);
+        $wrap = fn (string $html) => preg_match('/<div id="serialBrazoWrap"[^>]*>/', $html, $m) ? $m[0] : '';
+        $input = fn (string $html) => preg_match('/<input[^>]*id="serial_brazo"[^>]*>/', $html, $m) ? $m[0] : '';
 
-        // Sin brazo el campo existe (el tipo se puede cambiar en el mismo formulario) pero oculto.
-        $this->actingAs($editor)->get(route('equipos.edit', $this->equipoDeTipo(false)->ID_EQUIPO))
-            ->assertOk()->assertSee('name="SERIAL_BRAZO"', false)
-            ->assertSee('data-patron="' . e(TipoEquipo::PATRON_BRAZO) . '"  style="display: none;"', false);
+        $con = $this->actingAs($editor)->get(route('equipos.edit', $this->equipoDeTipo(true)->ID_EQUIPO))->assertOk()->getContent();
+        $this->assertStringContainsString('data-patron="' . e(TipoEquipo::PATRON_BRAZO) . '"', $wrap($con));
+        $this->assertStringNotContainsString('display: none', $wrap($con));
+        $this->assertStringNotContainsString('disabled', $input($con));
+
+        // Sin brazo el campo existe (el tipo se puede cambiar en el mismo formulario) pero oculto
+        // y deshabilitado: así no se envía.
+        $volteo = $this->equipoDeTipo(false);
+        $sin = $this->actingAs($editor)->get(route('equipos.edit', $volteo->ID_EQUIPO))->assertOk()->getContent();
+        $this->assertStringContainsString('display: none', $wrap($sin));
+        $this->assertStringContainsString('disabled', $input($sin));
+        $this->assertStringNotContainsString('data-tiene', $wrap($sin));
+
+        // Sin brazo pero con serial ya puesto: se ve (misma regla que la ficha), con data-tiene
+        // para que el JS no lo esconda al tocar el tipo.
+        $volteo->update(['SERIAL_BRAZO' => 'X1']);
+        $tiene = $this->actingAs($editor)->get(route('equipos.edit', $volteo->ID_EQUIPO))->assertOk()->getContent();
+        $this->assertStringContainsString('data-tiene="1"', $wrap($tiene));
+        $this->assertStringNotContainsString('display: none', $wrap($tiene));
+        $this->assertStringNotContainsString('disabled', $input($tiene));
     }
 
     public function test_el_registro_tambien_lo_tiene(): void

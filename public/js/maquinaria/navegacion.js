@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const NO_PINTA = {
         '/admin/equipos': {
             equipos: (k) => DOCUMENTOS.test(k) || ['estado', 'confirmado', 'falla', 'foto', 'fotoId', 'etiqueta', 'capacidad',
-                'codigo', 'chasis', 'motorSerial', 'consumo', 'placa', 'placaReal', 'titular', 'titularReal', 'nroDoc',
+                'codigo', 'chasis', 'motorSerial', 'serialBrazo', 'serialBrazoReal', 'consumo', 'placa', 'placaReal', 'titular', 'titularReal', 'nroDoc',
                 'seguro', 'aseguradoraReal', 'subCount'].includes(k),
             auxiliares: (k) => ['estado', 'confirmado', 'fotoId', 'serial', 'codigo', 'capacidad', 'propiedad', 'certificado'].includes(k),
         },

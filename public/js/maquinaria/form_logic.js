@@ -436,17 +436,20 @@ if (!window.dropdownClickListenerAttached) {
 }
 
 // Serial del brazo (formularios de registro y edición de equipos): solo se ve si el tipo
-// lleva brazo o grúa. El patrón lo pone el servidor en data-patron (TipoEquipo::PATRON_BRAZO,
-// la misma regla que decide la fila de la ficha). Se esconde sin vaciarlo: si el tipo se
-// corrige y vuelve, lo escrito sigue ahí. En modo auxiliar (registro) el input está
-// deshabilitado y no se muestra.
+// lleva brazo o grúa, o si el equipo YA tenía serial (data-tiene) — la misma regla que el
+// formulario en el servidor y la ficha. El patrón lo pone el servidor en data-patron
+// (TipoEquipo::PATRON_BRAZO). Oculto va deshabilitado, así no se envía ni se guarda un serial
+// para un tipo sin brazo; no se vacía: si el tipo se corrige y vuelve, lo escrito sigue ahí.
+// En modo auxiliar (registro: data-aux) no se muestra.
 window.__mostrarSerialBrazo = function () {
     const wrap = document.getElementById('serialBrazoWrap');
     const tipo = document.getElementById('input_tipo_equipo');
     const input = document.getElementById('serial_brazo');
     if (!wrap || !tipo || !input) return;
-    const conBrazo = !input.disabled && new RegExp(wrap.dataset.patron, 'i').test(tipo.value);
-    wrap.style.display = conBrazo ? '' : 'none';
+    const ver = input.dataset.aux !== '1'
+        && (new RegExp(wrap.dataset.patron, 'i').test(tipo.value) || wrap.dataset.tiene === '1');
+    wrap.style.display = ver ? '' : 'none';
+    input.disabled = !ver;
 };
 // Delegado en document: el formulario llega por la SPA y no hay que volver a engancharlo.
 // selectDropdownItem también dispara 'input' al elegir un tipo de la lista.

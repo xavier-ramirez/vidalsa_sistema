@@ -38,6 +38,11 @@ Port of discharge")['buque']);
             "VESSEL/ VOYAGE: MV HORIZON HOPE MAR26VC005 \nOCEAN FREIGHT" => 'HORIZON HOPE',
             "AS THE AGENT ON BEHALF MASTER OF MV : RUI AN  YANG \nBL ATTACHMENT \nV/V:HONCHO V2512 BL NO.: RAQDLA12" => 'RUI AN YANG',
             "VESSEL PORT OF LOADING HONCHO V.2512 LONGKOU,CHINA" => 'HONCHO',
+            // Rotulos con dos puntos, /VOYAGE o NAME, y viajes que no son V.1234.
+            "Vessel: RUI AN YANG V.2524" => 'RUI AN YANG',
+            "VESSEL/VOYAGE: HONCHO V2512" => 'HONCHO',
+            "VESSEL NAME HONCHO V2512" => 'HONCHO',
+            "V/V:MV HORIZON HOPE MAR26VC005   BL NO.:LHYT06LG03A" => 'HORIZON HOPE',
         ];
         foreach ($casos as $texto => $buque) {
             $this->assertSame($buque, BillOfLading::leer($texto)['buque'], $texto);
@@ -48,6 +53,9 @@ Port of discharge")['buque']);
     {
         $this->assertNull(BillOfLading::leer("B/L NO.:LHYT06LG01/LHYT06LG02/LHYT06LG03A")['nro']);
         $this->assertSame('HCLKGT03', BillOfLading::leer("B/L NO. HCLKGT03\nVessel")['nro']);
+        // Una barra que no es otro numero de BL no borra el numero.
+        $this->assertSame('HCLKGT08', BillOfLading::leer("B/L NO. HCLKGT08\n/ PORT")['nro']);
+        $this->assertSame('HCLKGT08', BillOfLading::leer("B/L NO. HCLKGT08/1")['nro']);
     }
 
     public function test_una_sola_linea_con_coma_es_el_puerto(): void

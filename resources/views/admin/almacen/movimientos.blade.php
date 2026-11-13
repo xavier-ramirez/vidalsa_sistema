@@ -149,7 +149,7 @@
                             min-width:0 igual que Tipo: evita el desborde del grid. position:relative
                             ancla la lista de sugerencias (#almMovNotaSuggest) bajo el input. --}}
                     <span style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;">Referencia</span>
-                    <div style="display:flex;align-items:center;background:{{ $reqNota ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 4px;">
+                    <div id="almMovNotaBox" style="display:flex;align-items:center;background:{{ $reqNota ? '#e1effa' : '#fff' }};border:1px solid #cbd5e0;border-radius:8px;height:36px;padding:0 4px;">
                         <span style="padding:0 6px;display:flex;align-items:center;color:#64748b;"><i class="material-icons" style="font-size:16px;transform:none !important;">search</i></span>
                         <input type="text" id="almMovNota" autocomplete="off" placeholder="N° nota o referencia..." value="{{ $reqNota }}"
                                oninput="var c=document.getElementById('almMovNotaClear'); if(c) c.style.display=this.value?'block':'none'; window.almMovNotaSuggest();"
@@ -160,7 +160,7 @@
                                onkeydown="if(event.key==='Enter'){event.preventDefault(); window.almMovNotaSuggestHide(); window.loadMovimientos();} if(event.key==='Escape') window.almMovNotaSuggestHide();"
                                style="flex:1;border:none;background:transparent;padding:0 4px;font-size:13px;color:#0f172a;outline:none;min-width:0;">
                         <i class="material-icons" id="almMovNotaClear" style="padding:0 6px;color:#64748b;font-size:18px;display:{{ $reqNota ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                           onclick="document.getElementById('almMovNota').value=''; this.style.display='none'; window.almMovNotaSuggestHide(); window.loadMovimientos();">close</i>
+                           onclick="document.getElementById('almMovNota').value=''; this.style.display='none'; document.getElementById('almMovNotaBox').style.background='#fff'; window.almMovNotaSuggestHide(); window.loadMovimientos();">close</i>
                     </div>
                     {{-- Sugerencias en vivo: N° de Nota de Entrega (NE-…) de salida en almacenes
                          visibles. Mismo estilo (.amf-suggest) que el buscador de productos. --}}
