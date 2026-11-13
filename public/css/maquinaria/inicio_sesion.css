@@ -82,9 +82,10 @@ body {
 .page-title-container {
     position: absolute;
     top: 10%;
-    /* Un poco a la derecha del borde del panel (--foto-izq). Entre --z: el zoom de las
-       pantallas grandes tambien multiplica el left y lo sacaria del panel. */
-    left: calc((var(--foto-izq) + 3.5vw) / var(--z, 1));
+    /* Un poco a la derecha del borde del panel (--foto-izq). Entre --z: el zoom tambien
+       multiplica el left y lo sacaria del panel. */
+    left: calc((var(--foto-izq) + 3.5vw) / var(--z));
+    zoom: var(--z);
     text-align: left;
     width: auto;
     z-index: 101;
@@ -101,11 +102,8 @@ body {
 
 /* --- FEATURE CARDS (Nuevos servicios) --- */
 .features-container {
-    /* En fila bajo el titulo. Absolute porque la fila es mas ancha que el titulo: en flujo
-       ensancharia el contenedor (anclado a la derecha) y correria el titulo a la izquierda. */
-    position: absolute;
-    left: 0;
-    top: calc(100% + 14px);
+    /* En fila bajo el titulo */
+    margin-top: 14px;
     display: flex;
     gap: 7px;
     width: max-content;
@@ -130,7 +128,6 @@ body {
 
 .feature-card-icon {
     font-size: 1.15rem !important;
-    color: #ffffff;
 }
 
 .feature-text {
@@ -158,38 +155,35 @@ body {
     position: absolute;
     top: 0;
     bottom: 0;
-    /* En vw y no en %: .login-container mide 110% de ancho por su padding. El panel empieza
-       despues de la tarjeta de datos (10% + 400px + aire) o, en pantallas anchas, en el 36%. */
+    /* En vw y no en %: .login-container es mas ancho que la pantalla por su padding. */
     left: var(--foto-izq);
     width: calc(100vw - var(--foto-izq));
     z-index: 100;
     /* Delante de los svgs, detras del titulo, sus tarjetas y la tarjeta de datos */
     pointer-events: none;
     overflow: hidden;
-    /* Azul de fondo: arriba lleva el titulo y la foto se funde en el por su borde superior */
-    background: linear-gradient(to bottom, #061848 0%, #0c2a66 100%);
+    /* Azul de fondo: arriba lleva el titulo y la foto se funde en el por su borde superior.
+       Se aclara hacia abajo para que el paso al cielo de la foto sea suave. */
+    background: linear-gradient(to bottom, #173a76 0%, #2d5791 50%, #5880b2 100%);
     /* Canto izquierdo recto con un escalon curvo a media altura: arriba el panel sale 32px
        mas a la izquierda que abajo. Dos capas: el cuerpo (todo menos esa franja) y la franja,
-       un SVG estirado a lo alto. */
-    --escalon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 100' preserveAspectRatio='none'%3E%3Cpath d='M0 0H32V100H32V66C32 62 28 61 16 60C4 59 0 58 0 54Z'/%3E%3C/svg%3E");
-    -webkit-mask: linear-gradient(#000, #000) right top / calc(100% - 32px) 100% no-repeat,
+       un SVG estirado a lo alto. Se pisan 1px: con el corte justo en 32px quedaba entre las
+       dos una raya blanca fina. */
+    --escalon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 100' preserveAspectRatio='none'%3E%3Cpath d='M0 0H32V66C32 62 28 61 16 60C4 59 0 58 0 54Z'/%3E%3C/svg%3E");
+    -webkit-mask: linear-gradient(to right, transparent 31px, #000 31px),
                   var(--escalon) left top / 32px 100% no-repeat;
-            mask: linear-gradient(#000, #000) right top / calc(100% - 32px) 100% no-repeat,
+            mask: linear-gradient(to right, transparent 31px, #000 31px),
                   var(--escalon) left top / 32px 100% no-repeat;
 }
 
-.machinery-fixed-bottom > div {
-    height: 100%;
-}
-
-/* Velo azul suave sobre la foto, un poco mas oscuro abajo */
+/* Velo azul muy suave sobre la foto, un poco mas oscuro abajo */
 .machinery-fixed-bottom::after {
     content: "";
     position: absolute;
     inset: 0;
     background:
-        linear-gradient(to top, rgba(5, 20, 64, 0.35) 0%, rgba(5, 20, 64, 0) 20%),
-        rgba(10, 40, 110, 0.12);
+        linear-gradient(to top, rgba(5, 20, 64, 0.3) 0%, rgba(5, 20, 64, 0) 20%),
+        rgba(10, 40, 110, 0.08);
 }
 
 /* La foto entera, a su proporcion (sin agrandarla ni recortarla), abajo y a todo el ancho;
@@ -201,7 +195,7 @@ body {
     width: 100%;
     height: auto;
     display: block;
-    --borde-sup: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.043) 2.75%, rgba(0, 0, 0, 0.156) 5.5%, rgba(0, 0, 0, 0.316) 8.25%, rgba(0, 0, 0, 0.5) 11%, rgba(0, 0, 0, 0.684) 13.75%, rgba(0, 0, 0, 0.844) 16.5%, rgba(0, 0, 0, 0.957) 19.25%, #000 22%);
+    --borde-sup: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.043) 4%, rgba(0, 0, 0, 0.156) 8%, rgba(0, 0, 0, 0.316) 12%, rgba(0, 0, 0, 0.5) 16%, rgba(0, 0, 0, 0.684) 20%, rgba(0, 0, 0, 0.844) 24%, rgba(0, 0, 0, 0.957) 28%, #000 32%);
     -webkit-mask-image: var(--borde-sup);
             mask-image: var(--borde-sup);
 }
@@ -219,11 +213,13 @@ body {
     }
 }
 
-
-
 .login-container {
-    /* Donde empieza el panel de la foto (lo usan la foto y el titulo) */
-    --foto-izq: max(36vw, calc(10vw + 480px));
+    /* Margen de la tarjeta de datos y donde empieza el panel de la foto: despues de la
+       tarjeta (400px) con aire o, en pantallas anchas, en el 36%. */
+    --tarjeta-izq: 8vw;
+    --foto-izq: max(36vw, calc(var(--tarjeta-izq) + 500px));
+    /* Escala de la tarjeta de datos y del titulo (ver las media queries del final) */
+    --z: 1;
     position: relative;
     width: 100%;
     height: 100%;
@@ -232,12 +228,13 @@ body {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    padding-left: 10%;
+    padding-left: var(--tarjeta-izq);
 }
 
 .login-container-float-center {
+    zoom: var(--z);
     position: relative;
-    /* Delante de la foto: en pantallas de menos de 1475px de ancho le llega por debajo. */
+    /* Delante de la foto: en la tablet en vertical la franja de la foto le pasa por debajo. */
     z-index: 102;
     width: 400px;
     background-color: #fff;
@@ -518,10 +515,9 @@ input:-webkit-autofill:active {
 }
 
 /* Portatiles de 1201-1365px de ancho (1280x720, 1280x800): el panel es angosto y las tres
-   tarjetas del titulo se salian por la derecha. Se achica. */
+   tarjetas del titulo se salian por la derecha. Se achica solo el titulo. */
 @media (min-width: 1201px) and (max-width: 1365px) {
     .page-title-container {
-        zoom: 0.82;
         --z: 0.82;
     }
 }
@@ -530,48 +526,33 @@ input:-webkit-autofill:active {
    tarjeta ocupaba casi todo el alto. No subir de 640: 1920x1080 al 125% (1536x864) deja
    ~690-730px y ahi la tarjeta cabe a su tamano normal. */
 @media (min-width: 769px) and (max-height: 640px) {
-    .login-container-float-center { zoom: 0.85; }
+    .login-container-float-center { --z: 0.85; }
 }
 
 /* Telefono acostado (~850-930 x 390-430): ni a 0,85 cabe la tarjeta. */
 @media (min-width: 769px) and (max-height: 500px) {
-    .login-container-float-center { zoom: 0.72; }
+    .login-container-float-center { --z: 0.72; }
 }
 
 /* Pantallas grandes: la tarjeta de datos y el titulo miden en px y se quedaban diminutos
    junto a la foto y a las figuras (que si crecen). Escalan con la pantalla, contando ancho Y
    alto para no desbordar en las ultrawide (3440x1440 escala como 2560x1440). */
 @media (min-width: 2300px) and (min-height: 1250px) {
-    .login-container-float-center,
-    .page-title-container { zoom: 1.25; }
-
-    .page-title-container { --z: 1.25; }
+    .login-container { --z: 1.25; }
 }
 
 @media (min-width: 2500px) and (min-height: 1400px) {
-    .login-container-float-center,
-    .page-title-container { zoom: 1.33; }
-
-    .page-title-container { --z: 1.33; }
+    .login-container { --z: 1.33; }
 }
 
 @media (min-width: 2800px) and (min-height: 1650px) {
-    .login-container-float-center,
-    .page-title-container { zoom: 1.5; }
-
-    .page-title-container { --z: 1.5; }
+    .login-container { --z: 1.5; }
 }
 
 @media (min-width: 3000px) and (min-height: 1700px) {
-    .login-container-float-center,
-    .page-title-container { zoom: 1.6; }
-
-    .page-title-container { --z: 1.6; }
+    .login-container { --z: 1.6; }
 }
 
 @media (min-width: 3600px) and (min-height: 2000px) {
-    .login-container-float-center,
-    .page-title-container { zoom: 2; }
-
-    .page-title-container { --z: 2; }
+    .login-container { --z: 2; }
 }

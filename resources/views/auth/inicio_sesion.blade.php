@@ -42,7 +42,7 @@
         <!-- Figuras geométricas (nuevo diseño), compartidas con el menú vía background_svg. -->
         @include('partials.background_svg')
 
-        <!-- Título independiente -->
+        <!-- Título, encima del panel de la foto -->
         <div class="page-title-container">
             <h1 class="page-title">
                 <span class="page-title-line1">Sistema de Gestión de</span>
@@ -65,7 +65,7 @@
             </div>
         </div>
 
-        <!-- Maquinaria en la parte inferior derecha -->
+        <!-- Foto: panel derecho de arriba abajo (inicio_sesion.css) -->
         <div class="machinery-fixed-bottom">
             <div>
                 {{-- SIN loading="lazy". Esta imagen esta en position:absolute; bottom:0, o sea
