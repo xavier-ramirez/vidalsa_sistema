@@ -185,7 +185,7 @@ body {
         rgba(20, 50, 120, 0.14);
 }
 
-/* La foto abajo y a todo el ancho, alta hasta el 70% del panel. Si a su proporcion no
+/* La foto abajo y a todo el ancho, alta hasta el 80% del panel. Si a su proporcion no
    llega, se agranda lo justo y se recortan un poco los lados (cover); mas alta salia
    demasiado de cerca. Su canto de arriba se funde con el azul del fondo, debajo del velo. */
 .machinery-fixed-bottom img {
@@ -194,7 +194,7 @@ body {
     bottom: 0;
     width: 100%;
     height: auto;
-    min-height: 70%;
+    min-height: 80%;
     object-fit: cover;
     object-position: center bottom;
     display: block;

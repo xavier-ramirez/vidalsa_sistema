@@ -1,8 +1,8 @@
 /**
  * Vidalsa PWA Service Worker
- * Estrategia: network-first para todo el HTML, el login (/) incluido (la app es dinámica),
- * cache-first para assets estáticos (/img, /css, /js, /fonts, /images) que ya vienen con
- * cache-busting via ?v=filemtime.
+ * Estrategia: el login (/) sale AL INSTANTE de la caché y se refresca por detrás; network-first
+ * para el resto del HTML (la app es dinámica), cache-first para assets estáticos (/img, /css,
+ * /js, /fonts, /images) que ya vienen con cache-busting via ?v=filemtime.
  *
  * SIN INTERNET: las navegaciones (incluidas /admin/ y /dashboard/) son network-first y se
  * CACHEAN; sin red se sirve el cascarón guardado para que el módulo cargue igual. Online no
@@ -20,8 +20,8 @@ const STATIC_CACHE  = 'vidalsa-static-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'vidalsa-runtime-' + CACHE_VERSION;
 
 // Todo lo que la pantalla de LOGIN necesita para pintarse ENTERA sin red: al tocar el
-// ícono de la PWA instalada sin red, '/' sale del caché (más abajo) y sus assets de aquí,
-// así que no queda esperando a nadie.
+// ícono de la PWA instalada, '/' sale del caché (más abajo) y sus assets de aquí, así que
+// no queda esperando a nadie, con internet o sin él.
 //
 // NO se precachean las fotos de /foto-login/ a propósito: el CSS esconde esa zona por
 // debajo de 769px, o sea que el login de un TELÉFONO —el caso que importa para arrancar rápido—
@@ -75,19 +75,10 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         Promise.all([
             caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS)).catch(() => {}),
-            // '/' (el login) aparte de PRECACHE_URLS/addAll, con el MISMO guard que usa
-            // el handler de fetch en runtime más abajo: si el install corre con una
-            // sesión activa, '/' redirige a /menu — cachearlo tal cual pisaría el login
-            // con el menú, y la próxima vez que se abra la PWA ya deslogueado saldría
-            // el menú viejo en vez del login. Sin esto, el primer reinicio de la PWA
-            // tras instalarla no tenía nada cacheado bajo "/": la pantalla nativa de
-            // Android (icono sobre fondo blanco) se quedaba varios segundos de más
-            // esperando la red antes de poder pintar el login.
-            fetch('/', { credentials: 'same-origin' }).then((response) => {
-                if (response && response.status === 200 && !response.redirected) {
-                    return caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', response));
-                }
-            }).catch(() => {}),
+            // '/' (el login) aparte de PRECACHE_URLS/addAll: cada versión guarda SU login
+            // (bajarLogin). Sin esto el primer reinicio de la PWA tras instalarla no tenía
+            // nada bajo "/" y esperaba la red antes de pintar el login.
+            bajarLogin(),
             // Y el MENU y los módulos que trabajan con la copia local, si hay sesion (sin
             // sesion redirigen al login; sin permiso, 403: no se guardan). El menu es a donde
             // lleva el inicio de sesion sin servidor: si faltaba —recien actualizada la app y
@@ -98,6 +89,19 @@ self.addEventListener('install', (event) => {
         ])
     );
 });
+
+// El login de INVITADO, haya o no una sesión abierta: sin cookies (credentials:'omit') el
+// servidor no redirige al menú. Con la cookie, quien tenía la sesión abierta nunca renovaba
+// '/' (la redirección no se guarda), el activate pasaba la copia de la versión anterior y al
+// abrir o cerrar sesión salía el diseño viejo. El @csrf de esta copia no es de nadie: el login
+// pide el suyo a /refresh-csrf antes de enviar.
+function bajarLogin() {
+    return fetch('/', { credentials: 'omit', cache: 'no-store' }).then((response) => {
+        if (response && response.status === 200 && !response.redirected) {
+            return caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', response));
+        }
+    }).catch(() => {});
+}
 
 // ── De quién son las páginas guardadas ─────────────────────────────────────────────
 // El HTML de los módulos trae datos del usuario que los abrió (la copia de IndexedDB va
@@ -385,12 +389,10 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Login (/): network-first con tope — con servidor sale SIEMPRE el login al día; lo
-    // guardado solo sin red o si el servidor no contesta (redConTope). Antes era
-    // stale-while-revalidate: al cerrar sesion tras un despliegue salia el diseño VIEJO,
-    // porque el install no puede bajar '/' con la sesion abierta (redirige a /menu) y el
-    // activate pasaba la copia vieja a la cache nueva.
-    // El CSRF token del HTML cacheado se refresca vía /refresh-csrf antes del submit.
+    // Login (/): AL INSTANTE desde la caché, con red o sin ella, y se refresca por detrás
+    // (bajarLogin: siempre el login de esta versión). Con la sesión abierta el login pinta
+    // solo el logo y pasa al menú en cuanto el servidor lo confirma (esperarSesion en
+    // auth/inicio_sesion). Sin copia guardada todavía, la red (con tope).
     // !response.redirected: si el usuario está logueado, el servidor redirige a /menu;
     // NO debemos cachear esa respuesta bajo la clave "/" o sobreescribiríamos el login.
     if (url.pathname === '/' && (request.mode === 'navigate' || (request.headers.get('accept') || '').includes('text/html'))) {
@@ -403,6 +405,10 @@ self.addEventListener('fetch', (event) => {
         // sola entrada '/' sirve para todas las variantes y no duplica copias.
         event.respondWith(
             caches.match('/').then((cached) => {
+                if (cached) {
+                    event.waitUntil(bajarLogin());
+                    return cached;
+                }
                 const networkFetch = fetch(request).then((response) => {
                     if (response && response.status === 200 && !response.redirected) {
                         const copy = response.clone();
@@ -410,7 +416,7 @@ self.addEventListener('fetch', (event) => {
                     }
                     return response;
                 });
-                return redConTope(networkFetch).catch(() => cached || networkFetch);
+                return redConTope(networkFetch).catch(() => networkFetch);
             })
         );
         return;
