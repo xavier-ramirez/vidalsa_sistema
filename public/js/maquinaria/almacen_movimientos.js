@@ -375,12 +375,19 @@ window.almMovArrancar = function (CFG) {
 
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
     };
-    // "Limpiar Todo" del panel: limpia Desde/Hasta + el filtro Tipo (custom-dropdown).
+    // "Limpiar Todo" del panel: limpia TODO lo del panel — Desde/Hasta, la Referencia y el
+    // filtro Tipo (custom-dropdown). Antes la Referencia se quedaba puesta (13-11-2026).
     // clearDropdownFilter ya emite el evento dropdown-selection — el listener de arriba
     // dispara loadMovimientos, asi que no lo llamamos dos veces.
     window.almMovLimpiarFechas = function () {
-        if (el('almMovDesde')) el('almMovDesde').value = '';
-        if (el('almMovHasta')) el('almMovHasta').value = '';
+        ['Desde', 'Hasta'].forEach(function (k) {   // igual que Notas: valor, su ✕ y el fondo
+            if (el('almMov' + k)) el('almMov' + k).value = '';
+            if (el('almMov' + k + 'Clear')) el('almMov' + k + 'Clear').style.display = 'none';
+            if (el('almMov' + k + 'Box')) el('almMov' + k + 'Box').style.background = 'white';
+        });
+        if (el('almMovNota')) el('almMovNota').value = '';
+        if (el('almMovNotaClear')) el('almMovNotaClear').style.display = 'none';
+        if (typeof window.almMovNotaSuggestHide === 'function') window.almMovNotaSuggestHide();
         if (document.getElementById('almMovTipoDropdown')
             && typeof window.clearDropdownFilter === 'function') {
             window.clearDropdownFilter('almMovTipoDropdown');
