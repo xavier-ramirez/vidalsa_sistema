@@ -185,7 +185,7 @@ body {
         rgba(20, 50, 120, 0.14);
 }
 
-/* La foto abajo y a todo el ancho, alta hasta cerca de arriba (88% del panel). Si a su
+/* La foto abajo y a todo el ancho, alta hasta el 70% del panel. Si a su
    proporcion no llega, se agranda lo justo y se recortan un poco los lados (cover); sin el
    tope la foto llenaba todo el alto y salia demasiado agrandada. Su canto de arriba se funde
    con el azul del fondo, debajo del velo. */
@@ -195,12 +195,12 @@ body {
     bottom: 0;
     width: 100%;
     height: auto;
-    min-height: 88%;
+    min-height: 70%;
     object-fit: cover;
     object-position: center bottom;
     display: block;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.5) 6%, #000 12%);
-            mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.5) 6%, #000 12%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.12) 6%, rgba(0, 0, 0, 0.4) 12%, rgba(0, 0, 0, 0.75) 19%, #000 26%);
+            mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.12) 6%, rgba(0, 0, 0, 0.4) 12%, rgba(0, 0, 0, 0.75) 19%, #000 26%);
 }
 
 /* Entrada de la foto. La clase la pone el script del login cuando la foto ya esta decodificada. */
