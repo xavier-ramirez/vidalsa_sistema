@@ -15,7 +15,7 @@
     <div id="hdAdvancedFilterPanel" style="display:none; position:absolute; top:100%; right:0; width:340px; max-width:calc(100vw - 24px); background:#e2e8f0; border:1px solid #cbd5e1; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15); margin-top:8px; padding:14px; z-index:100;">
         <h4 style="margin:0 0 12px 0; font-size:13px; font-weight:700; color:#334155; display:flex; justify-content:space-between; align-items:center;">
             Filtros Avanzados
-            <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window.hdLimpiarFiltrosAvanzados({{ $alCambiar }})"><i class="material-icons">cleaning_services</i></button>
+            <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window.hdLimpiarFiltrosAvanzados({{ $alCambiar }})"></button>
         </h4>
 
         {{-- Fecha desde / hasta EN FILA (uno al lado del otro). Cada columna

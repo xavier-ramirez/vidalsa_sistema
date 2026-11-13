@@ -97,7 +97,7 @@
             <div id="almNotFechasPanel" class="panel-filtro-avanzado ancho" style="display:none;">
                 <h4 class="panel-filtro-avanzado-titulo">
                     Filtros Avanzados
-                    <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window.almNotLimpiarFechas(event)"><i class="material-icons">cleaning_services</i></button>
+                    <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window.almNotLimpiarFechas(event)"></button>
                 </h4>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;align-items:start;">
                   <div style="min-width:0;">

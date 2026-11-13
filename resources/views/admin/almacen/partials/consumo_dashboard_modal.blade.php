@@ -96,7 +96,7 @@
                 <div id="cdashAdvPanel" class="cdash-adv-panel" style="display:none;">
                     <h4>
                         Filtros Avanzados
-                        <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window._cdashAdvLimpiar()"><i class="material-icons">cleaning_services</i></button>
+                        <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window._cdashAdvLimpiar()"></button>
                     </h4>
                 {{-- Frente: buscador con sugerencias, no un <select>. Son decenas de
                      frentes y desplegarlos todos obligaba a recorrer la lista a ojo.

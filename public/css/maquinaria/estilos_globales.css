@@ -708,10 +708,13 @@ body {
     display: flex; justify-content: space-between; align-items: center;
 }
 /* "Limpiar todo" de los paneles de Filtros Avanzados: el MISMO botón de icono en todos los módulos. */
-.panel-filtro-avanzado-limpiar { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 26px; height: 26px; padding: 0; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #64748b; cursor: pointer; text-decoration: none; }
+.panel-filtro-avanzado-limpiar { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 26px; height: 26px; padding: 0; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #64748b; cursor: default; text-decoration: none; }
 .panel-filtro-avanzado-limpiar:hover { color: #dc2626; border-color: #fca5a5; }
 .panel-filtro-avanzado-limpiar:focus-visible { outline: 2px solid #3182ce; outline-offset: 1px; }
-.panel-filtro-avanzado-limpiar .material-icons { font-size: 16px; }
+/* El dibujo (una escoba de línea fina) va aquí y no en cada vista: se pinta con el color del
+   botón (currentColor), así que el rojo al pasar el ratón le llega solo. */
+.panel-filtro-avanzado-limpiar::before { content: ""; width: 15px; height: 15px; background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m16 22-1-4'/%3E%3Cpath d='M19 13.99a1 1 0 0 0 1-1V12a2 2 0 0 0-2-2h-3a1 1 0 0 1-1-1V4a2 2 0 0 0-4 0v5a1 1 0 0 1-1 1H6a2 2 0 0 0-2 2v.99a1 1 0 0 0 1 1'/%3E%3Cpath d='M5 14h14l1.973 6.767A1 1 0 0 1 20 22H4a1 1 0 0 1-.973-1.233z'/%3E%3Cpath d='m8 22 1-4'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m16 22-1-4'/%3E%3Cpath d='M19 13.99a1 1 0 0 0 1-1V12a2 2 0 0 0-2-2h-3a1 1 0 0 1-1-1V4a2 2 0 0 0-4 0v5a1 1 0 0 1-1 1H6a2 2 0 0 0-2 2v.99a1 1 0 0 0 1 1'/%3E%3Cpath d='M5 14h14l1.973 6.767A1 1 0 0 1 20 22H4a1 1 0 0 1-.973-1.233z'/%3E%3Cpath d='m8 22 1-4'/%3E%3C/svg%3E") center / contain no-repeat; }
 .panel-filtro-avanzado-label { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 5px; }
 
 /* Filter Active State - Replaces inline conditional styling */

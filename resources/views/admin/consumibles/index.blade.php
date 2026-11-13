@@ -302,7 +302,7 @@
                             <h4
                                 style="margin: 0 0 15px 0; font-size: 14px; font-weight: 700; color: #334155; display: flex; justify-content: space-between; align-items: center;">
                                 Filtros Avanzados
-                                <a href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'fecha_desde', 'fecha_hasta']))) }}" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo"><i class="material-icons">cleaning_services</i></a>
+                                <a href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'fecha_desde', 'fecha_hasta']))) }}" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo"></a>
                             </h4>
 
                             <!-- Fecha -->

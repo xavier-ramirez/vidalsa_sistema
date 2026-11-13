@@ -158,7 +158,7 @@
                 <div id="usrAdvPanel" class="panel-filtro-avanzado" style="display: none;">
                     <h4 class="panel-filtro-avanzado-titulo">
                         Filtros Avanzados
-                        <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window.usrLimpiarAvanzado();"><i class="material-icons">cleaning_services</i></button>
+                        <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window.usrLimpiarAvanzado();"></button>
                     </h4>
                     <span class="panel-filtro-avanzado-label">Nivel de acceso</span>
                     <div class="custom-dropdown" id="usrNivelSelect" data-filter-type="nivel">
