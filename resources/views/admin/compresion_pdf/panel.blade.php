@@ -219,10 +219,18 @@
                                      Este botón y el del PDF abren el visor con TODOS sus equipos al lado
                                      (cpdfAbrirUnidades): cada uno enseña el PDF de su ficha, y los que faltan por
                                      enlazar traen su botón. Los datos van aquí, una vez, para los dos botones. --}}
-                                @if ($cpdfUni = $unidadesPdf[$d->ID_REGISTRO] ?? null)
+                                {{-- Los botones de enlazar y quitar de lo que falta viven SOLO en este visor (no en la
+                                     tabla): por eso se monta tambien sin ninguna unidad reconocida, si algo falta. --}}
+                                @php
+                                    $cpdfAtar = auth()->user()->can('docs.carga.masiva');
+                                    $cpdfFaltan = $cpdfAtar ? ($unidadesFaltan[$d->ID_REGISTRO] ?? []) : [];
+                                    $cpdfVines = $cpdfAtar && $d->TIPO === \App\Services\CargaMasivaDocumentos::EMBARQUE ? ($vinesFaltan[$d->ID_REGISTRO] ?? []) : [];
+                                    $cpdfUni = $unidadesPdf[$d->ID_REGISTRO]
+                                        ?? (($cpdfFaltan || $cpdfVines) && ($d->PROPUESTA['link'] ?? null) ? ['este' => [], 'otro' => [], 'sin' => []] : null);
+                                @endphp
+                                @if ($cpdfUni)
                                     @php
                                         $cpdfNom = $tiposDoc[$d->TIPO] ?? $d->TIPO;
-                                        $cpdfAtar = auth()->user()->can('docs.carga.masiva');
                                         $cpdfDatos = [
                                             'doc' => $cpdfNom, 'tipo' => $d->TIPO, 'link' => $d->PROPUESTA['link'], 'archivo' => $d->ARCHIVO ?: 'Documento',
                                             'fechas' => ['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null],
@@ -232,15 +240,17 @@
                                                 'sin'  => 'Sin ' . $cpdfNom,
                                             ],
                                             'grupos' => $cpdfUni,
-                                            'faltan' => $cpdfAtar ? ($unidadesFaltan[$d->ID_REGISTRO] ?? []) : [],
-                                            'vines'  => $cpdfAtar && $d->TIPO === \App\Services\CargaMasivaDocumentos::EMBARQUE ? ($vinesFaltan[$d->ID_REGISTRO] ?? []) : [],
+                                            'faltan' => $cpdfFaltan,
+                                            'vines'  => $cpdfVines,
                                         ];
                                         $cpdfCuenta = array_filter(['este' => count($cpdfUni['este']) === 1 ? 'enlazado' : 'enlazados', 'otro' => 'con otro', 'sin' => 'sin ninguno'],
                                             fn ($g) => $cpdfUni[$g], ARRAY_FILTER_USE_KEY);
+                                        $cpdfVerCuenta = array_map(fn ($g, $t) => count($cpdfUni[$g]) . ' ' . $t, array_keys($cpdfCuenta), $cpdfCuenta);
+                                        if ($n = count($cpdfFaltan) + count($cpdfVines)) $cpdfVerCuenta[] = $n . ' por enlazar';
                                     @endphp
                                     <script type="application/json" id="cpdfUni{{ $d->ID_REGISTRO }}">@json($cpdfDatos)</script>
                                     <button type="button" class="cpdf-uni-ver" onclick="window.cpdfAbrirUnidades({{ $d->ID_REGISTRO }})">
-                                        <i class="material-icons">format_list_bulleted</i>Ver equipos: {{ implode(' · ', array_map(fn ($g, $t) => count($cpdfUni[$g]) . ' ' . $t, array_keys($cpdfCuenta), $cpdfCuenta)) }}
+                                        <i class="material-icons">format_list_bulleted</i>Ver equipos: {{ implode(' · ', $cpdfVerCuenta) }}
                                     </button>
                                 @endif
                                 {{-- Un PDF de la carga que no se enlazó solo (no se supo de quién es, lo
@@ -260,34 +270,26 @@
                                     @endcan
                                 @endif
                                 {{-- Un VIN del BL que no casó con ninguna ficha (el serial de la ficha
-                                     difiere en algo): se ve aparte y se enlaza a mano buscando el equipo. --}}
+                                     difiere en algo): aqui solo se nombra; se enlaza o se quita desde "Ver equipos". --}}
                                 @if ($d->ORIGEN === \App\Models\VerificacionDocumento::DE_CARGA_MASIVA
                                      && $d->TIPO === \App\Services\CargaMasivaDocumentos::EMBARQUE && ($d->PROPUESTA['link'] ?? null))
                                     @can('docs.carga.masiva')
                                         @foreach ($vinesFaltan[$d->ID_REGISTRO] ?? [] as $vin)
                                             <div class="cpdf-vin-falta">
                                                 <span>Falta el VIN {{ $vin }}</span>
-                                                <button type="button" class="cpdf-vin-btn"
-                                                    onclick="event.stopPropagation(); window.cpdfAtarVin(@js($d->PROPUESTA['link']), @js($vin), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => null]))" title="Enlazar a un equipo" aria-label="Enlazar a un equipo"><i class="material-icons">link</i></button>
-                                                <button type="button" class="cpdf-vin-btn cpdf-vin-quitar"
-                                                    onclick="event.stopPropagation(); window.cpdfQuitarFalta(@js($d->PROPUESTA['link']), @js($vin), @js('el VIN ' . $vin))" title="Quitar de la lista" aria-label="Quitar de la lista"><i class="material-icons">delete</i></button>
                                             </div>
                                         @endforeach
                                     @endcan
                                 @endif
                                 {{-- Lo de varias unidades (un RACDA, un ROTC o una póliza de flota) que no se enlazó
                                      solo, como los VIN del BL: cada placa o serial que el PDF nombra y no está en
-                                     el sistema y, mientras siga sin enlazar, cada equipo suyo que no entró. Se
-                                     enlaza a mano (CargaMasivaDocumentos::atarFalta). --}}
+                                     el sistema y, mientras siga sin enlazar, cada equipo suyo que no entró. Aqui solo se
+                                     nombra; se enlaza (atarFalta) o se quita (quitarFalta) desde "Ver equipos". --}}
                                 @if (!empty($unidadesFaltan[$d->ID_REGISTRO]))
                                     @can('docs.carga.masiva')
                                         @foreach ($unidadesFaltan[$d->ID_REGISTRO] as $u)
                                             <div class="cpdf-vin-falta">
                                                 <span>{{ $u['suyo'] ? 'Sin enlazar' : 'Falta' }} {{ $u['que'] === 'placa' ? 'la placa' : 'el serial' }} {{ $u['codigo'] }}</span>
-                                                <button type="button" class="cpdf-vin-btn"
-                                                    onclick="event.stopPropagation(); window.cpdfAtarFalta(@js($d->PROPUESTA['link']), @js($u['codigo']), @js($u['que']), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))" title="Enlazar a un equipo" aria-label="Enlazar a un equipo"><i class="material-icons">link</i></button>
-                                                <button type="button" class="cpdf-vin-btn cpdf-vin-quitar"
-                                                    onclick="event.stopPropagation(); window.cpdfQuitarFalta(@js($d->PROPUESTA['link']), @js($u['codigo']), @js(($u['que'] === 'placa' ? 'la placa ' : 'el serial ') . $u['codigo']))" title="Quitar de la lista" aria-label="Quitar de la lista"><i class="material-icons">delete</i></button>
                                             </div>
                                         @endforeach
                                     @endcan

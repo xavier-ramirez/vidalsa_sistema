@@ -1092,6 +1092,9 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $p = $this->soltar($this->textoBl([$vinBl], 'HCLKGTSF'), CargaMasivaDocumentos::EMBARQUE);
         $this->assertSame(VerificacionDocumento::SIN_FICHA, $this->filaDeLaCarga($p)->ESTADO);
 
+        // Sin ninguna unidad reconocida, el visor se monta igual: alli estan los botones del VIN.
+        $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => $vinBl]))->assertOk()
+            ->assertSee('Ver equipos: 1 por enlazar')->assertSee('"vines":["' . $vinBl . '"]', false);
         $this->assertTrue($this->servicio()->atarVin($p['link'], $vinBl, $b->ID_EQUIPO)['ok']);
 
         $fila = $this->filaDeLaCarga($p);
@@ -1152,7 +1155,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
             }
             $this->assertSame(VerificacionDocumento::APLICADO, VerificacionDocumento::where('DRIVE_ID', "solo-$tipo")->value('ESTADO'), $tipo);
             $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => "solo-$tipo.pdf"]))
-                ->assertOk()->assertDontSee('event.stopPropagation(); window.cpdfAtarFalta(', false);
+                ->assertOk()->assertDontSee('"faltan":[{', false);
         }
     }
 
@@ -1242,10 +1245,10 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO, 'lo reconocido se enlaza solo');
 
         $ver = fn () => $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-falta.pdf']))->assertOk();
-        $ver()->assertSee('Falta la placa QQ123ZZ')->assertSee('event.stopPropagation(); window.cpdfAtarFalta(', false)
+        $ver()->assertSee('Falta la placa QQ123ZZ')->assertSee('"faltan":[{', false)
             // Y sus equipos se ven en el visor (cpdfAbrirUnidades): el enlazado y la placa que falta.
             ->assertSee('window.cpdfAbrirUnidades(' . $fila->ID_REGISTRO . ')', false)
-            ->assertSee('"codigo":"QQ123ZZ"', false)->assertSee('Ver equipos: 1 enlazado');
+            ->assertSee('"codigo":"QQ123ZZ"', false)->assertSee('Ver equipos: 1 enlazado · 1 por enlazar');
 
         $atar = fn ($e, string $codigo = 'QQ-123-ZZ') => $this->postJson(route('historial-documentos.carga-masiva.atar-falta'),
             ['link' => '/storage/google/racda-falta', 'codigo' => $codigo, 'id_equipo' => $e->ID_EQUIPO]);
@@ -1257,7 +1260,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame([], $fila->PROPUESTA['faltan']);
         $this->assertCount(2, $fila->PROPUESTA['equipos']);
         $this->assertSame('RACDA de 2 unidades: todas enlazadas.', $fila->MOTIVO);
-        $ver()->assertDontSee('event.stopPropagation(); window.cpdfAtarFalta(', false);
+        $ver()->assertDontSee('"faltan":[{', false);
         $atar($b)->assertStatus(422)->assertJsonFragment(['message' => 'Esa unidad ya no falta en este PDF. Recarga la tabla.']);
     }
 
@@ -1273,7 +1276,9 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->servicio()->enlazarLoPendiente();
         $this->actingAs($u);
         $ver = fn () => $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-quitar.pdf']))->assertOk();
-        $ver()->assertSee('event.stopPropagation(); window.cpdfQuitarFalta(', false);
+        $ver()->assertSee('"faltan":[{', false)
+            // Los botones de enlazar y quitar van solo en el visor (Ver equipos), no en la tabla.
+            ->assertDontSee('event.stopPropagation(); window.cpdfQuitarFalta(', false)->assertDontSee('event.stopPropagation(); window.cpdfAtarFalta(', false);
 
         $quitar = fn (string $codigo) => $this->postJson(route('historial-documentos.carga-masiva.quitar-falta'),
             ['link' => '/storage/google/racda-quitar', 'codigo' => $codigo]);
@@ -1285,7 +1290,7 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $this->assertSame('RACDA de 2 unidades: 1 enlazada, 1 quitada de la lista.', $fila->MOTIVO);
         $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO);
         $this->assertNull($b->documentacion()->first()?->LINK_RACDA, 'quitar no enlaza a nadie');
-        $ver()->assertDontSee('event.stopPropagation(); window.cpdfQuitarFalta(', false);
+        $ver()->assertDontSee('"faltan":[{', false);
         $quitar('QQ456ZZ')->assertStatus(422)->assertJsonFragment(['message' => 'Esa unidad ya no falta en este PDF. Recarga la tabla.']);
     }
 
