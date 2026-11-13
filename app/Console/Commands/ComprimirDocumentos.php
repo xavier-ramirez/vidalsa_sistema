@@ -23,7 +23,8 @@ use Illuminate\Support\Facades\Storage;
  *
  *   php artisan docs:comprimir                 5 archivos, los mas pesados que falten
  *   php artisan docs:comprimir --simular       lo mismo pero sin subir ni cambiar nada
- *   php artisan docs:comprimir --solo=<id>     solo ese archivo de Drive (pruebas)
+ *   php artisan docs:comprimir --solo=<id>     solo ese archivo de Drive (pruebas; fuera del
+ *                                              servidor, solo junto con --simular)
  *
  * Por cada ARCHIVO de Drive (un mismo PDF puede estar enlazado en varias filas), en este
  * orden, y si CUALQUIER paso falla se deja como estaba (queda anotado en
@@ -96,9 +97,11 @@ class ComprimirDocumentos extends Command
         $simular = (bool) $this->option('simular');
         $solo    = $this->option('solo');
 
-        // --simular no cambia nada; --solo es para probar con un archivo de prueba.
+        // Fuera del servidor solo se permite --simular, que no cambia nada. --solo NO es una
+        // excepción: en el PC subiría el comprimido al Drive que comparte con el servidor y
+        // mandaría a la papelera el original que la base del servidor sigue enlazando.
         [$esServidor, $motivo] = EnlacesDocumentos::esBaseDelServidor();
-        if (!$simular && !$solo && !$esServidor) {
+        if (!$simular && !$esServidor) {
             $this->error("No se cambian documentos en este equipo: $motivo. Usa --simular.");
             return self::FAILURE;
         }

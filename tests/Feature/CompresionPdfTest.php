@@ -50,6 +50,11 @@ class CompresionPdfTest extends MySqlTestCase
         $this->artisan('docs:comprimir')
             ->expectsOutputToContain('No se cambian documentos en este equipo')
             ->assertExitCode(1);
+
+        // --solo tampoco: el Drive es el del servidor y su base seguiría apuntando al original.
+        $this->artisan('docs:comprimir', ['--solo' => 'id-de-prueba'])
+            ->expectsOutputToContain('No se cambian documentos en este equipo')
+            ->assertExitCode(1);
     }
 
     public function test_el_principal_se_lleva_sus_correcciones_y_no_pisa_un_reemplazo(): void
