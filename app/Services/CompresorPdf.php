@@ -69,6 +69,10 @@ class CompresorPdf
             '-dColorImageDownsampleThreshold=1.1', '-dGrayImageDownsampleThreshold=1.1',
             '-dAutoFilterColorImages=false', '-sColorImageFilter=DCTEncode',
             '-dAutoFilterGrayImages=false', '-sGrayImageFilter=DCTEncode', '-dJPEGQ=75',
+            // Un JPEG que no hay que reducir Ghostscript lo copia tal cual, por pesado que sea:
+            // los títulos del INTT traen el fondo en JPEG CMYK de 1,3 MB a 145 dpi y solo bajaban
+            // 3-7 %. Recodificado en RGB queda en ~250 KB y se ve igual (medido 13-11-2026).
+            '-dPassThroughJPEGImages=false', '-sColorConversionStrategy=RGB',
             '-sOutputFile=' . $destino, $origen,
         ]);
     }

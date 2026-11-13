@@ -335,7 +335,7 @@ class ComprimirDocumentos extends Command
                 return;
             }
             if ($bytesNuevo > $d['bytes'] * (1 - self::AHORRO_MIN)) {
-                $anotar(CompresionPdf::SALTADO, sprintf('solo ahorraba %d %%', round(100 * (1 - $bytesNuevo / $d['bytes']))), $bytesNuevo);
+                $anotar(CompresionPdf::SALTADO, sprintf('solo ahorraba %.1f %%', 100 * (1 - $bytesNuevo / $d['bytes'])), $bytesNuevo);
                 return;
             }
             if ($simular) {
