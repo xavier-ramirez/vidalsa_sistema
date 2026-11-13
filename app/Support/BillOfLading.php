@@ -74,7 +74,7 @@ class BillOfLading
 
         return [
             'nro'             => self::nro($texto),
-            'buque'           => self::soloNombre(self::buqueConViaje($lineas) ?? $buque ?? self::buqueDelAnexo($texto)),
+            'buque'           => self::soloNombre(self::buqueConViaje($lineas) ?? self::buqueJuntoAlRotulo($texto) ?? $buque ?? self::buqueDelAnexo($texto)),
             'puerto_carga'    => $puertoCarga,
             'puerto_descarga' => self::lineaTras($lineas, '/^PORT OF DISCHARGE$/i'),
             'fecha'           => self::fecha($lineas),
@@ -83,10 +83,15 @@ class BillOfLading
         ];
     }
 
-    /** "B/L NO. HCLKGT03", "BL NO.:HCLKGT08", "BL NO..HCLKGT14". */
+    /**
+     * "B/L NO. HCLKGT03", "BL NO.:HCLKGT08", "BL NO..HCLKGT14". Si trae varios seguidos
+     * ("B/L NO.:LHYT06LG01/LHYT06LG02/...", factura de flete de todo un barco) no se sabe cual
+     * es el de estos equipos: sin numero, y se pone en el visor.
+     */
     private static function nro(string $texto): ?string
     {
-        return preg_match('/\bB\/?L\s*NO[.:\s]*([A-Z0-9][A-Z0-9\-]{3,})/i', $texto, $m) ? strtoupper($m[1]) : null;
+        if (!preg_match('/\bB\/?L\s*NO[.:\s]*([A-Z0-9][A-Z0-9\-]{3,})(\s*\/\s*[A-Z0-9])?/i', $texto, $m)) return null;
+        return empty($m[2]) ? strtoupper($m[1]) : null;
     }
 
     /** La primera linea que es un buque con su viaje (RE_BUQUE), donde sea que este. */
@@ -99,13 +104,38 @@ class BillOfLading
     }
 
     /**
+     * El buque pegado a su rotulo, como lo deja el OCR de Drive en los BL reales:
+     *   "Vessel Port of loading RUI AN YANG V.2524 QINGDAO,CHINA"  (nombre + viaje)
+     *   "Vessel" / "MV HORIZON HOPE" / "MAR26VC005"                  (MV + nombre)
+     *   "VESSEL/ VOYAGE: MV HORIZON HOPE MAR26VC005"
+     *   "ON BEHALF MASTER OF MV : RUI AN  YANG"                      (la firma del capitan)
+     * El nombre son palabras en MAYUSCULAS (hasta 4) en el mismo renglon; "PORT OF LOADING"
+     * no cuenta como nombre aunque venga en mayusculas.
+     */
+    private static function buqueJuntoAlRotulo(string $texto): ?string
+    {
+        $palabra = '(?!(?:PORT|OF|LOADING|DISCHARGE)\b)[A-Z][A-Z\-]*\b';
+        $nombre = "($palabra(?:[ \t]+$palabra){0,3})";
+        $patrones = [
+            // Con su viaje detras: es el buque seguro.
+            "/(?i:PORT OF LOADING|VESSEL)\s*(?:M\.?\/?V\.?\s*:?\s*)?$nombre\s+V\.?\s?\d{3,5}[A-Z]?\b/u",
+            // Sin viaje, solo si lleva el "MV" (motor vessel) delante.
+            "/(?i:VESSEL(?:\s*\/\s*VOYAGE)?\s*:?|MASTER OF)\s*M\.?\/?V\b\.?\s*:?[ \t]*$nombre/u",
+        ];
+        foreach ($patrones as $re) {
+            if (preg_match($re, $texto, $m)) return mb_substr(preg_replace('/\s+/u', ' ', $m[1]), 0, 120);
+        }
+        return null;
+    }
+
+    /**
      * Del buque se guarda solo el NOMBRE del barco: "HONCHO V2512" -> "HONCHO",
      * "RUI AN YANG V.2524" -> "RUI AN YANG" (el viaje no le dice nada a quien ve la ficha).
      */
     private static function soloNombre(?string $buque): ?string
     {
         if ($buque === null) return null;
-        $nombre = trim(preg_replace('/\s+V\.?\s?\d{3,5}[A-Z]?$/iu', '', $buque));
+        $nombre = trim(preg_replace(['/\s+V\.?\s?\d{3,5}[A-Z]?$/iu', '/^M\.?\/?V\b\.?\s*:?\s*/u'], '', $buque));
         return $nombre !== '' ? $nombre : null;
     }
 
