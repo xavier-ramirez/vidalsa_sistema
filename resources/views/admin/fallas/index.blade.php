@@ -179,7 +179,7 @@
                                 <h4
                                     style="margin:0 0 14px 0; font-size:14px; font-weight:700; color:#334155; display:flex; justify-content:space-between; align-items:center;">
                                     Filtros Avanzados
-                                    <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window.flClearAdv()"><i class="material-icons">filter_alt_off</i></button>
+                                    <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window.flClearAdv()"><i class="material-icons">cleaning_services</i></button>
                                 </h4>
 
                                 <div style="display:flex; flex-direction:column; gap:10px;">
