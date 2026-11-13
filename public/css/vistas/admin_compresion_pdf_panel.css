@@ -215,11 +215,10 @@
     /* Lo que falta, en la fila: un PDF sin enlazar (con su botón) y el VIN de un BL que no casó o
        una unidad de un RACDA, un ROTC o una póliza de flota (solo el aviso: sus botones, en "Ver equipos"). */
     .cpdf-vin-falta { margin-top: 6px; font-size: 13px; color: #d97706; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-    /* Los botones de solo icono de cada línea: enlazar y, en "Ver equipos", la papelera (en rojo). */
+    /* Los botones de solo icono: enlazar en la fila (fondo claro) y, en "Ver equipos", enlazar y
+       quitar (sus colores del visor, más abajo en .cpdf-uni-op). */
     .cpdf-vin-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; border: 1px solid #1e40af; background: #fff; color: #1e40af; border-radius: 6px; padding: 3px 5px; cursor: pointer; }
     .cpdf-vin-btn .material-icons { font-size: 17px; }
-    .cpdf-vin-btn.cpdf-vin-quitar { border-color: #dc2626; color: #dc2626; }
-    .cpdf-vin-btn.cpdf-vin-quitar:hover { background: #fef2f2; }
     /* Al dedo: botones de 36 px. */
     @media (pointer: coarse) {
         .cpdf-vin-btn { min-width: 36px; min-height: 36px; }
