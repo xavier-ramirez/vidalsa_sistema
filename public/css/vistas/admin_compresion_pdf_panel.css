@@ -218,6 +218,11 @@
     /* El botón de enlazar de cada línea: el ícono de enlazar y "Equipo" (pedido del cliente, 22-10-2026). */
     .cpdf-vin-btn { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #1e40af; background: #fff; color: #1e40af; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
     .cpdf-vin-btn .material-icons { font-size: 15px; }
+    /* Solo icono (enlazar y papelera): cuadrado. La papelera, en rojo. */
+    .cpdf-vin-btn { justify-content: center; min-width: 28px; padding: 3px 5px; }
+    .cpdf-vin-btn .material-icons { font-size: 17px; }
+    .cpdf-vin-btn.cpdf-vin-quitar { border-color: #dc2626; color: #dc2626; }
+    .cpdf-vin-btn.cpdf-vin-quitar:hover { background: #fef2f2; }
 
     /* "Ver equipos" de un PDF de varias unidades (BL, RACDA, ROTC o póliza de flota): abre el visor
        con sus equipos al lado (cpdfAbrirUnidades). Como un enlace, con la cuenta de cada grupo. */
@@ -316,6 +321,8 @@
     .cpdf-uni-op.otro { border-left-color: #64748b; }
     .cpdf-uni-op.sin { color: #94a3b8; }
     .cpdf-uni-op.falta { color: #fcd34d; border-left-color: #f59e0b; }
+    /* En el visor los dos botones van juntos a la derecha. */
+    .cpdf-uni-op.falta .cpdf-uni-txt { margin-right: auto; }
     .cpdf-uni-op.activo { border-color: #3182ce; }
     .cpdf-uni-txt { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
     .cpdf-uni-txt small { font-size: 11.5px; color: #94a3b8; }

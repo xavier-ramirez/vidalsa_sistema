@@ -1261,6 +1261,56 @@ class CargaMasivaDocumentosTest extends MySqlTestCase
         $atar($b)->assertStatus(422)->assertJsonFragment(['message' => 'Esa unidad ya no falta en este PDF. Recarga la tabla.']);
     }
 
+    /**
+     * La papelera de una unidad que falta la quita de la lista sin enlazarla: no toca ninguna
+     * ficha, la fila lo cuenta ("1 quitada de la lista") y, sin nada mas por enlazar, Aplicado.
+     */
+    public function test_la_placa_que_falta_se_quita_de_la_lista(): void
+    {
+        $u = $this->usuario();
+        $a = $this->equipo(); $b = $this->equipo();
+        $this->racdaDeVarias('racda-quitar', [$a], ['faltan' => [['codigo' => 'QQ456ZZ']]]);
+        $this->servicio()->enlazarLoPendiente();
+        $this->actingAs($u);
+        $ver = fn () => $this->get(route('historial-documentos.index', ['pestana' => 'documentos', 'buscar' => 'racda-quitar.pdf']))->assertOk();
+        $ver()->assertSee('event.stopPropagation(); window.cpdfQuitarFalta(', false);
+
+        $quitar = fn (string $codigo) => $this->postJson(route('historial-documentos.carga-masiva.quitar-falta'),
+            ['link' => '/storage/google/racda-quitar', 'codigo' => $codigo]);
+        $quitar('QQ-456-ZZ')->assertOk()->assertJsonFragment(['message' => 'QQ456ZZ quitado de la lista.']);
+
+        $fila = VerificacionDocumento::where('DRIVE_ID', 'racda-quitar')->first();
+        $this->assertSame([], $fila->PROPUESTA['faltan']);
+        $this->assertSame(['QQ456ZZ'], $fila->PROPUESTA['quitados']);
+        $this->assertSame('RACDA de 2 unidades: 1 enlazada, 1 quitada de la lista.', $fila->MOTIVO);
+        $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO);
+        $this->assertNull($b->documentacion()->first()?->LINK_RACDA, 'quitar no enlaza a nadie');
+        $ver()->assertDontSee('event.stopPropagation(); window.cpdfQuitarFalta(', false);
+        $quitar('QQ456ZZ')->assertStatus(422)->assertJsonFragment(['message' => 'Esa unidad ya no falta en este PDF. Recarga la tabla.']);
+    }
+
+    /** El VIN de un BL que no esta en el sistema tambien se quita: el BL queda entero con lo enlazado. */
+    public function test_un_vin_que_falta_se_quita_de_la_lista(): void
+    {
+        $this->actingAs($this->usuario());
+        $a = $this->equipo();
+        $falta = 'LZZ1ELSF4SJ' . substr((string) hexdec(substr(md5(uniqid()), 0, 6)), 0, 6);
+        $p = $this->soltar($this->textoBl([$a->SERIAL_CHASIS, $falta], 'HCLKGTQF'), CargaMasivaDocumentos::EMBARQUE);
+        $this->assertSame([$falta], $this->servicio()->vinesSinAtar($this->filaDeLaCarga($p)->PROPUESTA));
+
+        $this->postJson(route('historial-documentos.carga-masiva.quitar-falta'), ['link' => $p['link'], 'codigo' => $falta])
+            ->assertOk()->assertJsonFragment(['message' => "VIN $falta quitado de la lista."]);
+
+        $fila = $this->filaDeLaCarga($p);
+        $this->assertSame([], $this->servicio()->vinesSinAtar($fila->PROPUESTA));
+        $this->assertSame([$falta], $fila->PROPUESTA['quitados']);
+        $this->assertSame('BL HCLKGTQF de 2 unidades: 1 enlazada, 1 quitada de la lista.', $fila->MOTIVO);
+        $this->assertSame(VerificacionDocumento::APLICADO, $fila->ESTADO);
+        $this->assertSame('HCLKGTQF', $a->embarques()->first()?->NRO_BL, 'lo enlazado se queda');
+        $this->postJson(route('historial-documentos.carga-masiva.quitar-falta'), ['link' => $p['link'], 'codigo' => $falta])
+            ->assertStatus(422);
+    }
+
     /** Sin ninguna unidad registrada la fila queda "sin ficha"; con la ultima atada, Aplicado y con su equipo. */
     public function test_un_pdf_de_varias_sin_ninguna_registrada_se_completa_atando(): void
     {

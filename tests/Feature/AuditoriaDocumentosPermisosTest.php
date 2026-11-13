@@ -106,6 +106,7 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.analizar'), [], $json)->assertStatus(422);
         $this->actingAs($u)->get(route('historial-documentos.carga-masiva.buscar-equipo'), $json)->assertStatus(422);
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.atar-vin'), [], $json)->assertStatus(422);
+        $this->actingAs($u)->post(route('historial-documentos.carga-masiva.quitar-falta'), [], $json)->assertStatus(422);
 
         // Revisar: dar por revisado (visor y en lote). "Revisar ahora", no: es de super.admin.
         $this->actingAs($u)->post(route('compresion-pdf.documento.revisado', $id), [], $json)->assertOk()->assertJson(['success' => true]);
@@ -144,6 +145,7 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.descartar'), [], $json)->assertForbidden();
         $this->actingAs($u)->get(route('historial-documentos.carga-masiva.buscar-equipo', ['q' => 'ABC']), $json)->assertForbidden();
         $this->actingAs($u)->post(route('historial-documentos.carga-masiva.atar-vin'), [], $json)->assertForbidden();
+        $this->actingAs($u)->post(route('historial-documentos.carga-masiva.quitar-falta'), [], $json)->assertForbidden();
         $this->actingAs($u)->post(route('compresion-pdf.documento.revisado', 1), [], $json)->assertForbidden();
         $this->actingAs($u)->post(route('compresion-pdf.documentos.revisados'), ['ids' => [1]], $json)->assertForbidden();
         // Llega al controlador (un tipo que no existe → 422, sin pedir de verdad la lectura).

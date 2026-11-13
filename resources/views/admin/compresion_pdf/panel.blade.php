@@ -255,7 +255,7 @@
                                     @can('docs.carga.masiva')
                                         <div class="cpdf-vin-falta">
                                             <button type="button" class="cpdf-vin-btn"
-                                                onclick="event.stopPropagation(); window.cpdfAtarDocumento(@js($d->PROPUESTA['link']), @js($d->SERIAL ?: $d->PLACA ?: ''), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))" title="Enlazar a un equipo"><i class="material-icons">link</i>Equipo</button>
+                                                onclick="event.stopPropagation(); window.cpdfAtarDocumento(@js($d->PROPUESTA['link']), @js($d->SERIAL ?: $d->PLACA ?: ''), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))" title="Enlazar a un equipo" aria-label="Enlazar a un equipo"><i class="material-icons">link</i></button>
                                         </div>
                                     @endcan
                                 @endif
@@ -268,7 +268,9 @@
                                             <div class="cpdf-vin-falta">
                                                 <span>Falta el VIN {{ $vin }}</span>
                                                 <button type="button" class="cpdf-vin-btn"
-                                                    onclick="event.stopPropagation(); window.cpdfAtarVin(@js($d->PROPUESTA['link']), @js($vin), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => null]))" title="Enlazar a un equipo"><i class="material-icons">link</i>Equipo</button>
+                                                    onclick="event.stopPropagation(); window.cpdfAtarVin(@js($d->PROPUESTA['link']), @js($vin), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => null]))" title="Enlazar a un equipo" aria-label="Enlazar a un equipo"><i class="material-icons">link</i></button>
+                                                <button type="button" class="cpdf-vin-btn cpdf-vin-quitar"
+                                                    onclick="event.stopPropagation(); window.cpdfQuitarFalta(@js($d->PROPUESTA['link']), @js($vin), @js('el VIN ' . $vin))" title="Quitar de la lista" aria-label="Quitar de la lista"><i class="material-icons">delete</i></button>
                                             </div>
                                         @endforeach
                                     @endcan
@@ -283,7 +285,9 @@
                                             <div class="cpdf-vin-falta">
                                                 <span>{{ $u['suyo'] ? 'Sin enlazar' : 'Falta' }} {{ $u['que'] === 'placa' ? 'la placa' : 'el serial' }} {{ $u['codigo'] }}</span>
                                                 <button type="button" class="cpdf-vin-btn"
-                                                    onclick="event.stopPropagation(); window.cpdfAtarFalta(@js($d->PROPUESTA['link']), @js($u['codigo']), @js($u['que']), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))" title="Enlazar a un equipo"><i class="material-icons">link</i>Equipo</button>
+                                                    onclick="event.stopPropagation(); window.cpdfAtarFalta(@js($d->PROPUESTA['link']), @js($u['codigo']), @js($u['que']), @js($d->TIPO), @js($tiposDoc[$d->TIPO] ?? $d->TIPO), @js(['emision' => $d->PROPUESTA['emision'] ?? null, 'vence' => $d->PROPUESTA['vence'] ?? null]))" title="Enlazar a un equipo" aria-label="Enlazar a un equipo"><i class="material-icons">link</i></button>
+                                                <button type="button" class="cpdf-vin-btn cpdf-vin-quitar"
+                                                    onclick="event.stopPropagation(); window.cpdfQuitarFalta(@js($d->PROPUESTA['link']), @js($u['codigo']), @js(($u['que'] === 'placa' ? 'la placa ' : 'el serial ') . $u['codigo']))" title="Quitar de la lista" aria-label="Quitar de la lista"><i class="material-icons">delete</i></button>
                                             </div>
                                         @endforeach
                                     @endcan
@@ -1161,6 +1165,19 @@
             atar: cpdfAtarPreguntando(@json(route('historial-documentos.carga-masiva.atar-falta')), { link: link, codigo: codigo }) });
     };
 
+    // La papelera de una unidad "Por enlazar": se quita de la lista (no se va a enlazar). No toca
+    // ninguna ficha ni el PDF (CargaMasivaDocumentos::quitarFalta).
+    window.cpdfQuitarFalta = function (link, codigo, nombre) {
+        if (!window.confirm('¿Quitar ' + nombre + ' de la lista?\n\nNo se enlazará a ningún equipo.')) return;
+        window.apiPostForm(@json(route('historial-documentos.carga-masiva.quitar-falta')), { link: link, codigo: codigo }, 'No se pudo quitar.')
+            .then(function (r) {
+                if (document.querySelector('.cpdf-atar-visor')) window.closePdfPreview();
+                window.toast(r.message || 'Quitado', 'success');
+                window.cpdfRecargar();
+            })
+            .catch(function (e) { window.toast((e && e.message) || 'No se pudo quitar.', 'error'); });
+    };
+
     // Un PDF de varias unidades (BL, RACDA, ROTC o póliza de flota): el visor con TODOS sus equipos
     // a un lado, como la caja de enlazar y con su aspecto. Se abre con el documento completo; la
     // lista tiene cada equipo según lo que tiene HOY su ficha, y al pulsarlo el visor enseña el PDF de esa ficha
@@ -1232,21 +1249,28 @@
             seccion(d.titulos[g], (d.grupos[g] || []).map(function (u) { return linea(g, u.placa, u.serial, u.link, u); }));
         });
         // Lo que falta por enlazar: la misma acción que la línea de la fila (cpdfAtarFalta / cpdfAtarVin).
-        var enlazar = function (op, accion) {
-            var b = el('button', 'cpdf-vin-btn');
+        // Cada una con dos botones de solo icono: enlazar (link) y quitar de la lista (papelera).
+        var boton = function (op, icono, titulo, clase, accion) {
+            var b = el('button', 'cpdf-vin-btn' + (clase ? ' ' + clase : ''));
             b.type = 'button';
-            b.appendChild(el('i', 'material-icons', 'link'));
-            b.appendChild(document.createTextNode('Equipo'));
-            b.title = 'Enlazar a un equipo';
-            b.onclick = function () { window.cpdfCerrarAtar(); accion(); };
+            b.appendChild(el('i', 'material-icons', icono));
+            b.title = titulo;
+            b.setAttribute('aria-label', titulo);
+            b.onclick = accion;
             op.appendChild(b);
+        };
+        var enlazar = function (op, accion, codigo, nombre) {
+            boton(op, 'link', 'Enlazar a un equipo', '', function () { window.cpdfCerrarAtar(); accion(); });
+            boton(op, 'delete', 'Quitar de la lista', 'cpdf-vin-quitar', function () { window.cpdfQuitarFalta(d.link, codigo, nombre); });
             return op;
         };
         seccion('Por enlazar', (d.faltan || []).map(function (u) {
-            return enlazar(linea('falta', (u.suyo ? 'Sin enlazar ' : 'Falta ') + (u.que === 'placa' ? 'la placa ' : 'el serial ') + u.codigo, '', null),
-                function () { window.cpdfAtarFalta(d.link, u.codigo, u.que, d.tipo, d.doc, d.fechas); });
+            var nombre = (u.que === 'placa' ? 'la placa ' : 'el serial ') + u.codigo;
+            return enlazar(linea('falta', (u.suyo ? 'Sin enlazar ' : 'Falta ') + nombre, '', null),
+                function () { window.cpdfAtarFalta(d.link, u.codigo, u.que, d.tipo, d.doc, d.fechas); }, u.codigo, nombre);
         }).concat((d.vines || []).map(function (vin) {
-            return enlazar(linea('falta', 'Falta el VIN ' + vin, '', null), function () { window.cpdfAtarVin(d.link, vin, { emision: d.fechas.emision, vence: null }); });
+            return enlazar(linea('falta', 'Falta el VIN ' + vin, '', null),
+                function () { window.cpdfAtarVin(d.link, vin, { emision: d.fechas.emision, vence: null }); }, vin, 'el VIN ' + vin);
         })));
 
         campo.oninput = function () {

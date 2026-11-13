@@ -128,6 +128,19 @@ class CargaMasivaDocumentosController extends Controller
         return response()->json(['success' => $r['ok'], 'message' => $r['mensaje']], $r['ok'] ? 200 : 422);
     }
 
+    /** Quita de "Por enlazar" una unidad de un PDF de varias que no se va a enlazar (la papelera). */
+    public function quitarFalta(Request $request)
+    {
+        $this->autorizar();
+        $datos = $request->validate([
+            'link'   => 'required|string|starts_with:/storage/google/',
+            'codigo' => 'required|string|max:40',
+        ]);
+
+        $r = $this->servicio->quitarFalta($datos['link'], $datos['codigo']);
+        return response()->json(['success' => $r['ok'], 'message' => $r['mensaje']], $r['ok'] ? 200 : 422);
+    }
+
     /**
      * Ata a mano a la ficha elegida un PDF de la carga que no se enlazo solo. Si la ficha ya tiene
      * ese documento responde requiere_pisar y la pantalla pregunta antes de reemplazarlo.

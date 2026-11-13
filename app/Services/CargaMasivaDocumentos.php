@@ -741,24 +741,29 @@ class CargaMasivaDocumentos
      */
     public static function totalDeUnidades(array $p): int
     {
+        // Las quitadas a mano de la lista (quitarFalta) siguen siendo del PDF: cuentan en el total.
+        $quitadas = count($p['quitados'] ?? []);
         return ($p['tipo'] ?? null) === self::EMBARQUE
-            ? ((int) ($p['embarque']['unidades'] ?? 0) ?: count($p['equipos'] ?? []) + count($p['embarque']['no_registrados'] ?? []))
-            : count($p['equipos'] ?? []) + count($p['faltan'] ?? []);
+            ? ((int) ($p['embarque']['unidades'] ?? 0) ?: count($p['equipos'] ?? []) + count($p['embarque']['no_registrados'] ?? []) + $quitadas)
+            : count($p['equipos'] ?? []) + count($p['faltan'] ?? []) + $quitadas;
     }
 
     private function resumenDeVarias(array $p, int $porEnlazar, int $seQuedan = 0): string
     {
         $bl = ($p['tipo'] ?? null) === self::EMBARQUE;
         $total = self::totalDeUnidades($p);
-        $enlazadas = max(0, $total - $porEnlazar - $seQuedan);
+        $quitadas = count($p['quitados'] ?? []);
+        $enlazadas = max(0, $total - $porEnlazar - $seQuedan - $quitadas);
         $nombre = $bl ? trim('BL ' . ($p['embarque']['nro'] ?? '')) : self::NOMBRES[$p['tipo']];
         $texto = "$nombre de $total unidades: " . match (true) {
-            !$porEnlazar && !$seQuedan => 'todas enlazadas.',
+            !$porEnlazar && !$seQuedan && !$quitadas => 'todas enlazadas.',
             !$enlazadas  => 'ninguna enlazada' . ($porEnlazar ? '.' : ','),
             default      => $enlazadas . ($enlazadas === 1 ? ' enlazada' : ' enlazadas') . ($porEnlazar ? ", $porEnlazar por enlazar." : ','),
         };
         // Los de un ROTC de flota que ya tenian el suyo (ver reemplazaElSuyo).
         if ($seQuedan) $texto .= " $seQuedan ya tenia" . ($seQuedan === 1 ? '' : 'n') . ' el suyo.';
+        // Las que la persona quito de la lista con la papelera (quitarFalta).
+        if ($quitadas) $texto .= " $quitadas quitada" . ($quitadas === 1 ? '' : 's') . ' de la lista.';
         $mirar = match (true) {
             !empty($p['ia'])                     => 'Leido con IA: compruebalo.',
             ($p['estado'] ?? null) === 'revisar' => (string) ($p['aviso'] ?? ''),
@@ -1654,6 +1659,78 @@ class CargaMasivaDocumentos
         if (!$porEnlazar) $this->cerrarPropuesta($link, $this->quedaPorRevisar($p));
 
         return ['ok' => true, 'mensaje' => "VIN $vin enlazado al equipo de serial $serial."];
+    }
+
+    /**
+     * Quita de "Por enlazar" una unidad de un PDF de varias que NO se va a enlazar (la papelera de
+     * su linea): un VIN del BL, una placa o serial que el PDF nombra y no esta en el sistema, o un
+     * equipo reconocido que no entro. No toca ninguna ficha ni el PDF: solo la lista. Queda anotada
+     * en 'quitados' (sigue contando en el total: "1 quitada de la lista"). Sin nada mas por
+     * enlazar, la fila pasa a Aplicado, como al atar la ultima.
+     */
+    public function quitarFalta(string $link, string $codigo): array
+    {
+        $p = $this->propuestaGuardada($link);
+        $tipo = $p['tipo'] ?? null;
+        if (!$p || !isset(self::NOMBRES[$tipo])) return ['ok' => false, 'mensaje' => self::YA_NO_POR_ENLAZAR];
+        $cod = $this->lector->codigo($codigo);
+        $driveId = DocumentoAnexo::driveIdDeLink($link);
+        $mismoCodigo = fn ($v) => $this->lector->codigo((string) $v) === $cod;
+
+        if ($tipo === self::EMBARQUE) {
+            $vin = collect($this->vinesSinAtar($p))->first($mismoCodigo);
+            if (!$vin) return ['ok' => false, 'mensaje' => 'Ese VIN ya no falta en este BL. Recarga la tabla.'];
+            $quitar = function (array $q) use ($vin, $mismoCodigo) {
+                $q['embarque']['no_registrados'] = array_values(array_filter($q['embarque']['no_registrados'] ?? [], fn ($v) => !$mismoCodigo($v)));
+                $q['quitados'] = array_values(array_unique([...($q['quitados'] ?? []), $vin]));
+                return $q;
+            };
+            // Todas las filas de ESE BL (pudo soltarse varias veces), como atarVin: si no, el VIN
+            // volveria a faltar desde la otra fila. Sin numero, solo la suya.
+            $nro = $p['embarque']['nro'] ?? null;
+            $filas = VerificacionDocumento::where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+                ->where('TIPO', self::EMBARQUE)
+                ->when($nro,
+                    fn ($q) => $q->whereRaw("UPPER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(PROPUESTA, '$.embarque.nro')))) = ?", [self::claveBl($nro)]),
+                    fn ($q) => $q->where('DRIVE_ID', $driveId))
+                ->get();
+            $nueva = $quitar($p);
+            $embarque = $this->embarqueDelBl($nro, $link);
+            $enEl = $embarque ? DB::table('embarque_equipo')->where('ID_EMBARQUE', $embarque->ID_EMBARQUE)->pluck('ID_EQUIPO')->all() : [];
+            $porEnlazar = count($this->vinesSinAtar($nueva)) + count(array_diff(array_column($nueva['equipos'] ?? [], 'id'), $enEl));
+            DB::transaction(function () use ($filas, $quitar, $porEnlazar) {
+                foreach ($filas as $fila) {
+                    $q = $quitar($fila->PROPUESTA);
+                    $fila->update(['PROPUESTA' => $q, 'MOTIVO' => $this->resumenDeVarias($q, $porEnlazar)]);
+                }
+            });
+            $quitado = "VIN $vin";
+        } else {
+            $nueva = $p;
+            $k = collect($p['faltan'] ?? [])->search(fn ($f) => $mismoCodigo($f['codigo'] ?? ''));
+            // Si no es una que falta, uno de sus equipos reconocidos que aun no lo tiene.
+            $i = $k === false
+                ? collect($this->sinEnlazar($link, $p))->first(fn ($f) => in_array($cod, $this->codigos([$f['placa'] ?? null, $f['serial'] ?? null]), true))
+                : null;
+            if ($k === false && !$i) return ['ok' => false, 'mensaje' => 'Esa unidad ya no falta en este PDF. Recarga la tabla.'];
+            if ($k !== false) {
+                $quitado = (string) $p['faltan'][$k]['codigo'];
+                array_splice($nueva['faltan'], $k, 1);
+            } else {
+                $quitado = (string) (($i['serial'] ?? null) ?: ($i['placa'] ?? null) ?: $codigo);
+                $nueva['equipos'] = array_values(array_filter($p['equipos'], fn ($f) => (int) $f['id'] !== (int) $i['id'] || !empty($f['auxiliar'])));
+            }
+            $nueva['quitados'] = array_values(array_unique([...($p['quitados'] ?? []), $quitado]));
+            $porEnlazar = count($nueva['faltan'] ?? []) + count($this->sinEnlazar($link, $nueva));
+            VerificacionDocumento::where('DRIVE_ID', $driveId)->where('ORIGEN', VerificacionDocumento::DE_CARGA_MASIVA)
+                ->first()?->update(['PROPUESTA' => $nueva, 'MOTIVO' => $this->resumenDeVarias($nueva, $porEnlazar)]);
+        }
+
+        // Cerrada solo si quedo alguna enlazada: un PDF sin ninguna no es "Aplicado" (se descarta).
+        $hayEnlazadas = $tipo === self::EMBARQUE ? (bool) $enEl : !empty($nueva['equipos']);
+        if (!$porEnlazar && $hayEnlazadas) $this->cerrarPropuesta($link, $this->quedaPorRevisar($nueva));
+
+        return ['ok' => true, 'mensaje' => "$quitado quitado de la lista."];
     }
 
     /** El numero de un BL como lo compara MySQL: sin mayusculas ni espacios al final. */
