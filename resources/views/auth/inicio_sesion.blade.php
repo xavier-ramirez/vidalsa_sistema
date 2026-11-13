@@ -238,11 +238,11 @@
         }
     }
     // Guard anti-preloader-pegado: independiente de DOMContentLoaded, corre apenas
-    // el navegador ejecuta este script (muy al inicio de la carga). Si a los 4s (10 s
-    // confirmando una sesión abierta, ver esperarSesion) el
-    // preloader sigue de pie (CSS lento desde el cache del Service Worker, primer
-    // arranque de la PWA sin red, etc.) lo oculta a la fuerza — nunca debe quedar
-    // el usuario viendo solo el logo sin poder llegar al formulario.
+    // el navegador ejecuta este script (muy al inicio de la carga). Si a los 4 s (10 s
+    // confirmando una sesión abierta, ver esperarSesion) el preloader sigue de pie (CSS
+    // lento desde el cache del Service Worker, primer arranque de la PWA sin red, etc.)
+    // lo oculta a la fuerza — nunca debe quedar el usuario viendo solo el logo sin
+    // poder llegar al formulario.
     // EXCEPTO con un login EN CURSO (_loginEnCurso): ahí el spinner debe seguir
     // hasta el redirect o el error — sin esta condición, un login de >4s quitaba
     // el spinner, se veía el formulario un instante y recién después el menú.
@@ -470,11 +470,12 @@
                     window.location.replace(@json(route('menu')));
                     return null;
                 }
-                try { localStorage.removeItem('vidalsa_sesion_abierta'); } catch (e) {}
                 // Sin sesión: la salida ya se completó y la marca se apaga.
                 // Si quedara puesta, al volver a ESTA pestaña (visibilitychange / pageshow)
                 // se cerraría la sesión que la persona abra después desde otra pestaña.
                 window.__cierrePendiente = false;
+                // Y la de sesión abierta (esperarSesion): la próxima vez sale el formulario directo.
+                try { localStorage.removeItem('vidalsa_sesion_abierta'); } catch (e) {}
                 return r.text();
             })
             .then(function (token) {
@@ -510,6 +511,7 @@
     window.addEventListener('pageshow', function (e) {
         if (!e.persisted) return;
         window._loginEnCurso = false;
+        window.__yendoAlMenu = false;
         window.spinnerLogin(false);
         restaurarBotonHuella();
         precalentarCsrf();

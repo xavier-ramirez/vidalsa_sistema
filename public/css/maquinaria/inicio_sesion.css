@@ -185,10 +185,9 @@ body {
         rgba(20, 50, 120, 0.14);
 }
 
-/* La foto abajo y a todo el ancho, alta hasta el 70% del panel. Si a su
-   proporcion no llega, se agranda lo justo y se recortan un poco los lados (cover); sin el
-   tope la foto llenaba todo el alto y salia demasiado agrandada. Su canto de arriba se funde
-   con el azul del fondo, debajo del velo. */
+/* La foto abajo y a todo el ancho, alta hasta el 70% del panel. Si a su proporcion no
+   llega, se agranda lo justo y se recortan un poco los lados (cover); mas alta salia
+   demasiado de cerca. Su canto de arriba se funde con el azul del fondo, debajo del velo. */
 .machinery-fixed-bottom img {
     position: absolute;
     left: 0;
