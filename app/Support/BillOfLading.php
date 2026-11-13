@@ -98,16 +98,17 @@ class BillOfLading
         return null;
     }
 
-    /** "V/V:HONCHO V2512   BL NO.:..." del anexo, si la cabecera no lo dio. */
+    /** "V/V:HONCHO V2512   BL NO.:..." del anexo, si la cabecera no lo dio: corta antes del nro. */
     private static function buqueDelAnexo(string $texto): ?string
     {
-        return preg_match('/V\/V\s*:\s*(.+?)\s{2,}/u', $texto, $m) ? trim($m[1]) : null;
+        return preg_match('/V\/V\s*:\s*(.+?)(?=\s{2,}|\s*B\/?L\s*NO|\R|$)/iu', $texto, $m) ? trim($m[1]) : null;
     }
 
     /**
      * Entre "Port of loading" y "Port of discharge" van el buque y el puerto de carga: el
      * puerto es la ULTIMA linea y el buque todo lo de antes (a veces "HONCHO" y "V.2512" salen
-     * en dos lineas). Con una sola linea no se sabe cual es: se toma como buque.
+     * en dos lineas). Con una sola linea: si lleva coma ("QINGDAO,CHINA") es el puerto; si no,
+     * se toma como buque.
      *
      * @return array{0:?string,1:?string}
      */
@@ -121,7 +122,10 @@ class BillOfLading
                 $bloque[] = $v;
             }
             if (!$bloque) return [null, null];
-            if (count($bloque) === 1) return [mb_substr($bloque[0], 0, 120), null];
+            if (count($bloque) === 1) {
+                $sola = mb_substr($bloque[0], 0, 120);
+                return str_contains($sola, ',') ? [null, $sola] : [$sola, null];
+            }
             $puerto = array_pop($bloque);
             return [mb_substr(implode(' ', $bloque), 0, 120), mb_substr($puerto, 0, 120)];
         }
