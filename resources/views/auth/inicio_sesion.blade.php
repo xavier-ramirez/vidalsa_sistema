@@ -76,8 +76,8 @@
                      con lo que esta por debajo del pliegue.
 
                      decoding="async" para que decodificarla no retrase el pintado del
-                     formulario, y fetchpriority="low" porque es decorativa y no debe competir
-                     con el CSS ni con el logo.
+                     formulario, y fetchpriority="high": ocupa media pantalla y debe salir ya
+                     (con "low" llegaba la ultima).
 
                      Las fotos son TODAS las de resources/fotos_login/ (misma proporcion: 1600x912);
                      para quitar o agregar una basta con el archivo. Fuera de public/ para que
@@ -86,7 +86,7 @@
                      Blade: el Service Worker sirve '/' desde su cache, asi que una foto elegida
                      aqui se quedaria fija. Sin src en el HTML: el CSS esconde esta zona por
                      debajo de 769px y el telefono no debe descargar una foto que no ve. --}}
-                <img id="fotoLogin" width="1600" height="912" alt="Maquinaria Vidalsa" decoding="async" fetchpriority="low">
+                <img id="fotoLogin" width="1600" height="912" alt="Maquinaria Vidalsa" decoding="async" fetchpriority="high">
                 <script>
                 (function () {
                     // Disuasion para no guardar la pagina con sus fotos: clic derecho (menos en
@@ -238,7 +238,8 @@
         }
     }
     // Guard anti-preloader-pegado: independiente de DOMContentLoaded, corre apenas
-    // el navegador ejecuta este script (muy al inicio de la carga). Si a los 4s el
+    // el navegador ejecuta este script (muy al inicio de la carga). Si a los 4s (10 s
+    // confirmando una sesión abierta, ver esperarSesion) el
     // preloader sigue de pie (CSS lento desde el cache del Service Worker, primer
     // arranque de la PWA sin red, etc.) lo oculta a la fuerza — nunca debe quedar
     // el usuario viendo solo el logo sin poder llegar al formulario.
@@ -246,6 +247,16 @@
     // hasta el redirect o el error — sin esta condición, un login de >4s quitaba
     // el spinner, se veía el formulario un instante y recién después el menú.
     window._loginEnCurso = false;
+    // La app se cerró con la sesión abierta (marca de estructura_base) y no se llega por una
+    // salida (?aviso=): lo más probable es que siga abierta. El logo se queda hasta que
+    // precalentarCsrf lo confirme y lleve al menú (__yendoAlMenu); si no hay sesión, sale el
+    // formulario. Así no se ve el login unos segundos antes de saltar al menú.
+    const esperarSesion = (function () {
+        try {
+            return localStorage.getItem('vidalsa_sesion_abierta') === '1' && !/[?&]aviso=/.test(window.location.search);
+        } catch (e) { return false; }
+    })();
+    window.__yendoAlMenu = false;
     // Punto ÚNICO que muestra u oculta el spinner del inicio de sesión (.fade-out lleva
     // visibility:hidden: oculto no tapa clics). Lo usan el formulario, la huella, los
     // mensajes y la vuelta desde el bfcache.
@@ -256,11 +267,12 @@
         else pl.classList.add('fade-out');
     };
     setTimeout(function () {
-        if (!window._loginEnCurso) window.spinnerLogin(false);
-    }, 4000);
+        if (!window._loginEnCurso && !window.__yendoAlMenu) window.spinnerLogin(false);
+    }, esperarSesion ? 10000 : 4000);
 
     document.addEventListener('DOMContentLoaded', () => {
-        window.spinnerLogin(false);
+        if (!esperarSesion) window.spinnerLogin(false);
+        else primerToken.then(function () { if (!window.__yendoAlMenu) window.spinnerLogin(false); });
 
         // Estamos en el login: limpia cualquier bandera "login reciente" que haya
         // quedado de un intento fallido/cancelado, para que no suprima el spinner
@@ -453,10 +465,12 @@
                         }).finally(precalentarCsrf);
                         return null;
                     }
+                    window.__yendoAlMenu = true;
                     window.marcarLoginReciente();
                     window.location.replace(@json(route('menu')));
                     return null;
                 }
+                try { localStorage.removeItem('vidalsa_sesion_abierta'); } catch (e) {}
                 // Sin sesión: la salida ya se completó y la marca se apaga.
                 // Si quedara puesta, al volver a ESTA pestaña (visibilitychange / pageshow)
                 // se cerraría la sesión que la persona abra después desde otra pestaña.

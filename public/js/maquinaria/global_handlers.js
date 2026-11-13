@@ -55,6 +55,7 @@ window.salirDelSistema = function (aviso) {
     // una copia vieja del service worker que no sepa cerrar la llave. Las páginas guardadas se
     // quedan (son para entrar sin internet; se tiran si entra otra persona: DUENO en sw.js).
     if (window.LlaveLocal) window.LlaveLocal.cerrar();
+    try { localStorage.removeItem('vidalsa_sesion_abierta'); } catch (e) { /* sin localStorage */ }
     // Ya se sale: un 401 de algo en vuelo (la copia local) no manda al login con otro aviso.
     window.__saliendo = true;
     const token = window.getCsrf();

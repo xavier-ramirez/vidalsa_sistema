@@ -208,7 +208,7 @@ body {
 /* Entrada de la foto. La clase la pone el script del login cuando la foto ya esta decodificada. */
 .machinery-fixed-bottom img.foto-lista {
     transform-origin: center bottom;
-    animation: foto-entrada 1.4s cubic-bezier(0.22, 0.61, 0.36, 1);
+    animation: foto-entrada 0.5s ease-out;
 }
 
 @keyframes foto-entrada {

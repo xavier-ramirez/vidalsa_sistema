@@ -400,6 +400,11 @@
                 if (__plLogin) __plLogin.style.display = 'none';
             }
         } catch (e) {}
+        // Hay sesión abierta en este equipo: si la app se cierra sin «Salir» y se vuelve a abrir
+        // en el login, este enseña solo el logo mientras confirma la sesión y pasa al menú, en
+        // vez del formulario unos segundos (ver esperarSesion en auth/inicio_sesion). La quita
+        // salirDelSistema, o el login cuando el servidor dice que ya no hay sesión.
+        try { localStorage.setItem('vidalsa_sesion_abierta', '1'); } catch (e) {}
     </script>
 
     {{-- Banner global de estado de red, solo informativo: sin servidor avisa que se trabaja con
