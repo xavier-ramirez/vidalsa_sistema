@@ -173,27 +173,34 @@ body {
                   var(--escalon) left top / 32px 100% no-repeat;
 }
 
-/* Velo azul muy suave sobre la foto, un poco mas oscuro abajo */
+/* Velo azul SOBRE la foto, como en el diseño: oscuro arriba (ahi va el titulo), se abre
+   poco a poco hacia el centro y vuelve un poco abajo */
 .machinery-fixed-bottom::after {
     content: "";
     position: absolute;
     inset: 0;
     background:
-        linear-gradient(to top, rgba(5, 20, 64, 0.3) 0%, rgba(5, 20, 64, 0) 20%),
-        rgba(10, 40, 110, 0.08);
+        linear-gradient(to bottom, rgba(6, 24, 72, 0.96) 0%, rgba(6, 24, 72, 0.86) 18%, rgba(8, 30, 84, 0.6) 32%, rgba(10, 34, 92, 0.3) 46%, rgba(10, 34, 92, 0.1) 58%, rgba(10, 34, 92, 0) 68%),
+        linear-gradient(to top, rgba(5, 20, 64, 0.35) 0%, rgba(5, 20, 64, 0) 20%),
+        rgba(10, 40, 110, 0.1);
 }
 
-/* La foto entera, a su proporcion (sin agrandarla ni recortarla), abajo y a todo el ancho.
-   Su mitad de arriba se funde con el azul poco a poco: con un fundido corto se veia el corte. */
+/* La foto abajo y a todo el ancho, alta hasta cerca del titulo (70% del panel). Si a su
+   proporcion no llega, se agranda lo justo y se recortan un poco los lados (cover); sin el
+   tope la foto llenaba todo el alto y salia demasiado agrandada. Su canto de arriba se funde
+   con el azul del fondo, debajo del velo. */
 .machinery-fixed-bottom img {
     position: absolute;
     left: 0;
     bottom: 0;
     width: 100%;
     height: auto;
+    min-height: 70%;
+    object-fit: cover;
+    object-position: center bottom;
     display: block;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.02) 4.5%, rgba(0, 0, 0, 0.07) 9.1%, rgba(0, 0, 0, 0.15) 13.6%, rgba(0, 0, 0, 0.26) 18.2%, rgba(0, 0, 0, 0.39) 22.7%, rgba(0, 0, 0, 0.53) 27.3%, rgba(0, 0, 0, 0.67) 31.8%, rgba(0, 0, 0, 0.79) 36.4%, rgba(0, 0, 0, 0.89) 40.9%, rgba(0, 0, 0, 0.96) 45.5%, #000 50%);
-            mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.02) 4.5%, rgba(0, 0, 0, 0.07) 9.1%, rgba(0, 0, 0, 0.15) 13.6%, rgba(0, 0, 0, 0.26) 18.2%, rgba(0, 0, 0, 0.39) 22.7%, rgba(0, 0, 0, 0.53) 27.3%, rgba(0, 0, 0, 0.67) 31.8%, rgba(0, 0, 0, 0.79) 36.4%, rgba(0, 0, 0, 0.89) 40.9%, rgba(0, 0, 0, 0.96) 45.5%, #000 50%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.5) 7%, #000 15%);
+            mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.5) 7%, #000 15%);
 }
 
 /* Entrada de la foto. La clase la pone el script del login cuando la foto ya esta decodificada. */

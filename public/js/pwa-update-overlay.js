@@ -20,7 +20,9 @@
  * window.pwaMostrarActualizando(): sale en el acto y se queda hasta que esa página recarga.
  *
  * A PROPÓSITO no recarga la página: en una página interna (formulario a medias) perdería
- * el trabajo del usuario.
+ * el trabajo del usuario. Única excepción: el LOGIN con los dos campos vacíos. Ahí no se
+ * pierde nada y es la página que sirvió el SW VIEJO: sin recargar se quedaba el diseño
+ * anterior hasta la próxima vez.
  * No re-registra el SW (el login ya lo registra): solo se engancha a la registración
  * existente para vigilar la instalación. Timeout de seguridad para no dejar al usuario
  * atrapado bajo el overlay si el internet no permite terminar (el SW viejo sigue sirviendo
@@ -82,12 +84,19 @@
 
     // Vigila un SW que está instalando. Solo es "actualización" si YA había un controller
     // (en primera instalación no molestamos). Overlay mientras instala; se quita al activarse
-    // o si la instalación falla. No se recarga (ver cabecera).
+    // o si la instalación falla. Solo recarga el login sin nada escrito (ver cabecera).
+    function loginVacio() {
+        if (!enLogin || window._loginEnCurso) return false;
+        var campos = document.querySelectorAll('#loginForm .custom-input');
+        for (var i = 0; i < campos.length; i++) if (campos[i].value) return false;
+        return true;
+    }
     function watchInstalling(sw) {
         if (!sw || !navigator.serviceWorker.controller) return;
         if (!enLogin && performance.now() > VENTANA_MS) return;
         showOverlay();
         sw.addEventListener('statechange', function () {
+            if (sw.state === 'activated' && loginVacio()) { window.location.reload(); return; }
             if (sw.state === 'activated' || sw.state === 'redundant') hideOverlay();
         });
     }

@@ -1,7 +1,6 @@
 /**
  * Vidalsa PWA Service Worker
- * Estrategia: stale-while-revalidate para el login (/), network-first para el
- * resto de HTML (la app es dinámica), cache-first para assets estáticos
+ * Estrategia: network-first para todo el HTML, el login (/) incluido (la app es dinámica), cache-first para assets estáticos
  * (/img, /css, /js, /fonts, /images) que ya vienen con cache-busting via ?v=filemtime.
  *
  * SIN INTERNET: las navegaciones (incluidas /admin/ y /dashboard/) son network-first y se
@@ -20,8 +19,8 @@ const STATIC_CACHE  = 'vidalsa-static-' + CACHE_VERSION;
 const RUNTIME_CACHE = 'vidalsa-runtime-' + CACHE_VERSION;
 
 // Todo lo que la pantalla de LOGIN necesita para pintarse ENTERA sin red: al tocar el
-// ícono de la PWA instalada, '/' sale del caché (stale-while-revalidate, más abajo) y sus
-// assets de aquí, así que no queda esperando a nadie.
+// ícono de la PWA instalada sin red, '/' sale del caché (más abajo) y sus assets de aquí,
+// así que no queda esperando a nadie.
 //
 // NO se precachean las fotos de /foto-login/ a propósito: el CSS esconde esa zona por
 // debajo de 769px, o sea que el login de un TELÉFONO —el caso que importa para arrancar rápido—
@@ -385,7 +384,11 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Login (/): stale-while-revalidate — carga al instante desde cache, actualiza en fondo.
+    // Login (/): network-first con tope — con servidor sale SIEMPRE el login al día; lo
+    // guardado solo sin red o si el servidor no contesta (redConTope). Antes era
+    // stale-while-revalidate: al cerrar sesion tras un despliegue salia el diseño VIEJO,
+    // porque el install no puede bajar '/' con la sesion abierta (redirige a /menu) y el
+    // activate pasaba la copia vieja a la cache nueva.
     // El CSRF token del HTML cacheado se refresca vía /refresh-csrf antes del submit.
     // !response.redirected: si el usuario está logueado, el servidor redirige a /menu;
     // NO debemos cachear esa respuesta bajo la clave "/" o sobreescribiríamos el login.
@@ -405,8 +408,8 @@ self.addEventListener('fetch', (event) => {
                         caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', copy)).catch(() => {});
                     }
                     return response;
-                }).catch(() => cached);
-                return cached || redConTope(networkFetch).catch(() => networkFetch);
+                });
+                return redConTope(networkFetch).catch(() => cached || networkFetch);
             })
         );
         return;
