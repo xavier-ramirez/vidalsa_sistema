@@ -114,7 +114,7 @@
             <div id="almMovFechasPanel" class="panel-filtro-avanzado ancho" style="display:none;">
                 <h4 class="panel-filtro-avanzado-titulo">
                     Filtros Avanzados
-                    <span class="panel-filtro-avanzado-limpiar" onclick="window.almMovLimpiarFechas()">Limpiar Todo</span>
+                    <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window.almMovLimpiarFechas()"><i class="material-icons">filter_alt_off</i></button>
                 </h4>
                 {{-- Tipo de movimiento — custom-dropdown (estilo general de la app,
                      igual que los filtros de Almacen / Frente). Sin opcion "Todos":

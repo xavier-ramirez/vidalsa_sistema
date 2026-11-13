@@ -149,7 +149,7 @@
                 <div id="catAdvPanel" class="panel-filtro-avanzado ancho" style="display:none;">
                     <h4 class="panel-filtro-avanzado-titulo">
                         Filtros Avanzados
-                        <span class="panel-filtro-avanzado-limpiar" onclick="catLimpiarAvanzado()">Limpiar Todo</span>
+                        <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="catLimpiarAvanzado()"><i class="material-icons">filter_alt_off</i></button>
                     </h4>
                     <div class="cat-adv-fila">
                     <div>

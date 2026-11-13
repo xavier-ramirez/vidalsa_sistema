@@ -211,7 +211,7 @@
             <div id="almAdvPanel" class="panel-filtro-avanzado" style="display:none;">
                 <h4 class="panel-filtro-avanzado-titulo">
                     Filtros Avanzados
-                    <span class="panel-filtro-avanzado-limpiar" onclick="window.almAvanzadoLimpiar()">Limpiar Todo</span>
+                    <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window.almAvanzadoLimpiar()"><i class="material-icons">filter_alt_off</i></button>
                 </h4>
                 <span class="panel-filtro-avanzado-label">Unidad de medida</span>
                 {{-- Mismo custom-dropdown que el resto de la app (Estado en Recepción): se abre

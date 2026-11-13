@@ -187,7 +187,7 @@
             <div id="trAdvPanel" class="panel-filtro-avanzado" style="display:none;">
                 <h4 class="panel-filtro-avanzado-titulo">
                     Filtros avanzados
-                    <span style="font-size:12px;color:#64748b;font-weight:400;text-decoration:underline;cursor:default;" onclick="window.trClearAvanzados()">Limpiar</span>
+                    <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="window.trClearAvanzados()"><i class="material-icons">filter_alt_off</i></button>
                 </h4>
 
                 {{-- Estado: ocupa las 2 columnas de la grilla, arriba de las fechas. Mismo

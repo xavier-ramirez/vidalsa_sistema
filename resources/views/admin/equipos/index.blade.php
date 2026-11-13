@@ -309,7 +309,7 @@
                                 <i class="material-icons" style="font-size: 14px;">playlist_add_check</i>
                                 Lote
                             </button>
-                            <span style="font-size: 12.5px; color: #64748b; font-weight: 400; text-decoration: underline; cursor: pointer;" onclick="clearAdvancedFilters()">Limpiar</span>
+                            <button type="button" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo" onclick="clearAdvancedFilters()"><i class="material-icons">filter_alt_off</i></button>
                         </span>
                     </h4>
 
