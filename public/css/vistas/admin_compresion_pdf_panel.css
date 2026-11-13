@@ -331,11 +331,13 @@
     .cpdf-uni-op.falta { color: #fcd34d; border-left-color: #f59e0b; }
     /* En el visor los dos botones van juntos a la derecha. */
     .cpdf-uni-op.falta .cpdf-uni-txt { margin-right: auto; }
-    /* En el visor (oscuro), los colores de sus botones (.cpdf-atar-btn): enlazar azul, quitar rojo. */
-    .cpdf-uni-op .cpdf-vin-btn { flex-shrink: 0; border: none; background: #3182ce; color: #fff; transition: background .15s; }
-    .cpdf-uni-op .cpdf-vin-btn:hover { background: #2b6cb0; }
-    .cpdf-uni-op .cpdf-vin-btn.cpdf-vin-quitar { background: #dc2626; color: #fff; }
-    .cpdf-uni-op .cpdf-vin-btn.cpdf-vin-quitar:hover { background: #b91c1c; }
+    /* En el visor (oscuro), discretos como sus tarjetas: fondo apenas visible, borde suave e ícono
+       claro; el color (azul enlazar, rojo quitar) solo al pasar o tocar. */
+    .cpdf-uni-op .cpdf-vin-btn { flex-shrink: 0; border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
+                                 background: rgba(255,255,255,.06); color: #cbd5e0; transition: background .15s, border-color .15s, color .15s; }
+    .cpdf-uni-op .cpdf-vin-btn:hover, .cpdf-uni-op .cpdf-vin-btn:focus-visible { background: rgba(49,130,206,.22); border-color: #3182ce; color: #90cdf4; }
+    .cpdf-uni-op .cpdf-vin-btn.cpdf-vin-quitar { color: #f8a5a5; }
+    .cpdf-uni-op .cpdf-vin-btn.cpdf-vin-quitar:hover, .cpdf-uni-op .cpdf-vin-btn.cpdf-vin-quitar:focus-visible { background: rgba(220,38,38,.22); border-color: #dc2626; color: #fecaca; }
     .cpdf-uni-op.activo { border-color: #3182ce; }
     .cpdf-uni-txt { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
     .cpdf-uni-txt small { font-size: 11.5px; color: #94a3b8; }
