@@ -1,7 +1,8 @@
 /**
  * Vidalsa PWA Service Worker
- * Estrategia: network-first para todo el HTML, el login (/) incluido (la app es dinámica), cache-first para assets estáticos
- * (/img, /css, /js, /fonts, /images) que ya vienen con cache-busting via ?v=filemtime.
+ * Estrategia: network-first para todo el HTML, el login (/) incluido (la app es dinámica),
+ * cache-first para assets estáticos (/img, /css, /js, /fonts, /images) que ya vienen con
+ * cache-busting via ?v=filemtime.
  *
  * SIN INTERNET: las navegaciones (incluidas /admin/ y /dashboard/) son network-first y se
  * CACHEAN; sin red se sirve el cascarón guardado para que el módulo cargue igual. Online no

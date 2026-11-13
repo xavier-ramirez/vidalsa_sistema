@@ -403,8 +403,8 @@
 
     // ── Precalentar sesión + token CSRF ANTES de que el usuario pulse "Entrar" ──
     // El HTML del login puede salir de la caché del Service Worker (sin red o servidor
-    // lento) o llevar abierto un rato, así que su @csrf puede venir de una sesión de invitado ya caducada
-    // (SESSION_LIFETIME corto + pestaña abierta un rato). Con ese token viejo, el
+    // lento) o llevar abierto un rato, así que su @csrf puede venir de una sesión de
+    // invitado ya caducada (SESSION_LIFETIME corto + pestaña abierta un rato). Con ese token viejo, el
     // primer POST daba 419 y, aunque el submit reintenta, a veces caían DOS 419
     // seguidos → window.location.reload(): el usuario veía el spinner irse y tenía
     // que pulsar el botón otra vez para entrar. Pidiendo el token fresco al cargar

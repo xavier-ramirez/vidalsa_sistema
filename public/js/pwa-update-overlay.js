@@ -20,7 +20,8 @@
  * window.pwaMostrarActualizando(): sale en el acto y se queda hasta que esa página recarga.
  *
  * A PROPÓSITO no recarga la página: en una página interna (formulario a medias) perdería
- * el trabajo del usuario. Única excepción: el LOGIN con los dos campos vacíos. Ahí no se
+ * el trabajo del usuario. Única excepción: el LOGIN con los dos campos vacíos y sin un aviso
+ * a la vista («Tu sesión expiró»…, que no se repetiría: la URL ya se limpió). Ahí no se
  * pierde nada y es la página que sirvió el SW VIEJO: sin recargar se quedaba el diseño
  * anterior hasta la próxima vez.
  * No re-registra el SW (el login ya lo registra): solo se engancha a la registración
@@ -87,6 +88,8 @@
     // o si la instalación falla. Solo recarga el login sin nada escrito (ver cabecera).
     function loginVacio() {
         if (!enLogin || window._loginEnCurso) return false;
+        var aviso = document.getElementById('offlineLoginMsg');
+        if (aviso && aviso.style.display !== 'none') return false;
         var campos = document.querySelectorAll('#loginForm .custom-input');
         for (var i = 0; i < campos.length; i++) if (campos[i].value) return false;
         return true;
