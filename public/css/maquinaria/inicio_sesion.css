@@ -263,6 +263,12 @@ body {
 }
 .login-figs-abajo svg { width: 100%; height: 100%; display: block; }
 
+/* En escritorio, menos figuras alrededor de la tarjeta: se esconden las .fig-extra (de aqui
+   y de background_svg, que el menu muestra todas). En el telefono quedan todas. */
+@media (min-width: 769px) {
+    .login-container .fig-extra { display: none; }
+}
+
 /* Figuras ARRIBA de la tarjeta (ancladas a ella, bottom:100%). Ocultas en escritorio
    (arriba ya va en background_svg); se MUESTRAN en móvil (ver media query 768px). */
 .login-figs-arriba {
