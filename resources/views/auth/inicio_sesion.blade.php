@@ -213,10 +213,10 @@
                 <svg viewBox="0 0 400 120" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
                     <circle cx="48" cy="58" r="22" fill="none" stroke="#0067b1" stroke-width="3" opacity="0.40"/>
                     <circle cx="48" cy="58" r="12" fill="none" stroke="#0067b1" stroke-width="3" opacity="0.50"/>
-                    <circle class="fig-extra" cx="112" cy="30" r="6" fill="#00004d" opacity="0.40"/>
+                    <circle cx="112" cy="30" r="6" fill="#00004d" opacity="0.40"/>
                     <rect x="160" y="40" width="32" height="32" rx="8" fill="none" stroke="#00004d" stroke-width="3" opacity="0.34" transform="rotate(15 176 56)"/>
                     <path class="fig-extra" d="M245 42 h20 M255 32 v20" stroke="#0067b1" stroke-width="3" opacity="0.45"/>
-                    <polygon points="300,92 336,92 318,60" fill="#0067b1" opacity="0.30"/>
+                    <polygon class="fig-extra" points="300,92 336,92 318,60" fill="#0067b1" opacity="0.30"/>
                     <polygon class="fig-extra" points="360,50 380,61 380,83 360,94 340,83 340,61" fill="none" stroke="#00004d" stroke-width="3" opacity="0.30"/>
                     <circle class="fig-extra" cx="210" cy="95" r="6" fill="#00004d" opacity="0.40"/>
                 </svg>
