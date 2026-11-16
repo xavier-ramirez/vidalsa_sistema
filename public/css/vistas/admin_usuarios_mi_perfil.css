@@ -7,12 +7,12 @@
            estado), una fila de etiquetas con rol y niveles, y debajo el formulario.
            Antes eran cinco bloques apilados —dos de ellos tarjetas con título propio
            para mostrar dos palabras— que estiraban la pantalla sin aportar nada. */
-        /* La tarjeta se centra también EN VERTICAL dentro del área de contenido. El 190px
-           descuenta el encabezado del layout; min-height (no height) para que en pantallas
-           bajas o con el teclado abierto la tarjeta empuje y siga siendo scrollable en vez
-           de quedar recortada. */
+        /* La tarjeta se centra también EN VERTICAL en lo que queda de pantalla. El 110px
+           descuenta lo de encima (encabezado + relleno del main, unos 90) y el relleno de
+           abajo; con 190 quedaba pegada arriba (31 px arriba, 116 abajo). min-height (no
+           height): en pantallas bajas la tarjeta empuja y la página baja con scroll. */
         .perfil-centro {
-            min-height: calc(100vh - 190px);
+            min-height: calc(100vh - 110px);
             display: flex;
             align-items: center;
             justify-content: center;
