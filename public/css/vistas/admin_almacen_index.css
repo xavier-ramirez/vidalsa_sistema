@@ -59,11 +59,11 @@
     .alm-parte-opt { cursor: pointer; }
     .alm-parte-opt:hover { text-decoration: underline; }
     .alm-parte-opt.alm-parte-on { font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
-    /* Fila con stock bajo: rojo muy claro, sin franja a la izquierda (pedido del cliente); el
-       aviso lo completa el ícono ⚠ junto al stock. Al hacer hover hereda el azul general como
-       cualquier otra fila (sin sobrescribir con !important — antes quedaba naranja en hover y
-       se sentia inconsistente). */
-    .alm-row-bajo td { background: #fef2f2; }
+    /* Fila con stock bajo: rojo claro (#fee2e2; el #fef2f2 de antes casi no se veía), sin
+       franja a la izquierda (pedido del cliente); el aviso lo completa el ícono ⚠ junto al
+       stock. Al hacer hover hereda el azul general como cualquier otra fila (sin sobrescribir
+       con !important — antes quedaba naranja en hover y se sentia inconsistente). */
+    .alm-row-bajo td { background: #fee2e2; }
     /* Fila seleccionable: clic en la fila la marca (estilo /admin/equipos → .selected-row-maquinaria) */
     /* Las filas son seleccionables con clic pero el cursor se mantiene como flecha (sin mano). */
     .alm-table tbody tr.alm-row-clickable { cursor: default; }
