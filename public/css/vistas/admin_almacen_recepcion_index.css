@@ -224,10 +224,12 @@
        valores centrados — se ve como una tabla, consistente con el modal. */
     .dtm-table-wrap { border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
     .dtm-table { width:100%; border-collapse:collapse; font-size:13px; }
+    /* Encabezado oscuro con letra blanca, como las demás tablas de modal del almacén
+       (.cdir-table de Compra directa, el kardex): el gris claro de 9px no se leía. */
     .dtm-table thead th {
-        text-align:center; font-size:9px; font-weight:700; color:#94a3b8;
-        text-transform:uppercase; letter-spacing:.3px; padding:7px 8px;
-        background:#f8fafc; border-bottom:1px solid #e2e8f0; white-space:nowrap;
+        text-align:center; font-size:10.5px; font-weight:800; color:#fff;
+        text-transform:uppercase; letter-spacing:.5px; padding:8px 10px;
+        background:#1e293b; border-bottom:1px solid #0f172a; white-space:nowrap;
     }
     .dtm-table thead th:first-child { text-align:left; }
     .dtm-table tbody td {
