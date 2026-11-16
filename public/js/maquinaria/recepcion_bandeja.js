@@ -396,9 +396,9 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         trUpdateChips();
         var url = ROUTE + '?' + params(pageUrl).toString();
         body.style.opacity = '0.5';
-        if (window.showPreloader) window.showPreloader();
-        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.json(); })
+        var contesto = false;   // el servidor respondió (con lo que sea)
+        var carga = window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { contesto = true; return r.json(); })
             .then(function (data) {
                 if (miSeq !== _trSeq) return;   // llegó tarde: ya se pidió otra búsqueda
                 trAplicar(body, data);
@@ -407,10 +407,11 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
             .catch(function (err) {
                 // Falló una carga VIEJA: lo que se ve (o lo que viene) es de la última pedida.
                 if (miSeq !== _trSeq) return;
-                // Sin red (TypeError del fetch; el aviso «Sin internet» ya lo saca el
-                // interceptor): la bandeja filtra en el servidor, así que se deja lo que se ve
-                // en vez de borrarlo, y se dice por qué no cambió.
-                if (err instanceof TypeError && body.querySelector('tr[data-id]')) {
+                // Sin red (el servidor no contestó y no es la sesión caída, que la atiende el
+                // interceptor; el aviso «Sin internet» también lo saca él): la bandeja filtra en
+                // el servidor, así que se deja lo que se ve en vez de borrarlo, y se dice por qué
+                // no cambió.
+                if (!contesto && !(err && err.sinSesion) && body.querySelector('tr[data-id]')) {
                     window.toast('Sin conexión: la bandeja se filtra con internet.', 'warning');
                     return;
                 }
@@ -421,9 +422,9 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
                 // La opacidad solo la devuelve la última carga: si no, una vieja que termina
                 // antes deja la tabla «lista» mientras la nueva sigue en camino.
                 if (miSeq === _trSeq) body.style.opacity = '1';
-                // Doble rAF: el spinner se va DESPUÉS del paint que ya tiene la tabla nueva.
-                if (window.hidePreloader) requestAnimationFrame(function () { requestAnimationFrame(function () { window.hidePreloader(); }); });
             });
+        // Spinner mientras llega y se pinta; se va tras el paint (preloader.js).
+        if (window.preloaderMientras) window.preloaderMientras(carga);
     };
 
     // Puesta al día SOLA mientras la bandeja está en pantalla: la copia local trae en segundo

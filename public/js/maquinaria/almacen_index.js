@@ -321,11 +321,7 @@
             f = new URLSearchParams(almFiltrosVigentes || '');
         }
         if (append && loadMore) loadMore.style.display = 'block';
-        // En CADA filtro, como en Equipos: el spinner tapa mientras se arma la tabla y se va
-        // tras el paint (más abajo). No en el scroll ni en el repintado de fondo.
-        var conPre = !append && !opts.repintar;
-        if (conPre) pre();
-        almVista()
+        var carga = almVista()
             .then(function (vista) {
                 if (gen !== almLoadGen || !document.contains(body)) return;
                 if (!vista.estado.listo) {
@@ -423,9 +419,11 @@
             })
             .finally(function () {
                 if (append && loadMore) loadMore.style.display = 'none';
-                // Doble rAF: el spinner se va DESPUÉS del paint que ya tiene la tabla nueva.
-                if (conPre) requestAnimationFrame(function () { requestAnimationFrame(unpre); });
             });
+        // En CADA filtro, como en Equipos: spinner mientras se arma la tabla; se va tras el
+        // paint (preloader.js). No en el scroll ni en el repintado de fondo.
+        // En una carga COMPLETA esto corre antes que preloader.js (va al final del layout).
+        if (!append && !opts.repintar && window.preloaderMientras) window.preloaderMientras(carga);
     };
 
     // La copia se puso al día: se repinta lo que se ve (tabla, Consolidado, panel y catálogo de

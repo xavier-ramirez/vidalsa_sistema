@@ -81,7 +81,7 @@ window.almMovArrancar = function (CFG) {
     function movVista() {
         return window.layoutListo()
             .then(function () { return window.CopiaLocal.usar('almacen', el('almMovTableBody')); })
-            .then(function (v) { return window.CopiaLocal.alDia('almacen').then(function () { window._almMovVista = v; return v; }); });
+            .then(function (v) { return window.CopiaLocal.alDia('almacen').then(function () { return v; }); });
     }
 
     // pagina: sin ella (cambió un filtro) se vuelve a la primera.
@@ -90,11 +90,7 @@ window.almMovArrancar = function (CFG) {
         var body = el('almMovTableBody'); if (!body) return;
         _almMovPagina = pagina || 1;
         var f = filtrosMov();
-        // En CADA filtro y página, como en Equipos e Inventario: el spinner tapa mientras se
-        // arma la tabla y se va tras el paint (más abajo).
-        var conPre = !silencioso && !!window.showPreloader;
-        if (conPre) window.showPreloader();
-        movVista()
+        var carga = movVista()
             .then(function (vista) {
                 if (!document.contains(body)) return;
                 if (!vista.estado.listo) {
@@ -113,11 +109,11 @@ window.almMovArrancar = function (CFG) {
                 var q = new URLSearchParams(f);
                 if (_almMovPagina > 1) q.set('page', _almMovPagina);
                 try { window.history.replaceState(null, '', ROUTE + (q.toString() ? '?' + q : '')); } catch (e) {}
-            })
-            .finally(function () {
-                // Doble rAF: el spinner se va DESPUÉS del paint que ya tiene la tabla nueva.
-                if (conPre) requestAnimationFrame(function () { requestAnimationFrame(function () { window.hidePreloader(); }); });
             });
+        // En CADA filtro y página, como en Equipos e Inventario: spinner mientras se arma la
+        // tabla; se va tras el paint (preloader.js).
+        // En una carga COMPLETA esto corre antes que preloader.js (va al final del layout).
+        if (!silencioso && window.preloaderMientras) window.preloaderMientras(carga);
     };
 
     // La copia se puso al día (un guardado propio o de otro equipo): se repinta la MISMA
