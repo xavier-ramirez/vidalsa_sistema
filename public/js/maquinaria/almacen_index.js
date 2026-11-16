@@ -860,7 +860,13 @@
     // bajo"/"Con stock" se sueltan al aplicar la búsqueda (ver almResetBadges).
     window.almBuscarFocus = function () {
         // Si la copia aún no estaba al entrar, el catálogo se arma ahora (sale de la copia, sin pedir nada).
-        if (!window.almProductosCargados) window.almCargarProductos();
+        // Al llegar se rehacen las sugerencias: si no, el «Cargando productos…» se quedaba
+        // hasta la siguiente tecla.
+        if (!window.almProductosCargados) {
+            window.almCargarProductos().then(function () {
+                if (document.activeElement === el('almFiltroBuscar')) window.almBuscarSuggest();
+            });
+        }
         window.almBuscarSuggest();
     };
     // Se llama de dos sitios: la tecla del teclado (con evento) y el clic en la lupa del
