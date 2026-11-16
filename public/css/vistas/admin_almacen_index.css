@@ -321,7 +321,7 @@
     .alm-stock-num { display:block; white-space:nowrap; }
     /* Modal «¿De qué proyecto sale?»: cada proyecto es un botón a todo lo ancho con su saldo,
        unido por la misma línea punteada del panel "En otros almacenes". Tocar uno elige. */
-    .alm-bolsa-prod { margin:0; font-size:13px; font-weight:600; color:#0f172a; line-height:1.35; text-wrap:balance; }
+    .alm-bolsa-prod { margin:0; font-size:13px; font-weight:600; color:#0f172a; line-height:1.35; text-wrap:balance; text-align:center; }
     .alm-bolsa-prod b { font-weight:800; }
     .alm-bolsa-lista { display:flex; flex-direction:column; gap:6px; max-height:52vh; overflow-y:auto; }
     .alm-bolsa-opcion { display:flex; align-items:center; gap:8px; width:100%; box-sizing:border-box; padding:11px 12px;
