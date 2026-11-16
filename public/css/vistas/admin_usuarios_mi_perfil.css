@@ -23,7 +23,7 @@
             --pf-tinta: #0f172a;
             --pf-gris: #5b6b7f;
             --pf-borde: #e3e9f0;
-            /* Angosta a propósito: el contenido son tres datos de lectura y dos campos.
+            /* Angosta a propósito: el contenido son tres datos cortos y dos campos.
                Bajó de 720 a 520 y de 520 a 420 por la misma razón — las líneas quedaban
                perdidas en un ancho que no usaban. A 420, descontando los 24 de padding a
                cada lado, quedan 372 px útiles para los dos campos. La pareja de botones no
@@ -35,11 +35,7 @@
             padding: 24px;
         }
 
-        /* ── Identidad: avatar + nombre, correo, estado y etiquetas ── */
-        /* Cabecera en HORIZONTAL: el avatar a la izquierda y toda la identidad a su
-           derecha. Antes eran cinco bloques centrados uno debajo del otro (avatar, nombre,
-           correo, estado y la fila de etiquetas), que para seis datos cortos gastaba media
-           pantalla antes de llegar al formulario, que es a lo que se entra. */
+        /* ── Identidad: avatar + nombre, correo y cargo ── */
         /* En COLUMNA y centrada: el avatar arriba y debajo nombre, correo y cargo.
            Antes iba en fila con el texto a la izquierda, pero al quitar el estado y las
            etiquetas de nivel quedaba un bloque corto descolgado al lado del avatar. */
@@ -60,10 +56,8 @@
             color: #fff;
             background: linear-gradient(135deg, #00355c, var(--pf-azul));
         }
-        /* Columna de identidad: nombre + estado en la primera línea, correo en la segunda
-           y las etiquetas debajo. min-width:0 para que un correo largo recorte en vez de
-           empujar el avatar fuera de la tarjeta. */
-        /* align-items:center para que los chips también queden centrados bajo el correo. */
+        /* Nombre, correo y cargo centrados bajo el avatar. min-width:0 para que un correo
+           largo parta la línea en vez de ensanchar la tarjeta. */
         .perfil-ident { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
         .perfil-avatar .material-icons { font-size: 30px; }
         .perfil-nombre {
@@ -80,7 +74,7 @@
         }
 
 
-        /* ── Etiquetas de rol y niveles: tres datos cortos en una sola fila ── */
+        /* ── Etiqueta del cargo (rol) ── */
         .perfil-chips {
             display: flex;
             flex-wrap: wrap;
@@ -155,9 +149,7 @@
         @media (max-height: 520px) {
             .perfil-centro { min-height: 0; align-items: flex-start; }
         }
-        /* Teléfono: la cabecera SIGUE horizontal (apilarla devolvería el alto que este
-           cambio vino a recortar), pero el avatar y las separaciones ceden unos píxeles
-           para que al nombre y al correo les quede ancho útil. */
+        /* Teléfono: el avatar, el relleno y el nombre ceden unos píxeles. */
         @media (max-width: 420px) {
             .perfil-wrap { padding: 18px; }
             .perfil-hero { gap: 11px; }
