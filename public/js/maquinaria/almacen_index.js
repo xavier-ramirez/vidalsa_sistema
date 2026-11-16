@@ -2875,7 +2875,7 @@
 
     // Reevalúa el resaltado de "stock bajo" de una fila con un saldo nuevo, SIN esperar la
     // recarga: actualiza data-saldo y togglea .alm-row-bajo comparando contra data-minimo.
-    // Así el color (fondo/franja roja) se actualiza AL INSTANTE tras una auditoría (la
+    // Así el color de la fila se actualiza AL INSTANTE tras una auditoría (la
     // recarga posterior lo confirma). Antes el color quedaba "pegado" hasta deseleccionar
     // o recargar. Reutilizable por cualquier operación que cambie el stock de un producto visible.
     function almReevaluarStockFila(idProducto, nuevoSaldo) {

@@ -423,7 +423,6 @@
     .alm-panel-row .nom.comun { font-style:italic; color:#475569; }
     .alm-panel-row .qty { font-weight:700; font-size:12.5px; padding:2px 8px; border-radius:4px;
         white-space:nowrap; background:#f1f5f9; color:#1e293b; }
-    .alm-panel-row .qty.bajo { background:#fee2e2; color:#b91c1c; }
     /* Línea punteada que une cada almacén o frente con su cantidad: con el nombre a la
        izquierda y la cifra a la derecha, el ojo se perdía en el hueco (pedido del cliente). */
     .alm-panel-row .guia, .alm-panel-sub .guia { flex:1 1 12px; min-width:12px; align-self:center; height:0;
@@ -451,9 +450,10 @@
     .alm-panel-sub .nom.comun { font-style:italic; color:#475569; }
     .alm-panel-sub .qty { font-weight:700; font-size:11.5px; color:#1e293b; white-space:nowrap; }
 
-    /* El almacén abierto, en su tarjeta azul: arriba de los demás y distinto de ellos, para
+    /* El almacén abierto, en su tarjeta (gris neutro, sin azul: pedido del cliente): arriba
+       de los demás y distinto de ellos por el marco, el ícono y la etiqueta «Aquí», para
        que su proyecto no se lea como otro almacén más. */
-    .alm-panel-aqui { border:1px solid #bfdbfe; background:#f0f7ff; border-radius:8px; padding:8px 10px; }
+    .alm-panel-aqui { border:1px solid #e2e8f0; background:#f8fafc; border-radius:8px; padding:8px 10px; }
     .alm-panel-aqui-cab { display:flex; align-items:center; gap:6px; }
     .alm-panel-aqui-cab .material-icons { font-size:17px; color:#0067b1; }
     .alm-panel-aqui-cab .nom { flex:1 1 auto; min-width:0; color:#0f172a; font-size:12.5px; font-weight:700;
@@ -461,15 +461,14 @@
     .alm-panel-chip { flex-shrink:0; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.3px;
         color:#0067b1; background:#dbeafe; border-radius:999px; padding:1px 7px; }
     .alm-panel-aqui-cab .qty { font-size:16px; font-weight:800; color:#0067b1; white-space:nowrap; }
-    .alm-panel-aqui .alm-panel-sub { margin-top:7px; border-left-color:#bfdbfe; }
+    .alm-panel-aqui .alm-panel-sub { margin-top:7px; }
     /* Barra de saldo: todas a la escala del almacén que más tiene, así la diferencia entre
-       almacenes se ve de un vistazo. Verde en los otros y azul en este, también con stock
-       bajo: el rojo de stock bajo es el de la fila de la tabla (pedido del cliente). */
+       almacenes se ve de un vistazo. Verde en los otros y azul en este. Ni la barra ni el
+       número avisan del stock bajo: ese rojo es solo el de la fila de la tabla (pedido del cliente). */
     .alm-panel-barra { height:5px; margin-top:4px; background:#e2e8f0; border-radius:3px; overflow:hidden; }
     .alm-panel-barra > span { display:block; height:100%; background:#10b981; border-radius:3px; }
-    .alm-panel-aqui .alm-panel-barra { margin-top:6px; background:#dbeafe; }
+    .alm-panel-aqui .alm-panel-barra { margin-top:6px; }
     .alm-panel-aqui .alm-panel-barra > span { background:#0067b1; }
-    .alm-panel-aqui.bajo .alm-panel-aqui-cab .qty { color:#b91c1c; }
 
     /* ── Consolidado de Inventario (tarjeta del sidebar) ──────────────────────────
        Vive en clases y no en `style=""` para poder ajustarlo desde los @media sin

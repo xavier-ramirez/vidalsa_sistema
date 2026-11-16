@@ -564,16 +564,16 @@
         const ctx = contexto(vista);
         idProducto = Number(idProducto);
         const actual = idAlmacen ? ctx.almById.get(Number(idAlmacen)) || null : null;
+        // Sin aviso de stock bajo en el panel: ese rojo es solo el de la fila de la tabla
+        // (pedido del cliente), así que aquí no hace falta el mínimo.
         const de = (alm) => {
             const filas = ctx.stock.filter((s) => s.alm === alm.id && s.prod === idProducto);
-            let min = null;
-            filas.forEach((s) => { if (s.min !== null && (min === null || s.min > min)) min = s.min; });
-            return { cant: r3(filas.reduce((t, s) => t + s.cant, 0)), min, filas };
+            return { cant: r3(filas.reduce((t, s) => t + s.cant, 0)), filas };
         };
         const aqui = actual ? de(actual) : null;
         const otros = ctx.visibles.filter((a) => !actual || a.id !== actual.id).map((a) => {
             const s = de(a);
-            return { id: a.id, nombre: a.nombre, cant: s.cant, min: s.min, proyectos: a.separa ? reparto(ctx, s.filas) : [] };
+            return { id: a.id, nombre: a.nombre, cant: s.cant, proyectos: a.separa ? reparto(ctx, s.filas) : [] };
         }).sort((a, b) => (b.cant - a.cant) || orden.compare(a.nombre, b.nombre));
         const max = Math.max(aqui ? aqui.cant : 0, otros.reduce((m, o) => Math.max(m, o.cant), 0));
         const barra = (n) => '<div class="alm-panel-barra" aria-hidden="true"><span style="width:' + (max > 0 ? pctTxt(100 * Math.max(0, n) / max) : '0') + '%"></span></div>';
@@ -582,9 +582,8 @@
 
         let html = '<div class="alm-otros-almacenes">';
         if (aqui) {
-            const bajo = aqui.min !== null && aqui.cant <= aqui.min;
             const proyectos = actual.separa ? reparto(ctx, aqui.filas) : [];
-            html += '<div class="alm-panel-aqui ' + (bajo ? 'bajo' : '') + '"><div class="alm-panel-aqui-cab"><i class="material-icons">warehouse</i>'
+            html += '<div class="alm-panel-aqui"><div class="alm-panel-aqui-cab"><i class="material-icons">warehouse</i>'
                 + '<span class="nom">' + h(actual.nombre) + '</span><span class="alm-panel-chip">Aquí</span><strong class="qty">' + fmt(aqui.cant) + '</strong></div>'
                 + barra(aqui.cant) + (proyectos.length > 1 ? sub(proyectos) : '') + '</div>';
         }
@@ -592,10 +591,9 @@
         if (!otros.length) return html + '<p class="alm-panel-nota">No tienes otros almacenes a la vista.</p></div>';
         html += '<ul class="alm-panel-list scroll custom-scrollbar">';
         otros.forEach((o) => {
-            const bajo = o.min !== null && o.cant <= o.min;
             html += '<li class="alm-panel-row clicable" onclick="window.almVerProductoEnAlmacen(\'' + o.id + '\', \'' + hj(o.nombre) + '\', \'' + idProducto + '\')" title="Ver este producto en ' + h(o.nombre) + '">'
                 + '<span class="nom">' + h(o.nombre) + '</span><span class="guia" aria-hidden="true"></span>'
-                + '<span class="qty ' + (bajo ? 'bajo' : '') + '">' + fmt(o.cant) + '</span>' + barra(o.cant)
+                + '<span class="qty">' + fmt(o.cant) + '</span>' + barra(o.cant)
                 + (o.proyectos.length > 1 ? sub(o.proyectos) : '') + '</li>';
         });
         return html + '</ul></div>';

@@ -1166,7 +1166,7 @@
             {{-- Aviso de stock bajo en este almacén. En rojo, como las filas de stock bajo
                  de la tabla (.alm-row-bajo), para que el usuario asocie ambos avisos. En UNA
                  sola línea, centrada. --}}
-            <div id="almDetBajoBadge" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:999px;padding:6px 14px;align-items:center;justify-content:center;gap:6px;font-size:12.5px;line-height:1.2;text-align:center;">
+            <div id="almDetBajoBadge" style="display:none;background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;border-radius:999px;padding:6px 14px;align-items:center;justify-content:center;gap:6px;font-size:12.5px;line-height:1.2;text-align:center;">
                 <i class="material-icons" style="font-size:16px;">warning_amber</i>
                 <strong style="font-weight:800;">Stock bajo</strong>
                 <span style="font-weight:500;color:#dc2626;">· saldo en el mínimo o por debajo</span>
