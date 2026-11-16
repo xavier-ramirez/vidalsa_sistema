@@ -404,8 +404,26 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
                 trAplicar(body, data);
                 try { window.history.replaceState(null, '', url); } catch (e) {}
             })
-            .catch(function () { _trHtml = null; body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar las notas de entrega.</td></tr>'; })
-            .finally(function () { body.style.opacity = '1'; if (window.hidePreloader) window.hidePreloader(); });
+            .catch(function (err) {
+                // Falló una carga VIEJA: lo que se ve (o lo que viene) es de la última pedida.
+                if (miSeq !== _trSeq) return;
+                // Sin red (TypeError del fetch; el aviso «Sin internet» ya lo saca el
+                // interceptor): la bandeja filtra en el servidor, así que se deja lo que se ve
+                // en vez de borrarlo, y se dice por qué no cambió.
+                if (err instanceof TypeError && body.querySelector('tr[data-id]')) {
+                    window.toast('Sin conexión: la bandeja se filtra con internet.', 'warning');
+                    return;
+                }
+                _trHtml = null;
+                body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#dc2626;">No se pudieron cargar las notas de entrega.</td></tr>';
+            })
+            .finally(function () {
+                // La opacidad solo la devuelve la última carga: si no, una vieja que termina
+                // antes deja la tabla «lista» mientras la nueva sigue en camino.
+                if (miSeq === _trSeq) body.style.opacity = '1';
+                // Doble rAF: el spinner se va DESPUÉS del paint que ya tiene la tabla nueva.
+                if (window.hidePreloader) requestAnimationFrame(function () { requestAnimationFrame(function () { window.hidePreloader(); }); });
+            });
     };
 
     // Puesta al día SOLA mientras la bandeja está en pantalla: la copia local trae en segundo
