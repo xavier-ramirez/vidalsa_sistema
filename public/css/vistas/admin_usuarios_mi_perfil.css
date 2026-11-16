@@ -149,9 +149,10 @@
             margin-bottom: 5px;
         }
 
-        /* En pantallas bajas el centrado vertical estorba: deja de centrar y la tarjeta
-           arranca arriba, para que no haya que hacer scroll dentro de un hueco vacío. */
-        @media (max-height: 700px) {
+        /* Solo en pantallas MUY bajas (teléfono acostado) el centrado estorba: la tarjeta
+           arranca arriba. Era 700px y en portátiles (1536×864 al 125 %, ~690 px útiles)
+           la tarjeta se pegaba arriba; con min-height la tarjeta ya empuja si no cabe. */
+        @media (max-height: 520px) {
             .perfil-centro { min-height: 0; align-items: flex-start; }
         }
         /* Teléfono: la cabecera SIGUE horizontal (apilarla devolvería el alto que este
