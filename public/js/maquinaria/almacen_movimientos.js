@@ -85,13 +85,15 @@ window.almMovArrancar = function (CFG) {
     }
 
     // pagina: sin ella (cambió un filtro) se vuelve a la primera.
-    window.loadMovimientos = function (pagina) {
+    // silencioso: el repintado de fondo (la copia trajo un cambio) va sin spinner.
+    window.loadMovimientos = function (pagina, silencioso) {
         var body = el('almMovTableBody'); if (!body) return;
         _almMovPagina = pagina || 1;
         var f = filtrosMov();
-        // El preloader solo mientras la copia no está (la primera descarga).
-        var conPre = !window._almMovVista;
-        if (conPre && window.showPreloader) window.showPreloader();
+        // En CADA filtro y página, como en Equipos e Inventario: el spinner tapa mientras se
+        // arma la tabla y se va tras el paint (más abajo).
+        var conPre = !silencioso && !!window.showPreloader;
+        if (conPre) window.showPreloader();
         movVista()
             .then(function (vista) {
                 if (!document.contains(body)) return;
@@ -112,14 +114,17 @@ window.almMovArrancar = function (CFG) {
                 if (_almMovPagina > 1) q.set('page', _almMovPagina);
                 try { window.history.replaceState(null, '', ROUTE + (q.toString() ? '?' + q : '')); } catch (e) {}
             })
-            .finally(function () { if (conPre && window.hidePreloader) window.hidePreloader(); });
+            .finally(function () {
+                // Doble rAF: el spinner se va DESPUÉS del paint que ya tiene la tabla nueva.
+                if (conPre) requestAnimationFrame(function () { requestAnimationFrame(function () { window.hidePreloader(); }); });
+            });
     };
 
     // La copia se puso al día (un guardado propio o de otro equipo): se repinta la MISMA
     // página, cambiando solo las filas distintas.
     winOn('copia-local', function (e) {
         if (e.detail.dominio !== 'almacen' || !el('almMovTableBody')) return;
-        if (e.detail.cambio) window.loadMovimientos(_almMovPagina);
+        if (e.detail.cambio) window.loadMovimientos(_almMovPagina, true);
     });
 
     // Filtro de fecha ROBUSTO (Desde/Hasta). Un <input type="date"> devuelve '' mientras
