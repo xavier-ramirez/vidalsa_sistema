@@ -85,7 +85,10 @@
     .cat-action-btn.edit:hover  { background: #0067b1; color: #fff; }
     .cat-action-btn.del   { color: #ef4444; bottom: 6px; right: 6px; }
     .cat-action-btn.del:hover   { background: #ef4444; color: #fff; }
+    .cat-action-btn.cat-edit-photo { color: #0067b1; bottom: 6px; left: 6px; z-index: 4; }
+    .cat-action-btn.cat-edit-photo:hover { background: #0067b1; color: #fff; }
     .cat-action-btn.cat-del-photo { color: #ef4444; bottom: 6px; left: 6px; z-index: 4; }
+    .cat-action-btn.cat-edit-photo:not([hidden]) ~ .cat-action-btn.cat-del-photo { left: 38px; }
     .cat-action-btn.cat-del-photo:hover { background: #ef4444; color: #fff; }
     /* Overlay "Cambiar foto": cubre la foto y aparece al hover. pointer-events:none
        para que el click llegue al .cat-photo (que tiene el onclick de subida). Los

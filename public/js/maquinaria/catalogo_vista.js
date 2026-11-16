@@ -160,6 +160,30 @@ window.catalogoArrancar = function (CAT_CFG) {
         setTimeout(function () { if (input.parentNode) document.body.removeChild(input); }, 1000);
     }
 
+    // "Editar foto": abre el recorte con la foto que ya tiene la tarjeta, en tamaño completo
+    // (sin ?sz=) y en modo libre, para poder recortarla o alejarla (margen blanco alrededor).
+    function _editCurrentAndCrop(photoEl, onCropped) {
+        var img = photoEl.querySelector('img');
+        var src = img ? img.getAttribute('src') : '';
+        if (!src) { window.toast('Esta tarjeta no tiene foto para editar.', 'error'); return; }
+        var url = src.replace(/([?&])sz=[^&]*&?/, '$1').replace(/[?&]$/, '');
+        if (typeof window.showPreloader === 'function') window.showPreloader();
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { if (!r.ok) throw new Error(); return r.blob(); })
+            .then(function (blob) {
+                if (window.hidePreloader) window.hidePreloader();
+                var file = new File([blob], 'foto_actual', { type: blob.type || 'image/webp' });
+                window._openCropModal(file, onCropped, { libre: true });
+            })
+            .catch(function () {
+                if (window.hidePreloader) window.hidePreloader();
+                window.toast('No se pudo abrir la foto actual.', 'error');
+            });
+    }
+    function _elegirFoto(photoEl, editar, onCropped) {
+        if (editar) _editCurrentAndCrop(photoEl, onCropped); else _pickFileAndCrop(onCropped);
+    }
+
     function _uploadBlob(url, fd, onSuccess, onError) {
         var csrf = window.getCsrf();   // helper central (dom_helpers.js)
         if (typeof window.showPreloader === 'function') window.showPreloader();
@@ -179,14 +203,14 @@ window.catalogoArrancar = function (CAT_CFG) {
     }
 
     // ── Subida AUXILIAR ──
-    window.auxCatUploadPhoto = function (photoEl) {
+    window.auxCatUploadPhoto = function (photoEl, editar) {
         var tipo = photoEl.dataset.tipo || '', marca = photoEl.dataset.marca || '',
             modelo = photoEl.dataset.modelo || '', anio = photoEl.dataset.anio || '';
         if (!tipo || !marca || !modelo) {
             window.toast('Este modelo no tiene marca registrada; no se puede asociar la foto.', 'error');
             return;
         }
-        _pickFileAndCrop(function (croppedFile) {
+        _elegirFoto(photoEl, editar, function (croppedFile) {
             var fd = new FormData();
             fd.append('foto', croppedFile); fd.append('tipo', tipo); fd.append('marca', marca); fd.append('modelo', modelo);
             if (anio) fd.append('anio', anio);
@@ -232,6 +256,8 @@ window.catalogoArrancar = function (CAT_CFG) {
         if (txt) txt.textContent = color ? (url ? 'Cambiar foto ' + color : 'Subir foto ' + color) : 'Cambiar foto';
         var del = photoEl.querySelector('.cat-del-photo');
         if (del) del.hidden = !url;
+        var edit = photoEl.querySelector('.cat-edit-photo');
+        if (edit) edit.hidden = !url;
     }
     // La mini-tarjeta de lo que se está viendo ('' = Modelo) guarda su foto: tras subir o
     // borrar se actualiza ahí (dato y miniatura) para que volver a ella muestre lo correcto
@@ -397,6 +423,8 @@ window.catalogoArrancar = function (CAT_CFG) {
                     if (img) img.outerHTML = '<i class="material-icons placeholder">construction</i>';
                     var delBtn = photoEl.querySelector('.cat-del-photo');
                     if (delBtn) delBtn.remove();
+                    var editBtn = photoEl.querySelector('.cat-edit-photo');
+                    if (editBtn) editBtn.remove();
                 }
             } else {
                 window.toast((res.body && res.body.message) || 'No se pudo eliminar la foto.', 'error');
@@ -411,13 +439,13 @@ window.catalogoArrancar = function (CAT_CFG) {
     // ── Subida VEHÍCULO: la foto del modelo o la del color que se está viendo ──
     // En una tarjeta SIN FICHA primero se asegura la ficha (y se enlazan sus unidades); al
     // terminar se recarga la lista, porque la tarjeta pasa a ser la de una ficha.
-    window.catUploadPhoto = function (photoEl) {
+    window.catUploadPhoto = function (photoEl, editar) {
         var sinFicha = photoEl.dataset.sinFicha === '1';
         if (sinFicha && !photoEl.dataset.anio) {
             window.toast('Estos equipos no tienen año registrado; complétalo en Equipos para poder crear su ficha.', 'error');
             return;
         }
-        _pickFileAndCrop(function (croppedFile) {
+        _elegirFoto(photoEl, editar, function (croppedFile) {
             var subir = function (id) {
                 var fd = new FormData();
                 fd.append('foto', croppedFile);

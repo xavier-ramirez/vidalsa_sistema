@@ -104,6 +104,21 @@
                     <i class="material-icons">photo_camera</i>
                     <span class="cat-photo-overlay-txt">Cambiar foto</span>
                 </div>
+                {{-- Editar la foto que ya tiene (recortar / alejar) sin buscar otra. Mismo
+                     permiso y misma subida que "Cambiar foto". --}}
+                @if($esVeh && !$sinFicha)
+                    <button type="button" class="cat-action-btn cat-edit-photo" @unless($item['foto_url']) hidden @endunless
+                            onclick="event.stopPropagation(); catUploadPhoto(this.closest('.cat-photo'), true);"
+                            title="Editar foto actual (recortar / alejar)">
+                        <i class="material-icons">crop</i>
+                    </button>
+                @elseif(!$esVeh && $item['foto_url'])
+                    <button type="button" class="cat-action-btn cat-edit-photo"
+                            onclick="event.stopPropagation(); auxCatUploadPhoto(this.closest('.cat-photo'), true);"
+                            title="Editar foto actual (recortar / alejar)">
+                        <i class="material-icons">crop</i>
+                    </button>
+                @endif
             @endcan
             @endif
 

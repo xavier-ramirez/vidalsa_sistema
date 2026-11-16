@@ -1,6 +1,8 @@
 {{-- Recorte de foto antes de subirla (Cropper.js, cargado bajo demanda: la SPA no lo trae
      en el layout). UNA sola copia para los modulos que suben fotos: Catalogo e Inventario.
-     Uso: window._openCropModal(file, function (recortada) { ...subir recortada... }).
+     Uso: window._openCropModal(file, function (recortada) { ...subir recortada... }[, { libre: true }]).
+     libre: el recuadro puede salirse de la foto para ALEJARLA (lo de afuera queda blanco);
+     lo usa "Editar foto" del Catálogo sobre la foto que ya tiene.
      Entrega un File WebP de hasta 1200 px; el servidor lo vuelve a comprimir
      (ConvertsImageToWebp). --}}
 <style>
@@ -42,6 +44,9 @@
     .crop-btn-confirm {
         border: none; background: #0067b1; color: #fff;
     }
+    .crop-btn-zoom {
+        border: 1px solid #cbd5e0; background: #fff; color: #0067b1; padding: 10px 12px;
+    }
     @media (max-width: 768px) {
         .crop-modal-overlay { padding: 0; align-items: flex-end; }
         .crop-modal-box {
@@ -51,6 +56,7 @@
         .crop-modal-body { min-height: 0; max-height: none; flex: 1; }
         .crop-modal-footer { padding: 10px 12px; }
         .crop-btn { flex: 1; justify-content: center; padding: 12px 10px; }
+        .crop-btn-zoom { flex: 0 0 auto; }
     }
     .cropper-line { background-color: #fff !important; opacity: 1 !important; }
     .cropper-line.line-n, .cropper-line.line-s { height: 3px !important; }
@@ -71,6 +77,12 @@
         </div>
         <div class="crop-modal-body"></div>
         <div class="crop-modal-footer">
+            <button type="button" onclick="window._zoomCrop(-0.1)" class="crop-btn crop-btn-zoom" title="Alejar">
+                <i class="material-icons" style="font-size:18px;">zoom_out</i>
+            </button>
+            <button type="button" onclick="window._zoomCrop(0.1)" class="crop-btn crop-btn-zoom" title="Acercar">
+                <i class="material-icons" style="font-size:18px;">zoom_in</i>
+            </button>
             <button type="button" onclick="window._closeCropModal()" class="crop-btn crop-btn-cancel">
                 <i class="material-icons" style="font-size:16px;">close</i> Cancelar
             </button>
@@ -101,14 +113,17 @@
 // _cropPending guarda el callback que se ejecuta al confirmar el recorte.
 window._cropPending = null;
 window._cropperInstance = null;
+window._cropLibre = false;
 
-window._openCropModal = function (file, onConfirm) {
+window._openCropModal = function (file, onConfirm, opts) {
+    var libre = !!(opts && opts.libre);
     var modal = document.getElementById('cropModal');
     var body  = document.querySelector('.crop-modal-body');
     if (!modal || !body) return onConfirm(file);
 
     if (window._cropperInstance) { window._cropperInstance.destroy(); window._cropperInstance = null; }
     window._cropPending = onConfirm;
+    window._cropLibre = libre;
     body.innerHTML = '';
 
     modal.style.display = 'flex';
@@ -125,8 +140,8 @@ window._openCropModal = function (file, onConfirm) {
                 if (typeof Cropper !== 'undefined') {
                     window._cropperInstance = new Cropper(img, {
                         aspectRatio: NaN,
-                        viewMode: 1,
-                        autoCropArea: 0.9,
+                        viewMode: libre ? 0 : 1,
+                        autoCropArea: libre ? 1 : 0.9,
                         responsive: true,
                         background: false,
                         dragMode: 'move',
@@ -146,13 +161,18 @@ window._openCropModal = function (file, onConfirm) {
 
 window._confirmCrop = function () {
     if (!window._cropperInstance || !window._cropPending) return;
-    var canvas = window._cropperInstance.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200, imageSmoothingQuality: 'high' });
+    var canvas = window._cropperInstance.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200, imageSmoothingQuality: 'high',
+        fillColor: window._cropLibre ? '#fff' : 'transparent' });
     canvas.toBlob(function (blob) {
         if (!blob) { window.toast('Error al recortar la imagen.', 'error'); return; }
         var croppedFile = new File([blob], 'foto_recortada.webp', { type: 'image/webp' });
         window._cropPending(croppedFile);
         window._closeCropModal();
     }, 'image/webp', 0.88);
+};
+
+window._zoomCrop = function (paso) {
+    if (window._cropperInstance) window._cropperInstance.zoom(paso);
 };
 
 window._closeCropModal = function () {
