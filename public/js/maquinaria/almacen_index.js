@@ -321,9 +321,9 @@
             f = new URLSearchParams(almFiltrosVigentes || '');
         }
         if (append && loadMore) loadMore.style.display = 'block';
-        // El preloader solo se ve mientras la copia no está (la primera descarga): con copia la
-        // consulta es inmediata.
-        var conPre = !append && !window._almVista;
+        // En CADA filtro, como en Equipos: el spinner tapa mientras se arma la tabla y se va
+        // tras el paint (más abajo). No en el scroll ni en el repintado de fondo.
+        var conPre = !append && !opts.repintar;
         if (conPre) pre();
         almVista()
             .then(function (vista) {
@@ -423,7 +423,8 @@
             })
             .finally(function () {
                 if (append && loadMore) loadMore.style.display = 'none';
-                if (conPre) unpre();
+                // Doble rAF: el spinner se va DESPUÉS del paint que ya tiene la tabla nueva.
+                if (conPre) requestAnimationFrame(function () { requestAnimationFrame(unpre); });
             });
     };
 
