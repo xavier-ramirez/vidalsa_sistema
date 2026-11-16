@@ -244,13 +244,13 @@
     /* Misma letra para TODA la tabla: 13px, misma familia (sin monospace), y todo en NEGRO
        (#0f172a) — antes el nombre iba en gris #334155 y la UM en gris claro #94a3b8. */
     .dtm-linea-cod { font-weight:700; font-size:13px; color:#0f172a; }
-    .dtm-linea-nom { font-size:13px; font-weight:500; color:#0f172a; margin-left:4px; }
+    .dtm-linea-nom { font-size:13px; font-weight:400; color:#0f172a; margin-left:4px; }
     /* La UM vive junto a la CANTIDAD enviada, no junto al nombre: más pequeña que el número
        para que se lea "10 UNIDAD" como una magnitud y no compita con la cifra. */
     .dtm-linea-um { font-size:10px; font-weight:600; color:#0f172a; text-transform:uppercase; margin-left:3px; }
     .dtm-col-num { font-weight:600; font-size:13px; color:#0f172a; white-space:nowrap; }
-    /* Columna "#": numeración de filas, gris y discreta. */
-    .dtm-col-idx { font-size:13px; font-weight:700; color:#94a3b8; width:1%; white-space:nowrap; }
+    /* Columna "Item": numeración de filas, gris oscuro (el claro no se leía). */
+    .dtm-col-idx { font-size:13px; font-weight:700; color:#334155; width:1%; white-space:nowrap; }
     /* Recepción activa: tocar la fila la marca (azul) y rellena su campo "Recibido" con lo
        enviado. Si llegó menos, se escribe el número a mano; el campo manda sobre el toque.
        Columna estrecha: solo aloja una cifra corta. */

@@ -57,7 +57,7 @@
         <table class="dtm-table">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>Item</th>
                     <th>Producto</th>
                     <th>Enviado</th>
                     <th>Recibido</th>
