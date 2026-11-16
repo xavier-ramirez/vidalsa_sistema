@@ -94,13 +94,27 @@ self.addEventListener('install', (event) => {
 // servidor no redirige al menú. Con la cookie, quien tenía la sesión abierta nunca renovaba
 // '/' (la redirección no se guarda), el activate pasaba la copia de la versión anterior y al
 // abrir o cerrar sesión salía el diseño viejo. El @csrf de esta copia no es de nadie: el login
-// pide el suyo a /refresh-csrf antes de enviar.
+// pide el suyo a /refresh-csrf antes de enviar. Devuelve el HTML bajado (null si no se pudo)
+// para que el fetch de '/' sepa si cambió respecto a lo que acaba de enseñar.
 function bajarLogin() {
     return fetch('/', { credentials: 'omit', cache: 'no-store' }).then((response) => {
-        if (response && response.status === 200 && !response.redirected) {
-            return caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', response));
-        }
-    }).catch(() => {});
+        if (!response || response.status !== 200 || response.redirected) return null;
+        return response.clone().text().then((html) =>
+            caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', response)).then(() => html));
+    }).catch(() => null);
+}
+
+// Dos logins son el mismo si solo cambian los tokens CSRF (lo único distinto en cada petición).
+function huellaLogin(html) {
+    return html.replace(/(name="csrf-token" content="|name="_token" value=")[^"]*/g, '$1');
+}
+
+// Hubo un despliegue: el login que se enseñó desde la caché ya no es el del servidor.
+// Las pestañas en el login deciden si recargan (pwa-update-overlay.js: solo con los campos vacíos).
+function avisarLoginNuevo() {
+    return self.clients.matchAll({ type: 'window' }).then((ventanas) => ventanas.forEach((v) => {
+        if (new URL(v.url).pathname === '/') v.postMessage({ tipo: 'login-nuevo' });
+    }));
 }
 
 // ── De quién son las páginas guardadas ─────────────────────────────────────────────
@@ -390,9 +404,11 @@ self.addEventListener('fetch', (event) => {
     }
 
     // Login (/): AL INSTANTE desde la caché, con red o sin ella, y se refresca por detrás
-    // (bajarLogin: siempre el login de esta versión). Con la sesión abierta el login pinta
-    // solo el logo y pasa al menú en cuanto el servidor lo confirma (esperarSesion en
-    // auth/inicio_sesion). Sin copia guardada todavía, la red (con tope).
+    // (bajarLogin: siempre el login de esta versión). Si lo bajado es distinto de lo enseñado
+    // (hubo un despliegue), avisarLoginNuevo: la pestaña lo recarga sin que nadie pulse F5.
+    // Con la sesión abierta el login pinta solo el logo y pasa al menú en cuanto el servidor
+    // lo confirma (esperarSesion en auth/inicio_sesion). Sin copia guardada todavía, la red
+    // (con tope).
     // !response.redirected: si el usuario está logueado, el servidor redirige a /menu;
     // NO debemos cachear esa respuesta bajo la clave "/" o sobreescribiríamos el login.
     if (url.pathname === '/' && (request.mode === 'navigate' || (request.headers.get('accept') || '').includes('text/html'))) {
@@ -406,7 +422,10 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(
             caches.match('/').then((cached) => {
                 if (cached) {
-                    event.waitUntil(bajarLogin());
+                    const mostrado = cached.clone().text();
+                    event.waitUntil(bajarLogin().then((nuevo) => nuevo && mostrado.then((antes) => {
+                        if (huellaLogin(antes) !== huellaLogin(nuevo)) return avisarLoginNuevo();
+                    })).catch(() => {}));
                     return cached;
                 }
                 const networkFetch = fetch(request).then((response) => {

@@ -22,8 +22,11 @@
  * A PROPÓSITO no recarga la página: en una página interna (formulario a medias) perdería
  * el trabajo del usuario. Única excepción: el LOGIN con los dos campos vacíos y sin un aviso
  * a la vista («Tu sesión expiró»…, que no se repetiría: la URL ya se limpió). Ahí no se
- * pierde nada y es la página que sirvió el SW VIEJO: sin recargar se quedaba el diseño
- * anterior hasta la próxima vez.
+ * pierde nada y es la copia guardada: sin recargar se quedaba el diseño anterior hasta la
+ * próxima vez. Se recarga en dos casos: se activó un SW nuevo, o el SW avisa 'login-nuevo'
+ * (el login que bajó por detrás no es el que enseñó: hubo un despliegue). Como mucho una vez
+ * por minuto, por si algún día el HTML trajera algo distinto en cada petición.
+ * Un login que se queda abierto mucho rato busca SW nuevo al volver a la pestaña.
  * No re-registra el SW (el login ya lo registra): solo se engancha a la registración
  * existente para vigilar la instalación. Timeout de seguridad para no dejar al usuario
  * atrapado bajo el overlay si el internet no permite terminar (el SW viejo sigue sirviendo
@@ -94,13 +97,33 @@
         for (var i = 0; i < campos.length; i++) if (campos[i].value) return false;
         return true;
     }
+    function recargarLoginVacio() {
+        if (!loginVacio() || window.__yendoAlMenu) return false;
+        try {
+            if (Date.now() - Number(sessionStorage.getItem('login_recargado') || 0) < 60000) return false;
+            sessionStorage.setItem('login_recargado', String(Date.now()));
+        } catch (e) { return false; }
+        window.location.reload();
+        return true;
+    }
     function watchInstalling(sw) {
         if (!sw || !navigator.serviceWorker.controller) return;
         if (!enLogin && performance.now() > VENTANA_MS) return;
         showOverlay();
         sw.addEventListener('statechange', function () {
-            if (sw.state === 'activated' && loginVacio()) { window.location.reload(); return; }
+            if (sw.state === 'activated' && recargarLoginVacio()) return;
             if (sw.state === 'activated' || sw.state === 'redundant') hideOverlay();
+        });
+    }
+
+    if (enLogin) {
+        navigator.serviceWorker.addEventListener('message', function (e) {
+            if (e.data && e.data.tipo === 'login-nuevo') recargarLoginVacio();
+        });
+        navigator.serviceWorker.startMessages();
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState !== 'visible') return;
+            navigator.serviceWorker.getRegistration().then(function (reg) { if (reg) reg.update(); }).catch(function () {});
         });
     }
 
