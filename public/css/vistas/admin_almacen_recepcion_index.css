@@ -243,8 +243,9 @@
     .dtm-table tbody tr:hover td { background:#f8fafc; }
     .dtm-td-prod { text-align:left !important; min-width:0; }
     .dtm-td-prod .dtm-linea-cod, .dtm-td-prod .dtm-linea-nom { display:inline; }
-    /* Misma letra para TODA la tabla: 13px, misma familia (sin monospace), y todo en NEGRO
-       (#0f172a) — antes el nombre iba en gris #334155 y la UM en gris claro #94a3b8. */
+    /* Misma letra para TODA la tabla: 13px, misma familia (sin monospace), en NEGRO (#0f172a)
+       salvo el número de ítem (gris oscuro, .dtm-col-idx). Negrita solo el código; la
+       descripción va normal. */
     .dtm-linea-cod { font-weight:700; font-size:13px; color:#0f172a; }
     .dtm-linea-nom { font-size:13px; font-weight:400; color:#0f172a; margin-left:4px; }
     /* La UM vive junto a la CANTIDAD enviada, no junto al nombre: más pequeña que el número
