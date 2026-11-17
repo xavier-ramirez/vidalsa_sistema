@@ -501,4 +501,11 @@ self.addEventListener('message', (event) => {
     if (tipo === 'PAGINAS_SIN_RED') {
         event.waitUntil(asegurarDueno(event.data.usuario).then(() => guardarPaginasSinRed(true)));
     }
+    // El login ya comprobó que no hay servidor y entra con lo guardado: el menú sale de la
+    // caché sin esperar TOPE_RED_MS (con el wifi sin salida eran 6 s en blanco). Si la red
+    // contesta después, redConTope lo olvida solo.
+    if (tipo === 'SIN_SERVIDOR') {
+        sinServidorHasta = Date.now() + RECORDAR_SIN_SERVIDOR_MS;
+        if (event.ports && event.ports[0]) event.ports[0].postMessage(true);
+    }
 });

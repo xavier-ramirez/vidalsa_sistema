@@ -301,14 +301,15 @@
     // ¿Se intenta el inicio de sesión normal? Lo pregunta el submit. Si la pantalla ya sabe
     // que no hay servidor, se vuelve a preguntar con algo más de paciencia: el sondeo pudo
     // fallar solo porque el servidor tardó (recién desplegado, red lenta), y entrar en local
-    // teniendo servidor deja la sesión cerrada allá: la primera consulta devolvería al login.
-    // Solo un fallo de RED decide entrar en local; si no contestó a tiempo se intenta el
-    // inicio de sesión normal, que tiene sus propios topes y, si tampoco llega, entra en local.
+    // teniendo servidor deja la sesión cerrada allá (lo arregla el pase de reingreso.js).
     // Si la pantalla cree que sí hay, no se pregunta: el propio inicio de sesión lo descubre
     // (y si no llega, entrarSinServidor).
+    // Si tampoco contesta a tiempo (null) se entra en local: la pantalla ya lo sabía y probar
+    // el inicio normal sumaba 10 s más (16 s con el wifi sin salida). Si el servidor solo
+    // estaba lento, reingreso.js canjea el pase en cuanto conteste y no saca a nadie.
     window.OfflineAuth.conServidor = function () {
         if (!sinServidor) return Promise.resolve(true);
-        return hayServidor(6000).then(function (hay) { sinServidor = !hay; refrescarAccesos(); return hay !== false; });
+        return hayServidor(4000).then(function (hay) { sinServidor = !hay; refrescarAccesos(); return hay === true; });
     };
 
     // Un intento no llegó al servidor (el inicio de sesión o la huella): desde aquí cuenta
@@ -355,8 +356,23 @@
     window.OfflineAuth.adentroSinServidor = function () {
         // El menú omite el spinner general en esta primera carga tras login.
         if (window.marcarLoginReciente) window.marcarLoginReciente();
-        window.location.href = tomarVolverA() || '/menu';
+        const destino = tomarVolverA() || '/menu';
+        avisarSwSinServidor().then(function () { window.location.href = destino; });
     };
+
+    // Le dice al service worker que no hay servidor ANTES de navegar: si no, con el wifi sin
+    // salida espera su tope (6 s) por el menú, en blanco y sin spinner. Espera su respuesta
+    // como mucho 300 ms: sin service worker, o si no contesta, se navega igual.
+    function avisarSwSinServidor() {
+        const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+        if (!sw || typeof MessageChannel !== 'function') return Promise.resolve();
+        return new Promise(function (listo) {
+            const canal = new MessageChannel();
+            canal.port1.onmessage = function () { listo(); };
+            setTimeout(listo, 300);
+            sw.postMessage({ type: 'SIN_SERVIDOR' }, [canal.port2]);
+        });
+    }
 
     // 'online' vuelve a SONDEAR (que haya red no significa que el servidor conteste);
     // 'offline' es concluyente, así que ahí basta con repintar.
