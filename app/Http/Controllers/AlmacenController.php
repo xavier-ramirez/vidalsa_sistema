@@ -447,11 +447,11 @@ class AlmacenController extends Controller
      * queda como "del almacén" sin proyecto específico, que es lo correcto:
      * no podemos adivinar a cuál de los frentes pertenece).
      *
-     * Llamadores: registrarMovimientoLote (ENTRADA/AJUSTE) y registrarRecepcionConDespacho
-     * (la entrada del «Registrar y despachar» de la recepción). storeProducto NO lo
-     * usa: aplica su propio criterio para el stock inicial (ver el comentario de
-     * contraste allí). Los dos coinciden en lo esencial — cuando el almacén reparte
-     * entre varios proyectos, ninguno adivina.
+     * Llamador: registrarMovimientoLote (ENTRADA/AJUSTE). La Recepción (compra directa,
+     * Entrada por ODC, «Registrar y despachar») y el stock inicial usan
+     * Almacen::frenteImplicito, que además rotula los almacenes GENERAL. Los dos
+     * coinciden en lo esencial — cuando el almacén reparte entre varios proyectos,
+     * ninguno adivina.
      */
     private function frenteImplicitoDelAlmacen(int $idAlmacen): ?int
     {

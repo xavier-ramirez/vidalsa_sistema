@@ -34,8 +34,9 @@ use Illuminate\Support\Facades\DB;
  * Un saldo es ATRIBUIBLE si TODOS los movimientos de ese producto en ese almacén que
  * llevan ID_FRENTE apuntan a un mismo frente, y ese frente es uno de los del almacén.
  * Lo demás se reporta y se queda en el ancla: el sistema no puede adivinar de quién es
- * (los AJUSTE de un almacén multi-frente nunca guardan frente, a propósito — ver
- * AlmacenController::frenteImplicitoDelAlmacen).
+ * (un AJUSTE de un almacén multi-frente solo guarda frente si es la auditoría de un
+ * proyecto; el de la bolsa común no lleva ninguno — ver
+ * AlmacenController::frenteImplicitoDelAlmacen y registrarMovimientoLote).
  *
  * El kardex histórico NO se reescribe: los movimientos viejos siguen apuntando al
  * almacén original, que es donde de verdad ocurrieron.
