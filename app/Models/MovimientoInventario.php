@@ -170,6 +170,7 @@ class MovimientoInventario extends Model
         'NOTAS'               => MojibakeFix::class,
         'TRANSPORTE_VEHICULO' => MojibakeFix::class,
         'TRANSPORTE_CHOFER'   => MojibakeFix::class,
+        'DESTINO_ITEM'        => MojibakeFix::class,
     ];
 
     /**

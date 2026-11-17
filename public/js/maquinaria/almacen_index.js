@@ -1437,6 +1437,8 @@
             // Proyecto del que se descuenta (ID_FRENTE; 0 = saldo común), elegido en el modal
             // «¿De qué proyecto sale?». Vacío = sin elección: el almacén no separa por proyecto.
             bolsa:  '',
+            // DESTINO del renglón (solo nota horizontal), escrito en el modal de salida.
+            destino: '',
         };
     }
     // Reparto por proyecto de una fila ([{f: frente, n: nombre, q: cantidad, c: común}]). Solo
@@ -3893,18 +3895,13 @@
     }
     almSalidaNotaConfigurar();
 
-    // ¿El almacén emite la Nota acostada? Esa hoja lleva DESTINO en cada renglón.
-    function almNotaEsHorizontal(idAlmacen) {
-        var a = (window.almAlmacenesData || {})[String(idAlmacen || '')];
-        return !!a && a.FORMATO_NOTA === ALM_FORMATO_NOTA_HORIZONTAL;
-    }
-
-    // Un renglón por producto seleccionado con su campo DESTINO. Lo escrito vive en
+    // Un renglón por producto seleccionado con su campo DESTINO, solo si el almacén emite la
+    // Nota acostada (esa hoja lleva DESTINO en cada renglón). Lo escrito vive en
     // almSeleccion[id].destino: sobrevive a cerrar y reabrir el modal ("Editar").
     function almSalidaPintarDestinos() {
         var wrap = el('almSalidaDestinosWrap'), lista = el('almSalidaDestinosLista');
         if (!wrap || !lista) return;
-        var ids = almNotaEsHorizontal(ALM_SAL.idAlmacen) ? Object.keys(almSeleccion) : [];
+        var ids = window.AlmSalidaNota.esHorizontal(ALM_SAL.idAlmacen) ? Object.keys(almSeleccion) : [];
         wrap.style.display = ids.length ? '' : 'none';
         lista.innerHTML = ids.map(function (id) {
             var s = almSeleccion[id] || {};
@@ -3958,7 +3955,7 @@
         // Mismo criterio que la validación previa a abrir el modal (ver almSelAccion):
         // "sin cantidad + sin saldo" se reporta como stock insuficiente, no como un olvido.
         var lineas = [], faltan = [], sinSaldo = [];
-        var conDestino = almNotaEsHorizontal(ALM_SAL.idAlmacen);
+        var conDestino = window.AlmSalidaNota.esHorizontal(ALM_SAL.idAlmacen);
         Object.keys(almSeleccion).forEach(function (id) {
             var s   = almSeleccion[id] || {};
             var raw = String(s.cantidad == null ? '' : s.cantidad).replace(',', '.').trim();
@@ -4075,7 +4072,8 @@
                 + '<p style="margin:0 0 10px;color:#475569;">La salida queda guardada en este equipo y se registra sola al volver internet; entonces se descarga el PDF de la Nota.</p>'
                 + '<ul style="margin:0;padding-left:18px;">' + payload.lineas.map(function (l) {
                     var s = almSeleccion[l.id_producto] || {};
-                    return '<li>' + window.escapeHtml(s.nombre || ('#' + l.id_producto)) + ' — <b>' + l.cantidad + '</b></li>';
+                    return '<li>' + window.escapeHtml(s.nombre || ('#' + l.id_producto)) + ' — <b>' + l.cantidad + '</b>'
+                        + (l.destino ? ' → ' + window.escapeHtml(l.destino) : '') + '</li>';
                 }).join('') + '</ul></div>';
         }
         almOpen('almPreviewModal');
@@ -4087,6 +4085,9 @@
     // tabla, y volver a apretar "Vista previa" — se regenera el PDF.
     window.almPreviewEditar = function () {
         almCerrar('almPreviewModal');
+        // La selección pudo cambiar mientras estaba la vista previa: el destino por producto
+        // se repinta desde almSeleccion (lo ya escrito se conserva ahí).
+        almSalidaPintarDestinos();
         almOpen('almSalidaModal');
     };
 

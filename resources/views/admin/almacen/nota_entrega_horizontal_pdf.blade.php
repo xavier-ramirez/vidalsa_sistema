@@ -14,7 +14,7 @@
         cuerpo, en "FECHA DE ENTREGA", y no imprime la hora). Las estampa
         NotaEntregaPDF::Header a partir de la propiedad $fechaHora, que solo se rellena para
         este formato — por eso esta vista NO usa $datos['fecha'] ni $datos['hora'].
-      • Columna DESTINO en la tabla de items.
+      • Columna DESTINO en la tabla de items (lo escrito en cada renglón al despachar).
       • CINCO bloques de firma (ENTREGADO · SOPORTADO · SOPORTADO · SEGURIDAD · RECIBIDO)
         en vez de los dos del vertical, cada uno con NOMBRE / CARGO / CEDULA / FIRMA. El
         ORDEN y la lista los decide Almacen::firmantesNota(), no esta vista: RECIBIDO va de
@@ -54,16 +54,14 @@
     $pad = $compacto ? 1 : 2;   // aire de celda de la tabla de items
 
     // ── DESTINO por item ──────────────────────────────────────────────────────────────
-    // El destino general de la nota va ARRIBA, en PROYECTO. Esta columna solo existe para
-    // el caso en que una misma nota reparte material a VARIOS frentes: ahi si hace falta
-    // decir renglon por renglon a cual va cada cosa. Medido sobre las notas ya emitidas,
-    // pasa en el 3% (13 de 434), asi que cuando la nota tiene un solo frente la columna se
-    // deja en blanco a proposito: repetir 13 veces el mismo texto que ya esta en PROYECTO
-    // no agrega informacion y ensucia la hoja.
+    // Lo que manda es DESTINO_ITEM: el equipo, frente o sitio que quien despacha escribe en
+    // cada producto del modal de salida (solo se pide en almacenes con nota horizontal).
     //
-    // Cada movimiento guarda su propio ID_FRENTE, asi que el dato ya existe: no hay que
-    // pedirlo ni configurarlo. `?? null` en vez de `?->` porque $movs tambien puede traer
-    // stdClass armados en memoria (vista previa) donde la propiedad podria no venir.
+    // Sin eso, el criterio de antes: el destino general va ARRIBA, en PROYECTO, y la columna
+    // solo nombra el frente cuando una misma nota reparte material a VARIOS (notas viejas o
+    // armadas con ?ids=); con un solo frente queda en blanco, porque repetir el texto de
+    // PROYECTO en cada renglon no agrega informacion. `?? null` en vez de `?->` porque $movs
+    // tambien puede traer stdClass armados en memoria (vista previa).
     $destinoPorItem = $movs
         ->map(fn ($m) => ($m->frente ?? null)?->NOMBRE_FRENTE)
         ->filter()

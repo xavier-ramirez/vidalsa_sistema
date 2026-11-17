@@ -107,14 +107,34 @@ class SalidaDestinoPorRenglonTest extends MySqlTestCase
         $this->assertSame('EXCAVADORA 12', $this->destinoDe($p->ID_PRODUCTO));
     }
 
+    public function test_un_destino_que_crece_al_pasar_a_mayusculas_no_rompe_la_columna(): void
+    {
+        $frente = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->value('ID_FRENTE');
+        $origen  = $this->almacen(Almacen::TIPO_GENERAL);
+        $destino = $this->almacen(Almacen::TIPO_PROYECTO, [$frente]);
+        $p       = $this->producto('CABLE', $origen);
+
+        // 150 caracteres que en mayúsculas pasan a 300 (ß → SS).
+        $this->salida($origen, (int) $frente, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1, 'destino' => str_repeat('ß', 150)]],
+            ['id_almacen_destino' => $destino->ID_ALMACEN])->assertSuccessful();
+
+        $this->assertSame(150, mb_strlen($this->destinoDe($p->ID_PRODUCTO)));
+    }
+
     public function test_la_vista_previa_acepta_el_destino(): void
     {
         $alm = $this->almacen(Almacen::TIPO_GENERAL);
         $p   = $this->producto('GRASA', $alm);
 
+        // El PDF va comprimido: se mira lo que recibe la vista y se dibuja con eso.
+        $datos = null;
+        View::composer('admin.almacen.nota_entrega_horizontal_pdf', function ($v) use (&$datos) { $datos = $v->getData(); });
         $this->actingAs($this->usuario())->post(route('almacen.salida.preview'), [
             'id_almacen' => $alm->ID_ALMACEN,
-            'lineas'     => [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1, 'destino' => 'Patio']],
+            'lineas'     => [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1, 'destino' => 'Patio  norte']],
         ])->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+        $this->assertNotNull($datos, 'La vista previa no pasó por la nota horizontal.');
+        $this->assertStringContainsString('PATIO NORTE', view('admin.almacen.nota_entrega_horizontal_pdf', $datos)->render());
     }
 }

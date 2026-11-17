@@ -96,9 +96,14 @@
     // El formato llega ya normalizado por Almacen::formatoNota() (nunca null ni basura). Si el
     // almacén no estuviera en el mapa se cae al formulario completo: pedir de más no rompe
     // ninguna nota, ocultar de menos sí.
-    function almSalidaAplicarFormatoNota(idAlmacen) {
+    // ¿El almacén emite la nota acostada? Único sitio que lo decide (lo usa también el destino
+    // por producto de la salida, vía AlmSalidaNota.esHorizontal).
+    function almNotaEsHorizontal(idAlmacen) {
         var formato = (CFG.formatoPorAlmacen || {})[String(idAlmacen || '')];
-        var horizontal = !!formato && formato === CFG.formatoNotaHorizontal;
+        return !!formato && formato === CFG.formatoNotaHorizontal;
+    }
+    function almSalidaAplicarFormatoNota(idAlmacen) {
+        var horizontal = almNotaEsHorizontal(idAlmacen);
         var wrapC = el('almSalidaContratoWrap'); if (wrapC) wrapC.style.display = horizontal ? 'none' : '';
         var wrapR = el('almSalidaRqWrap');       if (wrapR) wrapR.style.display = horizontal ? 'none' : '';
         // Reflow de las dos filas del grid. En mobile el CSS las fuerza a 1fr con
@@ -381,6 +386,9 @@
             Object.keys(cfg || {}).forEach(function (k) { CFG[k] = cfg[k]; });
             almDeptoPintar();
         },
+
+        /** true si el almacén idAlmacen emite la Nota de Entrega HORIZONTAL. */
+        esHorizontal: almNotaEsHorizontal,
 
         /**
          * Deja el formulario listo para una salida NUEVA del almacén idAlmacen (el que

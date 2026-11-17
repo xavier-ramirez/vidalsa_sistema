@@ -1310,8 +1310,9 @@
             </div>
 
             {{-- La lista de productos a entregar VIVE en la tabla principal: cada fila
-                 seleccionada tiene su propio input "Salida". Este modal solo
-                 recoge los datos de la Nota de Entrega y los cruza con almSeleccion. --}}
+                 seleccionada tiene su propio input "Salida". Este modal recoge los datos
+                 de la Nota de Entrega (y el destino de cada producto si es horizontal) y
+                 los cruza con almSeleccion. --}}
 
             <div id="almSalidaError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;margin-top:6px;"></div>
         </div>

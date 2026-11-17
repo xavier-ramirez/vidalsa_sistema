@@ -2062,7 +2062,8 @@ class AlmacenController extends Controller
 
         // Destino escrito por renglón (nota HORIZONTAL), [ID_PRODUCTO => texto]. Viaja en
         // $data para que lo lean las dos ramas: la salida en el mismo almacén y el traspaso.
-        $data['destino_por_producto'] = $this->destinosPorProducto($data['lineas']);
+        // Solo SALIDA: una entrada o un ajuste no imprimen nota.
+        $data['destino_por_producto'] = $data['tipo'] === 'SALIDA' ? $this->destinosPorProducto($data['lineas']) : [];
 
         // ── Rama "Salida a otro proyecto" ───────────────────────────────────────
         // Si tipo=SALIDA + frente destino con almacén distinto al origen → delegamos
@@ -2197,7 +2198,7 @@ class AlmacenController extends Controller
                     if ($data['tipo'] === 'SALIDA' && !empty($linea['numero_parte'])) {
                         $optsLinea['numero_parte'] = trim((string) $linea['numero_parte']);
                     }
-                    if ($data['tipo'] === 'SALIDA' && isset($data['destino_por_producto'][$idProducto])) {
+                    if (isset($data['destino_por_producto'][$idProducto])) {
                         $optsLinea['destino_item'] = $data['destino_por_producto'][$idProducto];
                     }
                     // De qué bolsa se descuenta ESTA línea. Viaja en la misma clave que usa la
@@ -2529,9 +2530,15 @@ class AlmacenController extends Controller
         return $mapa;
     }
 
+    /**
+     * Destino de un renglón listo para guardar: texto reparado (MojibakeFix, como el resto de
+     * la nota), espacios colapsados y en mayúsculas. Se corta a 150 DESPUÉS de pasarlo a
+     * mayúsculas porque eso puede alargarlo (ß → SS) y la columna DESTINO_ITEM es de 150.
+     */
     private function limpiarDestino(?string $texto): ?string
     {
-        $t = mb_strtoupper(trim(preg_replace('/\s+/u', ' ', (string) $texto)));
+        $t = (string) \App\Casts\MojibakeFix::fix($texto);
+        $t = mb_substr(mb_strtoupper(trim(preg_replace('/\s+/u', ' ', $t))), 0, 150);
         return $t === '' ? null : $t;
     }
 
@@ -3120,13 +3127,14 @@ class AlmacenController extends Controller
         // -es contabilidad interna y vive en el kardex-, asi que sumar los tramos no oculta
         // nada; el total entregado es justamente lo que hay que firmar.
         //
-        // La clave es producto + frente + Nº DE PARTE, no solo el producto:
+        // La clave es producto + frente + Nº DE PARTE + DESTINO, no solo el producto:
         //  · frente  → el mismo producto entregado a dos frentes son dos entregas.
         //  · nº parte→ en filtros, dos renglones del mismo producto pueden llevar partes
         //              DISTINTAS (el operario elige la equivalencia al despachar). Fundirlos
         //              imprimia una sola linea con la primera parte, y la segunda no aparecia
         //              en el documento firmado.
-        // Los tramos de una misma cascada comparten los tres campos, que es justo lo que hay
+        //  · destino → lo escrito en el renglón de la nota horizontal (DESTINO_ITEM).
+        // Los tramos de una misma cascada comparten los cuatro campos, que es justo lo que hay
         // que sumar. Ninguna de las dos combinaciones sale del flujo normal (una nota va a un
         // frente), pero ?ids= si puede armarlas.
         //
