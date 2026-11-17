@@ -89,6 +89,7 @@
     .cdir-dest-wrap { position:relative; flex:0 0 220px; }
     .cdir-dest-input { text-transform:uppercase; font-weight:600; font-size:12.5px; }
     .cdir-dest-suggest { left:auto; right:0; min-width:280px; }
+    .cdir-dest-suggest .cdir-suggest-item.activo { background:#e1effa; }
     .cdir-dest-libre { border-top:1px solid #f1f5f9; color:#0067b1; font-weight:600; align-items:center; }
     .cdir-dest-libre .material-icons { font-size:15px; }
     /* Verde y con un check (pedido del cliente): el gesto es "confirmar esta línea", no

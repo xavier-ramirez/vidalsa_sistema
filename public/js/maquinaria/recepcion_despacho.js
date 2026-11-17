@@ -187,17 +187,18 @@ window.RecepcionDespacho = {
         };
 
         // Escape: la vista previa vuelve a la nota; en la nota, una lista abierta (proyecto,
-        // contrato) se cierra sola antes que la ventana. Las de vehículo/chofer (campos
-        // [data-log]) las cierra almacen_salida_nota.js: a esas se las deja pasar. Lo que se
-        // atiende sale con preventDefault, para que el Escape de la pantalla no lo repita.
+        // contrato, vehículo o chofer) se cierra sola antes que la ventana. Todo sale con
+        // preventDefault + stopPropagation: el Escape de /admin/almacen, si ese módulo se abrió
+        // antes en la pestaña, cerraría todos los modales de golpe sin devolver la captura.
         var preview = el('entDespPreviewModal');
         window.RecepcionDespacho.actual = {
             vigente: function () { return !!preview && preview.isConnected; },
             escape: function (e) {
                 if (abierto('entDespPreviewModal')) { e.preventDefault(); e.stopPropagation(); window.entDespPreviewEditar(); return; }
                 if (!abierto('almSalidaModal')) return;
-                if (e.target && e.target.closest && e.target.closest('#almSalidaModal [data-log]')) return;
                 e.preventDefault(); e.stopPropagation();
+                var log = document.querySelector('#almSalidaVehiculosSug.open, #almSalidaChoferesSug.open');
+                if (log) { log.classList.remove('open'); return; }
                 var dd = document.querySelector('#almSalidaModal .custom-dropdown.active');
                 if (dd) { dd.classList.remove('active'); return; }
                 window.entCerrarDespacho();

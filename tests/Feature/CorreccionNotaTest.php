@@ -260,6 +260,27 @@ class CorreccionNotaTest extends MySqlTestCase
             ->assertJsonPath('correccion.motivo_no', null);
     }
 
+    public function test_un_producto_repartido_en_varios_destinos_no_se_corrige_desde_aqui(): void
+    {
+        // Nota horizontal: el mismo producto en dos líneas, una por DESTINO. La cantidad de "el
+        // producto" no dice cuál de las dos corregir (y la nota corregida repetiría el total).
+        $alm = $this->almacen();
+        $p = $this->producto('GUANTE');
+        $this->inv->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 20);
+        $nota = DB::transaction(function () use ($alm, $p) {
+            $numero = MovimientoInventario::generarNumeroNota();
+            foreach (['FRENTE NORTE' => 3, 'CHUTO A60EO9P' => 2] as $destino => $q) {
+                $this->inv->registrarSalida($alm->ID_ALMACEN, $p->ID_PRODUCTO, $q, ['numero_nota' => $numero, 'destino_item' => $destino]);
+            }
+            return $numero;
+        });
+        $this->assertSame(2, MovimientoInventario::where('NUMERO_NOTA', $nota)->distinct()->count('DESTINO_ITEM'));
+
+        $this->corregir($nota, $p->ID_PRODUCTO, 4)->assertStatus(422)
+            ->assertJsonPath('message', 'Este producto va en varias líneas de la nota (distinto Nº de parte, proyecto o destino): corrígelo con «Deshacer» y vuelve a registrar la salida.');
+        $this->assertSame(5.0, $this->enNota($nota, $p->ID_PRODUCTO));
+    }
+
     public function test_un_envio_a_otro_almacen_no_se_corrige_desde_aqui(): void
     {
         // Una nota de envío real (montar un traspaso entero aquí sería probar TraspasoService).

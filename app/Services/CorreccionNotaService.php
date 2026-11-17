@@ -34,7 +34,7 @@ class CorreccionNotaService
      * Por qué no se puede corregir este producto de la nota, o null si se puede.
      * - Un envío a otro almacén (TRASPASO_SALIDA) tiene su recepción en el destino: su
      *   cantidad se corrige desde Recepción, no aquí.
-     * - Si el producto va en VARIAS líneas impresas (distinto Nº de parte o proyecto), la
+     * - Si el producto va en VARIAS líneas impresas (distinto Nº de parte, proyecto o destino), la
      *   cantidad de "el producto" no dice cuál de ellas cambiar.
      */
     public function motivoNoCorregible(Collection $salidas, Collection $filasProducto): ?string
@@ -42,9 +42,11 @@ class CorreccionNotaService
         if ($salidas->contains(fn ($m) => $m->TIPO !== MovimientoInventario::TIPO_SALIDA)) {
             return 'Esta nota es un envío a otro almacén: su cantidad se corrige desde Recepción, no aquí.';
         }
-        $lineas = $filasProducto->map(fn ($m) => $m->ID_FRENTE . '-' . ($m->NUMERO_PARTE ?? ''))->unique();
+        // Misma clave de línea que la nota impresa (AlmacenController::renderNotaEntregaPdfBinary):
+        // el destino de la nota horizontal también parte el producto en varias líneas.
+        $lineas = $filasProducto->map(fn ($m) => $m->ID_FRENTE . '-' . ($m->NUMERO_PARTE ?? '') . '-' . ($m->DESTINO_ITEM ?? ''))->unique();
         if ($lineas->count() > 1) {
-            return 'Este producto va en varias líneas de la nota (distinto Nº de parte o proyecto): corrígelo con «Deshacer» y vuelve a registrar la salida.';
+            return 'Este producto va en varias líneas de la nota (distinto Nº de parte, proyecto o destino): corrígelo con «Deshacer» y vuelve a registrar la salida.';
         }
         return null;
     }

@@ -75,7 +75,7 @@ class AuditoriaPorProyectoTest extends MySqlTestCase
         $this->auditar([
             ['id_producto' => $this->producto, 'cantidad' => 7, 'id_frente_saldo' => $this->frenteA],
             ['id_producto' => $this->producto, 'cantidad' => 3, 'id_frente_saldo' => InventarioService::FRENTE_BOLSA_COMUN],
-        ])->assertCreated();
+        ])->assertCreated()->assertJsonPath('message', 'Auditoría registrada (1 producto)');
 
         $this->assertSame(7.0, $this->saldo($this->frenteA));
         $this->assertSame(5.0, $this->saldo($this->frenteB), 'El proyecto que no se contó queda igual.');
@@ -88,6 +88,27 @@ class AuditoriaPorProyectoTest extends MySqlTestCase
         $this->assertSame($this->frenteA, (int) $a->ID_FRENTE);
         $this->assertSame([10.0, 7.0], [(float) $a->CANTIDAD_ANTERIOR, (float) $a->CANTIDAD_RESULTANTE]);
         $this->assertNull($movs->firstWhere('ID_FRENTE_SALDO', InventarioService::FRENTE_BOLSA_COMUN)->ID_FRENTE);
+    }
+
+    public function test_un_proyecto_que_ya_coincide_se_salta_y_no_tumba_los_demas(): void
+    {
+        // La pantalla manda TODO lo contado (su copia puede ir atrás del servidor). B ya está
+        // en 5: se salta; A sí cambia y se registra.
+        $this->auditar([
+            ['id_producto' => $this->producto, 'cantidad' => 5, 'id_frente_saldo' => $this->frenteB],
+            ['id_producto' => $this->producto, 'cantidad' => 8, 'id_frente_saldo' => $this->frenteA],
+        ])->assertCreated();
+
+        $this->assertSame(8.0, $this->saldo($this->frenteA));
+        $this->assertSame(5.0, $this->saldo($this->frenteB));
+        $this->assertSame($this->frenteA, (int) MovimientoInventario::where('ID_ALMACEN', $this->almacen)->where('TIPO', 'AJUSTE')->sole()->ID_FRENTE_SALDO);
+    }
+
+    public function test_si_todo_coincide_avisa_y_no_registra_nada(): void
+    {
+        $this->auditar([['id_producto' => $this->producto, 'cantidad' => 5, 'id_frente_saldo' => $this->frenteB]])
+            ->assertStatus(422)->assertJsonPath('message', 'El conteo coincide con el sistema: no hay nada que ajustar.');
+        $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->almacen)->where('TIPO', 'AJUSTE')->count());
     }
 
     public function test_sin_proyecto_se_rechaza_y_no_cambia_nada(): void

@@ -2278,6 +2278,15 @@ class AlmacenController extends Controller
                     if (isset($linea['bolsa_ajuste'])) {
                         $optsLinea['_frente_saldo'] = $linea['bolsa_ajuste'];
                         $optsLinea['id_frente']     = $linea['bolsa_ajuste'] ?: null;
+                        // La pantalla manda TODO lo contado (su copia puede ir atrás del servidor),
+                        // así que la bolsa que ya está en ese saldo se salta aquí, con el saldo real
+                        // y bloqueado: un ajuste sin diferencia no se registra y tumbaría el lote.
+                        $actual = (float) AlmacenStock::where('ID_ALMACEN', (int) $data['id_almacen'])
+                            ->where('ID_PRODUCTO', $idProducto)->where('ID_FRENTE', $linea['bolsa_ajuste'])
+                            ->lockForUpdate()->value('CANTIDAD');
+                        if (abs($actual - $cantidad) < InventarioService::EPS) {
+                            continue;
+                        }
                     }
 
                     $mov = match ($data['tipo']) {
@@ -2287,13 +2296,17 @@ class AlmacenController extends Controller
                     };
                     $ids[] = $mov->ID_MOVIMIENTO;
                 }
+                if (!$ids) {
+                    throw new \InvalidArgumentException('El conteo coincide con el sistema: no hay nada que ajustar.');
+                }
                 return ['ids' => $ids, 'numero_nota' => $opts['numero_nota'] ?? null];
             });
         } catch (Throwable $e) {
             return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
-        $n = count($result['ids']);
+        // Productos DISTINTOS: una auditoría por proyecto manda varias líneas del mismo producto.
+        $n = count(array_unique(array_map(fn ($l) => (int) $l['id_producto'], $data['lineas'])));
         // Etiqueta visible en el toast: usa el rename de UI (AJUSTE → "Auditoría")
         // para que el mensaje sea coherente con el modal "Auditoría de Inventario"
         // y la pill del kardex. El TIPO en BD se mantiene como AJUSTE.
@@ -2409,7 +2422,8 @@ class AlmacenController extends Controller
         // observaciones de la Nota de Entrega (motivo) son de la salida.
         $optsEntrada = [
             'fecha'             => $data['fecha'] ?? null,
-            'id_frente'         => $separa ? ($bolsa ?: null) : $this->frenteImplicitoDelAlmacen($idAlmacen),
+            // Mismo rótulo que la compra directa (Almacen::frenteImplicito, regla única de Recepción).
+            'id_frente'         => $separa ? ($bolsa ?: null) : $almacen?->frenteImplicito(),
             'id_usuario'        => $idUsuario,
             'permitir_negativo' => false,
         ];

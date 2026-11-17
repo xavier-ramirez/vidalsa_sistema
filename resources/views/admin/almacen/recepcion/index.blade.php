@@ -635,6 +635,12 @@
         return conDestino() ? String(el('cdirDestino').value || '').replace(/\s+/g, ' ').trim().toUpperCase() : '';
     }
     function destHide() { var b = el('cdirDestSuggest'); if (b) b.classList.remove('open'); }
+    // Escape en un campo con lista: si SU lista está abierta la cierra y marca el evento (el
+    // Escape del modal lo deja pasar); cerrada, no lo toca y el modal se cierra como siempre.
+    function escapeDeLista(ev, idLista, ocultar) {
+        var b = el(idLista);
+        if (b && b.classList.contains('open')) { ev.preventDefault(); ocultar(); }
+    }
     // Lista: los frentes del almacén (los mismos del proyecto de la compra directa). Con el
     // campo vacío o ya lleno con uno de ellos se ofrecen todos; con texto a medias, lo que
     // coincide y, al final, "Usar «…» tal cual": el destino también puede ser un equipo o un
@@ -665,14 +671,25 @@
         var c = el('cdirCant'); if (c) c.focus();
     }
     window.cdirDestKey = function (ev) {
-        if (ev.key === 'Escape') { ev.preventDefault(); destHide(); return; }
+        if (ev.key === 'Escape') { escapeDeLista(ev, 'cdirDestSuggest', destHide); return; }
+        var box = el('cdirDestSuggest');
+        var items = box && box.classList.contains('open') ? box.querySelectorAll('.cdir-suggest-item') : [];
+        if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+            // Flechas: recorren la lista; Enter toma el marcado.
+            if (!items.length) return;
+            ev.preventDefault();
+            var i = [].indexOf.call(items, box.querySelector('.cdir-suggest-item.activo'));
+            i = ev.key === 'ArrowDown' ? (i + 1) % items.length : (i <= 0 ? items.length - 1 : i - 1);
+            items.forEach(function (x, k) { x.classList.toggle('activo', k === i); });
+            items[i].scrollIntoView({ block: 'nearest' });
+            return;
+        }
         if (ev.key === 'Enter' || ev.key === 'Tab') {
-            // Enter/Tab completa el frente SOLO si lo escrito está dentro de su nombre ("orino"
-            // → ORINOCO OILS). La búsqueda aproximada de la lista no basta: "chuto a60eo9p"
-            // coincide con CHUTO + BATEA y cambiaría el equipo escrito por otro destino.
-            var term = norm(el('cdirDestino').value.trim());
-            var f = term ? frentesDestino().find(function (x) { return norm(x.nombre).indexOf(term) !== -1; }) : null;
-            if (f) { ev.preventDefault(); el('cdirDestino').value = f.nombre; destHide(); el('cdirCant').focus(); return; }
+            // Enter/Tab se queda con LO ESCRITO, salvo que se haya marcado un frente con las
+            // flechas. Completar solo era adivinar: "CHUTO" o "PATIO" (un equipo, un lugar)
+            // se cambiaban por el frente que los contuviera. Para un frente: clic o flechas.
+            var marcado = box && box.classList.contains('open') ? box.querySelector('.cdir-suggest-item.activo') : null;
+            if (marcado) { ev.preventDefault(); elegirDestino(marcado); return; }
             destHide();
             if (ev.key === 'Enter') { ev.preventDefault(); var c = el('cdirCant'); if (c) c.focus(); }
         }
@@ -753,7 +770,7 @@
         showErr('');
     }
     window.cdirProyKey = function (ev) {
-        if (ev.key === 'Escape') { ev.preventDefault(); proySuggestHide(); return; }
+        if (ev.key === 'Escape') { escapeDeLista(ev, 'cdirProySuggest', proySuggestHide); return; }
         if (ev.key === 'Enter') {
             ev.preventDefault();
             // Solo de la lista A LA VISTA: cerrada, guarda los proyectos de la vez anterior y
@@ -840,7 +857,7 @@
     }
     window.cdirQuitarSeleccion = function () { resetCaptura('buscar'); };
     window.cdirSearchKey = function (ev) {
-        if (ev.key === 'Escape') { ev.preventDefault(); suggestHide(); return; }
+        if (ev.key === 'Escape') { escapeDeLista(ev, 'cdirSuggest', suggestHide); return; }
         if (ev.key === 'Enter')  {
             ev.preventDefault();
             var first = document.querySelector('#cdirSuggest .cdir-suggest-item');
@@ -871,7 +888,7 @@
         box.classList.add('open');
     };
     window.cdirUmKey = function (ev) {
-        if (ev.key === 'Escape') { ev.preventDefault(); umHide(); return; }
+        if (ev.key === 'Escape') { escapeDeLista(ev, 'cdirUmSuggest', umHide); return; }
         if (ev.key === 'Enter') {
             ev.preventDefault();
             var first = document.querySelector('#cdirUmSuggest .cdir-um-item'), inp = el('cdirUm');
@@ -1067,7 +1084,17 @@
         }
         var nuevo = nuevoModo === 'despacho' ? 'despacho' : 'compra';
         // Cambiar de opción arranca en blanco: lo capturado para despachar no debe poder
-        // registrarse como una entrada que se queda en el almacén (ni al revés).
+        // registrarse como una entrada que se queda en el almacén (ni al revés). Con líneas
+        // capturadas se pregunta antes (la ✕ promete conservarlas), igual que Cancelar.
+        if (nuevo !== modo && lineas.length) {
+            var n = lineas.length;
+            window.confirmarAccion({ type: 'warning',
+                title: nuevo === 'despacho' ? 'Pasar a Registrar y despachar' : 'Pasar a Compra directa',
+                message: 'Perderás <strong>' + n + (n === 1 ? ' producto</strong> capturado' : ' productos</strong> capturados')
+                    + ' en «' + (modo === 'despacho' ? 'Registrar y despachar' : 'Compra directa') + '».',
+                confirmText: 'Aceptar', cancelText: 'Cancelar' }, function () { limpiar(); window.cdirAbrir(nuevo); });
+            return;
+        }
         if (nuevo !== modo) limpiar();
         modo = nuevo;
         aplicarDestino();
@@ -1301,9 +1328,9 @@
     window.__cdirDocKeydown = function (e) {
         if (e.key !== 'Escape') return;
         accionesCerrar();
-        // Ya lo atendió el campo con foco (buscador, UM, proyecto o destino cierran su lista y
-        // marcan el evento): sin esto, al llegar aquí no veía ninguna lista abierta y cerraba
-        // el modal entero con el mismo Escape.
+        // Ya lo atendió el campo con foco (buscador, UM, proyecto o destino cerraron SU lista y
+        // marcaron el evento, ver escapeDeLista): sin esto, al llegar aquí no veía ninguna lista
+        // abierta y cerraba el modal entero con el mismo Escape.
         if (e.defaultPrevented || !modalAbierto()) return;
         // Con la confirmación de "Cancelar entrada" encima (#standardModal del layout, que no
         // tiene su propio Escape), este handler cerraría el modal por debajo del diálogo.

@@ -1342,10 +1342,9 @@
         if (_almPendingAutoSelect && almBuscarPickedId) {
             var trPick = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + almBuscarPickedId + '"]');
             if (trPick && !almSeleccion[almBuscarPickedId]) {
-                // Almacén por proyecto: primero se pregunta de cuál sale (al elegir queda
-                // seleccionada); si no, se selecciona directo.
-                if (almBolsasDeFila(trPick).length) almPedirBolsa(trPick);
-                else { almSeleccion[almBuscarPickedId] = almSelNuevaEntrada(trPick); almSelRefreshBar(); }
+                // Mismo camino que el clic en la fila: con varios proyectos pregunta de cuál
+                // sale (al elegir queda seleccionada); si no, se selecciona directo.
+                if (almSelEnsureRow(trPick)) almSelRefreshBar();
             }
             // Apagar el flag aunque la fila no haya aparecido (ej. backend filtro vacio)
             // — sin esto, el siguiente almCargar() volveria a auto-seleccionar y se
@@ -1414,8 +1413,13 @@
     function almSelEnsureRow(tr) {
         var id = tr.getAttribute('data-id-producto'); if (!id) return false;
         if (almSeleccion[id]) return true;
-        if (almBolsasDeFila(tr).length) { almPedirBolsa(tr); return false; }
+        // «¿De qué proyecto sale?» solo cuando hay de dónde elegir: con el saldo en UN solo
+        // proyecto (o solo en la común) el modal mostraba una única opción y había que tocarla
+        // igual. Esa bolsa se toma sola.
+        var bolsas = almBolsasDeFila(tr);
+        if (bolsas.length > 1) { almPedirBolsa(tr); return false; }
         almSeleccion[id] = almSelNuevaEntrada(tr);
+        if (bolsas.length === 1) almSeleccion[id].bolsa = String(parseInt(bolsas[0].f, 10));
         almSelMarkRow(tr, true);
         almEnfocarCantidad(tr);
         return true;
@@ -1623,6 +1627,10 @@
     document.addEventListener('click', function (e) {
         var tr = e.target.closest('#almTableBody tr.alm-row');
         if (!tr) return;
+        // La columna de la FOTO no selecciona: la foto abre su visor y el resto de la celda (el
+        // hueco alrededor, o el icono de "sin foto") no hace nada. Antes cualquier toque ahí
+        // marcaba la fila y abría «¿De qué proyecto sale?».
+        if (e.target.closest('.alm-td-foto')) return;
         if (tr.classList.contains('alm-row-pide-parte') && e.target.closest('.alm-td-cant')) { almPedirParte(tr); return; }
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
         // La celda de cantidad de una fila SIN marcar la selecciona: en el teléfono es media
@@ -2924,12 +2932,15 @@
         // también sin internet.
         var idAlm = val('almSelAlmacen');
         almVista().then(function (vista) {
+            // Sin la copia no se sabe si el almacén separa por proyecto: abrir con el conteo
+            // único en uno que sí separa terminaría en un rechazo del servidor.
+            if (!vista.estado.listo) { toast('El inventario aún se está cargando. Intenta de nuevo en unos segundos.', 'error'); return; }
             var bolsas = idAlm ? window.AlmacenLocal.bolsasAuditoria(vista, idAlm, idProducto) : null;
             almAjustePintarBolsas(bolsas, um);
             almOpen('almAjusteModal');
             var primero = bolsas ? document.querySelector('#almAjBolsas input') : el('almAjNuevoSaldo');
             if (primero) setTimeout(function () { try { primero.focus(); } catch (e) {} }, 30);
-        });
+        }).catch(function () { toast('No se pudo abrir la auditoría. Recarga la página.', 'error'); });
     };
     // Modo del modal: un solo conteo (el total) o uno por proyecto (bolsas != null).
     function almAjustePintarBolsas(bolsas, um) {
@@ -2950,13 +2961,15 @@
                     : '<span class="fija-txt">Ya no está en este almacén</span>')
                 + '</div>';
         }).join('') : '';
-        // El aviso de un intento anterior ("coincide con el sistema"…) se va al corregir.
+        // El aviso de un intento anterior se va al corregir.
         el('almAjBolsas').oninput = function () { showErr('almAjError', ''); };
     }
-    // Líneas del ajuste en modo por proyecto: una por bolsa contada que CAMBIA (igual al sistema
-    // no es un ajuste: el servidor lo rechazaría). Devuelve {lineas, total} o {error}.
+    // Líneas del ajuste en modo por proyecto: una por cada bolsa CONTADA, también si coincide
+    // con lo que muestra la pantalla —como el conteo único—. La copia local puede ir atrás del
+    // servidor (otro equipo sacó material): descartar aquí "lo que no cambia" dejaba sin
+    // ajustar una bolsa contada. Devuelve {lineas, total} o {error}.
     function almAjusteLineasPorProyecto(idProducto) {
-        var total = 0, contadas = 0, lineas = [];
+        var total = 0, lineas = [];
         var filas = document.querySelectorAll('#almAjBolsas .alm-aj-bolsa');
         for (var i = 0; i < filas.length; i++) {
             var fila = filas[i], inp = fila.querySelector('input');
@@ -2965,14 +2978,10 @@
             if (raw === '') { total += sistema; continue; }
             var q = parseFloat(raw);
             if (isNaN(q) || q < 0) return { error: 'El conteo debe ser un número ≥ 0.' };
-            contadas++;
             total += q;
-            if (Math.abs(q - sistema) >= 0.0005) {
-                lineas.push({ id_producto: idProducto, cantidad: q, id_frente_saldo: parseInt(inp.getAttribute('data-frente'), 10) });
-            }
+            lineas.push({ id_producto: idProducto, cantidad: q, id_frente_saldo: parseInt(inp.getAttribute('data-frente'), 10) });
         }
-        if (!contadas) return { error: 'Escribe el conteo de al menos un proyecto.' };
-        if (!lineas.length) return { error: 'El conteo coincide con el sistema: no hay nada que ajustar.' };
+        if (!lineas.length) return { error: 'Escribe el conteo de al menos un proyecto.' };
         return { lineas: lineas, total: Math.round(total * 1000) / 1000 };
     }
 
