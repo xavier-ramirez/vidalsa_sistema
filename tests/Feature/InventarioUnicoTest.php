@@ -142,7 +142,8 @@ class InventarioUnicoTest extends MySqlTestCase
         $this->entrada(4, $frenteC);
 
         // Sigue separando (A y B): solo la bolsa de C, que ya nada puede elegir, pasa a la común.
-        $this->guardar(false, [$this->frenteA, $this->frenteB])->assertOk();
+        $this->guardar(false, [$this->frenteA, $this->frenteB])->assertOk()
+            ->assertJsonPath('message', 'Almacén actualizado. El saldo de 1 producto de los frentes quitados pasó al común.');
         $this->assertSame([0 => 5.0, $this->frenteA => 3.0, $this->frenteB => 2.0], $this->saldos());
         $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->almacen)->where('ID_FRENTE_SALDO', $frenteC)->count());
         $this->assertSame(2, MovimientoInventario::where('ID_ALMACEN', $this->almacen)->whereIn('ID_FRENTE_SALDO', [$this->frenteA, $this->frenteB])->count());

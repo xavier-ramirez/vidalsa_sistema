@@ -545,8 +545,10 @@ class AlmacenController extends Controller
         });
 
         return response()->json([
+            // Sigue separando = solo se juntó lo de los frentes que se le quitaron.
             'message' => 'Almacén actualizado.' . ($juntados
-                ? " El saldo de {$juntados} " . ($juntados === 1 ? 'producto' : 'productos') . ' quedó en un solo inventario.'
+                ? " El saldo de {$juntados} " . ($juntados === 1 ? 'producto' : 'productos')
+                    . ($almacen->separaPorProyecto() ? ' de los frentes quitados pasó al común.' : ' quedó en un solo inventario.')
                 : ''),
             'almacen' => $almacen->fresh()->load('frentes'),
         ]);
