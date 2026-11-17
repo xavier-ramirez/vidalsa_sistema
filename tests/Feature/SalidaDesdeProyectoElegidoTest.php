@@ -118,4 +118,63 @@ class SalidaDesdeProyectoElegidoTest extends MySqlTestCase
         $this->assertSame(4.0, $this->saldo($this->frenteB, $otro));
         $this->assertSame(2, MovimientoInventario::where('NUMERO_NOTA', $nota)->count(), 'Las dos líneas en la misma Nota de Entrega.');
     }
+
+    public function test_un_producto_sale_de_varios_proyectos_a_la_vez(): void
+    {
+        // Lo escrito en el modal: 2 del proyecto A y 2 del B, una línea por proyecto.
+        $lineas = [
+            ['id_producto' => $this->producto, 'cantidad' => 2, 'id_frente_saldo' => $this->frenteA],
+            ['id_producto' => $this->producto, 'cantidad' => 2, 'id_frente_saldo' => $this->frenteB],
+        ];
+
+        $previa = $this->actingAs($this->superAdminGlobal())->post(route('almacen.salida.preview'), [
+            'id_almacen' => $this->almacen, 'id_frente_destino' => $this->frenteA, 'lineas' => $lineas,
+        ], ['Accept' => 'application/pdf']);
+        $previa->assertOk();
+        $this->assertEmpty($previa->headers->get('X-Salida-Aviso'), 'Cada parte sale de su proyecto: no hay nada prestado que avisar.');
+
+        $nota = $this->salida($lineas)->assertCreated()->json('numero_nota');
+
+        $this->assertSame(1.0, $this->saldo($this->frenteA), '2 de los 3 del proyecto A.');
+        $this->assertSame(0.0, $this->saldo($this->frenteB), 'Los 2 del proyecto B.');
+        $this->assertSame(2, MovimientoInventario::where('NUMERO_NOTA', $nota)->count(), 'Un movimiento por proyecto en la misma nota.');
+    }
+
+    public function test_hacia_un_almacen_propio_un_producto_no_sale_de_dos_proyectos(): void
+    {
+        // Un frente con su propio almacén: la salida hacia él viaja como traspaso.
+        $frenteC = (int) DB::table('frentes_trabajo')
+            ->whereNotIn('ID_FRENTE', DB::table('almacen_frentes')->select('ID_FRENTE'))
+            ->value('ID_FRENTE');
+        if (!$frenteC) {
+            $this->markTestSkipped('Hace falta un tercer frente sin almacén asignado.');
+        }
+        $almacenC = (int) Almacen::forceCreate([
+            'NOMBRE' => 'PRUEBA DESTINO PROPIO ' . uniqid(), 'TIPO' => Almacen::TIPO_PROYECTO, 'ESTATUS' => 'ACTIVO',
+        ])->ID_ALMACEN;
+        DB::table('almacen_frentes')->insert(['ID_ALMACEN' => $almacenC, 'ID_FRENTE' => $frenteC]);
+
+        $datos = [
+            'id_almacen' => $this->almacen, 'id_frente_destino' => $frenteC,
+            'lineas' => [
+                ['id_producto' => $this->producto, 'cantidad' => 1, 'id_frente_saldo' => $this->frenteA],
+                ['id_producto' => $this->producto, 'cantidad' => 1, 'id_frente_saldo' => $this->frenteB],
+            ],
+        ];
+        $usuario = $this->superAdminGlobal();
+
+        $this->actingAs($usuario)->postJson(route('almacen.salida.preview'), $datos)
+            ->assertStatus(422)->assertJsonFragment(['message' => $this->mensajeReparto()]);
+        $this->actingAs($usuario)->postJson(route('almacen.movimientos.lote'), ['tipo' => 'SALIDA'] + $datos)
+            ->assertStatus(422)->assertJsonFragment(['message' => $this->mensajeReparto()]);
+
+        $this->assertSame(3.0, $this->saldo($this->frenteA));
+        $this->assertSame(2.0, $this->saldo($this->frenteB));
+    }
+
+    private function mensajeReparto(): string
+    {
+        return 'El proyecto elegido recibe por su propio almacén y ahí cada producto sale de un solo proyecto. Saca '
+            . ProductoInventario::find($this->producto)->NOMBRE . ' de un solo proyecto o despáchalo en dos notas.';
+    }
 }

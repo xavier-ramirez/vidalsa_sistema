@@ -648,12 +648,12 @@
 
 {{-- ═════════════════════════════════════════════════════════════════
      Modal: ¿De qué proyecto sale?
-     En un almacén que separa el saldo por proyecto (PATIO EL TIGRE), seleccionar un producto
-     con saldo —en uno o en varios proyectos— no habilita la cantidad de una vez: aquí se ve cuánto tiene
-     cada proyecto y se elige de cuál se descuenta. Lo elegido viaja por línea (id_frente_saldo) y
-     el despacho empieza por esa bolsa; si no alcanza sigue con la común y el resto, y la vista
-     previa de la nota lo avisa. Lo llena almPedirBolsa; elegir es almBolsaElegir. Fuera de los
-     @if de permisos: seleccionar filas lo puede cualquiera que vea el almacén.
+     En un almacén que separa el saldo por proyecto (PATIO EL TIGRE), un producto con saldo en
+     VARIOS proyectos se saca desde aquí: cada proyecto con su disponible y una casilla con lo que
+     sale de él (se llenan las que hagan falta). Cada proyecto viaja como su propia línea
+     (id_frente_saldo) y descuenta de su bolsa. La cantidad de la fila es la suma y se cambia
+     volviendo aquí. Lo llena almPedirBolsa; Aceptar es almBolsaAceptar. Fuera de los @if de
+     permisos: seleccionar filas lo puede cualquiera que vea el almacén.
 ═════════════════════════════════════════════════════════════════ --}}
 <div id="almBolsaModal" class="alm-modal-overlay">
     <div class="alm-modal" style="max-width:440px;">
@@ -663,9 +663,16 @@
         </div>
         <div class="alm-modal-body">
             <p class="alm-bolsa-prod" id="almBolsaProducto"></p>
-            <div class="alm-bolsa-lista" id="almBolsaLista"></div>
+            {{-- Misma tabla que la Auditoría por proyecto (.alm-aj-bolsa). --}}
+            <div class="alm-aj-bolsa alm-aj-bolsa-head"><span>Proyecto</span><span>Disponible</span><span>Sale</span></div>
+            <div class="alm-aj-bolsas" id="almBolsaLista"></div>
+            <div id="almBolsaError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;margin-top:6px;"></div>
         </div>
-        {{-- Sin pie: se cierra con la X (un "Cancelar" hacía lo mismo; lo quitó el cliente). --}}
+        {{-- Cancelar (o la X) cierra sin cambiar la fila. --}}
+        <div class="alm-modal-foot">
+            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almBolsaModal')">Cancelar</button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almBolsaAceptar()">Aceptar</button>
+        </div>
     </div>
 </div>
 
@@ -1310,13 +1317,22 @@
             @include('admin.almacen.partials.salida_nota_campos')
 
             {{-- DESTINO por producto — solo en almacenes con nota HORIZONTAL (esa hoja tiene
-                 la columna DESTINO en cada renglón). Lo pinta almSalidaPintarDestinos
-                 (almacen_index.js) con los productos seleccionados; opcional. --}}
-            <div id="almSalidaDestinosWrap" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:14px;">
-                <span class="alm-nota-label">Destino por producto</span>
-                <div id="almSalidaDestinosLista" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;"></div>
-                <div class="alm-hint">Equipo, frente o lugar al que va cada producto. Sale en la columna DESTINO de la nota.</div>
-            </div>
+                 la columna DESTINO en cada renglón). Opcional, así que va PLEGADO y se abre solo
+                 si ya hay alguno escrito. Lo pinta almSalidaPintarDestinos (almacen_index.js)
+                 con los productos seleccionados. --}}
+            <details id="almSalidaDestinosWrap" class="alm-sal-dest" hidden>
+                <summary>
+                    <i class="material-icons" aria-hidden="true">place</i>
+                    <span class="tit">Destino por producto</span>
+                    <span class="opc">Opcional</span>
+                    <span class="cuenta" id="almSalidaDestinosCuenta"></span>
+                    <i class="material-icons chev" aria-hidden="true">expand_more</i>
+                </summary>
+                <div class="alm-sal-dest-cuerpo">
+                    <div id="almSalidaDestinosLista" class="alm-sal-dest-lista"></div>
+                    <div class="alm-hint">Dirección a la que va cada producto. Sale en la columna DESTINO de la nota.</div>
+                </div>
+            </details>
 
             {{-- La lista de productos a entregar VIVE en la tabla principal: cada fila
                  seleccionada tiene su propio input "Salida". Este modal recoge los datos

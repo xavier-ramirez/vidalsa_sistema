@@ -420,15 +420,14 @@ class Usuario extends Authenticatable
      *      la mercadería de los traspasos.
      *   2) Fallback: cualquier almacén ACTIVO (PROYECTO o GENERAL) ligado a alguno
      *      de los frentes del usuario. Cubre el caso donde el frente solo tiene
-     *      asignado un almacén GENERAL — antes retornaba null y la bandeja de
-     *      recepción se abría con "Todos los almacenes destino" (pedido del cliente
-     *      corregido: 2026-05-19).
+     *      asignado un almacén GENERAL.
      *
      * Si el usuario no tiene frentes O sus frentes no tienen NINGÚN almacén,
      * retorna `null` y los controllers caen al comportamiento por defecto.
      *
      * Lo usan AlmacenController::index/movimientos y TraspasoController::index/nuevaEntrada
-     * para preseleccionar el filtro de almacén al abrir cada módulo.
+     * para preseleccionar el filtro de almacén al abrir cada módulo (la bandeja de
+     * Recepción, solo al LOCAL: el GLOBAL la abre en «Todos los almacenes»).
      */
     public function almacenPorDefecto(): ?int
     {

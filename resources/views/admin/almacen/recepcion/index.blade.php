@@ -48,21 +48,26 @@
                  un usuario LOCAL solo ve los almacenes ligados a SUS frentes; un GLOBAL, todos.
                  Y solo los de PROYECTO: un GENERAL no recibe notas de entrega (el controller
                  pasa esa lista ya filtrada; si el usuario no ve ninguno de proyecto, los suyos).
-                 NO hay opción "Todos los almacenes" ni X para quitarla (pedido del cliente):
-                 la bandeja es de UN almacén — mezclarlos no dice nada útil, y el controller
-                 siempre preselecciona uno (el del frente del usuario si es de esta lista, o el
-                 primero de ella). --}}
+                 El GLOBAL tiene además "Todos los almacenes" (value 'all') y abre con ella; el
+                 LOCAL no: su bandeja es la de su almacén, que el controller preselecciona. --}}
+            @php $todosSel = ($esGlobal ?? false) && !$destSel; @endphp
             <div class="custom-dropdown" id="trDestHeaderDropdown" data-filter-type="id_almacen_destino">
-                <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : '' }}">
+                <input type="hidden" name="id_almacen_destino" data-filter-value value="{{ $destSel ? $destSel->ID_ALMACEN : ($todosSel ? 'all' : '') }}">
                 <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#f8fafc;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:40px;">
                     <span style="padding:0 10px;display:flex;align-items:center;color:#0067b1;"><i class="material-icons" style="font-size:18px;transform:none !important;">warehouse</i></span>
                     <input type="text" name="filter_search_dropdown" data-filter-search autocomplete="off"
-                           placeholder="{{ $destSel ? $destSel->NOMBRE : 'Selecciona un almacén' }}"
+                           placeholder="{{ $destSel ? $destSel->NOMBRE : ($todosSel ? 'Todos los almacenes' : 'Selecciona un almacén') }}"
                            style="flex:1;border:none;background:transparent;padding:8px 5px;font-size:13.5px;font-weight:600;color:#0f172a;outline:none;min-width:0;"
                            oninput="window.filterDropdownOptions(this)">
                 </div>
                 <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
                     <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
+                        @if($esGlobal ?? false)
+                            <div class="dropdown-item {{ $todosSel ? 'selected' : '' }}" data-value="all"
+                                 onclick="selectOption('trDestHeaderDropdown','all','Todos los almacenes');">
+                                Todos los almacenes
+                            </div>
+                        @endif
                         @foreach(($almacenes ?? collect()) as $a)
                             <div class="dropdown-item {{ $destSel && $destSel->ID_ALMACEN == $a->ID_ALMACEN ? 'selected' : '' }}" data-value="{{ $a->ID_ALMACEN }}"
                                  onclick="selectOption('trDestHeaderDropdown','{{ $a->ID_ALMACEN }}','{{ addslashes($a->NOMBRE) }}');">
@@ -1079,7 +1084,7 @@
     // nuevoModo: 'compra' o 'despacho' (las dos opciones del menú Acciones).
     window.cdirAbrir = function (nuevoModo) {
         if (!destinoActual()) {
-            toast('Selecciona primero el almacén de la bandeja para registrar la entrada.', 'error');
+            toast('Elige el almacén en el selector de arriba (no «Todos») para registrar la entrada.', 'error');
             return;
         }
         var nuevo = nuevoModo === 'despacho' ? 'despacho' : 'compra';

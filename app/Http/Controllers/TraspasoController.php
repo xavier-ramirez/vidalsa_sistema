@@ -93,24 +93,28 @@ class TraspasoController extends Controller
         }
         // Un id_almacen_destino que no es de la bandeja (un enlace viejo a un GENERAL) no se
         // aplica: el selector no lo mostraría y la primera recarga lo cambiaría sin avisar.
-        // 'all' (sin filtro de almacén, aceptado por URL) sigue pasando tal cual.
-        if ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all'
-            && !$bandeja->contains('ID_ALMACEN', (int) $request->input('id_almacen_destino'))) {
+        // 'all' (sin filtro de almacén) solo lo tiene el GLOBAL: un LOCAL que lo traiga en la
+        // URL vuelve a su almacén, igual que si no lo hubiera pedido.
+        $esGlobal = Almacen::usuarioEsGlobal($user);
+        $pedido   = $request->input('id_almacen_destino');
+        if ($request->filled('id_almacen_destino')
+            && ($pedido === 'all' ? !$esGlobal : !$bandeja->contains('ID_ALMACEN', (int) $pedido))) {
             $request->merge(['id_almacen_destino' => null]);
         }
 
-        // Default suave del filtro "Almacén destino" — TODOS los usuarios (LOCAL y GLOBAL)
-        // abren con UN almacén preseleccionado. La bandeja es SIEMPRE de un solo almacén:
-        // el dropdown del header ya no ofrece "Todos" ni la X para quitar la selección
-        // (pedido del cliente, ver el comentario del dropdown en recepcion/index).
-        //   1) Si el cliente mando id_almacen_destino (filled, y de la bandeja), respetamos.
-        //   2) Sino, intentamos el almacen ligado al frente (almacenPorDefecto).
-        //   3) Fallback: el PRIMER almacen visible — cubre al usuario GLOBAL
-        //      (NIVEL_ACCESO_ALMACEN=1) sin frente, para que tambien arranque con UNO
-        //      solo, no con "Todos".
+        // Default del filtro "Almacén destino":
+        //   · GLOBAL (Almacen::usuarioEsGlobal) → "Todos": ve la bandeja de todos los almacenes
+        //     y puede acotarla a uno desde el dropdown, que le ofrece esa opción.
+        //   · LOCAL → UN almacén de los suyos (no tiene "Todos"):
+        //       1) el que mandó (filled, y de la bandeja);
+        //       2) si no, el ligado a su frente (almacenPorDefecto);
+        //       3) si no, el primero visible.
         // Validamos visibilidad para evitar un filtro fantasma. Es el MISMO almacén que usa
         // nuevaEntrada (almacenPorDefecto → primero visible); si no es de la bandeja, más
         // abajo se cambia por el primero que sí lo es.
+        if ($esGlobal && !$request->filled('id_almacen_destino')) {
+            $request->merge(['id_almacen_destino' => 'all']);
+        }
         $idDef = null;
         if (!$request->filled('id_almacen_destino')) {
             $idDef = $user?->almacenPorDefecto();
@@ -212,10 +216,8 @@ class TraspasoController extends Controller
                 $query->where('ESTADO', $estadoActivo);
             }
 
-            // El !== 'all' NO es porque la interfaz lo ofrezca (ya no: el dropdown solo lista
-            // almacenes concretos). Es red de seguridad para un enlace guardado o la APK con
-            // ?id_almacen_destino=all: sin el guard, integer('all') da 0 y la bandeja saldría
-            // vacía en vez de sin filtrar.
+            // 'all' = "Todos" del dropdown (solo GLOBAL): sin WHERE de almacén, queda la
+            // visibilidad de arriba. Sin el guard, integer('all') da 0 y la bandeja saldría vacía.
             if ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all') {
                 $query->where('ID_ALMACEN_DESTINO', $request->integer('id_almacen_destino'));
             }
@@ -356,6 +358,7 @@ class TraspasoController extends Controller
             'traspasos'              => $paginator,
             'almacenes'              => $bandeja,   // el selector de la bandeja (ver arriba)
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
+            'esGlobal'               => $esGlobal,   // el dropdown ofrece «Todos los almacenes»
             'numerosNotas'           => $numerosNotas,
             'bandejaStats'           => $bandejaStats,
             // El catálogo de productos (buscador por PRODUCTO y modal de compra directa) ya

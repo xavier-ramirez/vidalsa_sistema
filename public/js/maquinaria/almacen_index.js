@@ -1272,9 +1272,13 @@
         if (on) {
             var id = tr.getAttribute('data-id-producto');
             var s  = id ? almSeleccion[id] : null;
+            // Saldo en varios proyectos: la cantidad se escribe en «¿De qué proyecto sale?»
+            // (tocar la casilla lo abre) y aquí solo se ve la suma.
+            var porProyecto = almFilaPorProyecto(tr);
             inp.disabled = pide;
+            inp.readOnly = porProyecto;
             inp.value = (s && s.cantidad != null && s.cantidad !== '') ? s.cantidad : '';
-            btns.forEach(function (b) { b.disabled = pide; });
+            btns.forEach(function (b) { b.disabled = pide || porProyecto; });
         } else {
             inp.disabled = true;
             inp.value = '';
@@ -1409,7 +1413,7 @@
     // el input de cantidad. Si ya estaba seleccionada NO hace nada (nunca deselecciona).
     // Fuente única de la lógica de "seleccionar" — la usan el clic en la fila y el clic en un
     // número de parte. Devuelve true si quedó seleccionada; false si espera a que se elija el
-    // proyecto en el modal «¿De qué proyecto sale?» (almBolsaElegir la selecciona entonces).
+    // proyecto en el modal «¿De qué proyecto sale?» (almBolsaAceptar la selecciona entonces).
     function almSelEnsureRow(tr) {
         var id = tr.getAttribute('data-id-producto'); if (!id) return false;
         if (almSeleccion[id]) return true;
@@ -1438,9 +1442,12 @@
             // Nº de parte a entregar: el elegido en la fila, o el único que tenga. Vacío en
             // productos sin equivalencias y en los de varias hasta que se elija.
             parte:  tr.getAttribute('data-parte-sel') || '',
-            // Proyecto del que se descuenta (ID_FRENTE; 0 = saldo común), elegido en el modal
-            // «¿De qué proyecto sale?». Vacío = sin elección: el almacén no separa por proyecto.
+            // Proyecto del que se descuenta (ID_FRENTE; 0 = saldo común). Vacío = sin elección:
+            // el almacén no separa por proyecto, o el producto sale de varios (ver reparto).
             bolsa:  '',
+            // Sale de VARIOS proyectos: [{f: frente, q: cantidad}], escrito en el modal
+            // «¿De qué proyecto sale?»; cantidad es la suma. null = un solo proyecto (bolsa).
+            reparto: null,
             // DESTINO del renglón (solo nota horizontal), escrito en el modal de salida.
             destino: '',
         };
@@ -1453,36 +1460,80 @@
         if (!raw) return [];
         try { return JSON.parse(raw) || []; } catch (e) { return []; }
     }
-    // Fila que espera la elección del modal «¿De qué proyecto sale?».
+    // ¿La cantidad de esta fila se escribe en el modal «¿De qué proyecto sale?»? Sí cuando el
+    // saldo está en varios proyectos: la casilla de la fila solo muestra la suma.
+    function almFilaPorProyecto(tr) { return almBolsasDeFila(tr).length > 1; }
+    // Clic en la casilla de cantidad (corta la propagación para no desmarcar la fila): si es la
+    // suma de varios proyectos (solo lectura), abre su modal para cambiarla. El resto de la
+    // celda lo atiende el clic de la fila.
+    window.almRowCantClick = function (inp) {
+        var tr = inp.readOnly && inp.closest('tr.alm-row');
+        if (tr && almSeleccion[tr.getAttribute('data-id-producto')]) almPedirBolsa(tr);
+    };
+    // Fila que espera el modal «¿De qué proyecto sale?».
     var almBolsaFila = null;
-    // Abre el modal con cuánto tiene cada proyecto del producto. La fila NO se selecciona aún:
-    // lo hace almBolsaElegir, así que cancelar la deja como estaba.
+    // Abre el modal con cuánto tiene cada proyecto del producto y una casilla para lo que sale de
+    // cada uno, con lo ya escrito si la fila estaba seleccionada. La fila NO cambia hasta
+    // Aceptar (almBolsaAceptar), así que cerrar con la X la deja como estaba.
     function almPedirBolsa(tr) {
         var esc = window.escapeHtml, um = esc(tr.getAttribute('data-um') || '');
+        var s = almSeleccion[tr.getAttribute('data-id-producto')];
+        var previo = {};
+        if (s && s.reparto) s.reparto.forEach(function (r) { previo[r.f] = r.q; });
+        else if (s && s.bolsa !== '' && s.cantidad !== '') previo[s.bolsa] = s.cantidad;
         almBolsaFila = tr;
         el('almBolsaProducto').innerHTML = '<b>' + esc(tr.getAttribute('data-codigo') || '') + '</b> · ' + esc(tr.getAttribute('data-nombre') || '');
-        el('almBolsaLista').innerHTML = almBolsasDeFila(tr).map(function (b) {
-            return '<button type="button" class="alm-bolsa-opcion" data-frente="' + parseInt(b.f, 10) + '" onclick="window.almBolsaElegir(this)">'
-                +   '<span class="nom' + (b.c ? ' comun' : '') + '">' + esc(b.n) + '</span>'
-                +   '<span class="guia" aria-hidden="true"></span>'
-                +   '<span class="qty">' + formatNum(b.q) + '<small>' + um + '</small></span>'
-                + '</button>';
+        var lista = el('almBolsaLista');
+        lista.innerHTML = almBolsasDeFila(tr).map(function (b) {
+            var f = String(parseInt(b.f, 10));
+            return '<div class="alm-aj-bolsa">'
+                + '<span class="nom' + (b.c ? ' comun' : '') + '" title="' + esc(b.n) + '">' + esc(b.n) + '</span>'
+                + '<span class="qty">' + formatNum(b.q) + (um ? ' ' + um : '') + '</span>'
+                + '<input type="number" min="0" step="any" class="alm-bolsa-cant" placeholder="—"'
+                + ' data-frente="' + f + '" data-max="' + (parseFloat(b.q) || 0) + '" data-nombre="' + esc(b.n) + '"'
+                + ' value="' + (previo[f] != null ? esc(String(previo[f])) : '') + '" aria-label="Sale de ' + esc(b.n) + '">'
+                + '</div>';
         }).join('');
+        showErr('almBolsaError', '');
+        lista.oninput = function () { showErr('almBolsaError', ''); };
+        lista.onkeydown = function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); window.almBolsaAceptar(); } };
         almOpen('almBolsaModal');
+        var inps = lista.querySelectorAll('input');
+        var primero = [].filter.call(inps, function (i) { return i.value !== ''; })[0] || inps[0];
+        if (primero) setTimeout(function () { try { primero.focus(); primero.select(); } catch (e) {} }, 30);
     }
-    // Elegir un proyecto: selecciona la fila con esa bolsa y deja lista la cantidad. Si mientras
-    // tanto se repintó la tabla, se busca la fila nueva del mismo producto.
-    window.almBolsaElegir = function (op) {
-        var tr = almBolsaFila; almBolsaFila = null;
+    // Aceptar: lo escrito en cada proyecto pasa a la fila, que queda seleccionada — un proyecto
+    // queda como su bolsa, varios como reparto, y la cantidad es la suma. Ninguno puede pasar de
+    // lo que tiene ese proyecto. Si mientras tanto se repintó la tabla, se busca la fila nueva.
+    window.almBolsaAceptar = function () {
+        var tr = almBolsaFila; if (!tr) { almCerrar('almBolsaModal'); return; }
+        var um = tr.getAttribute('data-um') || '';
+        var reparto = [], total = 0;
+        var inps = document.querySelectorAll('#almBolsaLista .alm-bolsa-cant');
+        for (var i = 0; i < inps.length; i++) {
+            var raw = String(inps[i].value).replace(',', '.').trim();
+            if (raw === '') continue;
+            var q = parseFloat(raw), max = parseFloat(inps[i].getAttribute('data-max')) || 0;
+            if (isNaN(q) || q < 0) { showErr('almBolsaError', 'La cantidad debe ser un número mayor o igual a 0.'); inps[i].focus(); return; }
+            if (q > max + 0.0005) {
+                showErr('almBolsaError', inps[i].getAttribute('data-nombre') + ' solo tiene ' + formatNum(max) + (um ? ' ' + um : '') + '.');
+                inps[i].focus(); return;
+            }
+            if (q > 0) { reparto.push({ f: inps[i].getAttribute('data-frente'), q: q }); total += q; }
+        }
+        if (!reparto.length) { showErr('almBolsaError', 'Escribe cuánto sale de al menos un proyecto.'); return; }
+        almBolsaFila = null;
         almCerrar('almBolsaModal');
-        if (!tr) return;
         var id = tr.getAttribute('data-id-producto');
         if (!tr.isConnected) tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
         if (!tr) return;
-        almSeleccion[id] = almSelNuevaEntrada(tr);
-        almSeleccion[id].bolsa = op.getAttribute('data-frente') || '';
+        var s = almSeleccion[id] || (almSeleccion[id] = almSelNuevaEntrada(tr));
+        s.cantidad = String(Math.round(total * 1000) / 1000);
+        s.bolsa    = reparto.length === 1 ? reparto[0].f : '';
+        s.reparto  = reparto.length > 1 ? reparto : null;
+        almLimpiarFaltante(id); almLimpiarExceden(id);
         almSelMarkRow(tr, true);
-        almEnfocarCantidad(tr);
+        if (almPideParte(id)) almPedirParte(tr);
         almSelRefreshBar();
     };
     // Quita la equivalencia elegida de una fila con varias (con una sola no hay nada que elegir).
@@ -1505,7 +1556,7 @@
     // Único punto por el que se vuelve a habilitar y enfocar la caja fuera de almSelMarkRow.
     function almEnfocarCantidad(tr, seleccionar) {
         if (almPideParte(tr.getAttribute('data-id-producto'))) { almPedirParte(tr); return; }
-        var inp = tr.querySelector('.alm-row-cant'); if (!inp) return;
+        var inp = tr.querySelector('.alm-row-cant'); if (!inp || almFilaPorProyecto(tr)) return;
         inp.disabled = false;
         setTimeout(function () { try { inp.focus(); if (seleccionar) inp.select(); } catch (e) {} }, 30);
     }
@@ -1569,6 +1620,8 @@
                     var s = almSeleccion[id] || (almSeleccion[id] = almSelNuevaEntrada(tr));
                     var previa = parseFloat(String(s.cantidad || '').replace(',', '.')) || 0;
                     s.cantidad = String(Math.round((previa + Number(l.cantidad)) * 1000) / 1000);
+                    // La suma ya no es la del reparto por proyecto: vuelve a automático.
+                    if (s.reparto) { s.reparto = null; s.bolsa = ''; }
                     delete almFaltantes[id];
                     if (almPideParte(id)) res.sinParte++;
                 });
@@ -1633,6 +1686,8 @@
         if (e.target.closest('.alm-td-foto')) return;
         if (tr.classList.contains('alm-row-pide-parte') && e.target.closest('.alm-td-cant')) { almPedirParte(tr); return; }
         var id = tr.getAttribute('data-id-producto'); if (!id) return;
+        // Ya marcada y con saldo en varios proyectos, la cantidad se cambia en su modal.
+        if (almSeleccion[id] && almFilaPorProyecto(tr) && e.target.closest('.alm-td-cant')) { almPedirBolsa(tr); return; }
         // La celda de cantidad de una fila SIN marcar la selecciona: en el teléfono es media
         // tarjeta y el toque se perdía (ni selección, ni modal de proyecto, ni panel, y el toque
         // siguiente quedaba desfasado). Ya marcada, esa celda es para escribir la cantidad.
@@ -3985,29 +4040,39 @@
     }
     almSalidaNotaConfigurar();
 
-    // Un renglón por producto seleccionado con su campo DESTINO, solo si el almacén emite la
-    // Nota acostada (esa hoja lleva DESTINO en cada renglón). Lo escrito vive en
+    // Un renglón por producto seleccionado con su DESTINO (una dirección, opcional), solo si el
+    // almacén emite la Nota acostada (esa hoja lleva DESTINO en cada renglón). La sección va
+    // plegada y se abre sola si ya hay alguno escrito. Lo escrito vive en
     // almSeleccion[id].destino: sobrevive a cerrar y reabrir el modal ("Editar").
     function almSalidaPintarDestinos() {
         var wrap = el('almSalidaDestinosWrap'), lista = el('almSalidaDestinosLista');
         if (!wrap || !lista) return;
         var ids = window.AlmSalidaNota.esHorizontal(ALM_SAL.idAlmacen) ? Object.keys(almSeleccion) : [];
-        wrap.style.display = ids.length ? '' : 'none';
+        wrap.hidden = !ids.length;
         lista.innerHTML = ids.map(function (id) {
             var s = almSeleccion[id] || {};
-            return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;">'
-                + '<div style="font-size:13px;color:#0f172a;min-width:0;">'
-                +   (s.codigo ? '<span style="display:block;font-size:10.5px;color:#64748b;font-weight:700;">' + escHtml(s.codigo) + '</span>' : '')
-                +   escHtml(s.nombre || ('#' + id)) + '</div>'
-                + '<input type="text" class="alm-nota-input" maxlength="150" autocomplete="off" placeholder="Ej: Chuto A60EO9P"'
+            return '<div class="alm-sal-dest-fila">'
+                + '<span class="prod" title="' + escHtml((s.codigo ? s.codigo + ' · ' : '') + (s.nombre || '')) + '">'
+                +   (s.codigo ? '<b>' + escHtml(s.codigo) + '</b> ' : '') + escHtml(s.nombre || ('#' + id)) + '</span>'
+                + '<input type="text" class="alm-nota-input" maxlength="150" autocomplete="off" placeholder="Dirección de entrega"'
+                +   ' aria-label="Destino de ' + escHtml(s.nombre || ('#' + id)) + '"'
                 +   ' data-id="' + escHtml(id) + '" value="' + escHtml(s.destino || '') + '"'
                 +   ' oninput="window.almSalidaDestinoCambio(this)">'
                 + '</div>';
         }).join('');
+        wrap.open = almSalidaDestinosCuenta() > 0;
+    }
+    // Cuántos destinos hay escritos; lo dice el resumen de la sección plegada.
+    function almSalidaDestinosCuenta() {
+        var inps = document.querySelectorAll('#almSalidaDestinosLista input');
+        var escritos = [].filter.call(inps, function (i) { return i.value.trim() !== ''; }).length;
+        el('almSalidaDestinosCuenta').textContent = escritos ? escritos + ' de ' + inps.length : '';
+        return escritos;
     }
     window.almSalidaDestinoCambio = function (inp) {
         var s = almSeleccion[inp.getAttribute('data-id')];
         if (s) s.destino = inp.value;
+        almSalidaDestinosCuenta();
     };
 
     window.almAbrirSalidaModal = function (idAlmacen) {
@@ -4051,17 +4116,22 @@
             var raw = String(s.cantidad == null ? '' : s.cantidad).replace(',', '.').trim();
             var c   = parseFloat(raw);
             var nombre = s.nombre || ('#' + id);
-            if (!isFinite(c) || c <= 0) ((parseFloat(s.saldo) || 0) <= 0 ? sinSaldo : faltan).push(nombre);
-            else lineas.push({
-                id_producto:  parseInt(id, 10),
-                cantidad:     c,
-                numero_parte: s.parte || null,
-                // DESTINO del renglón: solo lo imprime la nota horizontal.
-                destino:      (conDestino && String(s.destino || '').trim()) || null,
-                // Proyecto elegido en el modal «¿De qué proyecto sale?». null = sin elección (la bolsa
-                // del destino). Se compara con '' y no por truthy: 0 es la bolsa común, una elección válida.
-                id_frente_saldo: (s.bolsa === '' || s.bolsa == null) ? null : parseInt(s.bolsa, 10),
-            });
+            if (!isFinite(c) || c <= 0) { ((parseFloat(s.saldo) || 0) <= 0 ? sinSaldo : faltan).push(nombre); return; }
+            var linea = function (cant, bolsa) {
+                return {
+                    id_producto:  parseInt(id, 10),
+                    cantidad:     cant,
+                    numero_parte: s.parte || null,
+                    // DESTINO del renglón: solo lo imprime la nota horizontal.
+                    destino:      (conDestino && String(s.destino || '').trim()) || null,
+                    // Proyecto del que sale. null = sin elección (la bolsa del destino). Se compara
+                    // con '' y no por truthy: 0 es la bolsa común, una elección válida.
+                    id_frente_saldo: (bolsa === '' || bolsa == null) ? null : parseInt(bolsa, 10),
+                };
+            };
+            // De varios proyectos: una línea por proyecto con lo que sale de él.
+            if (s.reparto) s.reparto.forEach(function (r) { lineas.push(linea(r.q, r.f)); });
+            else lineas.push(linea(c, s.bolsa));
         });
         var listar = function (arr) { return arr.slice(0, 4).join(', ') + (arr.length > 4 ? '…' : ''); };
         if (sinSaldo.length) { showErr('almSalidaError', 'Stock insuficiente de: ' + listar(sinSaldo) + '.'); return null; }

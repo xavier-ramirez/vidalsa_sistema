@@ -556,7 +556,7 @@
             + (bajo ? '<i class="material-icons alm-ico-minimo" title="Stock en o por debajo del mínimo">warning</i>' : '') + '</span></td>'
             + '<td class="alm-td-cant" data-no-toggle><div class="alm-cant-stepper">'
             + '<input type="text" inputmode="decimal" class="alm-row-cant" placeholder="0" name="cant_' + p.id + '" aria-label="Cantidad de salida de ' + h(p.nombre) + '" disabled autocomplete="off"'
-            + ' onclick="event.stopPropagation();" onkeydown="return (window.almRowCantKeyDown ? window.almRowCantKeyDown(event) : true)"'
+            + ' onclick="event.stopPropagation(); window.almRowCantClick && window.almRowCantClick(this);" onkeydown="return (window.almRowCantKeyDown ? window.almRowCantKeyDown(event) : true)"'
             + ' onpaste="return (window.almRowCantPaste ? window.almRowCantPaste(event) : true)" oninput="window.almRowCantInput && window.almRowCantInput(this)">'
             + '<div class="alm-cant-flechas">'
             + '<button type="button" class="alm-cant-btn alm-cant-btn-sube" data-step="1" disabled onclick="event.stopPropagation(); window.almRowCantStep && window.almRowCantStep(this,1);">▲</button>'
