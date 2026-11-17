@@ -587,16 +587,25 @@
                  Ocupan TODO el ancho del cuerpo del modal (antes 240px centrados, que dejaba
                  aire muerto a los lados). Si se cambia uno, cambiar el otro. --}}
             <div style="width:100%;margin:0 0 12px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:2px;background:#e1effa;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;text-align:center;">
-                <span style="font-size:12px;color:#475569;font-weight:600;">Saldo actual (sistema)</span>
+                <span id="almAjSaldoRotulo" style="font-size:12px;color:#475569;font-weight:600;">Saldo actual (sistema)</span>
                 <span id="almAjSaldoActual" style="font-size:14px;color:#0067b1;font-weight:800;">—</span>
             </div>
             {{-- Mismo ancho que el recuadro azul de arriba (ver su comentario): el número se
                  sigue escribiendo centrado, pero la caja acompaña al bloque con el que se
                  compara en vez de quedarse más angosta. --}}
-            <div style="text-align:center;">
+            <div id="almAjUnicoWrap" style="text-align:center;">
                 <label for="almAjNuevoSaldo">Saldo según conteo físico</label>
                 <input type="number" id="almAjNuevoSaldo" min="0" step="any" placeholder="Cantidad real contada"
                        style="width:100%;box-sizing:border-box;text-align:center;">
+            </div>
+            {{-- Almacén que lleva el inventario POR PROYECTO (DIVISIÓN CARABOBO): cada proyecto
+                 guarda su material aparte, así que se cuenta por proyecto. Una fila por bolsa
+                 con lo que dice el sistema y su conteo; solo se ajustan las que se llenen. Lo
+                 pinta almAbrirAjuste (almacen_index.js) con AlmacenLocal.bolsasAuditoria. --}}
+            <div id="almAjBolsasWrap" style="display:none;">
+                <div class="alm-aj-bolsa alm-aj-bolsa-head"><span>Proyecto</span><span>Sistema</span><span>Conteo</span></div>
+                <div id="almAjBolsas" class="alm-aj-bolsas"></div>
+                <div class="alm-hint" style="margin-top:6px;">Escribe el conteo solo de los proyectos que contaste; los demás quedan igual.</div>
             </div>
             <div id="almAjError" style="display:none;color:#dc2626;font-size:13px;font-weight:600;"></div>
         </div>

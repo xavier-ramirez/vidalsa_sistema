@@ -250,6 +250,8 @@
             it.datos.lineas.forEach((l) => {
                 const prod = Number(l.id_producto), cant = Number(l.cantidad);
                 if (it.tipo === 'ajuste') {
+                    // Auditoría de UN proyecto (almacén que separa): esa bolsa queda en lo contado.
+                    if (l.id_frente_saldo != null) { bolsa(alm, prod, Number(l.id_frente_saldo)).cant = r3(cant); return; }
                     const total = delProducto(alm, prod).reduce((t, s) => t + s.cant, 0);
                     const f = bolsa(alm, prod, 0);
                     f.cant = r3(f.cant + cant - total);
@@ -304,6 +306,28 @@
         return filas.filter((s) => s.cant > 0)
             .map((s) => ({ frente: s.frente, nombre: nombreFrente(ctx, s.frente) == null ? null : nombreFrente(ctx, s.frente), cant: s.cant }))
             .sort((a, b) => (b.cant - a.cant) || ordenNulos(a.nombre, b.nombre));
+    }
+
+    // Auditoría en un almacén que separa por proyecto: el conteo físico es de UNA bolsa, así que
+    // se lista cada una con su saldo — los proyectos del almacén (aunque estén en cero: ahí
+    // también se puede contar material) y la común. Una bolsa con saldo de un proyecto que ya
+    // no está en el almacén se muestra, pero sin poder auditarla (el servidor la rechazaría).
+    // null = el almacén no separa: la auditoría es del total, como siempre.
+    function bolsasAuditoria(vista, idAlmacen, idProducto) {
+        const ctx = contexto(vista);
+        const alm = ctx.almById.get(Number(idAlmacen));
+        if (!alm || !alm.separa) return null;
+        const saldo = new Map();
+        ctx.stock.forEach((s) => {
+            if (s.alm === alm.id && s.prod === Number(idProducto)) saldo.set(s.frente, r3((saldo.get(s.frente) || 0) + s.cant));
+        });
+        const delAlmacen = new Set(alm.frentes || []);
+        const ids = new Set([...delAlmacen, 0]);
+        saldo.forEach((q, f) => { if (q !== 0) ids.add(f); });
+        return [...ids].map((f) => {
+            const nombre = f === 0 ? null : (nombreFrente(ctx, f) == null ? null : nombreFrente(ctx, f));
+            return { f, n: rotuloBolsa(f, nombre), q: saldo.get(f) || 0, c: esComun(f, nombre), auditable: f === 0 || delAlmacen.has(f) };
+        }).sort((a, b) => (a.c - b.c) || (b.auditable - a.auditable) || ordenNulos(a.n, b.n));
     }
 
     // Almacén elegido: el pedido si es visible, si no el del frente del usuario, si no el primero.
@@ -946,5 +970,5 @@
             }));
     }
 
-    window.AlmacenLocal = { inventario, idsInventario, panelOtros, movimientos, consumo, notas, notasFiltro, listaProductos, stockConPendientes, fmt };
+    window.AlmacenLocal = { inventario, idsInventario, panelOtros, movimientos, consumo, notas, notasFiltro, listaProductos, stockConPendientes, bolsasAuditoria, fmt };
 })();

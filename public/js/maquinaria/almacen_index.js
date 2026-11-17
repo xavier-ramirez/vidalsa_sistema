@@ -2917,8 +2917,64 @@
         var sv = el('almAjSaldoActual');
         if (sv) { var s = parseFloat(saldo); sv.textContent = (isNaN(s) ? '—' : formatNum(s)) + (um ? ' ' + um : ''); }
         el('almAjNuevoSaldo').value = '';
-        showErr('almAjError', ''); almOpen('almAjusteModal');
+        showErr('almAjError', '');
+        // En un almacén que lleva el inventario POR PROYECTO el conteo es de cada proyecto: el
+        // total no dice a cuál le sobra o le falta, y ajustarlo caía entero en la bolsa común.
+        // Las bolsas salen de la copia local (la misma que pinta la tabla), así que sirve
+        // también sin internet.
+        var idAlm = val('almSelAlmacen');
+        almVista().then(function (vista) {
+            var bolsas = idAlm ? window.AlmacenLocal.bolsasAuditoria(vista, idAlm, idProducto) : null;
+            almAjustePintarBolsas(bolsas, um);
+            almOpen('almAjusteModal');
+            var primero = bolsas ? document.querySelector('#almAjBolsas input') : el('almAjNuevoSaldo');
+            if (primero) setTimeout(function () { try { primero.focus(); } catch (e) {} }, 30);
+        });
     };
+    // Modo del modal: un solo conteo (el total) o uno por proyecto (bolsas != null).
+    function almAjustePintarBolsas(bolsas, um) {
+        var m = el('almAjusteModal'), multi = !!bolsas;
+        m.dataset.multi = multi ? '1' : '';
+        m.querySelector('.alm-modal').style.maxWidth = multi ? '480px' : '340px';
+        el('almAjSaldoRotulo').textContent = multi ? 'Saldo total del almacén (sistema)' : 'Saldo actual (sistema)';
+        el('almAjUnicoWrap').style.display  = multi ? 'none' : '';
+        el('almAjBolsasWrap').style.display = multi ? '' : 'none';
+        var esc = window.escapeHtml, umTxt = um ? ' ' + esc(um) : '';
+        el('almAjBolsas').innerHTML = multi ? bolsas.map(function (b) {
+            return '<div class="alm-aj-bolsa' + (b.auditable ? '' : ' fija') + '" data-saldo="' + b.q + '">'
+                + '<span class="nom' + (b.c ? ' comun' : '') + '" title="' + esc(b.n) + '">' + esc(b.n) + '</span>'
+                + '<span class="qty">' + formatNum(b.q) + umTxt + '</span>'
+                + (b.auditable
+                    ? '<input type="number" min="0" step="any" class="alm-aj-conteo" placeholder="—" aria-label="Conteo de ' + esc(b.n) + '"'
+                      + ' data-frente="' + parseInt(b.f, 10) + '">'
+                    : '<span class="fija-txt">Ya no está en este almacén</span>')
+                + '</div>';
+        }).join('') : '';
+        // El aviso de un intento anterior ("coincide con el sistema"…) se va al corregir.
+        el('almAjBolsas').oninput = function () { showErr('almAjError', ''); };
+    }
+    // Líneas del ajuste en modo por proyecto: una por bolsa contada que CAMBIA (igual al sistema
+    // no es un ajuste: el servidor lo rechazaría). Devuelve {lineas, total} o {error}.
+    function almAjusteLineasPorProyecto(idProducto) {
+        var total = 0, contadas = 0, lineas = [];
+        var filas = document.querySelectorAll('#almAjBolsas .alm-aj-bolsa');
+        for (var i = 0; i < filas.length; i++) {
+            var fila = filas[i], inp = fila.querySelector('input');
+            var sistema = parseFloat(fila.getAttribute('data-saldo')) || 0;
+            var raw = inp ? inp.value.trim() : '';
+            if (raw === '') { total += sistema; continue; }
+            var q = parseFloat(raw);
+            if (isNaN(q) || q < 0) return { error: 'El conteo debe ser un número ≥ 0.' };
+            contadas++;
+            total += q;
+            if (Math.abs(q - sistema) >= 0.0005) {
+                lineas.push({ id_producto: idProducto, cantidad: q, id_frente_saldo: parseInt(inp.getAttribute('data-frente'), 10) });
+            }
+        }
+        if (!contadas) return { error: 'Escribe el conteo de al menos un proyecto.' };
+        if (!lineas.length) return { error: 'El conteo coincide con el sistema: no hay nada que ajustar.' };
+        return { lineas: lineas, total: Math.round(total * 1000) / 1000 };
+    }
 
     // Reevalúa el resaltado de "stock bajo" de una fila con un saldo nuevo, SIN esperar la
     // recarga: actualiza data-saldo y togglea .alm-row-bajo comparando contra data-minimo.
@@ -2948,21 +3004,33 @@
         if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return;
         var m = el('almAjusteModal');
         var idAlm = val('almSelAlmacen'); if (!idAlm) { showErr('almAjError', 'No hay almacén seleccionado.'); return; }
-        var nuevoSaldoRaw = val('almAjNuevoSaldo');
-        if (nuevoSaldoRaw === '') { showErr('almAjError', 'Indica el saldo según el conteo físico.'); return; }
-        var ns = parseFloat(nuevoSaldoRaw);
-        if (isNaN(ns) || ns < 0) { showErr('almAjError', 'El nuevo saldo debe ser un número ≥ 0.'); return; }
+        var idProducto = parseInt(m.dataset.idProducto, 10);
+        // ns = saldo TOTAL que queda en el almacén (lo usa el resaltado de stock bajo de la fila).
+        var ns, lineas, titulo;
+        if (m.dataset.multi === '1') {
+            // Por proyecto: una línea por bolsa contada, cada una con su proyecto.
+            var r = almAjusteLineasPorProyecto(idProducto);
+            if (r.error) { showErr('almAjError', r.error); return; }
+            lineas = r.lineas; ns = r.total;
+            titulo = 'Auditoría · ' + (m.dataset.nombre || ('Producto #' + idProducto)) + ' · ' + lineas.length + ' proyecto' + (lineas.length === 1 ? '' : 's');
+        } else {
+            var nuevoSaldoRaw = val('almAjNuevoSaldo');
+            if (nuevoSaldoRaw === '') { showErr('almAjError', 'Indica el saldo según el conteo físico.'); return; }
+            ns = parseFloat(nuevoSaldoRaw);
+            if (isNaN(ns) || ns < 0) { showErr('almAjError', 'El nuevo saldo debe ser un número ≥ 0.'); return; }
+            lineas = [{ id_producto: idProducto, cantidad: ns }];
+            titulo = 'Auditoría · ' + (m.dataset.nombre || ('Producto #' + idProducto)) + ' → ' + ns;
+        }
 
         pre();
-        // Endpoint unificado de lote: la Auditoría se registra como un lote de 1 línea con
-        // tipo=AJUSTE. El backend ignora los campos de Nota de Entrega para AJUSTE. Sin
-        // internet queda en la bandeja y el saldo contado ya se ve en la tabla.
-        var lineas = [{ id_producto: parseInt(m.dataset.idProducto, 10), cantidad: ns }];
+        // Endpoint unificado de lote: la Auditoría se registra como un lote tipo=AJUSTE (una
+        // línea, o una por proyecto). El backend ignora los campos de Nota de Entrega para
+        // AJUSTE. Sin internet queda en la bandeja y el saldo contado ya se ve en la tabla.
         window.Bandeja.enviar(ROUTE_LOTE, {
             method: 'POST',
             body: { id_almacen: idAlm, tipo: 'AJUSTE', motivo: 'Auditoría de Inventario', lineas: lineas },
         }, {
-            titulo: 'Auditoría · ' + (m.dataset.nombre || ('Producto #' + m.dataset.idProducto)) + ' → ' + ns,
+            titulo: titulo,
             tipo: 'ajuste', datos: { id_almacen: parseInt(idAlm, 10), lineas: lineas },
         }).then(function (res) {
               unpre();

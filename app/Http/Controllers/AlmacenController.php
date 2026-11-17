@@ -2111,6 +2111,21 @@ class AlmacenController extends Controller
             }
         }
 
+        // AJUSTE (Auditoría) en un almacén que separa por proyecto: el conteo físico es de UNA
+        // bolsa —cada proyecto guarda su material aparte—, así que cada línea dice de cuál. Sin
+        // eso el ajuste caía en la bolsa común con el total del almacén y descuadraba los
+        // proyectos. Es POR LÍNEA: una auditoría puede contar varios proyectos del mismo
+        // producto. Se resuelve aquí, antes de escribir nada.
+        if ($data['tipo'] === 'AJUSTE' && ($almacenLote?->separaPorProyecto() ?? false)) {
+            foreach ($data['lineas'] as $i => $linea) {
+                if (!isset($linea['id_frente_saldo'])) {
+                    $error = 'Este almacén lleva el inventario por proyecto: indica de qué proyecto es el conteo.';
+                    return response()->json(['message' => $error, 'errors' => ['lineas' => [$error]]], 422);
+                }
+                $data['lineas'][$i]['bolsa_ajuste'] = $this->bolsaOrigenElegida($almacenLote, $linea['id_frente_saldo']);
+            }
+        }
+
         // Destino escrito por renglón (nota HORIZONTAL), [ID_PRODUCTO => texto]. Viaja en
         // $data para que lo lean las dos ramas: la salida en el mismo almacén y el traspaso.
         // Solo SALIDA: una entrada o un ajuste no imprimen nota.
@@ -2258,6 +2273,11 @@ class AlmacenController extends Controller
                     // que mandarla en null significaría "bolsa común" en vez de "no eligió".
                     if (isset($bolsaPorProducto[$idProducto])) {
                         $optsLinea['_frente_saldo'] = $bolsaPorProducto[$idProducto];
+                    }
+                    // Auditoría de un proyecto: ajusta SU bolsa y el kardex lo nombra (la común, sin proyecto).
+                    if (isset($linea['bolsa_ajuste'])) {
+                        $optsLinea['_frente_saldo'] = $linea['bolsa_ajuste'];
+                        $optsLinea['id_frente']     = $linea['bolsa_ajuste'] ?: null;
                     }
 
                     $mov = match ($data['tipo']) {
