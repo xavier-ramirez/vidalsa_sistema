@@ -3558,6 +3558,9 @@
             cuerpo.logistica = logistica;
         }
 
+        // Sin internet no se guarda (cambia frentes y saldos en el servidor): lo escrito queda en
+        // el modal para guardarlo al volver la conexión. Antes solo decía «Error de red».
+        if (window.Bandeja.sinConexion()) { _fail('Sin conexión no se puede guardar el almacén. Inténtalo al volver internet.'); return; }
         var url = id ? ROUTE_ALM_ITEM(id) : ROUTE_ALM;
         pre();
         window.apiFetch(url, {
