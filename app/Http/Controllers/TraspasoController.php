@@ -62,8 +62,9 @@ class TraspasoController extends Controller
 
         // Una sola consulta: la usamos para (a) limitar el WHERE de la query, (b) llenar el
         // dropdown del header, (c) validar el default-por-frente y saber su TIPO (decide si
-        // se entra a la bandeja o a nuevaEntrada) y (d) el guard de mas abajo.
-        $almacenes         = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
+        // se entra a la bandeja o a nuevaEntrada), (d) el guard de mas abajo y (e) el formato
+        // de la Nota de Entrega de "Registrar y despachar".
+        $almacenes         = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO', 'FORMATO_NOTA']);
         $almacenesVisibles = $almacenes->pluck('ID_ALMACEN');
 
         // Guard: usuario sin almacenes visibles → menu con notificacion. Cubre 2 casos:
@@ -346,10 +347,7 @@ class TraspasoController extends Controller
         // almacén de la bandeja (se cambia en caliente). Solo para quien puede mover stock: el
         // menú entero va dentro del @can.
         [$frentesLista, $notaSalida] = $user?->can('almacen.movimiento')
-            ? $this->datosNotaDespacho($request, Almacen::whereIn('ID_ALMACEN', $bandeja->pluck('ID_ALMACEN'))
-                ->get(['ID_ALMACEN', 'FORMATO_NOTA'])
-                ->mapWithKeys(fn ($a) => [$a->ID_ALMACEN => $a->formatoNota()])
-                ->all())
+            ? $this->datosNotaDespacho($request, $bandeja->mapWithKeys(fn ($a) => [$a->ID_ALMACEN => $a->formatoNota()])->all())
             : [collect(), []];
 
         return view('admin.almacen.recepcion.index', [

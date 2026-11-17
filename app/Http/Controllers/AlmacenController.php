@@ -2283,9 +2283,8 @@ class AlmacenController extends Controller
 
         $n = count($lineas);
         return response()->json([
-            // Dos líneas en el toast: showToast (uicomponents.js) inyecta el message
-            // como innerHTML, así que el <br> separa el resumen del estado.
-            'message'         => "Salida hacia otro proyecto enviada ({$n} producto" . ($n === 1 ? '' : 's') . ')<br>pendiente de recepción.',
+            // Texto plano: showToast (uicomponents.js) pinta el message con textContent.
+            'message'         => "Salida hacia otro proyecto enviada ({$n} producto" . ($n === 1 ? '' : 's') . '), pendiente de recepción.',
             'nota_url'        => route('almacen.nota-entrega', ['numero' => $resultado['numero_nota']]),
             'numero_nota'     => $resultado['numero_nota'],
             'numero_traspaso' => $resultado['numero_traspaso'],
@@ -2384,7 +2383,7 @@ class AlmacenController extends Controller
         $n = count($lineas);
         return response()->json([
             'message'         => "Entrada registrada y despachada ({$n} producto" . ($n === 1 ? '' : 's') . ') — Nota ' . $resultado['numero_nota']
-                . ($resultado['numero_traspaso'] ? '<br>pendiente de recepción en el almacén del proyecto.' : '.'),
+                . ($resultado['numero_traspaso'] ? ', pendiente de recepción en el almacén del proyecto.' : '.'),
             'nota_url'        => route('almacen.nota-entrega', ['numero' => $resultado['numero_nota']]),
             'numero_nota'     => $resultado['numero_nota'],
             'numero_traspaso' => $resultado['numero_traspaso'],

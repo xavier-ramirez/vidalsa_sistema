@@ -747,9 +747,9 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     // TODOS los .alm-modal-overlay de esta pantalla de golpe, sin volver a la nota.
     if (window.__entDocKeydown) document.removeEventListener('keydown', window.__entDocKeydown, true);
     window.__entDocKeydown = function (e) {
-        if (e.key !== 'Escape') return;
+        // La Nota de Entrega y su vista previa las atiende recepcion_despacho.js (preventDefault).
+        if (e.key !== 'Escape' || e.defaultPrevented) return;
         if (entDocAbierto()) { e.stopPropagation(); window.entCerrarDocumento(); return; }
-        if (despacho.escape(e)) return;
         var box = el('entSuggest');
         if (box && box.classList.contains('open')) { entSuggestHide(); return; }
     };

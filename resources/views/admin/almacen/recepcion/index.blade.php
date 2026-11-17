@@ -265,7 +265,7 @@
         @can('almacen.movimiento')
         <div class="tr-acc-wrap">
             <button type="button" id="trBtnAcciones" class="btn-primary-maquinaria tr-acc-btn"
-                    onclick="window.trToggleAcciones(event)" title="Registrar una entrada en este almacén">
+                    onclick="window.trToggleAcciones()" title="Registrar una entrada en este almacén">
                 <i class="material-icons">settings</i><span class="tr-acc-txt">Acciones</span><i class="material-icons">expand_more</i>
             </button>
             <div id="trAccionesMenu" class="tr-acc-menu">
@@ -982,7 +982,11 @@
             toast('Selecciona primero el almacén de la bandeja para registrar la entrada.', 'error');
             return;
         }
-        modo = nuevoModo === 'despacho' ? 'despacho' : 'compra';
+        var nuevo = nuevoModo === 'despacho' ? 'despacho' : 'compra';
+        // Cambiar de opción arranca en blanco: lo capturado para despachar no debe poder
+        // registrarse como una entrada que se queda en el almacén (ni al revés).
+        if (nuevo !== modo) limpiar();
+        modo = nuevo;
         var desp = modo === 'despacho';
         el('cdirTitulo').textContent       = desp ? 'Registrar y despachar' : 'Entrada por compra directa';
         el('cdirIcono').textContent        = desp ? 'local_shipping' : 'shopping_cart';
@@ -1069,6 +1073,8 @@
         if (modo === 'despacho') {
             if (notaAlmacen !== dest) { despacho.reiniciar(); notaAlmacen = dest; }
             cerrar();
+            // cerrar() suelta el scroll del fondo; con la nota abierta encima sigue bloqueado.
+            document.body.style.overflow = 'hidden';
             despacho.abrir();
             return;
         }
@@ -1134,17 +1140,22 @@
         notaSalida:   @json($notaSalida ?? []),
         almacen:      destinoActual,
         lineas:       function () { return lineas.map(function (l) { return { id_producto: l.id_producto, cantidad: l.cantidad }; }); },
-        // Despachado: la captura ya estaba oculta; queda vacía para la siguiente. Como en la
-        // compra directa, la bandeja no se recarga: no hay nota por confirmar nueva.
-        alTerminar:   function () { limpiar(); },
+        // Despachado: la captura ya estaba oculta; queda vacía para la siguiente y el fondo
+        // vuelve a desplazarse. Si el proyecto tiene almacén propio salió un traspaso, que
+        // puede ser una nota por recibir de otro almacén de esta misma bandeja: se refresca
+        // en silencio, como cuando llega un cambio de otro equipo.
+        alTerminar:   function (resp) {
+            limpiar();
+            document.body.style.overflow = '';
+            if (resp.numero_traspaso && window.trRefrescarSolo) window.trRefrescarSolo();
+        },
         // Nota cerrada sin despachar: de vuelta a la captura, tal como estaba.
         alCerrar:     function () { mostrar(); },
     });
 
     // ── Menú Acciones ─────────────────────────────────────────────────────
     function accionesCerrar() { var m = el('trAccionesMenu'); if (m) m.classList.remove('open'); }
-    window.trToggleAcciones = function (e) {
-        if (e) e.stopPropagation();
+    window.trToggleAcciones = function () {
         var m = el('trAccionesMenu'); if (!m) return;
         // Un desplegable a la vez: cierra los filtros del toolbar (uicomponents.js).
         if (typeof window.closeAllDropdowns === 'function') window.closeAllDropdowns();
@@ -1166,7 +1177,6 @@
     }
     if (window.__cdirDocClick) document.removeEventListener('click', window.__cdirDocClick);
     window.__cdirDocClick = function (e) {
-        if (!e.target.closest('.tr-acc-wrap')) accionesCerrar();
         if (!modalAbierto()) return;
         var item = e.target.closest('#cdirSuggest .cdir-suggest-item');
         if (item) { e.preventDefault(); elegir(item); return; }
@@ -1184,6 +1194,13 @@
         if (!e.target.closest('.cdir-proy-field')) proySuggestHide();
     };
     document.addEventListener('click', window.__cdirDocClick);
+    // Menú Acciones: se cierra con un clic fuera de él. En fase de CAPTURA porque varios
+    // controles del toolbar (el botón de filtros avanzados, los custom-dropdown) cortan el
+    // evento, y en burbuja el menú se quedaba abierto junto al otro desplegable. Por lo mismo
+    // el botón Acciones no corta el suyo: así los demás desplegables también se cierran.
+    if (window.__trAccDocClick) document.removeEventListener('click', window.__trAccDocClick, true);
+    window.__trAccDocClick = function (e) { if (!e.target.closest('.tr-acc-wrap')) accionesCerrar(); };
+    document.addEventListener('click', window.__trAccDocClick, true);
 
     if (window.__cdirDocKeydown) document.removeEventListener('keydown', window.__cdirDocKeydown);
     // Escape: cierra primero el desplegable abierto; si no hay ninguno, hace lo MISMO que la
@@ -1205,14 +1222,6 @@
         window.cdirOcultar();
     };
     document.addEventListener('keydown', window.__cdirDocKeydown);
-
-    // Escape en la Nota de Entrega y su vista previa. En fase de CAPTURA y cortando el evento
-    // cuando lo atiende (dentro de despacho.escape): el Escape de /admin/almacen
-    // (almacen_index.js) sigue escuchando tras pasar por ese módulo y cerraría TODOS los
-    // .alm-modal-overlay de esta pantalla de golpe, sin volver a la nota.
-    if (window.__cdirDespKeydown) document.removeEventListener('keydown', window.__cdirDespKeydown, true);
-    window.__cdirDespKeydown = function (e) { if (e.key === 'Escape') despacho.escape(e); };
-    document.addEventListener('keydown', window.__cdirDespKeydown, true);
 
     render();
 })();

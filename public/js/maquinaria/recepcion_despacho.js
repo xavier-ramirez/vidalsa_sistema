@@ -17,11 +17,18 @@
  *   rutaDespacho, rutaPreview, notaSalida  — del Blade.
  *   almacen()   → id del almacén donde entra y del que sale el material.
  *   lineas()    → [{id_producto, cantidad}] capturadas.
- *   alTerminar() → vacía la captura de la pantalla tras despachar.
+ *   alTerminar(resp) → vacía la captura de la pantalla tras despachar; resp es la respuesta
+ *                  del servidor (numero_nota, numero_traspaso…).
  *   alCerrar()   → opcional: el usuario cerró la nota sin despachar (✕ / Cancelar / Escape).
  *                  La bandeja lo usa para volver a su captura, que queda debajo oculta.
+ *
+ * Escape lo atiende UN solo oyente (abajo), no uno por pantalla: la SPA no los quita al
+ * salir, y con dos registrados un Escape se aplicaba dos veces (de la vista previa saltaba
+ * directo a la captura) o actuaba sobre el #almSalidaModal de /admin/almacen, que tiene el
+ * mismo id. El oyente solo obedece al último montaje y solo si sus modales siguen en la página.
  */
 window.RecepcionDespacho = {
+    actual: null,   // el último montaje (ver el oyente de Escape)
     montar: function (cfg) {
         'use strict';
         cfg = cfg || {};
@@ -138,7 +145,7 @@ window.RecepcionDespacho = {
                     window.AlmSalidaNota.recordarDepto(payload.departamento);
                     previewCerrar();
                     api.reiniciar();
-                    cfg.alTerminar();
+                    cfg.alTerminar(res.b || {});
                     toast((res.b && res.b.message) || 'Entrada registrada y despachada.', 'success');
                     // La nota, descargada como archivo (dom_helpers.js), igual que la salida de /admin/almacen.
                     if (res.b && res.b.nota_url) window.descargarPdf(res.b.nota_url, res.b.numero_nota ? ('Nota_' + res.b.numero_nota + '.pdf') : 'nota_entrega.pdf');
@@ -177,23 +184,32 @@ window.RecepcionDespacho = {
                 porLimpiar = true;
                 draft = null;
             },
-            /**
-             * Escape de la pantalla: true si lo atendió un modal del despacho. La vista previa
-             * vuelve a la nota; en la nota, una lista abierta (proyecto, contrato) se cierra
-             * sola antes que la ventana. Las de vehículo/chofer (campos [data-log]) las cierra
-             * almacen_salida_nota.js: a esas se las deja pasar.
-             */
+        };
+
+        // Escape: la vista previa vuelve a la nota; en la nota, una lista abierta (proyecto,
+        // contrato) se cierra sola antes que la ventana. Las de vehículo/chofer (campos
+        // [data-log]) las cierra almacen_salida_nota.js: a esas se las deja pasar. Lo que se
+        // atiende sale con preventDefault, para que el Escape de la pantalla no lo repita.
+        var preview = el('entDespPreviewModal');
+        window.RecepcionDespacho.actual = {
+            vigente: function () { return !!preview && preview.isConnected; },
             escape: function (e) {
-                if (abierto('entDespPreviewModal')) { e.stopPropagation(); window.entDespPreviewEditar(); return true; }
-                if (!abierto('almSalidaModal')) return false;
+                if (abierto('entDespPreviewModal')) { e.preventDefault(); e.stopPropagation(); window.entDespPreviewEditar(); return; }
+                if (!abierto('almSalidaModal')) return;
+                if (e.target && e.target.closest && e.target.closest('#almSalidaModal [data-log]')) return;
+                e.preventDefault(); e.stopPropagation();
                 var dd = document.querySelector('#almSalidaModal .custom-dropdown.active');
-                if (dd) { e.stopPropagation(); dd.classList.remove('active'); return true; }
-                if (e.target && e.target.closest && e.target.closest('#almSalidaModal [data-log]')) return true;
-                e.stopPropagation();
+                if (dd) { dd.classList.remove('active'); return; }
                 window.entCerrarDespacho();
-                return true;
             },
         };
         return api;
     },
 };
+
+// En fase de CAPTURA y cortando el evento: el Escape de /admin/almacen (almacen_index.js)
+// sigue escuchando tras pasar por ese módulo y cerraría TODOS los .alm-modal-overlay de golpe.
+document.addEventListener('keydown', function (e) {
+    var a = window.RecepcionDespacho.actual;
+    if (e.key === 'Escape' && a && a.vigente()) a.escape(e);
+}, true);

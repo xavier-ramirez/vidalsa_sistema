@@ -15,14 +15,16 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
 {
     /**
      * Un usuario cuyo almacén por defecto (el de su frente) es del tipo pedido. Con
-     * $veProyecto, además tiene que ver algún almacén de PROYECTO (el que abre la bandeja).
+     * $veProyecto, además tiene que ver algún almacén de PROYECTO (el que abre la bandeja);
+     * con $mueve, además tiene la clave almacen.movimiento (la del menú Acciones).
      */
-    private function usuarioConAlmacen(string $tipo, bool $veProyecto = false): Usuario
+    private function usuarioConAlmacen(string $tipo, bool $veProyecto = false, bool $mueve = false): Usuario
     {
         // Sin cambio de clave pendiente: EnsurePasswordChanged lo mandaría a cambiarla.
-        $u = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->where('ESTATUS', 'ACTIVO')->get()->first(function ($u) use ($tipo, $veProyecto) {
+        $u = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->where('ESTATUS', 'ACTIVO')->get()->first(function ($u) use ($tipo, $veProyecto, $mueve) {
             $id = $u->almacenPorDefecto();
             return $id
+                && (!$mueve || $u->can('almacen.movimiento'))
                 && Almacen::visiblesPara($u)->where('ID_ALMACEN', $id)->exists()
                 && Almacen::where('ID_ALMACEN', $id)->value('TIPO') === $tipo
                 && (!$veProyecto || Almacen::visiblesPara($u)->where('TIPO', Almacen::TIPO_PROYECTO)->exists());
@@ -41,9 +43,7 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
 
     public function test_la_bandeja_ofrece_compra_directa_y_registrar_y_despachar_en_acciones(): void
     {
-        $u = $this->usuarioConAlmacen(Almacen::TIPO_PROYECTO);
-        $this->assertTrue($u->can('almacen.movimiento'), 'El usuario de la prueba necesita la clave almacen.movimiento.');
-
+        $u = $this->usuarioConAlmacen(Almacen::TIPO_PROYECTO, false, true);
         $r = $this->actingAs($u)->get(route('almacen.recepcion.index'))->assertOk();
         // El menú Acciones con sus dos opciones, y la Nota de Entrega del despacho con el
         // formato de cada almacén de la bandeja.
