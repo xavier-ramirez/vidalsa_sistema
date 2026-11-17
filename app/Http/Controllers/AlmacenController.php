@@ -2096,20 +2096,16 @@ class AlmacenController extends Controller
         //
         // Es POR LÍNEA: el modal «¿De qué proyecto sale?» deja sacar el mismo producto de
         // varios proyectos a la vez, y llega como una línea por proyecto con su cantidad.
-        // $bolsaPorProducto es el mismo dato por producto para el traspaso, que lleva un solo
-        // proyecto por producto (ver la rama de abajo).
-        $bolsaPorProducto = [];
-        $bolsasDeProducto = [];
+        // $bolsasPorProducto ([ID_PRODUCTO => [bolsa => bolsa]], la forma de previewSalidaPdf)
+        // es lo que necesita el traspaso, que lleva un solo proyecto por producto.
+        $bolsasPorProducto = [];
         if ($data['tipo'] === 'SALIDA') {
             foreach ($data['lineas'] as $i => $linea) {
                 $bolsa = $this->bolsaOrigenElegida($almacenLote, $linea['id_frente_saldo'] ?? null);
-                if ($bolsa === null) {
-                    continue;
+                if ($bolsa !== null) {
+                    $data['lineas'][$i]['bolsa_salida'] = $bolsa;
+                    $bolsasPorProducto[(int) $linea['id_producto']][$bolsa] = $bolsa;
                 }
-                $idp = (int) $linea['id_producto'];
-                $data['lineas'][$i]['bolsa_salida'] = $bolsa;
-                $bolsaPorProducto[$idp] ??= $bolsa;
-                $bolsasDeProducto[$idp][$bolsa] = true;
             }
         }
 
@@ -2146,15 +2142,16 @@ class AlmacenController extends Controller
                 }
                 if ($idAlmDestino !== null) {
                     // SALIDA hacia un almacén distinto → vía traspaso.
-                    if ($error = $this->errorRepartoEnTraspaso($bolsasDeProducto)) {
+                    if ($error = $this->errorRepartoEnTraspaso($bolsasPorProducto)) {
                         return response()->json(['message' => $error, 'errors' => ['lineas' => [$error]]], 422);
                     }
+                    // Sin reparto, cada producto tiene una sola bolsa: [ID_PRODUCTO => bolsa].
                     return $this->registrarSalidaViaTraspaso(
                         $request,
                         $data,
                         (int) $idFrenteDest,
                         $idAlmDestino,
-                        $bolsaPorProducto,
+                        array_map(fn ($b) => reset($b), $bolsasPorProducto),
                     );
                 }
                 // 0 almacenes distintos → es consumo en el almacén actual (cae al flujo normal).
@@ -2682,6 +2679,24 @@ class AlmacenController extends Controller
     }
 
     /**
+     * Rechazo de una salida vía TRASPASO con un producto repartido entre varios proyectos
+     * (`$bolsasPorProducto` = [ID_PRODUCTO => [bolsa => bolsa]]): cada línea del traspaso es un
+     * producto, sale de UNA bolsa y se recibe entera. null = no hay reparto. Lo usan el
+     * registro (registrarMovimientoLote) y la vista previa (previewSalidaPdf), para que la
+     * vista previa no deje pasar lo que el registro rechazaría.
+     */
+    private function errorRepartoEnTraspaso(array $bolsasPorProducto): ?string
+    {
+        $repartidos = array_keys(array_filter($bolsasPorProducto, fn ($b) => count($b) > 1));
+        if (!$repartidos) {
+            return null;
+        }
+        return 'El proyecto elegido recibe por su propio almacén y ahí cada producto sale de un solo proyecto. Saca '
+            . ProductoInventario::whereIn('ID_PRODUCTO', $repartidos)->pluck('NOMBRE')->implode(', ')
+            . ' de un solo proyecto o despáchalo en dos notas.';
+    }
+
+    /**
      * Almacén al que va una salida para el frente destino: el que el usuario eligió
      * (`id_almacen_destino`, comprobando que sea REALMENTE de ese frente), o el único
      * almacén PROYECTO que lo maneja. null = ninguno: es consumo en el propio almacén.
@@ -2694,24 +2709,6 @@ class AlmacenController extends Controller
      *
      * @return int|null|\Illuminate\Http\JsonResponse
      */
-    /**
-     * Rechazo de una salida vía TRASPASO con un producto repartido entre varios proyectos
-     * (`$bolsasDeProducto` = [ID_PRODUCTO => [bolsa => …]]): cada línea del traspaso es un
-     * producto, sale de UNA bolsa y se recibe entera. null = no hay reparto. Lo usan el
-     * registro (registrarMovimientoLote) y la vista previa (previewSalidaPdf), para que la
-     * vista previa no deje pasar lo que el registro rechazaría.
-     */
-    private function errorRepartoEnTraspaso(array $bolsasDeProducto): ?string
-    {
-        $repartidos = array_keys(array_filter($bolsasDeProducto, fn ($b) => count($b) > 1));
-        if (!$repartidos) {
-            return null;
-        }
-        return 'El proyecto elegido recibe por su propio almacén y ahí cada producto sale de un solo proyecto. Saca '
-            . ProductoInventario::whereIn('ID_PRODUCTO', $repartidos)->pluck('NOMBRE')->implode(', ')
-            . ' de un solo proyecto o despáchalo en dos notas.';
-    }
-
     private function almacenDestinoDeSalida(array $data, int $idFrenteDest)
     {
         // Almacenes PROYECTO activos que manejan el frente, sin contar el de origen
