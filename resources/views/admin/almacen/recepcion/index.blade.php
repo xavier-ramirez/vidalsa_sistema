@@ -871,7 +871,7 @@
         box.classList.add('open');
     };
     window.cdirUmKey = function (ev) {
-        if (ev.key === 'Escape') { umHide(); return; }
+        if (ev.key === 'Escape') { ev.preventDefault(); umHide(); return; }
         if (ev.key === 'Enter') {
             ev.preventDefault();
             var first = document.querySelector('#cdirUmSuggest .cdir-um-item'), inp = el('cdirUm');
@@ -1226,7 +1226,8 @@
         notaSalida:   NOTA_SALIDA,
         almacen:      destinoActual,
         lineas:       function () {
-            return lineas.map(function (l) { return { id_producto: l.id_producto, cantidad: l.cantidad, destino: l.destino || null }; });
+            var dest = conDestino();   // la bandeja pudo pasar a un almacén de nota vertical
+            return lineas.map(function (l) { return { id_producto: l.id_producto, cantidad: l.cantidad, destino: (dest && l.destino) || null }; });
         },
         // Despachado: la captura ya estaba oculta; queda vacía para la siguiente y el fondo
         // vuelve a desplazarse. Si el proyecto tiene almacén propio salió un traspaso, que
@@ -1300,7 +1301,10 @@
     window.__cdirDocKeydown = function (e) {
         if (e.key !== 'Escape') return;
         accionesCerrar();
-        if (!modalAbierto()) return;
+        // Ya lo atendió el campo con foco (buscador, UM, proyecto o destino cierran su lista y
+        // marcan el evento): sin esto, al llegar aquí no veía ninguna lista abierta y cerraba
+        // el modal entero con el mismo Escape.
+        if (e.defaultPrevented || !modalAbierto()) return;
         // Con la confirmación de "Cancelar entrada" encima (#standardModal del layout, que no
         // tiene su propio Escape), este handler cerraría el modal por debajo del diálogo.
         // Mientras esté activa, Escape no es asunto nuestro.
