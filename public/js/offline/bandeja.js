@@ -321,6 +321,10 @@
     window.Bandeja = {
         enviar, subir, sinConexion, tomarNumeroNota, apartarNumeros,
         numerosLibres: () => numeros().length,
+        // Una petición de la pantalla se quedó sin respuesta antes de que la copia lo notara
+        // (WiFi conectado sin salida: navigator.onLine sigue en true hasta 2 min). Lo siguiente
+        // va ya a la bandeja; la próxima respuesta del servidor lo vuelve a poner en true.
+        marcarSinConexion: () => { conectado = false; },
         pendientes: () => cache.slice(),
     };
 

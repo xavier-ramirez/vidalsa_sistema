@@ -4237,6 +4237,13 @@
         })
         .catch(function (err) {
             unpre();
+            // Sin respuesta (TypeError de fetch): se cortó la red y la pantalla aún no lo sabía.
+            // Se sigue como sin internet, con un número apartado, en vez de dejar el error.
+            if (err instanceof TypeError) {
+                window.Bandeja.marcarSinConexion();
+                almSalidaPreviaSinInternet(payload);
+                return;
+            }
             showErr('almSalidaError', err.message || 'Error generando vista previa.');
         });
     };
