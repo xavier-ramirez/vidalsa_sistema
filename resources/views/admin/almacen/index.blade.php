@@ -1300,6 +1300,15 @@
 
             @include('admin.almacen.partials.salida_nota_campos')
 
+            {{-- DESTINO por producto — solo en almacenes con nota HORIZONTAL (esa hoja tiene
+                 la columna DESTINO en cada renglón). Lo pinta almSalidaPintarDestinos
+                 (almacen_index.js) con los productos seleccionados; opcional. --}}
+            <div id="almSalidaDestinosWrap" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;margin-bottom:14px;">
+                <span class="alm-nota-label">Destino por producto</span>
+                <div id="almSalidaDestinosLista" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;"></div>
+                <div class="alm-hint">Equipo, frente o lugar al que va cada producto. Sale en la columna DESTINO de la nota.</div>
+            </div>
+
             {{-- La lista de productos a entregar VIVE en la tabla principal: cada fila
                  seleccionada tiene su propio input "Salida". Este modal solo
                  recoge los datos de la Nota de Entrega y los cruza con almSeleccion. --}}

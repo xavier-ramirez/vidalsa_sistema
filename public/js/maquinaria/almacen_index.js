@@ -3893,12 +3893,43 @@
     }
     almSalidaNotaConfigurar();
 
+    // ¿El almacén emite la Nota acostada? Esa hoja lleva DESTINO en cada renglón.
+    function almNotaEsHorizontal(idAlmacen) {
+        var a = (window.almAlmacenesData || {})[String(idAlmacen || '')];
+        return !!a && a.FORMATO_NOTA === ALM_FORMATO_NOTA_HORIZONTAL;
+    }
+
+    // Un renglón por producto seleccionado con su campo DESTINO. Lo escrito vive en
+    // almSeleccion[id].destino: sobrevive a cerrar y reabrir el modal ("Editar").
+    function almSalidaPintarDestinos() {
+        var wrap = el('almSalidaDestinosWrap'), lista = el('almSalidaDestinosLista');
+        if (!wrap || !lista) return;
+        var ids = almNotaEsHorizontal(ALM_SAL.idAlmacen) ? Object.keys(almSeleccion) : [];
+        wrap.style.display = ids.length ? '' : 'none';
+        lista.innerHTML = ids.map(function (id) {
+            var s = almSeleccion[id] || {};
+            return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;">'
+                + '<div style="font-size:13px;color:#0f172a;min-width:0;">'
+                +   (s.codigo ? '<span style="display:block;font-size:10.5px;color:#64748b;font-weight:700;">' + escHtml(s.codigo) + '</span>' : '')
+                +   escHtml(s.nombre || ('#' + id)) + '</div>'
+                + '<input type="text" class="alm-nota-input" maxlength="150" autocomplete="off" placeholder="Ej: Chuto A60EO9P"'
+                +   ' data-id="' + escHtml(id) + '" value="' + escHtml(s.destino || '') + '"'
+                +   ' oninput="window.almSalidaDestinoCambio(this)">'
+                + '</div>';
+        }).join('');
+    }
+    window.almSalidaDestinoCambio = function (inp) {
+        var s = almSeleccion[inp.getAttribute('data-id')];
+        if (s) s.destino = inp.value;
+    };
+
     window.almAbrirSalidaModal = function (idAlmacen) {
         ALM_SAL = { idAlmacen: String(idAlmacen || '') };
         almSalidaNotaConfigurar();
         // La salida viene de un kit: su nombre, cuántos y el equipo quedan en Observaciones
         // (el campo que imprime la Nota), para que conste de dónde salió el material.
         window.AlmSalidaNota.abrir(ALM_SAL.idAlmacen, { motivo: almKitMotivo });
+        almSalidaPintarDestinos();
         showErr('almSalidaError', '');
         almOpen('almSalidaModal');
     };
@@ -3927,6 +3958,7 @@
         // Mismo criterio que la validación previa a abrir el modal (ver almSelAccion):
         // "sin cantidad + sin saldo" se reporta como stock insuficiente, no como un olvido.
         var lineas = [], faltan = [], sinSaldo = [];
+        var conDestino = almNotaEsHorizontal(ALM_SAL.idAlmacen);
         Object.keys(almSeleccion).forEach(function (id) {
             var s   = almSeleccion[id] || {};
             var raw = String(s.cantidad == null ? '' : s.cantidad).replace(',', '.').trim();
@@ -3937,6 +3969,8 @@
                 id_producto:  parseInt(id, 10),
                 cantidad:     c,
                 numero_parte: s.parte || null,
+                // DESTINO del renglón: solo lo imprime la nota horizontal.
+                destino:      (conDestino && String(s.destino || '').trim()) || null,
                 // Proyecto elegido en el modal «¿De qué proyecto sale?». null = sin elección (la bolsa
                 // del destino). Se compara con '' y no por truthy: 0 es la bolsa común, una elección válida.
                 id_frente_saldo: (s.bolsa === '' || s.bolsa == null) ? null : parseInt(s.bolsa, 10),

@@ -127,7 +127,9 @@
                 // (filtros), sale junto a la descripcion; la columna CODIGO muestra SIEMPRE
                 // el codigo del producto.
                 $np      = $m->NUMERO_PARTE ?? null;
-                $destino = $destinoPorItem ? (($m->frente ?? null)?->NOMBRE_FRENTE ?? '') : '';
+                // Lo escrito en el renglón al despachar manda; sin eso, el criterio de antes.
+                $destino = ($m->DESTINO_ITEM ?? null)
+                    ?: ($destinoPorItem ? (($m->frente ?? null)?->NOMBRE_FRENTE ?? '') : '');
                 // Lo que VOLVIO de esta linea (mismo criterio que el vertical): se marca aqui
                 // para no tener que bajar al bloque del pie a buscar cual fue. La linea NO se
                 // tacha ni se cambia la cantidad entregada: eso es lo que se firmo.

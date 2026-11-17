@@ -173,12 +173,17 @@ class TraspasoService
             // (InventarioService::frenteDelSaldo) usa array_key_exists, y mandarla en null
             // significaría "bolsa común" en vez de "no eligió, usa la del destino".
             $bolsaPorProducto = $opts['bolsa_por_producto'] ?? [];
+            // Destino escrito en cada renglón de la nota horizontal (columna DESTINO).
+            $destinoPorProducto = $opts['destino_por_producto'] ?? [];
 
             // Por cada línea: TRASPASO_SALIDA en el almacén origen + guardar el ID del movimiento
             // en la línea (para enlazar con la entrada cuando se reciba).
             foreach ($traspasoLock->lineas()->lockForUpdate()->get() as $linea) {
                 $bolsa     = $bolsaPorProducto[(int) $linea->ID_PRODUCTO] ?? null;
                 $saldoOpts = $bolsa === null ? [] : ['_frente_saldo' => (int) $bolsa];
+                if (isset($destinoPorProducto[(int) $linea->ID_PRODUCTO])) {
+                    $saldoOpts['destino_item'] = $destinoPorProducto[(int) $linea->ID_PRODUCTO];
+                }
 
                 $salida = $this->inventario->registrarTraspasoSalida(
                     idAlmacen:        (int) $traspasoLock->ID_ALMACEN_ORIGEN,

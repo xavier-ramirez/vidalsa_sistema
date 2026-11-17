@@ -57,6 +57,8 @@ class MovimientoInventario extends Model
         'ID_USUARIO',
         'REFERENCIA',
         'NUMERO_PARTE',
+        // Destino del renglón en la nota horizontal (equipo, frente o sitio).
+        'DESTINO_ITEM',
         'NUMERO_CONTRATO',
         'NUMERO_RQ',
         'SOLICITANTE',
