@@ -64,6 +64,10 @@ class AlmacenController extends Controller
     private const NOTA_FILAS_VERTICAL = 20;
     private const NOTA_FILAS_HORIZONTAL = 12;
 
+    // Ancho tope (px) de la foto del inventario: se ve en un círculo y en el visor, así que
+    // 600 basta y pesa poco. La que llega más grande (Gemini da ~1024) se achica.
+    private const FOTO_PRODUCTO_ANCHO = 600;
+
     /**
      * Cuantos productos entran en el grafico "Top N productos consumidos" del Dashboard
      * de Consumo. Es PUBLIC a proposito: el titulo del grafico lo lee de aqui
@@ -295,11 +299,13 @@ class AlmacenController extends Controller
      * camino que las fotos de equipos y del catalogo: el archivo vive en Drive y la app lo
      * sirve por esa ruta, asi que la carpeta NO necesita ser publica.
      *
-     * La imagen se convierte a WebP y se reescala antes de subir (ConvertsImageToWebp), que
-     * es lo que ya se hace con las fotos del catalogo: una foto de telefono de 4 MB queda en
-     * unas decenas de KB y la tabla del inventario no se vuelve lenta por las miniaturas.
+     * Antes de guardarla, Gemini la rehace con fondo blanco tipo catálogo (FotoProductoGemini);
+     * si no puede (sin cupo, sin red) se guarda la foto tal como vino y la respuesta lo dice
+     * con fondo_blanco=false. Despues se convierte a WebP y se achica a FOTO_PRODUCTO_ANCHO
+     * (ConvertsImageToWebp): una foto de telefono de 4 MB queda en unas decenas de KB y la
+     * tabla del inventario no se vuelve lenta por las miniaturas.
      */
-    public function subirFotoProducto(Request $request, $id)
+    public function subirFotoProducto(Request $request, $id, \App\Services\FotoProductoGemini $gemini)
     {
         $request->validate([
             'foto' => 'required|image|mimes:jpeg,jpg,png,webp|max:8192',
@@ -311,7 +317,18 @@ class AlmacenController extends Controller
         ]);
 
         $producto = ProductoInventario::findOrFail($id);
-        $convertida = $this->convertToWebp($request->file('foto'));
+        $foto     = $request->file('foto');
+
+        // Fondo blanco con Gemini. Lo que devuelve se escribe a un temporal y se trata como si
+        // el usuario hubiera subido esa imagen; sin respuesta, sigue la original.
+        $tempGemini = null;
+        $blanca = $gemini->fondoBlanco($foto->getRealPath(), $foto->getMimeType());
+        if ($blanca) {
+            $tempGemini = tempnam(sys_get_temp_dir(), 'gem_');
+            file_put_contents($tempGemini, $blanca['binario']);
+            $foto = new \Illuminate\Http\UploadedFile($tempGemini, 'gemini', $blanca['mime'], null, true);
+        }
+        $convertida = $this->convertToWebp($foto, self::FOTO_PRODUCTO_ANCHO);
 
         try {
             $drive  = \App\Services\GoogleDriveService::getInstance();
@@ -336,10 +353,10 @@ class AlmacenController extends Controller
 
             $this->borrarFotoAnterior($anterior, $subido->id);
 
-            return response()->json(['success' => true, 'foto' => $producto->FOTO]);
+            return response()->json(['success' => true, 'foto' => $producto->FOTO, 'fondo_blanco' => (bool) $blanca]);
         } finally {
-            if (!empty($convertida['tempPath'])) {
-                @unlink($convertida['tempPath']);
+            foreach ([$convertida['tempPath'] ?? null, $tempGemini] as $tmp) {
+                if ($tmp) @unlink($tmp);
             }
         }
     }

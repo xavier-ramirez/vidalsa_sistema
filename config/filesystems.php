@@ -71,8 +71,10 @@ return [
             // Fotos de los productos de Inventario (Detalles del producto). Carpeta PRIVADA:
             // solo la cuenta del sistema la ve; el navegador las recibe por /storage/google
             // (con sesion), nunca el enlace de Drive. Con valor por defecto para que el
-            // servidor no dependa de añadir la variable.
-            'product_folder' => env('GOOGLE_DRIVE_PRODUCT_FOLDER_ID', '1CBo7WNyfiidIr70kmcLdSum1yWUuQhIt'),
+            // servidor no dependa de añadir la variable. Es "FOTO DE INVENTARIO", creada por la
+            // cuenta del sistema dentro de su carpeta raíz (17-11-2026); las fotos viejas siguen
+            // en la carpeta anterior y se ven igual (el enlace va por id, no por carpeta).
+            'product_folder' => env('GOOGLE_DRIVE_PRODUCT_FOLDER_ID', '1rRkNhEdSsL5uWHCh4UJJt2L910wWjMfr'),
             // Performance optimizations
             'options' => [
                 'useSinglePathTransaction' => true, // Faster for single file operations

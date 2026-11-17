@@ -68,6 +68,11 @@ return [
         // ~20 s el peor. Tiene que caber en el tope de la peticion de la carga masiva
         // (set_time_limit(180) en CargaMasivaDocumentosController) junto con la subida y el OCR.
         'timeout' => env('GEMINI_TIMEOUT', 75),
+
+        // Foto del inventario con fondo blanco (App\Services\FotoProductoGemini). En plan gratis
+        // los modelos de imagen tienen cupo 0 (429): la foto se guarda igual, sin el fondo.
+        'modelo_imagen'  => env('GEMINI_MODELO_IMAGEN', 'gemini-2.5-flash-image'),
+        'timeout_imagen' => env('GEMINI_TIMEOUT_IMAGEN', 60),
     ],
 
 ];

@@ -24,11 +24,13 @@ trait ConvertsImageToWebp
     /**
      * Convierte la imagen a WebP (reescalada a 8 cm de ancho) en disco temporal.
      * @param  \Illuminate\Http\UploadedFile $file
+     * @param  int|null $anchoMax  ancho tope en px; null = el del catálogo (945)
      * @return array  ['file' => UploadedFile (original o convertido),
      *                 'tempPath' => string|null (path temp para cleanup)]
      */
-    private function convertToWebp($file): array
+    private function convertToWebp($file, ?int $anchoMax = null): array
     {
+        $tope      = $anchoMax ?? $this->catalogoTargetWidth;
         $mime      = $file->getMimeType();
         $imagePath = $file->getRealPath();
 
@@ -47,7 +49,7 @@ trait ConvertsImageToWebp
                 imagesavealpha($image, true);
 
                 $width      = imagesx($image);
-                $needsScale = $width > $this->catalogoTargetWidth;
+                $needsScale = $width > $tope;
 
                 // Fast-path: ya es WebP y no hay que reescalar → se sube el original
                 // sin re-encodear (evita una pérdida de calidad innecesaria).
@@ -59,7 +61,7 @@ trait ConvertsImageToWebp
                 // Reescalado a 8 cm de ancho, conservando proporción y alpha.
                 if ($needsScale) {
                     $height  = imagesy($image);
-                    $newW    = $this->catalogoTargetWidth;
+                    $newW    = $tope;
                     $newH    = (int) round($height * ($newW / $width));
                     $resized = imagecreatetruecolor($newW, $newH);
                     imagealphablending($resized, false);

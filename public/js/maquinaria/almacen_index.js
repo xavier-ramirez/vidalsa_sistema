@@ -2474,7 +2474,9 @@
             .then(function (b) {
                 almDetFotoPintar(b.foto);
                 almDetFotoEnLaTabla(id, b.foto);
-                window.toast('Foto actualizada.', 'success');
+                // fondo_blanco=false: Gemini no pudo (sin cupo o sin red) y quedó la original.
+                if (b.fondo_blanco) window.toast('Foto actualizada con fondo blanco.', 'success');
+                else window.toast('Foto guardada tal cual: Gemini no pudo ponerle el fondo blanco.', 'warning');
             })
             .catch(function (e) { window.toast(e.message, 'error'); })
             .finally(function () { if (caja) caja.classList.remove('subiendo'); });
