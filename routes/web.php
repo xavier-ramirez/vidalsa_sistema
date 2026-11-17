@@ -506,7 +506,8 @@ Route::middleware(['auth'])->group(function () {
             // Papelera: rutas estáticas ANTES de las de {id} (orden de coincidencia).
             Route::get   ('almacen/productos/papelera',           [App\Http\Controllers\AlmacenController::class, 'papeleraProductos'])->name('almacen.productos.papelera');
             Route::post  ('almacen/productos/{id}/restaurar',     [App\Http\Controllers\AlmacenController::class, 'restaurarProducto'])->whereNumber('id')->name('almacen.productos.restaurar');
-            // Borrado PERMANENTE desde la papelera (forceDelete) — EXCLUSIVO super.admin.
+            // «Eliminar permanentemente» desde la papelera — EXCLUSIVO super.admin. Con historial
+            // no borra el kardex: lo saca de la papelera (ver eliminarPermanenteProducto).
             Route::delete('almacen/productos/{id}/permanente',    [App\Http\Controllers\AlmacenController::class, 'eliminarPermanenteProducto'])->whereNumber('id')->name('almacen.productos.eliminarPermanente');
             Route::post  ('almacen/productos',                    [App\Http\Controllers\AlmacenController::class, 'storeProducto'])   ->name('almacen.productos.store');
             Route::patch ('almacen/productos/{id}',               [App\Http\Controllers\AlmacenController::class, 'updateProducto'])  ->whereNumber('id')->name('almacen.productos.update');

@@ -3890,10 +3890,12 @@
         .catch(function () { unpre(); toast('Error de red al restaurar.', 'error'); });
     };
 
-    // Borrado PERMANENTE desde la papelera (forceDelete) — solo super.admin.
+    // Eliminar PERMANENTE desde la papelera — solo super.admin. Con historial no se borra el
+    // kardex ni las notas: el producto sale de la papelera y deja de poder restaurarse
+    // (AlmacenController::eliminarPermanenteProducto).
     window.almEliminarPermanenteProducto = function (id) {
         if (!ensurePerm(HAS_ALM_MANAGE, 'No tienes permiso para eliminar productos de la papelera.')) return;
-        almConfirm('Vas a eliminar este producto <strong>de forma permanente</strong>. No se puede deshacer.', function () {
+        almConfirm('Vas a eliminar este producto <strong>de forma permanente</strong>: sale de la papelera y no se puede restaurar. Si tiene movimientos, su historial (kardex y Notas de Entrega) se conserva.', function () {
             pre();
             window.apiFetch(ROUTE_PROD_ELIMINAR_PERM(id), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 method: 'DELETE'})

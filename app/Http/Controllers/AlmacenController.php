@@ -810,6 +810,7 @@ class AlmacenController extends Controller
         $term = trim((string) $request->input('search', ''));
 
         $productos = ProductoInventario::onlyTrashed()
+            ->whereNull('FUERA_PAPELERA_AT')   // los que se «eliminaron permanentemente» con historial
             ->when($term !== '', function ($q) use ($term) {
                 $q->where(function ($w) use ($term) {
                     $w->where('CODIGO', 'like', "%{$term}%")
@@ -829,41 +830,41 @@ class AlmacenController extends Controller
      */
     public function restaurarProducto(int $id)
     {
-        $producto = ProductoInventario::onlyTrashed()->findOrFail($id);
+        $producto = ProductoInventario::onlyTrashed()->whereNull('FUERA_PAPELERA_AT')->findOrFail($id);
         $producto->restore();
         return response()->json(['message' => 'Producto restaurado.', 'producto' => $producto->fresh()]);
     }
 
     /**
-     * Borra PERMANENTEMENTE un producto de la papelera (forceDelete) — irreversible,
-     * EXCLUSIVO super.admin (gate en el constructor).
+     * «Eliminar permanentemente» desde la papelera — EXCLUSIVO super.admin (gate en el constructor).
      *
-     * Resguardo: si el producto tiene movimientos en el kardex, NO se borra; se mantiene
-     * en la papelera para auditoría. OJO: la FK movimientos_inventario.ID_PRODUCTO es
-     * ON DELETE CASCADE, así que la BD SÍ lo dejaría pasar — borraría el kardex en
-     * silencio, y con él las líneas de las Notas de Entrega ya emitidas. El guard de
-     * abajo es la ÚNICA barrera; no hay una restricción del motor que respalde esto.
+     * Sin historial, se borra de verdad (forceDelete). Con historial (kardex, y con él los
+     * renglones de las Notas de Entrega ya emitidas) NO se borra: las FK de movimientos y stock
+     * son ON DELETE CASCADE y el motor se lo llevaría en silencio. Ese producto sale de la
+     * papelera para siempre (FUERA_PAPELERA_AT) y sigue borrado (deleted_at): no vuelve al
+     * catálogo ni se puede restaurar, y su historial queda intacto. Lo mismo si otra tabla
+     * (líneas de traspaso, RESTRICT) impide el borrado.
      */
     public function eliminarPermanenteProducto(int $id)
     {
-        $producto = ProductoInventario::onlyTrashed()->findOrFail($id);
+        $producto = ProductoInventario::onlyTrashed()->whereNull('FUERA_PAPELERA_AT')->findOrFail($id);
 
-        if ($producto->movimientos()->exists()) {
-            return response()->json([
-                'message' => 'No se puede eliminar permanentemente: el producto tiene movimientos registrados en el kardex. Se mantiene en la papelera.',
-            ], 422);
+        if (!$producto->movimientos()->exists()) {
+            try {
+                DB::transaction(function () use ($producto) {
+                    $producto->stock()->delete();   // sin movimientos, el stock que quede es huérfano
+                    $producto->forceDelete();
+                });
+
+                return response()->json(['message' => 'Producto eliminado permanentemente.']);
+            } catch (\Illuminate\Database\QueryException) {
+                // Otra tabla lo usa (RESTRICT): se saca de la papelera como uno con historial.
+            }
         }
 
-        try {
-            $producto->stock()->delete();   // limpia stock huérfano (sin movimientos, debe estar en 0)
-            $producto->forceDelete();
-        } catch (\Throwable $e) {
-            return response()->json([
-                'message' => 'No se puede eliminar permanentemente: el producto tiene registros asociados.',
-            ], 422);
-        }
+        $producto->forceFill(['FUERA_PAPELERA_AT' => now()])->saveQuietly();
 
-        return response()->json(['message' => 'Producto eliminado permanentemente.']);
+        return response()->json(['message' => 'Producto eliminado. Su historial (kardex y Notas de Entrega) se conserva.']);
     }
 
     // ─────────────────────────────────────────────────────────────
