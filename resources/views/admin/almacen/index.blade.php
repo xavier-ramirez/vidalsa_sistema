@@ -579,13 +579,13 @@
                  estaba ajustando y, si tecleaba justo el mismo número, el backend respondía
                  "no cambia el saldo" y parecía un error. Mostrarlo hace obvia la diferencia.
                  Fondo azul (#e1effa / #bfdbfe): el mismo tinte que la app usa para marcar un
-                 campo activo (.dropdown-trigger.filter-active, .cdash-inp-box.active). Antes
-                 era gris y se perdía contra el blanco del modal. --}}
+                 campo activo (.dropdown-trigger.filter-active, .cdash-inp-box.active); un gris
+                 se perdería contra el blanco del modal. Estilos en .alm-aj-saldo. --}}
             {{-- El recuadro azul y el campo de abajo comparten ANCHO: son los dos lados de la
                  misma comparación —lo que dice el sistema contra lo que se contó— y con
                  anchos distintos se leían como dos bloques sin relación.
-                 Ocupan TODO el ancho del cuerpo del modal (antes 240px centrados, que dejaba
-                 aire muerto a los lados). Si se cambia uno, cambiar el otro. --}}
+                 Ocupan TODO el ancho del cuerpo del modal, sin aire muerto a los lados. Si se
+                 cambia uno, cambiar el otro. --}}
             <div class="alm-aj-saldo">
                 <span id="almAjSaldoRotulo" style="font-size:12px;color:#475569;font-weight:600;">Saldo actual (sistema)</span>
                 <span id="almAjSaldoActual" style="font-size:14px;color:#0067b1;font-weight:800;">—</span>

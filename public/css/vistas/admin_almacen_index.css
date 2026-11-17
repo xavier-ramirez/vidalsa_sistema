@@ -349,15 +349,15 @@
     .alm-aj-bolsa .nom.comun { font-style:italic; font-weight:600; color:#475569; }
     .alm-aj-bolsa .qty { text-align:center; font-size:13px; font-weight:800; color:#0067b1; font-variant-numeric:tabular-nums; white-space:nowrap; }
     .alm-aj-bolsa input { width:100%; box-sizing:border-box; height:28px; padding:2px 6px; text-align:center; }
+    .alm-aj-bolsa.fija { background:#f8fafc; }
+    .alm-aj-bolsa.fija .fija-txt { text-align:center; font-size:11px; color:#94a3b8; line-height:1.2; }
     /* Saldo del sistema en la Auditoría (por qué el azul y el ancho completo: ver el comentario
-       en el modal #almAjusteModal). Por proyecto va en una sola línea ("rótulo  cantidad"). */
+       en el modal #almAjusteModal). Por proyecto va en una sola línea: rótulo y cantidad. */
     .alm-aj-saldo { width:100%; margin:0 0 12px; box-sizing:border-box; display:flex; flex-direction:column;
         align-items:center; gap:2px; background:#e1effa; border:1px solid #bfdbfe; border-radius:8px;
         padding:8px 12px; text-align:center; }
     #almAjusteModal[data-multi="1"] .alm-aj-saldo { flex-direction:row; flex-wrap:wrap; justify-content:center; gap:2px 6px;
         padding:5px 12px; margin-bottom:8px; }
-    .alm-aj-bolsa.fija { background:#f8fafc; }
-    .alm-aj-bolsa.fija .fija-txt { text-align:center; font-size:11px; color:#94a3b8; line-height:1.2; }
 
     /* Nombre del almacén en modo GENERAL: no hay proyecto que elegir, así que el campo
        se comporta como uno de texto normal — sin lista y sin el caret que la anuncia. */
