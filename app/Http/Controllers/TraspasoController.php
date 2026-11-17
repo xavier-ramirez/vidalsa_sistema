@@ -379,14 +379,9 @@ class TraspasoController extends Controller
             'proyectosPorAlmacen'    => Almacen::with('frentes:frentes_trabajo.ID_FRENTE,NOMBRE_FRENTE')
                 ->whereIn('ID_ALMACEN', $almacenesVisibles)
                 ->get(['ID_ALMACEN', 'TIPO'])
-                // `implicito` va NULL cuando el almacén separa: ahí el frente no es una
-                // etiqueta del kardex sino la bolsa a la que entra el saldo, y "el primero de
-                // la lista" es justo la adivinanza que este cambio vino a quitar. Dejarlo
-                // relleno sería una trampa para quien lo lea sin mirar `separa` — el mismo
-                // criterio que ya aplica nuevaEntrada() más abajo.
                 ->mapWithKeys(fn ($a) => [$a->ID_ALMACEN => [
                     'separa'    => $a->separaPorProyecto(),
-                    'implicito' => $a->separaPorProyecto() ? null : optional($a->frentes->first())->ID_FRENTE,
+                    'implicito' => $a->frenteImplicito(),
                     'frentes'   => $a->frentes
                         ->sortBy('NOMBRE_FRENTE')
                         ->map(fn ($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])
@@ -454,9 +449,8 @@ class TraspasoController extends Controller
 
         // Proyecto al que se atribuye la entrada. Dos escenarios, y la diferencia importa
         // porque el saldo se guarda POR PROYECTO (almacen_stock.ID_FRENTE):
-        //   · El almacen reparte entre varios proyectos → el usuario DEBE elegir cual recibe.
-        //     Antes se mandaba el PRIMER frente asociado, que en un almacen de 6 proyectos
-        //     acertaba 1 de cada 6 y ensuciaba el saldo de un proyecto ajeno sin avisar.
+        //   · El almacen reparte entre varios proyectos → el usuario DEBE elegir cual recibe
+        //     (no se preselecciona: adivinar le sumaria stock a un proyecto ajeno).
         //     AlmacenController::registrarMovimientoLote tambien lo exige.
         //   · El almacen no reparte → no hay nada que elegir (todo va a la bolsa comun) y el
         //     frente implicito viaja solo para que el kardex muestre "Destino" con nombre en
@@ -464,7 +458,7 @@ class TraspasoController extends Controller
         $almForFrente    = \App\Models\Almacen::with('frentes:frentes_trabajo.ID_FRENTE,NOMBRE_FRENTE')
             ->find($almacenDestino->ID_ALMACEN);
         $separaProyectos = (bool) $almForFrente?->separaPorProyecto();
-        $idFrenteDestino = $separaProyectos ? null : optional($almForFrente?->frentes->first())->ID_FRENTE;
+        $idFrenteDestino = $almForFrente?->frenteImplicito();
         $frentesDestino  = $separaProyectos
             ? $almForFrente->frentes->sortBy('NOMBRE_FRENTE')
                 ->map(fn ($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])->values()

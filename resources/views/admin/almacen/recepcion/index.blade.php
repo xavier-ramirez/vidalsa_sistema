@@ -598,8 +598,7 @@
         row.style.display = cfg.separa ? '' : 'none';
         // Se limpia SIEMPRE, también cuando el almacén nuevo no separa: si no, el id del
         // proyecto del almacén anterior se quedaba pegado en el campo oculto.
-        // Y nunca se preselecciona: elegir por el usuario es justo lo que ensuciaba el saldo
-        // antes (se mandaba el primer proyecto del almacén, acertara o no).
+        // Y nunca se preselecciona: adivinar el proyecto le sumaría stock a uno ajeno.
         limpiarProyecto();
     }
     function limpiarProyecto() {

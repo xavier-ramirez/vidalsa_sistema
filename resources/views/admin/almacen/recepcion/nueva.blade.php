@@ -177,10 +177,11 @@
                  (AlmacenController::registrarMovimientoLote). --}}
             @if($separaProyectos ?? false)
             <div class="ent-proyecto-row">
-                <label class="ent-field-label" for="entProyecto">Asociar material a un proyecto <span style="color:#dc2626;">*</span></label>
+                {{-- Sin asterisco, igual que en la compra directa: la señal de "falta" es el
+                     borde rojo del campo (.falta). --}}
+                <label class="ent-field-label" for="entProyecto">Asociar material a un proyecto</label>
                 <select id="entProyecto" class="ent-input falta" onchange="window.entProyectoCambio()">
-                    {{-- Sin preseleccion a proposito: elegir por el usuario es justo lo que ensuciaba
-                         el saldo antes (se mandaba el primer proyecto del almacen, acertara o no). --}}
+                    {{-- Sin preseleccion a proposito: adivinar el proyecto le sumaria stock a uno ajeno. --}}
                     <option value="">Selecciona el proyecto…</option>
                     @foreach($frentesDestino as $f)
                         <option value="{{ $f['id'] }}">{{ $f['nombre'] }}</option>

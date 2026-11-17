@@ -654,24 +654,12 @@ class AlmacenController extends Controller
             // recepcion/nueva) pasan id_almacen pero cantidad_inicial=0 — solo crean
             // las filas de stock, sin movimiento.
             if ($idAlmacen && $cantInicial > 0) {
-                // STOCK INICIAL: atribuimos la entrada al PRIMER frente del almacen, para
-                // que la columna "Destino" del kardex no se vea "—" en cada producto nuevo.
-                // A diferencia de frenteImplicitoDelAlmacen (estricto, para movimientos
-                // manuales donde la ambiguedad debe forzar al usuario a elegir), aca somos
-                // permisivos porque el sistema necesita un destino y no hay a quien preguntar.
-                //
-                // EXCEPCION: si el almacen REPARTE el saldo entre varios proyectos, no se
-                // adivina. Ahi el frente no es una etiqueta del kardex sino la bolsa a la que
-                // entra el material (almacen_stock lleva ID_FRENTE), y "el primero de la
-                // lista" acertaria 1 de cada N: le sumaria stock a un proyecto ajeno sin que
-                // nadie se entere. Va a la bolsa comun del almacen —material que existe pero
-                // todavia no es de nadie— que es exactamente lo que es un stock inicial.
-                // Para decir de quien es, se registra la entrada por Compra directa o por
-                // Entrada por ODC, que si piden el proyecto.
-                $almForFrente    = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
-                $idFrenteInicial = $almForFrente?->separaPorProyecto()
-                    ? null
-                    : optional($almForFrente?->frentes->first())->ID_FRENTE;
+                // STOCK INICIAL: se rotula con el frente del almacen (Almacen::frenteImplicito)
+                // para que el "Destino" del kardex no se vea "—". Si el almacen reparte el saldo
+                // entre varios proyectos no se adivina: va a la bolsa comun —material que existe
+                // pero todavia no es de nadie—. Para decir de quien es, se registra la entrada
+                // por Compra directa o por Entrada por ODC, que si piden el proyecto.
+                $idFrenteInicial = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen)?->frenteImplicito();
 
                 $this->inventario->registrarEntrada(
                     $idAlmacen,
@@ -2038,6 +2026,8 @@ class AlmacenController extends Controller
             // Sin `exists` a propósito: 0 es la bolsa común, que no es un frente. Que sea una
             // bolsa REAL de este almacén lo comprueba bolsaOrigenElegida().
             'lineas.*.id_frente_saldo' => 'nullable|integer|min:0',
+            // Destino de ESE renglón (columna DESTINO de la nota horizontal). Texto libre.
+            'lineas.*.destino'      => 'nullable|string|max:150',
         ] + $this->reglasNotaSalida());
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
@@ -2070,6 +2060,10 @@ class AlmacenController extends Controller
             }
         }
 
+        // Destino escrito por renglón (nota HORIZONTAL), [ID_PRODUCTO => texto]. Viaja en
+        // $data para que lo lean las dos ramas: la salida en el mismo almacén y el traspaso.
+        $data['destino_por_producto'] = $this->destinosPorProducto($data['lineas']);
+
         // ── Rama "Salida a otro proyecto" ───────────────────────────────────────
         // Si tipo=SALIDA + frente destino con almacén distinto al origen → delegamos
         // al TraspasoService (crea borrador + envía + asigna NUMERO_NOTA), de modo que
@@ -2101,8 +2095,9 @@ class AlmacenController extends Controller
         //     con ese frente para que el movimiento aparezca atribuido al proyecto correcto
         //     en la bitácora (de lo contrario quedaba NULL y la columna "Destino" se veía
         //     vacía aunque el almacén perteneciera a un frente claro).
-        //   - ENTRADA/AJUSTE en almacén GENERAL o PROYECTO multi-frente → queda NULL (el
-        //     movimiento es "del almacén" sin proyecto específico).
+        //   - AJUSTE en almacén GENERAL o PROYECTO multi-frente, o ENTRADA en GENERAL → queda
+        //     NULL (el movimiento es "del almacén" sin proyecto específico).
+        //   - ENTRADA en PROYECTO multi-frente → el proyecto es obligatorio (bloque de abajo).
         // El frente del movimiento se acepta como `id_frente` o `id_frente_destino` (el
         // formulario unificado de salida envía el segundo; clientes externos pueden mandar
         // cualquiera de los dos). Esto evita atribuir mal el movimiento cuando solo viene
@@ -2115,10 +2110,8 @@ class AlmacenController extends Controller
         }
 
         // ── ENTRADA en un almacén que separa por proyecto: el proyecto es OBLIGATORIO ──
-        // El saldo se guarda por proyecto (almacen_stock lleva ID_FRENTE), así que una
-        // entrada sin proyecto tendría que caer en algún lado: antes caía en el PRIMER
-        // frente asociado al almacén, que es una suposición —en un almacén de 6 proyectos
-        // acertaba 1 de cada 6— y ensuciaba el saldo de un proyecto ajeno sin avisar.
+        // El saldo se guarda por proyecto (almacen_stock lleva ID_FRENTE): no se adivina a
+        // cuál entra, porque tomar uno cualquiera ensuciaría el saldo de un proyecto ajeno.
         // Se exige aquí, en el backend, y no solo en el formulario: es el punto por el que
         // pasan las vías de entrada (compra directa, Entrada por ODC y cualquier cliente
         // externo). La única excepción es "Registrar y despachar" de la recepción
@@ -2203,6 +2196,9 @@ class AlmacenController extends Controller
                     $optsLinea = $opts;
                     if ($data['tipo'] === 'SALIDA' && !empty($linea['numero_parte'])) {
                         $optsLinea['numero_parte'] = trim((string) $linea['numero_parte']);
+                    }
+                    if ($data['tipo'] === 'SALIDA' && isset($data['destino_por_producto'][$idProducto])) {
+                        $optsLinea['destino_item'] = $data['destino_por_producto'][$idProducto];
                     }
                     // De qué bolsa se descuenta ESTA línea. Viaja en la misma clave que usa la
                     // cascada por dentro (_frente_saldo) porque es exactamente el mismo dato.
@@ -2503,6 +2499,8 @@ class AlmacenController extends Controller
                 // De qué bolsa del almacén ORIGEN se descuenta cada producto. Los que no
                 // estén en el mapa van en automático: la del frente destino, como siempre.
                 'bolsa_por_producto' => $bolsaPorProducto,
+                // Destino escrito en cada renglón (nota horizontal), mismo mapa por producto.
+                'destino_por_producto' => $data['destino_por_producto'] ?? [],
                 'id_usuario_envio'  => $idUsuario,
                 'fecha_envio'       => $data['fecha'] ?? null,
                 // Un envío a otro almacén también es una SALIDA física: no se puede enviar
@@ -2513,6 +2511,29 @@ class AlmacenController extends Controller
 
             return ['numero_nota' => $numeroNota, 'numero_traspaso' => $traspaso->NUMERO];
         });
+    }
+
+    /**
+     * Destino escrito por renglón, [ID_PRODUCTO => texto en mayúsculas]. Vacíos fuera; si un
+     * producto viniera en dos líneas manda la primera (mismo criterio que la bolsa).
+     */
+    private function destinosPorProducto(array $lineas): array
+    {
+        $mapa = [];
+        foreach ($lineas as $l) {
+            $idp     = (int) ($l['id_producto'] ?? 0);
+            $destino = $this->limpiarDestino($l['destino'] ?? null);
+            if ($destino !== null && !array_key_exists($idp, $mapa)) {
+                $mapa[$idp] = $destino;
+            }
+        }
+        return $mapa;
+    }
+
+    private function limpiarDestino(?string $texto): ?string
+    {
+        $t = mb_strtoupper(trim(preg_replace('/\s+/u', ' ', (string) $texto)));
+        return $t === '' ? null : $t;
     }
 
     /**
@@ -2854,6 +2875,8 @@ class AlmacenController extends Controller
             // 0 es la común y la pertenencia la valida bolsaOrigenElegida(), para que el aviso
             // se calcule sobre exactamente lo que va a pasar al registrar.
             'lineas.*.id_frente_saldo' => 'nullable|integer|min:0',
+            // Destino de ESE renglón (columna DESTINO de la nota horizontal). Texto libre.
+            'lineas.*.destino'      => 'nullable|string|max:150',
         ] + $this->reglasNotaSalida());   // los mismos datos de la Nota que al registrar
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
@@ -3017,6 +3040,7 @@ class AlmacenController extends Controller
                 // Nº de parte específico (filtros): el preview también lo muestra, igual que
                 // el PDF final. El blade lo lee null-safe, así que si no vino queda vacío.
                 'NUMERO_PARTE' => $l['numero_parte'] ?? null,
+                'DESTINO_ITEM' => $this->limpiarDestino($l['destino'] ?? null),
                 'producto'     => $productos[(int) $l['id_producto']] ?? null,
                 // Frente de ESTA linea — lo lee la columna DESTINO del formato HORIZONTAL.
                 // En el preview la nota entera va a un solo frente (el formulario pide uno
@@ -3119,7 +3143,7 @@ class AlmacenController extends Controller
         // un producto corregido va en una sola línea.
         $originales = \App\Models\CorreccionNota::originales($correcciones);
         $movs = collect($movs)
-            ->groupBy(fn ($m) => $m->ID_PRODUCTO . '-' . $m->ID_FRENTE . '-' . ($m->NUMERO_PARTE ?? ''))
+            ->groupBy(fn ($m) => $m->ID_PRODUCTO . '-' . $m->ID_FRENTE . '-' . ($m->NUMERO_PARTE ?? '') . '-' . ($m->DESTINO_ITEM ?? ''))
             ->map(function ($tramos) use ($originales) {
                 // Clon: se toca solo la copia que se imprime, nunca el modelo del kardex.
                 $fila = clone $tramos->first();

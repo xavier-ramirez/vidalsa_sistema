@@ -145,6 +145,24 @@ class Almacen extends Model
             : $this->frentes()->count() > 1;
     }
 
+    /**
+     * Frente con el que se rotula una entrada que no eligió proyecto, para que la columna
+     * "Destino" del kardex no quede en "—". Es solo una etiqueta: en un almacén que no
+     * separa, todo el saldo vive en la bolsa común lleve el frente que lleve.
+     *
+     * NULL cuando el almacén separa por proyecto: ahí el frente ES la bolsa que recibe el
+     * saldo, y "el primero de la lista" le sumaría stock a un proyecto ajeno. Lo usan la
+     * compra directa, la Entrada por ODC y el stock inicial de un producto nuevo.
+     */
+    public function frenteImplicito(): ?int
+    {
+        if ($this->separaPorProyecto()) {
+            return null;
+        }
+        $id = $this->frentes->first()?->ID_FRENTE;
+        return $id !== null ? (int) $id : null;
+    }
+
     /** Movimientos (kardex) de este almacén. */
     public function movimientos()
     {
