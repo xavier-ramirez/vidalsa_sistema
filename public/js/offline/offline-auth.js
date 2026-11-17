@@ -298,15 +298,14 @@
         refrescarAccesos();
     });
 
-    // ¿Se intenta el inicio de sesión normal? Lo pregunta el submit. Si la pantalla ya sabe
-    // que no hay servidor, se vuelve a preguntar con algo más de paciencia: el sondeo pudo
-    // fallar solo porque el servidor tardó (recién desplegado, red lenta), y entrar en local
-    // teniendo servidor deja la sesión cerrada allá (lo arregla el pase de reingreso.js).
-    // Si la pantalla cree que sí hay, no se pregunta: el propio inicio de sesión lo descubre
-    // (y si no llega, entrarSinServidor).
-    // Si tampoco contesta a tiempo (null) se entra en local: la pantalla ya lo sabía y probar
-    // el inicio normal sumaba 10 s más (16 s con el wifi sin salida). Si el servidor solo
-    // estaba lento, reingreso.js canjea el pase en cuanto conteste y no saca a nadie.
+    // ¿Se intenta el inicio de sesión normal? Lo preguntan el submit y la huella.
+    //   · La pantalla cree que SÍ hay servidor: no se pregunta; el propio inicio de sesión lo
+    //     descubre (y si no llega, entrarSinServidor).
+    //   · Cree que NO hay: se pregunta otra vez (el servidor pudo volver). Solo si contesta se
+    //     intenta el inicio normal; si falla o no contesta en 4 s, se entra con lo guardado.
+    //     Antes, sin respuesta se probaba además el inicio normal: 10 s más (16 s con el wifi
+    //     sin salida). Si el servidor solo estaba lento, reingreso.js canjea el pase en cuanto
+    //     conteste, así que entrar en local no deja a nadie fuera.
     window.OfflineAuth.conServidor = function () {
         if (!sinServidor) return Promise.resolve(true);
         return hayServidor(4000).then(function (hay) { sinServidor = !hay; refrescarAccesos(); return hay === true; });
@@ -368,8 +367,9 @@
         if (!sw || typeof MessageChannel !== 'function') return Promise.resolve();
         return new Promise(function (listo) {
             const canal = new MessageChannel();
-            canal.port1.onmessage = function () { listo(); };
-            setTimeout(listo, 300);
+            const tope = setTimeout(fin, 300);
+            function fin() { clearTimeout(tope); canal.port1.close(); listo(); }
+            canal.port1.onmessage = fin;
             sw.postMessage({ type: 'SIN_SERVIDOR' }, [canal.port2]);
         });
     }

@@ -266,6 +266,8 @@ function redConTope(peticion) {
     // modulo y me manda al login, y luego al menu".
     //
     // Que una respuesta tarde no dice que el servidor no este; que el fetch se rompa, si.
+    // (La otra forma de encenderlo es el aviso SIN_SERVIDOR del login, mas abajo: ahi ya se
+    // comprobo que no hay servidor.)
     peticion.then(
         () => { sinServidorHasta = 0; },
         () => { sinServidorHasta = Date.now() + RECORDAR_SIN_SERVIDOR_MS; }
@@ -278,8 +280,8 @@ function redConTope(peticion) {
 }
 
 // La red para la SPA: se espera lo que tarde (el tope lo pone navegacion.js). Solo si un fetch
-// acaba de FALLAR de verdad (sinServidorHasta, lo enciende redConTope) se va directo a lo
-// guardado, sin esperar a que falle otra vez.
+// acaba de FALLAR de verdad (sinServidorHasta: lo encienden redConTope y el aviso
+// SIN_SERVIDOR del login) se va directo a lo guardado, sin esperar a que falle otra vez.
 function redSinTopeSpa(peticion) {
     peticion.then(() => { sinServidorHasta = 0; }, () => { sinServidorHasta = Date.now() + RECORDAR_SIN_SERVIDOR_MS; });
     return Date.now() < sinServidorHasta ? Promise.reject(new Error('sin servidor')) : peticion;
