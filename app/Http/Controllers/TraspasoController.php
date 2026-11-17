@@ -386,12 +386,12 @@ class TraspasoController extends Controller
             //   · separa=false → no hay nada que elegir: todo el saldo va a la bolsa común.
             //                    Se manda `implicito` solo para que el kardex muestre el
             //                    frente en la columna "Destino" en vez de "—".
-            // OJO con el select: TIPO es imprescindible aquí. separaPorProyecto() arranca
-            // comparando TIPO contra PROYECTO, así que sin esa columna el modelo la ve NULL
-            // y devuelve false para TODOS los almacenes — el selector no aparecería nunca.
+            // OJO con el select: TIPO e INVENTARIO_UNICO son imprescindibles aquí. Sin TIPO
+            // separaPorProyecto() devuelve false para TODOS los almacenes (el selector no
+            // aparecería nunca); sin INVENTARIO_UNICO lo pediría en uno de inventario único.
             'proyectosPorAlmacen'    => Almacen::with('frentes:frentes_trabajo.ID_FRENTE,NOMBRE_FRENTE')
                 ->whereIn('ID_ALMACEN', $almacenesVisibles)
-                ->get(['ID_ALMACEN', 'TIPO'])
+                ->get(['ID_ALMACEN', 'TIPO', 'INVENTARIO_UNICO'])
                 ->mapWithKeys(fn ($a) => [$a->ID_ALMACEN => [
                     'separa'    => $a->separaPorProyecto(),
                     'implicito' => $a->frenteImplicito(),

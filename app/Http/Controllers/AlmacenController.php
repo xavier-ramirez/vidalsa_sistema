@@ -531,7 +531,7 @@ class AlmacenController extends Controller
         $data    = $this->validarAlmacen($request, $almacen->ID_ALMACEN);
         $logistica = $this->validarLogistica($request);
 
-        DB::transaction(function () use ($almacen, $data, $request, $logistica) {
+        $juntados = DB::transaction(function () use ($almacen, $data, $request, $logistica) {
             $almacen->update($data);
             if ($request->has('frentes')) {
                 $this->syncFrentes($almacen, $request->input('frentes', []));
@@ -539,10 +539,15 @@ class AlmacenController extends Controller
             if ($logistica !== null) {
                 $this->logistica->sincronizar($almacen->ID_ALMACEN, $logistica['choferes'] ?? [], $logistica['vehiculos'] ?? []);
             }
+            // Si con este cambio dejó de separar por proyecto (Un solo inventario, un solo
+            // frente o tipo General), su saldo por proyecto pasa a uno solo.
+            return $this->inventario->juntarSaldosEnComun($almacen->load('frentes'));
         });
 
         return response()->json([
-            'message' => 'Almacén actualizado.',
+            'message' => 'Almacén actualizado.' . ($juntados
+                ? " El saldo de {$juntados} " . ($juntados === 1 ? 'producto' : 'productos') . ' quedó en un solo inventario.'
+                : ''),
             'almacen' => $almacen->fresh()->load('frentes'),
         ]);
     }
@@ -3753,6 +3758,8 @@ class AlmacenController extends Controller
             'CODIGO'      => ['nullable', 'string', 'max:30', Rule::unique('almacenes', 'CODIGO')->ignore($ignoreId, 'ID_ALMACEN')],
             'NOMBRE'      => ['required', 'string', 'max:150', Rule::unique('almacenes', 'NOMBRE')->ignore($ignoreId, 'ID_ALMACEN')],
             'TIPO'        => ['required', Rule::in([Almacen::TIPO_GENERAL, Almacen::TIPO_PROYECTO])],
+            // «Un solo inventario»: ver Almacen::separaPorProyecto. Sin mandarlo, no se toca.
+            'INVENTARIO_UNICO' => 'sometimes|boolean',
             'UBICACION'   => 'nullable|string|max:150',
             // ALMACENISTA: nombre del responsable del almacén (aparece como "Entregado por"
             // en la Nota de Entrega). Obligatorio para no dejar el PDF sin

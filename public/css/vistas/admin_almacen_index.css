@@ -582,6 +582,8 @@
        padding del componente (8px) la caja medía 52px, más alta que los propios campos de
        texto del modal. Con 5px queda en 40px, a la par del resto del formulario. */
     #almNvFormatoOpts .multiselect-item { flex:1 1 0; min-width:0; cursor:pointer; padding:5px 10px; }
+    /* «Un solo inventario» de Editar almacén: el mismo check, en un marco como el del formato. */
+    .alm-nv-unico { border:1px solid #cbd5e0; border-radius:10px; cursor:pointer; padding:8px 12px; }
     /* Firmantes de la nota: un bloque por firmante, apilados en el mismo orden en que salen
        impresos en el PDF. Apilados y no en columnas porque el modal es angosto a propósito:
        en columnas el nombre no cabía y los bloques se partían a mitad. Dentro de cada uno,

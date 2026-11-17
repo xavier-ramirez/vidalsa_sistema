@@ -54,6 +54,8 @@ class Almacen extends Model
         'CODIGO',
         'NOMBRE',
         'TIPO',
+        // Un solo saldo aunque tenga varios frentes — ver separaPorProyecto().
+        'INVENTARIO_UNICO',
         'UBICACION',
         'ALMACENISTA',
         'CARGO_ALMACENISTA',
@@ -83,6 +85,7 @@ class Almacen extends Model
      * correcto sin tener que llamar a un helper manualmente.
      */
     protected $casts = [
+        'INVENTARIO_UNICO'  => 'boolean',
         'NOMBRE'            => MojibakeFix::class,
         'UBICACION'         => MojibakeFix::class,
         'ALMACENISTA'       => MojibakeFix::class,
@@ -123,7 +126,8 @@ class Almacen extends Model
      * de PATIO EL TIGRE, donde el material de 6 proyectos se sumaba en un único número.
      * Un almacén con un solo frente (o GENERAL, como BARCELONA) no tiene nada que
      * separar y opera SIEMPRE contra la bolsa común (ID_FRENTE = 0), así que su
-     * comportamiento es idéntico al de antes de existir esta columna.
+     * comportamiento es idéntico al de antes de existir esta columna. Lo mismo uno de
+     * varios frentes con INVENTARIO_UNICO («Un solo inventario» en Editar almacén).
      *
      * Es el ÚNICO interruptor de la separación: lo consultan InventarioService (para
      * decidir a qué saldo aplica cada movimiento) y AlmacenController (para saber si
@@ -132,11 +136,12 @@ class Almacen extends Model
      *
      * Ojo: usa la relación ya cargada si existe (`with('frentes')`), y solo cuenta
      * contra la BD cuando no lo está — este método se llama por cada movimiento de un
-     * lote y una consulta por línea se nota.
+     * lote y una consulta por línea se nota. Y una consulta con columnas fijas debe
+     * traer TIPO e INVENTARIO_UNICO.
      */
     public function separaPorProyecto(): bool
     {
-        if ($this->TIPO !== self::TIPO_PROYECTO) {
+        if ($this->TIPO !== self::TIPO_PROYECTO || $this->INVENTARIO_UNICO) {
             return false;
         }
 

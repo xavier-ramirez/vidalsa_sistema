@@ -253,7 +253,8 @@ class DominioAlmacen
 
         return [
             'almacenes' => Almacen::with('frentes:ID_FRENTE')->orderBy('TIPO')->orderBy('NOMBRE')
-                ->get(['ID_ALMACEN', 'NOMBRE', 'TIPO'])
+                // TIPO e INVENTARIO_UNICO: los lee separaPorProyecto().
+                ->get(['ID_ALMACEN', 'NOMBRE', 'TIPO', 'INVENTARIO_UNICO'])
                 ->map(fn (Almacen $a) => [
                     'id'      => (int) $a->ID_ALMACEN,
                     'nombre'  => $a->NOMBRE,

@@ -3305,6 +3305,7 @@
         // o PROYECTO (ver Almacen::visiblesPara). Antes se ocultaba para GENERAL.
         var wrap = el('almNvFrentesWrap');
         if (wrap) wrap.style.display = '';
+        almNvUnicoModo();
     };
     // Checkboxes del multiselect de frentes del modal de almacén.
     function almNvFrenteChecks() { return Array.prototype.slice.call(document.querySelectorAll('#almNvFrentesSelect input[type="checkbox"]')); }
@@ -3333,7 +3334,15 @@
             inp.placeholder = sp ? sp.textContent.trim() : '1 frente';
         }
         else inp.placeholder = sel.length + ' frentes seleccionados';
+        almNvUnicoModo();
     };
+    // «Un solo inventario» solo se ofrece donde hay qué juntar: PROYECTO con 2 o más frentes.
+    // Oculta conserva su valor, que se manda igual (quitar un frente no la borra).
+    function almNvUnicoModo() {
+        var wrap = el('almNvUnicoWrap'); if (!wrap) return;
+        var n = almNvFrenteChecks().filter(function (c) { return c.checked; }).length;
+        wrap.hidden = (el('almNvTipo') || {}).value === 'GENERAL' || n < 2;
+    }
     function almNvSetFrentes(ids) {
         var set = {}; (ids || []).forEach(function (x) { set[String(x)] = true; });
         almNvFrenteChecks().forEach(function (c) { c.checked = !!set[c.value]; });
@@ -3416,6 +3425,7 @@
         var nvDd  = el('almNvNombreDropdown'); if (nvDd) nvDd.classList.remove('active');
         // Ya deja el Nombre en modo PROYECTO (almNvTipoSelect llama a almNvNombreModo).
         almNvTipoSelect('PROYECTO', 'Proyecto (por frentes)');
+        el('almNvUnico').checked = false;
         almNvSetFrentes([]);
         showErr('almNvError', '');
     }
@@ -3486,6 +3496,7 @@
         almNvFormatoSelect(d.FORMATO_NOTA);
         var tipo = d.TIPO || 'PROYECTO';
         almNvTipoSelect(tipo, tipo === 'GENERAL' ? 'General (central)' : 'Proyecto (por frentes)');
+        el('almNvUnico').checked = !!d.INVENTARIO_UNICO;
         almNvSetFrentes(d.frentes || []);
         window.almToggleFrentes();
         almNvLogCargar(id);
@@ -3530,6 +3541,7 @@
             ALMACENISTA:       val('almNvAlmacenista') || null,
             CARGO_ALMACENISTA: val('almNvCargoAlmacenista') || null,
             FORMATO_NOTA:      formato,
+            INVENTARIO_UNICO:  el('almNvUnico').checked,
             frentes:           frentes
         };
         ALM_FIRMANTES_CAMPOS.forEach(function (c) { cuerpo[c.col] = val(c.id) || null; });

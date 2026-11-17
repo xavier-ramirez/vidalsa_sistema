@@ -35,6 +35,7 @@
         return [
             'NOMBRE'            => $a->NOMBRE,
             'TIPO'              => $a->TIPO,
+            'INVENTARIO_UNICO'  => (bool) $a->INVENTARIO_UNICO,
             'UBICACION'         => $a->UBICACION,
             'ALMACENISTA'       => $a->ALMACENISTA,
             'CARGO_ALMACENISTA' => $a->CARGO_ALMACENISTA,
@@ -999,6 +1000,17 @@
                         <div id="almNvFrentesNoMatch" style="display:none;padding:10px 15px;font-size:13px;color:#94a3b8;">Sin coincidencias.</div>
                     </div>
                 </div>
+            </div>
+            {{-- «Un solo inventario»: un almacén de PROYECTO con varios frentes lleva un saldo
+                 por producto, sin separarlo por proyecto (Almacen::separaPorProyecto). Solo se
+                 ve en ese caso (almNvUnicoModo); al guardarlo marcado, el backend junta lo que
+                 ya estaba separado (InventarioService::juntarSaldosEnComun). --}}
+            <div id="almNvUnicoWrap" hidden>
+                <label class="multiselect-item alm-nv-unico" for="almNvUnico">
+                    <input type="checkbox" id="almNvUnico">
+                    <span>Un solo inventario para todos sus frentes</span>
+                </label>
+                <div class="alm-hint">No separa el saldo por proyecto. Al guardar, junta el que ya está separado.</div>
             </div>
             <div id="almNvError" style="display:none;margin-top:6px;padding:9px 12px;background:#fee2e2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:600;"></div>
         </div>

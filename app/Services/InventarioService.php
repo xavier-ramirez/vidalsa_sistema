@@ -815,6 +815,62 @@ class InventarioService
             ->find($idAlmacen)?->separaPorProyecto() ?? false;
     }
 
+    /**
+     * Junta en la bolsa común los saldos por proyecto de un almacén que ya NO separa (se le
+     * marcó «Un solo inventario», o le quedó un solo frente). Sin esto, esas filas quedan
+     * fuera de todo: el almacén ya solo opera contra la común. El total no cambia.
+     *
+     * El kardex también pasa a la común (ID_FRENTE_SALDO = 0): queda igual que el de un almacén
+     * que nunca separó, y si vuelve a separar, el recálculo de la común lo encuentra entero.
+     * ID_FRENTE —a quién se le entregó— no se toca.
+     *
+     * Devuelve cuántos productos tenían saldo por proyecto. Va dentro de la transacción del
+     * llamador, que ya guardó el cambio que lo dejó sin separar.
+     */
+    public function juntarSaldosEnComun(Almacen $almacen): int
+    {
+        $id = (int) $almacen->ID_ALMACEN;
+        unset($this->separaCache[$id]);
+        // Sin saldo por proyecto no hay nada que juntar ni que bloquear (el caso de casi
+        // todas las ediciones: BARCELONA tiene cientos de filas, todas comunes).
+        $productos = $almacen->separaPorProyecto() ? collect() : AlmacenStock::where('ID_ALMACEN', $id)
+            ->where('ID_FRENTE', '!=', self::FRENTE_BOLSA_COMUN)
+            ->distinct()->pluck('ID_PRODUCTO');
+        if ($productos->isEmpty()) {
+            return 0;
+        }
+
+        // Las filas de esos productos, en el orden de los demás bloqueos (producto y bolsa).
+        $filas = AlmacenStock::where('ID_ALMACEN', $id)
+            ->whereIn('ID_PRODUCTO', $productos)
+            ->orderBy('ID_PRODUCTO')->orderBy('ID_FRENTE')
+            ->lockForUpdate()
+            ->get()
+            ->groupBy('ID_PRODUCTO');
+
+        foreach ($filas as $idProducto => $g) {
+            $comun = $g->first(fn ($s) => (int) $s->ID_FRENTE === self::FRENTE_BOLSA_COMUN);
+            $otras = $g->reject(fn ($s) => $s === $comun);
+            $comun ??= new AlmacenStock(['ID_ALMACEN' => $id, 'ID_PRODUCTO' => $idProducto, 'ID_FRENTE' => self::FRENTE_BOLSA_COMUN]);
+
+            $comun->CANTIDAD             = round((float) $g->sum('CANTIDAD'), 3);
+            $comun->CANTIDAD_MINIMA      = $g->max('CANTIDAD_MINIMA');
+            $comun->FECHA_ULT_MOVIMIENTO = $g->max('FECHA_ULT_MOVIMIENTO');
+            // Lo último que entró o salió es de la bolsa que se movió más tarde.
+            $ultima = $g->sortByDesc(fn ($s) => (string) $s->FECHA_ULT_MOVIMIENTO)->first();
+            $comun->ULTIMA_ENTRADA       = $ultima->ULTIMA_ENTRADA;
+            $comun->ULTIMA_SALIDA        = $ultima->ULTIMA_SALIDA;
+            AlmacenStock::whereIn('ID_STOCK', $otras->pluck('ID_STOCK'))->delete();
+            $comun->save();
+        }
+
+        MovimientoInventario::where('ID_ALMACEN', $id)
+            ->where('ID_FRENTE_SALDO', '!=', self::FRENTE_BOLSA_COMUN)
+            ->update(['ID_FRENTE_SALDO' => self::FRENTE_BOLSA_COMUN]);
+
+        return $filas->count();
+    }
+
     protected function frenteDelSaldo(Almacen $almacen, array $opts): int
     {
         if (!$almacen->separaPorProyecto()) {
