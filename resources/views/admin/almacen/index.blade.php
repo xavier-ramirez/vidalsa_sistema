@@ -816,10 +816,10 @@
                  ALMACÉN CENTRAL CARACAS— y (b) los almacenes que ya existen pueden llamarse
                  distinto que sus frentes (PATIO EL TIGRE sirve a PATIO I EL TIGRE y a otros 5),
                  y un selector estricto los dejaría sin nombre al editarlos.
-                 Elegir un proyecto de la lista TAMBIÉN lo tilda abajo en "Frentes que usan este
+                 Elegir un proyecto de la lista TAMBIÉN lo tilda abajo en "Frentes del
                  almacén": es el mismo dato dicho dos veces y pedirlo dos veces sobraba. --}}
             <div>
-                <label for="almNvNombre">Nombre <span class="alm-label-ayuda" id="almNvNombreHint">Elige el proyecto al que pertenece este almacén.</span></label>
+                <label for="almNvNombre">Nombre <span class="alm-label-ayuda" id="almNvNombreHint">El proyecto al que pertenece.</span></label>
                 <div class="custom-dropdown" id="almNvNombreDropdown">
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:42px;">
                         <input type="text" id="almNvNombre" maxlength="150" autocomplete="off"
@@ -848,19 +848,19 @@
                     <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fbfcfd;overflow:hidden;border:1px solid #cbd5e0;border-radius:10px;height:42px;transition:border-color .15s,background .15s;">
                         <input type="text" data-filter-search autocomplete="off" readonly
                                id="almNvTipoDisplay"
-                               value="Proyecto (Limitado a frentes específicos)"
+                               value="Proyecto (por frentes)"
                                style="flex:1;border:none;background:transparent;padding:8px 12px;font-size:14px;font-weight:normal;color:#0f172a;outline:none;min-width:0;cursor:pointer;"
                                onclick="this.closest('.dropdown-trigger').style.borderColor='var(--maquinaria-blue,#0067b1)'">
                         <i class="material-icons" style="padding:0 8px;color:#64748b;font-size:20px;">expand_more</i>
                     </div>
                     <div class="dropdown-content" style="padding:5px;">
                         <div class="dropdown-item" data-value="GENERAL"
-                             onclick="almNvTipoSelect('GENERAL','General (almacén central)')">
-                            General (almacén central)
+                             onclick="almNvTipoSelect('GENERAL','General (central)')">
+                            General (central)
                         </div>
                         <div class="dropdown-item selected" data-value="PROYECTO"
-                             onclick="almNvTipoSelect('PROYECTO','Proyecto (Limitado a frentes específicos)')">
-                            Proyecto (Limitado a frentes específicos)
+                             onclick="almNvTipoSelect('PROYECTO','Proyecto (por frentes)')">
+                            Proyecto (por frentes)
                         </div>
                     </div>
                 </div>
@@ -880,7 +880,7 @@
                  manda al backend viaja en el hidden #almNvFormato; los checks son la cara
                  visible de ese único valor. --}}
             <div>
-                <label>Formato de la Nota de Entrega</label>
+                <label>Formato de la nota</label>
                 <input type="hidden" id="almNvFormato" value="{{ $formatoNotaDef }}">
                 <div id="almNvFormatoOpts">
                     @foreach($formatosNota as $valFmt => $lblFmt)
@@ -914,7 +914,7 @@
                  RECIBIDO es el único que NO se configura: lo firma quien recibe en el frente
                  destino, y ese sí cambia en cada entrega. --}}
             <div>
-                <label>Firmantes de la Nota de Entrega</label>
+                <label>Firmantes de la nota</label>
                 <div class="alm-firmantes">
                     <div class="alm-firm-bloque">
                         <div class="alm-firm-rol">ENTREGADO</div>
@@ -957,7 +957,7 @@
                  del vehículo / Datos del chofer" de la nota. Se guardan con el resto del modal;
                  además, una salida con un chofer o vehículo nuevo lo agrega sola. --}}
             <div>
-                <label>Logística de la Nota de Entrega <span class="alm-opc">(opcional)</span></label>
+                <label>Choferes y vehículos <span class="alm-opc">(opcional)</span></label>
                 <div class="alm-firmantes">
                     <div class="alm-firm-bloque">
                         <div class="alm-log-cab">
@@ -974,10 +974,10 @@
                         <div id="almNvLogVehiculos" class="alm-log-filas"></div>
                     </div>
                 </div>
-                <div class="alm-hint">La salida los sugiere junto con los vehículos con placa de los frentes del almacén.</div>
+                <div class="alm-hint">La salida los sugiere al despachar.</div>
             </div>
             <div id="almNvFrentesWrap">
-                <label for="almNvFrentesInput">Frentes que usan este almacén</label>
+                <label for="almNvFrentesInput">Frentes del almacén</label>
                 <div class="custom-multiselect" id="almNvFrentesSelect">
                     {{-- El trigger es un input directo: clic lo abre y escribir filtra la lista de abajo. --}}
                     <div class="multiselect-trigger" tabindex="-1" role="button" aria-haspopup="listbox" style="padding:0;display:flex;align-items:center;overflow:hidden;cursor:text;">

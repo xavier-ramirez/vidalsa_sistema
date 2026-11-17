@@ -3239,7 +3239,7 @@
         if (dd && !dd.classList.contains('alm-dd-sin-lista')) dd.classList.add('active');
     };
 
-    // Elegir un proyecto pone su nombre Y lo tilda abajo en "Frentes que usan este almacén":
+    // Elegir un proyecto pone su nombre Y lo tilda abajo en "Frentes del almacén":
     // es el mismo dato, y dejar el almacén llamado como un frente que no atiende era el
     // error mas facil de cometer. Los demas frentes ya tildados se respetan (un almacen de
     // proyecto puede servir a varios, como Patio El Tigre).
@@ -3415,7 +3415,7 @@
         var nvNom = el('almNvNombre'); if (nvNom) window.almNvNombreFilter(nvNom);
         var nvDd  = el('almNvNombreDropdown'); if (nvDd) nvDd.classList.remove('active');
         // Ya deja el Nombre en modo PROYECTO (almNvTipoSelect llama a almNvNombreModo).
-        almNvTipoSelect('PROYECTO', 'Proyecto (Limitado a frentes específicos)');
+        almNvTipoSelect('PROYECTO', 'Proyecto (por frentes)');
         almNvSetFrentes([]);
         showErr('almNvError', '');
     }
@@ -3485,7 +3485,7 @@
         // Va DESPUÉS de rellenar los firmantes: es quien decide si el bloque se ve o se oculta.
         almNvFormatoSelect(d.FORMATO_NOTA);
         var tipo = d.TIPO || 'PROYECTO';
-        almNvTipoSelect(tipo, tipo === 'GENERAL' ? 'General (almacén central)' : 'Proyecto (Limitado a frentes específicos)');
+        almNvTipoSelect(tipo, tipo === 'GENERAL' ? 'General (central)' : 'Proyecto (por frentes)');
         almNvSetFrentes(d.frentes || []);
         window.almToggleFrentes();
         almNvLogCargar(id);
