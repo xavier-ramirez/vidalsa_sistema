@@ -130,6 +130,35 @@ class InventarioUnicoTest extends MySqlTestCase
         $this->assertSame([0 => 6.0], $this->saldos());
     }
 
+    public function test_quitarle_un_frente_de_tres_junta_solo_su_saldo(): void
+    {
+        $frenteC = (int) DB::table('frentes_trabajo')
+            ->whereNotIn('ID_FRENTE', DB::table('almacen_frentes')->select('ID_FRENTE'))
+            ->value('ID_FRENTE');
+        if (!$frenteC) {
+            $this->markTestSkipped('Hace falta un tercer frente sin almacén asignado.');
+        }
+        DB::table('almacen_frentes')->insert(['ID_ALMACEN' => $this->almacen, 'ID_FRENTE' => $frenteC]);
+        $this->entrada(4, $frenteC);
+
+        // Sigue separando (A y B): solo la bolsa de C, que ya nada puede elegir, pasa a la común.
+        $this->guardar(false, [$this->frenteA, $this->frenteB])->assertOk();
+        $this->assertSame([0 => 5.0, $this->frenteA => 3.0, $this->frenteB => 2.0], $this->saldos());
+        $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->almacen)->where('ID_FRENTE_SALDO', $frenteC)->count());
+        $this->assertSame(2, MovimientoInventario::where('ID_ALMACEN', $this->almacen)->whereIn('ID_FRENTE_SALDO', [$this->frenteA, $this->frenteB])->count());
+    }
+
+    public function test_borrar_un_frente_que_lo_deja_con_uno_junta_los_saldos(): void
+    {
+        // El frente B ya sin stock (si no, no se deja borrar): al borrarlo el almacén queda con
+        // un solo frente y deja de separar; lo del A pasa a la común.
+        AlmacenStock::where('ID_ALMACEN', $this->almacen)->where('ID_FRENTE', $this->frenteB)->update(['CANTIDAD' => 0]);
+        $this->actingAs($this->superAdminGlobal())->deleteJson(route('frentes.destroy', $this->frenteB))->assertOk();
+
+        $this->assertSame([0 => 4.0], $this->saldos());
+        $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->almacen)->where('ID_FRENTE_SALDO', '!=', 0)->count());
+    }
+
     public function test_desmarcarlo_vuelve_a_separar_lo_que_entra_despues(): void
     {
         $this->guardar(true, [$this->frenteA, $this->frenteB])->assertOk();
@@ -149,10 +178,10 @@ class InventarioUnicoTest extends MySqlTestCase
     {
         $this->guardar(true, [$this->frenteA, $this->frenteB])->assertOk();
 
-        // Como la leen la copia offline y la Recepción: ya no separa, así que una entrada sin
-        // proyecto se rotula con el primer frente, igual que en un almacén de un solo frente.
+        // Como la leen la copia offline y la Recepción: ya no separa, y una entrada sin proyecto
+        // no se rotula con un frente cualquiera de los varios que tiene.
         $a = Almacen::with('frentes:ID_FRENTE')->whereKey($this->almacen)->get(['ID_ALMACEN', 'TIPO', 'INVENTARIO_UNICO'])->first();
         $this->assertFalse($a->separaPorProyecto());
-        $this->assertSame($this->frenteA, $a->frenteImplicito());
+        $this->assertNull($a->frenteImplicito());
     }
 }

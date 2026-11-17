@@ -1511,6 +1511,12 @@
         var reparto = [], total = 0;
         var inps = document.querySelectorAll('#almBolsaLista .alm-bolsa-cant');
         for (var i = 0; i < inps.length; i++) {
+            // Lo que el navegador no entiende como número (p. ej. "1,5" según el idioma) llega
+            // como '' y se saltaba en silencio: la salida salía con menos.
+            if (inps[i].validity && inps[i].validity.badInput) {
+                showErr('almBolsaError', 'Revisa la cantidad de ' + inps[i].getAttribute('data-nombre') + ': usa punto para los decimales.');
+                inps[i].focus(); return;
+            }
             var raw = String(inps[i].value).replace(',', '.').trim();
             if (raw === '') continue;
             var q = parseFloat(raw), max = parseFloat(inps[i].getAttribute('data-max')) || 0;
@@ -3569,8 +3575,14 @@
                 window.almDesdeGestionar = false;
                 almCerrar('almAlmacenModal'); toast(res.b.message || (id ? 'Almacén actualizado.' : 'Almacén creado.'));
                 var newId = res.b.almacen && (res.b.almacen.ID_ALMACEN || res.b.almacen.id);
-                // recargar: cambió la lista del selector / nombres
-                setTimeout(function () { window.location = ROUTE_INDEX + ((id || newId) ? ('?id_almacen=' + (id || newId)) : ''); }, 500);
+                // Recargar (cambió la lista del selector / nombres) cuando la copia local ya trae
+                // el guardado (alDia, máx. 10 s): si no, la tabla nueva se pintaba con el almacén
+                // de antes — p. ej. «Un solo inventario» recién marcado seguía preguntando el
+                // proyecto. El medio segundo deja leer el aviso.
+                Promise.all([
+                    window.CopiaLocal.alDia('almacen'),
+                    new Promise(function (listo) { setTimeout(listo, 500); }),
+                ]).then(function () { window.location = ROUTE_INDEX + ((id || newId) ? ('?id_almacen=' + (id || newId)) : ''); });
             } else {
                 // Error del servidor (validacion 422, conflicto, etc.). Mostramos
                 // banner + toast — el toast es la garantia visual de que algo paso.

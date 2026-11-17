@@ -170,6 +170,15 @@ class SalidaDesdeProyectoElegidoTest extends MySqlTestCase
 
         $this->assertSame(3.0, $this->saldo($this->frenteA));
         $this->assertSame(2.0, $this->saldo($this->frenteB));
+
+        // Una línea con proyecto y otra sin elegirlo también son dos procedencias: el traspaso
+        // lo cargaría todo al proyecto elegido.
+        $datos['lineas'][1] = ['id_producto' => $this->producto, 'cantidad' => 1];
+        $this->actingAs($usuario)->postJson(route('almacen.salida.preview'), $datos)
+            ->assertStatus(422)->assertJsonFragment(['message' => $this->mensajeReparto()]);
+        $this->actingAs($usuario)->postJson(route('almacen.movimientos.lote'), ['tipo' => 'SALIDA'] + $datos)
+            ->assertStatus(422)->assertJsonFragment(['message' => $this->mensajeReparto()]);
+        $this->assertSame(3.0, $this->saldo($this->frenteA));
     }
 
     private function mensajeReparto(): string

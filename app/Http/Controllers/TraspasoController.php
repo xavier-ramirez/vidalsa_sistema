@@ -199,7 +199,7 @@ class TraspasoController extends Controller
         // NO entran aquí, a propósito: `search` (es justo lo que el usuario está tecleando en
         // ese buscador) y la ventana temporal del KPI ni el almacén ORIGEN, que solo acotan la
         // tabla.
-        $filtrosBandeja = function ($query) use ($request, $estadoActivo, $almacenesVisibles) {
+        $filtrosBandeja = function ($query) use ($request, $estadoActivo, $almacenesVisibles, $bandeja) {
             // Visibilidad: la bandeja es un inbox, importa el DESTINO (quién debe recibir).
             $query->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
 
@@ -216,9 +216,12 @@ class TraspasoController extends Controller
                 $query->where('ESTADO', $estadoActivo);
             }
 
-            // 'all' = "Todos" del dropdown (solo GLOBAL): sin WHERE de almacén, queda la
-            // visibilidad de arriba. Sin el guard, integer('all') da 0 y la bandeja saldría vacía.
-            if ($request->filled('id_almacen_destino') && $request->input('id_almacen_destino') !== 'all') {
+            // 'all' = "Todos" del dropdown (solo GLOBAL): los almacenes de la bandeja, los mismos
+            // que lista el dropdown (un GENERAL no recibe notas de entrega). Sin el guard,
+            // integer('all') da 0 y la bandeja saldría vacía.
+            if ($request->input('id_almacen_destino') === 'all') {
+                $query->whereIn('ID_ALMACEN_DESTINO', $bandeja->pluck('ID_ALMACEN'));
+            } elseif ($request->filled('id_almacen_destino')) {
                 $query->where('ID_ALMACEN_DESTINO', $request->integer('id_almacen_destino'));
             }
             // Filtro por PRODUCTO: solo las notas que CONTIENEN ese producto. El front sugiere

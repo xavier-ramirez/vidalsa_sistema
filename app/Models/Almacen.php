@@ -158,10 +158,12 @@ class Almacen extends Model
      * NULL cuando el almacén separa por proyecto: ahí el frente ES la bolsa que recibe el
      * saldo, y "el primero de la lista" le sumaría stock a un proyecto ajeno. Lo usan la
      * compra directa, la Entrada por ODC y el stock inicial de un producto nuevo.
+     * También NULL con «Un solo inventario» y varios frentes: el saldo es uno, pero el kardex
+     * rotularía la entrada con un proyecto cualquiera de la lista.
      */
     public function frenteImplicito(): ?int
     {
-        if ($this->separaPorProyecto()) {
+        if ($this->separaPorProyecto() || ($this->INVENTARIO_UNICO && $this->frentes->count() > 1)) {
             return null;
         }
         $id = $this->frentes->first()?->ID_FRENTE;

@@ -203,9 +203,17 @@ class FrenteTrabajoController extends Controller
 
         $nombre = $frente->NOMBRE_FRENTE;
         // Lo que hacía el ON DELETE CASCADE de almacen_frentes con el borrado físico: el
-        // frente deja de estar asociado a sus almacenes (es configuración, no historial).
-        \Illuminate\Support\Facades\DB::table('almacen_frentes')->where('ID_FRENTE', $frente->ID_FRENTE)->delete();
-        $frente->delete();
+        // frente deja de estar asociado a sus almacenes (es configuración, no historial). Un
+        // almacén que así deja de separar por proyecto (le queda un frente) junta su saldo,
+        // como al quitarle el frente en «Editar almacén» (InventarioService::juntarSaldosEnComun).
+        \Illuminate\Support\Facades\DB::transaction(function () use ($frente) {
+            $almacenes = \Illuminate\Support\Facades\DB::table('almacen_frentes')->where('ID_FRENTE', $frente->ID_FRENTE)->pluck('ID_ALMACEN');
+            \Illuminate\Support\Facades\DB::table('almacen_frentes')->where('ID_FRENTE', $frente->ID_FRENTE)->delete();
+            $frente->delete();
+            foreach (\App\Models\Almacen::with('frentes')->whereIn('ID_ALMACEN', $almacenes)->get() as $almacen) {
+                app(\App\Services\InventarioService::class)->juntarSaldosEnComun($almacen);
+            }
+        });
 
         if ($request->wantsJson() || $request->has('json')) {
             return response()->json([

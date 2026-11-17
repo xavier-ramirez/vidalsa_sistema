@@ -2104,12 +2104,15 @@ class AlmacenController extends Controller
         // $bolsasPorProducto ([ID_PRODUCTO => [bolsa => bolsa]], la forma de previewSalidaPdf)
         // es lo que necesita el traspaso, que lleva un solo proyecto por producto.
         $bolsasPorProducto = [];
+        $sinEleccion       = [];   // [ID_PRODUCTO => true]: alguna línea suya no eligió proyecto
         if ($data['tipo'] === 'SALIDA') {
             foreach ($data['lineas'] as $i => $linea) {
                 $bolsa = $this->bolsaOrigenElegida($almacenLote, $linea['id_frente_saldo'] ?? null);
                 if ($bolsa !== null) {
                     $data['lineas'][$i]['bolsa_salida'] = $bolsa;
                     $bolsasPorProducto[(int) $linea['id_producto']][$bolsa] = $bolsa;
+                } else {
+                    $sinEleccion[(int) $linea['id_producto']] = true;
                 }
             }
         }
@@ -2147,7 +2150,7 @@ class AlmacenController extends Controller
                 }
                 if ($idAlmDestino !== null) {
                     // SALIDA hacia un almacén distinto → vía traspaso.
-                    if ($error = $this->errorRepartoEnTraspaso($bolsasPorProducto)) {
+                    if ($error = $this->errorRepartoEnTraspaso($bolsasPorProducto, $sinEleccion)) {
                         return response()->json(['message' => $error, 'errors' => ['lineas' => [$error]]], 422);
                     }
                     // Sin reparto, cada producto tiene una sola bolsa: [ID_PRODUCTO => bolsa].
@@ -2686,13 +2689,16 @@ class AlmacenController extends Controller
     /**
      * Rechazo de una salida vía TRASPASO con un producto repartido entre varios proyectos
      * (`$bolsasPorProducto` = [ID_PRODUCTO => [bolsa => bolsa]]): cada línea del traspaso es un
-     * producto, sale de UNA bolsa y se recibe entera. null = no hay reparto. Lo usan el
+     * producto, sale de UNA bolsa y se recibe entera. Una línea sin proyecto elegido
+     * (`$sinEleccion` = [ID_PRODUCTO => true]) cuenta como otra procedencia: junto a una con
+     * proyecto, el traspaso lo cargaría todo a ese. null = no hay reparto. Lo usan el
      * registro (registrarMovimientoLote) y la vista previa (previewSalidaPdf), para que la
      * vista previa no deje pasar lo que el registro rechazaría.
      */
-    private function errorRepartoEnTraspaso(array $bolsasPorProducto): ?string
+    private function errorRepartoEnTraspaso(array $bolsasPorProducto, array $sinEleccion): ?string
     {
-        $repartidos = array_keys(array_filter($bolsasPorProducto, fn ($b) => count($b) > 1));
+        $repartidos = array_keys(array_filter($bolsasPorProducto,
+            fn ($b, $idp) => count($b) + (isset($sinEleccion[$idp]) ? 1 : 0) > 1, ARRAY_FILTER_USE_BOTH));
         if (!$repartidos) {
             return null;
         }
@@ -2998,6 +3004,9 @@ class AlmacenController extends Controller
             'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
             'fecha'                => 'nullable|date',
             'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
+            // El almacén destino elegido cuando el proyecto lo manejan varios: sin él,
+            // almacenDestinoDeSalida no sabe si la salida va por traspaso (ver abajo).
+            'id_almacen_destino'   => 'nullable|integer|exists:almacenes,ID_ALMACEN',
             'lineas'               => 'required|array|min:1',
             'lineas.*.id_producto'  => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
             // La vista previa NUNCA debe dejar pasar una salida que deje el saldo en negativo:
@@ -3057,6 +3066,7 @@ class AlmacenController extends Controller
         // varios proyectos a la vez (una línea por proyecto).
         $pedidoPorProducto = [];
         $bolsasPorProducto = [];
+        $sinEleccion       = [];
         foreach ($data['lineas'] as $l) {
             $idp = (int) $l['id_producto'];
             $pedidoPorProducto[$idp] = ($pedidoPorProducto[$idp] ?? 0.0) + (float) $l['cantidad'];
@@ -3064,12 +3074,14 @@ class AlmacenController extends Controller
             $bolsa = $this->bolsaOrigenElegida($almacenOrigen, $l['id_frente_saldo'] ?? null);
             if ($bolsa !== null) {
                 $bolsasPorProducto[$idp][$bolsa] = $bolsa;
+            } else {
+                $sinEleccion[$idp] = true;
             }
         }
         // Repartido entre proyectos hacia un destino con almacén propio: el registro lo
         // rechazaría (viaja como traspaso), así que la vista previa tampoco lo deja pasar.
         if (!empty($data['id_frente_destino'])
-            && ($error = $this->errorRepartoEnTraspaso($bolsasPorProducto))
+            && ($error = $this->errorRepartoEnTraspaso($bolsasPorProducto, $sinEleccion))
             && is_int($this->almacenDestinoDeSalida($data, (int) $data['id_frente_destino']))) {
             return response()->json(['message' => $error, 'errors' => ['lineas' => [$error]]], 422);
         }
