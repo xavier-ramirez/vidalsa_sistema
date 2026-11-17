@@ -652,11 +652,45 @@
     // Ancla la lista de frentes contra su propia caja. El multiselect lo abre/cierra el
     // componente global (uicomponents.js) poniendo .active en el contenedor, así que aquí
     // no se toca ese comportamiento: solo se coloca la lista cuando ya está abierta.
+    // SIEMPRE hacia abajo (lo pidió el usuario). Antes usaba anclarFlotante, que la abría hacia
+    // arriba si abajo no cabía: salía unas veces arriba y otras abajo, y al filtrar arriba la
+    // lista se encogía y quedaba flotando despegada del campo (el top no se movía).
+    // Sin sitio abajo, el cuerpo del modal se desplaza para subir el campo. Como Frentes es el
+    // último campo, al final del scroll no queda sitio: mientras la lista está abierta el cuerpo
+    // lleva un relleno extra abajo (data-fr-extra) que deja subirlo; al cerrarla se quita. Si aun
+    // así falta (ventana muy baja), la lista se acorta con su propio scroll.
+    var ALM_FRENTES_ALTO_MIN = 200;   // lo que necesita la lista para verse cómoda
+    function almFrentesRelleno(cuerpo, extra) {
+        if (!cuerpo) return;
+        if (extra > 0) {
+            if (!cuerpo.dataset.frBase) cuerpo.dataset.frBase = parseFloat(getComputedStyle(cuerpo).paddingBottom) || 0;
+            cuerpo.dataset.frExtra = extra;
+            cuerpo.style.paddingBottom = (+cuerpo.dataset.frBase + extra) + 'px';
+        } else if (cuerpo.dataset.frExtra) {
+            cuerpo.style.paddingBottom = '';
+            delete cuerpo.dataset.frExtra; delete cuerpo.dataset.frBase;
+        }
+    }
     function almFrentesAnclar() {
         var caja = document.getElementById('almNvFrentesSelect');
-        if (!caja || !caja.classList.contains('active')) return;
+        if (!caja) return;
+        var cuerpo = caja.closest('.alm-modal-body');
+        if (!caja.classList.contains('active')) { almFrentesRelleno(cuerpo, 0); return; }
         var lista = caja.querySelector('.multiselect-content');
-        if (lista) window.AlmSalidaNota.anclarFlotante(lista, caja);
+        if (!lista) return;
+        var r = caja.getBoundingClientRect();
+        var abajo = window.innerHeight - r.bottom - 12;
+        if (abajo < ALM_FRENTES_ALTO_MIN && cuerpo) {
+            var falta = ALM_FRENTES_ALTO_MIN - abajo;
+            almFrentesRelleno(cuerpo, (+cuerpo.dataset.frExtra || 0) + falta);
+            cuerpo.scrollTop += falta;   // el evento scroll vuelve a llamar aquí: ya cabe, no hace nada
+            r = caja.getBoundingClientRect();
+            abajo = window.innerHeight - r.bottom - 12;
+        }
+        lista.style.left = r.left + 'px';
+        lista.style.width = r.width + 'px';
+        lista.style.top = (r.bottom + 4) + 'px';
+        lista.style.maxHeight = Math.max(120, Math.min(250, abajo)) + 'px';
     }
     // Al ser fixed, la lista no sigue sola a su campo: se reancla si la ventana cambia de
     // tamaño o si algo se desplaza (el cuerpo del modal, con scroll en captura porque el

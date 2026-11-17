@@ -47,8 +47,9 @@
         var campo = (box.dataset.ancla && el(box.dataset.ancla)) || box.parentElement; if (!campo) return;
         almAnclarFlotante(box, campo, parseInt(box.dataset.anchoMin, 10) || 0);
     }
-    // La matemática del anclaje, en UN solo sitio: la usan los suggest de UM/categoría y la
-    // lista de frentes del modal de almacén, que flota por el mismo motivo (ver su CSS).
+    // La matemática del anclaje, en UN solo sitio: la usan las sugerencias flotantes
+    // (.alm-suggest-float). La lista de frentes del modal de almacén tiene la suya
+    // (almFrentesAnclar en almacen_index.js): esa abre siempre hacia abajo.
     // anchoMin: la caja puede ser más ancha que su campo (cédula, placa o vehículo en PC) si el
     // modal tiene sitio; si así se sale por la derecha, se alinea con el borde derecho del campo.
     // En el teléfono el campo ya ocupa casi todo el modal: ahí manda su ancho, o quedaría descuadrada.
@@ -456,6 +457,5 @@
 
         // Sugerencias flotantes: las usan también otros campos de /admin/almacen.
         mostrarSugerencias: mostrarSugerencias,
-        anclarFlotante: almAnclarFlotante,
     };
 })();
