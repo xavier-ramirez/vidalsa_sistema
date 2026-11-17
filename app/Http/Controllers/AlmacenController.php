@@ -2294,10 +2294,9 @@ class AlmacenController extends Controller
     /**
      * "Registrar y despachar" de la pantalla Recepción de materiales.
      *
-     * En el almacén general, mucho de lo que llega en la quincena no se queda: llega de la
-     * compra y sale de una vez al proyecto. Antes eso eran dos pasos a mano —la entrada y
-     * después la salida—, o un Excel aparte. Este botón hace las dos cosas con lo capturado,
-     * en UNA transacción:
+     * Mucho de lo que llega no se queda: llega de la compra y sale de una vez al proyecto.
+     * Lo ofrecen la Entrada por ODC (almacén general) y el menú Acciones de la bandeja
+     * (almacenes de proyecto), y hace las dos cosas con lo capturado, en UNA transacción:
      *
      *   1. La ENTRADA de todas las líneas.
      *   2. La SALIDA de todo al proyecto elegido, con su NOTA DE ENTREGA (NE-AAAA-NNNN): los

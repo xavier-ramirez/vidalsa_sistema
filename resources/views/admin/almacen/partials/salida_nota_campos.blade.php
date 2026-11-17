@@ -3,7 +3,8 @@
      Fecha, RQ N°, Solicitante, Departamento, Vehículo/Chofer y Observaciones.
      Un solo formulario para las dos pantallas que despachan con nota:
        · /admin/almacen → modal "Registrar salida" (index.blade.php)
-       · Recepción de materiales → modal "Registrar y despachar" (recepcion/nueva.blade.php)
+       · Recepción de materiales → modal "Registrar y despachar" (recepcion/partials/despacho_modales,
+         en la Entrada por ODC y en el menú Acciones de la bandeja)
      Mismos ids en las dos: los maneja public/js/maquinaria/almacen_salida_nota.js y los
      estilos están en css/vistas/admin_almacen_salida_nota.css. Necesita $frentesLista
      (App\Support\DatosNotaSalida::frentes()).

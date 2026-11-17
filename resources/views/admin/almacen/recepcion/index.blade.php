@@ -252,24 +252,33 @@
             </div>
         </div>
 
-        {{-- Botón de acción del toolbar: NO despliega menú — abre directo el modal de
-             COMPRA DIRECTA. La bandeja de al lado lista la otra vía de entrada, y la
-             diferencia entre las dos es de dónde viene el material, no si trae papeles
-             (casi siempre los trae):
-               · Bandeja  → REPOSICIÓN: el almacén general despachó y emitió su nota; aquí
-                            solo se confirma lo que llegó.
-               · Este botón → COMPRA DIRECTA: la empresa le compró a un proveedor y el
-                            vendedor despachó el material directo a ESTE almacén, sin pasar
-                            por el general. No hay nada que confirmar porque no hay nota
-                            interna: la entrada se captura completa aquí. La nota del
-                            proveedor se anota si la hubo (es opcional).
-             El registro es una ENTRADA normal al almacén de la bandeja, así que exige la
+        {{-- Acciones (botón desplegable como en Inventario y la Bitácora). Las dos vías de
+             entrada que se capturan aquí; la bandeja de al lado es la tercera, la REPOSICIÓN
+             (el general despachó con su nota y aquí solo se confirma):
+               · Compra directa → la empresa le compró a un proveedor y el vendedor despachó
+                 directo a ESTE almacén. Se captura la entrada completa; la nota del
+                 proveedor es opcional.
+               · Registrar y despachar → lo mismo, pero el material sale de una vez al
+                 proyecto: al terminar la captura se llena la Nota de Entrega.
+             Las dos son movimientos de stock del almacén de la bandeja, así que exigen la
              misma clave que confirmar una recepción — por eso va dentro del @can. --}}
         @can('almacen.movimiento')
-        <button type="button" id="trCompraDirectaBtn" class="btn-primary-maquinaria tr-compra-btn"
-                onclick="window.cdirAbrir()" title="Registrar una compra que el proveedor despachó directo a este almacén (no vino del almacén general)">
-            <i class="material-icons">shopping_cart</i><span class="tr-compra-txt">Compra directa</span>
-        </button>
+        <div class="tr-acc-wrap">
+            <button type="button" id="trBtnAcciones" class="btn-primary-maquinaria tr-acc-btn"
+                    onclick="window.trToggleAcciones(event)" title="Registrar una entrada en este almacén">
+                <i class="material-icons">settings</i><span class="tr-acc-txt">Acciones</span><i class="material-icons">expand_more</i>
+            </button>
+            <div id="trAccionesMenu" class="tr-acc-menu">
+                <button type="button" class="tr-acc-item" onclick="window.trAccion('compra')"
+                        title="Registrar una compra que el proveedor despachó directo a este almacén (no vino del almacén general)">
+                    <span class="tr-acc-ic"><i class="material-icons">shopping_cart</i></span><span>Compra directa</span>
+                </button>
+                <button type="button" class="tr-acc-item" onclick="window.trAccion('despacho')"
+                        title="Registrar lo que llegó de la compra y despacharlo de una vez al proyecto, con su Nota de Entrega">
+                    <span class="tr-acc-ic"><i class="material-icons">local_shipping</i></span><span>Registrar y despachar</span>
+                </button>
+            </div>
+        </div>
         @endcan
     </div>
 
@@ -361,8 +370,13 @@
      volver arriba al final, cuando ya había una lista larga por medio.
      Layout del paso 2: SOLO la tabla hace scroll. La barra de captura queda fija arriba
      (así el buscador está siempre a mano y ningún contenedor con overflow le recorta el
-     desplegable) y los botones fijos abajo. --}}
+     desplegable) y los botones fijos abajo.
+
+     El MISMO modal sirve a "Registrar y despachar" (menú Acciones): ahí se entra directo
+     al paso 2, porque el proyecto y los datos van en la Nota de Entrega, y su botón final
+     es "Despachar", que abre esa nota (partials/despacho_modales, recepcion_despacho.js). --}}
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_recepcion_index_2.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_recepcion_index_2.css')) }}">
+<link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_salida_nota.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_salida_nota.css')) }}">
 
 <div class="cdir-overlay" id="cdirOverlay">
     <div class="cdir-box" role="dialog" aria-modal="true" aria-labelledby="cdirTitulo">
@@ -373,7 +387,7 @@
             <button type="button" class="cdir-atras" id="cdirAtras" onclick="window.cdirPaso(1)" title="Volver a los datos del documento" style="display:none;">
                 <i class="material-icons" style="color:#fff;">arrow_back</i>
             </button>
-            <i class="material-icons">shopping_cart</i>
+            <i class="material-icons" id="cdirIcono">shopping_cart</i>
             <span class="cdir-title" id="cdirTitulo">Entrada por compra directa</span>
             {{-- La ✕ CIERRA SIN PREGUNTAR y CONSERVA lo capturado (mismo criterio que la ✕
                  del modal de detalle): es el gesto de "ahorita vuelvo", no el de descartar.
@@ -509,16 +523,21 @@
             </button>
         </div>
         {{-- Mismos rótulos que el paso 1 (pedido del cliente): Cancelar descarta la entrada
-             completa —avisando— y Aceptar la registra. Para volver a las líneas sin perder
-             nada está la flecha del encabezado. --}}
+             completa —avisando— y Aceptar la registra (en "Registrar y despachar", Despachar
+             abre la Nota de Entrega). Para volver a los datos del documento sin perder nada
+             está la flecha del encabezado. --}}
         <div class="cdir-footer" id="cdirFooter2">
             <button type="button" class="cdir-btn cdir-btn-cancel" onclick="window.cdirCancelar()">Cancelar</button>
             <button type="button" class="cdir-btn cdir-btn-ok" id="cdirRegistrar" onclick="window.cdirGuardar()">
-                <i class="material-icons">check_circle</i> Aceptar
+                <i class="material-icons" id="cdirRegistrarIc">check_circle</i> <span id="cdirRegistrarTxt">Aceptar</span>
             </button>
         </div>
     </div>
 </div>
+
+@include('admin.almacen.recepcion.partials.despacho_modales')
+<script src="{{ asset('js/maquinaria/almacen_salida_nota.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen_salida_nota.js')) }}"></script>
+<script src="{{ asset('js/maquinaria/recepcion_despacho.js') }}?v={{ @filemtime(public_path('js/maquinaria/recepcion_despacho.js')) }}"></script>
 
 <script>
 (function () {
@@ -564,6 +583,9 @@
     var elegido  = null;   // producto tomado del autocomplete, esperando cantidad
     var creando  = false;  // guard anti doble-POST mientras se registra un producto nuevo
     var enviando = false;  // guard anti doble-POST del submit
+    // 'compra' = Compra directa (entrada que se queda) · 'despacho' = Registrar y despachar
+    // (la misma captura, pero sale de una vez al proyecto con su Nota de Entrega).
+    var modo     = 'compra';
     var skipSuggest = false; // suprime UNA apertura del desplegable al refocar el buscador
     var skipProySuggest = false; // lo mismo con la lista de proyectos cuando el foco lo pone el modal
 
@@ -920,13 +942,14 @@
     window.cdirPaso = function (n) {
         // El proyecto define a qué bolsa entra TODO lo capturado, así que se exige al salir
         // del paso 1 — no al final, cuando ya estaría todo cargado y volver sería más molesto.
-        if (n === 2 && frenteElegido(destinoActual()) === undefined) {
+        // En "Registrar y despachar" no hay paso 1: el proyecto va en la Nota de Entrega.
+        if (n === 2 && modo === 'compra' && frenteElegido(destinoActual()) === undefined) {
             var mp = 'Indica el proyecto que recibe el material.';
             showErr(mp); toast(mp, 'error');
             var sp = el('cdirProyecto'); if (sp) { sp.classList.add('falta'); sp.focus(); }
             return;
         }
-        el('cdirAtras').style.display = (n === 2) ? 'block' : 'none';
+        el('cdirAtras').style.display = (n === 2 && modo === 'compra') ? 'block' : 'none';
         showErr('');
         el('cdirPaso1').classList.toggle('on', n === 1);
         el('cdirPaso2').classList.toggle('on', n === 2);
@@ -953,26 +976,37 @@
     };
 
     // ── Abrir / cerrar ────────────────────────────────────────────────────
-    window.cdirAbrir = function () {
+    // nuevoModo: 'compra' o 'despacho' (las dos opciones del menú Acciones).
+    window.cdirAbrir = function (nuevoModo) {
         if (!destinoActual()) {
             toast('Selecciona primero el almacén de la bandeja para registrar la entrada.', 'error');
             return;
         }
+        modo = nuevoModo === 'despacho' ? 'despacho' : 'compra';
+        var desp = modo === 'despacho';
+        el('cdirTitulo').textContent       = desp ? 'Registrar y despachar' : 'Entrada por compra directa';
+        el('cdirIcono').textContent        = desp ? 'local_shipping' : 'shopping_cart';
+        el('cdirRegistrarTxt').textContent = desp ? 'Despachar' : 'Aceptar';
+        el('cdirRegistrarIc').textContent  = desp ? 'local_shipping' : 'check_circle';
         // El desplegable de proyectos se arma en CADA apertura: el almacén de la bandeja se
         // cambia en caliente y uno pintado para el anterior ofrecería proyectos que no son.
         montarProyectos(destinoActual());
         var f = el('cdirFecha'); if (f && !f.value) f.value = new Date().toISOString().slice(0, 10);
         // Sin render() aquí: la tabla ya está pintada — al montar el módulo por el render
         // inicial del final de este script, y después de cada cambio por insertar/quitar/limpiar.
-        // Siempre se entra por el paso 1, aunque se haya salido con la ✕ desde el 2.
-        // cdirPaso() deja el foco en el primer campo del paso; no se toca aquí.
-        window.cdirPaso(1);
+        // La compra directa entra SIEMPRE por el paso 1, aunque se haya salido con la ✕
+        // desde el 2; "Registrar y despachar" no tiene paso 1. cdirPaso() deja el foco en el
+        // primer campo del paso; no se toca aquí.
+        window.cdirPaso(desp ? 2 : 1);
+        mostrar();
+    };
+    function mostrar() {
         el('cdirOverlay').classList.add('open');
         // Bloquear el scroll del fondo mientras el modal está abierto — mismo cuidado que
         // el modal de detalle. Los dos nunca coexisten: con este abierto, el overlay tapa
         // las filas de la bandeja.
         document.body.style.overflow = 'hidden';
-    };
+    }
     function cerrar() {
         el('cdirOverlay').classList.remove('open');
         document.body.style.overflow = '';
@@ -993,6 +1027,7 @@
         if (proyectosVisibles.length) limpiarProyecto();
         el('cdirFecha').value = new Date().toISOString().slice(0, 10);
         showErr('');
+        despacho.reiniciar();   // el próximo "Registrar y despachar" arranca con la nota en blanco
     }
     // Cancelar cierra SIEMPRE, pero si hay líneas capturadas pide confirmación antes:
     // cerrar sin avisar se llevaría por delante toda la captura.
@@ -1022,9 +1057,19 @@
         // saber por qué no se registraba.
         if (!lineas.length) {
             window.cdirPaso(2);
-            var mL = 'Agrega al menos un producto antes de registrar.';
+            var mL = 'Agrega al menos un producto antes de ' + (modo === 'despacho' ? 'despachar.' : 'registrar.');
             showErr(mL); toast(mL, 'error');
             var sL = el('cdirSearch'); if (sL) sL.focus();
+            return;
+        }
+        // "Registrar y despachar": la captura se oculta (sin perder nada) y se abre la Nota de
+        // Entrega encima; registrar la entrada y la salida lo hace recepcion_despacho.js. Si
+        // el almacén de la bandeja cambió desde la última nota, esta arranca en blanco: la
+        // anterior traía el formato y los datos del otro almacén.
+        if (modo === 'despacho') {
+            if (notaAlmacen !== dest) { despacho.reiniciar(); notaAlmacen = dest; }
+            cerrar();
+            despacho.abrir();
             return;
         }
         // Cada dato en SU columna del kardex — MISMO mapeo que la pantalla "Entrada por ODC",
@@ -1081,6 +1126,35 @@
         });
     };
 
+    // ── Registrar y despachar (recepcion_despacho.js) ─────────────────────
+    var notaAlmacen = null;   // almacén para el que se llenó la nota (ver cdirGuardar)
+    var despacho = window.RecepcionDespacho.montar({
+        rutaDespacho: @json(route('almacen.recepcion.despacho')),
+        rutaPreview:  @json(route('almacen.recepcion.despacho.preview')),
+        notaSalida:   @json($notaSalida ?? []),
+        almacen:      destinoActual,
+        lineas:       function () { return lineas.map(function (l) { return { id_producto: l.id_producto, cantidad: l.cantidad }; }); },
+        // Despachado: la captura ya estaba oculta; queda vacía para la siguiente. Como en la
+        // compra directa, la bandeja no se recarga: no hay nota por confirmar nueva.
+        alTerminar:   function () { limpiar(); },
+        // Nota cerrada sin despachar: de vuelta a la captura, tal como estaba.
+        alCerrar:     function () { mostrar(); },
+    });
+
+    // ── Menú Acciones ─────────────────────────────────────────────────────
+    function accionesCerrar() { var m = el('trAccionesMenu'); if (m) m.classList.remove('open'); }
+    window.trToggleAcciones = function (e) {
+        if (e) e.stopPropagation();
+        var m = el('trAccionesMenu'); if (!m) return;
+        // Un desplegable a la vez: cierra los filtros del toolbar (uicomponents.js).
+        if (typeof window.closeAllDropdowns === 'function') window.closeAllDropdowns();
+        m.classList.toggle('open');
+    };
+    window.trAccion = function (que) {
+        accionesCerrar();
+        window.cdirAbrir(que);
+    };
+
     // ── Listeners globales ────────────────────────────────────────────────
     // La navegación SPA (navegacion.js) RE-EJECUTA este <script> en cada visita al módulo.
     // Los listeners de `document` se REEMPLAZAN (no basta con registrarlos "una sola vez"):
@@ -1092,6 +1166,7 @@
     }
     if (window.__cdirDocClick) document.removeEventListener('click', window.__cdirDocClick);
     window.__cdirDocClick = function (e) {
+        if (!e.target.closest('.tr-acc-wrap')) accionesCerrar();
         if (!modalAbierto()) return;
         var item = e.target.closest('#cdirSuggest .cdir-suggest-item');
         if (item) { e.preventDefault(); elegir(item); return; }
@@ -1116,6 +1191,7 @@
     // por eso no dispara la confirmación (esa vive en el botón Cancelar).
     window.__cdirDocKeydown = function (e) {
         if (e.key !== 'Escape') return;
+        accionesCerrar();
         if (!modalAbierto()) return;
         // Con la confirmación de "Cancelar entrada" encima (#standardModal del layout, que no
         // tiene su propio Escape), este handler cerraría el modal por debajo del diálogo.
@@ -1129,6 +1205,14 @@
         window.cdirOcultar();
     };
     document.addEventListener('keydown', window.__cdirDocKeydown);
+
+    // Escape en la Nota de Entrega y su vista previa. En fase de CAPTURA y cortando el evento
+    // cuando lo atiende (dentro de despacho.escape): el Escape de /admin/almacen
+    // (almacen_index.js) sigue escuchando tras pasar por ese módulo y cerraría TODOS los
+    // .alm-modal-overlay de esta pantalla de golpe, sin volver a la nota.
+    if (window.__cdirDespKeydown) document.removeEventListener('keydown', window.__cdirDespKeydown, true);
+    window.__cdirDespKeydown = function (e) { if (e.key === 'Escape') despacho.escape(e); };
+    document.addEventListener('keydown', window.__cdirDespKeydown, true);
 
     render();
 })();

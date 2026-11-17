@@ -39,6 +39,23 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
             ->assertViewIs('admin.almacen.recepcion.index');
     }
 
+    public function test_la_bandeja_ofrece_compra_directa_y_registrar_y_despachar_en_acciones(): void
+    {
+        $u = $this->usuarioConAlmacen(Almacen::TIPO_PROYECTO);
+        $this->assertTrue($u->can('almacen.movimiento'), 'El usuario de la prueba necesita la clave almacen.movimiento.');
+
+        $r = $this->actingAs($u)->get(route('almacen.recepcion.index'))->assertOk();
+        // El menú Acciones con sus dos opciones, y la Nota de Entrega del despacho con el
+        // formato de cada almacén de la bandeja.
+        $r->assertSeeInOrder(['id="trBtnAcciones"', 'Compra directa', 'Registrar y despachar'], false)
+          ->assertSee('id="almSalidaModal"', false)
+          ->assertSee('id="entDespPreviewModal"', false);
+        $this->assertEqualsCanonicalizing(
+            $r->viewData('almacenes')->pluck('ID_ALMACEN')->all(),
+            array_keys($r->viewData('notaSalida')['formatoPorAlmacen'])
+        );
+    }
+
     public function test_con_almacen_general_entra_a_la_entrada_por_odc(): void
     {
         $u = $this->usuarioConAlmacen(Almacen::TIPO_GENERAL, true);

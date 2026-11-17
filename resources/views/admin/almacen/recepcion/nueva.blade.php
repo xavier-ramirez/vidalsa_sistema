@@ -218,48 +218,7 @@
     </form>
 </div>
 
-{{-- Modal "Registrar y despachar". Mismo modal y mismos campos que "Registrar salida" de
-     /admin/almacen (por eso el id #almSalidaModal: le aplican los mismos estilos, también en
-     el teléfono). --}}
-<div id="almSalidaModal" class="alm-modal-overlay">
-    <div class="alm-modal alm-modal-wide" style="max-width:660px;" role="dialog" aria-modal="true" aria-labelledby="entDespTitulo">
-        <div class="alm-modal-head">
-            <h3><i class="material-icons" style="font-size:20px;">local_shipping</i> <span id="entDespTitulo">Registrar y despachar</span></h3>
-            <i class="material-icons alm-x" onclick="window.entCerrarDespacho()">close</i>
-        </div>
-        <div class="alm-modal-body">
-            @include('admin.almacen.partials.salida_nota_campos')
-
-            <div id="entDespError" class="ent-error"></div>
-        </div>
-        <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.entCerrarDespacho()">Cancelar</button>
-            <button type="button" class="btn-primary-maquinaria" onclick="window.entDespVistaPrevia()">Previsualizar</button>
-        </div>
-    </div>
-</div>
-
-{{-- Vista previa de la Nota de Entrega de "Registrar y despachar": la misma de "Registrar
-     salida" de /admin/almacen (#almPreviewModal). Editar (o la ✕ / Escape) vuelve al modal
-     con lo escrito; Registrar hace la entrada y la salida y descarga el PDF de la nota. Ids
-     propios: el Escape de /admin/almacen busca #almPreviewModal por id. --}}
-<div id="entDespPreviewModal" class="alm-modal-overlay">
-    <div class="alm-modal alm-modal-wide" style="max-width:1180px;max-height:98vh;" role="dialog" aria-modal="true">
-        <div class="alm-modal-head" style="padding:8px 40px;">
-            <h3><i class="material-icons" style="font-size:20px;">visibility</i> <span>Vista previa de la Nota de Entrega</span></h3>
-            <i class="material-icons alm-x" onclick="window.entDespPreviewEditar()">close</i>
-        </div>
-        <div class="alm-modal-body" style="padding:0;gap:0;background:#475569;">
-            {{-- ESCRITORIO: el visor de PDF del navegador. TELÉFONO: PDF.js en canvas. --}}
-            <iframe id="entDespPreviewFrame" src="about:blank" style="width:100%;height:82vh;min-height:560px;border:none;background:#fff;" title="Vista previa Nota de Entrega"></iframe>
-            <div id="entDespPreviewCanvas" style="display:none;width:100%;height:82vh;min-height:560px;overflow:auto;background:#475569;padding:10px;box-sizing:border-box;"></div>
-        </div>
-        <div class="alm-modal-foot">
-            <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="window.entDespPreviewEditar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">edit</i>Editar</button>
-            <button type="button" class="btn-primary-maquinaria" id="entDespSubmit" onclick="window.entDespachar()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">check_circle</i>Registrar</button>
-        </div>
-    </div>
-</div>
+@include('admin.almacen.recepcion.partials.despacho_modales')
 
 @php
     // Lo que el JavaScript del modulo necesita de ESTA apertura. El codigo esta en
@@ -280,6 +239,7 @@
     window.RECE_CFG = @json($rece_cfg);
 </script>
 <script src="{{ asset('js/maquinaria/almacen_salida_nota.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen_salida_nota.js')) }}"></script>
+<script src="{{ asset('js/maquinaria/recepcion_despacho.js') }}?v={{ @filemtime(public_path('js/maquinaria/recepcion_despacho.js')) }}"></script>
 <script src="{{ asset('js/maquinaria/recepcion_entrada.js') }}?v={{ @filemtime(public_path('js/maquinaria/recepcion_entrada.js')) }}"></script>
 <script>
     // El archivo de arriba se carga UNA vez en toda la sesion; esta llamada es la que

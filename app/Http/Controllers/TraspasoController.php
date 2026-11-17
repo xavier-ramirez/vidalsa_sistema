@@ -342,7 +342,19 @@ class TraspasoController extends Controller
             ? (int) $request->input('id_almacen_destino')
             : null;
 
+        // "Registrar y despachar" del menú Acciones: la Nota de Entrega, con el formato de cada
+        // almacén de la bandeja (se cambia en caliente). Solo para quien puede mover stock: el
+        // menú entero va dentro del @can.
+        [$frentesLista, $notaSalida] = $user?->can('almacen.movimiento')
+            ? $this->datosNotaDespacho($request, Almacen::whereIn('ID_ALMACEN', $bandeja->pluck('ID_ALMACEN'))
+                ->get(['ID_ALMACEN', 'FORMATO_NOTA'])
+                ->mapWithKeys(fn ($a) => [$a->ID_ALMACEN => $a->formatoNota()])
+                ->all())
+            : [collect(), []];
+
         return view('admin.almacen.recepcion.index', [
+            'frentesLista'           => $frentesLista,
+            'notaSalida'             => $notaSalida,
             'traspasos'              => $paginator,
             'almacenes'              => $bandeja,   // el selector de la bandeja (ver arriba)
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
@@ -388,6 +400,27 @@ class TraspasoController extends Controller
                         ->values(),
                 ]]),
         ]);
+    }
+
+    /**
+     * Datos del formulario de la Nota de Entrega de "Registrar y despachar" (Entrada por ODC
+     * y menú Acciones de la bandeja): el MISMO de la salida de /admin/almacen
+     * (partials/salida_nota_campos). Devuelve [$frentesLista, $notaSalida].
+     *
+     * @param array<int,string> $formatoPorAlmacen  [ID_ALMACEN => formato de su nota]
+     */
+    private function datosNotaDespacho(Request $request, array $formatoPorAlmacen): array
+    {
+        $frentesLista = \App\Support\DatosNotaSalida::frentes();
+
+        return [$frentesLista, [
+            'frenteContratos'       => \App\Support\DatosNotaSalida::contratosPorFrente($frentesLista),
+            'almacenesPorFrente'    => \App\Support\DatosNotaSalida::almacenesPorFrente(),
+            'formatoPorAlmacen'     => $formatoPorAlmacen,
+            'formatoNotaHorizontal' => Almacen::FORMATO_NOTA_HORIZONTAL,
+            'rutaLogistica'         => route('almacen.almacenes.logistica', ['id' => '__ID__']),
+            'idUsuario'             => $request->user()?->ID_USUARIO ?? 0,
+        ]];
     }
 
     /**
@@ -464,17 +497,7 @@ class TraspasoController extends Controller
                 ->map(fn ($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])->values()
             : collect();
 
-        // "Registrar y despachar": el formulario de la Nota de Entrega es el MISMO de la salida
-        // de /admin/almacen (partials/salida_nota_campos), con los mismos datos.
-        $frentesLista = \App\Support\DatosNotaSalida::frentes();
-        $notaSalida   = [
-            'frenteContratos'       => \App\Support\DatosNotaSalida::contratosPorFrente($frentesLista),
-            'almacenesPorFrente'    => \App\Support\DatosNotaSalida::almacenesPorFrente(),
-            'formatoPorAlmacen'     => [$almacenDestino->ID_ALMACEN => $almForFrente?->formatoNota()],
-            'formatoNotaHorizontal' => \App\Models\Almacen::FORMATO_NOTA_HORIZONTAL,
-            'rutaLogistica'         => route('almacen.almacenes.logistica', ['id' => '__ID__']),
-            'idUsuario'             => $user?->ID_USUARIO ?? 0,
-        ];
+        [$frentesLista, $notaSalida] = $this->datosNotaDespacho($request, [$almacenDestino->ID_ALMACEN => $almForFrente?->formatoNota()]);
 
         return view('admin.almacen.recepcion.nueva', [
             'almacenDestino'  => $almacenDestino,

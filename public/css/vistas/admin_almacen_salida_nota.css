@@ -123,3 +123,5 @@
            motivo por el que estilos_globales.css prohíbe 100vw en estos anchos. */
         #almSalidaModal .alm-modal { max-width: none !important; }
     }
+    /* Aviso de error del modal "Registrar y despachar" de Recepción (partials/despacho_modales). */
+    .rdesp-error { display:none; padding:10px 14px; background:#fee2e2; border:1px solid #fecaca; border-radius:10px; color:#b91c1c; font-size:13px; font-weight:600; }
