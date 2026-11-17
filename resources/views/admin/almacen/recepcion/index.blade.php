@@ -476,6 +476,16 @@
                            oninput="window.cdirUmSuggest()" onfocus="window.cdirUmSuggest(true)" onkeydown="window.cdirUmKey(event)">
                     <div class="cdir-um-suggest" id="cdirUmSuggest"></div>
                 </div>
+                {{-- DESTINO del renglón: solo en "Registrar y despachar" de un almacén con Nota de
+                     Entrega HORIZONTAL (esa hoja tiene la columna DESTINO). Se elige el frente de
+                     la lista —o se escribe un equipo o lugar— y después la cantidad que va ahí;
+                     el mismo producto puede ir a varios destinos, una línea por cada uno. --}}
+                <div class="cdir-dest-wrap" id="cdirDestinoWrap" style="display:none;">
+                    <input type="text" id="cdirDestino" class="cdir-input cdir-dest-input" maxlength="150" autocomplete="off"
+                           placeholder="Destino…" aria-label="Destino" title="Frente, equipo o lugar al que va esta línea. Sale en la columna DESTINO de la nota."
+                           oninput="window.cdirDestSuggest()" onfocus="window.cdirDestSuggest()" onclick="window.cdirDestSuggest()" onkeydown="window.cdirDestKey(event)">
+                    <div class="cdir-suggest cdir-dest-suggest" id="cdirDestSuggest"></div>
+                </div>
                 <input type="text" inputmode="decimal" enterkeyhint="done" id="cdirCant" class="cdir-input cdir-cant-input"
                        placeholder="Cant." autocomplete="off" aria-label="Cantidad" onkeydown="window.cdirCantKey(event)">
                 <button type="button" class="cdir-add-btn" onclick="window.cdirAgregar()" title="Agregar línea (Enter)">
@@ -501,6 +511,7 @@
                             <th class="c-num">Nº</th>
                             <th class="c-cod">Código</th>
                             <th class="c-desc">Descripción</th>
+                            <th class="c-dest" id="cdirThDestino" style="display:none;">Destino</th>
                             <th class="c-cant">Cantidad</th>
                             <th class="c-del"></th>
                         </tr>
@@ -556,6 +567,8 @@
     //   separa=false → no hay nada que elegir; se manda `implicito` solo para que el kardex
     //                  muestre el frente en "Destino" en vez de "—".
     var CDIR_PROYECTOS = @json($proyectosPorAlmacen ?? []);
+    // Datos de la Nota de Entrega de "Registrar y despachar" (TraspasoController::datosNotaDespacho).
+    var NOTA_SALIDA = @json($notaSalida ?? []);
 
     function el(id) { return document.getElementById(id); }
     function v(id) { var e = el(id); return e ? String(e.value).trim() : ''; }
@@ -579,7 +592,7 @@
     }
 
     // ── Estado ────────────────────────────────────────────────────────────
-    var lineas   = [];     // {id_producto, codigo, nombre, um, cantidad}
+    var lineas   = [];     // {id_producto, codigo, nombre, um, cantidad, destino}
     var elegido  = null;   // producto tomado del autocomplete, esperando cantidad
     var creando  = false;  // guard anti doble-POST mientras se registra un producto nuevo
     var enviando = false;  // guard anti doble-POST del submit
@@ -603,6 +616,67 @@
         var c = CDIR_PROYECTOS[idAlmacen];
         return c || { separa: false, implicito: null, frentes: [] };
     }
+
+    // ── Destino por línea (nota horizontal) ──────────────────────────────
+    // ¿Se pide? Solo al despachar desde un almacén cuya Nota de Entrega es HORIZONTAL: la
+    // vertical no tiene columna DESTINO. Mismo dato que usa AlmSalidaNota.esHorizontal.
+    function conDestino() {
+        var formato = (NOTA_SALIDA.formatoPorAlmacen || {})[String(destinoActual() || '')];
+        return modo === 'despacho' && !!formato && formato === NOTA_SALIDA.formatoNotaHorizontal;
+    }
+    function aplicarDestino() {
+        var si = conDestino();
+        el('cdirDestinoWrap').style.display = si ? '' : 'none';
+        el('cdirThDestino').style.display   = si ? '' : 'none';
+        if (!si) el('cdirDestino').value = '';
+    }
+    /** Lo escrito en Destino, como se imprime: espacios colapsados y en mayúsculas. */
+    function destinoEscrito() {
+        return conDestino() ? String(el('cdirDestino').value || '').replace(/\s+/g, ' ').trim().toUpperCase() : '';
+    }
+    function destHide() { var b = el('cdirDestSuggest'); if (b) b.classList.remove('open'); }
+    // Lista: los frentes del almacén (los mismos del proyecto de la compra directa). Con el
+    // campo vacío o ya lleno con uno de ellos se ofrecen todos; con texto a medias, lo que
+    // coincide y, al final, "Usar «…» tal cual": el destino también puede ser un equipo o un
+    // lugar que no es un frente.
+    function frentesDestino() { return proyectosDe(destinoActual()).frentes || []; }
+    window.cdirDestSuggest = function () {
+        var inp = el('cdirDestino'), box = el('cdirDestSuggest');
+        if (!inp || !box) return;
+        var frentes = frentesDestino();
+        var term = inp.value.trim();
+        var exacto = frentes.some(function (f) { return norm(f.nombre) === norm(term); });
+        var lista = (term === '' || exacto) ? frentes
+            : window.FuzzySearch.rank(frentes, term, function (f) { return { haystack: f.nombre, label: f.nombre }; });
+        var html = lista.map(function (f) {
+            return '<div class="cdir-suggest-item" data-nom="' + esc(f.nombre) + '"><span class="nom">' + esc(f.nombre) + '</span></div>';
+        }).join('');
+        if (term && !exacto) {
+            var libre = term.replace(/\s+/g, ' ').toUpperCase();
+            html += '<div class="cdir-suggest-item cdir-dest-libre" data-nom="' + esc(libre) + '">'
+                  + '<i class="material-icons">edit</i><span class="nom">Usar «' + esc(libre) + '» tal cual</span></div>';
+        }
+        box.innerHTML = html || '<div class="cdir-suggest-empty">Este almacén no tiene frentes asignados: escribe el destino.</div>';
+        box.classList.add('open');
+    };
+    function elegirDestino(item) {
+        el('cdirDestino').value = item.getAttribute('data-nom') || '';
+        destHide();
+        var c = el('cdirCant'); if (c) c.focus();
+    }
+    window.cdirDestKey = function (ev) {
+        if (ev.key === 'Escape') { ev.preventDefault(); destHide(); return; }
+        if (ev.key === 'Enter' || ev.key === 'Tab') {
+            // Enter/Tab completa el frente SOLO si lo escrito está dentro de su nombre ("orino"
+            // → ORINOCO OILS). La búsqueda aproximada de la lista no basta: "chuto a60eo9p"
+            // coincide con CHUTO + BATEA y cambiaría el equipo escrito por otro destino.
+            var term = norm(el('cdirDestino').value.trim());
+            var f = term ? frentesDestino().find(function (x) { return norm(x.nombre).indexOf(term) !== -1; }) : null;
+            if (f) { ev.preventDefault(); el('cdirDestino').value = f.nombre; destHide(); el('cdirCant').focus(); return; }
+            destHide();
+            if (ev.key === 'Enter') { ev.preventDefault(); var c = el('cdirCant'); if (c) c.focus(); }
+        }
+    };
 
     // ── Asociar material a un proyecto ───────────────────────────────────
     // La franja se muestra SOLO si el almacén reparte el saldo entre varios proyectos. Con
@@ -741,7 +815,11 @@
         var inp = el('cdirSearch'); inp.value = ''; inp.style.visibility = 'hidden';
         suggestHide();
         var um = el('cdirUm'); if (um && elegido.um) { um.value = elegido.um; umHide(); }
-        setTimeout(function () { var c = el('cdirCant'); if (c) c.focus(); }, 30);
+        // Al despachar con destino: primero el destino (si falta) y después la cantidad.
+        setTimeout(function () {
+            var c = (conDestino() && !el('cdirDestino').value.trim()) ? el('cdirDestino') : el('cdirCant');
+            if (c) c.focus();
+        }, 30);
     }
     // Punto ÚNICO que devuelve la barra de captura (buscador + chip + UM + cantidad) a su
     // estado inicial. `foco` decide qué pasa con el cursor:
@@ -816,10 +894,13 @@
 
     // ── Líneas ────────────────────────────────────────────────────────────
     // Producto repetido → SUMA la cantidad en vez de duplicar la fila (captura tipo POS).
+    // Con destino por línea, solo si además va al MISMO destino: a otro es otra línea.
+    // El destino se queda puesto para la siguiente (varios productos suelen ir al mismo frente).
     function insertar(prod, cant) {
-        var ya = lineas.find(function (l) { return l.id_producto === prod.id_producto; });
+        var destino = destinoEscrito();
+        var ya = lineas.find(function (l) { return l.id_producto === prod.id_producto && (l.destino || '') === destino; });
         if (ya) ya.cantidad = +(ya.cantidad + cant).toFixed(3);
-        else lineas.push({ id_producto: prod.id_producto, codigo: prod.codigo, nombre: prod.nombre, um: prod.um, cantidad: cant });
+        else lineas.push({ id_producto: prod.id_producto, codigo: prod.codigo, nombre: prod.nombre, um: prod.um, cantidad: cant, destino: destino });
         render();
         resetCaptura('siguiente');
     }
@@ -835,11 +916,13 @@
     function render() {
         var tb = el('cdirTbody'), vacio = el('cdirEmpty');
         if (!tb) return;
+        var dest = conDestino();
         tb.innerHTML = lineas.map(function (l, i) {
             return '<tr>'
                 + '<td class="c-num">' + (i + 1) + '</td>'
                 + '<td class="c-cod">' + esc(l.codigo) + '</td>'
                 + '<td class="c-desc">' + esc(l.nombre) + '</td>'
+                + (dest ? '<td class="c-dest">' + (l.destino ? esc(l.destino) : '<span class="sin">Sin destino</span>') + '</td>' : '')
                 + '<td class="c-cant">' + esc(fmt(l.cantidad)) + '<span class="um">' + esc(l.um) + '</span></td>'
                 + '<td class="c-del"><button type="button" class="cdir-del-btn" onclick="window.cdirQuitarLinea(' + i + ')" title="Quitar"><i class="material-icons" style="font-size:19px;">delete</i></button></td>'
                 + '</tr>';
@@ -987,6 +1070,8 @@
         // registrarse como una entrada que se queda en el almacén (ni al revés).
         if (nuevo !== modo) limpiar();
         modo = nuevo;
+        aplicarDestino();
+        render();
         var desp = modo === 'despacho';
         el('cdirTitulo').textContent       = desp ? 'Registrar y despachar' : 'Entrada por compra directa';
         el('cdirIcono').textContent        = desp ? 'local_shipping' : 'shopping_cart';
@@ -1025,6 +1110,7 @@
         lineas = [];
         render();
         resetCaptura(false);
+        el('cdirDestino').value = '';
         ['cdirNota', 'cdirProveedor'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
         // El proyecto también: la siguiente entrada puede ser de otro frente y dejarlo pegado
         // del anterior es justo el error que este campo vino a evitar.
@@ -1137,9 +1223,11 @@
     var despacho = window.RecepcionDespacho.montar({
         rutaDespacho: @json(route('almacen.recepcion.despacho')),
         rutaPreview:  @json(route('almacen.recepcion.despacho.preview')),
-        notaSalida:   @json($notaSalida ?? []),
+        notaSalida:   NOTA_SALIDA,
         almacen:      destinoActual,
-        lineas:       function () { return lineas.map(function (l) { return { id_producto: l.id_producto, cantidad: l.cantidad }; }); },
+        lineas:       function () {
+            return lineas.map(function (l) { return { id_producto: l.id_producto, cantidad: l.cantidad, destino: l.destino || null }; });
+        },
         // Despachado: la captura ya estaba oculta; queda vacía para la siguiente y el fondo
         // vuelve a desplazarse. Si el proyecto tiene almacén propio salió un traspaso, que
         // puede ser una nota por recibir de otro almacén de esta misma bandeja: se refresca
@@ -1182,6 +1270,8 @@
         if (item) { e.preventDefault(); elegir(item); return; }
         var proy = e.target.closest('#cdirProySuggest .cdir-suggest-item');
         if (proy) { e.preventDefault(); elegirProyecto(proy); return; }
+        var dst = e.target.closest('#cdirDestSuggest .cdir-suggest-item');
+        if (dst) { e.preventDefault(); elegirDestino(dst); return; }
         var um = e.target.closest('#cdirUmSuggest .cdir-um-item');
         if (um) {
             e.preventDefault();
@@ -1192,6 +1282,7 @@
         if (!e.target.closest('.cdir-field'))      suggestHide();
         if (!e.target.closest('.cdir-um-wrap'))    umHide();
         if (!e.target.closest('.cdir-proy-field')) proySuggestHide();
+        if (!e.target.closest('.cdir-dest-wrap'))  destHide();
     };
     document.addEventListener('click', window.__cdirDocClick);
     // Menú Acciones: se cierra con un clic fuera de él. En fase de CAPTURA porque varios
@@ -1219,6 +1310,8 @@
         if (sug  && sug.classList.contains('open'))  { suggestHide();    return; }
         if (umS  && umS.classList.contains('open'))  { umHide();         return; }
         if (proS && proS.classList.contains('open')) { proySuggestHide(); return; }
+        var dstS = el('cdirDestSuggest');
+        if (dstS && dstS.classList.contains('open')) { destHide(); return; }
         window.cdirOcultar();
     };
     document.addEventListener('keydown', window.__cdirDocKeydown);

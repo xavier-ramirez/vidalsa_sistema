@@ -2347,10 +2347,16 @@ class AlmacenController extends Controller
             $resultado = DB::transaction(function () use ($idAlmacen, $idFrente, $idAlmDestino, $data, $lineas, $optsEntrada, $bolsa, $idUsuario, $transporte) {
                 // Las filas de saldo, todas de una vez y en el orden de siempre: la entrada y la
                 // salida en cascada de abajo las tocan en otro orden (ver bloquearSaldos).
-                $this->inventario->bloquearSaldos($idAlmacen, array_column($lineas, 'id_producto'), $bolsa);
+                $this->inventario->bloquearSaldos($idAlmacen, array_values(array_unique(array_column($lineas, 'id_producto'))), $bolsa);
 
+                // La entrada, UNA por producto: lo que llegó es un solo ingreso aunque al salir
+                // se reparta entre varios destinos (una línea de salida por destino).
+                $entraPorProducto = [];
                 foreach ($lineas as $l) {
-                    $this->inventario->registrarEntrada($idAlmacen, $l['id_producto'], $l['cantidad'], $optsEntrada);
+                    $entraPorProducto[$l['id_producto']] = ($entraPorProducto[$l['id_producto']] ?? 0) + $l['cantidad'];
+                }
+                foreach ($entraPorProducto as $idProducto => $cantidad) {
+                    $this->inventario->registrarEntrada($idAlmacen, $idProducto, $cantidad, $optsEntrada);
                 }
 
                 if ($idAlmDestino !== null) {
@@ -2370,7 +2376,9 @@ class AlmacenController extends Controller
                     '_frente_saldo'     => $bolsa,
                 ] + $this->datosNotaSalida($data) + $transporte;
                 foreach ($lineas as $l) {
-                    $this->inventario->registrarSalida($idAlmacen, $l['id_producto'], $l['cantidad'], $opts);
+                    // Destino del renglón (nota horizontal): sale en su columna DESTINO.
+                    $optsLinea = $l['destino'] !== null ? ['destino_item' => $l['destino']] + $opts : $opts;
+                    $this->inventario->registrarSalida($idAlmacen, $l['id_producto'], $l['cantidad'], $optsLinea);
                 }
                 return ['numero_nota' => $opts['numero_nota'], 'numero_traspaso' => null];
             });
@@ -2419,8 +2427,9 @@ class AlmacenController extends Controller
      * Validación de "Registrar y despachar", la MISMA para la vista previa y el registro:
      * todo lo que se puede rechazar se rechaza antes de escribir nada. Devuelve
      * [$data, $lineas, $idAlmDestino] o la respuesta de error.
-     *   · $lineas: una por producto (sumando repetidos), en el orden de bloqueo de
-     *     almacen_stock: por ID_PRODUCTO (ver registrarMovimientoLote).
+     *   · $lineas: una por producto y DESTINO (sumando repetidos), en el orden de bloqueo de
+     *     almacen_stock: por ID_PRODUCTO (ver registrarMovimientoLote). El destino es lo que
+     *     imprime la columna DESTINO de la nota horizontal; null si no se indicó.
      *   · $idAlmDestino: almacén propio del proyecto (traspaso) o null (consumo).
      */
     private function validarRecepcionConDespacho(Request $request)
@@ -2433,6 +2442,7 @@ class AlmacenController extends Controller
             'lineas'               => 'required|array|min:1',
             'lineas.*.id_producto' => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
             'lineas.*.cantidad'    => 'required|numeric|gt:0',
+            'lineas.*.destino'     => 'nullable|string|max:150',
         ] + $this->reglasNotaSalida());
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
@@ -2442,16 +2452,25 @@ class AlmacenController extends Controller
             return $idAlmDestino;
         }
 
-        $porProducto = [];
+        $porClave = [];
         foreach ($data['lineas'] as $l) {
-            $idp = (int) $l['id_producto'];
-            $porProducto[$idp] = ($porProducto[$idp] ?? 0) + (float) $l['cantidad'];
+            $idp     = (int) $l['id_producto'];
+            $destino = $this->limpiarDestino($l['destino'] ?? null);
+            $clave   = $idp . '|' . $destino;
+            $porClave[$clave] ??= ['id_producto' => $idp, 'cantidad' => 0.0, 'destino' => $destino];
+            $porClave[$clave]['cantidad'] += (float) $l['cantidad'];
         }
-        ksort($porProducto);
-        $lineas = [];
-        foreach ($porProducto as $idp => $cant) {
-            $lineas[] = ['id_producto' => $idp, 'cantidad' => $cant];
+        $lineas = array_values($porClave);
+        usort($lineas, fn ($a, $b) => [$a['id_producto'], (string) $a['destino']] <=> [$b['id_producto'], (string) $b['destino']]);
+
+        // Hacia el almacén propio del proyecto viaja un traspaso, y ahí cada producto es UNA
+        // línea con un solo destino: repartirlo entre varios no se podría recibir por partes.
+        if ($idAlmDestino !== null && count($lineas) > count(array_unique(array_column($lineas, 'id_producto')))) {
+            $error = 'El proyecto elegido recibe por su propio almacén y ahí cada producto lleva un solo destino. '
+                . 'Deja cada producto en un destino o despáchalo en dos notas.';
+            return response()->json(['message' => $error, 'errors' => ['lineas' => [$error]]], 422);
         }
+        $data['destino_por_producto'] = $this->destinosPorProducto($lineas);
 
         // Un filtro con varias equivalencias necesita que se diga qué número de parte se
         // entrega, y esta pantalla no lo pregunta: ese producto se despacha desde Salida.

@@ -84,6 +84,13 @@
     .cdir-um-input  { width:78px; flex:0 0 78px; text-align:center; text-transform:uppercase; font-weight:700; font-size:12.5px; }
     .cdir-cant-input{ width:92px; flex:0 0 92px; text-align:center; font-weight:700; }
     .cdir-um-wrap { position:relative; flex:0 0 78px; }
+    /* Destino de la línea (Registrar y despachar con nota horizontal). Su lista se ancla a la
+       derecha y crece hacia dentro del modal, como la de UM. */
+    .cdir-dest-wrap { position:relative; flex:0 0 220px; }
+    .cdir-dest-input { text-transform:uppercase; font-weight:600; font-size:12.5px; }
+    .cdir-dest-suggest { left:auto; right:0; min-width:280px; }
+    .cdir-dest-libre { border-top:1px solid #f1f5f9; color:#0067b1; font-weight:600; align-items:center; }
+    .cdir-dest-libre .material-icons { font-size:15px; }
     /* Verde y con un check (pedido del cliente): el gesto es "confirmar esta línea", no
        "sumar un número", y el verde lo separa del azul de las acciones del pie. */
     /* REDONDO (border-radius:50%), no cuadrado: es una acción puntual —"confirmar esta
@@ -146,6 +153,9 @@
     .cdir-table .c-desc { text-align:left; font-weight:600; }
     .cdir-table .c-cant { width:1%; white-space:nowrap; font-weight:800; }
     .cdir-table .c-cant .um { font-size:10px; font-weight:700; color:#0f172a; margin-left:3px; }
+    .cdir-table .c-dest { text-align:left; font-size:12px; font-weight:600; white-space:nowrap; }
+    .cdir-table thead th.c-dest { text-align:left; }
+    .cdir-table .c-dest .sin { color:#94a3b8; font-weight:500; font-style:italic; }
     .cdir-table .c-del  { width:1%; }
     .cdir-del-btn { background:transparent; border:none; color:#cbd5e0; cursor:default; padding:2px; display:flex; }
     .cdir-del-btn:hover { color:#ef4444; }
@@ -194,6 +204,9 @@
         .cdir-box, .cdir-box.cdir-en-paso1 { max-width:none; max-height:100vh; height:100vh; border-radius:0; transition:none; }
         .cdir-capt-bar { flex-wrap:wrap; }
         .cdir-field { flex:1 1 100%; }
+        /* Destino en su propio renglón, debajo del producto; UM, cantidad y el check abajo. */
+        .cdir-dest-wrap { flex:1 1 100%; order:1; }
+        .cdir-um-wrap, .cdir-cant-input, .cdir-add-btn { order:2; }
         .cdir-um-wrap, .cdir-um-input { flex:0 0 76px; width:76px; }
         .cdir-cant-input { flex:1 1 auto; width:auto; }
         /* Se reparten el ancho de la fila a partes iguales (flex:1 1 0), que igual los deja

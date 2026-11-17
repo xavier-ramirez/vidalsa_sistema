@@ -181,6 +181,64 @@ class RecepcionDespachoDirectoTest extends MySqlTestCase
         ])->assertStatus(422)->assertJsonValidationErrors('id_frente_destino');
     }
 
+    /** Líneas con DESTINO (nota horizontal): el mismo producto repartido entre dos destinos. */
+    private function lineasConDestino(): array
+    {
+        return [
+            ['id_producto' => $this->p1, 'cantidad' => 3, 'destino' => 'frente  norte'],
+            ['id_producto' => $this->p1, 'cantidad' => 2, 'destino' => 'CHUTO A60EO9P'],
+            ['id_producto' => $this->p1, 'cantidad' => 1, 'destino' => 'FRENTE NORTE'],   // mismo destino: se suma
+            ['id_producto' => $this->p2, 'cantidad' => 5],                                // sin destino
+        ];
+    }
+
+    public function test_cada_linea_sale_con_su_destino_en_la_nota(): void
+    {
+        $nota = $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho'), [
+            'id_almacen'        => $this->general,
+            'id_frente_destino' => $this->frenteConsumo,
+            'lineas'            => $this->lineasConDestino(),
+        ])->assertCreated()->json('numero_nota');
+
+        $salidas = MovimientoInventario::where('NUMERO_NOTA', $nota)->get();
+        $this->assertSame(
+            ['CHUTO A60EO9P' => 2.0, 'FRENTE NORTE' => 4.0],
+            $salidas->where('ID_PRODUCTO', $this->p1)->mapWithKeys(fn ($m) => [$m->DESTINO_ITEM => (float) $m->CANTIDAD])->sortKeys()->all(),
+            'Un renglón por destino, en mayúsculas y con los espacios limpios.'
+        );
+        $this->assertNull($salidas->firstWhere('ID_PRODUCTO', $this->p2)->DESTINO_ITEM);
+        // Lo que llegó es un solo ingreso por producto, aunque salga a varios destinos.
+        $this->assertSame([6.0], MovimientoInventario::where('ID_ALMACEN', $this->general)->where('TIPO', 'ENTRADA')
+            ->where('ID_PRODUCTO', $this->p1)->pluck('CANTIDAD')->map(fn ($c) => (float) $c)->all());
+        $this->assertSame(0.0, $this->saldo($this->general, $this->p1), 'Entró y salió todo.');
+
+        // La vista previa acepta lo mismo.
+        $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho.preview'), [
+            'id_almacen'        => $this->general,
+            'id_frente_destino' => $this->frenteConsumo,
+            'lineas'            => $this->lineasConDestino(),
+        ])->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_al_almacen_propio_del_proyecto_cada_producto_lleva_un_solo_destino(): void
+    {
+        // Repartido entre dos destinos: el traspaso no lo puede llevar.
+        $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho'), [
+            'id_almacen'        => $this->general,
+            'id_frente_destino' => $this->frenteConAlmacen,
+            'lineas'            => $this->lineasConDestino(),
+        ])->assertStatus(422)->assertJsonValidationErrors('lineas');
+        $this->assertSame(0, MovimientoInventario::where('ID_ALMACEN', $this->general)->count(), 'Ni la entrada.');
+
+        // Un destino por producto: viaja en la salida del traspaso.
+        $nota = $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho'), [
+            'id_almacen'        => $this->general,
+            'id_frente_destino' => $this->frenteConAlmacen,
+            'lineas'            => [['id_producto' => $this->p1, 'cantidad' => 3, 'destino' => 'Chuto A60EO9P']],
+        ])->assertCreated()->json('numero_nota');
+        $this->assertSame('CHUTO A60EO9P', MovimientoInventario::where('NUMERO_NOTA', $nota)->where('TIPO', 'TRASPASO_SALIDA')->value('DESTINO_ITEM'));
+    }
+
     public function test_sin_proyecto_destino_se_rechaza(): void
     {
         $this->actingAs($this->superAdminGlobal())->postJson(route('almacen.recepcion.despacho'), [
