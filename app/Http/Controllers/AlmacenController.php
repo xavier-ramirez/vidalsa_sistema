@@ -67,6 +67,8 @@ class AlmacenController extends Controller
     // Ancho tope (px) de la foto del inventario: se ve en un círculo y en el visor, así que
     // 600 basta y pesa poco. La que llega más grande (Gemini da ~1024) se achica.
     private const FOTO_PRODUCTO_ANCHO = 600;
+    // Ancho con el que se le manda la foto a Gemini (y se guarda la copia _original).
+    private const FOTO_GEMINI_ANCHO = 1024;
 
     /**
      * Cuantos productos entran en el grafico "Top N productos consumidos" del Dashboard
@@ -299,11 +301,15 @@ class AlmacenController extends Controller
      * camino que las fotos de equipos y del catalogo: el archivo vive en Drive y la app lo
      * sirve por esa ruta, asi que la carpeta NO necesita ser publica.
      *
-     * Antes de guardarla, Gemini la rehace con fondo blanco tipo catálogo (FotoProductoGemini);
-     * si no puede (sin cupo, sin red) se guarda la foto tal como vino y la respuesta lo dice
-     * con fondo_blanco=false. Despues se convierte a WebP y se achica a FOTO_PRODUCTO_ANCHO
-     * (ConvertsImageToWebp): una foto de telefono de 4 MB queda en unas decenas de KB y la
-     * tabla del inventario no se vuelve lenta por las miniaturas.
+     * Antes de guardarla, Gemini la rehace con fondo blanco tipo catálogo (FotoProductoGemini).
+     * Se le manda ya achicada a FOTO_GEMINI_ANCHO (no hace falta más y el envío es liviano).
+     * Respuesta `fondo_blanco`: true = la rehizo; false = no pudo (sin cupo, sin red) y quedó
+     * la foto tal como vino; null = Gemini no está configurado. Cuando sí la rehace, la ORIGINAL
+     * también se guarda en la carpeta (sufijo _original): la IA puede cambiar un detalle del
+     * producto y así no se pierde la foto real.
+     *
+     * Lo que se guarda va en WebP a FOTO_PRODUCTO_ANCHO (ConvertsImageToWebp): una foto de
+     * telefono de 4 MB queda en unas decenas de KB y la tabla no se vuelve lenta.
      */
     public function subirFotoProducto(Request $request, $id, \App\Services\FotoProductoGemini $gemini)
     {
@@ -317,26 +323,39 @@ class AlmacenController extends Controller
         ]);
 
         $producto = ProductoInventario::findOrFail($id);
-        $foto     = $request->file('foto');
+        // Gemini puede tardar hasta services.gemini.timeout_imagen (60 s) más la subida a Drive:
+        // el tope de 30 s de PHP (XAMPP) cortaría la petición a la mitad.
+        @set_time_limit(150);
 
-        // Fondo blanco con Gemini. Lo que devuelve se escribe a un temporal y se trata como si
-        // el usuario hubiera subido esa imagen; sin respuesta, sigue la original.
-        $tempGemini = null;
-        $blanca = $gemini->fondoBlanco($foto->getRealPath(), $foto->getMimeType());
-        if ($blanca) {
-            $tempGemini = tempnam(sys_get_temp_dir(), 'gem_');
-            file_put_contents($tempGemini, $blanca['binario']);
-            $foto = new \Illuminate\Http\UploadedFile($tempGemini, 'gemini', $blanca['mime'], null, true);
-        }
-        $convertida = $this->convertToWebp($foto, self::FOTO_PRODUCTO_ANCHO);
-
+        $temporales = [];
         try {
+            // La original, achicada para Gemini y para la copia _original.
+            $previa       = $this->convertToWebp($request->file('foto'), self::FOTO_GEMINI_ANCHO);
+            $temporales[] = $previa['tempPath'];
+
+            // Fondo blanco con Gemini. Lo que devuelve se escribe a un temporal y sigue como si
+            // el usuario hubiera subido esa imagen; sin respuesta, sigue la original.
+            $foto   = $previa['file'];
+            $blanca = $gemini->fondoBlanco($foto->getRealPath(), $foto->getMimeType());
+            if ($blanca) {
+                $tmp = tempnam(sys_get_temp_dir(), 'gem_');
+                if ($tmp !== false && file_put_contents($tmp, $blanca['binario']) !== false) {
+                    $temporales[] = $tmp;
+                    $foto = new \Illuminate\Http\UploadedFile($tmp, 'gemini', $blanca['mime'], null, true);
+                } else {
+                    if ($tmp !== false) @unlink($tmp);
+                    $blanca = null;   // sin disco para el temporal: se guarda la original
+                }
+            }
+            $convertida   = $this->convertToWebp($foto, self::FOTO_PRODUCTO_ANCHO);
+            $temporales[] = $convertida['tempPath'];
+
             $drive  = \App\Services\GoogleDriveService::getInstance();
             $folder = config('filesystems.disks.google.product_folder');
-            $nombre = 'producto_' . $producto->ID_PRODUCTO . '_' . (int) (microtime(true) * 1000) . '.webp';
+            $nombre = 'producto_' . $producto->ID_PRODUCTO . '_' . (int) (microtime(true) * 1000);
 
             try {
-                $subido = $drive->uploadFile($folder, $convertida['file'], $nombre, 'image/webp');
+                $subido = $drive->uploadFile($folder, $convertida['file'], $nombre . '.webp', 'image/webp');
             } catch (\Google\Service\Exception $e) {
                 // Lo tipico: la cuenta del sistema no es editora de la carpeta de fotos
                 // (filesystems.disks.google.product_folder). Se anota y se dice claro.
@@ -353,10 +372,25 @@ class AlmacenController extends Controller
 
             $this->borrarFotoAnterior($anterior, $subido->id);
 
-            return response()->json(['success' => true, 'foto' => $producto->FOTO, 'fondo_blanco' => (bool) $blanca]);
+            // La foto real, de respaldo, solo cuando la que se muestra la hizo Gemini. Si esta
+            // copia falla, la foto ya quedó guardada: solo se anota.
+            if ($blanca) {
+                try {
+                    $original = $previa['file'];   // WebP salvo que GD no la haya podido convertir
+                    $drive->uploadFile($folder, $original, $nombre . '_original.' . ($original->guessExtension() ?: 'webp'), $original->getMimeType());
+                } catch (\Throwable $e) {
+                    Log::warning('Foto de producto: no se guardó la copia original', ['producto' => $producto->ID_PRODUCTO, 'error' => $e->getMessage()]);
+                }
+            }
+
+            return response()->json([
+                'success'      => true,
+                'foto'         => $producto->FOTO,
+                'fondo_blanco' => $gemini->activo() ? (bool) $blanca : null,
+            ]);
         } finally {
-            foreach ([$convertida['tempPath'] ?? null, $tempGemini] as $tmp) {
-                if ($tmp) @unlink($tmp);
+            foreach (array_filter($temporales) as $tmp) {
+                @unlink($tmp);
             }
         }
     }

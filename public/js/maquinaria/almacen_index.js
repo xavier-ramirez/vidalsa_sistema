@@ -2464,6 +2464,15 @@
         window._openCropModal(archivo, almDetFotoSubir);
     };
 
+    // Aviso tras subir una foto, según `fondo_blanco` (AlmacenController::subirFotoProducto):
+    // true = Gemini le puso fondo blanco; false = no pudo y quedó la original; null = Gemini
+    // no está configurado.
+    function almFotoAviso(b) {
+        if (b.fondo_blanco === true) window.toast('Foto actualizada con fondo blanco.', 'success');
+        else if (b.fondo_blanco === false) window.toast('Foto guardada tal cual: Gemini no pudo ponerle el fondo blanco.', 'warning');
+        else window.toast('Foto actualizada.', 'success');
+    }
+
     function almDetFotoSubir(archivo) {
         var id = el('almDetalleModal').dataset.id;
         var caja = el('almDetFotoCaja');
@@ -2472,11 +2481,11 @@
         window.apiPostForm(CFG.rutas.productosBase + '/' + id + '/foto',
                            { foto: archivo }, 'No se pudo subir la foto.')
             .then(function (b) {
-                almDetFotoPintar(b.foto);
+                // Gemini puede tardar: si mientras tanto se abrió OTRO producto, su ficha no se
+                // toca (solo la fila de la tabla del que se subió).
+                if (el('almDetalleModal').dataset.id === id) almDetFotoPintar(b.foto);
                 almDetFotoEnLaTabla(id, b.foto);
-                // fondo_blanco=false: Gemini no pudo (sin cupo o sin red) y quedó la original.
-                if (b.fondo_blanco) window.toast('Foto actualizada con fondo blanco.', 'success');
-                else window.toast('Foto guardada tal cual: Gemini no pudo ponerle el fondo blanco.', 'warning');
+                almFotoAviso(b);
             })
             .catch(function (e) { window.toast(e.message, 'error'); })
             .finally(function () { if (caja) caja.classList.remove('subiendo'); });
@@ -3546,9 +3555,11 @@
     function almProdSubirFotoPendiente(idProducto) {
         if (!_almProdFotoPend || !idProducto) return Promise.resolve(null);
         var archivo = _almProdFotoPend;
+        // Con Gemini la subida puede tardar: que se sepa que la foto viene en camino.
+        toast('Subiendo la foto del producto…');
         return window.apiPostForm(CFG.rutas.productosBase + '/' + idProducto + '/foto',
                                   { foto: archivo }, 'No se pudo subir la foto.')
-            .then(function (b) { return (b && b.foto) || null; })
+            .then(function (b) { if (b) almFotoAviso(b); return (b && b.foto) || null; })
             .catch(function (e) {
                 toast('El producto se guardó, pero la foto no: ' + e.message, 'error');
                 return null;

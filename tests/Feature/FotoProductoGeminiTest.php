@@ -19,6 +19,7 @@ class FotoProductoGeminiTest extends TestCase
     {
         parent::setUp();
         config(['services.gemini.key' => 'clave-de-prueba', 'services.gemini.modelo_imagen' => 'modelo-imagen']);
+        \Illuminate\Support\Facades\Cache::forget('gemini:imagen:sin_cupo');
         $this->foto = tempnam(sys_get_temp_dir(), 'foto_');
         $img = imagecreatetruecolor(4, 4);
         imagejpeg($img, $this->foto);
@@ -28,6 +29,8 @@ class FotoProductoGeminiTest extends TestCase
     protected function tearDown(): void
     {
         @unlink($this->foto);
+        // El 429 de la prueba deja la marca de "sin cupo": que no se quede en la caché real.
+        \Illuminate\Support\Facades\Cache::forget('gemini:imagen:sin_cupo');
         parent::tearDown();
     }
 
@@ -46,10 +49,12 @@ class FotoProductoGeminiTest extends TestCase
             && $req['contents'][0]['parts'][1]['inline_data']['data'] === base64_encode(file_get_contents($this->foto)));
     }
 
-    public function test_sin_cupo_devuelve_null(): void
+    public function test_sin_cupo_devuelve_null_y_no_vuelve_a_preguntar_enseguida(): void
     {
         Http::fake(['*' => Http::response(['error' => ['code' => 429, 'message' => 'quota']], 429)]);
         $this->assertNull(app(FotoProductoGemini::class)->fondoBlanco($this->foto, 'image/jpeg'));
+        $this->assertNull(app(FotoProductoGemini::class)->fondoBlanco($this->foto, 'image/jpeg'));
+        Http::assertSentCount(1);
     }
 
     public function test_respuesta_sin_imagen_devuelve_null(): void

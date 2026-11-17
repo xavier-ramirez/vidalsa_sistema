@@ -6,8 +6,9 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Convierte imágenes subidas (JPG/PNG/WebP) a WebP y las reescala a 8 cm de
- * ancho usando PHP GD. Compartido entre CaracteristicaModeloController y
- * EquipoAuxiliarController para evitar duplicación de la misma lógica.
+ * ancho usando PHP GD. Compartido entre CaracteristicaModeloController,
+ * EquipoAuxiliarController y AlmacenController (foto del inventario, que pasa
+ * un ancho menor) para evitar duplicación de la misma lógica.
  *
  * El reescalado a 8 cm reemplaza el paso manual que se hacía en PowerPoint:
  * las fotos quedan ligeras (pocos KB) sin perder nitidez en las tarjetas.
