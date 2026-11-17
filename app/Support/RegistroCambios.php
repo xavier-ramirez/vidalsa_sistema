@@ -137,27 +137,262 @@ class RegistroCambios
      * En MySQL 8 con el registro binario encendido, crear un trigger exige SUPER (o
      * log_bin_trust_function_creators=1) y el usuario de la aplicación puede no tenerlo.
      * Si pasa, la migración sigue y la sincronización trabaja en el modo de respaldo
-     * (activo() = false) hasta que se creen con `php artisan cambios:sql` en phpMyAdmin.
+     * (activo() = false) hasta que los cree el arranque (asegurar(), con DB_ADMIN_PASSWORD)
+     * o se peguen en phpMyAdmin con `php artisan cambios:sql`.
      *
      * @return array<string,string> nombre → mensaje de error
      */
     public static function crearTriggers(): array
     {
-        $fallos = [];
-        foreach (self::sentencias() as $nombre => $sql) {
-            try {
-                DB::unprepared("DROP TRIGGER IF EXISTS {$nombre}");
-                DB::unprepared($sql);
-            } catch (\Throwable $e) {
-                $fallos[$nombre] = $e->getMessage();
-            }
-        }
+        $fallos = self::recrear(DB::connection(), self::sentencias());
         if ($fallos) {
             Log::warning('RegistroCambios: no se pudieron crear ' . count($fallos) . ' triggers; la sincronización usa el modo de respaldo.', $fallos);
         }
         self::olvidarEstado();
 
         return $fallos;
+    }
+
+    /**
+     * Nombres de los triggers que FALTAN o cuyo cuerpo ya no es el de sentencias() (cambió
+     * FUENTES y la migración que los recreaba no tuvo permiso). Vacío = todo al día.
+     *
+     * @return list<string>
+     */
+    public static function pendientes(?string $conexion = null): array
+    {
+        $db     = DB::connection($conexion);
+        $driver = $db->getDriverName();
+
+        if ($driver === 'sqlite') {
+            $hay = $db->table('sqlite_master')->where('type', 'trigger')->pluck('name')->all();
+
+            return array_values(array_diff(array_keys(self::sentencias($driver)), $hay));
+        }
+
+        $hay = $db->table('information_schema.TRIGGERS')
+            ->where('TRIGGER_SCHEMA', DB::raw('DATABASE()'))
+            ->where('TRIGGER_NAME', 'like', 'cambios\_%')
+            ->get(['TRIGGER_NAME', 'EVENT_MANIPULATION', 'EVENT_OBJECT_TABLE', 'ACTION_TIMING', 'ACTION_STATEMENT'])
+            ->keyBy('TRIGGER_NAME');
+
+        // Sin espacios, comillas invertidas ni mayúsculas: el motor puede devolver el cuerpo
+        // con otro formato que el que se le dio, y eso no es un cambio.
+        $norm = static fn (string $s) => strtolower(preg_replace('/[\s`]+/', '', $s));
+
+        $pend = [];
+        foreach (self::sentencias($driver) as $nombre => $sql) {
+            $t = $hay->get($nombre);
+            $esperado = "AFTER {$t?->EVENT_MANIPULATION} ON {$t?->EVENT_OBJECT_TABLE} FOR EACH ROW {$t?->ACTION_STATEMENT}";
+            if (! $t || $t->ACTION_TIMING !== 'AFTER'
+                || $norm("CREATE TRIGGER {$nombre} {$esperado}") !== $norm($sql)) {
+                $pend[] = $nombre;
+            }
+        }
+
+        return $pend;
+    }
+
+    /**
+     * Deja los triggers al día SIN romper nada; lo corre el arranque del contenedor
+     * (`php artisan cambios:sql --asegurar`, docker/start.sh). Solo toca los pendientes().
+     *
+     * 1. Prueba ANTES si la conexión puede crear triggers (crea y borra uno de prueba sobre
+     *    `cambios`). Así nunca se borra un trigger bueno que luego no se pueda volver a crear.
+     * 2. Si el usuario de la app no puede (MySQL 8 con registro binario exige SUPER), usa la
+     *    conexión de administrador (config offline.triggers_admin) si está configurada, y crea
+     *    los triggers A NOMBRE del usuario de la app (DEFINER): si dependieran de root, el día
+     *    que root cambie todo INSERT/UPDATE de esas tablas fallaría.
+     * 3. lock_wait_timeout de 3 s: CREATE/DROP TRIGGER espera a que ninguna transacción use la
+     *    tabla y por defecto esperaría hasta un año; mientras espera, TODA consulta a esa tabla
+     *    hace fila detrás (visto en local: un DROP esperando congeló las lecturas de equipos).
+     *    Al primer bloqueo se para y lo reintenta el próximo arranque.
+     *
+     * NO lanza. @return array{estado:string, detalle:array<string,string>}
+     *   estado: 'al_dia' | 'creados' | 'sin_permiso' | 'invisible' | 'fallos'
+     */
+    public static function asegurar(): array
+    {
+        $pend = self::pendientes();
+        if ($pend === []) {
+            return ['estado' => 'al_dia', 'detalle' => []];
+        }
+
+        $app     = DB::connection();
+        $definer = null;
+        $errApp  = self::probarPermiso($app);
+        $db      = $app;
+
+        if ($errApp !== null) {
+            $admin = self::conexionAdmin();
+            $errAdmin = match (true) {
+                $admin !== null                                  => self::probarPermiso($admin),
+                empty(config('offline.triggers_admin.password')) => 'sin credenciales de administrador (falta DB_ADMIN_PASSWORD)',
+                default                                          => 'no se pudo conectar con el administrador (ver storage/logs)',
+            };
+            if ($errAdmin !== null) {
+                return ['estado' => 'sin_permiso', 'detalle' => ['usuario de la app' => $errApp, 'administrador' => $errAdmin]];
+            }
+            // Al EJECUTARSE, un trigger usa los permisos de su DEFINER (el usuario de la app) y
+            // exige que tenga el privilegio TRIGGER sobre la tabla. Si no lo tiene, crearlos a su
+            // nombre haría fallar TODO insert/update de esas tablas: entonces no se toca nada.
+            if (! self::tienePrivilegioTrigger($app)) {
+                return ['estado' => 'sin_permiso', 'detalle' => ['usuario de la app' =>
+                    'no tiene el privilegio TRIGGER sobre la base (GRANT TRIGGER ON <base>.* TO <usuario>); no se creó nada']];
+            }
+            $db = $admin;
+            // information_schema solo enseña los triggers de las tablas sobre las que el
+            // usuario tiene el privilegio TRIGGER: lo que falta se mira con los ojos del
+            // administrador, o se recrearían todos en cada arranque.
+            $pend = self::pendientes($admin->getName());
+            if ($pend === []) {
+                return self::vistoPorLaApp('al_dia', []);
+            }
+            // CURRENT_USER() del usuario de la app: 'mysql@%' → 'mysql'@'%'.
+            [$u, $h] = explode('@', (string) $app->scalar('SELECT CURRENT_USER()'), 2) + [1 => '%'];
+            $definer = $db->getPdo()->quote($u) . '@' . $db->getPdo()->quote($h);
+        }
+
+        $sentencias = array_intersect_key(self::sentencias($db->getDriverName()), array_flip($pend));
+        if ($definer !== null) {
+            $sentencias = preg_replace('/^CREATE TRIGGER /', "CREATE DEFINER={$definer} TRIGGER ", $sentencias);
+        }
+        $fallos = self::recrear($db, $sentencias);
+        self::olvidarEstado();
+
+        if ($fallos) {
+            Log::warning('RegistroCambios::asegurar: ' . count($fallos) . ' triggers sin crear.', $fallos);
+
+            return ['estado' => 'fallos', 'detalle' => $fallos];
+        }
+
+        return self::vistoPorLaApp('creados', array_fill_keys($pend, $definer ? 'con administrador' : 'con el usuario de la app'));
+    }
+
+    /**
+     * DROP + CREATE de cada sentencia (nombre → CREATE TRIGGER). Devuelve los que fallaron.
+     * Al primer bloqueo de otra transacción (1205) se para: mientras un DDL espera, TODA
+     * consulta a esa tabla hace fila detrás. Lo pendiente se reintenta en el próximo arranque.
+     *
+     * @param  array<string,string>  $sentencias
+     * @return array<string,string>
+     */
+    private static function recrear(\Illuminate\Database\Connection $db, array $sentencias): array
+    {
+        $fallos = [];
+        foreach ($sentencias as $nombre => $sql) {
+            try {
+                $db->unprepared("DROP TRIGGER IF EXISTS {$nombre}");
+                $db->unprepared($sql);
+            } catch (\Throwable $e) {
+                $fallos[$nombre] = $e->getMessage();
+                if (str_contains($e->getMessage(), '1205') || stripos($e->getMessage(), 'lock wait timeout') !== false) {
+                    break;
+                }
+            }
+        }
+
+        return $fallos;
+    }
+
+    /**
+     * activo() mira con el usuario de la APP. Si este no tiene el privilegio TRIGGER no ve los
+     * triggers aunque existan, y el sistema seguiría en el modo de respaldo: se avisa claro.
+     */
+    private static function vistoPorLaApp(string $estado, array $detalle): array
+    {
+        if (self::pendientes() !== []) {
+            return ['estado' => 'invisible', 'detalle' => ['usuario de la app' =>
+                'los triggers existen pero no los ve (le falta el privilegio TRIGGER sobre la base)']];
+        }
+
+        return ['estado' => $estado, 'detalle' => $detalle];
+    }
+
+    /**
+     * ¿El usuario de la conexión tiene TRIGGER (o ALL) sobre esta base? Se lee de SHOW GRANTS,
+     * que siempre se puede consultar del propio usuario y no toca ninguna tabla. Ante la duda
+     * (un permiso que llega por un rol, un formato raro) responde false: no crear es seguro.
+     */
+    private static function tienePrivilegioTrigger(\Illuminate\Database\Connection $db): bool
+    {
+        $base = (string) $db->getDatabaseName();
+        try {
+            $grants = array_map(static fn ($r) => (string) array_values((array) $r)[0], $db->select('SHOW GRANTS'));
+        } catch (\Throwable) {
+            return false;
+        }
+        foreach ($grants as $g) {
+            if (! preg_match('/^GRANT (.+?) ON (\S+?)\.\S+ TO /i', $g, $m)) {
+                continue;
+            }
+            $privs = strtoupper($m[1]);
+            if (! str_contains($privs, 'ALL PRIVILEGES') && ! preg_match('/(^|,\s*)TRIGGER(\s*,|$)/', $privs)) {
+                continue;
+            }
+            // Patrón de base de MySQL: `*`, `mibase` o con comodines % y _ (\_ = guion bajo literal).
+            $patron = trim($m[2], '`');
+            if ($patron === '*') {
+                return true;
+            }
+            $regex = '/^' . preg_replace_callback('/\\\\[_%]|[%_]|[^%_\\\\]+/', static fn ($t) => match ($t[0]) {
+                '%' => '.*', '_' => '.', '\\_' => '_', '\\%' => '%',
+                default => preg_quote($t[0], '/'),
+            }, $patron) . '$/';
+            if (preg_match($regex, $base)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** null si la conexión puede crear y borrar triggers; si no, el error. */
+    private static function probarPermiso(\Illuminate\Database\Connection $db): ?string
+    {
+        $nombre = 'cambios__prueba_permiso';
+        try {
+            $sqlite = $db->getDriverName() === 'sqlite';
+            if (! $sqlite) {
+                $db->unprepared('SET SESSION lock_wait_timeout = 3');
+            }
+            $db->unprepared("DROP TRIGGER IF EXISTS {$nombre}");
+            $db->unprepared("CREATE TRIGGER {$nombre} AFTER INSERT ON " . self::TABLA . ' FOR EACH ROW '
+                . ($sqlite ? 'BEGIN SELECT 1; END' : 'SET @cambios_prueba = 1'));
+            $db->unprepared("DROP TRIGGER IF EXISTS {$nombre}");
+
+            return null;
+        } catch (\Throwable $e) {
+            try { $db->unprepared("DROP TRIGGER IF EXISTS {$nombre}"); } catch (\Throwable) {}
+
+            return $e->getMessage();
+        }
+    }
+
+    /** Conexión con el usuario administrador (misma base y host que la app), o null. */
+    private static function conexionAdmin(): ?\Illuminate\Database\Connection
+    {
+        $cred = config('offline.triggers_admin');
+        if (empty($cred['password'])) {
+            return null;
+        }
+        $base = config('database.connections.' . config('database.default'));
+        config(['database.connections.triggers_admin' => array_merge($base, [
+            'username' => $cred['username'] ?: 'root',
+            'password' => $cred['password'],
+            'options'  => ($base['options'] ?? []) + [\PDO::ATTR_TIMEOUT => 5],
+        ])]);
+
+        try {
+            $db = DB::connection('triggers_admin');
+            $db->getPdo();
+
+            return $db;
+        } catch (\Throwable $e) {
+            Log::warning('RegistroCambios: no conecta el administrador de triggers: ' . $e->getMessage());
+
+            return null;
+        }
     }
 
     /** @param list<string>|null $tablas Solo los de estas tablas; null = todos. */

@@ -57,8 +57,9 @@ php artisan route:clear
 echo "[6/10] Ejecutando migraciones..."
 php artisan migrate --force --no-interaction
 # El aviso en tiempo real (cambios:avisar) y la copia local viven de los triggers del registro
-# de cambios: si faltan, sale aquí, en el log del despliegue (se crean con `php artisan cambios:sql`).
-php artisan cambios:sql --estado || true
+# de cambios. --asegurar crea los que falten o cambiaron (con DB_ADMIN_PASSWORD si el usuario de la
+# app no tiene permiso) y dice en el log cómo quedó. Nunca para el arranque.
+timeout 90 php artisan cambios:sql --asegurar || echo "Advertencia: no se pudo revisar los triggers del registro de cambios."
 
 # Symlink public/storage -> storage/app/public. Necesario para servir los
 # documentos de equipos AUXILIARES (se guardan en disco 'public' y se sirven en
