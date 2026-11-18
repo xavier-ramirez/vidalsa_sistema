@@ -284,8 +284,9 @@
                     <span class="tr-acc-ic"><i class="material-icons">local_shipping</i></span><span>Registrar y despachar</span>
                 </button>
                 {{-- La recepción del almacén GENERAL (compras por orden de compra) es otra
-                     pantalla. Quien entra con un almacén general llega allí directo; el global
-                     abre esta bandeja en «Todos» y solo tiene este acceso. --}}
+                     pantalla, y quien tiene ese almacén entra a ella directo. Este acceso es
+                     para el global sin almacén propio y para quien llegó aquí desde el general
+                     (Historial → «Despachos»). --}}
                 @if($veGeneral)
                 <a href="{{ route('almacen.recepcion.nueva') }}" class="tr-acc-item"
                    title="Recepción del almacén general: registrar lo que llegó por orden de compra">

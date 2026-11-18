@@ -107,12 +107,16 @@ class TraspasoController extends Controller
         //   GENERAL  → Entrada por ODC: el general recibe por orden de compra, no por notas.
         //   PROYECTO → esta bandeja ("Reposición del general": confirma lo que le despachó).
         // Va ANTES de darle «Todos» al global: ese 'all' cuenta como filtro y los del almacén
-        // general (que son globales) dejaban de llegar a su pantalla. Un global sin frente con
-        // almacén no tiene "almacén propio" → bandeja en «Todos». Un local sin almacén por
-        // frente usa el primero que ve.
+        // general (que son globales) dejaban de llegar a su pantalla.
+        // El almacén propio: el ligado a su frente (almacenPorDefecto), si lo ve. Si no, un
+        // LOCAL usa el primero que ve; un GLOBAL sin él no tiene "almacén propio" → bandeja
+        // en «Todos». Es también el almacén con que abre la bandeja el LOCAL (ver abajo).
         // ?force=1 (Historial → Acciones → "Despachos") o filtros explícitos → siempre la
         // bandeja. AJAX (paginación/filtros) → se queda aquí.
         $idPropio = $user?->almacenPorDefecto();
+        if ($idPropio && !$almacenesVisibles->contains((int) $idPropio)) {
+            $idPropio = null;
+        }
         if (!$idPropio && !$esGlobal) {
             $idPropio = $almacenesVisibles->first();
         }
@@ -129,26 +133,13 @@ class TraspasoController extends Controller
         // Default del filtro "Almacén destino":
         //   · GLOBAL (Almacen::usuarioEsGlobal) → "Todos": ve la bandeja de todos los almacenes
         //     y puede acotarla a uno desde el dropdown, que le ofrece esa opción.
-        //   · LOCAL → UN almacén de los suyos (no tiene "Todos"):
-        //       1) el que mandó (filled, y de la bandeja);
-        //       2) si no, el ligado a su frente (almacenPorDefecto);
-        //       3) si no, el primero visible.
-        // Validamos visibilidad para evitar un filtro fantasma. Es el MISMO almacén que usa
-        // nuevaEntrada (almacenPorDefecto → primero visible); si no es de la bandeja, más
-        // abajo se cambia por el primero que sí lo es.
+        //   · LOCAL → UN almacén de los suyos (no tiene "Todos"): el que mandó (filled, y de
+        //     la bandeja) o, si no, su almacén propio ($idPropio, arriba); si no es de la
+        //     bandeja, más abajo se cambia por el primero que sí lo es.
         if ($esGlobal && !$request->filled('id_almacen_destino')) {
             $request->merge(['id_almacen_destino' => 'all']);
         }
-        $idDef = null;
-        if (!$request->filled('id_almacen_destino')) {
-            $idDef = $user?->almacenPorDefecto();
-            if (!$idDef && $almacenesVisibles->isNotEmpty()) {
-                $idDef = (int) $almacenesVisibles->first();
-            }
-            if (!$idDef || !$almacenesVisibles->contains((int) $idDef)) {
-                $idDef = null;
-            }
-        }
+        $idDef = (!$request->filled('id_almacen_destino') && $idPropio) ? (int) $idPropio : null;
 
         // Si el general entra igual a la bandeja (Acciones → "Despachos" del
         // Historial), abre en el primer almacén de PROYECTO: es donde llega lo que el general
@@ -372,8 +363,8 @@ class TraspasoController extends Controller
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
             'esGlobal'               => $esGlobal,   // el dropdown ofrece «Todos los almacenes»
             // Acciones → «Entrada por ODC» (la recepción del almacén GENERAL) para quien ve
-            // alguno. Sin este acceso el GLOBAL no llegaba nunca a esa pantalla: abre la bandeja
-            // en «Todos», que cuenta como filtro, y la redirección de arriba no le aplica.
+            // alguno: el global sin almacén propio, que abre la bandeja en «Todos», y quien
+            // llegó aquí desde el general por Historial → «Despachos» (vuelve a su pantalla).
             'veGeneral'              => $almacenes->contains('TIPO', Almacen::TIPO_GENERAL),
             'numerosNotas'           => $numerosNotas,
             'bandejaStats'           => $bandejaStats,
@@ -449,11 +440,9 @@ class TraspasoController extends Controller
      * la pantalla del formulario. La pantalla es accesible sin permiso especial; el
      * gate almacen.movimiento se aplica al EJECUTAR el submit (registrarMovimientoLote).
      *
-     * El "almacén destino" YA NO se elige: se deriva del frente asignado al usuario
-     * via Usuario::almacenPorDefecto() — convención del módulo (mismo helper que usa
-     * AlmacenController para el default-merge del filtro de almacén). Si el usuario
-     * no tiene un almacén natural (caso GLOBAL sin frente, o frente sin almacén
-     * PROYECTO), cae al primer almacén visible. Si NO hay ningún almacén visible se
+     * El "almacén destino" no se elige: es el del frente del usuario
+     * (Usuario::almacenPorDefecto) si es GENERAL; si no, el primer GENERAL que vea, y solo
+     * sin ninguno el suyo o el primero visible. Si NO hay ningún almacén visible se
      * redirige al menú con un mensaje — esa situación bloquea la operación.
      */
     public function nuevaEntrada(Request $request)
@@ -465,24 +454,19 @@ class TraspasoController extends Controller
         $user      = $request->user();
         $almacenes = Almacen::visiblesPara($user)->orderBy('TIPO')->orderBy('NOMBRE')->get(['ID_ALMACEN', 'NOMBRE', 'TIPO']);
 
-        // 1) Almacén-por-frente del usuario (helper canónico del módulo).
-        // 2) Fallback: primer almacén visible si el helper devolvió null pero hay almacenes.
-        // 3) Si no hay ninguno → redirigir al MENU (no a recepcion.index): el index()
-        //    de la bandeja manda de vuelta aquí a quien abre con un almacén GENERAL, y
-        //    ese ir y venir ya formó un loop infinito (`recepcion.index` ↔
-        //    `recepcion.nueva`). El menu lo corta y muestra el toast con la causa real.
-        // Esta es la recepción del almacén GENERAL (compras por orden de compra): si el
-        // almacén del usuario es de PROYECTO —almacenPorDefecto() los prefiere, un global con
-        // frentes cae ahí— se abre en el primer GENERAL que vea. Solo sin ninguno visible se
-        // queda en el suyo.
+        // Esta es la recepción del almacén GENERAL (compras por orden de compra):
+        //   1) el almacén del frente del usuario, si es GENERAL;
+        //   2) si no (almacenPorDefecto() prefiere uno de PROYECTO), el primer GENERAL visible;
+        //   3) sin ningún GENERAL, el suyo o el primero visible;
+        //   4) sin ninguno → al MENU (no a recepcion.index): el index() de la bandeja manda de
+        //      vuelta aquí a quien tiene un almacén GENERAL, y ese ir y venir ya formó un loop
+        //      infinito (recepcion.index ↔ recepcion.nueva). El menú lo corta y muestra el
+        //      toast con la causa real.
         $idDest = $user?->almacenPorDefecto();
-        $almacenDestino = $idDest ? $almacenes->firstWhere('ID_ALMACEN', (int) $idDest) : null;
-        if (!$almacenDestino || $almacenDestino->TIPO !== Almacen::TIPO_GENERAL) {
-            $almacenDestino = $almacenes->firstWhere('TIPO', Almacen::TIPO_GENERAL) ?? $almacenDestino;
-        }
-        if (!$almacenDestino) {
-            $almacenDestino = $almacenes->first();
-        }
+        $propio = $idDest ? $almacenes->firstWhere('ID_ALMACEN', (int) $idDest) : null;
+        $almacenDestino = ($propio && $propio->TIPO === Almacen::TIPO_GENERAL)
+            ? $propio
+            : ($almacenes->firstWhere('TIPO', Almacen::TIPO_GENERAL) ?? $propio ?? $almacenes->first());
         if (!$almacenDestino) {
             return redirect()->route('menu')->with('flash_toast', [
                 'type'    => 'error',
