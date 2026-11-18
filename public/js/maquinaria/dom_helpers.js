@@ -342,10 +342,12 @@
             var s = document.createElement('script');
             // Versión EN el nombre del archivo: nginx sirve /js/* con caché inmutable de 1 año,
             // así que al actualizar la librería hay que renombrar ambos archivos (lib y worker
-            // SIEMPRE de la misma versión).
-            s.src = '/js/vendor/pdf-3.11.174.min.js';
+            // SIEMPRE de la misma versión). El ?v= es para el service worker: solo pasa de una
+            // caché a la siguiente (cada despliegue) los /js que lo llevan, y sin él el visor del
+            // teléfono no abría sin internet tras un despliegue (NotaEntregaLocal.PDFJS).
+            s.src = '/js/vendor/pdf-3.11.174.min.js?v=3.11.174';
             s.onload = function () {
-                try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/vendor/pdf.worker-3.11.174.min.js'; } catch (e) {}
+                try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/vendor/pdf.worker-3.11.174.min.js?v=3.11.174'; } catch (e) {}
                 resolve();
             };
             s.onerror = function () { pdfJsPromesa = null; reject(new Error('No se pudo cargar el visor de PDF.')); };
@@ -438,15 +440,17 @@
     window.descargarPdf = function (url, nombre) {
         return window.apiFetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/pdf' } })
             .then(function (r) { return r.ok ? r.blob() : null; })
-            .then(function (blob) {
-                if (!blob) return;
-                var burl = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = burl; a.download = nombre; a.style.display = 'none';
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
-            })
+            .then(function (blob) { if (blob) window.descargarBlob(blob, nombre); })
             .catch(function () {});
+    };
+
+    // Baja un Blob ya armado como archivo (lo usa descargarPdf y la Nota sin internet).
+    window.descargarBlob = function (blob, nombre) {
+        var burl = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = burl; a.download = nombre; a.style.display = 'none';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
     };
 
     /**

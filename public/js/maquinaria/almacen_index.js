@@ -4325,6 +4325,9 @@
             window.NotaEntregaLocal.generar(almNotaLocalDatos(payload, window.Bandeja.verNumeroNota()))
                 .then(function (blob) {
                     unpre();
+                    // Se cerró la vista previa mientras se armaba: no pintar en el modal cerrado.
+                    var modal = el('almPreviewModal');
+                    if (modal && !modal.classList.contains('open')) return;
                     if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} }
                     almPreviewBlobUrl = URL.createObjectURL(blob);
                     window.mostrarPdfPrevia(frame, cont, blob, almPreviewBlobUrl);   // dom_helpers.js
@@ -4387,14 +4390,12 @@
     // la del servidor (bandeja.js).
     function almDescargarNotaLocal(datos) {
         window.NotaEntregaLocal.generar(datos)
-            .then(function (blob) {
-                var burl = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = burl; a.download = 'Nota_' + datos.numero + '.pdf'; a.style.display = 'none';
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
-            })
-            .catch(function (err) { console.error('[Almacén] Nota sin internet:', err); });
+            .then(function (blob) { window.descargarBlob(blob, 'Nota_' + datos.numero + '.pdf'); })   // dom_helpers.js
+            .catch(function (err) {
+                console.error('[Almacén] Nota sin internet:', err);
+                // La salida sí quedó guardada; solo falta el papel, que baja al subir.
+                toast('No se pudo armar la Nota ' + datos.numero + ' en este equipo: se descarga al volver internet.', 'error');
+            });
     }
 
     // Tras el commit, descargamos el PDF al disco (fetch → blob → anchor) y

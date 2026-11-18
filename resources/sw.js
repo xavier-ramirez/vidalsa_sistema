@@ -543,8 +543,7 @@ function mismaPaginaSinFiltros(request, esSpa) {
     if (!u.search || !PAGINAS_SIN_RED.includes(u.pathname)) return null;
     const base = u.origin + u.pathname;
     return (esSpa ? caches.match(base + '?__spa=1') : Promise.resolve(null))
-        .then((corta) => corta || caches.match(base, esSpa ? { ignoreVary: true } : undefined))
-        .then((c) => c || null);
+        .then((corta) => corta || caches.match(base, esSpa ? { ignoreVary: true } : undefined));
 }
 
 self.addEventListener('message', (event) => {

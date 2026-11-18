@@ -8,7 +8,8 @@
  * que es el definitivo; cuando la salida sube, la bandeja baja además la del servidor.
  *
  * Si se toca el diseño de la Nota en el servidor hay que tocarlo aquí también: mismas
- * medidas (mm), anchos de columna (%), letras y textos. Prueba: tests/js/nota_entrega_local.cjs.
+ * medidas (mm), anchos de columna (%), letras y textos, y comparar las dos hojas con los
+ * mismos datos (vista previa con red = la del servidor; sin red = esta).
  *
  *   NotaEntregaLocal.prepararSinRed() → con red, deja la librería y el logo en la caché del SW.
  *   NotaEntregaLocal.generar(datos)   → Promise<Blob> (application/pdf).
@@ -23,8 +24,14 @@
 (function (raiz) {
     'use strict';
 
-    const PDFLIB = '/js/vendor/pdf-lib-1.17.1.min.js';
-    const LOGO = '/img/imagen_uno.jpg';
+    // Con ?v=: el SW solo pasa de una versión de caché a la siguiente (cada despliegue) los
+    // archivos de /js e /img que lo llevan (sePuedeConservar). Sin él, tras cada despliegue la
+    // librería y el logo desaparecían de la caché y la Nota no se podía armar sin internet.
+    // Si se cambia el logo, subir su v.
+    const PDFLIB = '/js/vendor/pdf-lib-1.17.1.min.js?v=1.17.1';
+    const LOGO = '/img/imagen_uno.jpg?v=1';
+    // El visor de la vista previa en el teléfono (dom_helpers.js · cargarPdfJs).
+    const PDFJS = ['/js/vendor/pdf-3.11.174.min.js?v=3.11.174', '/js/vendor/pdf.worker-3.11.174.min.js?v=3.11.174'];
     const MM = 72 / 25.4;
     // Medido contra el PDF del servidor: TCPDF toma los alto/padding del HTML como pt, y el
     // primer renglón de cada celda mide con la letra del documento (9,5) si la suya es menor.
@@ -357,10 +364,15 @@
         fmt,
         // Con red: la librería y el logo quedan en la caché del service worker (/js y /img
         // son cache-first), así la Nota se puede armar después sin internet.
+        // Solo lo que falta: el SW revalida por detrás cada archivo que sirve de la caché, y
+        // pedirlos siempre volvía a bajar la librería (~500 KB) en cada sesión.
         prepararSinRed() {
             if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-            try { fetch(PDFLIB, { credentials: 'same-origin' }).catch(() => {}); } catch (e) { /* sin fetch */ }
-            try { fetch(LOGO, { credentials: 'same-origin' }).catch(() => {}); } catch (e) { /* sin fetch */ }
+            const urls = [PDFLIB, LOGO].concat(raiz.pdfEsMovil && raiz.pdfEsMovil() ? PDFJS : []);
+            const hay = (u) => (typeof caches !== 'undefined' ? caches.match(u).catch(() => null) : Promise.resolve(null));
+            urls.forEach((u) => {
+                hay(u).then((ya) => ya || fetch(u, { credentials: 'same-origin' })).catch(() => {});
+            });
         },
         generar(datos) {
             return Promise.all([cargarLibreria(), bajarLogo()])
