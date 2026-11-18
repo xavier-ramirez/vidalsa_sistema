@@ -1621,7 +1621,6 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
     // Permisos de quien mira (los pone el Blade en el <tbody>): botones de las filas.
     const puede = {
         editar: tableBody.dataset.editar === '1',
-        superAdmin: tableBody.dataset.super === '1',
         subirPdf: tableBody.dataset.subirPdf === '1',
     };
 

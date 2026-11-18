@@ -1,6 +1,6 @@
 {{--
     Modal "Vincular a una ficha del catálogo" de /admin/equipos. Se abre con doble clic en la
-    foto de un equipo (equipos_local.js: data-vincular) y solo para super.admin: se elige la ficha
+    foto de un equipo (equipos_local.js: data-vincular), para todos y sin permiso: se elige la ficha
     (caracteristicas_modelo) y el equipo queda con su ID_ESPEC, así que toma la foto de su
     color o la del modelo (Equipo::fotoParaMostrar). Sirve para las unidades que no
     encontraron solas su ficha (el modelo escrito distinto, otro año, varias fichas).
@@ -15,7 +15,6 @@
     catálogo) y el vínculo lo guarda EquipoController::vincularFicha. El comportamiento vive
     en js/maquinaria/vincular_ficha.js, que se descarga la primera vez que se abre.
 --}}
-@can('super.admin')
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_equipos_partials_vincular_ficha_modal.css') }}?v={{ @filemtime(public_path('css/vistas/admin_equipos_partials_vincular_ficha_modal.css')) }}">
 
 <div id="vfModal" role="dialog" aria-modal="true" aria-labelledby="vfTitulo"
@@ -55,4 +54,3 @@
         });
     };
 </script>
-@endcan

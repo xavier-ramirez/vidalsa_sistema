@@ -317,27 +317,29 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->assertStringContainsString('falso-propia-', (string) $elegir([])->json('foto_propia'));
     }
 
-    public function test_vincular_y_buscar_fichas_es_solo_para_super_admin(): void
+    /** Decisión del usuario (18-11-2026): el modal "Vincular a una ficha" es para todos, sin permiso. */
+    public function test_vincular_y_buscar_fichas_no_pide_permiso(): void
     {
         $f = $this->ficha();
         $e = $this->equipo(null, 'ROJO');
         $u = new Usuario();
-        $u->NOMBRE_COMPLETO = 'PRUEBA SIN SUPER ADMIN';
+        $u->NOMBRE_COMPLETO = 'PRUEBA SIN PERMISOS';
         $u->CORREO_ELECTRONICO = 'prueba.vincular.' . uniqid() . '@local.test';
         $u->PASSWORD_HASH = bcrypt(Str::random(16));
-        $u->PERMISOS = 'equipos.create,equipos.edit';
+        $u->PERMISOS = '';
         $u->NIVEL_ACCESO_EQUIPOS = 1;
         $u->NIVEL_ACCESO_ALMACEN = 1;
         $u->ESTATUS = 'ACTIVO';
         $u->REQUIERE_CAMBIO_CLAVE = 0;
         $u->save();
 
-        $this->actingAs($u)->getJson(route('catalogo.elegir'))->assertForbidden();
-        $this->actingAs($u)->postJson(route('equipos.vincularFicha', $e->ID_EQUIPO), ['ID_ESPEC' => $f->ID_ESPEC])->assertForbidden();
-        $this->assertNull($e->fresh()->ID_ESPEC);
+        $this->actingAs($u)->get('/admin/equipos')->assertOk()->assertSee('id="vfModal"', false);
+        $this->actingAs($u)->getJson(route('catalogo.elegir'))->assertOk();
+        $this->actingAs($u)->postJson(route('equipos.vincularFicha', $e->ID_EQUIPO), ['ID_ESPEC' => $f->ID_ESPEC])->assertOk();
+        $this->assertSame((int) $f->ID_ESPEC, (int) $e->fresh()->ID_ESPEC);
 
         $html = $this->consultaLocal($u, ['search_query' => $e->SERIAL_CHASIS])['html'];
-        $this->assertStringNotContainsString('data-vincular=', $html);
+        $this->assertStringContainsString('data-vincular="' . $e->ID_EQUIPO . '"', $html);
     }
 
     public function test_la_sugerencia_de_ficha_del_formulario_trae_la_foto_de_su_color(): void

@@ -55,8 +55,9 @@ class EquipoController extends Controller
         $this->middleware('can:user.edit')->only(['edit', 'update']);
         $this->middleware('can:equipos.edit')->only(['changeStatus', 'confirmarSitio']);
         // Borrar un equipo es destructivo irreversible: solo super.admin. vincularFicha
-        // (doble clic en la foto → elegir su ficha del catálogo) también es solo suyo.
-        $this->middleware('can:super.admin')->only(['destroy', 'vincularFicha']);
+        // (doble clic en la foto → elegir su ficha del catálogo) es para todos, sin permiso
+        // (decisión del usuario, 18-11-2026).
+        $this->middleware('can:super.admin')->only(['destroy']);
         // uploadDoc/updateMetadata: permission 'user.edit' (chequeo dentro de cada metodo).
         // deleteDoc (borrado destructivo de PDF + Drive): solo super.admin, gateado en routes/web.php.
     }

@@ -10,7 +10,7 @@
  *       loadEquipos (equipos_index.js): html de las filas (y `filas`, el de cada <tr>), equiposData / auxData de los modales,
  *       Consolidado (stats, su desglose flotaHtml y auxConsolidado), Distribución, Detalles y
  *       aviso de venta.
- *       `filtros` = window.eqFiltrosActivos() (+ ids_in); `puede` = { editar, superAdmin,
+ *       `filtros` = window.eqFiltrosActivos() (+ ids_in); `puede` = { editar,
  *       subirPdf } de la página; `cuantos` = filas del lote (150 si no se dice).
  *   EquiposLocal.idsExportar(vista, filtros) → { equipos, auxiliares, modoAux }: lo que el
  *       Excel tiene que traer, en el orden de la tabla.
@@ -464,9 +464,9 @@
                 ? ' onclick="event.stopPropagation(); window.toggleConfirmacionSitio(this)" title="' + (cfd ? 'Confirmado en sitio (click para quitar)' : 'Sin confirmar (click para confirmar)') + '"'
                 : ' title="' + (cfd ? 'Confirmado en sitio' : 'Sin confirmar') + '"')
             + '>' + (cfd ? 'check_circle' : 'radio_button_unchecked') + '</i>';
-        // super.admin: doble clic en la foto → "Vincular a una ficha" (vincular_ficha_modal).
+        // Todos (sin permiso): doble clic en la foto → "Vincular a una ficha" (vincular_ficha_modal).
         const foto = '<div class="table-image-wrapper ' + (e.fotoId ? 'eq-foto-wrap' : 'placeholder') + '"'
-            + (puede.superAdmin ? ' data-vincular="' + e.id + '" data-espec="' + h(e.idEspec == null ? '' : e.idEspec) + '" data-color="' + h(e.color || '') + '" ondblclick="window.eqVincularFicha(this)" title="Doble clic: vincular a una ficha del catálogo"' : '') + '>'
+            + ' data-vincular="' + e.id + '" data-espec="' + h(e.idEspec == null ? '' : e.idEspec) + '" data-color="' + h(e.color || '') + '" ondblclick="window.eqVincularFicha(this)" title="Doble clic: vincular a una ficha del catálogo">'
             + (e.fotoId ? '<img data-src="/storage/google/' + encodeURIComponent(e.fotoId) + '?sz=w300" alt="Foto" class="eq-foto">' : '<span class="material-icons">image_not_supported</span>')
             + etiquetaVenta(ctx.venta(e.frenteId)) + '</div>';
         const falla = e.falla;

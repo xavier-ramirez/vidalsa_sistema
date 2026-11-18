@@ -23,7 +23,6 @@ trait EquiposLocal
             'offset' => $offset,
             'puede' => [
                 'editar' => $usuario->can('equipos.edit'),
-                'superAdmin' => $usuario->can('super.admin'),
                 'subirPdf' => $usuario->can('user.edit'),
             ],
         ]);

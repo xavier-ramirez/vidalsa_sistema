@@ -191,7 +191,7 @@ Route::middleware(['auth'])->group(function () {
             Route::patch('equipos/{id}/status', [App\Http\Controllers\EquipoController::class, 'changeStatus'])->name('equipos.changeStatus');
             // Confirmar presencia física del equipo en su frente (CONFIRMADO_EN_SITIO).
             Route::patch('equipos/{id}/confirmar-sitio', [App\Http\Controllers\EquipoController::class, 'confirmarSitio'])->name('equipos.confirmarSitio');
-            // Doble clic en la foto (super.admin): vincular el equipo a una ficha del catálogo.
+            // Doble clic en la foto (todos, sin permiso): vincular el equipo a una ficha del catálogo.
             Route::post('equipos/{id}/vincular-ficha', [App\Http\Controllers\EquipoController::class, 'vincularFicha'])->name('equipos.vincularFicha');
             Route::post('equipos/{id}/upload-doc', [App\Http\Controllers\EquipoController::class, 'uploadDoc'])->name('equipos.uploadDoc');
             // Correcciones ANEXAS a un documento: no sustituyen al principal, conviven

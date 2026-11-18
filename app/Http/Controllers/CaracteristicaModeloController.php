@@ -26,9 +26,10 @@ class CaracteristicaModeloController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('can:equipos.create')->only(['store', 'update', 'uploadFoto', 'asegurarFicha']);
-        // elegir: el modal "Vincular a una ficha" de /admin/equipos, que solo abre super.admin.
-        $this->middleware('can:super.admin')->only(['destroy', 'deleteFoto', 'elegir']);
+        // elegir y asegurarFicha: el modal "Vincular a una ficha" de /admin/equipos, que abre
+        // cualquiera con sesión, sin permiso (decisión del usuario, 18-11-2026).
+        $this->middleware('can:equipos.create')->only(['store', 'update', 'uploadFoto']);
+        $this->middleware('can:super.admin')->only(['destroy', 'deleteFoto']);
     }
 
     /** Reglas de validación compartidas por store y update. */

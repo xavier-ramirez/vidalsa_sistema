@@ -887,7 +887,6 @@
             {{-- Permisos de quien mira: los botones de las filas que arma equipos_local.js. --}}
             <tbody id="equiposTableBody" style="font-size: 15px;"
                    data-editar="{{ auth()->user()->can('equipos.edit') ? 1 : 0 }}"
-                   data-super="{{ auth()->user()->can('super.admin') ? 1 : 0 }}"
                    data-subir-pdf="{{ auth()->user()->can('user.edit') ? 1 : 0 }}">
             </tbody>
         </table>
