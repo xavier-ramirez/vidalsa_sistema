@@ -510,7 +510,8 @@ self.addEventListener('fetch', (event) => {
                 // pagina completa (en la SPA con ignoreVary: se guardo sin X-SPA-Navigate;
                 // en una navegacion NO, para no servir nunca una respuesta corta).
                 (corta) => corta || caches.match(request, esSpa ? { ignoreVary: true } : undefined)
-            ).then((cached) => cached && esLoginEnClaveAjena(request, cached).then((login) => login ? null : cached))
+            ).then((cached) => cached || mismaPaginaSinFiltros(request, esSpa))
+            .then((cached) => cached && esLoginEnClaveAjena(request, cached).then((login) => login ? null : cached))
             .then((cached) => {
                 // (Una copia que resulta ser el LOGIN guardado con la clave de este modulo no
                 // cuenta: se trata como si no hubiera copia. La migracion ya no las pasa, pero
@@ -531,6 +532,20 @@ self.addEventListener('fetch', (event) => {
         );
     }
 });
+
+// Sin red, un módulo de la copia local abierto CON filtros en la dirección (?id_almacen=1,
+// ?search=…, un enlace guardado o F5) no tiene copia exacta: se guardó sin ellos. Estos módulos
+// leen sus filtros de la dirección en el navegador, así que sirve su misma página sin filtros.
+// Solo como ÚLTIMO recurso y solo para PAGINAS_SIN_RED: con red siempre manda el servidor, y
+// usar ignoreSearch como estrategia principal ya resucitó páginas viejas (ver más arriba).
+function mismaPaginaSinFiltros(request, esSpa) {
+    const u = new URL(request.url);
+    if (!u.search || !PAGINAS_SIN_RED.includes(u.pathname)) return null;
+    const base = u.origin + u.pathname;
+    return (esSpa ? caches.match(base + '?__spa=1') : Promise.resolve(null))
+        .then((corta) => corta || caches.match(base, esSpa ? { ignoreVary: true } : undefined))
+        .then((c) => c || null);
+}
 
 self.addEventListener('message', (event) => {
     const tipo = event.data && event.data.type;
