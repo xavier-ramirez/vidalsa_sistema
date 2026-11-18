@@ -4383,8 +4383,6 @@
         almOpen('almSalidaModal');
     };
 
-    // "Registrar" del preview: POSTea el draft al endpoint real (movimientos-lote)
-    // que SI guarda en BD, asigna NUMERO_NOTA y devuelve la URL del PDF final.
     // Sin internet: la Nota ya registrada en la bandeja, con su número definitivo, se baja como
     // archivo (igual que con red) para imprimirla. Cuando la salida sube, la bandeja baja además
     // la del servidor (bandeja.js).
@@ -4398,6 +4396,8 @@
             });
     }
 
+    // "Registrar" del preview: POSTea el draft al endpoint real (movimientos-lote)
+    // que SI guarda en BD, asigna NUMERO_NOTA y devuelve la URL del PDF final.
     // Tras el commit, descargamos el PDF al disco (fetch → blob → anchor) y
     // dejamos al usuario en el modulo de inventario — NO abrimos visor in-page
     // (el flujo ya pidio aprobacion en el modal #almPreviewModal). El payload

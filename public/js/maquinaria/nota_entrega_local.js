@@ -11,7 +11,8 @@
  * medidas (mm), anchos de columna (%), letras y textos, y comparar las dos hojas con los
  * mismos datos (vista previa con red = la del servidor; sin red = esta).
  *
- *   NotaEntregaLocal.prepararSinRed() → con red, deja la librería y el logo en la caché del SW.
+ *   NotaEntregaLocal.prepararSinRed() → con red, deja en la caché del SW la librería, el logo y,
+ *                                       en el teléfono, el visor de la vista previa (pdf.js).
  *   NotaEntregaLocal.generar(datos)   → Promise<Blob> (application/pdf).
  *   NotaEntregaLocal.construir(PDFLib, datos, logoBytes) → Promise<Uint8Array> (sin DOM; Node).
  *
@@ -362,8 +363,8 @@
     const api = {
         construir,
         fmt,
-        // Con red: la librería y el logo quedan en la caché del service worker (/js y /img
-        // son cache-first), así la Nota se puede armar después sin internet.
+        // Con red: la librería, el logo y (teléfono) el visor quedan en la caché del service
+        // worker (/js y /img son cache-first), así la Nota se arma y se ve sin internet.
         // Solo lo que falta: el SW revalida por detrás cada archivo que sirve de la caché, y
         // pedirlos siempre volvía a bajar la librería (~500 KB) en cada sesión.
         prepararSinRed() {
