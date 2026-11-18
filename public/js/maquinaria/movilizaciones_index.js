@@ -70,8 +70,10 @@ function _mvCoincideBusqueda(m, search) {
     const S = search.toUpperCase();
     const e = m.equipo, a = m.aux;
     if (/^MV-?\d+/i.test(search)) {
+        // «MV-0» o «MV-000» dejan el número vacío: buscar '' encontraba TODAS las filas con acta.
+        // Sin número, solo cuenta lo escrito tal cual.
         const limpio = S.replace(/MV-?/, '').replace(/^0+/, '');
-        return _mvContiene(m.codigo, S) || _mvContiene(m.codigo, limpio);
+        return _mvContiene(m.codigo, S) || (limpio !== '' && _mvContiene(m.codigo, limpio));
     }
     if (/\d{2}-\d{2}-\d{4}/.test(search)) return !!e && _mvContiene(e.codigo, S);
     if (search.charAt(0) === '#') return !!e && _mvContiene(e.etiqueta, S.slice(1));
@@ -216,6 +218,7 @@ window.loadMovilizaciones = function (pagina) {
 
     const vista = window._mvVista;
     const params = window._mvFiltrosActuales();
+    window._mvAvanzadoUI();
     const pag = document.getElementById('movilizacionesPagination');
     const totalEl = document.getElementById('totalTransitoCount');
 
@@ -332,6 +335,20 @@ window.addEventListener('spa:contentLoaded', _mvInit);
 
 window.advancedFilterOpen = false;
 
+// Estado del botón «Filtros avanzados»: azul con el panel abierto o con algún filtro suyo
+// (fechas, dirección) puesto. UN solo sitio: antes lo pintaban el toggle, el clic fuera y
+// setDireccionFilter cada uno con su regla, y al cerrar el panel (o tocar «Todas») quedaba
+// blanco con las fechas todavía filtrando; cambiar una fecha ni lo tocaba.
+window._mvAvanzadoUI = function () {
+    const btn = document.getElementById('btnAdvancedFilter');
+    if (!btn) return;
+    const f = window._mvFiltrosActuales();
+    const activo = window.advancedFilterOpen || f.has('fecha_desde') || f.has('fecha_hasta') || f.has('direccion_frente');
+    btn.style.background = activo ? '#e1effa' : 'white';
+    btn.style.borderColor = activo ? '#0067b1' : '#cbd5e0';
+    btn.style.color = activo ? '#0067b1' : '#64748b';
+};
+
 window.toggleAdvancedFilter = function (e) {
     if (e) e.stopPropagation();
     const panel = document.getElementById('advancedFilterPanel');
@@ -344,18 +361,8 @@ window.toggleAdvancedFilter = function (e) {
     }
 
     window.advancedFilterOpen = !window.advancedFilterOpen;
-
-    if (window.advancedFilterOpen) {
-        panel.style.display = 'block';
-        btn.style.background = '#e1effa';
-        btn.style.borderColor = '#0067b1';
-        btn.style.color = '#0067b1';
-    } else {
-        panel.style.display = 'none';
-        btn.style.background = 'white';
-        btn.style.borderColor = '#cbd5e0';
-        btn.style.color = '#64748b';
-    }
+    panel.style.display = window.advancedFilterOpen ? 'block' : 'none';
+    window._mvAvanzadoUI();
 };
 
 window.toggleAccionesMov = function (e) {
@@ -379,10 +386,8 @@ if (!window._mvPanelClickListenerRegistered) {
         if (panel && window.advancedFilterOpen) {
             if (!panel.contains(e.target) && btn && !btn.contains(e.target)) {
                 panel.style.display = 'none';
-                btn.style.background = 'white';
-                btn.style.borderColor = '#cbd5e0';
-                btn.style.color = '#64748b';
                 window.advancedFilterOpen = false;
+                window._mvAvanzadoUI();
             }
         }
 
@@ -423,18 +428,8 @@ window.setDireccionFilter = function (value, reload = true) {
         btn.style.color = s.active ? s.color : '#64748b';
     });
 
-    // Indicador en el botón principal
-    const btnAdv = document.getElementById('btnAdvancedFilter');
-    const fechaDesde = document.getElementById('filterFechaDesde');
-    const fechaHasta = document.getElementById('filterFechaHasta');
-    if (btnAdv) {
-        const anyActive = value || fechaDesde?.value || fechaHasta?.value;
-        btnAdv.style.background = anyActive ? '#e1effa' : 'white';
-        btnAdv.style.borderColor = anyActive ? '#0067b1' : '#cbd5e0';
-        btnAdv.style.color = anyActive ? '#0067b1' : '#64748b';
-    }
-
     if (reload) window.loadMovilizaciones();
+    else window._mvAvanzadoUI();
 };
 
 
@@ -523,6 +518,10 @@ if (!window._mvRowClickRegistered) {
         }
 
         // ── Desktop (tabla): el click SELECCIONA la fila (para eliminar en lote) ──
+        // Eliminar es solo de super.admin: a los demás (el historial ya lo abre cualquiera)
+        // la selección no les sirve de nada y solo sacaba la barra flotante con «Limpiar».
+        const tbody = document.getElementById('movilizacionesTableBody');
+        if (!tbody || tbody.dataset.superAdmin !== '1') return;
         const rowId = tr.dataset.mvId;
         if (!rowId) return;
 

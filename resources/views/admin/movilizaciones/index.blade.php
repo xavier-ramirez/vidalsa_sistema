@@ -410,87 +410,77 @@
 // Tras borrar o deshacer: la copia local pregunta ya por el cambio y la tabla se repinta.
 window._mvRefrescar = function () {
     window.CopiaLocal.ahora('movilizaciones').then(function () {
-        const preloader = document.getElementById('preloader');
-        if (preloader) preloader.style.display = 'none';
+        _mvPreloader(false);
         window.loadMovilizaciones(window._mvPagina);
     });
 };
 
-// ── Eliminar Seleccionados (Batch Delete) ──
-// Se define directamente en la vista para evadir caché del .js externo
+// ── Eliminar seleccionados y Deshacer ──
+// Avisos y confirmaciones con los de la app (showModal / toast), nunca alert() ni confirm()
+// del navegador: esos bloquean la pestaña y no se ven como el resto del sistema.
+function _mvAviso(titulo, mensaje) {
+    window.showModal({ type: 'warning', title: titulo, message: mensaje, hideCancel: true });
+}
+function _mvPreloader(ver) {
+    const p = document.getElementById('preloader');
+    if (p) p.style.display = ver ? 'flex' : 'none';
+}
+
+// Borrado en lote de las filas seleccionadas (azul).
 window._eliminarSeleccionados = function () {
     const ids = Array.from(window._mvSelectedIds || []);
     if (!ids.length) {
-        if (window.showModal) window.showModal({ type: 'warning', title: 'Sin selección', message: 'Selecciona al menos un registro resaltado en azul antes de eliminar.', hideCancel: true });
-        else alert('Selecciona al menos un registro.');
+        _mvAviso('Sin selección', 'Selecciona al menos un registro resaltado en azul antes de eliminar.');
         return;
     }
-
     const msg = ids.length === 1
         ? 'Se eliminará 1 registro de movilización.'
         : 'Se eliminarán ' + ids.length + ' registros de movilización.';
 
-        const doDelete = function () {
-            const csrfToken = window.getCsrf();   // helper central (dom_helpers.js)
-            
-            window.apiFetch('/admin/movilizaciones/bulk-delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json'},
-                body: JSON.stringify({ ids: ids })
-            })
-            .then(function (r) { return r.json(); })
-            .then(function (res) {
-                if (res.success) {
-                    window._mvSelectedIds.clear();
-                    if (window.showToast) window.showToast(res.message || 'Registros eliminados correctamente.', 'success');
-                    else alert(res.message || 'Todos los registros fueron eliminados correctamente.');
-                    window._mvRefrescar();
-                } else {
-                    if (window.hidePreloader) window.hidePreloader();
-                    alert('Error: ' + (res.message || 'Hubo un problema al eliminar los registros.'));
-                }
-            })
-            .catch(function (err) {
-                if (window.hidePreloader) window.hidePreloader();
-                console.error('[Movilizaciones] Error batch delete:', err);
-                alert('Error de red al intentar eliminar los registros.');
-            });
-        };
-
-    // Usar el sistema de modales global (standardModal)
-    if (window.showModal) {
-        window.showModal({
-            type: 'danger',
-            title: '¿Eliminar registros?',
-            message: `${msg}<br><strong>¿Continuar? Esta acción no se puede deshacer.</strong>`,
-            confirmText: 'Eliminar',
-            cancelText: 'Cancelar',
-            onConfirm: function () {
-                const preloader = document.getElementById('preloader');
-                if (preloader) preloader.style.display = 'flex';
-                doDelete();
+    const doDelete = function () {
+        _mvPreloader(true);
+        window.apiFetch('/admin/movilizaciones/bulk-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: ids })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.success) {
+                window._mvSelectedIds.clear();
+                window.toast(res.message || 'Registros eliminados correctamente.', 'success');
+                window._mvRefrescar();
+            } else {
+                _mvPreloader(false);
+                _mvAviso('No se pudo eliminar', res.message || 'Hubo un problema al eliminar los registros.');
             }
+        })
+        .catch(function (err) {
+            _mvPreloader(false);
+            console.error('[Movilizaciones] Error batch delete:', err);
+            _mvAviso('No se pudo eliminar', 'Error de red al intentar eliminar los registros.');
         });
-    } else {
-        if (confirm(`${msg}\n\n¿Estás seguro? Esta acción no se puede deshacer.`)) {
-            const preloader = document.getElementById('preloader');
-            if (preloader) preloader.style.display = 'flex';
-            doDelete();
-        }
-    }
+    };
+
+    window.showModal({
+        type: 'danger',
+        title: '¿Eliminar registros?',
+        message: msg + '<br><strong>¿Continuar? Esta acción no se puede deshacer.</strong>',
+        confirmText: 'Eliminar',
+        cancelText: 'Cancelar',
+        onConfirm: doDelete
+    });
 };
 
-// ── Deshacer una movilización (por fila) ──
-// Devuelve el equipo a su frente de ORIGEN y borra el registro (como si nunca ocurrió).
+// Deshacer una movilización (por fila): devuelve el equipo a su frente de ORIGEN y borra el
+// registro (como si nunca ocurrió).
 window.movDeshacer = function (id) {
     if (!id) return;
-    var msg = 'El equipo vuelve a su frente de origen y el registro se borra por completo.';
-    var doIt = function () {
-        var csrfToken = window.getCsrf();   // helper central (dom_helpers.js)
-        var preloader = document.getElementById('preloader'); if (preloader) preloader.style.display = 'flex';
+    const doIt = function () {
+        _mvPreloader(true);
         window.apiFetch('/admin/movilizaciones/' + id + '/deshacer', {
             method: 'POST',
-            headers: { 'Accept': 'application/json',  'Content-Type': 'application/json'}
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
         })
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
@@ -498,19 +488,23 @@ window.movDeshacer = function (id) {
                 window.toast(res.b.message || 'Movilización deshecha.', 'success');
                 window._mvRefrescar();
             } else {
-                if (preloader) preloader.style.display = 'none';
-                if (window.showModal) window.showModal({ type: 'warning', title: 'No se pudo deshacer', message: (res.b && res.b.message) || 'Error al deshacer.', hideCancel: true });
-                else alert((res.b && res.b.message) || 'Error al deshacer.');
+                _mvPreloader(false);
+                _mvAviso('No se pudo deshacer', (res.b && res.b.message) || 'Error al deshacer.');
             }
         })
         .catch(function () {
-            if (preloader) preloader.style.display = 'none';
-            alert('Error de red al deshacer la movilización.');
+            _mvPreloader(false);
+            _mvAviso('No se pudo deshacer', 'Error de red al deshacer la movilización.');
         });
     };
-    if (window.showModal) {
-        window.showModal({ type: 'danger', title: '¿Deshacer movilización?', message: msg + '<br><strong>¿Continuar?</strong>', confirmText: 'Deshacer', cancelText: 'Cancelar', onConfirm: doIt });
-    } else if (confirm(msg + '\n\n¿Continuar?')) { doIt(); }
+    window.showModal({
+        type: 'danger',
+        title: '¿Deshacer movilización?',
+        message: 'El equipo vuelve a su frente de origen y el registro se borra por completo.<br><strong>¿Continuar?</strong>',
+        confirmText: 'Deshacer',
+        cancelText: 'Cancelar',
+        onConfirm: doIt
+    });
 };
 </script>
 @endcan

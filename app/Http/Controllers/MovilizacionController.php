@@ -64,10 +64,12 @@ class MovilizacionController extends Controller
             // Se traen los TRES identificadores porque la columna SERIAL es el primero que
             // exista de ellos (chasis → placa → motor). CODIGO_PATIO y el usuario ya no se
             // cargan: sus columnas se quitaron del Excel y traerlos sería trabajo de balde.
-            'equipo:ID_EQUIPO,id_tipo_equipo,MARCA,MODELO,SERIAL_CHASIS,SERIAL_DE_MOTOR',
+            // withTrashed como la copia local (DominioMovilizaciones::filas): un equipo o
+            // auxiliar dado de baja sale con sus datos en la pantalla y también en el Excel.
+            'equipo' => fn ($q) => $q->withTrashed()->select('ID_EQUIPO', 'id_tipo_equipo', 'MARCA', 'MODELO', 'SERIAL_CHASIS', 'SERIAL_DE_MOTOR'),
             'equipo.tipo:id,nombre',
             'equipo.documentacion:ID_EQUIPO,PLACA',
-            'auxiliar:ID_AUXILIAR,TIPO,MARCA,MODELO,SERIAL',
+            'auxiliar' => fn ($q) => $q->withTrashed()->select('ID_AUXILIAR', 'TIPO', 'MARCA', 'MODELO', 'SERIAL'),
             'frenteOrigen',
             'frenteDestino',
         ]);
@@ -190,12 +192,20 @@ class MovilizacionController extends Controller
         $partes = [];
 
         if ($request->filled('id_frente') && $request->id_frente !== 'all') {
-            $frente = FrenteTrabajo::find($request->id_frente);
+            // withTrashed: el combo de la pantalla ofrece también frentes eliminados.
+            $frente = FrenteTrabajo::withTrashed()->find($request->id_frente);
             if ($frente) {
                 $direccion = $request->input('direccion_frente');
                 $comoEntra = $direccion === 'entrada' ? 'ENTRADAS A' : ($direccion === 'salida' ? 'SALIDAS DE' : 'FRENTE');
                 $partes[] = $comoEntra . ' "' . mb_strtoupper($frente->NOMBRE_FRENTE) . '"';
             }
+        }
+        $tipo = (string) $request->input('id_tipo', '');
+        if ($tipo !== '' && $tipo !== 'all') {
+            $nombreTipo = str_starts_with($tipo, 'tipo_aux:')
+                ? substr($tipo, 9)
+                : optional(\App\Models\TipoEquipo::find((int) (str_starts_with($tipo, 'tipo_eq:') ? substr($tipo, 8) : $tipo)))->nombre;
+            if ($nombreTipo) $partes[] = 'TIPO: "' . mb_strtoupper($nombreTipo) . '"';
         }
         if ($request->filled('fecha_desde') || $request->filled('fecha_hasta')) {
             $desde = $request->input('fecha_desde') ?: 'INICIO';
@@ -520,11 +530,12 @@ class MovilizacionController extends Controller
         \App\Support\Memoria::alMenos('512M');
 
         try {
-            $baseMov = Movilizacion::findOrFail($id);
-
-            // Acceso a la descarga del acta: controlado solo por autenticacion
-            // (middleware 'auth'). NIVEL_ACCESO_EQUIPOS del usuario no restringe â€”
-            // cualquier usuario autenticado puede descargar el acta PDF.
+            // Mismo alcance que el historial (DominioMovilizaciones::visibles): cualquier
+            // usuario con sesión, menos las movilizaciones que tocan un frente bloqueado para
+            // él. Sin esto, pedir /admin/movilizaciones/{id}/acta-traslado con otro id
+            // sacaba el acta (equipos y firmantes) de un frente que el historial le oculta.
+            $visibles = fn () => (new DominioMovilizaciones($request->user()))->visibles();
+            $baseMov  = $visibles()->findOrFail($id);
 
             // Para tandas sin CODIGO_CONTROL (recepciones directas / actualizaciones)
             // no tiene sentido generar acta agrupada.
@@ -537,7 +548,7 @@ class MovilizacionController extends Controller
             // Antes se filtraba tambien por UNIX_TIMESTAMP(created_at) — eso fallaba en
             // bulks lentos (>1s entre primer y ultimo create), dejando equipos fuera del
             // PDF. ID_FRENTE_DESTINO se mantiene como guardia defensiva.
-            $movilizaciones = Movilizacion::with([
+            $movilizaciones = $visibles()->with([
                 'equipo.tipo',
                 'equipo.documentacion',
                 'equipo.especificaciones',
@@ -883,14 +894,18 @@ class MovilizacionController extends Controller
             // entran como objetos "equipo" compatibles con buildActaPdfBinary.
             $equipos = collect();
             if (!empty($data['ids'])) {
-                $equipos = \App\Models\Equipo::with(['tipo', 'documentacion', 'especificaciones'])
-                    ->whereIn('ID_EQUIPO', $data['ids'])
-                    ->get();
+                $consulta = \App\Models\Equipo::with(['tipo', 'documentacion', 'especificaciones'])
+                    ->whereIn('ID_EQUIPO', $data['ids']);
+                // Misma barrera por frente que bulkStore: la vista previa no muestra (ni da
+                // los firmantes de) un equipo de un frente bloqueado para el usuario.
+                $request->user()->aplicarScopeFrentesEquipos($consulta, 'equipos.ID_FRENTE_ACTUAL');
+                $equipos = $consulta->get();
             }
             if (!empty($data['aux_ids'])) {
+                $consultaAux = \App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['aux_ids']);
+                $request->user()->aplicarScopeFrentesEquipos($consultaAux, 'equipos_auxiliares.ID_FRENTE_ACTUAL');
                 $equipos = $equipos->toBase()->concat(
-                    \App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['aux_ids'])->get()
-                        ->map(fn ($a) => $this->auxiliarComoEquipo($a))
+                    $consultaAux->get()->map(fn ($a) => $this->auxiliarComoEquipo($a))
                 );
             }
             if ($equipos->isEmpty()) {
@@ -975,8 +990,13 @@ class MovilizacionController extends Controller
         // Equipos y auxiliares (otra tabla). extractFirmasActa() solo lee CATEGORIA_FLOTA
         // de la coleccion → los auxiliares no la tienen y caen a FLOTA LIVIANA, igual que
         // en previewActaLote().
-        $equipos = \App\Models\Equipo::whereIn('ID_EQUIPO', $data['ids'] ?? [])->get()->toBase()
-            ->concat(\App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['aux_ids'] ?? [])->get());
+        // Misma barrera por frente que bulkStore y previewActaLote: sin ella cualquier usuario
+        // con sesión sacaba los firmantes (nombre, cargo y cédula) de un frente bloqueado.
+        $consulta    = \App\Models\Equipo::whereIn('ID_EQUIPO', $data['ids'] ?? []);
+        $consultaAux = \App\Models\EquipoAuxiliar::whereIn('ID_AUXILIAR', $data['aux_ids'] ?? []);
+        $request->user()->aplicarScopeFrentesEquipos($consulta, 'equipos.ID_FRENTE_ACTUAL');
+        $request->user()->aplicarScopeFrentesEquipos($consultaAux, 'equipos_auxiliares.ID_FRENTE_ACTUAL');
+        $equipos = $consulta->get()->toBase()->concat($consultaAux->get());
         if ($equipos->isEmpty()) {
             return response()->json(['message' => 'No se encontraron equipos.'], 422);
         }
