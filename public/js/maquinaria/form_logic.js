@@ -354,6 +354,9 @@ window.scopeByTipo = function () {
         dropdown._turno = turno;   // una respuesta vieja no pisa a la última
         if (!tipo) {
             dropdown.innerHTML = dropdown._listaOriginal;
+            // Si la original venía vacía, que la carga perezosa (loadBrandsList/loadModelsList,
+            // al enfocar) vuelva a poder llenarla: el 'loaded' de una búsqueda por tipo la frenaba.
+            if (!dropdown.children.length) delete dropdown.dataset.loaded;
             return;
         }
 
