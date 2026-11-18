@@ -92,6 +92,8 @@
         background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
     }
     /* Los botones (.dt-btn*) viven en admin_almacen_recepcion_botones.css. */
+    /* Empuja a la derecha los botones de confirmar; los de anular quedan a la izquierda. */
+    .dt-footer-sep { flex:1; }
 
     @media (max-width: 900px) {
         .dt-meta-item { flex:1 1 45%; }
@@ -100,6 +102,7 @@
         .dt-meta-item { flex:1 1 100%; border-right:none; }
         .dt-footer { flex-direction:column; }
         .dt-footer .dt-btn { width:100%; justify-content:center; }
+        .dt-footer-sep { display:none; }   /* apilados, el separador solo sumaba otro hueco */
     }
 </style>
 
@@ -247,7 +250,7 @@
                 <i class="material-icons">block</i> Anular nota
             </button>
             @endif
-            <div style="flex:1;"></div>
+            <div class="dt-footer-sep"></div>
             <button type="button" class="dt-btn dt-btn-confirm-all"
                     onclick="window.trConfirmarTodoOk()">
                 <i class="material-icons">done_all</i> Todo OK
@@ -259,13 +262,13 @@
         @elseif($puedeEnviar)
             <button type="button" class="dt-btn dt-btn-danger"
                     onclick="window.trCancelar('{{ addslashes($traspaso->NUMERO) }}')">Cancelar borrador</button>
-            <div style="flex:1;"></div>
+            <div class="dt-footer-sep"></div>
             <button type="button" class="dt-btn dt-btn-blue"
                     onclick="window.trEnviar()">
                 <i class="material-icons">local_shipping</i> Enviar ahora
             </button>
         @elseif($puedeCancelar)
-            <div style="flex:1;"></div>
+            <div class="dt-footer-sep"></div>
             <button type="button" class="dt-btn dt-btn-danger"
                     onclick="window.trCancelar('{{ addslashes($traspaso->NUMERO) }}')">Cancelar y revertir</button>
         @endif
