@@ -4068,6 +4068,7 @@
         });
     }
     almSalidaNotaConfigurar();
+    if (window.NotaEntregaLocal) window.NotaEntregaLocal.prepararSinRed();
 
     // Un renglón por producto seleccionado con su DESTINO (una dirección, opcional), solo si el
     // almacén emite la Nota acostada (esa hoja lleva DESTINO en cada renglón). La sección va
@@ -4248,9 +4249,62 @@
         });
     };
 
-    // Sin internet no hay PDF: el preview muestra lo que sale. La Nota toma, al registrar, uno
-    // de los números apartados para este equipo (Bandeja.apartarNumeros, al abrir el módulo con
-    // internet); sin ninguno no se puede, porque el número tiene que ser el definitivo.
+    // Los datos de la Nota armada en el navegador (NotaEntregaLocal), con lo mismo que usa el
+    // servidor (AlmacenController::respuestaVistaPreviaNota): el almacén y sus firmantes salen
+    // de almAlmacenesData, el proyecto del combo, y nombre/código/UM de la fila elegida.
+    function almNotaLocalDatos(payload, numero) {
+        var a = (window.almAlmacenesData || {})[payload.id_almacen] || {};
+        var t = function (v) { return String(v == null ? '' : v).trim(); };
+        var item = document.querySelector('#almSalidaProyectoDropdown .dropdown-item[data-value="' + payload.id_frente_destino + '"]');
+        var f = payload.fecha ? String(payload.fecha).split('-') : null;
+        var ahora = new Date();
+        var dd = function (n) { return String(n).padStart(2, '0'); };
+        // Transporte como LogisticaAlmacenService::transporteDe: espacios de más fuera,
+        // mayúsculas (menos la cédula) y la placa sin espacios.
+        var tr = function (c) {
+            var v = t(payload[c]).replace(/\s+/g, ' ');
+            if (c === 'transporte_placa') v = v.replace(/ /g, '');
+            return c === 'transporte_cedula' ? v : v.toUpperCase();
+        };
+        var firmante = function (rol, n, c, ce) { return { rol: rol, nombre: t(a[n]), cargo: t(a[c]), cedula: t(a[ce]) }; };
+        return {
+            formato:      a.FORMATO_NOTA,
+            numero:       numero,
+            proyecto:     item ? t(item.textContent) : '',
+            contrato:     t(payload.numero_contrato),
+            fecha:        f && f.length === 3 ? f[2] + '/' + f[1] + '/' + f[0] : dd(ahora.getDate()) + '/' + dd(ahora.getMonth() + 1) + '/' + ahora.getFullYear(),
+            hora:         dd(ahora.getHours() % 12 || 12) + ':' + dd(ahora.getMinutes()) + ' ' + (ahora.getHours() < 12 ? 'AM' : 'PM'),
+            rq:           t(payload.numero_rq),
+            solicitante:  t(payload.solicitante),
+            departamento: t(payload.departamento),
+            almacen:      t(a.NOMBRE),
+            entregado_por: t(a.ALMACENISTA),
+            cargo_entrega: t(a.CARGO_ALMACENISTA),
+            motivo:       t(payload.motivo),
+            transporte_vehiculo: tr('transporte_vehiculo'),
+            transporte_placa:    tr('transporte_placa'),
+            transporte_chofer:   tr('transporte_chofer'),
+            transporte_cedula:   tr('transporte_cedula'),
+            // Almacen::firmantesNota (los de la nota horizontal), en el mismo orden: RECIBIDO va
+            // de último y en blanco (lo firma a mano quien se lleva el material).
+            firmantes: [
+                firmante('ENTREGADO', 'ALMACENISTA', 'CARGO_ALMACENISTA', 'CEDULA_ALMACENISTA'),
+                firmante('SOPORTADO', 'SOPORTE_1_NOM', 'SOPORTE_1_CAR', 'SOPORTE_1_CED'),
+                firmante('SOPORTADO', 'SOPORTE_2_NOM', 'SOPORTE_2_CAR', 'SOPORTE_2_CED'),
+                firmante('SEGURIDAD', 'SEGURIDAD_NOM', 'SEGURIDAD_CAR', 'SEGURIDAD_CED'),
+                { rol: 'RECIBIDO', nombre: '', cargo: '', cedula: '' },
+            ],
+            lineas: payload.lineas.map(function (l) {
+                var s = almSeleccion[l.id_producto] || {};
+                return { clave: l.id_producto, cantidad: l.cantidad, um: s.um || '', nombre: s.nombre || ('#' + l.id_producto),
+                         codigo: s.codigo || '', numero_parte: l.numero_parte || '', destino: l.destino || '' };
+            }),
+        };
+    }
+
+    // Sin internet la Nota se arma en el navegador (NotaEntregaLocal): la misma hoja que haría el
+    // servidor, con el número apartado que tomará al registrar (Bandeja.apartarNumeros, al abrir
+    // el módulo con internet). Sin números no se puede: el número tiene que ser el definitivo.
     function almSalidaPreviaSinInternet(payload) {
         if (!window.Bandeja.numerosLibres()) {
             showErr('almSalidaError', 'Sin internet y sin números de Nota apartados en este equipo: conéctate una vez para apartarlos.');
@@ -4258,21 +4312,47 @@
         }
         almCerrar('almSalidaModal');
         var avisoBox = el('almPreviewAviso');
-        if (avisoBox) avisoBox.style.display = 'none';
+        if (avisoBox) {
+            avisoBox.innerHTML = '<i class="material-icons" style="font-size:18px;color:#b45309;flex-shrink:0;">cloud_off</i>'
+                + '<span><b>Sin internet:</b> al registrar, la Nota se descarga para imprimir y la salida se registra sola al volver internet.</span>';
+            avisoBox.style.display = 'flex';
+        }
         var frame = el('almPreviewFrame'); if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
         var cont = el('almPreviewCanvas');
+        almOpen('almPreviewModal');
+        if (window.NotaEntregaLocal) {
+            pre();
+            window.NotaEntregaLocal.generar(almNotaLocalDatos(payload, window.Bandeja.verNumeroNota()))
+                .then(function (blob) {
+                    unpre();
+                    if (almPreviewBlobUrl) { try { URL.revokeObjectURL(almPreviewBlobUrl); } catch (e) {} }
+                    almPreviewBlobUrl = URL.createObjectURL(blob);
+                    window.mostrarPdfPrevia(frame, cont, blob, almPreviewBlobUrl);   // dom_helpers.js
+                })
+                .catch(function (err) {
+                    unpre();
+                    console.error('[Almacén] Nota sin internet:', err);
+                    almSalidaListaSinPdf(cont, payload);
+                });
+            return;
+        }
+        almSalidaListaSinPdf(cont, payload);
+    }
+
+    // Si la Nota no se pudo armar (la librería del PDF nunca llegó a este equipo): la lista de lo
+    // que sale, para que la salida igual se pueda registrar.
+    function almSalidaListaSinPdf(cont, payload) {
         if (cont) {
             cont.style.display = 'block';
             cont.innerHTML = '<div style="background:#fff;border-radius:8px;padding:18px 20px;max-width:560px;margin:0 auto;color:#0f172a;font-size:13px;">'
                 + '<div style="display:flex;gap:8px;align-items:center;font-weight:700;font-size:14px;margin-bottom:10px;"><i class="material-icons" style="color:#b45309;">cloud_off</i>Sin internet</div>'
-                + '<p style="margin:0 0 10px;color:#475569;">La salida queda guardada en este equipo y se registra sola al volver internet; entonces se descarga el PDF de la Nota.</p>'
+                + '<p style="margin:0 0 10px;color:#475569;">No se pudo armar la Nota en este equipo (abre Almacén una vez con internet). La salida queda guardada y se registra sola al volver internet; entonces se descarga el PDF.</p>'
                 + '<ul style="margin:0;padding-left:18px;">' + payload.lineas.map(function (l) {
                     var s = almSeleccion[l.id_producto] || {};
                     return '<li>' + window.escapeHtml(s.nombre || ('#' + l.id_producto)) + ' — <b>' + l.cantidad + '</b>'
                         + (l.destino ? ' → ' + window.escapeHtml(l.destino) : '') + '</li>';
                 }).join('') + '</ul></div>';
         }
-        almOpen('almPreviewModal');
     }
 
     // "Editar" del modal preview: vuelve al modal de salida con todos los datos
@@ -4302,6 +4382,21 @@
 
     // "Registrar" del preview: POSTea el draft al endpoint real (movimientos-lote)
     // que SI guarda en BD, asigna NUMERO_NOTA y devuelve la URL del PDF final.
+    // Sin internet: la Nota ya registrada en la bandeja, con su número definitivo, se baja como
+    // archivo (igual que con red) para imprimirla. Cuando la salida sube, la bandeja baja además
+    // la del servidor (bandeja.js).
+    function almDescargarNotaLocal(datos) {
+        window.NotaEntregaLocal.generar(datos)
+            .then(function (blob) {
+                var burl = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = burl; a.download = 'Nota_' + datos.numero + '.pdf'; a.style.display = 'none';
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
+            })
+            .catch(function (err) { console.error('[Almacén] Nota sin internet:', err); });
+    }
+
     // Tras el commit, descargamos el PDF al disco (fetch → blob → anchor) y
     // dejamos al usuario en el modulo de inventario — NO abrimos visor in-page
     // (el flujo ya pidio aprobacion en el modal #almPreviewModal). El payload
@@ -4318,6 +4413,10 @@
         if (window.Bandeja.sinConexion() && !payload.numero_nota_reservado) {
             payload.numero_nota_reservado = window.Bandeja.tomarNumeroNota();
         }
+
+        // Los datos de la Nota se leen YA: al registrar se limpia la selección (nombres, UM).
+        var notaLocal = (payload.numero_nota_reservado && window.NotaEntregaLocal)
+            ? almNotaLocalDatos(payload, payload.numero_nota_reservado) : null;
 
         pre();
         window.Bandeja.enviar(ROUTE_LOTE, { method: 'POST', body: payload }, {
@@ -4344,6 +4443,7 @@
                     ? 'Salida guardada' + (payload.numero_nota_reservado ? ' (Nota ' + payload.numero_nota_reservado + ')' : '') + '. Se registra al volver internet.'
                     : (res.b.message || 'Movimiento registrado.'));
                 almCargar();
+                if (res.enBandeja && notaLocal) almDescargarNotaLocal(notaLocal);
                 if (res.b && res.b.nota_url) {
                     // Como archivo, sin abrir otro visor (dom_helpers.js).
                     window.descargarPdf(res.b.nota_url, res.b.numero_nota ? ('Nota_' + res.b.numero_nota + '.pdf') : 'nota_entrega.pdf');

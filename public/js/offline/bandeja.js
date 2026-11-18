@@ -17,6 +17,7 @@
  *   Bandeja.sinConexion() → sin red, o la copia local no llegó al servidor la última vez.
  *   Bandeja.tomarNumeroNota() → el siguiente número de Nota apartado para este equipo (o null).
  *   Bandeja.numerosLibres() → cuántos números de Nota apartados le quedan a este equipo.
+ *   Bandeja.verNumeroNota() → el que tomará la próxima salida, SIN gastarlo (vista previa).
  *   Bandeja.apartarNumeros() → pide al servidor el bloque de números (con conexión).
  *   Evento 'bandeja' en window cada vez que cambia lo pendiente, y 'bandeja-subida' por cada
  *   cosa que el servidor aceptó ({ tipo, datos }): la copia todavía no la trae, y la pantalla
@@ -321,6 +322,7 @@
     window.Bandeja = {
         enviar, subir, sinConexion, tomarNumeroNota, apartarNumeros,
         numerosLibres: () => numeros().length,
+        verNumeroNota: () => numeros()[0] || null,
         // Una petición de la pantalla se quedó sin respuesta antes de que la copia lo notara
         // (WiFi conectado sin salida: navigator.onLine sigue en true hasta 2 min). Lo siguiente
         // va ya a la bandeja; la próxima respuesta del servidor lo vuelve a poner en true.

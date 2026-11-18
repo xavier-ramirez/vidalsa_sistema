@@ -1450,6 +1450,7 @@
 </script>
 {{-- Formulario de la Nota de Entrega (compartido con la recepción): ANTES del módulo, que lo usa. --}}
 <script src="{{ asset('js/maquinaria/almacen_salida_nota.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen_salida_nota.js')) }}"></script>
+<script src="{{ asset('js/maquinaria/nota_entrega_local.js') }}?v={{ @filemtime(public_path('js/maquinaria/nota_entrega_local.js')) }}"></script>
 <script src="{{ asset('js/maquinaria/almacen_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen_index.js')) }}"></script>
 <script>
     // El archivo de arriba se ejecuta UNA sola vez en toda la sesion: la SPA no re-ejecuta
