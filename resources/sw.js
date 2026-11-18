@@ -154,14 +154,30 @@ function asegurarDueno(usuario) {
 // El layout, ya con sesión, pide 'PAGINAS_SIN_RED' en cada carga (pwa-install.js) y aquí solo
 // se bajan las que faltan en la caché de esta versión. Con cada página, sus CSS/JS propios
 // (los ?v= de su HTML): sin ellos un módulo nunca abierto con red salía sin estilos.
+// DE UNA EN UNA, no todas a la vez: recién iniciada la sesión eran 8 pantallas completas (y sus
+// CSS/JS) en paralelo con la copia local, y el primer módulo que se abría esperaba en la cola
+// del servidor detrás de ellas (medido: 6-7 s al cambiar de usuario; luego, 70-150 ms).
 function guardarPaginasSinRed(soloFaltantes) {
-    return caches.open(RUNTIME_CACHE).then((cache) => Promise.all(PAGINAS_SIN_RED.map((ruta) =>
+    return caches.open(RUNTIME_CACHE).then((cache) => PAGINAS_SIN_RED.reduce((anterior, ruta) => anterior.then(() =>
         (soloFaltantes ? cache.match(ruta) : Promise.resolve(null)).then((ya) => ya || fetch(ruta, { credentials: 'same-origin' }).then((response) => {
             if (!response || response.status !== 200 || response.redirected) return;
             return response.clone().text()
                 .then((html) => cache.put(ruta, response).then(() => guardarArchivosDe(cache, html)));
         })).catch(() => {})
-    )));
+    ), Promise.resolve()));
+}
+
+// Las que pide el layout (mensaje PAGINAS_SIN_RED) esperan a que pase lo primero que hace el
+// usuario al entrar. Una sola tanda a la vez aunque haya varias pestañas.
+const ESPERA_PAGINAS_SIN_RED_MS = 8000;
+let guardandoPaginas = null;
+function guardarPaginasSinRedLuego() {
+    if (!guardandoPaginas) {
+        guardandoPaginas = new Promise((listo) => setTimeout(listo, ESPERA_PAGINAS_SIN_RED_MS))
+            .then(() => guardarPaginasSinRed(true))
+            .finally(() => { guardandoPaginas = null; });
+    }
+    return guardandoPaginas;
 }
 
 // Tambien los que la pagina pide despues por JS ('/js/...?v=' entre comillas simples: los
@@ -501,7 +517,9 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
     const tipo = event.data && event.data.type;
     if (tipo === 'PAGINAS_SIN_RED') {
-        event.waitUntil(asegurarDueno(event.data.usuario).then(() => guardarPaginasSinRed(true)));
+        // El dueño se cambia YA (lo guardado de otro usuario no debe quedar ni un momento);
+        // solo la descarga espera.
+        event.waitUntil(asegurarDueno(event.data.usuario).then(() => guardarPaginasSinRedLuego()));
     }
     // El login ya comprobó que no hay servidor y entra con lo guardado: el menú sale de la
     // caché sin esperar TOPE_RED_MS (con el wifi sin salida eran 6 s en blanco). Si la red
