@@ -587,8 +587,9 @@
         else     { e.style.display = 'none';  e.textContent = ''; }
     }
     // Catálogo: el MISMO que ya usa el filtro por producto del toolbar (window.trProductosLista,
-    // que recepcion_bandeja.js pide por AJAX al montar la pantalla). Se lee por llamada —no se copia a una variable del
-    // módulo— para que las altas al vuelo se vean desde los dos buscadores sin sincronizar nada.
+    // que recepcion_bandeja.js pide por AJAX al montar la pantalla). Se lee por llamada —no
+    // se copia a una variable del módulo— para que las altas al vuelo se vean desde los dos
+    // buscadores sin sincronizar nada.
     // Si todavía no existiera se crea el array en window (no uno local): devolver `[]` suelto
     // haría que el push de un producto nuevo se perdiera en silencio.
     function catalogo() {
@@ -703,8 +704,7 @@
     // ── Asociar material a un proyecto ───────────────────────────────────
     // La franja se muestra SOLO si el almacén reparte el saldo entre varios proyectos. Con
     // uno solo no hay nada que preguntar: todo entra a esa única bolsa.
-    // Se rearma en cada apertura porque el almacén de la bandeja cambia en caliente, y una
-    // lista pintada para el almacén anterior ofrecería proyectos que no son de éste.
+    // Se rearma al abrir solo si cambió el almacén de la bandeja (ver cdirAbrir).
     var proyectosVisibles = [];   // los del almacén abierto, para el buscador
     var proyAlmacen = null;       // almacén para el que se armó el desplegable (ver cdirAbrir)
 
@@ -1126,8 +1126,8 @@
         }
         var f = el('cdirFecha'); if (f && !f.value) f.value = window.hoyISO();
         // El render() de arriba hace falta: aplicarDestino() puede quitar o poner la columna
-        // Destino de la tabla. La compra directa entra SIEMPRE por el paso 1, aunque se haya salido con la ✕
-        // desde el 2; "Registrar y despachar" no tiene paso 1. cdirPaso() deja el foco en el
+        // Destino de la tabla. La compra directa entra SIEMPRE por el paso 1, aunque se haya
+        // salido con la ✕ desde el 2; "Registrar y despachar" no tiene paso 1. cdirPaso() deja el foco en el
         // primer campo del paso; no se toca aquí.
         window.cdirPaso(desp ? 2 : 1);
         mostrar();

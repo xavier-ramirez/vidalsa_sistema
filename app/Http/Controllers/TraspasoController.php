@@ -298,10 +298,11 @@ class TraspasoController extends Controller
             ->values();
 
         // KPIs del panel lateral: resumen de notas POR REVISAR (ESTADOS_RECIBIBLES) en los
-        // almacenes de la bandeja del usuario (los que lista su selector en «Todos»). Es un resumen ESTABLE de "tu bandeja" — NO depende de los
-        // filtros de la tabla (estado/fechas/búsqueda), por eso se calcula aparte.
+        // almacenes de la bandeja del usuario (los que lista su selector en «Todos»). Es un
+        // resumen ESTABLE de "tu bandeja" — NO depende de los filtros de la tabla
+        // (estado/fechas/búsqueda), por eso se calcula aparte.
         //   · por_revisar = total pendientes de confirmar.
-        //   · urgentes    = esperando > 3 días (mismo umbral del punto rojo de la tabla).
+        //   · urgentes    = esperando > 3 días.
         //   · recientes   = llegadas en las últimas 24 h (punto verde).
         // COALESCE(FECHA_ENVIO, created_at): si no hubo envío explícito usamos la creación.
         // Las 3 claves DEBEN existir: la vista (panel "Resumen de la bandeja") las pinta como

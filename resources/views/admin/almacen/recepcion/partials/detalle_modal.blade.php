@@ -110,10 +110,9 @@
                         @if($puedeRecibir)
                             {{-- Recibido = campo EDITABLE. Tocar la fila lo rellena con la cantidad
                                  enviada (caso normal "llegó todo"); si llegó menos, se escribe el
-                                 número real. Vacío = sin revisar (queda pendiente); 0 = revisada y no llegó nada
-                                 (faltante). El clic sobre el
-                                 input no debe togglear la fila (stopPropagation), o escribir dentro
-                                 la desmarcaría. --}}
+                                 número real. Vacío = sin revisar (queda pendiente); 0 = revisada
+                                 y no llegó nada (faltante). El clic sobre el input no debe togglear
+                                 la fila (stopPropagation), o escribir dentro la desmarcaría. --}}
                             {{-- type="text" + inputmode="decimal", NO type="number": igual que el
                                  campo de cantidad del inventario (.alm-row-cant). Con type=number
                                  el navegador descarta "1,5" (coma decimal) y deja el value vacío,
