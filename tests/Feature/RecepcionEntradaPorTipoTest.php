@@ -9,7 +9,8 @@ use Tests\MySqlTestCase;
 /**
  * Qué se ve al entrar a Recepción (TraspasoController::index). Un usuario LOCAL entra según el
  * TIPO de su almacén: "Reposición del general" es la recepción de los almacenes de PROYECTO, y
- * el almacén GENERAL recibe por "Entrada por ODC". Un GLOBAL entra a la bandeja con «Todos».
+ * el almacén GENERAL recibe por "Entrada por ODC". El GLOBAL igual: si su almacén (el de su
+ * frente) es el GENERAL entra a ODC; si no, a la bandeja con «Todos».
  */
 class RecepcionEntradaPorTipoTest extends MySqlTestCase
 {
@@ -39,6 +40,32 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
             $u->save();
         }
         return $u;
+    }
+
+    /** Un global cuyo almacén por frente es del tipo pedido (null = sin almacén propio). */
+    private function globalConAlmacen(?string $tipo): ?Usuario
+    {
+        return Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->where('ESTATUS', 'ACTIVO')->get()->first(function ($u) use ($tipo) {
+            if (!Almacen::usuarioEsGlobal($u) || !$u->can('almacen.movimiento')) {
+                return false;
+            }
+            $id = $u->almacenPorDefecto();
+            return $tipo === null ? !$id : ($id && Almacen::where('ID_ALMACEN', $id)->value('TIPO') === $tipo);
+        });
+    }
+
+    public function test_los_del_almacen_general_entran_a_la_entrada_por_odc_aunque_sean_globales(): void
+    {
+        // Los usuarios de BARCELONA son globales: «Todos» de la bandeja no puede taparles su
+        // recepción, que es por orden de compra.
+        $u = $this->globalConAlmacen(Almacen::TIPO_GENERAL);
+        $this->assertNotNull($u, 'Hace falta un global con el almacén GENERAL en su frente.');
+        $this->actingAs($u)->get(route('almacen.recepcion.index'))
+            ->assertRedirect(route('almacen.recepcion.nueva'));
+        // Historial → Acciones → "Despachos" (?force=1) sigue abriendo la bandeja en «Todos».
+        $r = $this->actingAs($u)->get(route('almacen.recepcion.index', ['force' => 1]))->assertOk();
+        $this->assertTrue($r->viewData('esGlobal'));
+        $this->assertNull($r->viewData('idAlmacenDestinoActivo'));
     }
 
     public function test_con_almacen_de_proyecto_entra_directo_a_la_reposicion(): void
@@ -92,7 +119,12 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
 
     public function test_el_global_abre_la_bandeja_con_todos_los_almacenes(): void
     {
-        $r = $this->actingAs($this->superAdminGlobal())->get(route('almacen.recepcion.index'))->assertOk();
+        // Un global cuyo almacén no es el GENERAL (de proyecto o ninguno): bandeja en «Todos».
+        $g = $this->globalConAlmacen(Almacen::TIPO_PROYECTO) ?? $this->globalConAlmacen(null);
+        if (!$g) {
+            $this->markTestSkipped('No hay un global sin el almacén GENERAL en su frente.');
+        }
+        $r = $this->actingAs($g)->get(route('almacen.recepcion.index'))->assertOk();
         $this->assertTrue($r->viewData('esGlobal'));
         $this->assertNull($r->viewData('idAlmacenDestinoActivo'), 'Sin almacén elegido: «Todos».');
         $r->assertSee('data-value="all"', false)->assertSee('value="all"', false);
@@ -107,16 +139,16 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
 
         // Y puede acotarla a uno.
         $uno = (int) $r->viewData('almacenes')->first()->ID_ALMACEN;
-        $r = $this->actingAs($this->superAdminGlobal())->get(route('almacen.recepcion.index', ['id_almacen_destino' => $uno]))->assertOk();
+        $r = $this->actingAs($g)->get(route('almacen.recepcion.index', ['id_almacen_destino' => $uno]))->assertOk();
         $this->assertSame($uno, $r->viewData('idAlmacenDestinoActivo'));
     }
 
-    public function test_el_global_llega_a_la_entrada_por_odc_desde_acciones(): void
+    public function test_desde_la_bandeja_se_llega_a_la_entrada_por_odc_por_acciones(): void
     {
-        // El global abre la bandeja en «Todos» (no lo redirige nadie), así que su acceso a la
-        // recepción del almacén GENERAL es el menú Acciones.
+        // Un global que abre la bandeja (la de proyectos, o vía ?force=1) también puede ir a la
+        // recepción del almacén GENERAL desde el menú Acciones.
         $u = $this->superAdminGlobal();
-        $r = $this->actingAs($u)->get(route('almacen.recepcion.index'))->assertOk();
+        $r = $this->actingAs($u)->get(route('almacen.recepcion.index', ['force' => 1]))->assertOk();
         $r->assertSeeInOrder(['id="trAccionesMenu"', 'Registrar y despachar', 'href="' . route('almacen.recepcion.nueva') . '"', 'Entrada por ODC'], false);
 
         // Y la pantalla abre en un almacén GENERAL, aunque su frente lo lleve a uno de proyecto.

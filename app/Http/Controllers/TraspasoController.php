@@ -102,6 +102,30 @@ class TraspasoController extends Controller
             $request->merge(['id_almacen_destino' => null]);
         }
 
+        // Qué se ve al entrar lo decide el TIPO del almacén DEL USUARIO (el de su frente), no
+        // si es global (pedido del cliente):
+        //   GENERAL  → Entrada por ODC: el general recibe por orden de compra, no por notas.
+        //   PROYECTO → esta bandeja ("Reposición del general": confirma lo que le despachó).
+        // Va ANTES de darle «Todos» al global: ese 'all' cuenta como filtro y los del almacén
+        // general (que son globales) dejaban de llegar a su pantalla. Un global sin frente con
+        // almacén no tiene "almacén propio" → bandeja en «Todos». Un local sin almacén por
+        // frente usa el primero que ve.
+        // ?force=1 (Historial → Acciones → "Despachos") o filtros explícitos → siempre la
+        // bandeja. AJAX (paginación/filtros) → se queda aquí.
+        $idPropio = $user?->almacenPorDefecto();
+        if (!$idPropio && !$esGlobal) {
+            $idPropio = $almacenesVisibles->first();
+        }
+        $tipoPropio = optional($almacenes->firstWhere('ID_ALMACEN', (int) $idPropio))->TIPO;
+        if (
+            ! $request->wantsJson()
+            && ! $request->boolean('force')
+            && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'id_producto', 'desde', 'hasta', 'kpi'])
+            && $tipoPropio === Almacen::TIPO_GENERAL
+        ) {
+            return redirect()->route('almacen.recepcion.nueva');
+        }
+
         // Default del filtro "Almacén destino":
         //   · GLOBAL (Almacen::usuarioEsGlobal) → "Todos": ve la bandeja de todos los almacenes
         //     y puede acotarla a uno desde el dropdown, que le ofrece esa opción.
@@ -126,22 +150,6 @@ class TraspasoController extends Controller
             }
         }
 
-        // Qué se ve al entrar lo decide el TIPO de ese almacén, no el del usuario (pedido del
-        // cliente): "Reposición del general" es la recepción de los almacenes de PROYECTO —
-        // confirman lo que el general les despachó—, así que:
-        //   PROYECTO → esta bandeja, directo.
-        //   GENERAL  → Entrada por ODC (el general no recibe por notas de entrega, compra).
-        // ?force=1 o filtros explícitos → siempre muestran la bandeja.
-        // AJAX (paginación/filtros) → se queda aquí.
-        $tipoDef = $idDef ? optional($almacenes->firstWhere('ID_ALMACEN', (int) $idDef))->TIPO : null;
-        if (
-            ! $request->wantsJson()
-            && ! $request->boolean('force')
-            && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'id_producto', 'desde', 'hasta', 'kpi'])
-            && $tipoDef === Almacen::TIPO_GENERAL
-        ) {
-            return redirect()->route('almacen.recepcion.nueva');
-        }
         // Si el general entra igual a la bandeja (Acciones → "Despachos" del
         // Historial), abre en el primer almacén de PROYECTO: es donde llega lo que el general
         // despachó. Con el suyo preseleccionado la bandeja saldría vacía.
