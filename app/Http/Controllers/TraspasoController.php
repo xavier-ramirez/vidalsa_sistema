@@ -363,6 +363,10 @@ class TraspasoController extends Controller
             'almacenes'              => $bandeja,   // el selector de la bandeja (ver arriba)
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
             'esGlobal'               => $esGlobal,   // el dropdown ofrece «Todos los almacenes»
+            // Acciones → «Entrada por ODC» (la recepción del almacén GENERAL) para quien ve
+            // alguno. Sin este acceso el GLOBAL no llegaba nunca a esa pantalla: abre la bandeja
+            // en «Todos», que cuenta como filtro, y la redirección de arriba no le aplica.
+            'veGeneral'              => $almacenes->contains('TIPO', Almacen::TIPO_GENERAL),
             'numerosNotas'           => $numerosNotas,
             'bandejaStats'           => $bandejaStats,
             // El catálogo de productos (buscador por PRODUCTO y modal de compra directa) ya
@@ -459,8 +463,15 @@ class TraspasoController extends Controller
         //    de la bandeja manda de vuelta aquí a quien abre con un almacén GENERAL, y
         //    ese ir y venir ya formó un loop infinito (`recepcion.index` ↔
         //    `recepcion.nueva`). El menu lo corta y muestra el toast con la causa real.
+        // Esta es la recepción del almacén GENERAL (compras por orden de compra): si el
+        // almacén del usuario es de PROYECTO —almacenPorDefecto() los prefiere, un global con
+        // frentes cae ahí— se abre en el primer GENERAL que vea. Solo sin ninguno visible se
+        // queda en el suyo.
         $idDest = $user?->almacenPorDefecto();
         $almacenDestino = $idDest ? $almacenes->firstWhere('ID_ALMACEN', (int) $idDest) : null;
+        if (!$almacenDestino || $almacenDestino->TIPO !== Almacen::TIPO_GENERAL) {
+            $almacenDestino = $almacenes->firstWhere('TIPO', Almacen::TIPO_GENERAL) ?? $almacenDestino;
+        }
         if (!$almacenDestino) {
             $almacenDestino = $almacenes->first();
         }

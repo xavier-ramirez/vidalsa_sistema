@@ -111,6 +111,29 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
         $this->assertSame($uno, $r->viewData('idAlmacenDestinoActivo'));
     }
 
+    public function test_el_global_llega_a_la_entrada_por_odc_desde_acciones(): void
+    {
+        // El global abre la bandeja en «Todos» (no lo redirige nadie), así que su acceso a la
+        // recepción del almacén GENERAL es el menú Acciones.
+        $u = $this->superAdminGlobal();
+        $r = $this->actingAs($u)->get(route('almacen.recepcion.index'))->assertOk();
+        $r->assertSeeInOrder(['id="trAccionesMenu"', 'Registrar y despachar', 'href="' . route('almacen.recepcion.nueva') . '"', 'Entrada por ODC'], false);
+
+        // Y la pantalla abre en un almacén GENERAL, aunque su frente lo lleve a uno de proyecto.
+        $r = $this->actingAs($u)->get(route('almacen.recepcion.nueva'))->assertOk();
+        $this->assertSame(Almacen::TIPO_GENERAL, $r->viewData('almacenDestino')->TIPO);
+    }
+
+    public function test_sin_almacen_general_visible_no_se_ofrece_la_entrada_por_odc(): void
+    {
+        $u = $this->usuarioConAlmacen(Almacen::TIPO_PROYECTO, false, true, true);
+        if (Almacen::visiblesPara($u)->where('TIPO', Almacen::TIPO_GENERAL)->exists()) {
+            $this->markTestSkipped('El local de prueba también ve un almacén general.');
+        }
+        $this->actingAs($u)->get(route('almacen.recepcion.index'))->assertOk()
+            ->assertDontSee('href="' . route('almacen.recepcion.nueva') . '"', false);
+    }
+
     public function test_el_local_solo_ve_su_almacen_y_no_tiene_todos(): void
     {
         $u = $this->usuarioConAlmacen(Almacen::TIPO_PROYECTO, false, false, true);

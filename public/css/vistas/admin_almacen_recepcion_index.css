@@ -76,6 +76,7 @@
     .tr-acc-item { width:100%; box-sizing:border-box; white-space:nowrap; display:flex; align-items:center; gap:10px;
         padding:10px 12px; border-radius:6px; border:none; background:transparent; color:#475569;
         font-family:inherit; font-size:14px; font-weight:500; cursor:pointer; text-align:left; transition:background 0.15s; }
+    a.tr-acc-item { text-decoration:none; }   /* «Entrada por ODC» es un enlace, no un botón */
     .tr-acc-item:hover { background:#cbd5e1; }
     .tr-acc-item:focus { outline:none; }
     .tr-acc-item:focus-visible { outline:2px solid #0067b1; outline-offset:-2px; }

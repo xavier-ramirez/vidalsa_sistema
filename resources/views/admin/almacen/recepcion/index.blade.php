@@ -283,6 +283,15 @@
                         title="Registrar lo que llegó de la compra y despacharlo de una vez al proyecto, con su Nota de Entrega">
                     <span class="tr-acc-ic"><i class="material-icons">local_shipping</i></span><span>Registrar y despachar</span>
                 </button>
+                {{-- La recepción del almacén GENERAL (compras por orden de compra) es otra
+                     pantalla. Quien entra con un almacén general llega allí directo; el global
+                     abre esta bandeja en «Todos» y solo tiene este acceso. --}}
+                @if($veGeneral)
+                <a href="{{ route('almacen.recepcion.nueva') }}" class="tr-acc-item"
+                   title="Recepción del almacén general: registrar lo que llegó por orden de compra">
+                    <span class="tr-acc-ic"><i class="material-icons">receipt_long</i></span><span>Entrada por ODC (almacén general)</span>
+                </a>
+                @endif
             </div>
         </div>
         @endcan
