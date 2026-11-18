@@ -1,0 +1,40 @@
+/* Botones de las notas de Recepción: los del modal de la bandeja (partials/detalle_modal)
+   y los de la página /recepcion/{id} (detalle.blade). Antes cada pantalla tenía su copia,
+   con alturas distintas y el MISMO .dt-btn-cancel gris en una y rojo en la otra. Una sola
+   hoja, cargada por las dos vistas.
+
+   Paleta: secundario gris plano (#e2e8f0/#475569), primario en el azul global, igual que el
+   modal "Auditoría de Inventario". */
+.dt-btn {
+    height:36px; padding:0 16px; border-radius:10px; cursor:default;
+    font-size:13px; font-weight:700; letter-spacing:.2px;
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    border:none; transition:background .15s, transform .1s, opacity .15s;
+}
+.dt-btn i { font-size:17px; }
+.dt-btn:active { transform:scale(0.98); }
+
+/* Secundario: salir sin hacer nada (Cancelar). */
+.dt-btn-cancel { background:#e2e8f0; color:#475569; box-shadow:none; }
+.dt-btn-cancel:hover { background:#cbd5e0; }
+
+/* Destructivo: anula la nota y revierte el stock (Anular nota, Cancelar borrador, Cancelar
+   y revertir). En rojo y perfilado para que no se confunda con el Cancelar de salir. */
+.dt-btn-danger { background:#fff; color:#dc2626; box-shadow:inset 0 0 0 1px #fca5a5; }
+.dt-btn-danger:hover { background:#fee2e2; box-shadow:inset 0 0 0 1px #dc2626; }
+
+/* Primario: la acción principal (Aceptar / Enviar). */
+.dt-btn-blue { background:var(--maquinaria-blue,#0067b1); color:#fff; box-shadow:0 4px 8px -2px rgba(0,103,177,0.3); }
+.dt-btn-blue:hover { background:#005391; }
+
+/* Confirmar recepción / Todo OK (solo la página de detalle). */
+.dt-btn-primary { background:#16a34a; color:#fff; box-shadow:0 4px 8px -2px rgba(22,163,74,0.3); }
+.dt-btn-primary:hover { background:#15803d; }
+.dt-btn-confirm-all { background:#065f46; color:#fff; }
+.dt-btn-confirm-all:hover { background:#064e3b; }
+
+/* "Aceptar" sin filas marcadas. El :hover se neutraliza sobre .dt-btn-blue (el único que se
+   deshabilita), no sobre .dt-btn: si no, un Cancelar deshabilitado se pintaría de azul. */
+.dt-btn:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
+.dt-btn-blue:disabled:hover { background:var(--maquinaria-blue,#0067b1); }
+.dt-btn:disabled:active { transform:none; }

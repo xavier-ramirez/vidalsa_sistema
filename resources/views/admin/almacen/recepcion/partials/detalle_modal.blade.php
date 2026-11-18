@@ -184,12 +184,12 @@
              las filas marcadas ya se ven tildadas en la lista. --}}
         <button type="button" id="trConfirmSelBtn" class="dt-btn dt-btn-blue" disabled onclick="window.trModalConfirmar()">Aceptar</button>
     @elseif($puedeEnviar)
-        <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar borrador</button>
+        <button type="button" class="dt-btn dt-btn-danger" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar borrador</button>
         <button type="button" class="dt-btn dt-btn-blue" onclick="window.trModalEnviar()">
             <i class="material-icons">local_shipping</i> Enviar
         </button>
     @elseif($puedeCancelar)
-        <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar y revertir</button>
+        <button type="button" class="dt-btn dt-btn-danger" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar y revertir</button>
     @endif
 </div>
 @endif

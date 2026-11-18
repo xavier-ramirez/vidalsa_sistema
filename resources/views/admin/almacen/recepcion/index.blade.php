@@ -82,6 +82,7 @@
 </section>
 
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_recepcion_index.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_recepcion_index.css')) }}">
+<link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_recepcion_botones.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_recepcion_botones.css')) }}">
 
 {{-- Layout: la tabla y el panel de resumen, cada uno en SU PROPIO contenedor. --}}
 <div class="tr-layout">

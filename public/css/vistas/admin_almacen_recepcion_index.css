@@ -316,32 +316,7 @@
         padding:14px 20px; border-top:1px solid #e2e8f0; flex-shrink:0;
         background:#fff;
     }
-    /* Botones del modal: misma paleta que los del modal "Auditoría de Inventario"
-       (secundario gris plano #e2e8f0/#475569, primario en el azul global), pero MÁS BAJOS:
-       44px de alto con 22px laterales quedaban desproporcionados en un pie de dos botones.
-       .dt-btn-primary ya no se define aquí: su único usuario era "Confirmar todo", que se
-       eliminó. La página /recepcion/{id} tiene su propia hoja y su propio .dt-btn-primary. */
-    .dt-btn {
-        height:36px; padding:0 16px; border-radius:10px; cursor:default;
-        font-size:13px; font-weight:700; letter-spacing:.2px;
-        display:inline-flex; align-items:center; justify-content:center; gap:6px;
-        border:none; transition:background .15s, transform .1s, opacity .15s;
-    }
-    .dt-btn i { font-size:17px; }
-    /* Secundario (Cancelar / Cancelar borrador / Cancelar y revertir). */
-    .dt-btn-cancel { background:#e2e8f0; color:#475569; box-shadow:none; }
-    .dt-btn-cancel:hover { background:#cbd5e0; }
-    /* Primario: la acción principal del modal (Aceptar / Enviar). Azul SÓLIDO: ya no compite
-       con un segundo botón azul, así que el perfilado que tenía "Confirmar (N)" sobra. */
-    .dt-btn-blue { background:var(--maquinaria-blue,#0067b1); color:#fff; box-shadow:0 4px 8px -2px rgba(0,103,177,0.3); }
-    .dt-btn-blue:hover { background:#005391; }
-    .dt-btn-blue:active { transform:scale(0.98); }
-    /* "Aceptar (0)": sin filas marcadas no hay nada que aceptar. El :hover se neutraliza
-       sobre .dt-btn-blue (el único botón que se deshabilita), no sobre .dt-btn: si no,
-       un Cancelar deshabilitado se pintaría de azul al pasar el ratón. */
-    .dt-btn:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
-    .dt-btn-blue:disabled:hover { background:var(--maquinaria-blue,#0067b1); }
-    .dt-btn:disabled:active { transform:none; }
+    /* Los botones (.dt-btn*) viven en admin_almacen_recepcion_botones.css. */
 
     @media (max-width: 768px) {
         .dtm-overlay { padding:0; align-items:flex-end; }

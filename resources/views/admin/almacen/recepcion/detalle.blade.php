@@ -34,6 +34,7 @@
     </div>
 </section>
 
+<link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_recepcion_botones.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_recepcion_botones.css')) }}">
 <style>
     /* ── Detalle de nota — layout WMS profesional ── */
 
@@ -90,32 +91,7 @@
         margin-top:16px; padding:14px 16px;
         background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
     }
-    .dt-btn {
-        height:42px; padding:0 20px; border-radius:10px; cursor:default;
-        font-size:13.5px; font-weight:700; letter-spacing:.2px;
-        display:inline-flex; align-items:center; gap:6px;
-        transition:background .15s, transform .1s;
-    }
-    .dt-btn i { font-size:18px; }
-    .dt-btn-cancel {
-        background:#fff; color:#dc2626; border:1px solid #fca5a5;
-    }
-    .dt-btn-cancel:hover { background:#fee2e2; border-color:#dc2626; }
-    .dt-btn-confirm-all {
-        background:#065f46; color:#fff; border:none;
-    }
-    .dt-btn-confirm-all:hover { background:#064e3b; }
-    .dt-btn-primary {
-        background:#16a34a; color:#fff; border:none;
-        box-shadow:0 4px 8px -2px rgba(22,163,74,0.3);
-    }
-    .dt-btn-primary:hover { background:#15803d; }
-    .dt-btn-primary:active, .dt-btn-confirm-all:active { transform:scale(0.98); }
-    .dt-btn-blue {
-        background:var(--maquinaria-blue,#0067b1); color:#fff; border:none;
-        box-shadow:0 4px 8px -2px rgba(0,103,177,0.3);
-    }
-    .dt-btn-blue:hover { background:#005391; }
+    /* Los botones (.dt-btn*) viven en admin_almacen_recepcion_botones.css. */
 
     @media (max-width: 900px) {
         .dt-meta-item { flex:1 1 45%; }
@@ -266,7 +242,7 @@
                  Vive SOLO aquí: el modal de la bandeja ya no lo ofrece (pedido del cliente),
                  porque es una acción irreversible dentro de la pantalla de trabajo diario. --}}
             @if($puedeCancelar)
-            <button type="button" class="dt-btn dt-btn-cancel"
+            <button type="button" class="dt-btn dt-btn-danger"
                     onclick="window.trCancelar('{{ addslashes($traspaso->REFERENCIA ?: $traspaso->NUMERO) }}')">
                 <i class="material-icons">block</i> Anular nota
             </button>
@@ -281,7 +257,7 @@
                 <i class="material-icons">check_circle</i> Confirmar recepción
             </button>
         @elseif($puedeEnviar)
-            <button type="button" class="dt-btn dt-btn-cancel"
+            <button type="button" class="dt-btn dt-btn-danger"
                     onclick="window.trCancelar('{{ addslashes($traspaso->NUMERO) }}')">Cancelar borrador</button>
             <div style="flex:1;"></div>
             <button type="button" class="dt-btn dt-btn-blue"
@@ -290,7 +266,7 @@
             </button>
         @elseif($puedeCancelar)
             <div style="flex:1;"></div>
-            <button type="button" class="dt-btn dt-btn-cancel"
+            <button type="button" class="dt-btn dt-btn-danger"
                     onclick="window.trCancelar('{{ addslashes($traspaso->NUMERO) }}')">Cancelar y revertir</button>
         @endif
     </div>
