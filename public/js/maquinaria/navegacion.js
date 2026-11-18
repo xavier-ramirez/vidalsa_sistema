@@ -937,9 +937,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Solo modificar historial después de confirmar que es contenido válido
+            // Solo modificar historial después de confirmar que es contenido válido. Con la
+            // dirección FINAL si el servidor redirigió dentro de la app (Recepción → Entrada
+            // por ODC para el almacén general): la barra decía la pedida y no lo que se ve.
+            const destino = (urlFinal !== url && new URL(urlFinal, window.location.origin).origin === window.location.origin)
+                ? urlFinal : url;
             if (pushHistory) {
-                history.pushState(null, '', url);
+                history.pushState(null, '', destino);
                 pasoDelVisor = false;   // el paso del visor, si lo había, queda debajo de esta página
             }
 
@@ -968,8 +972,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // cada externo (CDN) antes de continuar — crítico para Chart.js, etc.
             await executeScripts(mainViewport);
 
-            vistaBase = rutaDe(url) in PANTALLAS_LOCALES ? huella(rutaDe(url), newContent) : null;
-            updateActiveLinks(url);
+            vistaBase = rutaDe(destino) in PANTALLAS_LOCALES ? huella(rutaDe(destino), newContent) : null;
+            updateActiveLinks(destino);
             window.dispatchEvent(new CustomEvent('spa:contentLoaded'));
             _navHecha = Math.max(_navHecha, _miNav);   // ya está dibujada (ver ponerAlDia)
             if (deGuardada) trasAbrirGuardada(url);
