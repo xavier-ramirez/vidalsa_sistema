@@ -2,7 +2,7 @@
  * window.VincularFicha — modal "Vincular a una ficha del catálogo" de /admin/equipos
  * (resources/views/admin/equipos/partials/vincular_ficha_modal.blade.php).
  *
- * Flujo: doble clic en la foto de un equipo (solo super.admin) → el modal abre con las
+ * Flujo: doble clic en la foto de un equipo (todos, sin permiso) → el modal abre con las
  * fichas SUGERIDAS para ese equipo (CaracteristicaModeloController::elegir); escribir
  * busca en todo el catálogo por modelo, tipo o año → se elige una → POST
  * (EquipoController::vincularFicha; antes catalogo.asegurarFicha si es la nueva) → la foto
@@ -11,6 +11,8 @@
  * La foto que muestra cada fila es la que tomaría ESTE equipo: la de su color en esa
  * ficha, si no la del modelo y, si la ficha no tiene ninguna, la suya propia (la misma
  * regla de Equipo::fotoParaMostrar).
+ * "Subir foto": la foto del MODELO va a la ficha elegida —o a la que el equipo ya tiene—
+ * (CaracteristicaModeloController::uploadFoto) y el equipo queda vinculado a esa ficha.
  *
  * Se carga bajo demanda (cargarScriptUnaVez) desde window.eqVincularFicha. Los listeners
  * van sobre el DOCUMENTO y buscan el modal en cada evento: la SPA reemplaza el HTML al
@@ -46,14 +48,16 @@
         $('vfBuscar').value = '';
         actualizarBoton();
         m.classList.add('open');
-        document.body.style.overflow = 'hidden';
+        // Bloqueo central (html Y body): solo en body la tabla seguía desplazándose detrás.
+        w.bloquearScrollFondo();
         buscar();
         setTimeout(function () { var b = $('vfBuscar'); if (b && abierto()) b.focus(); }, 50);
     }
 
     function cerrar() {
         var m = modal(); if (m) m.classList.remove('open');
-        document.body.style.overflow = '';
+        // Libera solo si no queda otra capa abierta detrás (detalle, visor de PDF…).
+        w.restaurarScrollFondo();
         clearTimeout(estado.timer);
         estado.fotoEl = null;
         estado.pedido++;   // una respuesta que llegue tarde ya no pinta nada
@@ -185,18 +189,38 @@
     function actualizarBoton() {
         var b = $('vfVincular'); if (!b) return;
         var yaEsLaSuya = estado.elegida && String(estado.elegida) === String(estado.espec);
-        b.disabled = !estado.elegida || yaEsLaSuya || estado.guardando === estado.idEquipo;
+        var ocupado = estado.guardando === estado.idEquipo;
+        var f = $('vfSubirFoto');
+        if (f) {
+            f.disabled = !(estado.elegida || estado.espec) || ocupado;
+            f.title = estado.elegida ? 'Subir la foto a la ficha elegida y vincular el equipo'
+                : (estado.espec ? 'Subir la foto a la ficha del equipo' : 'Elige primero una ficha');
+        }
+        b.disabled = !estado.elegida || yaEsLaSuya || ocupado;
         b.title = yaEsLaSuya ? 'El equipo ya está vinculado a esta ficha' : '';
         b.innerHTML = estado.elegida === NUEVA
             ? '<i class="material-icons">note_add</i> Crear ficha y vincular'
             : '<i class="material-icons">link</i> Vincular';
     }
 
-    // ── Vincular ─────────────────────────────────────────────────────────────
+    // ── Vincular / subir foto ────────────────────────────────────────────────
     function vincular() {
+        if (!estado.elegida || String(estado.elegida) === String(estado.espec)) return;
+        guardar(null);
+    }
+
+    // Foto elegida en el <input type=file>: va a la ficha elegida o, sin elegir, a la suya.
+    function subirFoto(archivo) {
+        if (!archivo || !(estado.elegida || estado.espec)) return;
+        guardar(archivo);
+    }
+
+    // Vincula el equipo a la ficha elegida (o a la suya) y, con `archivo`, antes le sube la foto.
+    function guardar(archivo) {
         var m = modal();
-        if (!m || !estado.elegida || estado.guardando === estado.idEquipo || String(estado.elegida) === String(estado.espec)) return;
-        var fotoEl = estado.fotoEl, idEquipo = estado.idEquipo, crear = estado.elegida === NUEVA ? estado.crear : null;
+        if (!m || estado.guardando === estado.idEquipo) return;
+        var fotoEl = estado.fotoEl, idEquipo = estado.idEquipo, elegida = estado.elegida || estado.espec;
+        var crear = elegida === NUEVA ? estado.crear : null;
         var terminar = function () { if (estado.guardando === idEquipo) estado.guardando = null; actualizarBoton(); };
         estado.guardando = idEquipo;
         actualizarBoton();
@@ -205,18 +229,28 @@
         // después se vincula igual que una elegida. asegurarFicha también enlaza las OTRAS
         // unidades de ese modelo, año y tipo que no tenían ficha (enlazados: sus ID, quizá con este).
         var nueva = null;   // respuesta de asegurarFicha: { creada, enlazados }
+        var idEspec = null;
         var ficha = crear
             ? w.apiPostForm(m.getAttribute('data-url-asegurar'), { modelo: crear.modelo, anio: crear.anio, tipo: crear.tipo }, 'No se pudo crear la ficha.')
                 .then(function (b) { nueva = b; return b.id; })
-            : Promise.resolve(estado.elegida);
+            : Promise.resolve(elegida);
         ficha
-            .then(function (idEspec) {
+            .then(function (id) {
+                idEspec = id;
+                // La foto del MODELO (sin color), como "Cambiar foto" en el Catálogo.
+                return archivo
+                    ? w.apiPostForm(m.getAttribute('data-url-foto').replace('__ID__', encodeURIComponent(id)), { foto: archivo }, 'No se pudo subir la foto.')
+                    : null;
+            })
+            .then(function () {
+                // Vincular DESPUÉS de la foto: la respuesta trae la foto que el equipo muestra ya.
                 return w.apiPostForm(m.getAttribute('data-url-vincular').replace('__ID__', encodeURIComponent(idEquipo)), { ID_ESPEC: idEspec }, 'No se pudo vincular el equipo.');
             })
             .then(function (body) {
                 terminar();
                 pintarFotoFila(fotoEl, body);
-                w.toast(nueva ? mensajeFichaNueva(crear, nueva, idEquipo) : body.message, 'success');
+                w.toast(archivo ? 'Foto subida a la ficha y equipo vinculado.'
+                    : (nueva ? mensajeFichaNueva(crear, nueva, idEquipo) : body.message), 'success');
                 // Solo si el modal sigue siendo de ESTE equipo (pudo cerrarse y abrirse otro).
                 if (abierto() && estado.idEquipo === idEquipo) cerrar();
             })
@@ -267,12 +301,17 @@
         // Solo la X (data-vf-cerrar) lo cierra; un clic en el fondo no (pedido 01-10-2026).
         if (t.closest('[data-vf-cerrar]')) { cerrar(); return; }
         if (t.closest('#vfVincular')) { vincular(); return; }
+        if (t.closest('#vfSubirFoto')) { var inp = $('vfFoto'); if (inp) { inp.value = ''; inp.click(); } return; }
         if ((card = t.closest('#vfModal .vf-item'))) elegir(card);
     });
     document.addEventListener('dblclick', function (e) {
         // Doble clic en una fila: elegirla y vincular de una vez.
         var card = abierto() && e.target.closest('#vfModal .vf-item');
         if (card) { elegir(card); vincular(); }
+    });
+    document.addEventListener('change', function (e) {
+        if (e.target.id !== 'vfFoto' || !abierto()) return;
+        subirFoto(e.target.files && e.target.files[0]);
     });
     document.addEventListener('input', function (e) {
         if (e.target.id !== 'vfBuscar' || !abierto()) return;

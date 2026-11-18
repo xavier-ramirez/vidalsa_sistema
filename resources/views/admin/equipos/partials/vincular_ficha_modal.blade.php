@@ -9,7 +9,8 @@
     buscador arriba (modelo, tipo o año), lista de filas con foto a la izquierda y un solo
     botón abajo. Abre con las fichas sugeridas para el equipo y, mientras no exista la de su
     modelo + año + tipo, ofrece arriba crearla (catalogo.asegurarFicha) y vincularlo en un paso —
-    también mientras se busca.
+    también mientras se busca. "Subir foto" pone la foto del MODELO en la ficha elegida (o en la
+    que ya tiene el equipo; si es "Crear su ficha", la crea antes) y vincula el equipo a ella.
 
     Las fichas las busca CaracteristicaModeloController::elegir (mismas tarjetas que el
     catálogo) y el vínculo lo guarda EquipoController::vincularFicha. El comportamiento vive
@@ -20,7 +21,8 @@
 <div id="vfModal" role="dialog" aria-modal="true" aria-labelledby="vfTitulo"
      data-url-elegir="{{ route('catalogo.elegir') }}"
      data-url-vincular="{{ route('equipos.vincularFicha', '__ID__') }}"
-     data-url-asegurar="{{ route('catalogo.asegurarFicha') }}">
+     data-url-asegurar="{{ route('catalogo.asegurarFicha') }}"
+     data-url-foto="{{ route('catalogo.uploadFoto', '__ID__') }}">
     <div class="vf-box">
         <div class="vf-head">
             <h3 id="vfTitulo"><i class="material-icons">link</i>Vincular a una ficha</h3>
@@ -32,9 +34,15 @@
                 <input type="text" id="vfBuscar" class="vf-buscar" placeholder="Buscar por modelo, tipo o año..." autocomplete="off">
             </label>
             <div class="vf-lista" id="vfResultados"></div>
-            <button type="button" class="vf-vincular" id="vfVincular" disabled>
-                <i class="material-icons">link</i> Vincular
-            </button>
+            <div class="vf-acciones">
+                <button type="button" class="vf-subir-foto" id="vfSubirFoto" disabled>
+                    <i class="material-icons">photo_camera</i> Subir foto
+                </button>
+                <button type="button" class="vf-vincular" id="vfVincular" disabled>
+                    <i class="material-icons">link</i> Vincular
+                </button>
+            </div>
+            <input type="file" id="vfFoto" accept="image/jpeg,image/png,image/webp" hidden>
         </div>
     </div>
 </div>

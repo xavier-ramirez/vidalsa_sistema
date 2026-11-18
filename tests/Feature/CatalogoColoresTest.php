@@ -337,6 +337,13 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->actingAs($u)->getJson(route('catalogo.elegir'))->assertOk();
         $this->actingAs($u)->postJson(route('equipos.vincularFicha', $e->ID_EQUIPO), ['ID_ESPEC' => $f->ID_ESPEC])->assertOk();
         $this->assertSame((int) $f->ID_ESPEC, (int) $e->fresh()->ID_ESPEC);
+        // "Subir foto" del modal: la del modelo, también sin permiso. Ficha sin foto, como las
+        // recién creadas (el Drive falso no sabe mandar la vieja a la papelera).
+        $f->update(['FOTO_REFERENCIAL' => null]);
+        $this->actingAs($u)->post(route('catalogo.uploadFoto', $f->ID_ESPEC), [
+            'foto' => UploadedFile::fake()->image('modal.png', 60, 40),
+        ], ['Accept' => 'application/json'])->assertOk()->assertJson(['success' => true]);
+        $this->assertStringStartsWith('/storage/google/falso-', $f->fresh()->FOTO_REFERENCIAL);
 
         $html = $this->consultaLocal($u, ['search_query' => $e->SERIAL_CHASIS])['html'];
         $this->assertStringContainsString('data-vincular="' . $e->ID_EQUIPO . '"', $html);
