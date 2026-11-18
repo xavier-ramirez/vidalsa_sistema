@@ -355,7 +355,12 @@ function initEquiposForm() {
                     let mappedCount = 0;
                     const unmappedMsgs = [];
 
-                    Object.entries(body.errors).forEach(([field, msgs]) => {
+                    // Un 422 puede venir SIN errors, solo con message (update() rechaza así un
+                    // PDF dañado). Antes Object.entries(undefined) reventaba: salía "Cannot
+                    // convert undefined…" y el catch apagaba el preloader por segunda vez.
+                    if (!body.errors && body.message) unmappedMsgs.push(String(body.message));
+
+                    Object.entries(body.errors || {}).forEach(([field, msgs]) => {
                         const inputId = serverToClientMap[field] || field;
                         let input = document.getElementById(inputId) || form.querySelector(`[name="${field}"]`);
 

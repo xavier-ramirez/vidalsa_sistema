@@ -88,6 +88,9 @@ window.equiposBusquedaMasivaArrancar = function (EQBM_CFG) {
     // acción siempre opera sobre "éstos"). Lo reusan los botones Movilizar y Detalle
     // de Búsqueda Masiva para no duplicar el armado de la selección.
     function seleccionarEncontrados(found) {
+        // Fuera TODO lo que había seleccionado (también los auxiliares y el resaltado de las
+        // filas): antes los auxiliares marcados viajaban con la movilización de "éstos".
+        if (typeof window.clearSelection === 'function') window.clearSelection();
         window.selectedEquipos = {};
         found.forEach(function (r) {
             window.selectedEquipos[r.id] = {
@@ -366,7 +369,12 @@ window.equiposBusquedaMasivaArrancar = function (EQBM_CFG) {
         if (detBtn) detBtn.style.display = hayEncontrados ? 'flex' : 'none';
     }
 
+    // Una búsqueda a la vez: con frente elegido también confirma en sitio, y un doble clic
+    // mandaba dos (dos avisos, resultados pintados dos veces).
+    let buscando = false;
+
     window.runBulkLookup = function () {
+        if (buscando) return;
         const terms = collectTerms();
 
         if (terms.length === 0) {
@@ -392,6 +400,7 @@ window.equiposBusquedaMasivaArrancar = function (EQBM_CFG) {
             if (selItem) frenteNombre = selItem.textContent.trim();
         }
 
+        buscando = true;
         if (window.showPreloader) window.showPreloader();
         window.apiFetch(URL_BULK_LOOKUP, {
             method: 'POST',
@@ -400,9 +409,8 @@ window.equiposBusquedaMasivaArrancar = function (EQBM_CFG) {
             },
             body: JSON.stringify(body)
         })
-        .then(r => r.json().then(d => ({ ok: r.ok, body: d })))
+        .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, body: d })))
         .then(res => {
-            if (window.hidePreloader) window.hidePreloader();
             if (!res.ok) {
                 const msg = (res.body && res.body.message) || 'Error en la búsqueda.';
                 if (window.showToast) window.showToast(msg, 'error');
@@ -412,10 +420,15 @@ window.equiposBusquedaMasivaArrancar = function (EQBM_CFG) {
             renderResults(res.body, frenteNombre);
         })
         .catch(err => {
-            if (window.hidePreloader) window.hidePreloader();
             console.error('[bulkLookup]', err);
             if (window.showToast) window.showToast('Error de red en la búsqueda masiva.', 'error');
             else alert('Error de red.');
+        })
+        .finally(() => {
+            // Un solo hide (el preloader es contado por referencias): antes, si el pintado
+            // fallaba, el catch lo apagaba otra vez y descontaba el de otra operación.
+            buscando = false;
+            if (window.hidePreloader) window.hidePreloader();
         });
     };
 

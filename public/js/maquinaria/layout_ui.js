@@ -894,6 +894,7 @@ window._CAPAS_SCROLL = [
     { id: 'expiredDocsContainer', cls: 'open' },
     { id: 'consumoDashModal', cls: 'open' },
     { id: 'ajNotaModal', cls: 'open' },
+    { id: 'vfModal', cls: 'open' },   // «Vincular a una ficha» (Equipos)
 ];
 window.bloquearScrollFondo = function () {
     document.documentElement.style.overflow = 'hidden';

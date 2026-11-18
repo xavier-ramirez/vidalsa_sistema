@@ -27,6 +27,7 @@
     let matches = [];
     let currentIndex = 0;
     let linkedId = null;
+    let fichaInicial = '';  // la ficha que el equipo YA tenía al abrir el formulario (editar)
     let searchTimer = null;
     let isInitialized = false; // GUARD FLAG
     let lastSearchKey = ''; // Prevent duplicate searches for same values
@@ -43,10 +44,13 @@
         }
 
 
-        // Reset state for fresh init (SPA navigation)
+        // Reset state for fresh init (SPA navigation). En Editar el equipo puede venir ya
+        // vinculado: se parte de su ficha (antes linkedId=null y "Ignorar" la borraba).
+        const hidden = document.getElementById(CONFIG.hiddenInputId);
+        fichaInicial = hidden ? hidden.value : '';
         matches = [];
         currentIndex = 0;
-        linkedId = null;
+        linkedId = fichaInicial || null;
         lastSearchKey = '';
         lastColor = '';
 
@@ -325,9 +329,12 @@
     }
 
     function ignoreCatalog() {
+        // Ignorar la SUGERENCIA no desvincula: vuelve a la ficha con la que abrió el
+        // formulario (vacía al crear). Antes la vaciaba y al guardar el equipo perdía su
+        // ficha y la foto del catálogo.
         const hiddenInput = document.getElementById(CONFIG.hiddenInputId);
-        if (hiddenInput) hiddenInput.value = '';
-        linkedId = null;
+        if (hiddenInput) hiddenInput.value = fichaInicial;
+        linkedId = fichaInicial || null;
         hideWidget();
     }
 
@@ -357,6 +364,7 @@
         matches = [];
         currentIndex = 0;
         linkedId = null;
+        fichaInicial = '';
         lastSearchKey = ''; // Critical: Clear cache so identical consecutive searches work
         lastColor = '';
         const hiddenInput = document.getElementById(CONFIG.hiddenInputId);
@@ -373,23 +381,9 @@
     window.catalogCleanup = cleanup; // Expose cleanup for SPA
     window.catalogReset = resetFullState; // Expose full reset
 
-    // ROBUST INITIALIZATION STRATEGY: MutationObserver
-    // Instead of guessing WHEN the content arrives (timers/events), 
-    // we watch for the widget to APPEAR in the DOM.
-    const observer = new MutationObserver((mutations, obs) => {
-        const widget = document.getElementById(CONFIG.widgetId);
-        if (widget && widget.dataset.catalogBound !== 'true') {
-            // Widget found and not initialized!
-            init();
-        }
-    });
-
-    // Start observing the body for added nodes
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-
+    // Arranque: al cargar la página y en cada navegación SPA (abajo). Antes había además un
+    // MutationObserver sobre TODO el body que corría en cada cambio del DOM de cualquier
+    // módulo (la tabla de Equipos repinta seguido) solo para encontrar este widget.
     // Also check immediately in case it's already there
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
@@ -404,14 +398,13 @@
         cleanup();
         isInitialized = false;
 
-        // Reset widget flag so observer can detect it as "new"
+        // El formulario nuevo trae su propio widget: se vuelve a enlazar.
         const widget = document.getElementById(CONFIG.widgetId);
         if (widget) {
             widget.dataset.catalogBound = 'false';
         }
 
-        // Force init as backup (observer handles it, but this is failsafe)
-        setTimeout(init, 150);
+        init();
     });
 
 })();

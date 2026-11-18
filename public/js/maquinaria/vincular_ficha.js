@@ -325,7 +325,7 @@
     });
     // Si se navega (SPA) con el modal abierto, el HTML nuevo ya no lo trae: devolver el scroll.
     w.addEventListener('spa:contentLoaded', function () {
-        if (estado.fotoEl && !modal()) { estado.fotoEl = null; document.body.style.overflow = ''; }
+        if (estado.fotoEl && !modal()) { estado.fotoEl = null; w.restaurarScrollFondo(); }
     });
 
     w.VincularFicha = { abrir: abrir, cerrar: cerrar };

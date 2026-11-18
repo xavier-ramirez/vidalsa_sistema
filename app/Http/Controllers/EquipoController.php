@@ -863,18 +863,21 @@ class EquipoController extends Controller
                 'CODIGO_PATIO' => 'nullable|unique:equipos,CODIGO_PATIO',
                 'TIPO_EQUIPO' => 'required|max:35',
                 'CATEGORIA_FLOTA' => 'required|in:FLOTA LIVIANA,FLOTA PESADA',
-                'MARCA' => 'required',
-                'MODELO' => 'required',
-                'ANIO' => 'required|integer',
+                // Topes = columnas de `equipos` (varchar/smallint): pasarlos era un 500 de la BD.
+                'MARCA' => 'required|max:50',
+                'MODELO' => 'required|max:50',
+                'ANIO' => 'required|integer|min:1900|max:2100',
+                'NUMERO_ETIQUETA' => 'nullable|max:50',
+                'LINK_GPS' => 'nullable|max:500',
                 'COLOR' => 'nullable|string|max:50',
                 'CAPACIDAD' => 'nullable|string|max:80',
                 'COMBUSTIBLE' => 'nullable|in:' . implode(',', \App\Models\Equipo::COMBUSTIBLES),
                 'CONSUMO_PROMEDIO' => 'nullable|numeric|min:0|max:99999',
-                'SERIAL_CHASIS' => 'required|unique:equipos,SERIAL_CHASIS',
-                'SERIAL_DE_MOTOR' => 'nullable|unique:equipos,SERIAL_DE_MOTOR',
+                'SERIAL_CHASIS' => 'required|max:100|unique:equipos,SERIAL_CHASIS',
+                'SERIAL_DE_MOTOR' => 'nullable|max:100|unique:equipos,SERIAL_DE_MOTOR',
                 'SERIAL_BRAZO' => 'nullable|string|max:100',
                 'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA',
-                'ESTADO_OPERATIVO' => 'required',
+                'ESTADO_OPERATIVO' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO,DESCONOCIDO',
                 'ID_ESPEC' => 'nullable|exists:caracteristicas_modelo,ID_ESPEC', // Security: Validate catalog link exists
                 // El tope de TODOS los PDF es GoogleDriveService::MAX_PDF_KB, la comprobacion
                 // central por la que pasan todos (aqui via comprobarPdfCompleto). Estas
@@ -971,7 +974,16 @@ class EquipoController extends Controller
         $registrar = function () use ($request, $filesToProcess) {
             $tipoName = strtoupper($request->input('TIPO_EQUIPO'));
             $tipo = TipoEquipo::firstOrCreate(['nombre' => $tipoName]);
-            $data = $request->except(['specs', 'responsable', 'documentacion', 'TIPO_EQUIPO', 'doc_propiedad', 'poliza_seguro', 'doc_rotc', 'doc_racda', 'foto_equipo', 'foto_referencial']);
+            $data = $request->except(['specs', 'responsable', 'documentacion', 'TIPO_EQUIPO', 'doc_propiedad', 'poliza_seguro', 'doc_rotc', 'doc_racda', 'foto_equipo', 'foto_referencial',
+                // Fuera del formulario, cada uno con su flujo y su permiso: ubicación y
+                // confirmación (equipos.assign), foto (se sube como archivo, abajo), quién lo
+                // creó o borró. Antes un PUT a mano podía escribirlos.
+                'CONFIRMADO_EN_SITIO', 'DETALLE_UBICACION_ACTUAL', 'FOTO_EQUIPO', 'CREADO_POR', 'deleted_by']);
+            // La etiqueta solo la cambia quien tiene equipos.edit (el formulario se la muestra
+            // de solo lectura y sin name a los demás; esto lo cumple también en el servidor).
+            if (!$request->user()->can('equipos.edit')) {
+                unset($data['NUMERO_ETIQUETA']);
+            }
             $data['id_tipo_equipo'] = $tipo->id;
             // NO se asigna $data['TIPO_EQUIPO']: esa columna se eliminó de `equipos` (la
             // reemplazó id_tipo_equipo, migración 2026_01_12_044330) y no está en $fillable,
@@ -1244,7 +1256,7 @@ class EquipoController extends Controller
      * Vincula el equipo a una ficha del catálogo (su ID_ESPEC): desde ahí toma la foto de
      * su color o la del modelo (Equipo::fotoParaMostrar). Lo usa el doble clic en la foto
      * de /admin/equipos, cuando la unidad no encontró sola su ficha (otro modelo escrito,
-     * otro año, varias fichas). Solo super.admin (constructor). EquipoObserver deja el
+     * otro año, varias fichas). Para todos, sin permiso (constructor). EquipoObserver deja el
      * cambio en la auditoría y refresca el dashboard; la copia local lo trae sola.
      */
     public function vincularFicha(Request $request, $id)
@@ -1293,9 +1305,12 @@ class EquipoController extends Controller
             'CODIGO_PATIO' => 'nullable|unique:equipos,CODIGO_PATIO,' . $id . ',ID_EQUIPO',
             'TIPO_EQUIPO' => 'required|max:35',
             'CATEGORIA_FLOTA' => 'required|in:FLOTA LIVIANA,FLOTA PESADA',
-            'MARCA' => 'required',
-            'MODELO' => 'required',
-            'ANIO' => 'required|integer',
+            // Topes = columnas de `equipos` (varchar/smallint): pasarlos era un 500 de la BD.
+            'MARCA' => 'required|max:50',
+            'MODELO' => 'required|max:50',
+            'ANIO' => 'required|integer|min:1900|max:2100',
+            'NUMERO_ETIQUETA' => 'nullable|max:50',
+            'LINK_GPS' => 'nullable|max:500',
             'COLOR' => 'nullable|string|max:50',
             'CAPACIDAD' => 'nullable|string|max:80',
             'COMBUSTIBLE' => 'nullable|in:' . implode(',', \App\Models\Equipo::COMBUSTIBLES),
@@ -1304,8 +1319,8 @@ class EquipoController extends Controller
             // el formulario de edición general. Se acepta cualquier valor
             // (o null) sin validar existencia para evitar errores con vínculos huérfanos.
             'ID_ESPEC' => 'nullable',
-            'SERIAL_CHASIS' => 'required|unique:equipos,SERIAL_CHASIS,' . $id . ',ID_EQUIPO',
-            'SERIAL_DE_MOTOR' => 'nullable|unique:equipos,SERIAL_DE_MOTOR,' . $id . ',ID_EQUIPO',
+            'SERIAL_CHASIS' => 'required|max:100|unique:equipos,SERIAL_CHASIS,' . $id . ',ID_EQUIPO',
+            'SERIAL_DE_MOTOR' => 'nullable|max:100|unique:equipos,SERIAL_DE_MOTOR,' . $id . ',ID_EQUIPO',
             'SERIAL_BRAZO' => 'nullable|string|max:100',
             'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA,' . ($equipo->documentacion ? $equipo->documentacion->ID_EQUIPO : 'NULL') . ',ID_EQUIPO',
             // Las fechas de documento se validan como FECHA. Este validate() no las miraba
@@ -1317,7 +1332,7 @@ class EquipoController extends Controller
             'documentacion.FECHA_VENC_POLIZA' => 'nullable|date',
             'documentacion.FECHA_ROTC'        => 'nullable|date',
             'documentacion.FECHA_RACDA'       => 'nullable|date',
-            'ESTADO_OPERATIVO' => 'required',
+            'ESTADO_OPERATIVO' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO,DESCONOCIDO',
             'foto_equipo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'foto_referencial' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             // Mismo tope central que el resto (ver MAX_PDF_KB): antes eran 5 MB aqui y
@@ -1327,6 +1342,19 @@ class EquipoController extends Controller
             'doc_rotc' => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
             'doc_racda' => 'nullable|file|mimes:pdf|max:' . \App\Services\GoogleDriveService::MAX_PDF_KB,
         ], $this->validationMessages(), $this->validationAttributes());
+
+        // Cambiar el ESTATUS desde Editar sigue las reglas del menú de estatus
+        // (changeStatus): pide equipos.edit, y con un reporte de falla ABIERTO no se cambia a
+        // mano (lo gobierna el reporte; se cierra desde Fallas). Antes Editar lo guardaba
+        // sin mirar nada: quedaba OPERATIVO con su reporte abierto.
+        if ($request->input('ESTADO_OPERATIVO') !== $equipo->ESTADO_OPERATIVO) {
+            $motivo = !$request->user()->can('equipos.edit')
+                ? 'No tienes permiso para cambiar el estatus del equipo.'
+                : ($equipo->fallaAbierta ? 'El equipo tiene un reporte de falla abierto: su estatus cambia al cerrar el reporte.' : null);
+            if ($motivo) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['ESTADO_OPERATIVO' => $motivo]);
+            }
+        }
 
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), []);
         // Custom validation for update: Check if file exists or is being uploaded if meta is present
@@ -1402,7 +1430,16 @@ class EquipoController extends Controller
         DB::transaction(function () use ($request, $equipo) {
             $tipoName = strtoupper($request->input('TIPO_EQUIPO'));
             $tipo = TipoEquipo::firstOrCreate(['nombre' => $tipoName]);
-            $data = $request->except(['specs', 'responsable', 'documentacion', 'TIPO_EQUIPO', 'doc_propiedad', 'poliza_seguro', 'doc_rotc', 'doc_racda', 'foto_equipo', 'foto_referencial']);
+            $data = $request->except(['specs', 'responsable', 'documentacion', 'TIPO_EQUIPO', 'doc_propiedad', 'poliza_seguro', 'doc_rotc', 'doc_racda', 'foto_equipo', 'foto_referencial',
+                // Fuera del formulario, cada uno con su flujo y su permiso: ubicación y
+                // confirmación (equipos.assign), foto (se sube como archivo, abajo), quién lo
+                // creó o borró. Antes un PUT a mano podía escribirlos.
+                'CONFIRMADO_EN_SITIO', 'DETALLE_UBICACION_ACTUAL', 'FOTO_EQUIPO', 'CREADO_POR', 'deleted_by']);
+            // La etiqueta solo la cambia quien tiene equipos.edit (el formulario se la muestra
+            // de solo lectura y sin name a los demás; esto lo cumple también en el servidor).
+            if (!$request->user()->can('equipos.edit')) {
+                unset($data['NUMERO_ETIQUETA']);
+            }
             $data['id_tipo_equipo'] = $tipo->id;
             // NO se asigna $data['TIPO_EQUIPO']: esa columna se eliminó de `equipos` (la
             // reemplazó id_tipo_equipo, migración 2026_01_12_044330) y no está en $fillable,
@@ -2422,7 +2459,9 @@ class EquipoController extends Controller
             return response()->json(['exists' => $query->exists()]);
         }
 
-        $query = Equipo::where($field, strtoupper($value));
+        // withTrashed: el unique: de store()/update() y el índice de la BD cuentan también los
+        // de la Papelera. Sin esto el campo salía "libre" y al guardar lo rechazaba.
+        $query = Equipo::withTrashed()->where($field, strtoupper($value));
         if ($id) {
             $query->where('ID_EQUIPO', '!=', $id);
         }

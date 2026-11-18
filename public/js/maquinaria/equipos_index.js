@@ -1942,6 +1942,17 @@ window.loadEquipos = function (url = null, silent = false, opts = {}) {
             // Iniciar la inyección del primer chunk
             renderNextChunk();
         })
+        .catch((err) => {
+            // Sin esto, un fallo de la copia local (IndexedDB bloqueada o llena, una fila rara)
+            // dejaba la tabla gris al 50% con los resultados VIEJOS, como si el filtro se
+            // hubiese aplicado, y sin ningún aviso.
+            console.error('[Equipos] no se pudo armar la tabla', err);
+            if (!vigente() || !document.contains(tableBody)) return;
+            tableBody.style.opacity = '1';
+            if (!silent && typeof window.toast === 'function') {
+                window.toast('No se pudo cargar la lista de equipos. Recarga la página.', 'error');
+            }
+        })
         .finally(() => {
             if (_didShowPreloader && window.hidePreloader) {
                 // Doble rAF: el spinner se va DESPUÉS del paint que ya tiene la primera fila.
