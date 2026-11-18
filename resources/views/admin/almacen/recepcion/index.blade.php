@@ -290,7 +290,7 @@
                 @if($veGeneral)
                 <a href="{{ route('almacen.recepcion.nueva') }}" class="tr-acc-item"
                    title="Recepción del almacén general: registrar lo que llegó por orden de compra">
-                    <span class="tr-acc-ic"><i class="material-icons">receipt_long</i></span><span>Entrada por ODC (almacén general)</span>
+                    <span class="tr-acc-ic"><i class="material-icons">receipt_long</i></span><span>Entrada por ODC (orden de compra)</span>
                 </a>
                 @endif
             </div>
