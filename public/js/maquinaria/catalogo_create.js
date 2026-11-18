@@ -38,19 +38,21 @@
             .then(response => {
                 if (!response.ok) {
                     return response.text().then(text => {
-                        try {
-                            // Try parsing as JSON first
-                            const errorData = JSON.parse(text);
+                        // El JSON se lee FUERA del try: antes el throw del error ya leído caía
+                        // en su propio catch y el mensaje del servidor ("Ya existe la ficha…",
+                        // el campo que falla) se cambiaba por "Error del Servidor (422)".
+                        let errorData = null;
+                        try { errorData = JSON.parse(text); } catch (_) { /* página HTML (500, 419…) */ }
+                        if (errorData) {
                             throw { status: response.status, body: errorData };
-                        } catch (e) {
-                            // If parsing fails, it's likely an HTML error page (500, etc.)
-                            console.error('Raw Server Error Response:', text);
-                            throw {
-                                status: response.status,
-                                message: `Error del Servidor (${response.status}) - Ver consola para detalles.`,
-                                raw: text
-                            };
                         }
+                        console.error('Raw Server Error Response:', text);
+                        throw {
+                            status: response.status,
+                            message: response.status === 419
+                                ? 'La sesión expiró. Recarga la página e intenta de nuevo.'
+                                : `Error del Servidor (${response.status}). Intenta de nuevo.`,
+                        };
                     });
                 }
                 return response.json();
@@ -75,8 +77,7 @@
                     }
                     return;
                 }
-                // Fallback: apagar preloader y notificar inline.
-                if (window.hidePreloader) window.hidePreloader();
+                // Fallback: notificar inline (el preloader lo apaga el finally).
                 if (window.showToast) {
                     window.showToast(data.message || 'Modelo guardado correctamente.', 'success');
                 } else {
@@ -84,8 +85,8 @@
                 }
             })
             .catch(error => {
-                if (window.hidePreloader) window.hidePreloader(); // Hide on error
-
+                // El preloader lo apaga SOLO el finally: es contado por referencias y
+                // apagarlo también aquí descontaba el de otra operación.
                 console.error('Error:', error);
                 let errorMsg = 'Ocurrió un error inesperado.';
 

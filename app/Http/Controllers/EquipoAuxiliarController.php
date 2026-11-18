@@ -266,8 +266,10 @@ class EquipoAuxiliarController extends Controller
 
             $updated = $groupQ->update(['FOTO' => $fotoUrl]);
 
-            // Borrar las fotos anteriores de Drive (best-effort, no fatal si falla)
-            foreach ($oldDriveIds as $oldId) {
+            // Borrar las fotos anteriores de Drive (best-effort, no fatal si falla), solo las
+            // que ya no usa NINGÚN auxiliar: el update fue en el alcance del usuario y las
+            // unidades de otros frentes pueden seguir mostrando la vieja.
+            foreach (self::fotosSinUso($oldDriveIds) as $oldId) {
                 if ($oldId && $oldId !== $driveFile->id) {
                     try { $driveService->enviarAPapelera($oldId); } catch (\Throwable $e) { /* silent */ }
                 }
@@ -337,7 +339,9 @@ class EquipoAuxiliarController extends Controller
             ['tipo' => $tipoKey, 'marca' => $marcaKey, 'unidades' => $updated]
         );
 
-        // Drive: diferido para que la respuesta sea inmediata.
+        // Drive: diferido para que la respuesta sea inmediata. Solo lo que ya no usa ningún
+        // auxiliar (las unidades fuera del alcance del usuario conservan su foto).
+        $oldDriveIds = self::fotosSinUso($oldDriveIds);
         defer(function () use ($oldDriveIds) {
             foreach ($oldDriveIds as $oldId) {
                 try {
@@ -347,6 +351,16 @@ class EquipoAuxiliarController extends Controller
         });
 
         return response()->json(['success' => true, 'message' => "Foto eliminada de {$updated} unidad(es)."]);
+    }
+
+    /**
+     * De los archivos de Drive dados, los que ya no usa ningún auxiliar (sin alcance: cuenta
+     * todos los frentes). Solo esos se pueden mandar a la papelera.
+     */
+    private static function fotosSinUso(array $idsDrive): array
+    {
+        return array_values(array_filter($idsDrive, fn ($id) => $id
+            && !EquipoAuxiliar::withoutGlobalScopes()->where('FOTO', 'like', '%/storage/google/' . $id . '%')->exists()));
     }
 
     // convertToWebp() viene del trait ConvertsImageToWebp (use al inicio de la clase).

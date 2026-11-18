@@ -351,6 +351,22 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->actingAs($admin)->getJson($url('VERDE'))->assertOk()->assertJsonPath('data.0.FOTO', url('/storage/google/modelo?sz=w300'));
     }
 
+    /**
+     * Auxiliares: la foto vieja de un grupo solo va a la papelera de Drive si ya no la usa
+     * NINGÚN auxiliar (el cambio se hace en el alcance del usuario; otros frentes pueden
+     * seguir mostrándola).
+     */
+    public function test_la_foto_de_auxiliar_que_otro_sigue_usando_no_se_borra_de_drive(): void
+    {
+        $id = 'falso-aux-' . uniqid();
+        \App\Models\EquipoAuxiliar::create(['TIPO' => 'PRUEBA', 'FOTO' => '/storage/google/' . $id . '?v=1']);
+        $sinUso = new \ReflectionMethod(\App\Http\Controllers\EquipoAuxiliarController::class, 'fotosSinUso');
+        $sinUso->setAccessible(true);
+
+        $this->assertSame([], $sinUso->invoke(null, [$id]), 'Un auxiliar la sigue usando: no se borra.');
+        $this->assertSame(['nadie-la-usa'], $sinUso->invoke(null, ['nadie-la-usa', '']));
+    }
+
     public function test_normalizar(): void
     {
         $this->assertSame('ROJO', CatalogoColor::normalizar('  roja '));

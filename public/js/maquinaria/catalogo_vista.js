@@ -207,7 +207,7 @@ window.catalogoArrancar = function (CAT_CFG) {
         var tipo = photoEl.dataset.tipo || '', marca = photoEl.dataset.marca || '',
             modelo = photoEl.dataset.modelo || '', anio = photoEl.dataset.anio || '';
         if (!tipo || !marca || !modelo) {
-            window.toast('Este modelo no tiene marca registrada; no se puede asociar la foto.', 'error');
+            window.toast('No se pudo identificar el modelo.', 'error');
             return;
         }
         _elegirFoto(photoEl, editar, function (croppedFile) {
@@ -379,7 +379,7 @@ window.catalogoArrancar = function (CAT_CFG) {
         var url = CAT_CFG.urlCatalogo + '/' + id + '/photo' + (color ? '?color=' + encodeURIComponent(color) : '');
         window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             method: 'DELETE'})
-        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
         .then(function (res) {
             if (window.hidePreloader) window.hidePreloader();
             if (res.ok && res.body.success) {
@@ -413,7 +413,7 @@ window.catalogoArrancar = function (CAT_CFG) {
         window.apiFetch(CAT_CFG.rutaEquiposAuxiliaresCatalogoDeletePhoto, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             method: 'POST',
             body: fd})
-        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, body: b }; }); })
         .then(function (res) {
             if (window.hidePreloader) window.hidePreloader();
             if (res.ok && res.body.success) {

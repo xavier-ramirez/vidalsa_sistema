@@ -37,7 +37,7 @@ class CaracteristicaModeloController extends Controller
         return [
             'MODELO'             => 'required|max:50',
             'TIPO'               => 'nullable|max:35',
-            'ANIO_ESPEC'         => 'required|integer',
+            'ANIO_ESPEC'         => 'required|integer|min:1900|max:2100',   // smallint en la BD
             'MOTOR'              => 'nullable|max:150',
             'ACEITE_MOTOR'       => 'nullable|max:100',
             'ACEITE_CAJA'        => 'nullable|max:100',
@@ -300,10 +300,13 @@ class CaracteristicaModeloController extends Controller
 
             $fotos = (clone $base)
                 ->whereNotNull('FOTO')->where('FOTO', '!=', '')
-                ->selectRaw('TIPO, MARCA, MODELO, ANIO, FOTO, ID_AUXILIAR')
+                // Mismas claves que $grupos (COALESCE(NULLIF(TRIM(x), ''), '—')): con la marca o el
+                // modelo vacío o con espacios, la foto antes no encontraba su tarjeta.
+                ->selectRaw("TIPO, COALESCE(NULLIF(TRIM(MARCA), ''), '—') AS MARCA_KEY, COALESCE(NULLIF(TRIM(MODELO), ''), '—') AS MODELO_KEY,"
+                    . ' COALESCE(ANIO, 0) AS ANIO_KEY, FOTO, ID_AUXILIAR')
                 ->orderByDesc('ID_AUXILIAR')->toBase()->get()
                 ->reduce(function ($carry, $a) {
-                    $key = mb_strtoupper(trim(($a->TIPO ?? '') . '|' . ($a->MARCA ?? '—') . '|' . ($a->MODELO ?? '—') . '|' . ($a->ANIO ?? 0)));
+                    $key = mb_strtoupper(trim(($a->TIPO ?? '') . '|' . $a->MARCA_KEY . '|' . $a->MODELO_KEY . '|' . $a->ANIO_KEY));
                     $carry[$key] ??= $a->FOTO;   // la foto de la unidad más reciente
                     return $carry;
                 }, []);
@@ -784,7 +787,9 @@ class CaracteristicaModeloController extends Controller
             'id'        => $catalogo->ID_ESPEC,
             'creada'    => $creada,
             'enlazados' => $enlazados,
-            'message' => $creada ? "Ficha de {$modelo} {$anio} creada." : "Unidades enlazadas a la ficha de {$modelo} {$anio}.",
+            'message' => $creada ? "Ficha de {$modelo} {$anio} creada."
+                : ($enlazados ? count($enlazados) . " unidad(es) enlazadas a la ficha de {$modelo} {$anio}."
+                    : "La ficha de {$modelo} {$anio} ya existe; no quedaban unidades sueltas por enlazar."),
         ]);
     }
 
@@ -823,16 +828,7 @@ class CaracteristicaModeloController extends Controller
     public function create()
     {
         $catalogo = new CaracteristicaModelo(); // Empty object for create mode
-        
-        // Optimización: Cache de Modelos (lista pesada) x 10 min
-        $modelosList = \Illuminate\Support\Facades\Cache::remember('equipos_modelos_list', 600, function () {
-            return Equipo::select('MODELO')
-                ->distinct()
-                ->whereNotNull('MODELO')
-                ->where('MODELO', '!=', '')
-                ->orderBy('MODELO')
-                ->pluck('MODELO');
-        });
+        $modelosList = $this->modelosDeEquipos();
 
         // NOTA: La lista de años ($aniosList) ya no se carga aquí.
         // Se cargará dinámicamente vía AJAX según el modelo seleccionado para mayor velocidad y precisión.
@@ -906,13 +902,27 @@ class CaracteristicaModeloController extends Controller
         }
     }
 
+    /**
+     * Modelos registrados en equipos para el autocompletado de MODELO (crear y editar).
+     * Caché de 10 min: es una lista pesada y solo sugiere (el campo es de escritura libre).
+     */
+    private function modelosDeEquipos()
+    {
+        return \Illuminate\Support\Facades\Cache::remember('equipos_modelos_list', 600, fn () => Equipo::select('MODELO')
+            ->distinct()
+            ->whereNotNull('MODELO')
+            ->where('MODELO', '!=', '')
+            ->orderBy('MODELO')
+            ->pluck('MODELO'));
+    }
+
     public function edit($id)
     {
         $catalogo = CaracteristicaModelo::findOrFail($id);
 
         // Listas para los autocompletados del formulario (TIPO/MODELO/AÑO).
         $tipos = \App\Models\TipoEquipo::orderBy('nombre')->pluck('nombre');
-        $modelosList = \Illuminate\Support\Facades\Cache::get('equipos_modelos_list', collect());
+        $modelosList = $this->modelosDeEquipos();   // antes Cache::get: sin caché salía vacía
         $aniosList = [];
 
         return view('admin.catalogo.edit', compact('catalogo', 'tipos', 'modelosList', 'aniosList'));
@@ -935,7 +945,7 @@ class CaracteristicaModeloController extends Controller
             $oldModelo = $catalogo->MODELO;
             $oldAnio = $catalogo->ANIO_ESPEC;
             // Snapshot original para diff de auditoria (solo campos auditables)
-            $auditFields = ['MODELO','ANIO_ESPEC','MOTOR',
+            $auditFields = ['MODELO','ANIO_ESPEC','TIPO','MOTOR',
                             'ACEITE_MOTOR','ACEITE_CAJA','LIGA_FRENO','REFRIGERANTE','TIPO_BATERIA'];
             $originalSnapshot = collect($auditFields)->mapWithKeys(fn($f) => [$f => $catalogo->{$f} ?? null])->toArray();
 
@@ -952,16 +962,20 @@ class CaracteristicaModeloController extends Controller
             // escrito ("CUADRILLERA" → "CAMION CUADRILLERA") y soltar a sus unidades les quitaría
             // la foto; los vínculos hechos a mano se respetan. Lo suelto sí sigue la regla nueva
             // (autoLink solo engancha las de su tipo).
-            $modeloChanged = ($oldModelo !== $validated['MODELO']);
-            $anioChanged = ($oldAnio !== $validated['ANIO_ESPEC']);
-            
+            // Comparado como en todo el catálogo (claveModelo, año como número). Antes era
+            // literal y el año del formulario (texto) nunca era === al de la BD (número): se
+            // "cambiaba" en CADA edición y soltaba los equipos enlazados a mano con otro
+            // nombre de modelo (TH904 → ficha 904-H) aunque solo se tocara un aceite.
+            $modeloChanged = self::claveModelo($oldModelo) !== self::claveModelo($validated['MODELO']);
+            $anioChanged   = (int) $oldAnio !== (int) $validated['ANIO_ESPEC'];
+
             if ($modeloChanged || $anioChanged) {
-                $equiposToUnlink = \App\Models\Equipo::where('ID_ESPEC', $catalogo->ID_ESPEC)
-                    ->where(function($q) use ($validated) {
-                        $q->where('MODELO', '!=', $validated['MODELO'])
-                          ->orWhere('ANIO', '!=', $validated['ANIO_ESPEC']);
-                    })->get();
-                    
+                // Solo los que eran de ese modelo + año (los que puso el enganche); los
+                // enlazados a mano con otro modelo se quedan: fue una decisión de alguien.
+                $equiposToUnlink = \App\Models\Equipo::where('ID_ESPEC', $catalogo->ID_ESPEC)->get()
+                    ->filter(fn ($eq) => self::claveModelo($eq->MODELO) === self::claveModelo($oldModelo)
+                        && (int) $eq->ANIO === (int) $oldAnio);
+
                 foreach ($equiposToUnlink as $eq) {
                     $eq->ID_ESPEC = null;
                     $eq->save(); // Dispara Observer (Auditoría + Caché)
@@ -1101,6 +1115,7 @@ class CaracteristicaModeloController extends Controller
 
         $catalogo = CaracteristicaModelo::findOrFail($id);
         $color    = \App\Models\CatalogoColor::normalizar($request->input('color'));
+        $tempWebpPath = null;
 
         try {
             // Convertir a WebP ANTES de la transacción (evita problemas de $this en closures).
@@ -1116,11 +1131,6 @@ class CaracteristicaModeloController extends Controller
                 return $fotos;
             });
             $nuevaUrl = $fotos['nueva'];
-
-            // Limpiar archivo temporal WebP del servidor si se creó.
-            if ($tempWebpPath && file_exists($tempWebpPath)) {
-                @unlink($tempWebpPath);
-            }
 
             // Re-evaluar auto-link: equipos del modelo sin foto heredan la nueva imagen.
             $this->autoLinkEquiposToCatalogo($catalogo, $catalogo->MODELO, $catalogo->ANIO_ESPEC, 'update');
@@ -1146,6 +1156,11 @@ class CaracteristicaModeloController extends Controller
                 'success' => false,
                 'message' => 'No se pudo actualizar la foto: ' . MensajeError::texto($e, MensajeError::REINTENTAR),
             ], 500);
+        } finally {
+            // El WebP temporal se borra siempre, también si Drive falló (antes se acumulaba).
+            if ($tempWebpPath && file_exists($tempWebpPath)) {
+                @unlink($tempWebpPath);
+            }
         }
     }
 
@@ -1304,11 +1319,16 @@ class CaracteristicaModeloController extends Controller
         }
 
         // Un equipo ya enlazado (a esta u otra ficha) no se toca: solo los sueltos o huérfanos.
-        $query = Equipo::with('tipo:id,nombre')->where('MODELO', $modelo)->where('ANIO', $anio)
-            ->where(fn ($q) => $q->whereNull('ID_ESPEC')->orWhereDoesntHave('especificaciones'));
+        // Con la misma clave de modelo que "ya existe la ficha" (claveModelo): la ficha
+        // "ZZ-1037" engancha a las unidades escritas "ZZ 1037". Antes era literal y esas
+        // seguían saliendo como SIN FICHA.
+        $clave   = self::claveModelo($modelo);
+        $sueltos = Equipo::with('tipo:id,nombre')->where('ANIO', $anio)
+            ->where(fn ($q) => $q->whereNull('ID_ESPEC')->orWhereDoesntHave('especificaciones'))
+            ->get()->filter(fn ($eq) => self::claveModelo($eq->MODELO) === $clave);
 
         $enlazados = [];
-        foreach ($query->get() as $eq) {
+        foreach ($sueltos as $eq) {
             if (self::deSuTipo($fichas, $eq->tipo?->nombre)?->ID_ESPEC !== $catalogo->ID_ESPEC) {
                 continue;   // le toca otra ficha (la de su tipo) o ninguna
             }

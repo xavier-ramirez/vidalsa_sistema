@@ -50,7 +50,7 @@
                     onclick="catUploadPhoto(this)"
                 @else
                     data-tipo="{{ $item['tipo_raw'] ?? '' }}"
-                    data-marca="{{ $item['marca'] ?? '' }}"
+                    data-marca="{{ $item['marca'] ?? '—' }}"
                     data-modelo="{{ $item['modelo'] }}"
                     data-anio="{{ $item['anio'] ?? '' }}"
                     onclick="auxCatUploadPhoto(this)"

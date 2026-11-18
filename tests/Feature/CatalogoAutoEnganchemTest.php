@@ -194,4 +194,43 @@ class CatalogoAutoEnganchemTest extends MySqlTestCase
         $this->assertLessThan($total, $conVarias,
             'Si TODOS los modelos tuvieran varias fichas, el candado apagaría el enganche entero.');
     }
+
+    /**
+     * Editar una ficha sin cambiar su modelo ni su año (p. ej. solo el aceite) no suelta a
+     * nadie, tampoco a los enlazados a mano con otro nombre de modelo (TH904 → ficha 904-H).
+     * Cambiar el año sí suelta a los que eran de ese modelo + año, no a los de a mano.
+     */
+    public function test_editar_la_ficha_no_suelta_los_enlazados_a_mano(): void
+    {
+        $modelo = 'PRUEBA-EDITAR-' . uniqid();
+        $ficha  = $this->ficha($modelo, 2025);
+        $propio = $this->equipoSuelto($modelo, 2025);
+        $aMano  = $this->equipoSuelto('PRUEBA-OTRO-NOMBRE-' . uniqid(), 2025);
+        $propio->update(['ID_ESPEC' => $ficha->ID_ESPEC]);
+        $aMano->update(['ID_ESPEC' => $ficha->ID_ESPEC]);
+
+        $admin = $this->superAdminGlobal();
+        $datos = ['MODELO' => $modelo, 'ANIO_ESPEC' => '2025', 'TIPO' => 'CAMIONETA', 'ACEITE_MOTOR' => '15W-40'];
+        $this->actingAs($admin)->putJson(route('catalogo.update', $ficha->ID_ESPEC), $datos)->assertOk();
+        $this->assertSame($ficha->ID_ESPEC, $propio->fresh()->ID_ESPEC);
+        $this->assertSame($ficha->ID_ESPEC, $aMano->fresh()->ID_ESPEC, 'Cambiar solo el aceite no suelta el vínculo a mano.');
+
+        $this->actingAs($admin)->putJson(route('catalogo.update', $ficha->ID_ESPEC), ['ANIO_ESPEC' => '2024'] + $datos)->assertOk();
+        $this->assertNull($propio->fresh()->ID_ESPEC, 'Ya no es de su año: se suelta.');
+        $this->assertSame($ficha->ID_ESPEC, $aMano->fresh()->ID_ESPEC, 'El de a mano se queda.');
+    }
+
+    /** Mismo modelo, año y aceite, distinto tipo: la base de datos ya no lo rechaza. */
+    public function test_dos_tipos_del_mismo_modelo_con_el_mismo_aceite(): void
+    {
+        $modelo = 'PRUEBA-ACEITE-' . uniqid();
+        $admin  = $this->superAdminGlobal();
+        $datos  = ['MODELO' => $modelo, 'ANIO_ESPEC' => 2017, 'ACEITE_MOTOR' => '15W-40'];
+        $this->actingAs($admin)->postJson(route('catalogo.store'), $datos + ['TIPO' => 'VOLTEO'])->assertOk();
+        $this->actingAs($admin)->postJson(route('catalogo.store'), $datos + ['TIPO' => 'VOLTEO HIDROJET'])->assertOk();
+        // La repetida de verdad (mismo tipo) sigue rechazada, con su mensaje.
+        $this->actingAs($admin)->postJson(route('catalogo.store'), $datos + ['TIPO' => 'VOLTEO'])
+            ->assertStatus(422)->assertJsonPath('errors.MODELO.0', fn ($m) => str_contains($m, 'Ya existe la ficha'));
+        $this->assertSame(2, CaracteristicaModelo::where('MODELO', $modelo)->count());
+    }
 }
