@@ -93,6 +93,16 @@
             else if (el.type === 'number' && (el.validity.rangeUnderflow || el.validity.rangeOverflow)) poner(el, el.validationMessage);
         });
 
+        // Año: el campo es de texto (4 cifras) y el servidor pide 1900-2100 en equipos y
+        // 1950-2100 en auxiliares. Sin esto, sin internet un 0000 entraba a la bandeja y
+        // salía rechazado al volver la red, ya sin poder corregirlo.
+        const anio = document.getElementById('anio');
+        if (anio && !anio.disabled && lleno(anio)) {
+            const n = Number(anio.value.trim());
+            const min = esAux ? 1950 : 1900;
+            if (!/^\d{4}$/.test(anio.value.trim()) || n < min || n > 2100) poner(anio, 'Año entre ' + min + ' y 2100.');
+        }
+
         // Los PDF: que sean PDF, que no pasen del tope y que lleven su dato (y al revés).
         const maxKb = parseInt(form.dataset.maxPdfKb, 10) || 0;
         form.querySelectorAll('input[type="file"]').forEach((el) => {
@@ -105,6 +115,8 @@
             const cert = document.getElementById('aux_certificado');
             const fecha = document.getElementById('fecha_vencimiento_cert');
             if (archivo(cert) && !lleno(fecha)) poner(fecha, 'Indica el vencimiento del certificado.');
+            // Al revés también lo rechaza el servidor (validateData): fecha sin certificado.
+            else if (!archivo(cert) && lleno(fecha)) poner(fecha, 'No hay certificado cargado: primero sube el PDF y su fecha va con él.');
             const hoy = new Date();
             const hoyTxt = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
             if (lleno(fecha) && fecha.value < hoyTxt) poner(fecha, 'El vencimiento no puede ser anterior a hoy.');

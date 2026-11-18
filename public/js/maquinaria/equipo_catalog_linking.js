@@ -124,6 +124,9 @@
         const color = colorInput ? colorInput.value.trim() : '';
 
         if (model.length < 2 || year.length < 4) {
+            // Modelo o año borrados: tampoco vale el vínculo hecho para el modelo de antes.
+            soltarVinculoNuevo();
+            lastSearchKey = '';
             hideWidget();
             return;
         }
@@ -138,6 +141,10 @@
         }
         lastSearchKey = searchKey;
         lastColor = color;
+        // Cambió modelo, año o tipo: la ficha vinculada EN ESTE formulario era la del modelo
+        // anterior (HILUX → HILUX REVO seguía guardando la de HILUX). Se vuelve a la que el
+        // equipo tenía al abrir (vacía al crear); la de antes la decidió alguien a mano.
+        if (!soloColor) soltarVinculoNuevo();
 
 
         let url = `${CONFIG.searchUrl}?model=${encodeURIComponent(model)}&year=${encodeURIComponent(year)}`;
@@ -308,6 +315,12 @@
     function widgetVisible() {
         const widget = document.getElementById(CONFIG.widgetId);
         return !!widget && widget.style.display !== 'none';
+    }
+
+    function soltarVinculoNuevo() {
+        const hidden = document.getElementById(CONFIG.hiddenInputId);
+        if (hidden && hidden.value !== fichaInicial) hidden.value = fichaInicial;
+        linkedId = fichaInicial || null;
     }
 
     function hideWidget() {

@@ -256,9 +256,13 @@
                     }
                 });
 
+                // El servidor numera por la POSICIÓN en la lista enviada (collectRows, en el
+                // orden de la tabla). data-row-idx es el número original del Excel y queda con
+                // huecos al borrar filas con la X: buscar por él ponía el error en otra fila.
+                const filas = el.table.querySelectorAll('tbody tr');
                 let firstErrorTr = null;
                 Object.entries(grouped).forEach(([idx, fieldErrors]) => {
-                    const tr = el.table.querySelector(`tr[data-row-idx="${idx}"]`);
+                    const tr = filas[Number(idx)];
                     if (!tr) return;
                     if (!firstErrorTr) firstErrorTr = tr;
                     Object.entries(fieldErrors).forEach(([field, msg]) => {
@@ -280,9 +284,25 @@
                 if (firstErrorTr) firstErrorTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
 
+            // Un guardado a la vez: un doble clic mandaba el lote dos veces (el segundo chocaba
+            // con los repetidos del primero y pintaba errores falsos).
+            let guardando = false;
             el.save && el.save.addEventListener('click', () => {
+                if (guardando) return;
                 const rows = collectRows();
                 if (!rows.length) return;
+                guardando = true;
+                el.save.disabled = true;
+                // El preloader se apaga UNA vez (es contado por referencias); en el éxito no,
+                // se hereda en la navegación (__vidalsaRedirecting).
+                let apagado = false;
+                const apagar = () => {
+                    if (apagado) return;
+                    apagado = true;
+                    guardando = false;
+                    el.save.disabled = false;
+                    if (window.hidePreloader) window.hidePreloader();
+                };
                 if (window.showPreloader) window.showPreloader();
                 window.apiFetch(config.storeUrl, {
                     method: 'POST',
@@ -291,7 +311,7 @@
                     },
                     body: JSON.stringify({ rows })
                 })
-                .then(r => r.json().then(body => ({ status: r.status, body })))
+                .then(r => r.json().catch(() => ({})).then(body => ({ status: r.status, body })))
                 .then(({ status, body }) => {
                     if (status === 200 && body.success) {
                         // Éxito: guardar toast en sessionStorage para que se muestre
@@ -311,18 +331,18 @@
                         if (window.navigateTo) window.navigateTo(dest);
                         else window.location.href = dest;
                     } else if (status === 422) {
-                        if (window.hidePreloader) window.hidePreloader();
+                        apagar();
                         if (body.errors) applyServerErrors(body.errors);
                         var errMsg = body.message || 'Algunas filas tienen errores. Revísalas y reintenta.';
                         if (window.showToast) window.showToast(errMsg, 'error');
                         else modal('warning', 'Errores encontrados', errMsg);
                     } else {
-                        if (window.hidePreloader) window.hidePreloader();
+                        apagar();
                         modal('error', 'Error', body.message || 'No se pudo guardar.', 'Cerrar');
                     }
                 })
                 .catch(err => {
-                    if (window.hidePreloader) window.hidePreloader();
+                    apagar();
                     console.error(err);
                     if (sinRed(err)) modal('error', 'Sin conexión', SIN_RED + ' Las filas siguen aquí: guarda de nuevo cuando vuelva la conexión.', 'Cerrar');
                     else modal('error', 'Error', 'No se pudo guardar.', 'Cerrar');

@@ -345,15 +345,29 @@ window.scopeByTipo = function () {
         var dropdown = container ? container.querySelector('.dropdown-list') : null;
         if (!dropdown) return;
 
-        var url = pair[1] + (tipo ? ('?tipo=' + encodeURIComponent(tipo)) : '');
+        // La lista que pintó el servidor se guarda la primera vez: en Registrar trae el
+        // data-scope (equipo/aux) de cada opción. Sin tipo se vuelve a ELLA en vez de pedir
+        // la de equipos: antes, tras elegir un tipo, el modo auxiliar ofrecía marcas de
+        // camiones y el siguiente registro (form.reset no dispara change) seguía recortado.
+        if (dropdown._listaOriginal === undefined) dropdown._listaOriginal = dropdown.innerHTML;
+        var turno = (dropdown._turno || 0) + 1;
+        dropdown._turno = turno;   // una respuesta vieja no pisa a la última
+        if (!tipo) {
+            dropdown.innerHTML = dropdown._listaOriginal;
+            return;
+        }
+
+        var url = pair[1] + '?tipo=' + encodeURIComponent(tipo);
         window.apiFetch(url)
             .then(function (r) { return r.json(); })
             .then(function (items) {
+                if (dropdown._turno !== turno) return;
                 dropdown.innerHTML = '';
                 (items || []).forEach(function (val) {
                     if (!val || !String(val).trim()) return;
                     var div = document.createElement('div');
                     div.className = 'dropdown-item';
+                    div.dataset.scope = 'equipo';   // vienen de equipos (solo hay tipo en modo equipo)
                     div.textContent = val;
                     div.onmousedown = function () { window.selectDropdownItem(this, val); };
                     dropdown.appendChild(div);

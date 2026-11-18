@@ -158,7 +158,7 @@
                             Tipo <span style="color: var(--maquinaria-red);">*</span>
                         </label>
                         <div class="custom-dropdown" id="auxTipoCombo" style="position: relative;">
-                            <input type="text" id="input_tipo_aux" name="TIPO" autocomplete="off" maxlength="80"
+                            <input type="text" id="input_tipo_aux" name="TIPO" autocomplete="off" maxlength="60"
                                    value="{{ old('TIPO') }}" class="form-input-custom"
                                    placeholder="Selecciona o escribe..."
                                    onfocus="window.auxTipoOpen && window.auxTipoOpen(this)"
@@ -181,7 +181,7 @@
                     </label>
                     <div class="custom-form-autocomplete">
                         <input type="text" id="marca" name="MARCA" class="form-input-custom" value="{{ old('MARCA') }}"
-                               placeholder="Escribe marca..." autocomplete="off" required
+                               placeholder="Escribe marca..." autocomplete="off" required maxlength="50"
                                onfocus="showFormDropdown(this)" onblur="hideFormDropdownDelayed(this)" oninput="filterFormDropdown(this)"
                                style="text-transform: uppercase;">
                         {{-- data-scope: de qué mundo viene cada marca (equipo / aux / ambos). El
@@ -203,7 +203,7 @@
                     </label>
                     <div class="custom-form-autocomplete">
                         <input type="text" id="modelo" name="MODELO" class="form-input-custom" value="{{ old('MODELO') }}"
-                               placeholder="Escribe modelo..." autocomplete="off" required
+                               placeholder="Escribe modelo..." autocomplete="off" required maxlength="50"
                                onfocus="showFormDropdown(this)" onblur="hideFormDropdownDelayed(this)" oninput="filterFormDropdown(this)"
                                style="text-transform: uppercase;">
                         <div class="dropdown-list" data-modo="equipo">
@@ -269,11 +269,11 @@
                     <input type="text" id="color" name="COLOR" class="form-input-custom" value="{{ old('COLOR') }}" placeholder="Ej: BLANCO" maxlength="50" autocomplete="off" oninput="this.value = this.value.toUpperCase()">
                 </div>
 
-                {{-- COMBUSTIBLE (solo equipo: `equipos_auxiliares` no tiene esa columna).
+                {{-- COMBUSTIBLE (equipos y auxiliares: las dos tablas tienen la columna).
                      Es dato de la UNIDAD, no del modelo: un mismo MODELO puede traer motor
                      a gasolina o a gasoil (HILUX 2.7 vs 2.4 diésel, F-350 Triton vs Power
                      Stroke). Opciones desde Equipo::COMBUSTIBLES, la misma fuente que valida
-                     el controlador. Se oculta/deshabilita por modo igual que #serialMotorWrap. --}}
+                     el controlador. --}}
                 <div id="combustibleWrap">
                     <span style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Combustible</span>
                     <div class="custom-dropdown" id="combustibleSelect">
@@ -283,6 +283,8 @@
                             <i class="material-icons">expand_more</i>
                         </div>
                         <div class="dropdown-content">
+                            {{-- Sin esta opción, un combustible elegido por error no se podía quitar. --}}
+                            <div class="dropdown-item" onclick="selectOption('combustibleSelect', '', 'SELECCIONE', 'combustible')">SIN ESPECIFICAR</div>
                             @foreach(\App\Models\Equipo::COMBUSTIBLES as $comb)
                                 <div class="dropdown-item" onclick="selectOption('combustibleSelect', '{{ $comb }}', '{{ $comb }}', 'combustible')">{{ $comb }}</div>
                             @endforeach
@@ -291,7 +293,7 @@
                     @error('COMBUSTIBLE') <span class="error-message-inline">{{ $message }}</span> @enderror
                 </div>
 
-                {{-- CONSUMO DIARIO (solo equipo, misma razón que COMBUSTIBLE). Alimenta la
+                {{-- CONSUMO DIARIO (equipos y auxiliares, como COMBUSTIBLE). Alimenta la
                      proyección de gasoil por frente: por eso es numérico, para poder sumarse. --}}
                 <div id="consumoWrap">
                     <label for="CONSUMO_PROMEDIO" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Consumo (L/día)</label>
@@ -617,7 +619,22 @@
             var lista = inp && inp.closest('.custom-form-autocomplete');
             lista = lista && lista.querySelector('.dropdown-list');
             if (lista) lista.dataset.modo = isAux ? 'aux' : 'equipo';
+            // Topes de cada tabla: equipos 50 (store), equipos_auxiliares 80 (validateData).
+            if (inp) inp.maxLength = isAux ? 80 : 50;
         });
+        // El tipo de equipo pudo recortar Marca/Modelo (scopeByTipo); en auxiliar, o tras el
+        // reset de guardar, el tipo queda vacío sin disparar 'change': volver a la lista completa.
+        var tipoEq = document.getElementById('input_tipo_equipo');
+        if (typeof window.scopeByTipo === 'function' && (isAux || !(tipoEq && tipoEq.value.trim()))) {
+            if (isAux && tipoEq) {
+                var tipoGuardado = tipoEq.value;
+                tipoEq.value = '';
+                window.scopeByTipo();
+                tipoEq.value = tipoGuardado;
+            } else {
+                window.scopeByTipo();
+            }
+        }
 
         // Serial name
         var serialInput = document.getElementById('serial_principal');
@@ -643,14 +660,10 @@
             if (input) input.disabled = isAux;
         });
 
-        // Combustible (solo equipo): `equipos_auxiliares` no tiene esa columna, asi que en
-        // modo auxiliar se oculta Y se deshabilita el hidden para no enviarlo en el POST.
-        var combustibleWrap = document.getElementById('combustibleWrap');
-        if (combustibleWrap) {
-            combustibleWrap.style.display = isAux ? 'none' : '';
-            var combInput = document.getElementById('input_combustible');
-            if (combInput) combInput.disabled = isAux;
-        }
+        // Combustible y Consumo valen en los DOS modos: `equipos_auxiliares` también los tiene
+        // (migración 2026_08_10_160000, EquipoAuxiliar::$fillable, validados en su store). Antes
+        // se apagaban en auxiliar y la soldadora o el compresor nuevos quedaban fuera de la
+        // proyección de gasoil hasta que alguien los editara.
 
         // Serial del brazo (solo equipo): el input se deshabilita en modo auxiliar y la
         // visibilidad la decide __mostrarSerialBrazo (tipo con brazo y modo equipo).
@@ -658,13 +671,6 @@
         if (serialBrazo) serialBrazo.dataset.aux = isAux ? '1' : '';
         window.__mostrarSerialBrazo();
 
-        // Consumo diario (solo equipo): mismo patron que #combustibleWrap.
-        var consumoWrap = document.getElementById('consumoWrap');
-        if (consumoWrap) {
-            consumoWrap.style.display = isAux ? 'none' : '';
-            var consInput = document.getElementById('CONSUMO_PROMEDIO');
-            if (consInput) consInput.disabled = isAux;
-        }
 
         // Equipo Vinculado (solo auxiliar). Mismo patron que serialMotorWrap: al vivir en la
         // rejilla COMUN ya no lo alcanza el disabled masivo de #auxiliarFieldsSection, asi que
@@ -815,6 +821,27 @@
         function prepararOtroRegistro() {
             var modo = modoActual();
             form.reset();
+            // form.reset() NO toca los <input type="hidden"> (su valor ES el atributo) ni los
+            // rótulos de los desplegables propios. El equipo vinculado del auxiliar anterior
+            // se quedaba puesto: el 2.º salía vinculado al mismo y el 3.º chocaba con el tope
+            // de 2 por equipo. El combustible elegido también viajaba al siguiente.
+            // El FRENTE se conserva a propósito (se ve en su caja): al cargar en tanda suele ser
+            // el mismo, y se cambia como siempre.
+            var host = document.getElementById('ID_EQUIPO_HOST');
+            if (host) host.value = '';
+            var hostBusca = document.getElementById('hostSearchInput');
+            if (hostBusca) hostBusca.value = '';
+            var hostWrap = document.getElementById('hostSearchWrapper');
+            if (hostWrap) hostWrap.style.display = 'block';
+            var hostCard = document.getElementById('hostSelectedCard');
+            if (hostCard) hostCard.style.display = 'none';
+            form.querySelectorAll('input[type="file"]').forEach(marcarPdf);
+            var auxProp = document.getElementById('aux_doc_propiedad_meta');
+            if (auxProp) auxProp.value = '';
+            var comb = document.getElementById('input_combustible');
+            if (comb) comb.value = '';
+            var combLbl = document.getElementById('label_combustible');
+            if (combLbl) combLbl.textContent = 'SELECCIONE';
             window.switchUnifiedMode(modo);
             limpiarErroresForm();
             // form.reset() vacía el hidden ID_ESPEC, pero el widget de catálogo guarda su
@@ -833,6 +860,34 @@
         // servidor (equipos_alta_sin_red.js; sus errores salen igual que los de un 422) y luego
         // se manda por la bandeja (bandeja.js). Con red responde el servidor; sin ella el
         // registro, con sus PDF, queda guardado en este dispositivo y sube solo al volver.
+        // PDF elegido = botón en verde con su nombre. Los de esta pantalla no tienen los
+        // wrapper_* del formulario de editar (form_logic.updatePdfBtn no hace nada aquí) y el
+        // certificado no tenía nada: no se sabía si el PDF quedó puesto.
+        function marcarPdf(input) {
+            var lbl = form.querySelector('label[for="' + input.id + '"]');
+            if (!lbl) return;
+            if (!lbl.dataset.titulo) lbl.dataset.titulo = lbl.title;
+            var f = input.files && input.files[0];
+            var ico = lbl.querySelector('.material-icons');
+            if (ico) ico.textContent = f ? 'check_circle' : 'cloud_upload';
+            lbl.style.color = f ? '#16a34a' : '#3b82f6';
+            lbl.style.borderColor = f ? '#16a34a' : '#3b82f6';
+            lbl.style.borderStyle = f ? 'solid' : 'dashed';
+            lbl.title = f ? 'PDF: ' + f.name + ' (clic para cambiarlo)' : lbl.dataset.titulo;
+        }
+        form.addEventListener('change', function (e) {
+            if (e.target && e.target.type === 'file') marcarPdf(e.target);
+        });
+
+        // Enter en una caja de texto NO registra: en el buscador del Frente, del Tipo o del
+        // equipo vinculado se pulsa Enter esperando elegir, y el navegador mandaba el formulario
+        // (un equipo quedaba registrado sin frente). Se registra con el botón.
+        form.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter') return;
+            var t = e.target;
+            if (t && t.tagName === 'INPUT' && t.type !== 'submit' && t.type !== 'button') e.preventDefault();
+        });
+
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             if (form.dataset.submitting === '1') return;
@@ -855,7 +910,11 @@
                     if (typeof window.hidePreloader === 'function') window.hidePreloader();
                     liberarSubmit();
                     prepararOtroRegistro();
-                    window.toast('Sin internet: quedó guardado en este dispositivo y se registrará solo al volver la conexión. Puedes registrar otro.', 'success');
+                    // La bandeja también guarda CON red: si hay algo antes por subir (va en orden)
+                    // o si la sesión venció. Decir "Sin internet" ahí confundía.
+                    window.toast((navigator.onLine
+                        ? 'Quedó en la bandeja de este dispositivo: se registra en orden, después de lo que ya estaba por subir.'
+                        : 'Sin internet: quedó guardado en este dispositivo y se registrará solo al volver la conexión.') + ' Puedes registrar otro.', 'success');
                     return;
                 }
                 if (res.status === 200 || res.status === 201) {
