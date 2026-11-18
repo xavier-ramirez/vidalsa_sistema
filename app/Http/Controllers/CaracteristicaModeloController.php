@@ -554,10 +554,13 @@ class CaracteristicaModeloController extends Controller
         return preg_replace('/[^A-Z0-9]/', '', mb_strtoupper((string) $modelo));
     }
 
-    /** El TIPO de una ficha como se compara: mayúsculas y un solo espacio ("VOLTEO  HIDROJET"). */
+    /**
+     * El TIPO como se compara: sin acentos, mayúsculas y un solo espacio ("VOLTEO  HIDROJET",
+     * "CAMIÓN" = "CAMION"). Lo usan la ficha y el tipo de la unidad (tipo_equipos.nombre).
+     */
     private static function tipoNormal(?string $tipo): string
     {
-        return preg_replace('/\s+/', ' ', mb_strtoupper(trim((string) $tipo)));
+        return preg_replace('/\s+/', ' ', mb_strtoupper(trim(\Illuminate\Support\Str::ascii((string) $tipo))));
     }
 
     /**
@@ -584,9 +587,26 @@ class CaracteristicaModeloController extends Controller
      */
     private function fichaDeSuTipo(?string $modelo, $anio, ?string $tipo): ?CaracteristicaModelo
     {
+        return self::deSuTipo($this->fichasDelModelo($modelo, $anio), $tipo);
+    }
+
+    /**
+     * La REGLA de cuál de las fichas de un modelo + año le toca a una unidad de $tipo (todas
+     * las demás la usan, también el enganche automático):
+     *   · La de su mismo tipo.
+     *   · Si no la hay, y la única ficha del modelo + año no tiene tipo, o la unidad no
+     *     tiene tipo: esa única ficha (no hay nada que confundir, como antes).
+     *   · Si no, ninguna: la de otro tipo no le sirve (otra carrocería, otra foto).
+     */
+    private static function deSuTipo($fichas, ?string $tipo): ?CaracteristicaModelo
+    {
         $tipo   = self::tipoNormal($tipo);
-        $fichas = $this->fichasDelModelo($modelo, $anio);
-        return $tipo === '' ? $fichas->first() : $fichas->first(fn ($f) => self::tipoNormal($f->TIPO) === $tipo);
+        $exacta = $fichas->first(fn ($f) => self::tipoNormal($f->TIPO) === $tipo);
+        if ($exacta) {
+            return $exacta;
+        }
+        $unica = $fichas->count() === 1 ? $fichas->first() : null;
+        return $unica && ($tipo === '' || self::tipoNormal($unica->TIPO) === '') ? $unica : null;
     }
 
     /**
@@ -694,20 +714,19 @@ class CaracteristicaModeloController extends Controller
             "CONCAT(UPPER(TRIM(COALESCE(t.nombre, ''))), '|', UPPER(TRIM(COALESCE(equipos.MARCA, ''))), '|', UPPER(TRIM(equipos.MODELO)), '|', COALESCE(equipos.ANIO, 0))",
             'equipos.CAPACIDAD');
 
-        // También con su TIPO (fichaDeSuTipo): la ficha de soldadura no es la de la cuadrillera.
-        $claveFicha = fn ($modelo, $anio, $tipo) => self::claveModelo($modelo) . '|' . (int) $anio . '|' . self::tipoNormal($tipo);
+        // Y de esas, la de SU TIPO con la misma regla de todo el catálogo (deSuTipo): la ficha
+        // de soldadura no es la de la cuadrillera.
         $fichas = CaracteristicaModelo::whereIn('ANIO_ESPEC', $grupos->pluck('ANIO_KEY')->unique())
             ->orderBy('ID_ESPEC')->get(['ID_ESPEC', 'MODELO', 'ANIO_ESPEC', 'TIPO'])
-            ->unique(fn ($f) => $claveFicha($f->MODELO, $f->ANIO_ESPEC, $f->TIPO))
-            ->keyBy(fn ($f) => $claveFicha($f->MODELO, $f->ANIO_ESPEC, $f->TIPO));
+            ->groupBy(fn ($f) => self::claveModelo($f->MODELO) . '|' . (int) $f->ANIO_ESPEC);
 
-        return $grupos->map(function ($g) use ($colores, $fichas, $caps, $claveFicha) {
+        return $grupos->map(function ($g) use ($colores, $fichas, $caps) {
             $anio = (int) $g->ANIO_KEY ?: null;
             return [
                 'clase'          => 'VEHICULO',
                 'id'             => null,
                 'sin_ficha'      => true,
-                'ficha_existente'=> $fichas->get($claveFicha($g->MODELO_KEY, $g->ANIO_KEY, $g->TIPO_KEY))?->ID_ESPEC,
+                'ficha_existente'=> self::deSuTipo($fichas->get(self::claveModelo($g->MODELO_KEY) . '|' . (int) $g->ANIO_KEY, collect()), $g->TIPO_KEY)?->ID_ESPEC,
                 'tipo'           => $g->TIPO_KEY !== '' ? $g->TIPO_KEY : null,
                 'modelo'         => $g->MODELO_KEY,
                 'marca'          => $g->MARCA_KEY !== '' ? $g->MARCA_KEY : null,
@@ -929,6 +948,10 @@ class CaracteristicaModeloController extends Controller
 
             // AUTO-UNLINK: Si el modelo o el año cambió, desvincular los equipos que ya no coinciden
             // para evitar que un equipo se quede con la foto/especificaciones de un modelo diferente.
+            // Cambiar el TIPO no desengancha a nadie a propósito: suele ser corregir cómo está
+            // escrito ("CUADRILLERA" → "CAMION CUADRILLERA") y soltar a sus unidades les quitaría
+            // la foto; los vínculos hechos a mano se respetan. Lo suelto sí sigue la regla nueva
+            // (autoLink solo engancha las de su tipo).
             $modeloChanged = ($oldModelo !== $validated['MODELO']);
             $anioChanged = ($oldAnio !== $validated['ANIO_ESPEC']);
             
@@ -1260,20 +1283,19 @@ class CaracteristicaModeloController extends Controller
      */
     private function autoLinkEquiposToCatalogo(CaracteristicaModelo $catalogo, string $modelo, $anio, string $context = 'create'): array
     {
-        // Solo las unidades de SU TIPO: un mismo modelo y año puede ser varios vehículos
-        // (F-350 2011 de soldadura, cuadrillera, plataforma; el chasis HFC3252KR1K3 2017 es
-        // VOLTEO y VOLTEO HIDROJET) y cada uno lleva su ficha y su foto. Antes enganchaba
-        // todo el modelo+año y la cuadrillera salía con la foto del camión de soldadura.
+        // Solo las unidades a las que les TOCA esta ficha (deSuTipo, la regla de todo el
+        // catálogo): un mismo modelo y año puede ser varios vehículos (F-350 2011 de
+        // soldadura, cuadrillera, plataforma; el chasis HFC3252KR1K3 2017 es VOLTEO y VOLTEO
+        // HIDROJET) y cada uno lleva su ficha y su foto. Antes enganchaba todo el modelo+año
+        // y la cuadrillera salía con la foto del camión de soldadura.
         //
         // CANDADO: si hay MÁS DE UNA ficha de ese modelo+año+tipo (copias viejas), no se
         // engancha nada: cuál le toca a cada unidad no se puede adivinar, y es preferible
         // que una unidad se quede sin ficha (y muestre su propia foto) a que salga con la
         // foto de otra. store()/update() ya no dejan crear copias (rechazarFichaRepetida).
-        // Una ficha SIN tipo no sabe de cuál es: engancha todo el modelo+año, pero solo si es
-        // la única ficha de ese modelo+año (como antes).
+        $fichas  = $this->fichasDelModelo($modelo, $anio);
         $tipo    = self::tipoNormal($catalogo->TIPO);
-        $cuantas = $this->fichasDelModelo($modelo, $anio)
-            ->filter(fn ($f) => $tipo === '' || self::tipoNormal($f->TIPO) === $tipo)->count();
+        $cuantas = $fichas->filter(fn ($f) => self::tipoNormal($f->TIPO) === $tipo)->count();
 
         if ($cuantas > 1) {
             Log::info("Auto-link OMITIDO para {$modelo} {$anio} {$tipo}: hay {$cuantas} fichas "
@@ -1287,8 +1309,8 @@ class CaracteristicaModeloController extends Controller
 
         $enlazados = [];
         foreach ($query->get() as $eq) {
-            if ($tipo !== '' && self::tipoNormal($eq->tipo?->nombre) !== $tipo) {
-                continue;
+            if (self::deSuTipo($fichas, $eq->tipo?->nombre)?->ID_ESPEC !== $catalogo->ID_ESPEC) {
+                continue;   // le toca otra ficha (la de su tipo) o ninguna
             }
             if ($eq->ID_ESPEC !== $catalogo->ID_ESPEC) {
                 $eq->ID_ESPEC = $catalogo->ID_ESPEC;

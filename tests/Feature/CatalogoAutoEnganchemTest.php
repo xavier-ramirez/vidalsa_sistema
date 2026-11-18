@@ -45,14 +45,14 @@ class CatalogoAutoEnganchemTest extends MySqlTestCase
     }
 
     /** Equipo mínimo del modelo indicado, sin ficha enganchada. */
-    private function equipoSuelto(string $modelo, int $anio, string $tipo = 'CAMIONETA'): Equipo
+    private function equipoSuelto(string $modelo, int $anio, ?string $tipo = 'CAMIONETA'): Equipo
     {
         // MARCA, MODELO, ANIO y SERIAL_CHASIS son NOT NULL sin valor por defecto.
         $eq = new Equipo();
         $eq->MARCA = 'PRUEBA';
         $eq->MODELO = $modelo;
         $eq->ANIO = $anio;
-        $eq->id_tipo_equipo = \App\Models\TipoEquipo::firstOrCreate(['nombre' => $tipo])->id;
+        $eq->id_tipo_equipo = $tipo !== null ? \App\Models\TipoEquipo::firstOrCreate(['nombre' => $tipo])->id : null;
         $eq->ID_ESPEC = null;
         $eq->SERIAL_CHASIS = 'PRUEBA-' . uniqid();
         $eq->save();
@@ -125,6 +125,38 @@ class CatalogoAutoEnganchemTest extends MySqlTestCase
         $otroSoldadura = $this->equipoSuelto($modelo, 2011, 'PRUEBA SOLDADURA');
         $this->autoEnganchar($soldadura);
         $this->assertSame($soldadura->ID_ESPEC, $otroSoldadura->fresh()->ID_ESPEC);
+    }
+
+    /**
+     * Sin tipo de un lado (la unidad o la ficha) y una sola ficha del modelo + año: no hay
+     * nada que confundir y se engancha, como antes. Con varias fichas de tipos distintos, la
+     * unidad sin tipo no se adivina; y la tarjeta SIN FICHA dice lo mismo que el enganche.
+     */
+    public function test_sin_tipo_engancha_solo_si_no_hay_nada_que_confundir(): void
+    {
+        $modelo = 'PRUEBA-SINTIPO-' . uniqid();
+        $ficha  = $this->ficha($modelo, 2020, 'x.webp', 'PRUEBA SOLDADURA');
+        $suelto = $this->equipoSuelto($modelo, 2020, null);
+        $this->autoEnganchar($ficha);
+        $this->assertSame($ficha->ID_ESPEC, $suelto->fresh()->ID_ESPEC, 'Una sola ficha: la unidad sin tipo va a ella.');
+
+        $modelo2 = 'PRUEBA-SINTIPO2-' . uniqid();
+        $a = $this->ficha($modelo2, 2020, 'a.webp', 'PRUEBA SOLDADURA');
+        $this->ficha($modelo2, 2020, 'b.webp', 'PRUEBA CUADRILLERA');
+        $otro = $this->equipoSuelto($modelo2, 2020, null);
+        $this->autoEnganchar($a);
+        $this->assertNull($otro->fresh()->ID_ESPEC, 'Con dos tipos no se adivina cuál es.');
+
+        // La tarjeta SIN FICHA de esa unidad ofrece crear (no "enlazar" a la de otro tipo) y
+        // crearla la engancha de verdad: el botón no se queda sin efecto.
+        $admin = $this->superAdminGlobal();
+        $html = $this->actingAs($admin)->getJson(route('catalogo.index', ['ajax_load' => 1, 'modelo' => 'modelo_eq:' . $modelo2]))
+            ->assertOk()->json('html');
+        $this->assertStringContainsString('Crear ficha', $html);
+        $r = $this->actingAs($admin)->postJson(route('catalogo.asegurarFicha'), ['modelo' => $modelo2, 'anio' => 2020])
+            ->assertOk()->assertJson(['creada' => true]);
+        $this->assertSame($r->json('id'), $otro->fresh()->ID_ESPEC);
+        $this->assertSame('a.webp', $a->fresh()->FOTO_REFERENCIAL, 'La foto de la otra ficha no se toca.');
     }
 
     /** El caso real: la asignación hecha a mano no se puede tocar. */
