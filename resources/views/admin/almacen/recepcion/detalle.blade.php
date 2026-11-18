@@ -303,9 +303,6 @@
     var ID_T   = {{ $traspaso->ID_TRASPASO }};
     var BASE   = @json(url('/admin/almacen/recepcion'));
 
-    // El helper global es window.showToast (uicomponents.js). Preguntaba por window.toast,
-    // que no existe en ninguna parte, así que esta página SIEMPRE caía al alert() del
-    // navegador mientras el resto del módulo mostraba toasts. Mismo patrón que nueva.blade.
     // Delega en window.toast (dom_helpers.js); aqui solo el default de esta pantalla.
     function toast(m, t) { if (!window.toast(m, t || 'success') && t === 'error') alert(m); }
     function pre()  { if (window.showPreloader) window.showPreloader(); }
@@ -365,7 +362,7 @@
             message:     '¿Confirmar que TODOS los materiales (' + lineas.length + ' línea' + (lineas.length > 1 ? 's' : '') + ') llegaron completos y en buen estado?',
             confirmText: 'Sí, llegó todo',
         }, function () {
-            post(BASE + '/' + ID_T + '/recibir', { lineas: lineas, fecha_recepcion: new Date().toISOString().slice(0,10) }, function () {
+            post(BASE + '/' + ID_T + '/recibir', { lineas: lineas }, function () {
                 setTimeout(function () { window.location.reload(); }, 700);
             });
         });
@@ -388,7 +385,7 @@
             message:     'Vas a confirmar la nota de entrega (' + lineas.length + ' material' + (lineas.length > 1 ? 'es' : '') + ').',
             confirmText: 'Confirmar',
         }, function () {
-            post(BASE + '/' + ID_T + '/recibir', { lineas: lineas, fecha_recepcion: new Date().toISOString().slice(0,10) }, function () {
+            post(BASE + '/' + ID_T + '/recibir', { lineas: lineas }, function () {
                 setTimeout(function () { window.location.reload(); }, 700);
             });
         });

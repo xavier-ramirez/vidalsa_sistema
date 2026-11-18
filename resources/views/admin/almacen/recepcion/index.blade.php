@@ -298,7 +298,7 @@
                             <th style="width:1%;white-space:nowrap;" title="Número de la Nota de Entrega (NE-YYYY-NNNN).">Nº Nota</th>
                             <th title="A la izquierda el almacén que ENVÍA; a la derecha el FRENTE al que va el material (debajo, el almacén que lo recibe).">Origen / Destino</th>
                             <th style="white-space:nowrap;text-align:center;" title="Estado actual de la nota.">Estado</th>
-                            <th style="white-space:nowrap;" title="Fecha de despacho. Indicador: verde &lt;24h, amarillo 1-3d, rojo &gt;3d.">Enviado</th>
+                            <th style="white-space:nowrap;" title="Fecha de despacho y, si sigue en tránsito, cuánto lleva esperando.">Enviado</th>
                         </tr>
                     </thead>
                     <tbody id="trTableBody">
@@ -587,7 +587,7 @@
         else     { e.style.display = 'none';  e.textContent = ''; }
     }
     // Catálogo: el MISMO que ya usa el filtro por producto del toolbar (window.trProductosLista,
-    // embebido una sola vez en el render). Se lee por llamada —no se copia a una variable del
+    // que recepcion_bandeja.js pide por AJAX al montar la pantalla). Se lee por llamada —no se copia a una variable del
     // módulo— para que las altas al vuelo se vean desde los dos buscadores sin sincronizar nada.
     // Si todavía no existiera se crea el array en window (no uno local): devolver `[]` suelto
     // haría que el push de un producto nuevo se perdiera en silencio.
@@ -706,6 +706,7 @@
     // Se rearma en cada apertura porque el almacén de la bandeja cambia en caliente, y una
     // lista pintada para el almacén anterior ofrecería proyectos que no son de éste.
     var proyectosVisibles = [];   // los del almacén abierto, para el buscador
+    var proyAlmacen = null;       // almacén para el que se armó el desplegable (ver cdirAbrir)
 
     function montarProyectos(idAlmacen) {
         var cfg = proyectosDe(idAlmacen), row = el('cdirProyectoRow');
@@ -872,7 +873,7 @@
     };
 
     // ── Autocomplete de UM ────────────────────────────────────────────────
-    // Las UMs se derivan del catálogo ya embebido (no hay consulta aparte). El usuario
+    // Las UMs se derivan del catálogo (catalogo(), no hay consulta aparte). El usuario
     // puede escribir una UM que no esté en la lista: se guarda tal cual.
     function umHide() { var b = el('cdirUmSuggest'); if (b) b.classList.remove('open'); }
     window.cdirUmSuggest = function (todas) {
@@ -1028,8 +1029,14 @@
             return;
         }
 
-        // Caso 2 — texto que no está en el catálogo → producto nuevo al vuelo.
+        // Caso 2 — texto que no está en el catálogo → producto nuevo al vuelo. Solo con el
+        // catálogo a la vista: sin él (aún no llega o falló la carga) TODO parece nuevo y se
+        // registraría un duplicado de un producto que ya existe.
         var texto = String(el('cdirSearch').value || '').trim();
+        if (texto.length >= 2 && !catalogo().length) {
+            var mc = 'Todavía no llega la lista de productos. Espera unos segundos e inténtalo de nuevo.';
+            showErr(mc); toast(mc, 'error'); return;
+        }
         if (texto.length >= 2) { crearProducto(texto, cant, umEscrita || 'UND', ''); return; }
 
         // Caso 3 — no hay ni selección ni texto útil.
@@ -1109,13 +1116,17 @@
         el('cdirIcono').textContent        = desp ? 'local_shipping' : 'shopping_cart';
         el('cdirRegistrarTxt').textContent = desp ? 'Despachar' : 'Aceptar';
         el('cdirRegistrarIc').textContent  = desp ? 'local_shipping' : 'check_circle';
-        // El desplegable de proyectos se arma en CADA apertura: el almacén de la bandeja se
-        // cambia en caliente y uno pintado para el anterior ofrecería proyectos que no son.
-        montarProyectos(destinoActual());
-        var f = el('cdirFecha'); if (f && !f.value) f.value = new Date().toISOString().slice(0, 10);
-        // Sin render() aquí: la tabla ya está pintada — al montar el módulo por el render
-        // inicial del final de este script, y después de cada cambio por insertar/quitar/limpiar.
-        // La compra directa entra SIEMPRE por el paso 1, aunque se haya salido con la ✕
+        // El desplegable de proyectos se vuelve a armar solo si cambió el almacén de la bandeja
+        // (se cambia en caliente, y uno pintado para el anterior ofrecería proyectos que no
+        // son). En el mismo almacén se conserva el proyecto elegido: la ✕ promete no perder
+        // nada de lo capturado.
+        if (proyAlmacen !== destinoActual()) {
+            proyAlmacen = destinoActual();
+            montarProyectos(proyAlmacen);
+        }
+        var f = el('cdirFecha'); if (f && !f.value) f.value = window.hoyISO();
+        // El render() de arriba hace falta: aplicarDestino() puede quitar o poner la columna
+        // Destino de la tabla. La compra directa entra SIEMPRE por el paso 1, aunque se haya salido con la ✕
         // desde el 2; "Registrar y despachar" no tiene paso 1. cdirPaso() deja el foco en el
         // primer campo del paso; no se toca aquí.
         window.cdirPaso(desp ? 2 : 1);
@@ -1147,7 +1158,7 @@
         // El proyecto también: la siguiente entrada puede ser de otro frente y dejarlo pegado
         // del anterior es justo el error que este campo vino a evitar.
         if (proyectosVisibles.length) limpiarProyecto();
-        el('cdirFecha').value = new Date().toISOString().slice(0, 10);
+        el('cdirFecha').value = window.hoyISO();
         showErr('');
         despacho.reiniciar();   // el próximo "Registrar y despachar" arranca con la nota en blanco
     }
@@ -1375,7 +1386,7 @@
     // El CATALOGO de productos NO va aqui: se pide por AJAX a urlProductos apenas la
     // pantalla queda montada. Embebido eran 214 KB de HTML y ~48 ms de servidor en cada
     // apertura. Lo consumen el buscador por producto del toolbar y el modal de compra
-    // directa ("Entrada sin nota"), los dos AL TECLEAR, asi que llega a tiempo de sobra.
+    // directa, los dos AL TECLEAR, asi que llega a tiempo de sobra.
     $recb_cfg = [
         'rutaAlmacenRecepcionIndex' => route('almacen.recepcion.index'),
         'traspasoFiltroTodas' => Traspaso::FILTRO_TODAS,
@@ -1394,11 +1405,5 @@
     // navegacion interna, que es cuando el <script src> ya no se re-ejecuta).
     window.recepcionBandejaArrancar(window.RECB_CFG);
 </script>
-
-{{-- El antiguo modal #entModal ("Registrar entrada directa") fue extraido a su
-     pagina propia /admin/almacen/recepcion/nueva — esa ruta ofrece el mismo flujo
-     (POST a almacen.movimientos.lote con tipo=ENTRADA) pero con autocomplete de
-     producto por codigo o descripcion. El boton "Recepción ODC" del header de
-     esta vista linkea directo alla. --}}
 
 @endsection

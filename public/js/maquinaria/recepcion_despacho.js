@@ -16,7 +16,8 @@
  * re-ejecuta un <script src> ya cargado). cfg:
  *   rutaDespacho, rutaPreview, notaSalida  — del Blade.
  *   almacen()   → id del almacén donde entra y del que sale el material.
- *   lineas()    → [{id_producto, cantidad}] capturadas.
+ *   lineas()    → [{id_producto, cantidad, destino?}] capturadas (destino: el de cada
+ *                  línea en una nota horizontal; null si no aplica).
  *   alTerminar(resp) → vacía la captura de la pantalla tras despachar; resp es la respuesta
  *                  del servidor (numero_nota, numero_traspaso…).
  *   alCerrar()   → opcional: el usuario cerró la nota sin despachar (✕ / Cancelar / Escape).

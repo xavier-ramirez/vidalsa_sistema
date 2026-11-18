@@ -226,6 +226,16 @@
     };
 
     /**
+     * Hoy en Venezuela como "2026-11-17", el valor que espera un <input type="date">.
+     * toISOString() da el día en UTC: desde las 20:00 de aquí ya es "mañana", y las fechas que
+     * se proponían por defecto (compra directa, entrada por ODC, Nota de Entrega) salían un día
+     * adelantadas. en-CA es el formato AAAA-MM-DD.
+     */
+    window.hoyISO = function () {
+        return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+    };
+
+    /**
      * Marca de tiempo (ms) a "28/9/2026 07:47", SIEMPRE en hora de Venezuela.
      *
      * Acompaña a tiempoHace y por el mismo motivo: la ficha del equipo en el MAPA y la del

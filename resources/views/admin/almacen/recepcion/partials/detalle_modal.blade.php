@@ -110,7 +110,8 @@
                         @if($puedeRecibir)
                             {{-- Recibido = campo EDITABLE. Tocar la fila lo rellena con la cantidad
                                  enviada (caso normal "llegó todo"); si llegó menos, se escribe el
-                                 número real. Vacío o 0 = no recibido → faltante. El clic sobre el
+                                 número real. Vacío = sin revisar (queda pendiente); 0 = revisada y no llegó nada
+                                 (faltante). El clic sobre el
                                  input no debe togglear la fila (stopPropagation), o escribir dentro
                                  la desmarcaría. --}}
                             {{-- type="text" + inputmode="decimal", NO type="number": igual que el
@@ -182,7 +183,7 @@
              confirmación: siempre visible, deshabilitado mientras no haya ninguna fila marcada
              (trUpdateConfirmBtn). Sin el contador entre paréntesis — el cliente lo pidió fuera;
              las filas marcadas ya se ven tildadas en la lista. --}}
-        <button type="button" id="trConfirmSelBtn" class="dt-btn dt-btn-blue" disabled onclick="window.trModalConfirmarSeleccionados()">Aceptar</button>
+        <button type="button" id="trConfirmSelBtn" class="dt-btn dt-btn-blue" disabled onclick="window.trModalConfirmar()">Aceptar</button>
     @elseif($puedeEnviar)
         <button type="button" class="dt-btn dt-btn-cancel" onclick="window.trModalCancelar('{{ addslashes($neNumero) }}')">Cancelar borrador</button>
         <button type="button" class="dt-btn dt-btn-blue" onclick="window.trModalEnviar()">

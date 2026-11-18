@@ -412,7 +412,7 @@
             if (typeof window.clearDropdownFilter === 'function') {
                 window.clearDropdownFilter('almSalidaProyectoDropdown');
             }
-            var fe = el('almSalidaFecha'); if (fe) fe.value = new Date().toISOString().slice(0, 10);
+            var fe = el('almSalidaFecha'); if (fe) fe.value = window.hoyISO();
             // Reset del dropdown de contratos: vaciar items, cerrar el panel, ocultar el clear-btn.
             // La lista se rellena cuando el usuario elige proyecto destino.
             var citems = el('almSalidaContratoItems'); if (citems) citems.innerHTML = '';

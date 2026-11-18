@@ -172,14 +172,14 @@ class TraspasoController extends Controller
         // este filtro se aplicaba encima → ESTADO=ENVIADO AND ESTADO=X = 0 resultados para
         // cualquier estado distinto de "En tránsito"; por eso se resuelve todo aquí.
         //
-        // Los 3 KPIs del panel "Resumen de la bandeja" cuentan SOLO pendientes (ENVIADO),
-        // así que los 3 fuerzan ese estado y pisan cualquier 'estado' pedido (incluido all).
-        // 'por_revisar' también: desde que el default de la bandeja incluye las parciales,
-        // dejarlo caer en el default listaba notas que ese número no cuenta.
+        // Los 3 KPIs del panel "Resumen de la bandeja" cuentan las notas por revisar
+        // (Traspaso::ESTADOS_RECIBIBLES: En tránsito + Confirmada parcial), así que los 3
+        // fuerzan ese criterio —el default de la bandeja— y pisan cualquier 'estado' pedido
+        // (incluido all): la tabla lista exactamente lo que el número cuenta.
         $kpi          = $request->input('kpi');
         $kpiPendiente = in_array($kpi, ['por_revisar', 'recientes', 'urgentes'], true);
         // Estado EFECTIVO, resuelto una sola vez:
-        //   · KPI activo                          → ENVIADO (ver arriba).
+        //   · KPI activo                          → null = el default (ver arriba).
         //   · estado conocido (real o pseudo)     → ese.
         //   · sin parámetro o basura en la URL    → null = default de la bandeja
         //     (Traspaso::ESTADOS_BANDEJA_DEFAULT: En tránsito + Confirmada parcial).
@@ -189,7 +189,7 @@ class TraspasoController extends Controller
         $estadoPedido = (string) $request->input('estado', '');
         $estadoValido = array_key_exists($estadoPedido, Traspaso::ESTADOS_META)
                      || array_key_exists($estadoPedido, Traspaso::FILTROS_META);
-        $estadoActivo = $kpiPendiente ? Traspaso::ESTADO_ENVIADO : ($estadoValido ? $estadoPedido : null);
+        $estadoActivo = ($kpiPendiente || !$estadoValido) ? null : $estadoPedido;
 
         // TODOS los filtros que definen "lo que la bandeja está mostrando" viven en ESTE
         // closure, porque se aplican a DOS consultas: la tabla y las sugerencias del buscador
@@ -297,8 +297,8 @@ class TraspasoController extends Controller
             ->unique()
             ->values();
 
-        // KPIs del panel lateral: resumen de notas POR REVISAR (ENVIADO) en los almacenes
-        // visibles del usuario. Es un resumen ESTABLE de "tu bandeja" — NO depende de los
+        // KPIs del panel lateral: resumen de notas POR REVISAR (ESTADOS_RECIBIBLES) en los
+        // almacenes de la bandeja del usuario (los que lista su selector en «Todos»). Es un resumen ESTABLE de "tu bandeja" — NO depende de los
         // filtros de la tabla (estado/fechas/búsqueda), por eso se calcula aparte.
         //   · por_revisar = total pendientes de confirmar.
         //   · urgentes    = esperando > 3 días (mismo umbral del punto rojo de la tabla).
@@ -313,7 +313,7 @@ class TraspasoController extends Controller
         // ESTADOS_RECIBIBLES = mismo criterio que la bandeja: una nota parcial tambien esta
         // "por revisar", porque le quedan lineas sin confirmar.
         $pendBase = Traspaso::whereIn('ESTADO', Traspaso::ESTADOS_RECIBIBLES)
-            ->whereIn('ID_ALMACEN_DESTINO', $almacenesVisibles);
+            ->whereIn('ID_ALMACEN_DESTINO', $bandeja->pluck('ID_ALMACEN'));
         $bandejaStats = [
             'por_revisar' => (clone $pendBase)->count(),
             'urgentes'    => (clone $pendBase)->whereRaw('COALESCE(FECHA_ENVIO, created_at) <= ?', [now()->subDays(3)])->count(),

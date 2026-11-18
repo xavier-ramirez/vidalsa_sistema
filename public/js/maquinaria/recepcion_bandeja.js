@@ -31,7 +31,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     var _trBindGlobal = !window.__trRecepcionGlobalBound;
     window.__trRecepcionGlobalBound = true;
 
-    // Lista de N° de nota visibles para el usuario (TR-YYYY-NNNN). Cargada desde
+    // Lista de N° de Nota de Entrega visibles para el usuario (NE-YYYY-NNNN). Cargada desde
     // el controller en cada render; 300 más recientes — suficiente para el
     // autocomplete sin pedir un endpoint extra.
     var TR_NUMEROS = RECB_CFG.numerosNotas;
@@ -157,7 +157,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     });
 
     // Escribir: sale del modo KPI, refresca la X y las sugerencias, y BUSCA SOLO con un
-    // respiro (TR_MIN_BUSCA / TR_ESPERA_MS, arriba). Antes solo buscaba con
+    // respiro (TR_MIN_BUSCA / TR_ESPERA_MS, justo debajo). Antes solo buscaba con
     // Enter o eligiendo una sugerencia: tras filtrar una vez, seguir escribiendo no cambiaba
     // nada y había que pulsar la X para poder buscar otra cosa.
     //   · 3+ caracteres → busca (un N° de nota se reconoce con poco: "249", "NE-2026").
@@ -546,8 +546,13 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     // que suelta `body.style.overflow` sin mirar si hay OTRO overlay abierto (el showModal de
     // la app lo pone en 'hidden'): el fondo se ponía a hacer scroll por debajo de un modal
     // todavía abierto. uicomponents.js ya tiene ese cuidado; aquí faltaba.
+    // Con una confirmación encima (#standardModal: «Salir sin confirmar», «Anular la nota»),
+    // Escape no es asunto de este modal: lo cerraba por debajo del diálogo, que quedaba abierto
+    // apuntando a una nota que ya no estaba (mismo guard que la captura de compra directa).
     if (_trBindGlobal) document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
+        var std = document.getElementById('standardModal');
+        if (std && std.classList.contains('active')) return;
         var ov = el('trDetalleOverlay');
         if (ov && ov.classList.contains('open')) window.trDescartarYCerrar();
     });
@@ -753,7 +758,8 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {
             if (res.ok) {
-                window.toast(successMsg || res.data.message || 'Operación exitosa', 'success');
+                // El mensaje del servidor manda: dice si la recepción quedó parcial.
+                window.toast(res.data.message || successMsg || 'Operación exitosa', 'success');
                 window.trCloseModal();
                 window.trLoad();
             } else {
@@ -780,14 +786,8 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
 
     // "Aceptar": confirma SOLO las filas tildadas (.recibida); las demás quedan PENDIENTES
     // → el backend marca la nota "Confirmada parcial" y la deja en la bandeja. Si se tildan
-    // todas, la nota queda cerrada (RECIBIDO) aunque alguna cantidad no cuadre.
-    window.trModalConfirmarSeleccionados = function () {
-        if (!_trModalId) return;
-        var box = el('trDetalleBox');
-        if (!box || box.querySelectorAll('.dtm-linea-rec.recibida').length === 0) return;
-        window.trModalConfirmar();
-    };
-
+    // todas, la nota queda cerrada (RECIBIDO) aunque alguna cantidad no cuadre. También lo
+    // usa el auto-guardado de la ✕ (trCloseModal). Sin filas marcadas no hace nada.
     window.trModalConfirmar = function () {
         if (!_trModalId) return;
         var lineas = trCollectLineas();

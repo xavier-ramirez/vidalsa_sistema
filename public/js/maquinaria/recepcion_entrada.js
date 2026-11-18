@@ -32,7 +32,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         window.apiFetch(RECE_CFG.rutaAlmacenProductosAutocomplete, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (lista) { if (Array.isArray(lista)) { PRODUCTOS = lista; PRODUCTOS_CARGADOS = true; } })
-        .catch(function () { /* silencioso: el buscador tipear+servidor no depende de esta lista */ });
+        .catch(function () { /* sin lista: el buscador no sugiere y no se crean productos (ver entAgregar) */ });
     })();
     // UMs distintas ya registradas en el catalogo — sirven de sugerencias para el
     // autocomplete del campo UM. El usuario puede tipear una UM nueva libremente.
@@ -482,6 +482,11 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         // permite tipear UM nueva). Reemplaza al mini-modal que antes pedia la UM
         // en un dialogo aparte — ahora la UM esta in-line en el panel de captura.
         var textoBuscador = String(el('entSearch').value || '').trim();
+        // Sin el catálogo cargado todo parece nuevo: se registraría un duplicado.
+        if (textoBuscador.length >= 2 && !PRODUCTOS_CARGADOS) {
+            var mc = 'Todavía no llega la lista de productos. Espera unos segundos e inténtalo de nuevo.';
+            showErr(mc); toast(mc, 'error'); return;
+        }
         if (textoBuscador.length >= 2) {
             // entDoCreateProducto normaliza nombre y UM a mayusculas (y UM vacia → UND).
             var umInp = el('entUm');
@@ -700,7 +705,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             var e = el(id); if (e) e.value = '';
         });
         var pro = el('entProyecto'); if (pro) { pro.value = ''; pro.classList.add('falta'); }
-        var fch = el('entFecha'); if (fch) fch.value = new Date().toISOString().slice(0, 10);
+        var fch = el('entFecha'); if (fch) fch.value = window.hoyISO();
         showErr('');
     }
 
@@ -732,7 +737,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     };
 
     // ── Init ─────────────────────────────────────────────────────────────
-    var f = el('entFecha'); if (f && !f.value) f.value = new Date().toISOString().slice(0, 10);
+    var f = el('entFecha'); if (f && !f.value) f.value = window.hoyISO();
     entRender();
     // Sin foco automatico al cargar — antes le daba foco al buscador y eso
     // disparaba `onfocus="window.entSuggest()"` haciendo que la lista de
