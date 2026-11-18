@@ -20,13 +20,8 @@
     $prodActivo  = $reqSearch || request('id_producto') || request('id_producto_in');
     // Filtro Tipo: Entradas (grupo), Salidas (grupo), Auditoría (tipo exacto AJUSTE) y
     // Devoluciones (tipo exacto DEVOLUCION; también cuentan dentro de Entradas).
-    $tipos = [
-        'ENTRADAS'   => ['label' => 'Entradas', 'sub' => ''],
-        'SALIDAS'    => ['label' => 'Salidas', 'sub' => ''],
-        'AJUSTE'     => ['label' => 'Auditoría', 'sub' => ''],
-        'DEVOLUCION' => ['label' => 'Devoluciones', 'sub' => ''],
-    ];
-    $tipoSelLabel = ($reqTipo && isset($tipos[$reqTipo])) ? $tipos[$reqTipo]['label'] . ($tipos[$reqTipo]['sub'] ? ' ' . $tipos[$reqTipo]['sub'] : '') : null;
+    $tipos = \App\Http\Controllers\AlmacenController::TIPOS_BITACORA;
+    $tipoSelLabel = $reqTipo ? ($tipos[$reqTipo] ?? null) : null;
     // $hayAdv pinta el boton Filtros Avanzados en rojo si HAY filtros aplicados
     // dentro del panel. Tipo vive ahora ahí también — sin esto, seleccionar
     // Entrada/Salida no resaltaría visualmente el botón.
@@ -135,8 +130,7 @@
                         </div>
                         <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
                             <div class="dropdown-item-list" style="max-height:250px;overflow-y:auto;">
-                                @foreach($tipos as $k => $t)
-                                    @php $label = $t['label'] . ($t['sub'] ? ' '.$t['sub'] : ''); @endphp
+                                @foreach($tipos as $k => $label)
                                     <div class="dropdown-item {{ $reqTipo === $k ? 'selected' : '' }}" data-value="{{ $k }}"
                                          onclick="selectOption('almMovTipoDropdown','{{ $k }}','{{ addslashes($label) }}');">{{ $label }}</div>
                                 @endforeach
@@ -160,10 +154,10 @@
                                onkeydown="if(event.key==='Enter'){event.preventDefault(); window.almMovNotaSuggestHide(); window.loadMovimientos();} if(event.key==='Escape') window.almMovNotaSuggestHide();"
                                style="flex:1;border:none;background:transparent;padding:0 4px;font-size:13px;color:#0f172a;outline:none;min-width:0;">
                         <i class="material-icons" id="almMovNotaClear" style="padding:0 6px;color:#64748b;font-size:18px;display:{{ $reqNota ? 'block' : 'none' }};cursor:pointer;transform:none !important;"
-                           onclick="document.getElementById('almMovNota').value=''; this.style.display='none'; document.getElementById('almMovNotaBox').style.background='#fff'; window.almMovNotaSuggestHide(); window.loadMovimientos();">close</i>
+                           onclick="document.getElementById('almMovNota').value=''; this.style.display='none'; window.almMovNotaSuggestHide(); window.loadMovimientos();">close</i>
                     </div>
-                    {{-- Sugerencias en vivo: N° de Nota de Entrega (NE-…) de salida en almacenes
-                         visibles. Mismo estilo (.amf-suggest) que el buscador de productos. --}}
+                    {{-- Sugerencias en vivo: N° de Nota de Entrega (NE-…) de salida del almacén
+                         filtrado. Mismo estilo (.amf-suggest) que el buscador de productos. --}}
                     <div class="amf-suggest" id="almMovNotaSuggest"></div>
                   </div>{{-- /col Nota --}}
                 </div>
@@ -266,7 +260,7 @@
                         <span>Historial de Notas de Entrega</span>
                     </a>
                 {{-- Exportar a Excel: baja la bitácora tal y como se está viendo. Los filtros
-                     salen de buildParams(), el mismo que arma la petición de la tabla. --}}
+                     salen de filtrosMov(), el mismo que arma la tabla. --}}
                     <button type="button" onclick="window.almMovExportarExcel();"
                         class="alm-mov-accion">
                         <div style="background:#f1f5f9;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#64748b;">download</i></div>

@@ -22,10 +22,9 @@ window.almMovArrancar = function (CFG) {
     var ROUTE = CFG.rutas.movimientos;
 
     function el(id) { return document.getElementById(id); }
-    // Busca los hidden de los filtros por name. NOTA: no restringimos a #almMovFilters porque el dropdown de
-    // almacén vive ahora junto al título (fuera de ese contenedor); el atributo data-filter-value es el ancla.
-    // Acepta tanto `<input type=hidden>` (custom-dropdowns: almacen, frente) como
-    // `<select>` (tipo — vive ahora dentro del panel Filtros Avanzados).
+    // Valor de un filtro custom-dropdown (almacén, frente, tipo): su `<input type=hidden>` por name.
+    // No se busca dentro de #almMovFilters porque el de almacén va junto al título; el ancla es
+    // data-filter-value.
     function hv(name) { var e = document.querySelector('[name="' + name + '"][data-filter-value]'); return e ? String(e.value).trim() : ''; }
 
     // SPA: al re-montar esta vista el Blade vuelve a llamar a almMovArrancar. Redefinir las funciones de
@@ -90,6 +89,7 @@ window.almMovArrancar = function (CFG) {
         var body = el('almMovTableBody'); if (!body) return;
         _almMovPagina = pagina || 1;
         var f = filtrosMov();
+        almMovAvanzadoUI(f);
         var carga = movVista()
             .then(function (vista) {
                 if (!document.contains(body)) return;
@@ -102,7 +102,8 @@ window.almMovArrancar = function (CFG) {
                 var pg = el('almMovPagination'); if (pg) pg.innerHTML = data.pagination;
                 var tot = el('almMovTotal'); if (tot) tot.textContent = data.total;
                 var cc = el('almMovConsumoContainer'); if (cc) cc.innerHTML = window.AlmacenLocal.consumo(vista, f, POR_DEFECTO);
-                window.almMovNotasFiltro = window.AlmacenLocal.notasFiltro(vista);
+                window.almMovNotasFiltro = window.AlmacenLocal.notasFiltro(vista, f, POR_DEFECTO);
+                window.almMovNotasTodas = window.AlmacenLocal.notasFiltro(vista);
                 window.almMovProductosLista = window.AlmacenLocal.listaProductos(vista);
                 window.almMovProductosCargados = true;
                 almMovBuscarUI();   // marca "activo" del buscador + iconos (x / escanear)
@@ -115,6 +116,14 @@ window.almMovArrancar = function (CFG) {
         // En una carga COMPLETA esto corre antes que preloader.js (va al final del layout).
         if (!silencioso && window.preloaderMientras) window.preloaderMientras(carga);
     };
+
+    // Estado visual de Filtros Avanzados según los filtros que se van a pedir: el botón en rojo
+    // si hay alguno del panel (Tipo, Referencia, Desde, Hasta) y la caja de Referencia en azul
+    // si tiene texto. Mismo criterio que $hayAdv del Blade, que solo vale para la carga inicial.
+    function almMovAvanzadoUI(f) {
+        var b = el('btnAdvancedFilterMov'); if (b) b.classList.toggle('activo', !!(f.tipo || f.nota || f.desde || f.hasta));
+        var nb = el('almMovNotaBox'); if (nb) nb.style.background = f.nota ? '#e1effa' : '#fff';
+    }
 
     // La copia se puso al día (un guardado propio o de otro equipo): se repinta la MISMA
     // página, cambiando solo las filas distintas.
@@ -283,9 +292,10 @@ window.almMovArrancar = function (CFG) {
     });
 
     // ── Autocomplete del filtro "Nota de entrega" ──────────────────────────────
-    // Lista de N° de Nota de Entrega (NE-…) de salida en almacenes visibles — sale de la copia
-    // (loadMovimientos). Sugiere por substring al escribir; clic en una → completa el filtro y
-    // recarga. Con el campo vacío (foco) muestra las más recientes.
+    // Lista de N° de Nota de Entrega (NE-…) de salida del almacén filtrado — sale de la copia
+    // (loadMovimientos), así no sugiere notas que la tabla dejaría en cero. Sugiere por
+    // substring al escribir; clic en una → completa el filtro y recarga. Con el campo vacío
+    // (foco) muestra las más recientes.
     window.almMovNotasFiltro = [];
     window.almMovNotaSuggestHide = function () { var b = document.getElementById('almMovNotaSuggest'); if (b) b.classList.remove('open'); };
     window.almMovNotaSuggest = function () {
@@ -391,7 +401,6 @@ window.almMovArrancar = function (CFG) {
         });
         if (el('almMovNota')) el('almMovNota').value = '';
         if (el('almMovNotaClear')) el('almMovNotaClear').style.display = 'none';
-        if (el('almMovNotaBox')) el('almMovNotaBox').style.background = '#fff';
         if (typeof window.almMovNotaSuggestHide === 'function') window.almMovNotaSuggestHide();
         if (document.getElementById('almMovTipoDropdown')
             && typeof window.clearDropdownFilter === 'function') {
@@ -536,8 +545,8 @@ window.almMovArrancar = function (CFG) {
             if (!input || !box) return;
             var q = String(input.value || '').trim().toUpperCase();
             if (q === '') { box.classList.remove('open'); return; }
-            // La misma lista del filtro "Nota de entrega", que sale de la copia al día.
-            var matches = (window.almMovNotasFiltro || [])
+            // Las notas de TODOS los almacenes visibles (no solo del filtrado), de la copia al día.
+            var matches = (window.almMovNotasTodas || [])
                 .filter(function (n) { return String(n).toUpperCase().indexOf(q) !== -1; })
                 .slice(0, 4);
             if (matches.length === 0) {
@@ -606,97 +615,97 @@ window.almMovArrancar = function (CFG) {
 })();
 
 // ── Borrar movimiento del kardex (SOLO super.admin) ─────────────────────────
-// Dos botones, ambos renderizados por blade solo para super.admin y con su ruta DELETE
-// gateada con can:super.admin (defensa real, no solo ocultar el botón):
+// Dos botones por fila, que filasKardex (almacen_local.js) pinta solo con puede.superAdmin;
+// su ruta DELETE va gateada con can:super.admin (defensa real, no solo ocultar el botón):
 //   · .alm-mov-undo  (deshacer)            → revierte el stock y recalcula los saldos.
 //   · .alm-mov-purge (eliminar historial)  → borra el rastro SIN tocar el stock.
 // Confirmación con el modal estilizado de la app (window.showModal), NO el confirm()
 // nativo del navegador (que muestra la IP 127.0.0.1 y rompe el diseño). Las dos variantes
 // comparten TODA la mecánica (DELETE + toast + recarga) en almBorrarFilaKardex; solo cambian
 // la URL (data-undo-url / data-purge-url) y los textos de confirmación.
-    function almBorrarFilaKardex(btn, opts) {
-        if (!btn || btn.disabled) return;
-        var url = btn.getAttribute(opts.urlAttr);
-        if (!url) return;
+function almBorrarFilaKardex(btn, opts) {
+    if (!btn || btn.disabled) return;
+    var url = btn.getAttribute(opts.urlAttr);
+    if (!url) return;
 
-        var ejecutar = function () {
-            btn.disabled = true;
-            if (window.showPreloader) window.showPreloader();
-            window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                method: 'DELETE'
-            })
-            .then(function (r) {
-                return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; });
-            })
-            .then(function (res) {
-                if (window.hidePreloader) window.hidePreloader();
-                if (!res.ok) {
-                    window.toast(res.d.message || ('Error del servidor (' + res.status + ').'), 'error');
-                    btn.disabled = false;
-                    return;
-                }
-                window.toast(res.d.message || opts.okMsg, 'success');
-                // La bitácora se rehace sola cuando la copia trae el cambio (evento 'copia-local'):
-                // la fila desaparece. En el deshacer los saldos posteriores ya vienen
-                // recalculados; en el borrado solo-historial NO (a propósito) — el stock no se tocó.
-            })
-            .catch(function () {
-                if (window.hidePreloader) window.hidePreloader();
-                window.toast('No se pudo contactar al servidor.', 'error');
-                btn.disabled = false;
-            });
-        };
-
-        if (window.showModal) {
-            window.showModal({
-                type: 'danger',
-                title: opts.title,
-                message: opts.message,
-                confirmText: opts.confirmText,
-                cancelText: 'Cancelar',
-                onConfirm: ejecutar
-            });
-        } else {
-            // Fallback defensivo si showModal no estuviera cargado.
-            if (window.confirm(opts.title + ' ' + opts.message)) ejecutar();
-        }
-    }
-
-    // El texto de la confirmación lo da el servidor (data-impacto-url →
-    // AlmacenController::impactoDeshacerMovimiento): dice qué más se lleva el deshacer —el
-    // resto de la Nota de Entrega, las devoluciones, el envío en Recepción— con las mismas
-    // reglas que el deshacer de verdad. Si no responde, queda el aviso genérico.
-    window.almDeshacerMovimiento = function (btn) {
-        if (!btn || btn.disabled) return;
-        var confirmar = function (avisos) {
-            almBorrarFilaKardex(btn, {
-                urlAttr: 'data-undo-url',
-                title: '¿Deshacer este movimiento?',
-                message: avisos.map(window.escapeHtml).join('<br>'),
-                confirmText: 'Deshacer',
-                okMsg: 'Movimiento deshecho.'
-            });
-        };
-        var generico = ['Se revierte el stock y se borra sin dejar rastro.'];
-        var url = btn.getAttribute('data-impacto-url');
-        if (!url) { confirmar(generico); return; }
-
+    var ejecutar = function () {
+        btn.disabled = true;
         if (window.showPreloader) window.showPreloader();
-        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.ok ? r.json() : null; })
-            .catch(function () { return null; })
-            .then(function (d) {
-                if (window.hidePreloader) window.hidePreloader();
-                confirmar(d && Array.isArray(d.avisos) && d.avisos.length ? d.avisos : generico);
-            });
-    };
-
-    window.almEliminarSoloHistorial = function (btn) {
-        almBorrarFilaKardex(btn, {
-            urlAttr: 'data-purge-url',
-            title: '¿Eliminar del historial?',
-            message: 'Se borra del historial; el stock no cambia. Irreversible.',
-            confirmText: 'Eliminar del historial',
-            okMsg: 'Registro eliminado del historial.'
+        window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            method: 'DELETE'
+        })
+        .then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; });
+        })
+        .then(function (res) {
+            if (window.hidePreloader) window.hidePreloader();
+            if (!res.ok) {
+                window.toast(res.d.message || ('Error del servidor (' + res.status + ').'), 'error');
+                btn.disabled = false;
+                return;
+            }
+            window.toast(res.d.message || opts.okMsg, 'success');
+            // La bitácora se rehace sola cuando la copia trae el cambio (evento 'copia-local'):
+            // la fila desaparece. En el deshacer los saldos posteriores ya vienen
+            // recalculados; en el borrado solo-historial NO (a propósito) — el stock no se tocó.
+        })
+        .catch(function () {
+            if (window.hidePreloader) window.hidePreloader();
+            window.toast('No se pudo contactar al servidor.', 'error');
+            btn.disabled = false;
         });
     };
+
+    if (window.showModal) {
+        window.showModal({
+            type: 'danger',
+            title: opts.title,
+            message: opts.message,
+            confirmText: opts.confirmText,
+            cancelText: 'Cancelar',
+            onConfirm: ejecutar
+        });
+    } else {
+        // Fallback defensivo si showModal no estuviera cargado.
+        if (window.confirm(opts.title + ' ' + opts.message)) ejecutar();
+    }
+}
+
+// El texto de la confirmación lo da el servidor (data-impacto-url →
+// AlmacenController::impactoDeshacerMovimiento): dice qué más se lleva el deshacer —el
+// resto de la Nota de Entrega, las devoluciones, el envío en Recepción— con las mismas
+// reglas que el deshacer de verdad. Si no responde, queda el aviso genérico.
+window.almDeshacerMovimiento = function (btn) {
+    if (!btn || btn.disabled) return;
+    var confirmar = function (avisos) {
+        almBorrarFilaKardex(btn, {
+            urlAttr: 'data-undo-url',
+            title: '¿Deshacer este movimiento?',
+            message: avisos.map(window.escapeHtml).join('<br>'),
+            confirmText: 'Deshacer',
+            okMsg: 'Movimiento deshecho.'
+        });
+    };
+    var generico = ['Se revierte el stock y se borra sin dejar rastro.'];
+    var url = btn.getAttribute('data-impacto-url');
+    if (!url) { confirmar(generico); return; }
+
+    if (window.showPreloader) window.showPreloader();
+    window.apiFetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+        .then(function (d) {
+            if (window.hidePreloader) window.hidePreloader();
+            confirmar(d && Array.isArray(d.avisos) && d.avisos.length ? d.avisos : generico);
+        });
+};
+
+window.almEliminarSoloHistorial = function (btn) {
+    almBorrarFilaKardex(btn, {
+        urlAttr: 'data-purge-url',
+        title: '¿Eliminar del historial?',
+        message: 'Se borra del historial; el stock no cambia. Irreversible.',
+        confirmText: 'Eliminar del historial',
+        okMsg: 'Registro eliminado del historial.'
+    });
+};

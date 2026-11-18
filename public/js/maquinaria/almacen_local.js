@@ -19,7 +19,8 @@
  *       filas filtradas, en el orden de la tabla (el Excel de la bitácora).
  *   consumo(vista, f, porDefecto, conBusqueda) → html del ranking «Consumo de Inventario».
  *   notas(vista, f, pagina, porDefecto) → { html, pagination, total }.
- *   notasFiltro(vista) → N° de Nota de las salidas (autocomplete del filtro de la bitácora).
+ *   notasFiltro(vista, f, porDefecto) → N° de Nota de las salidas: con `f`, del almacén de
+ *       ese filtro (autocomplete «Referencia» de la bitácora); sin él, de todos los visibles.
  *   listaProductos(vista) → el catálogo activo para los buscadores (forma de
  *       ProductoInventario::listaAutocomplete).
  *
@@ -854,7 +855,7 @@
         const lista = Array.from(grupos.values()).map((g) => Object.assign(g, { total: r3(g.total) }))
             .filter((g) => g.total > 0).sort((a, b) => (b.total - a.total) || (a.id - b.id)).slice(0, 30);
         return htmlConsumo(lista, lleno(f.id_almacen) || alms.filtrado || ['id_frente', 'tipo'].some((k) => lleno(f[k]) && f[k] !== 'all')
-            || ['search', 'desde', 'hasta', 'id_producto', 'nota'].some((k) => lleno(f[k])));
+            || ['search', 'desde', 'hasta', 'id_producto', 'id_producto_in', 'nota'].some((k) => lleno(f[k])));
     }
 
     function htmlConsumo(lista, hayFiltros) {
@@ -949,10 +950,11 @@
         }).join('');
     }
 
-    // N° de Nota de las salidas de los almacenes visibles, las más recientes primero (500).
-    function notasFiltro(vista) {
+    // N° de Nota de las salidas, las más recientes primero (500). Con `f`, solo las del almacén
+    // de ese filtro (el mismo criterio que la tabla); sin él, las de todos los visibles.
+    function notasFiltro(vista, f, porDefecto) {
         const ctx = contexto(vista);
-        const ver = new Set(ctx.visibles.map((a) => a.id));
+        const ver = f ? almacenesDeMov(ctx, f, porDefecto).ids : new Set(ctx.visibles.map((a) => a.id));
         const vistos = new Map();
         vista.filas('movimientos').forEach((m) => {
             if (m.tipo === 'SALIDA' && lleno(m.nota) && ver.has(m.alm)) vistos.set(norm(m.nota), m.nota);

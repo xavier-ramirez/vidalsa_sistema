@@ -64,6 +64,16 @@ class AlmacenController extends Controller
     private const NOTA_FILAS_VERTICAL = 20;
     private const NOTA_FILAS_HORIZONTAL = 12;
 
+    // Filtro «Tipo» de la bitácora: clave que viaja → rótulo. Entradas y Salidas son grupos
+    // (AlmacenLocal.filtrarMovimientos); Auditoría y Devoluciones, el TIPO exacto. Lo usan el
+    // desplegable (movimientos.blade.php) y la cabecera del Excel.
+    public const TIPOS_BITACORA = [
+        'ENTRADAS'   => 'Entradas',
+        'SALIDAS'    => 'Salidas',
+        'AJUSTE'     => 'Auditoría',
+        'DEVOLUCION' => 'Devoluciones',
+    ];
+
     // Ancho tope (px) de la foto del inventario: se ve en un círculo y en el visor, así que
     // 600 basta y pesa poco. La que llega más grande (Gemini da ~1024) se achica.
     private const FOTO_PRODUCTO_ANCHO = 600;
@@ -1631,20 +1641,6 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Exporta el inventario a XLSX (PhpSpreadsheet).
-     *
-     * Estructura del archivo (sigue el patrón de /admin/equipos):
-     *  Fila 1-3 : logo (A1:B3) · título "COPIA DE INVENTARIO – <ALMACÉN>" (C1:E3) · EDICION/REV/FECHA (F1:..3)
-     *  Fila 4   : "Exportado por: Sistema de Gestión …"
-     *  Fila 5   : headers   [N°, CÓDIGO, DESCRIPCIÓN, UND, CATEGORÍA, STOCK (por almacén visible), TOTAL]
-     *  Fila 6+  : datos
-     *
-     * Si el usuario filtró un almacén, sólo se exporta la columna de stock de ESE almacén
-     * (sin TOTAL — el saldo es el mismo). Si no hay filtro, se exporta una columna STOCK por
-     * cada almacén visible al usuario más una columna TOTAL a la derecha.
-     * Solo se incluyen productos con saldo total > 0 (los de stock 0 o negativo se omiten).
-     */
-    /**
      * XLSX de la BITÁCORA de movimientos: exactamente las filas que el usuario está viendo,
      * porque los ids los resuelve la misma copia local que pinta la pantalla.
      */
@@ -1661,7 +1657,7 @@ class AlmacenController extends Controller
             ->with(['producto:ID_PRODUCTO,CODIGO,NOMBRE,UM', 'almacen:ID_ALMACEN,NOMBRE', 'almacenContraparte:ID_ALMACEN,NOMBRE', 'frente:ID_FRENTE,NOMBRE_FRENTE'])
             ->whereIn('ID_MOVIMIENTO', IdsEnviados::leer($request->input('ids')))
             ->whereIn('ID_ALMACEN', $visiblesIds)
-            ->orderByDesc('FECHA')->orderByDesc('ID_MOVIMIENTO')
+            ->orderByDesc('ID_MOVIMIENTO')   // el orden de la tabla (AlmacenLocal.movimientos)
             ->get();
 
         $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -1679,7 +1675,13 @@ class AlmacenController extends Controller
             : 'Todos los visibles';
         $filtros = array_filter([
             'Almacén: ' . $nombreAlmacen,
-            $request->filled('tipo') && $request->input('tipo') !== 'all' ? 'Tipo: ' . $request->input('tipo') : null,
+            $request->filled('tipo') && $request->input('tipo') !== 'all'
+                ? 'Tipo: ' . (self::TIPOS_BITACORA[$request->input('tipo')] ?? $request->input('tipo')) : null,
+            // Producto elegido en una sugerencia o en el ranking (ids, sin texto de búsqueda).
+            $request->filled('id_producto_in')
+                ? 'Producto: ' . ProductoInventario::whereIn('ID_PRODUCTO', IdsEnviados::leer($request->input('id_producto_in')))
+                    ->pluck('NOMBRE')->unique()->implode(' / ')
+                : null,
             $request->filled('nota')   ? 'Nota: ' . $request->input('nota') : null,
             $request->filled('search') ? 'Búsqueda: ' . $request->input('search') : null,
             $request->filled('id_frente') && $request->input('id_frente') !== 'all'
@@ -1765,6 +1767,20 @@ class AlmacenController extends Controller
         }, $nombre, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
     }
 
+    /**
+     * Exporta el inventario a XLSX (PhpSpreadsheet).
+     *
+     * Estructura del archivo (sigue el patrón de /admin/equipos):
+     *  Fila 1-3 : logo (A1:B3) · título "COPIA DE INVENTARIO – <ALMACÉN>" (C1:E3) · EDICION/REV/FECHA (F1:..3)
+     *  Fila 4   : "Exportado por: Sistema de Gestión …"
+     *  Fila 5   : headers   [N°, CÓDIGO, DESCRIPCIÓN, UND, CATEGORÍA, STOCK (por almacén visible), TOTAL]
+     *  Fila 6+  : datos
+     *
+     * Si el usuario filtró un almacén, sólo se exporta la columna de stock de ESE almacén
+     * (sin TOTAL — el saldo es el mismo). Si no hay filtro, se exporta una columna STOCK por
+     * cada almacén visible al usuario más una columna TOTAL a la derecha.
+     * Solo se incluyen productos con saldo total > 0 (los de stock 0 o negativo se omiten).
+     */
     public function export(Request $request)
     {
         $almacenesVisibles = Almacen::visiblesPara($request->user())
