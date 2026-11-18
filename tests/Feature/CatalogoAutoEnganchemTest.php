@@ -10,8 +10,9 @@ use Tests\MySqlTestCase;
 /**
  * El enganche automático de equipos a su ficha de catálogo.
  *
- * REGLA QUE FIJA ESTA PRUEBA: cuando un modelo+año tiene MÁS DE UNA ficha, no se engancha
- * nada. Varias fichas del mismo modelo existen para separar unidades con fotos distintas
+ * Cada ficha engancha solo las unidades de SU TIPO (mismo modelo y año puede ser soldadura,
+ * cuadrillera, plataforma…). REGLA QUE FIJA ESTA PRUEBA: cuando un modelo+año+tipo tiene MÁS
+ * DE UNA ficha, no se engancha nada. Varias fichas del mismo modelo existen para separar unidades con fotos distintas
  * (hoy, distinto color), y cuál le toca a cada una lo decidió una persona a mano: la
  * aplicación no guarda ese dato y no puede adivinarlo.
  *
@@ -35,22 +36,23 @@ class CatalogoAutoEnganchemTest extends MySqlTestCase
         $m->invoke($ctrl, $ficha, $ficha->MODELO, $ficha->ANIO_ESPEC, 'update');
     }
 
-    private function ficha(string $modelo, int $anio, ?string $foto = 'x.webp'): CaracteristicaModelo
+    private function ficha(string $modelo, int $anio, ?string $foto = 'x.webp', string $tipo = 'CAMIONETA'): CaracteristicaModelo
     {
         return CaracteristicaModelo::create([
-            'MODELO' => $modelo, 'TIPO' => 'CAMIONETA', 'ANIO_ESPEC' => $anio,
+            'MODELO' => $modelo, 'TIPO' => $tipo, 'ANIO_ESPEC' => $anio,
             'FOTO_REFERENCIAL' => $foto,
         ]);
     }
 
     /** Equipo mínimo del modelo indicado, sin ficha enganchada. */
-    private function equipoSuelto(string $modelo, int $anio): Equipo
+    private function equipoSuelto(string $modelo, int $anio, string $tipo = 'CAMIONETA'): Equipo
     {
         // MARCA, MODELO, ANIO y SERIAL_CHASIS son NOT NULL sin valor por defecto.
         $eq = new Equipo();
         $eq->MARCA = 'PRUEBA';
         $eq->MODELO = $modelo;
         $eq->ANIO = $anio;
+        $eq->id_tipo_equipo = \App\Models\TipoEquipo::firstOrCreate(['nombre' => $tipo])->id;
         $eq->ID_ESPEC = null;
         $eq->SERIAL_CHASIS = 'PRUEBA-' . uniqid();
         $eq->save();
@@ -84,6 +86,45 @@ class CatalogoAutoEnganchemTest extends MySqlTestCase
         $this->autoEnganchar($negra);
         $this->assertNull($eq->fresh()->ID_ESPEC,
             'Guardar la otra ficha tampoco debe absorberlo.');
+    }
+
+    /**
+     * Mismo modelo y año, distinto vehículo (F-350 2011: soldadura y cuadrillera): cada tipo
+     * lleva su ficha y su foto. La de soldadura no se lleva a la cuadrillera, y la
+     * cuadrillera puede tener la suya sin que la soldadura cambie.
+     */
+    public function test_cada_tipo_del_mismo_modelo_lleva_su_ficha(): void
+    {
+        $modelo      = 'PRUEBA-TIPOS-' . uniqid();
+        $soldadura   = $this->ficha($modelo, 2011, 'soldadura.webp', 'PRUEBA SOLDADURA');
+        $deSoldadura = $this->equipoSuelto($modelo, 2011, 'PRUEBA SOLDADURA');
+        $cuadrillera = $this->equipoSuelto($modelo, 2011, 'PRUEBA CUADRILLERA');
+
+        $this->autoEnganchar($soldadura);
+        $this->assertSame($soldadura->ID_ESPEC, $deSoldadura->fresh()->ID_ESPEC);
+        $this->assertNull($cuadrillera->fresh()->ID_ESPEC, 'La cuadrillera no toma la ficha (ni la foto) de soldadura.');
+
+        // El modal de Equipos le ofrece crear la de SU tipo.
+        $admin  = $this->superAdminGlobal();
+        $crear  = $this->actingAs($admin)->getJson(route('catalogo.elegir', ['equipo' => $cuadrillera->ID_EQUIPO]))
+            ->assertOk()->json('crear');
+        $this->assertSame('PRUEBA CUADRILLERA', $crear['tipo'] ?? null);
+        $this->assertNull($this->actingAs($admin)->getJson(route('catalogo.elegir', ['equipo' => $deSoldadura->ID_EQUIPO]))
+            ->json('crear'), 'La de soldadura ya tiene la suya.');
+
+        // Crearla engancha solo a la cuadrillera; la de soldadura y su foto quedan igual.
+        $r = $this->actingAs($admin)->postJson(route('catalogo.asegurarFicha'), ['modelo' => $modelo, 'anio' => 2011, 'tipo' => 'PRUEBA CUADRILLERA'])
+            ->assertOk()->assertJson(['creada' => true]);
+        $this->assertNotSame($soldadura->ID_ESPEC, $r->json('id'));
+        $this->assertSame([$cuadrillera->ID_EQUIPO], $r->json('enlazados'));
+        $this->assertSame($r->json('id'), $cuadrillera->fresh()->ID_ESPEC);
+        $this->assertSame($soldadura->ID_ESPEC, $deSoldadura->fresh()->ID_ESPEC);
+        $this->assertSame('soldadura.webp', $soldadura->fresh()->FOTO_REFERENCIAL);
+
+        // Con las dos fichas, guardar la de soldadura sigue enganchando a los suyos.
+        $otroSoldadura = $this->equipoSuelto($modelo, 2011, 'PRUEBA SOLDADURA');
+        $this->autoEnganchar($soldadura);
+        $this->assertSame($soldadura->ID_ESPEC, $otroSoldadura->fresh()->ID_ESPEC);
     }
 
     /** El caso real: la asignación hecha a mano no se puede tocar. */

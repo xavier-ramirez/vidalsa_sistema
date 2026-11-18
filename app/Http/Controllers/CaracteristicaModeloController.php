@@ -455,7 +455,7 @@ class CaracteristicaModeloController extends Controller
      * de un equipo, solo super.admin), con las mismas tarjetas del catálogo:
      *   · Sin nada escrito y con `equipo`: las SUGERIDAS para ese equipo (fichasSugeridas).
      *   · Con texto: la búsqueda por modelo o tipo (contiene) en todo el catálogo.
-     * `crear` va SIEMPRE que el equipo no tenga todavía ficha de su MODELO + año, se esté
+     * `crear` va SIEMPRE que el equipo no tenga todavía ficha de su MODELO + año + TIPO, se esté
      * buscando o no: es la ficha que le falta a ESE equipo y el modal la ofrece arriba
      * (asegurarFicha) para crearla y vincularlo. Antes solo salía con el buscador vacío, así
      * que buscar la escondía justo cuando se comprobaba que no existía.
@@ -576,15 +576,31 @@ class CaracteristicaModeloController extends Controller
     }
 
     /**
-     * Si todavía no hay ficha del MODELO + año del equipo: lo que necesita asegurarFicha para
-     * crearla desde el modal. "Ya existe" con la MISMA clave de las sugerencias (claveModelo):
-     * si hay una "ZZ-1037" 2026, a un equipo "ZZ 1037" 2026 no se le ofrece crear otra.
+     * La ficha de un MODELO + año + TIPO (o null). Un mismo modelo y año puede ser varios
+     * vehículos (F-350 2011 de soldadura, cuadrillera, plataforma) y cada uno lleva su ficha
+     * y su foto. Punto único de "ya existe la ficha de su tipo": lo usan el modal de
+     * vincular, asegurarFicha y las tarjetas SIN FICHA. Sin tipo (no se sabe cuál es), la
+     * primera del modelo + año, como antes.
+     */
+    private function fichaDeSuTipo(?string $modelo, $anio, ?string $tipo): ?CaracteristicaModelo
+    {
+        $tipo   = self::tipoNormal($tipo);
+        $fichas = $this->fichasDelModelo($modelo, $anio);
+        return $tipo === '' ? $fichas->first() : $fichas->first(fn ($f) => self::tipoNormal($f->TIPO) === $tipo);
+    }
+
+    /**
+     * Si todavía no hay ficha del MODELO + año + TIPO del equipo: lo que necesita
+     * asegurarFicha para crearla desde el modal. "Ya existe" con la MISMA clave de las
+     * sugerencias (claveModelo): si hay una "ZZ-1037" 2026 de su tipo, a un equipo "ZZ 1037"
+     * 2026 no se le ofrece crear otra. La de OTRO tipo no cuenta: una cuadrillera no toma la
+     * ficha (ni la foto) del camión de soldadura del mismo modelo.
      * Null si ya existe o si al equipo le falta el modelo o el año.
      */
     private function fichaPorCrear(Equipo $equipo): ?array
     {
         $modelo = mb_strtoupper(trim((string) $equipo->MODELO));
-        if (self::claveModelo($modelo) === '' || !$equipo->ANIO || $this->fichasDelModelo($modelo, $equipo->ANIO)->isNotEmpty()) {
+        if (self::claveModelo($modelo) === '' || !$equipo->ANIO || $this->fichaDeSuTipo($modelo, $equipo->ANIO, $equipo->tipo?->nombre)) {
             return null;
         }
         $marca = mb_strtoupper(trim((string) $equipo->MARCA));
@@ -626,9 +642,9 @@ class CaracteristicaModeloController extends Controller
      * lo registrado. Al subirle una foto o pulsar "Crear ficha" se crea la ficha y se le
      * enlazan sus unidades (asegurarFicha).
      *
-     * Si ya hay una ficha con ese MODELO + año (unidades registradas después de crearla, que
-     * el enganche no alcanzó) la tarjeta lo dice y el botón las enlaza a ella en vez de crear
-     * otra: no se vuelven a duplicar fichas.
+     * Si ya hay una ficha con ese MODELO + año + TIPO (unidades registradas después de
+     * crearla, que el enganche no alcanzó) la tarjeta lo dice y el botón las enlaza a ella en
+     * vez de crear otra: no se vuelven a duplicar fichas.
      */
     private function modelosSinFicha(string $tipoFiltro, string $modeloFiltro, string $anio)
     {
@@ -678,18 +694,20 @@ class CaracteristicaModeloController extends Controller
             "CONCAT(UPPER(TRIM(COALESCE(t.nombre, ''))), '|', UPPER(TRIM(COALESCE(equipos.MARCA, ''))), '|', UPPER(TRIM(equipos.MODELO)), '|', COALESCE(equipos.ANIO, 0))",
             'equipos.CAPACIDAD');
 
+        // También con su TIPO (fichaDeSuTipo): la ficha de soldadura no es la de la cuadrillera.
+        $claveFicha = fn ($modelo, $anio, $tipo) => self::claveModelo($modelo) . '|' . (int) $anio . '|' . self::tipoNormal($tipo);
         $fichas = CaracteristicaModelo::whereIn('ANIO_ESPEC', $grupos->pluck('ANIO_KEY')->unique())
-            ->orderBy('ID_ESPEC')->get(['ID_ESPEC', 'MODELO', 'ANIO_ESPEC'])
-            ->unique(fn ($f) => self::claveModelo($f->MODELO) . '|' . (int) $f->ANIO_ESPEC)
-            ->keyBy(fn ($f) => self::claveModelo($f->MODELO) . '|' . (int) $f->ANIO_ESPEC);
+            ->orderBy('ID_ESPEC')->get(['ID_ESPEC', 'MODELO', 'ANIO_ESPEC', 'TIPO'])
+            ->unique(fn ($f) => $claveFicha($f->MODELO, $f->ANIO_ESPEC, $f->TIPO))
+            ->keyBy(fn ($f) => $claveFicha($f->MODELO, $f->ANIO_ESPEC, $f->TIPO));
 
-        return $grupos->map(function ($g) use ($colores, $fichas, $caps) {
+        return $grupos->map(function ($g) use ($colores, $fichas, $caps, $claveFicha) {
             $anio = (int) $g->ANIO_KEY ?: null;
             return [
                 'clase'          => 'VEHICULO',
                 'id'             => null,
                 'sin_ficha'      => true,
-                'ficha_existente'=> $fichas->get(self::claveModelo($g->MODELO_KEY) . '|' . (int) $g->ANIO_KEY)?->ID_ESPEC,
+                'ficha_existente'=> $fichas->get($claveFicha($g->MODELO_KEY, $g->ANIO_KEY, $g->TIPO_KEY))?->ID_ESPEC,
                 'tipo'           => $g->TIPO_KEY !== '' ? $g->TIPO_KEY : null,
                 'modelo'         => $g->MODELO_KEY,
                 'marca'          => $g->MARCA_KEY !== '' ? $g->MARCA_KEY : null,
@@ -711,10 +729,11 @@ class CaracteristicaModeloController extends Controller
     }
 
     /**
-     * POST catalogo/asegurar-ficha — la ficha de un MODELO + año: la que ya existe o una
-     * nueva con solo tipo, modelo y año (lo técnico se completa después con "Editar"). En
-     * los dos casos se le enlazan sus unidades sueltas. Lo usa el catálogo al subir una foto
-     * o pulsar "Crear ficha" en una tarjeta de un modelo que todavía no tenía ficha.
+     * POST catalogo/asegurar-ficha — la ficha de un MODELO + año + TIPO: la que ya existe o
+     * una nueva con solo tipo, modelo y año (lo técnico se completa después con "Editar"). En
+     * los dos casos se le enlazan sus unidades sueltas de ese tipo. Lo usa el catálogo al
+     * subir una foto o pulsar "Crear ficha" en una tarjeta de un modelo que todavía no tenía
+     * ficha, y el modal "Vincular a una ficha".
      */
     public function asegurarFicha(Request $request)
     {
@@ -726,12 +745,10 @@ class CaracteristicaModeloController extends Controller
         $modelo = mb_strtoupper(trim($data['modelo']));
         $anio   = (int) $data['anio'];
 
-        // La ficha que ya haya con la misma clave de modelo; si hay varias (tipos distintos),
-        // la de su tipo.
-        $existentes = $this->fichasDelModelo($modelo, $anio);
-        $tipoPedido = self::tipoNormal($data['tipo'] ?? '');
-        $catalogo   = $existentes->first(fn ($f) => $tipoPedido !== '' && self::tipoNormal($f->TIPO) === $tipoPedido) ?? $existentes->first();
-        $creada     = false;
+        // La de su tipo, si ya existe. La de otro tipo no sirve: antes, sin la de su tipo, se
+        // usaba la primera del modelo y la cuadrillera quedaba con la ficha de soldadura.
+        $catalogo = $this->fichaDeSuTipo($modelo, $anio, $data['tipo'] ?? '');
+        $creada   = false;
         if (!$catalogo) {
             $catalogo = CaracteristicaModelo::create([
                 'MODELO'     => $modelo,
@@ -1243,42 +1260,36 @@ class CaracteristicaModeloController extends Controller
      */
     private function autoLinkEquiposToCatalogo(CaracteristicaModelo $catalogo, string $modelo, $anio, string $context = 'create'): array
     {
-        // CANDADO: si ese modelo+año tiene MÁS DE UNA ficha, no se engancha nada.
+        // Solo las unidades de SU TIPO: un mismo modelo y año puede ser varios vehículos
+        // (F-350 2011 de soldadura, cuadrillera, plataforma; el chasis HFC3252KR1K3 2017 es
+        // VOLTEO y VOLTEO HIDROJET) y cada uno lleva su ficha y su foto. Antes enganchaba
+        // todo el modelo+año y la cuadrillera salía con la foto del camión de soldadura.
         //
-        // Por color ya no pasa: el color vive en la unidad (equipos.COLOR), la foto de cada
-        // color dentro de la ficha (catalogo_colores), las copias que existían se unieron
-        // (migración unificar_fichas_repetidas_por_color) y store()/update() no dejan crear
-        // otra del mismo tipo (rechazarFichaRepetida). Sí pasa a propósito con tipos distintos
-        // del mismo chasis (VOLTEO y VOLTEO HIDROJET): con varias, cuál le toca a cada unidad
-        // no se puede adivinar.
-        //
-        // Por qué existieron: separar unidades que llevaban FOTOS distintas (distinto color)
-        // cuando la ficha solo guardaba una foto y la unidad no decía su color.
-        //
-        // Sin este candado, enganchaba igual: agarra todo equipo del modelo+año con
-        // ID_ESPEC nulo y lo pega a la ficha que se esté guardando. O sea que editar UNA
-        // ficha —aunque fuese solo para corregir un aceite— se llevaba de golpe a todas las
-        // unidades sueltas de ese modelo y las sacaba a todas con la misma foto, borrando
-        // en silencio el trabajo de separarlas. Medido cuando se puso esto: un modelo con 5
-        // fichas tenía 104 unidades sueltas listas para ser absorbidas por la primera
-        // edición que alguien hiciera.
-        //
-        // No adivinar es la respuesta correcta: es preferible que una unidad se quede sin
-        // ficha (y muestre su propia foto) a que se muestre con la foto de otro color.
-        $cuantas = $this->fichasDelModelo($modelo, $anio)->count();
+        // CANDADO: si hay MÁS DE UNA ficha de ese modelo+año+tipo (copias viejas), no se
+        // engancha nada: cuál le toca a cada unidad no se puede adivinar, y es preferible
+        // que una unidad se quede sin ficha (y muestre su propia foto) a que salga con la
+        // foto de otra. store()/update() ya no dejan crear copias (rechazarFichaRepetida).
+        // Una ficha SIN tipo no sabe de cuál es: engancha todo el modelo+año, pero solo si es
+        // la única ficha de ese modelo+año (como antes).
+        $tipo    = self::tipoNormal($catalogo->TIPO);
+        $cuantas = $this->fichasDelModelo($modelo, $anio)
+            ->filter(fn ($f) => $tipo === '' || self::tipoNormal($f->TIPO) === $tipo)->count();
 
         if ($cuantas > 1) {
-            Log::info("Auto-link OMITIDO para {$modelo} {$anio}: hay {$cuantas} fichas "
+            Log::info("Auto-link OMITIDO para {$modelo} {$anio} {$tipo}: hay {$cuantas} fichas "
                 . 'y no se puede saber cuál corresponde a cada unidad. Se asignan a mano.');
             return [];
         }
 
-        $query = Equipo::where('MODELO', $modelo)->where('ANIO', $anio);
-
-        $query->where(fn ($q) => $q->whereNull('ID_ESPEC')->orWhereDoesntHave('especificaciones'));
+        // Un equipo ya enlazado (a esta u otra ficha) no se toca: solo los sueltos o huérfanos.
+        $query = Equipo::with('tipo:id,nombre')->where('MODELO', $modelo)->where('ANIO', $anio)
+            ->where(fn ($q) => $q->whereNull('ID_ESPEC')->orWhereDoesntHave('especificaciones'));
 
         $enlazados = [];
         foreach ($query->get() as $eq) {
+            if ($tipo !== '' && self::tipoNormal($eq->tipo?->nombre) !== $tipo) {
+                continue;
+            }
             if ($eq->ID_ESPEC !== $catalogo->ID_ESPEC) {
                 $eq->ID_ESPEC = $catalogo->ID_ESPEC;
                 $eq->save();

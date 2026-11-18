@@ -8,7 +8,7 @@
     Mismo ancho y organización que el modal "Anclaje de Equipos" (equipos_index.js):
     buscador arriba (modelo, tipo o año), lista de filas con foto a la izquierda y un solo
     botón abajo. Abre con las fichas sugeridas para el equipo y, mientras no exista la de su
-    modelo + año, ofrece arriba crearla (catalogo.asegurarFicha) y vincularlo en un paso —
+    modelo + año + tipo, ofrece arriba crearla (catalogo.asegurarFicha) y vincularlo en un paso —
     también mientras se busca.
 
     Las fichas las busca CaracteristicaModeloController::elegir (mismas tarjetas que el

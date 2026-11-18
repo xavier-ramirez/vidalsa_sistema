@@ -49,6 +49,8 @@ class CatalogoColoresTest extends MySqlTestCase
             'MARCA' => 'PRUEBA', 'MODELO' => $this->modelo, 'ANIO' => 2026, 'COLOR' => $color,
             'ID_ESPEC' => $idEspec, 'FOTO_EQUIPO' => $fotoPropia,
             'SERIAL_CHASIS' => 'TEST-COLOR-' . uniqid(),
+            // Del tipo de la ficha (CAMIONETA): una ficha solo engancha las unidades de su tipo.
+            'id_tipo_equipo' => \App\Models\TipoEquipo::firstOrCreate(['nombre' => 'CAMIONETA'])->id,
         ]);
     }
 
@@ -272,7 +274,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->assertTrue($r->json('sugeridas'));
         $this->assertNull($r->json('actual'));     // sin ficha hoy
         $this->assertSame($f->ID_ESPEC, $r->json('items.0.id'));
-        $this->assertSame(['modelo' => str_replace('-', ' ', $this->modelo), 'anio' => 2027, 'tipo' => null, 'marca' => 'PRUEBA'], $r->json('crear'));
+        $this->assertSame(['modelo' => str_replace('-', ' ', $this->modelo), 'anio' => 2027, 'tipo' => 'CAMIONETA', 'marca' => 'PRUEBA'], $r->json('crear'));
 
         // Su modelo escrito distinto ("ZZ 1037" vs "ZZ-1037") pero con ficha de ese año: no se
         // ofrece crear otra (la misma clave de las sugerencias).

@@ -140,7 +140,8 @@
             '<div class="vf-foto"><i class="material-icons">note_add</i></div>' +
             '<div class="vf-info">' +
                 textoFicha('Crear su ficha', c.marca, c.modelo) +
-                '<div class="vf-meta"><span>Año: ' + esc(c.anio) + '</span><span>Todavía no existe: se crea y se vincula</span></div>' +
+                '<div class="vf-meta">' + (c.tipo ? '<span>' + esc(c.tipo) + '</span>' : '') + '<span>Año: ' + esc(c.anio) + '</span>' +
+                    '<span>Todavía no existe la de su tipo: se crea y se vincula</span></div>' +
             '</div>' +
             '<i class="material-icons vf-check">check_circle</i>' +
         '</button>';
@@ -202,7 +203,7 @@
 
         // La ficha nueva primero se crea (o se encuentra, si alguien la creó mientras tanto) y
         // después se vincula igual que una elegida. asegurarFicha también enlaza las OTRAS
-        // unidades de ese modelo y año que no tenían ficha (enlazados: sus ID, quizá con este).
+        // unidades de ese modelo, año y tipo que no tenían ficha (enlazados: sus ID, quizá con este).
         var nueva = null;   // respuesta de asegurarFicha: { creada, enlazados }
         var ficha = crear
             ? w.apiPostForm(m.getAttribute('data-url-asegurar'), { modelo: crear.modelo, anio: crear.anio, tipo: crear.tipo }, 'No se pudo crear la ficha.')
@@ -228,7 +229,7 @@
     function mensajeFichaNueva(crear, b, idEquipo) {
         var otros = (b.enlazados || []).filter(function (id) { return String(id) !== String(idEquipo); }).length;
         return 'Ficha ' + crear.modelo + ' ' + crear.anio + (b.creada ? ' creada' : ' encontrada') + ' y equipo vinculado' +
-            (otros ? ' (también ' + otros + (otros === 1 ? ' unidad más' : ' unidades más') + ' de ese modelo y año)' : '') +
+            (otros ? ' (también ' + otros + (otros === 1 ? ' unidad más' : ' unidades más') + ' de ese modelo, año y tipo)' : '') +
             (b.creada ? '. Complétala en el Catálogo.' : '.');
     }
 
