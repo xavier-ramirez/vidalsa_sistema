@@ -34,7 +34,8 @@
  * Una copia por usuario (meta usuario-id): en un equipo compartido nadie ve la de otro (va
  * cifrada con la llave de su dueño, llave-local.js). Al entrar otro usuario la del anterior
  * SE QUEDA: si vuelve a entrar en este equipo solo baja lo que cambió, no la copia entera
- * (antes se borraba y cada cambio de usuario repetía la descarga completa de todos).
+ * (antes se borraba y cada cambio de usuario repetía la descarga completa de todos). Con
+ * tope: ver podarOtrosUsuarios.
  *
  * Corre siempre, con la pantalla que sea, se esté tocando o no y con la pestaña oculta: la
  * copia tiene que estar al día ANTES de abrir el módulo. No deja la sesión abierta: el cierre
@@ -80,7 +81,7 @@
                 req.onsuccess = () => resolve(req.result);
                 req.onerror = () => resolve(null);
                 req.onblocked = () => resolve(null);
-            });
+            }).then((b) => (b ? podarOtrosUsuarios(b).then(() => b) : null));
         }
         return dbPromesa;
     }
@@ -89,6 +90,38 @@
     const pedir = (req) => new Promise((ok, mal) => { req.onsuccess = () => ok(req.result); req.onerror = () => mal(req.error); });
     // Todas las claves que empiezan por `prefijo` (un array siempre ordena después que un número o texto).
     const rango = (prefijo) => IDBKeyRange.bound(prefijo, prefijo.concat([[]]));
+
+    // Las copias de OTROS usuarios se quedan (ver la cabecera), pero con tope: las de los
+    // OTROS_MAX que entraron más recientemente en este equipo y con menos de OTROS_DIAS sin
+    // entrar. Así un equipo compartido no crece sin fin (el navegador podría tirar todo el
+    // sitio, bandeja incluida) y lo de alguien que ya no lo usa no queda para siempre.
+    // Cuándo entró cada uno va en claro en localStorage (solo ids y horas, ningún dato).
+    const USO = 'vidalsa_copia_uso';
+    const OTROS_MAX = 3;
+    const OTROS_DIAS = 30;
+    function podarOtrosUsuarios(b) {
+        const u = usuario();
+        let uso = {};
+        try { uso = JSON.parse(localStorage.getItem(USO) || '{}') || {}; } catch (e) { uso = {}; }
+        if (u) uso[u] = Date.now();
+        const tx = b.transaction(['bloques', 'estado'], 'readwrite');
+        const filas = tx.objectStore('bloques');
+        const estado = tx.objectStore('estado');
+        estado.getAllKeys().onsuccess = (e) => {
+            const otros = Array.from(new Set(e.target.result.map((k) => String(k[0]))))
+                .filter((o) => o !== u)
+                .sort((a, z) => (uso[z] || 0) - (uso[a] || 0));
+            otros.forEach((o, i) => {
+                if (i < OTROS_MAX && Date.now() - (uso[o] || 0) < OTROS_DIAS * 86400000) return;
+                filas.delete(rango([o]));
+                estado.delete(rango([o]));
+                delete uso[o];
+            });
+        };
+        return fin(tx).then(() => {
+            try { localStorage.setItem(USO, JSON.stringify(uso)); } catch (e) { /* sin espacio: no importa */ }
+        }).catch(() => {});
+    }
 
     // ── Copias en memoria ────────────────────────────────────────────────────
     const copias = {};   // dominio → su copia en memoria (tablas como Map por id) y su estado
@@ -263,11 +296,39 @@
     // Tope para que el servidor EMPIECE a contestar (ver sincronizar).
     const ESPERA_RESPUESTA_MS = 20000;
 
-    function sincronizar(d) {
-        const c = copia(d);
-        if (c.enCurso) return c.enCurso;
+    // ── Copias enteras, de una en una ───────────────────────────────────────
+    // Recién entrado un usuario eran 4 descargas completas a la vez (2-3 MB sin comprimir y
+    // ~1 s de servidor cada una) y el primer clic esperaba detrás de ellas. Ahora la que NO
+    // tiene copia guardada espera su turno; las que la tienen preguntan como siempre (1 KB).
+    // · La que pide la pantalla abierta (usar/fresca con prioridad) no espera, y si ya estaba
+    //   en la cola se adelanta.
+    // · Si la anterior se cuelga (la red conecta y no termina), a los TOPE_COLA_MS se sigue
+    //   igual: una descarga lenta no deja sin copia a los demás dominios.
+    const TOPE_COLA_MS = 15000;
+    let cola = Promise.resolve();
+    function turno(c) {
+        let soltar;
+        const mio = new Promise((listo) => { soltar = listo; });
+        const antes = Promise.race([cola, new Promise((listo) => setTimeout(listo, TOPE_COLA_MS))]);
+        cola = antes.then(() => mio);
+        return Promise.race([antes, new Promise((listo) => { c.adelantar = listo; })])
+            .then(() => { c.adelantar = null; return soltar; });
+    }
+    // La sesión murió en otro dominio: los que esperaban turno no preguntan (cada 401 lanzaría
+    // su propia recuperación de sesión).
+    const sesionCaida = () => Object.keys(copias).some((k) => copias[k].sinSesion);
 
-        c.enCurso = cargar(d).then(() => {
+    function sincronizar(d, prioridad) {
+        const c = copia(d);
+        if (c.enCurso) {
+            if (prioridad && c.adelantar) c.adelantar();
+            return c.enCurso;
+        }
+
+        let soltar = null;
+        c.enCurso = cargar(d).then(() => (c.meta.hasta || prioridad ? null : turno(c))).then((s) => {
+            soltar = s;
+            if (soltar && sesionCaida()) return;
             c.ultimo = Date.now();
             const q = new URLSearchParams({ desde: c.meta.hasta || '', firma: c.meta.firma || '', esquema: c.meta.esquema || '' });
             // Con tope hasta que empieza la respuesta (no la descarga: una copia entera en un
@@ -310,6 +371,7 @@
                 if (antes) avisar(d, false);
             });
         }).finally(() => {
+            if (soltar) soltar();
             c.enCurso = null;
         });
 
@@ -319,13 +381,14 @@
     // Una pregunta que salga DESPUÉS de ahora: la que ya va en camino pudo salir antes del
     // cambio (un guardado o un aviso), así que se encadena otra al terminar. Varias llamadas
     // mientras tanto esperan esa misma.
-    function sincronizarTras(d) {
+    function sincronizarTras(d, prioridad) {
         const c = copias[d];
-        if (!c.enCurso) return sincronizar(d);
+        if (!c.enCurso) return sincronizar(d, prioridad);
+        if (prioridad && c.adelantar) c.adelantar();
         if (!c.siguiente) {
             const otra = () => {
                 c.siguiente = null;
-                return c.sinSesion || c.sinPermiso ? undefined : sincronizar(d);
+                return c.sinSesion || c.sinPermiso ? undefined : sincronizar(d, prioridad);
             };
             c.siguiente = c.enCurso.then(otra, otra);
         }
@@ -360,21 +423,6 @@
 
     // El reloj pregunta por lo vencido; un aviso del servidor y volver a la pantalla (forzar),
     // por todo. Sin condiciones de uso: ver la cabecera.
-    // Las copias que faltan enteras bajan DE UNA EN UNA: recién entrado un usuario eran 4
-    // descargas completas a la vez (2-3 MB sin comprimir y 1 s de servidor cada una) y el
-    // primer clic esperaba detrás de ellas. La del módulo abierto no espera aquí: usar() la
-    // pide directo. Las que ya tienen copia preguntan como siempre (respuestas de 1 KB).
-    let colaCompletas = Promise.resolve();
-    function bajarEnCola(d) {
-        const c = copias[d];
-        if (c.enCola) return;
-        c.enCola = true;
-        colaCompletas = colaCompletas
-            .then(() => (c.estado.listo && !vencida(c) ? null : sincronizar(d)))
-            .catch(() => {})
-            .then(() => { c.enCola = false; });
-    }
-
     function revisar(forzar) {
         if (!usuario()) return;
         const aviso = avisoPendiente;
@@ -382,8 +430,7 @@
         enUso().forEach((d) => {
             const c = copias[d];
             if (!forzar && !aviso && !vencida(c)) return;
-            if (!c.estado.listo && !c.enCurso) bajarEnCola(d);
-            else if (aviso) sincronizarTras(d);
+            if (aviso) sincronizarTras(d);
             else sincronizar(d);
         });
     }
@@ -429,10 +476,10 @@
                     if (Date.now() - c.ultimo > PREGUNTA_AL_USAR_MS && !c.sinSesion && !c.sinPermiso) sincronizar(d);
                     return c.vista;
                 }
-                return sincronizar(d).then(() => c.vista);
+                return sincronizar(d, true).then(() => c.vista);
             });
         },
-        ahora: sincronizar,
+        ahora: (d) => sincronizar(d, true),
         alGuardar,
         hayCambios,
         // En vivo = llegan avisos del servidor (tiempo-real.js): preguntar queda de respaldo.
@@ -449,7 +496,7 @@
         // servidor no contestó (sin él tampoco se puede armar el Excel).
         fresca(d) {
             const c = copia(d);
-            return cargar(d).then(() => (c.sinSesion || c.sinPermiso ? null : sincronizarTras(d))).then(() => c.vista);
+            return cargar(d).then(() => (c.sinSesion || c.sinPermiso ? null : sincronizarTras(d, true))).then(() => c.vista);
         },
     };
 })();

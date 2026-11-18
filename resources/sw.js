@@ -154,30 +154,48 @@ function asegurarDueno(usuario) {
 // El layout, ya con sesión, pide 'PAGINAS_SIN_RED' en cada carga (pwa-install.js) y aquí solo
 // se bajan las que faltan en la caché de esta versión. Con cada página, sus CSS/JS propios
 // (los ?v= de su HTML): sin ellos un módulo nunca abierto con red salía sin estilos.
-// DE UNA EN UNA, no todas a la vez: recién iniciada la sesión eran 8 pantallas completas (y sus
-// CSS/JS) en paralelo con la copia local, y el primer módulo que se abría esperaba en la cola
-// del servidor detrás de ellas (medido: 6-7 s al cambiar de usuario; luego, 70-150 ms).
-function guardarPaginasSinRed(soloFaltantes) {
-    return caches.open(RUNTIME_CACHE).then((cache) => PAGINAS_SIN_RED.reduce((anterior, ruta) => anterior.then(() =>
-        (soloFaltantes ? cache.match(ruta) : Promise.resolve(null)).then((ya) => ya || fetch(ruta, { credentials: 'same-origin' }).then((response) => {
-            if (!response || response.status !== 200 || response.redirected) return;
-            return response.clone().text()
-                .then((html) => cache.put(ruta, response).then(() => guardarArchivosDe(cache, html)));
-        })).catch(() => {})
-    ), Promise.resolve()));
+// Sin `usuario` (el install de una versión nueva) van todas a la vez, como siempre: el
+// install no tiene un clic esperando y así la versión nueva activa antes.
+// Con `usuario` (el mensaje del layout, recién iniciada la sesión) van DE UNA EN UNA: eran 8
+// pantallas completas (y sus CSS/JS) en paralelo con la copia local, y el primer módulo que
+// se abría esperaba en la cola del servidor detrás de ellas (medido: 6-7 s al cambiar de
+// usuario; luego, 70-150 ms). Antes de cada una y antes de guardarla se mira que el dueño
+// siga siendo ese usuario: si entró otro mientras tanto, lo bajado con la sesión anterior
+// no se guarda a nombre del nuevo.
+const esDueno = (cache, usuario) => cache.match(DUENO).then((r) => (r ? r.text() : null)).then((d) => d === String(usuario));
+
+function guardarPagina(cache, ruta, soloFaltantes, usuario) {
+    return (soloFaltantes ? cache.match(ruta) : Promise.resolve(null)).then((ya) => ya || fetch(ruta, { credentials: 'same-origin' }).then((response) => {
+        if (!response || response.status !== 200 || response.redirected) return;
+        return response.clone().text().then((html) => (usuario ? esDueno(cache, usuario) : Promise.resolve(true))
+            .then((sigue) => sigue && cache.put(ruta, response).then(() => guardarArchivosDe(cache, html))));
+    })).catch(() => {});
 }
 
-// Las que pide el layout (mensaje PAGINAS_SIN_RED) esperan a que pase lo primero que hace el
-// usuario al entrar. Una sola tanda a la vez aunque haya varias pestañas.
-const ESPERA_PAGINAS_SIN_RED_MS = 8000;
+function guardarPaginasSinRed(soloFaltantes, usuario) {
+    return caches.open(RUNTIME_CACHE).then(async (cache) => {
+        if (!usuario) {
+            await Promise.all(PAGINAS_SIN_RED.map((ruta) => guardarPagina(cache, ruta, soloFaltantes)));
+            return;
+        }
+        for (const ruta of PAGINAS_SIN_RED) {
+            if (!(await esDueno(cache, usuario))) return;
+            await guardarPagina(cache, ruta, soloFaltantes, usuario);
+        }
+    });
+}
+
+// Una sola tanda por usuario aunque haya varias pestañas; si entra otro, la suya empieza aparte
+// (la anterior se corta sola al ver que ya no es el dueño).
 let guardandoPaginas = null;
-function guardarPaginasSinRedLuego() {
-    if (!guardandoPaginas) {
-        guardandoPaginas = new Promise((listo) => setTimeout(listo, ESPERA_PAGINAS_SIN_RED_MS))
-            .then(() => guardarPaginasSinRed(true))
-            .finally(() => { guardandoPaginas = null; });
+function guardarPaginasDe(usuario) {
+    if (!guardandoPaginas || guardandoPaginas.usuario !== usuario) {
+        const tanda = { usuario, promesa: null };
+        tanda.promesa = guardarPaginasSinRed(true, usuario)
+            .finally(() => { if (guardandoPaginas === tanda) guardandoPaginas = null; });
+        guardandoPaginas = tanda;
     }
-    return guardandoPaginas;
+    return guardandoPaginas.promesa;
 }
 
 // Tambien los que la pagina pide despues por JS ('/js/...?v=' entre comillas simples: los
@@ -517,9 +535,8 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
     const tipo = event.data && event.data.type;
     if (tipo === 'PAGINAS_SIN_RED') {
-        // El dueño se cambia YA (lo guardado de otro usuario no debe quedar ni un momento);
-        // solo la descarga espera.
-        event.waitUntil(asegurarDueno(event.data.usuario).then(() => guardarPaginasSinRedLuego()));
+        const usuario = event.data.usuario;
+        event.waitUntil(asegurarDueno(usuario).then(() => (usuario ? guardarPaginasDe(usuario) : guardarPaginasSinRed(true))));
     }
     // El login ya comprobó que no hay servidor y entra con lo guardado: el menú sale de la
     // caché sin esperar TOPE_RED_MS (con el wifi sin salida eran 6 s en blanco). Si la red
