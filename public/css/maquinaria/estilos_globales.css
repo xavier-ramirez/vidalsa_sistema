@@ -985,9 +985,14 @@ body {
     display: block;
 }
 
+/* minmax(0, 1fr) y no 1fr plano (mismo motivo que .page-layout-grid): con 1fr la columna
+   crece hasta el ancho minimo de su contenido y, en el telefono, los campos se salian de
+   la tarjeta blanca. Pasaba "a veces" porque mientras carga la fuente de iconos el
+   chevron ocupa el ancho del texto "expand_more" (font-display: block lo oculta pero lo
+   mide); con la fuente ya en cache no se notaba. */
 .form-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px;
 }
 
@@ -1003,11 +1008,12 @@ body {
 }
 #userForm .dropdown-trigger:has(> input) > input {
     padding-left: 15px !important;
+    min-width: 0;   /* un <input> no encoge por debajo de su ancho propio (~20 letras) sin esto */
 }
 
 @media (max-width: 768px) {
     .form-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     /* Evitar que hijos con span 2 desborden en grids de 1 columna */
