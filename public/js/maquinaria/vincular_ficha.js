@@ -268,30 +268,36 @@
     }
 
     // La foto de la fila se cambia en el sitio (sin recargar la tabla ni perder el scroll).
-    // Mismo marcado que partials/table_rows: .eq-foto-wrap con <img class="eq-foto"> o
-    // .placeholder con el ícono.
+    // Mismo marcado que la fila (equipos_local.js · filaEquipo): .eq-foto-wrap con
+    // <img class="eq-foto"> o .placeholder con el ícono. Solo se cambia la imagen: el recuadro
+    // también lleva la etiqueta VENDIDO / EN TRÁMITE DE VENTA del frente, que se queda.
     function pintarFotoFila(el, body) {
         if (!el || !el.isConnected) return;   // la tabla se repintó mientras tanto
         el.setAttribute('data-espec', body.id_espec);
-        el.innerHTML = '';
-        el.classList.toggle('eq-foto-wrap', !!body.foto);
-        el.classList.toggle('placeholder', !body.foto);
+        var nodo;
         if (body.foto) {
-            var img = document.createElement('img');
-            img.alt = 'Foto';
-            img.className = 'eq-foto';
-            img.onload = function () { img.style.opacity = '1'; };   // .eq-foto nace en opacity:0
-            img.onerror = function () { sinFoto(el); };               // como el cargador de la tabla
-            img.src = body.foto;
-            el.appendChild(img);
+            nodo = document.createElement('img');
+            nodo.alt = 'Foto';
+            nodo.className = 'eq-foto';
+            nodo.onload = function () { nodo.style.opacity = '1'; };   // .eq-foto nace en opacity:0
+            nodo.onerror = function () { ponerImagen(el, icono(), false); };   // como el cargador de la tabla
+            nodo.src = body.foto;
         } else {
-            sinFoto(el);
+            nodo = icono();
         }
+        ponerImagen(el, nodo, !!body.foto);
     }
-    function sinFoto(el) {
-        el.classList.remove('eq-foto-wrap');
-        el.classList.add('placeholder');
-        el.innerHTML = '<span class="material-icons">image_not_supported</span>';
+    function icono() {
+        var s = document.createElement('span');
+        s.className = 'material-icons';
+        s.textContent = 'image_not_supported';
+        return s;
+    }
+    function ponerImagen(el, nodo, conFoto) {
+        var actual = el.querySelector(':scope > img, :scope > .material-icons');
+        if (actual) actual.replaceWith(nodo); else el.insertBefore(nodo, el.firstChild);
+        el.classList.toggle('eq-foto-wrap', conFoto);
+        el.classList.toggle('placeholder', !conFoto);
     }
 
     // ── Eventos (delegados en el documento: sobreviven al reemplazo SPA del HTML) ──

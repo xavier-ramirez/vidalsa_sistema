@@ -1685,8 +1685,11 @@
 ])
 <script>
     // Las acciones sobre un auxiliar (cambiar estado, subir o borrar un PDF) refrescan la
-    // lista con cargarAuxiliares: aquí es loadEquipos, que respeta los filtros actuales.
-    window.cargarAuxiliares = function () { if (window.loadEquipos) window.loadEquipos(); };
+    // lista con cargarAuxiliares. Como Movilización y Detalle: se espera a que la copia traiga
+    // el cambio y solo se repintan las filas distintas (eqRepintarDesdeCopia). Con loadEquipos
+    // la tabla volvía a las primeras filas, pedía otra vez todas las fotos y sacaba su spinner
+    // encima del visor del PDF recién subido.
+    window.cargarAuxiliares = function () { if (window.eqRepintarDesdeCopia) window.eqRepintarDesdeCopia(); };
 
     // eq-aux-mode desde el primer pintado, SOLO cuando tipo_aux: está activo (oculta filtros de equipos).
     document.body.classList.toggle('eq-aux-mode', {{ str_starts_with((string) request('id_tipo', ''), 'tipo_aux:') ? 'true' : 'false' }});

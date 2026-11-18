@@ -313,10 +313,8 @@ window.maquinariaArrancar = function () {
                     window.closeAuxDetailsModal();
                 }
 
-                // 2) Refrescar la tabla en background: el partial re-renderiza
-                //    el boton del PDF como "description" (azul) en vez del
-                //    cloud_upload. Asi no queda el icono de cargar pegado y
-                //    no hace falta recargar la pagina.
+                // 2) Refrescar la tabla en segundo plano (cargarAuxiliares: repinta desde la
+                //    copia local las filas que cambiaron), sin recargar la página.
                 if (typeof window.cargarAuxiliares === 'function') window.cargarAuxiliares();
 
                 // 3) Abrir el visor del PDF al instante (igual que vehiculos):
@@ -327,20 +325,20 @@ window.maquinariaArrancar = function () {
                     const uploadUrl = '/admin/equipos-auxiliares/' + auxId + '/upload-doc';
                     window.openPdfPreview(body.link, docType, labelHr, auxId, uploadUrl, false, 'auxiliar');
                 }
-                // Cierra el preloader que abrió ESTA función para la subida. openPdfPreview
-                // ya no enciende ninguno: muestra su propio loader dentro del modal.
-                if (window.hidePreloader) window.hidePreloader();
             } else {
-                if (window.hidePreloader) window.hidePreloader();
                 window.toast(body.message || 'No se pudo cargar el PDF.', 'error');
             }
         })
         .catch(err => {
-            if (window.hidePreloader) window.hidePreloader();
             input.value = '';
             console.error('uploadDoc:', err);
             window.toast('Error de red al cargar el PDF.', 'error');
-        });
+        })
+        // Cierra UNA vez el preloader que abrió esta función (es contado por referencias):
+        // antes, si algo fallaba tras el hide del éxito, el catch lo apagaba otra vez y
+        // descontaba el de otra operación. openPdfPreview no enciende ninguno: muestra su
+        // propio loader dentro del modal.
+        .finally(() => { if (window.hidePreloader) window.hidePreloader(); });
     };
 
 })();

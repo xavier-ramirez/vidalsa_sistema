@@ -41,6 +41,17 @@ class EquipoController extends Controller
         'filter_adicional_2' => 'Compraventa',
     ];
 
+    /**
+     * Lo único de `documentacion` que guardan Registrar y Editar: los campos del formulario.
+     * Los LINK_*, quién y cuándo subió cada PDF y el ID_EQUIPO tienen su flujo (subida de
+     * archivo, uploadDoc): un PUT a mano con documentacion[LINK_ROTC] o documentacion[ID_EQUIPO]
+     * los escribía (Documentacion los tiene en $fillable).
+     */
+    private const DOC_CAMPOS_FORMULARIO = [
+        'NRO_DE_DOCUMENTO', 'PLACA', 'NOMBRE_DEL_TITULAR', 'NOMBRE_SEGURO',
+        'FECHA_VENC_POLIZA', 'FECHA_ROTC', 'FECHA_RACDA',
+    ];
+
     public function __construct()
     {
         $this->middleware('auth');
@@ -877,7 +888,7 @@ class EquipoController extends Controller
                 'SERIAL_DE_MOTOR' => 'nullable|max:100|unique:equipos,SERIAL_DE_MOTOR',
                 'SERIAL_BRAZO' => 'nullable|string|max:100',
                 'documentacion.PLACA' => 'nullable|unique:documentacion,PLACA',
-                'ESTADO_OPERATIVO' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO,DESCONOCIDO',
+                'ESTADO_OPERATIVO' => 'required|in:' . implode(',', Equipo::ESTADOS_ADMITIDOS),
                 'ID_ESPEC' => 'nullable|exists:caracteristicas_modelo,ID_ESPEC', // Security: Validate catalog link exists
                 // El tope de TODOS los PDF es GoogleDriveService::MAX_PDF_KB, la comprobacion
                 // central por la que pasan todos (aqui via comprobarPdfCompleto). Estas
@@ -1130,7 +1141,7 @@ class EquipoController extends Controller
 
             // Documentación Record
             if ($request->has('documentacion') || !empty($docDataUpdates)) {
-                $reqDoc = $request->input('documentacion', []);
+                $reqDoc = \Illuminate\Support\Arr::only((array) $request->input('documentacion', []), self::DOC_CAMPOS_FORMULARIO);
                 $reqDoc['ID_EQUIPO'] = $equipo->ID_EQUIPO;
                 $reqDoc['PLACA'] = strtoupper($reqDoc['PLACA'] ?? '');
                 // mb_strtoupper, como en updateMetadata: strtoupper va byte a byte y un titular
@@ -1332,7 +1343,7 @@ class EquipoController extends Controller
             'documentacion.FECHA_VENC_POLIZA' => 'nullable|date',
             'documentacion.FECHA_ROTC'        => 'nullable|date',
             'documentacion.FECHA_RACDA'       => 'nullable|date',
-            'ESTADO_OPERATIVO' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO,DESCONOCIDO',
+            'ESTADO_OPERATIVO' => 'required|in:' . implode(',', Equipo::ESTADOS_ADMITIDOS),
             'foto_equipo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             'foto_referencial' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:5120',
             // Mismo tope central que el resto (ver MAX_PDF_KB): antes eran 5 MB aqui y
@@ -1502,7 +1513,7 @@ class EquipoController extends Controller
             }
 
             if ($request->has('documentacion')) {
-                $docData = $request->input('documentacion');
+                $docData = \Illuminate\Support\Arr::only((array) $request->input('documentacion'), self::DOC_CAMPOS_FORMULARIO);
                 if (!empty($docData['NOMBRE_SEGURO'])) {
                     $seguro = CatalogoSeguro::firstOrCreate(['NOMBRE_ASEGURADORA' => strtoupper($docData['NOMBRE_SEGURO'])]);
                     $docData['ID_SEGURO'] = $seguro->ID_SEGURO;
@@ -1846,7 +1857,7 @@ class EquipoController extends Controller
     public function changeStatus(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required|in:OPERATIVO,INOPERATIVO,EN MANTENIMIENTO,DESINCORPORADO',
+            'status' => 'required|in:' . implode(',', Equipo::ESTADOS),
         ]);
         $equipo = $this->buscarEquipoOFallar($id);
 
@@ -5014,10 +5025,9 @@ class EquipoController extends Controller
             ], 422);
         }
 
-        // Constantes de validación en memoria
-        $validCategorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
-        $validStatuses   = ['OPERATIVO', 'INOPERATIVO', 'EN MANTENIMIENTO', 'DESINCORPORADO'];
-        $requiredFields  = ['tipo_equipo', 'categoria_flota', 'marca', 'modelo', 'anio', 'serial_chasis', 'frente_trabajo', 'status'];
+        // Opciones de los desplegables de la previa (la revisión de cada fila: revisarFilaBulk).
+        $validCategorias = self::BULK_CATEGORIAS;
+        $validStatuses   = Equipo::ESTADOS;
 
         // Pre-cargar todos los SERIAL_CHASIS y SERIAL_DE_MOTOR del archivo para detectar duplicados cross-file
         $allChasis  = [];
@@ -5093,74 +5103,17 @@ class EquipoController extends Controller
             // para no rechazar archivos antiguos y guardar siempre el canónico.
             if ($statusUpper === 'MANTENIMIENTO') { $statusUpper = 'EN MANTENIMIENTO'; }
 
-            $errors               = [];
-            $idTipoResuelto       = null;
-            $idFrenteResuelto     = null;
-
-            // Validar requeridos
-            foreach ($requiredFields as $field) {
-                $val = match($field) {
-                    'tipo_equipo'    => $rawTipo,
-                    'categoria_flota'=> $rawCategoria,
-                    'marca'          => $rawMarca,
-                    'modelo'         => $rawModelo,
-                    'anio'           => $rawAnio,
-                    'serial_chasis'  => $rawChasis,
-                    'frente_trabajo' => $rawFrente,
-                    'status'         => $rawStatus,
-                    default          => '',
-                };
-                if ($val === '' || $val === null) {
-                    $errors[$field] = 'Campo requerido.';
-                }
-            }
-
-            // Validar tipo_equipo (permite valores nuevos — se crearán al guardar)
-            if ($rawTipo !== '') {
-                $tipoKey = strtolower($rawTipo);
-                if (isset($tiposMap[$tipoKey])) {
-                    $idTipoResuelto = $tiposMap[$tipoKey]->id;
-                }
-                // Si no existe, se crea después en bulkStoreBatch — no es error
-            }
-
-            // Validar categoria_flota
-            if ($rawCategoria !== '' && !in_array($categoriaUpper, $validCategorias)) {
-                $errors['categoria_flota'] = 'Debe ser FLOTA LIVIANA o FLOTA PESADA.';
-            }
-
-            // Validar status
-            if ($rawStatus !== '' && !in_array($statusUpper, $validStatuses)) {
-                $errors['status'] = 'Valor no válido. Opciones: ' . implode(', ', $validStatuses) . '.';
-            }
-
-            // Validar frente_trabajo
-            if ($rawFrente !== '') {
-                $frenteKey = strtolower($rawFrente);
-                if (isset($frentesMap[$frenteKey])) {
-                    $idFrenteResuelto = $frentesMap[$frenteKey]->ID_FRENTE;
-                } else {
-                    $errors['frente_trabajo'] = 'Frente no encontrado o inactivo.';
-                }
-            }
-
-            // Validar serial_chasis
-            if ($chasisUpper !== '') {
-                if (in_array($chasisUpper, $existingChasisBD)) {
-                    $errors['serial_chasis'] = 'Ya registrado en BD.';
-                } elseif (in_array($chasisUpper, $duplicateChasis)) {
-                    $errors['serial_chasis'] = 'Duplicado dentro del archivo.';
-                }
-            }
-
-            // Validar serial_de_motor (opcional)
-            if ($motorUpper !== null) {
-                if (in_array($motorUpper, $existingMotoresBD)) {
-                    $errors['serial_de_motor'] = 'Ya registrado en BD.';
-                } elseif (in_array($motorUpper, $duplicateMotores)) {
-                    $errors['serial_de_motor'] = 'Duplicado dentro del archivo.';
-                }
-            }
+            [$errors, $idTipoResuelto, $idFrenteResuelto] = $this->revisarFilaBulk([
+                'tipo_equipo' => $rawTipo, 'categoria_flota' => $categoriaUpper, 'marca' => $rawMarca,
+                'modelo' => $rawModelo, 'anio' => $rawAnio, 'numero_etiqueta' => $rawEtiqueta,
+                'serial_chasis' => $chasisUpper, 'serial_de_motor' => (string) $motorUpper,
+                'frente_trabajo' => $rawFrente, 'status' => $statusUpper,
+            ], [
+                'tipos' => $tiposMap, 'frentes' => $frentesMap,
+                'chasisBD' => $existingChasisBD, 'chasisRepetidos' => $duplicateChasis,
+                'motoresBD' => $existingMotoresBD, 'motoresRepetidos' => $duplicateMotores,
+                'repetido' => 'Duplicado dentro del archivo.',
+            ]);
 
             $rows[] = [
                 'row_index' => $n,
@@ -5205,6 +5158,62 @@ class EquipoController extends Controller
         ]);
     }
 
+    private const BULK_CATEGORIAS = ['FLOTA LIVIANA', 'FLOTA PESADA'];
+
+    /**
+     * Revisión de UNA fila de la carga por Excel, la misma en la previa (bulkPreview) y al
+     * guardar (bulkStoreBatch): antes eran dos copias de este bloque y a las dos les faltaban
+     * los topes de las columnas que store()/update() ya validan — un MODELO de 51 letras era un
+     * 500 de la BD y un año "2O24" se guardaba como 0.
+     *
+     * $f: valores ya recortados (categoría, seriales y estatus en mayúsculas; '' = vacío).
+     * $ctx: tipos, frentes (mapas por nombre en minúsculas), seriales de la BD y repetidos
+     * del archivo, y el texto del repetido.
+     *
+     * @return array{0: array<string,string>, 1: ?int, 2: ?int}  [errores por campo, id del tipo, id del frente]
+     */
+    private function revisarFilaBulk(array $f, array $ctx): array
+    {
+        $errors = [];
+        foreach (['tipo_equipo', 'categoria_flota', 'marca', 'modelo', 'anio', 'serial_chasis', 'frente_trabajo', 'status'] as $campo) {
+            if ($f[$campo] === '') $errors[$campo] = 'Campo requerido.';
+        }
+
+        // Topes = columnas de `equipos` y de `tipo_equipos` (los mismos de store()/update()).
+        foreach (['tipo_equipo' => 255, 'marca' => 50, 'modelo' => 50, 'numero_etiqueta' => 50, 'serial_chasis' => 100, 'serial_de_motor' => 100] as $campo => $tope) {
+            if (mb_strlen($f[$campo]) > $tope) $errors[$campo] = "Máximo {$tope} caracteres.";
+        }
+        if ($f['anio'] !== '' && (!ctype_digit($f['anio']) || (int) $f['anio'] < 1900 || (int) $f['anio'] > 2100)) {
+            $errors['anio'] = 'Año entre 1900 y 2100.';
+        }
+
+        // Tipo: uno nuevo no es error (se crea al guardar).
+        $idTipo = $f['tipo_equipo'] !== '' ? ($ctx['tipos'][strtolower($f['tipo_equipo'])]->id ?? null) : null;
+
+        if ($f['categoria_flota'] !== '' && !in_array($f['categoria_flota'], self::BULK_CATEGORIAS, true)) {
+            $errors['categoria_flota'] = 'Debe ser FLOTA LIVIANA o FLOTA PESADA.';
+        }
+        if ($f['status'] !== '' && !in_array($f['status'], Equipo::ESTADOS, true)) {
+            $errors['status'] = 'Valor no válido. Opciones: ' . implode(', ', Equipo::ESTADOS) . '.';
+        }
+
+        $idFrente = null;
+        if ($f['frente_trabajo'] !== '') {
+            $frente = $ctx['frentes'][strtolower($f['frente_trabajo'])] ?? null;
+            if ($frente) $idFrente = $frente->ID_FRENTE;
+            else $errors['frente_trabajo'] = 'Frente no encontrado o inactivo.';
+        }
+
+        foreach (['serial_chasis' => 'chasis', 'serial_de_motor' => 'motores'] as $campo => $clave) {
+            $v = $f[$campo];
+            if ($v === '' || isset($errors[$campo])) continue;
+            if (in_array($v, $ctx[$clave . 'BD'])) $errors[$campo] = 'Ya registrado en BD.';
+            elseif (in_array($v, $ctx[$clave . 'Repetidos'])) $errors[$campo] = $ctx['repetido'];
+        }
+
+        return [$errors, $idTipo, $idFrente];
+    }
+
     public function bulkStoreBatch(Request $request)
     {
         set_time_limit(600);
@@ -5218,9 +5227,6 @@ class EquipoController extends Controller
         $user    = auth()->user();
 
         $rows            = $request->input('rows');
-        $validCategorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
-        $validStatuses   = ['OPERATIVO', 'INOPERATIVO', 'EN MANTENIMIENTO', 'DESINCORPORADO'];
-        $requiredFields  = ['tipo_equipo', 'categoria_flota', 'marca', 'modelo', 'anio', 'serial_chasis', 'frente_trabajo', 'status'];
 
         // Pre-cargar seriales del lote para cross-file check
         $allChasis  = [];
@@ -5260,8 +5266,6 @@ class EquipoController extends Controller
         $resolvedRows = [];
 
         foreach ($rows as $idx => $row) {
-            $errors = [];
-
             $rawTipo      = trim((string)($row['tipo_equipo']      ?? ''));
             $rawCategoria = trim((string)($row['categoria_flota']  ?? ''));
             $rawMarca     = trim((string)($row['marca']            ?? ''));
@@ -5282,73 +5286,18 @@ class EquipoController extends Controller
             // para no rechazar archivos antiguos y guardar siempre el canónico.
             if ($statusUpper === 'MANTENIMIENTO') { $statusUpper = 'EN MANTENIMIENTO'; }
 
-            $idTipoResuelto   = null;
-            $idFrenteResuelto = null;
-
-            // Requeridos
-            foreach ($requiredFields as $field) {
-                $val = match($field) {
-                    'tipo_equipo'    => $rawTipo,
-                    'categoria_flota'=> $rawCategoria,
-                    'marca'          => $rawMarca,
-                    'modelo'         => $rawModelo,
-                    'anio'           => $rawAnio,
-                    'serial_chasis'  => $rawChasis,
-                    'frente_trabajo' => $rawFrente,
-                    'status'         => $rawStatus,
-                    default          => '',
-                };
-                if ($val === '' || $val === null) {
-                    $errors[$field] = 'Campo requerido.';
-                }
-            }
-
-            // Tipo de equipo (permite valores nuevos — se crean en la transacción)
-            if ($rawTipo !== '') {
-                $tipoKey = strtolower($rawTipo);
-                if (isset($tiposMap[$tipoKey])) {
-                    $idTipoResuelto = $tiposMap[$tipoKey]->id;
-                }
-                // id_tipo_equipo_resuelto = null si es nuevo → firstOrCreate lo creará
-            }
-
-            // Categoria flota
-            if ($rawCategoria !== '' && !in_array($categoriaUpper, $validCategorias)) {
-                $errors['categoria_flota'] = 'Debe ser FLOTA LIVIANA o FLOTA PESADA.';
-            }
-
-            // Status
-            if ($rawStatus !== '' && !in_array($statusUpper, $validStatuses)) {
-                $errors['status'] = 'Valor no válido. Opciones: ' . implode(', ', $validStatuses) . '.';
-            }
-
-            // Frente de trabajo
-            if ($rawFrente !== '') {
-                $frenteKey = strtolower($rawFrente);
-                if (isset($frentesMap[$frenteKey])) {
-                    $idFrenteResuelto = $frentesMap[$frenteKey]->ID_FRENTE;
-                } else {
-                    $errors['frente_trabajo'] = 'Frente no encontrado o inactivo.';
-                }
-            }
-
-            // Serial chasis
-            if ($chasisUpper !== '') {
-                if (in_array($chasisUpper, $existingChasisBD)) {
-                    $errors['serial_chasis'] = 'Ya registrado en BD.';
-                } elseif (in_array($chasisUpper, $duplicateChasis)) {
-                    $errors['serial_chasis'] = 'Duplicado dentro del lote.';
-                }
-            }
-
-            // Serial motor (opcional)
-            if ($motorUpper !== null) {
-                if (in_array($motorUpper, $existingMotoresBD)) {
-                    $errors['serial_de_motor'] = 'Ya registrado en BD.';
-                } elseif (in_array($motorUpper, $duplicateMotores)) {
-                    $errors['serial_de_motor'] = 'Duplicado dentro del lote.';
-                }
-            }
+            // id del tipo = null si es nuevo → firstOrCreate lo crea en la transacción.
+            [$errors, $idTipoResuelto, $idFrenteResuelto] = $this->revisarFilaBulk([
+                'tipo_equipo' => $rawTipo, 'categoria_flota' => $categoriaUpper, 'marca' => $rawMarca,
+                'modelo' => $rawModelo, 'anio' => trim((string) $rawAnio), 'numero_etiqueta' => $rawEtiqueta,
+                'serial_chasis' => $chasisUpper, 'serial_de_motor' => (string) $motorUpper,
+                'frente_trabajo' => $rawFrente, 'status' => $statusUpper,
+            ], [
+                'tipos' => $tiposMap, 'frentes' => $frentesMap,
+                'chasisBD' => $existingChasisBD, 'chasisRepetidos' => $duplicateChasis,
+                'motoresBD' => $existingMotoresBD, 'motoresRepetidos' => $duplicateMotores,
+                'repetido' => 'Duplicado dentro del lote.',
+            ]);
 
             if (!empty($errors)) {
                 $allErrors[$idx] = $errors;

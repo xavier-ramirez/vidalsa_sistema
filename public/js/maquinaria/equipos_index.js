@@ -404,8 +404,9 @@ window.changeStatusLite = function (id, newStatus, url, triggerEl) {
     .then(r => r.json().then(body => ({ status: r.status, body })))
     .then(({ status, body }) => {
         if (status === 200 && body && body.success) {
-            if (window.updateLocalStats) window.updateLocalStats(oldStatus, newStatus);
             // Hasta que la copia lo traiga, un repintado (el reloj de 15 s) no lo devuelve al de antes.
+            // Ese repintado también recalcula el Consolidado (con el modo documento incluido): sumar
+            // aquí a mano (updateLocalStats) se pisaba al instante y en modo documento contaba mal.
             window.eqAplicarYa('estado', { id_equipo: Number(id), status: newStatus });
             window.toast('Estatus actualizado correctamente.', 'success');
             return;
@@ -482,12 +483,13 @@ window.handleFallaCreatedEquipo = function (falla) {
     if (!ctx || !ctx.triggerEl) return;
     const target = ctx.targetStatus || 'INOPERATIVO';
     _applyStatusVisual(ctx.triggerEl, target);
-    if (window.updateLocalStats) window.updateLocalStats(ctx.oldStatus, target);
     // La fila toma el reporte recién creado (aviso al pasar el mouse y su cierre) sin esperar a la
-    // copia, igual que sin red. Con la forma de la copia (DominioEquipos::filasEquipos).
+    // copia, igual que sin red. Con la forma de la copia (DominioEquipos::filasEquipos). Ese
+    // repintado recalcula el Consolidado; sin el reporte, se ajusta a mano.
     if (falla) window.eqAplicarYa('estado', { id_equipo: Number(ctx.triggerEl.dataset.equipoId), status: target, falla: {
         id: falla.ID_FALLA, codigo: falla.CODIGO_REPORTE, tipo: falla.TIPO_REPORTE, desc: falla.DESCRIPCION_AVERIA, resumen: falla.resumen,
     } });
+    else if (window.updateLocalStats) window.updateLocalStats(ctx.oldStatus, target);
 };
 
 // Barra flotante de selección: UNA sola para equipos y auxiliares (antes cada uno tenía

@@ -29,6 +29,15 @@ class Equipo extends Model
     public const COMBUSTIBLES = ['GASOIL', 'GASOLINA', 'GAS', 'ELECTRICO', 'HIBRIDO', 'NO APLICA'];
 
     /**
+     * Estatus que se le pueden poner a un equipo (menú de estatus, Editar, carga por Excel).
+     * Fuente única de la validación en EquipoController. DESCONOCIDO es un valor viejo de
+     * la base: Registrar y Editar lo siguen aceptando (ESTADOS_ADMITIDOS) para no rechazar un
+     * equipo que ya lo tiene, pero no se ofrece.
+     */
+    public const ESTADOS = ['OPERATIVO', 'INOPERATIVO', 'EN MANTENIMIENTO', 'DESINCORPORADO'];
+    public const ESTADOS_ADMITIDOS = [...self::ESTADOS, 'DESCONOCIDO'];
+
+    /**
      * Mass-assignment seguro. ID_FRENTE_ACTUAL y ID_ANCLAJE fueron removidos:
      * su mutacion debe pasar por flujos controlados (bulkStore de movilizacion,
      * bulkAnchor) que validan permisos, scope LOCAL y hacen

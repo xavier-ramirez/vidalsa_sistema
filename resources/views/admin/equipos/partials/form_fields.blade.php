@@ -293,23 +293,43 @@
 
     <!-- Estatus -->
     <div>
+        @php
+            // Mismas reglas que update() y el menú de estatus: sin equipos.edit, o con un reporte
+            // de falla ABIERTO (su estatus cambia al cerrarlo, desde Fallas), queda bloqueado. Antes
+            // se podía elegir otro y el servidor lo rechazaba al guardar. El hidden sigue enviando
+            // el actual (es obligatorio y, sin cambio, update() no pone reparos).
+            $estatusBloqueo = !auth()->user()?->can('equipos.edit')
+                ? 'No tienes permiso para cambiar el estatus del equipo.'
+                : ((($equipo->exists ?? false) && $equipo->fallaAbierta) ? 'Tiene un reporte de falla abierto: su estatus cambia al cerrar el reporte.' : null);
+            $estatusEq = $estatusBloqueo
+                ? ($equipo->ESTADO_OPERATIVO ?? 'OPERATIVO')
+                : old('ESTADO_OPERATIVO', $equipo->ESTADO_OPERATIVO ?? 'OPERATIVO');
+        @endphp
         <span id="lbl_estado_title" style="display: block; font-weight: 700; margin-bottom: 8px; color: var(--maquinaria-dark-blue);">Estatus</span>
         <div class="custom-dropdown" id="estadoSelect">
-            <input type="hidden" name="ESTADO_OPERATIVO" id="input_estatus" data-filter-value value="{{ old('ESTADO_OPERATIVO', $equipo->ESTADO_OPERATIVO ?? 'OPERATIVO') }}" aria-label="Estatus Operativo">
-            <div class="dropdown-trigger" id="trigger_estado" onclick="toggleDropdown('estadoSelect', event)" tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_estado_title label_estatus" style="cursor: default;">
-                <span id="label_estatus" data-filter-label>{{ old('ESTADO_OPERATIVO', $equipo->ESTADO_OPERATIVO ?? 'OPERATIVO') == 'EN MANTENIMIENTO' ? 'MANTENIMIENTO' : old('ESTADO_OPERATIVO', $equipo->ESTADO_OPERATIVO ?? 'OPERATIVO') }}</span>
-                <i class="material-icons">expand_more</i>
-            </div>
-            <div class="dropdown-content">
-                @foreach(['OPERATIVO', 'INOPERATIVO', 'EN MANTENIMIENTO' => 'MANTENIMIENTO', 'DESINCORPORADO'] as $key => $val)
-                    @php 
-                        $val_display = is_numeric($key) ? $val : $val;
-                        $val_value = is_numeric($key) ? $val : $key;
-                    @endphp
-                    <div class="dropdown-item" onclick="selectOption('estadoSelect', '{{ $val_value }}', '{{ addslashes($val_display) }}', 'estatus')">{{ $val_display }}</div>
-                @endforeach
-            </div>
+            <input type="hidden" name="ESTADO_OPERATIVO" id="input_estatus" data-filter-value value="{{ $estatusEq }}" aria-label="Estatus Operativo">
+            @if($estatusBloqueo)
+                <div class="dropdown-trigger" id="trigger_estado" tabindex="-1" aria-disabled="true"
+                     title="{{ $estatusBloqueo }}" style="cursor: not-allowed; opacity: 0.75; background:#f1f5f9;">
+                    <span id="label_estatus" data-filter-label>{{ $estatusEq == 'EN MANTENIMIENTO' ? 'MANTENIMIENTO' : $estatusEq }}</span>
+                    <i class="material-icons" style="color:#94a3b8;">lock</i>
+                </div>
+            @else
+                <div class="dropdown-trigger" id="trigger_estado" onclick="toggleDropdown('estadoSelect', event)" tabindex="0" role="button" aria-haspopup="listbox" aria-labelledby="lbl_estado_title label_estatus" style="cursor: default;">
+                    <span id="label_estatus" data-filter-label>{{ $estatusEq == 'EN MANTENIMIENTO' ? 'MANTENIMIENTO' : $estatusEq }}</span>
+                    <i class="material-icons">expand_more</i>
+                </div>
+                <div class="dropdown-content">
+                    @foreach(\App\Models\Equipo::ESTADOS as $estado)
+                        @php $etiquetaEstado = $estado === 'EN MANTENIMIENTO' ? 'MANTENIMIENTO' : $estado; @endphp
+                        <div class="dropdown-item" onclick="selectOption('estadoSelect', '{{ $estado }}', '{{ $etiquetaEstado }}', 'estatus')">{{ $etiquetaEstado }}</div>
+                    @endforeach
+                </div>
+            @endif
         </div>
+        @if($estatusBloqueo)
+            <span style="margin-top:4px; font-size:11px; color:#94a3b8; display:block; line-height:1.3;">{{ $estatusBloqueo }}</span>
+        @endif
     </div>
 
     <!-- Código de Patio -->
