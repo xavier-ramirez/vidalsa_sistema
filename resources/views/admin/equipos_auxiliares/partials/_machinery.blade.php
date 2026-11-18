@@ -53,13 +53,11 @@
 
                 {{-- Mismo boton y mismo modal de historial que el detalle del equipo. Va fuera de
                      #auxDetailsBody porque renderAuxDetailsModal lo reescribe; el id lo pone ahi. --}}
-                @if(\App\Support\Sincronizacion\DominioMovilizaciones::puede(auth()->user()))
                 <button type="button" id="btn_ver_movilizaciones_aux" class="btn-ficha-movilizaciones" data-aux-id=""
                     onclick="window.abrirMovilizacionesAuxiliar(this.dataset.auxId)">
                     <i class="material-icons">local_shipping</i>
                     <span>Movilizaciones</span>
                 </button>
-                @endif
             </div>
         </div>
     </div>

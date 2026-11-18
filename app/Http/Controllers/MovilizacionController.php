@@ -34,8 +34,6 @@ class MovilizacionController extends Controller
     public function index(Request $request)
     {
         $usuario = $request->user();
-        abort_unless(DominioMovilizaciones::puede($usuario), 403);
-
         // Frentes de cualquier estatus (también finalizados y eliminados: se busca en
         // movilizaciones de frentes antiguos), menos los bloqueados para el usuario.
         $frentes = FrenteTrabajo::withTrashed()

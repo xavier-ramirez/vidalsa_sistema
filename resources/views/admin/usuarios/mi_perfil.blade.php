@@ -43,7 +43,7 @@
             <i class="material-icons">lock</i>
             Cambiar contraseña
         </div>
-        <p class="perfil-section-sub">Usa al menos 6 caracteres. Se cierra la sesión en los demás dispositivos.</p>
+        <p class="perfil-section-sub">Usa al menos 6 caracteres.</p>
 
         @if($errors->any())
             <script>

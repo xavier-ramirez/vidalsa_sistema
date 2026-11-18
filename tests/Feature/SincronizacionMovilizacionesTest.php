@@ -10,9 +10,10 @@ use Tests\MySqlTestCase;
 
 /**
  * Copia local del historial de MOVILIZACIONES (GET /sync/movilizaciones) sobre la base real.
- * Decisión del usuario: la ve quien tiene permisos de equipos, sin las movilizaciones que
- * tocan un frente bloqueado para él. Igual la pantalla /admin/movilizaciones y el modal
- * «Movilizaciones» del detalle del equipo y del auxiliar.
+ * Decisión del usuario (18-11-2026): la ve cualquiera con sesión, sin permiso, menos las
+ * movilizaciones que tocan un frente bloqueado para él. Igual la pantalla
+ * /admin/movilizaciones, su botón del menú y el modal «Movilizaciones» del detalle del
+ * equipo y del auxiliar.
  *
  * No escribe nada permanente: MySqlTestCase revierte la transacción al terminar.
  */
@@ -27,14 +28,14 @@ class SincronizacionMovilizacionesTest extends MySqlTestCase
         }
     }
 
-    public function test_sin_permisos_de_equipos_no_hay_historial(): void
+    public function test_sin_ningun_permiso_se_ve_y_se_abre_el_historial(): void
     {
         $usuario = $this->usuario('');
 
-        $this->actingAs($usuario)->getJson('/sync/movilizaciones')->assertForbidden();
-        $this->actingAs($usuario)->get('/admin/movilizaciones')->assertForbidden();
-        $this->actingAs($usuario)->get('/admin/equipos')->assertOk()->assertDontSee('id="btn_ver_movilizaciones"', false);
-        $this->actingAs($this->usuario('equipos.assign'))->get('/admin/equipos')->assertOk()
+        $this->actingAs($usuario)->getJson('/sync/movilizaciones')->assertOk();
+        $this->actingAs($usuario)->get('/admin/movilizaciones')->assertOk();
+        $this->actingAs($usuario)->get('/admin/equipos')->assertOk()
+            ->assertSee('href="' . route('movilizaciones.index') . '"', false)
             ->assertSee('id="btn_ver_movilizaciones"', false)
             ->assertSee('id="btn_ver_movilizaciones_aux"', false);
     }

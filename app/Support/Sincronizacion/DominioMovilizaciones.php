@@ -13,8 +13,9 @@ use App\Models\Usuario;
  * La pantalla /admin/movilizaciones filtra, pagina y pinta SOLO con estas filas, con o sin
  * internet, y el Excel se pide con los ids que ella eligió: no hay filtros en el servidor.
  *
- * Quién lo ve (decisión del usuario, 23-10-2026): quien tiene permisos de equipos, sin las
- * movilizaciones que tocan un frente bloqueado para él (de origen o de destino).
+ * Quién lo ve (decisión del usuario, 18-11-2026): todo usuario con sesión, sin permiso
+ * especial, menos las movilizaciones que tocan un frente bloqueado para él (de origen o de
+ * destino). Movilizar, borrar y deshacer siguen con su permiso (MovilizacionController).
  *
  * El nombre del usuario que registró va copiado en la fila y la tabla de usuarios no se
  * anota en el registro de cambios: si alguien cambia su nombre, sus filas lo toman en la
@@ -31,7 +32,7 @@ class DominioMovilizaciones
 
     public static function puede(Usuario $usuario): bool
     {
-        return $usuario->can('equipos.create') || $usuario->can('equipos.edit') || $usuario->can('equipos.assign');
+        return true;
     }
 
     public function firma(): string

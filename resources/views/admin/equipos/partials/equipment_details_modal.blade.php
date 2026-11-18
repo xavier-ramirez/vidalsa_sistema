@@ -306,19 +306,17 @@ Estructura: overlay > modal-content > header + sub-header + body
                     </div>
                 </details>
 
-                {{-- Movilizaciones del equipo: solo para quien ve Movilizaciones (permisos de
-                     equipos, DominioMovilizaciones::puede). BOTON y no un <details> como los
+                {{-- Movilizaciones del equipo: para todos, sin permiso (como la pantalla
+                     Historial). BOTON y no un <details> como los
                      bloques de arriba: abre su propio modal con el historial, que sale de la
                      copia local de Movilizaciones (uicomponents.js).
                      El id del equipo lo pone showDetailsImproved en data-equipo-id.
                      .btn-ficha-movilizaciones lo comparte con el modal del auxiliar. --}}
-                @if(\App\Support\Sincronizacion\DominioMovilizaciones::puede(auth()->user()))
                 <button type="button" id="btn_ver_movilizaciones" class="btn-ficha-movilizaciones" data-equipo-id=""
                     onclick="window.abrirMovilizacionesEquipo(this.dataset.equipoId)">
                     <i class="material-icons">local_shipping</i>
                     <span>Movilizaciones</span>
                 </button>
-                @endif
 
             </div>
         </div>{{-- /BODY --}}

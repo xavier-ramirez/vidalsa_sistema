@@ -478,12 +478,10 @@
                         class="nav-dropdown-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}">
                         <i class="material-icons">local_gas_station</i> Consumibles
                     </a>
-                    @if(auth()->user() && \App\Support\Sincronizacion\DominioMovilizaciones::puede(auth()->user()))
                     <a href="{{ route('movilizaciones.index') }}"
                         class="nav-dropdown-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}">
                         <i class="material-icons">local_shipping</i> Historial
                     </a>
-                    @endif
                 </div>
             </div>
 
@@ -655,12 +653,10 @@
                     class="mobile-nav-link {{ request()->is('admin/consumibles*') ? 'active' : '' }}">
                     <i class="material-icons">local_gas_station</i> Consumibles
                 </a>
-                @if(auth()->user() && \App\Support\Sincronizacion\DominioMovilizaciones::puede(auth()->user()))
                 <a href="{{ route('movilizaciones.index') }}"
                     class="mobile-nav-link {{ request()->is('admin/movilizaciones*') ? 'active' : '' }}">
                     <i class="material-icons">local_shipping</i> Historial
                 </a>
-                @endif
             </div>
         </div>
         <div class="mobile-nav-group" id="mobileAlmacenGroup">

@@ -46,7 +46,7 @@ class UserController extends Controller
 
         $user = auth()->user();
         // Rehashea y revoca las sesiones (ver Usuario::establecerClave); ESTA sigue abierta
-        // con el token nuevo: "se cierra la sesión en los demás dispositivos".
+        // con el token nuevo y se cierran las de los demás dispositivos.
         $user->establecerClave($request->password);
         $user->REQUIERE_CAMBIO_CLAVE = 0;
         $user->save();
