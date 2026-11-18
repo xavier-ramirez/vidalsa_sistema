@@ -28,12 +28,20 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     // vuelo; esa sync solo escribe si el catálogo ya cargó (PRODUCTOS_CARGADOS) para no perderlas.
     var PRODUCTOS = [];
     var PRODUCTOS_CARGADOS = false;
-    (function () {
+    var PRODUCTOS_CARGANDO = false;
+    // Un error del servidor NO cuenta como cargado (null, no []): con la lista vacía marcada
+    // como buena todo parecería nuevo y entAgregar registraría duplicados. entAgregar la
+    // vuelve a pedir si sigue sin llegar.
+    function cargarProductos() {
+        if (PRODUCTOS_CARGADOS || PRODUCTOS_CARGANDO) return;
+        PRODUCTOS_CARGANDO = true;
         window.apiFetch(RECE_CFG.rutaAlmacenProductosAutocomplete, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (lista) { if (Array.isArray(lista)) { PRODUCTOS = lista; PRODUCTOS_CARGADOS = true; } })
-        .catch(function () { /* sin lista: el buscador no sugiere y no se crean productos (ver entAgregar) */ });
-    })();
+        .catch(function () { /* sin lista: el buscador no sugiere y no se crean productos (ver entAgregar) */ })
+        .finally(function () { PRODUCTOS_CARGANDO = false; });
+    }
+    cargarProductos();
     // UMs distintas ya registradas en el catalogo — sirven de sugerencias para el
     // autocomplete del campo UM. El usuario puede tipear una UM nueva libremente.
     var UNIDADES_MEDIDA = RECE_CFG.unidadesMedida;
@@ -484,7 +492,8 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         var textoBuscador = String(el('entSearch').value || '').trim();
         // Sin el catálogo cargado todo parece nuevo: se registraría un duplicado.
         if (textoBuscador.length >= 2 && !PRODUCTOS_CARGADOS) {
-            var mc = 'Todavía no llega la lista de productos. Espera unos segundos e inténtalo de nuevo.';
+            cargarProductos();   // si falló la primera vez, se reintenta
+            var mc ='Todavía no llega la lista de productos. Espera unos segundos e inténtalo de nuevo.';
             showErr(mc); toast(mc, 'error'); return;
         }
         if (textoBuscador.length >= 2) {

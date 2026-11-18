@@ -284,9 +284,9 @@
                     <span class="tr-acc-ic"><i class="material-icons">local_shipping</i></span><span>Registrar y despachar</span>
                 </button>
                 {{-- La recepción del almacén GENERAL (compras por orden de compra) es otra
-                     pantalla, y quien tiene ese almacén entra a ella directo. Este acceso es
-                     para el global sin almacén propio y para quien llegó aquí desde el general
-                     (Historial → «Despachos»). --}}
+                     pantalla, y quien tiene ese almacén entra a ella directo. Este acceso sale a
+                     quien ve un almacén general ($veGeneral): todo global y el local ligado a
+                     uno (p. ej. el que llegó desde el general por Historial → «Despachos»). --}}
                 @if($veGeneral)
                 <a href="{{ route('almacen.recepcion.nueva') }}" class="tr-acc-item"
                    title="Recepción del almacén general: registrar lo que llegó por orden de compra">
@@ -1044,8 +1044,9 @@
         // catálogo a la vista: sin él (aún no llega o falló la carga) TODO parece nuevo y se
         // registraría un duplicado de un producto que ya existe.
         var texto = String(el('cdirSearch').value || '').trim();
-        if (texto.length >= 2 && !catalogo().length) {
-            var mc = 'Todavía no llega la lista de productos. Espera unos segundos e inténtalo de nuevo.';
+        if (texto.length >= 2 && !window.trProductosCargados) {
+            if (window.trCargarProductos) window.trCargarProductos();   // si falló, se reintenta
+            var mc ='Todavía no llega la lista de productos. Espera unos segundos e inténtalo de nuevo.';
             showErr(mc); toast(mc, 'error'); return;
         }
         if (texto.length >= 2) { crearProducto(texto, cant, umEscrita || 'UND', ''); return; }

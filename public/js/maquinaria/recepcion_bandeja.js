@@ -46,8 +46,11 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     // Se vuelve a pedir en CADA apertura (antes una vez por sesión: un producto creado desde
     // Inventario u otro equipo no salía hasta recargar). Mientras llega se busca en la de la
     // apertura anterior, y lo dado de alta aquí entretanto (push en catalogo()) se conserva.
+    // window.trProductosCargados: llegó al menos una vez (en esta pestaña). Lo mira la compra
+    // directa antes de dar de alta un producto: la longitud no sirve, un catálogo vacío es
+    // válido y una carga fallida no lo es. trCargarProductos() reintenta desde allí.
     window.trProductosLista = window.trProductosLista || [];
-    (function () {
+    (window.trCargarProductos = function () {
         if (window.trProductosCargando || !RECB_CFG.urlProductos) return;
         window.trProductosCargando = true;
         var previa = window.trProductosLista, antes = previa.length;
@@ -59,6 +62,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
                 lista.forEach(function (p) { ids[p.ID_PRODUCTO] = true; });
                 window.trProductosLista = lista.concat(window.trProductosLista === previa
                     ? previa.slice(antes).filter(function (p) { return !ids[p.ID_PRODUCTO]; }) : []);
+                window.trProductosCargados = true;
             })
             .catch(function () { /* silencioso: queda la lista anterior y se reintenta al volver */ })
             .finally(function () { window.trProductosCargando = false; });

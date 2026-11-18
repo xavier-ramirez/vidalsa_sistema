@@ -62,6 +62,11 @@ class RecepcionEntradaPorTipoTest extends MySqlTestCase
         $this->assertNotNull($u, 'Hace falta un global con el almacén GENERAL en su frente.');
         $this->actingAs($u)->get(route('almacen.recepcion.index'))
             ->assertRedirect(route('almacen.recepcion.nueva'));
+        // Un enlace viejo a la bandeja de su GENERAL (no es de la bandeja: se descarta) también
+        // lo lleva a su pantalla, igual que si no lo hubiera pedido.
+        $general = (int) Almacen::where('TIPO', Almacen::TIPO_GENERAL)->where('ESTATUS', 'ACTIVO')->value('ID_ALMACEN');
+        $this->actingAs($u)->get(route('almacen.recepcion.index', ['id_almacen_destino' => $general]))
+            ->assertRedirect(route('almacen.recepcion.nueva'));
         // Historial → Acciones → "Despachos" (?force=1) sigue abriendo la bandeja en «Todos».
         $r = $this->actingAs($u)->get(route('almacen.recepcion.index', ['force' => 1]))->assertOk();
         $this->assertTrue($r->viewData('esGlobal'));

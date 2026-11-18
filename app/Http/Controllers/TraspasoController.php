@@ -94,12 +94,14 @@ class TraspasoController extends Controller
         // Un id_almacen_destino que no es de la bandeja (un enlace viejo a un GENERAL) no se
         // aplica: el selector no lo mostraría y la primera recarga lo cambiaría sin avisar.
         // 'all' (sin filtro de almacén) solo lo tiene el GLOBAL: un LOCAL que lo traiga en la
-        // URL vuelve a su almacén, igual que si no lo hubiera pedido.
+        // URL vuelve a su almacén, igual que si no lo hubiera pedido. Se QUITA (no se pone a
+        // null): con la clave presente hasAny() de abajo lo contaba como filtro y el del
+        // almacén general caía en la bandeja en vez de en su Entrada por ODC.
         $esGlobal = Almacen::usuarioEsGlobal($user);
         $pedido   = $request->input('id_almacen_destino');
         if ($request->filled('id_almacen_destino')
             && ($pedido === 'all' ? !$esGlobal : !$bandeja->contains('ID_ALMACEN', (int) $pedido))) {
-            $request->merge(['id_almacen_destino' => null]);
+            $request->offsetUnset('id_almacen_destino');
         }
 
         // Qué se ve al entrar lo decide el TIPO del almacén DEL USUARIO (el de su frente), no
@@ -113,14 +115,18 @@ class TraspasoController extends Controller
         // en «Todos». Es también el almacén con que abre la bandeja el LOCAL (ver abajo).
         // ?force=1 (Historial → Acciones → "Despachos") o filtros explícitos → siempre la
         // bandeja. AJAX (paginación/filtros) → se queda aquí.
-        $idPropio = $user?->almacenPorDefecto();
-        if ($idPropio && !$almacenesVisibles->contains((int) $idPropio)) {
-            $idPropio = null;
+        // Solo se calcula cuando se usa (entrar a la pantalla, o el LOCAL sin almacén pedido):
+        // el AJAX de la bandeja y su puesta al día sola no pagan las consultas de
+        // almacenPorDefecto() en cada recarga.
+        $propio = null;
+        if (!$request->wantsJson() || (!$esGlobal && !$request->filled('id_almacen_destino'))) {
+            $propio = $this->almacenPropio($user, $almacenes);
+            if (!$propio && !$esGlobal) {
+                $propio = $almacenes->first();
+            }
         }
-        if (!$idPropio && !$esGlobal) {
-            $idPropio = $almacenesVisibles->first();
-        }
-        $tipoPropio = optional($almacenes->firstWhere('ID_ALMACEN', (int) $idPropio))->TIPO;
+        $idPropio   = $propio?->ID_ALMACEN;
+        $tipoPropio = $propio?->TIPO;
         if (
             ! $request->wantsJson()
             && ! $request->boolean('force')
@@ -363,8 +369,8 @@ class TraspasoController extends Controller
             'idAlmacenDestinoActivo' => $idAlmacenDestinoActivo,
             'esGlobal'               => $esGlobal,   // el dropdown ofrece «Todos los almacenes»
             // Acciones → «Entrada por ODC» (la recepción del almacén GENERAL) para quien ve
-            // alguno: el global sin almacén propio, que abre la bandeja en «Todos», y quien
-            // llegó aquí desde el general por Historial → «Despachos» (vuelve a su pantalla).
+            // alguno: todo GLOBAL (el GENERAL no tiene frentes, así que siempre lo ve) y el LOCAL
+            // con un frente ligado a un general (p. ej. el que llegó por Historial → «Despachos»).
             'veGeneral'              => $almacenes->contains('TIPO', Almacen::TIPO_GENERAL),
             'numerosNotas'           => $numerosNotas,
             'bandejaStats'           => $bandejaStats,
@@ -408,6 +414,19 @@ class TraspasoController extends Controller
                         ->values(),
                 ]]),
         ]);
+    }
+
+    /**
+     * El almacén PROPIO del usuario (el ligado a su frente, Usuario::almacenPorDefecto) entre
+     * los que ve, o null. Fuente única de index() (a qué pantalla entra) y nuevaEntrada()
+     * (con qué almacén abre la Entrada por ODC).
+     *
+     * @param \Illuminate\Support\Collection $almacenes  los visibles (Almacen::visiblesPara)
+     */
+    private function almacenPropio($user, $almacenes): ?Almacen
+    {
+        $id = $user?->almacenPorDefecto();
+        return $id ? $almacenes->firstWhere('ID_ALMACEN', (int) $id) : null;
     }
 
     /**
@@ -462,8 +481,7 @@ class TraspasoController extends Controller
         //      vuelta aquí a quien tiene un almacén GENERAL, y ese ir y venir ya formó un loop
         //      infinito (recepcion.index ↔ recepcion.nueva). El menú lo corta y muestra el
         //      toast con la causa real.
-        $idDest = $user?->almacenPorDefecto();
-        $propio = $idDest ? $almacenes->firstWhere('ID_ALMACEN', (int) $idDest) : null;
+        $propio = $this->almacenPropio($user, $almacenes);
         $almacenDestino = ($propio && $propio->TIPO === Almacen::TIPO_GENERAL)
             ? $propio
             : ($almacenes->firstWhere('TIPO', Almacen::TIPO_GENERAL) ?? $propio ?? $almacenes->first());

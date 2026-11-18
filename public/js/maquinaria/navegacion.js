@@ -945,6 +945,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pushHistory) {
                 history.pushState(null, '', destino);
                 pasoDelVisor = false;   // el paso del visor, si lo había, queda debajo de esta página
+            } else if (destino !== url) {
+                // Atrás/Adelante a una dirección que el servidor redirige: se corrige la entrada
+                // del historial en la que ya estamos, sin sumar otra.
+                history.replaceState(null, '', destino);
             }
 
             const titleEl = doc.querySelector('title');
