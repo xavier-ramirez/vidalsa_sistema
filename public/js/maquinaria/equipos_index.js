@@ -1413,6 +1413,7 @@ window.eqTextoSugerir = function (inp) {
     window.closeAllDropdowns(lista);
     window.filterDropdownOptions(inp);
     lista.classList.add('active');
+    window.ajustarListaDropdown(lista);   // uicomponents.js: que quepa (está en la última fila del panel)
 };
 window.eqTextoElegir = function (item) {
     if (!_eqTextoMarcar(item.closest('.custom-dropdown'), item.dataset.value)) return;

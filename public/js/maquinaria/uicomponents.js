@@ -125,6 +125,7 @@ if (!window.clearDocFields) {
  */
 window.prepararAperturaDropdown = function (dropdown) {
     if (!dropdown) return;
+    window.ajustarListaDropdown(dropdown);
     // MISMA resolucion que selectOption: primero [data-filter-search] y si no el input del
     // .dropdown-trigger. NO vale un `input[type=text]` cualquiera del componente: hay
     // dropdowns cuyo primer input es un CAMPO DE DATOS (p.ej. #auxTipoCombo, donde es el
@@ -142,6 +143,42 @@ window.prepararAperturaDropdown = function (dropdown) {
     }
     setTimeout(() => input.focus(), 50);
 };
+
+/**
+ * Que la lista abierta quepa en la pantalla. Si debajo no cabe (el final de un panel, como
+ * Combustible en el filtro avanzado de Equipos en teléfono, o el teclado del teléfono tapando
+ * la mitad de abajo), se abre hacia ARRIBA si ahí hay más sitio; si no, se acorta a lo que
+ * queda y se desplaza por dentro. Antes la lista seguía de largo y sus últimas opciones no
+ * se podían ver. Se recalcula al aparecer/ocultarse el teclado (visualViewport).
+ */
+window.ajustarListaDropdown = function (dropdown) {
+    const lista = dropdown && (dropdown.querySelector(":scope > .dropdown-content") || dropdown.querySelector(".dropdown-content"));
+    if (!lista) return;
+    lista.classList.remove("dd-arriba");
+    lista.style.removeProperty("max-height");
+    lista.style.removeProperty("overflow-y");
+    if (!dropdown.classList.contains("active")) return;
+    const vv = window.visualViewport;
+    const alto = vv ? vv.height + vv.offsetTop : window.innerHeight;
+    const r = lista.getBoundingClientRect();
+    const MARGEN = 8;
+    if (!r.height || r.bottom <= alto - MARGEN) return;   // cabe: como siempre
+    const caja = dropdown.getBoundingClientRect();   // = su caja: la lista va en absoluto
+    const abajo = alto - r.top - MARGEN;
+    const arriba = caja.top - (vv ? vv.offsetTop : 0) - MARGEN - 5;
+    let max = abajo;
+    if (arriba > abajo) { lista.classList.add("dd-arriba"); max = arriba; }
+    if (max < r.height) {
+        lista.style.setProperty("max-height", Math.max(120, Math.floor(max)) + "px", "important");
+        lista.style.setProperty("overflow-y", "auto", "important");
+    }
+};
+if (window.visualViewport && !window.__ddAjusteTeclado) {
+    window.__ddAjusteTeclado = true;
+    window.visualViewport.addEventListener("resize", function () {
+        document.querySelectorAll(".custom-dropdown.active").forEach(window.ajustarListaDropdown);
+    });
+}
 
 window.closeAllDropdowns = function (exceptElement) {
     // Close standard .custom-dropdown components
@@ -224,6 +261,7 @@ document.addEventListener("focusin", function (e) {
             // Open this one if not active
             if (!parent.classList.contains("active")) {
                 parent.classList.add("active");
+                window.ajustarListaDropdown(parent);
             }
         }
     }

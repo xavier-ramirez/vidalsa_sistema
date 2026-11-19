@@ -178,6 +178,14 @@ body {
     animation: fadeInDownSmall 0.2s ease;
 }
 
+/* Lista que no cabía debajo: se abre hacia arriba (uicomponents.js · ajustarListaDropdown). */
+.custom-dropdown .dropdown-content.dd-arriba {
+    top: auto !important;
+    bottom: 100% !important;
+    margin-top: 0 !important;
+    margin-bottom: 5px !important;
+}
+
 .dropdown-item {
     display: flex;
     align-items: center;
