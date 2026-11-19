@@ -150,13 +150,14 @@ window.prepararAperturaDropdown = function (dropdown) {
  * la mitad de abajo), se abre hacia ARRIBA si ahí hay más sitio; si no, se acorta a lo que
  * queda y se desplaza por dentro. Antes la lista seguía de largo y sus últimas opciones no
  * se podían ver. Se recalcula al aparecer/ocultarse el teclado (visualViewport).
+ * Solo usa sus clases (dd-arriba, dd-acotada) y la variable --dd-max: NO toca el style propio
+ * de la lista (p.ej. el max-height:none del filtro de Frente).
  */
 window.ajustarListaDropdown = function (dropdown) {
     const lista = dropdown && (dropdown.querySelector(":scope > .dropdown-content") || dropdown.querySelector(".dropdown-content"));
     if (!lista) return;
-    lista.classList.remove("dd-arriba");
-    lista.style.removeProperty("max-height");
-    lista.style.removeProperty("overflow-y");
+    lista.classList.remove("dd-arriba", "dd-acotada");
+    lista.style.removeProperty("--dd-max");
     if (!dropdown.classList.contains("active")) return;
     const vv = window.visualViewport;
     const alto = vv ? vv.height + vv.offsetTop : window.innerHeight;
@@ -169,12 +170,11 @@ window.ajustarListaDropdown = function (dropdown) {
     let max = abajo;
     if (arriba > abajo) { lista.classList.add("dd-arriba"); max = arriba; }
     if (max < r.height) {
-        lista.style.setProperty("max-height", Math.max(120, Math.floor(max)) + "px", "important");
-        lista.style.setProperty("overflow-y", "auto", "important");
+        lista.style.setProperty("--dd-max", Math.max(120, Math.floor(max)) + "px");
+        lista.classList.add("dd-acotada");
     }
 };
-if (window.visualViewport && !window.__ddAjusteTeclado) {
-    window.__ddAjusteTeclado = true;
+if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", function () {
         document.querySelectorAll(".custom-dropdown.active").forEach(window.ajustarListaDropdown);
     });

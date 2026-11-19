@@ -178,12 +178,17 @@ body {
     animation: fadeInDownSmall 0.2s ease;
 }
 
-/* Lista que no cabía debajo: se abre hacia arriba (uicomponents.js · ajustarListaDropdown). */
+/* Lista que no cabía debajo (uicomponents.js · ajustarListaDropdown): se abre hacia arriba
+   y, si tampoco cabe entera, se acorta al sitio que hay (--dd-max) y se desplaza por dentro. */
 .custom-dropdown .dropdown-content.dd-arriba {
     top: auto !important;
     bottom: 100% !important;
     margin-top: 0 !important;
     margin-bottom: 5px !important;
+}
+.custom-dropdown .dropdown-content.dd-acotada {
+    max-height: var(--dd-max) !important;
+    overflow-y: auto !important;
 }
 
 .dropdown-item {
