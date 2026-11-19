@@ -732,8 +732,8 @@
     //   (public/js/maquinaria/fuzzy_search.js, cargado global en el layout base → SPA-safe),
     //   reutilizado también por Recepción. Aquí solo queda el alias del tokenizado (lo
     //   usa almBuscarSuggest para el link "VER TODO"); el ranking se hace con
-    //   FuzzySearch.rank. Mismo criterio reflejado en el backend (AlmacenController::index)
-    //   para el fallback de "tipear + Enter".
+    //   FuzzySearch.rank. Lo de "tipear + Enter" (la tabla) lo busca la copia local
+    //   (almacen_local.js · buscador), no el servidor.
     function almTokenizar(raw) { return window.FuzzySearch.tokenize(raw); }
 
     window.almBuscarSuggest = function () {

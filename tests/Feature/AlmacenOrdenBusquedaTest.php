@@ -423,6 +423,40 @@ class AlmacenOrdenBusquedaTest extends MySqlTestCase
     }
 
     /**
+     * «braga de 42» o «42 braga» encuentran la talla 42: los números cortos se tiraban y se
+     * buscaba solo «braga» (todas las tallas, con la 42 en cero al final). El número cuenta
+     * ENTERO: no trae la talla 142 ni un código que contenga 42.
+     */
+    public function test_un_numero_corto_en_la_busqueda_cuenta(): void
+    {
+        $marca = 'ZQ' . strtoupper(\Illuminate\Support\Str::random(5));
+        $alm = \App\Models\Almacen::create(['NOMBRE' => 'ALMACEN ' . $marca, 'TIPO' => \App\Models\Almacen::TIPO_GENERAL]);
+        $ids = [];
+        foreach ([40, 42, 44, 142] as $talla) {
+            $p = \App\Models\ProductoInventario::create(['CODIGO' => $marca . $talla, 'NOMBRE' => "BRAGA {$marca} TALLA {$talla}", 'UM' => 'UND']);
+            if ($talla !== 42) {
+                app(\App\Services\InventarioService::class)->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 5);
+            }
+            $ids[$talla] = $p->ID_PRODUCTO;
+        }
+        $u = $this->superAdminGlobal();
+
+        foreach (["braga {$marca} de 42", "42 braga {$marca}", "BRAGA {$marca} 42"] as $term) {
+            $this->assertSame([$ids[42]], array_map('intval', $this->idsInventarioLocal($u, ['id_almacen' => $alm->ID_ALMACEN, 'search' => $term])), $term);
+        }
+        // Sin número, todas; y un número suelto sigue buscando como trozo (de código o nombre).
+        $this->assertCount(4, $this->idsInventarioLocal($u, ['id_almacen' => $alm->ID_ALMACEN, 'search' => "braga {$marca}"]));
+
+        // El historial de movimientos busca igual: solo la talla 42.
+        app(\App\Services\InventarioService::class)->registrarEntrada($alm->ID_ALMACEN, $ids[42], 1);
+        $html = $this->movimientosLocal($u, ['id_almacen' => $alm->ID_ALMACEN, 'search' => "42 braga {$marca}"])['html'];
+        $this->assertStringContainsString("BRAGA {$marca} TALLA 42", $html);
+        foreach ([40, 44, 142] as $otra) {
+            $this->assertStringNotContainsString("BRAGA {$marca} TALLA {$otra}", $html);
+        }
+    }
+
+    /**
      * El orden tiene que ser TOTAL, no solo por relevancia: 28 productos se llaman
      * "FILTRO DE ACEITE DE MOTOR". Si dos filas empatan y no queda nada que las desempate,
      * el scroll infinito, que pide las páginas por separado, puede repetir una fila o

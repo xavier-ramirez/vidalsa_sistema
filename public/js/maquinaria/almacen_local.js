@@ -141,10 +141,19 @@
     const urlNota = (n) => RUTA + '/nota-entrega?numero=' + encodeURIComponent(n);
 
     // ── Búsqueda de producto ──────────────────────────────────────────────────
+    // Los números cortos («42», «3») también cuentan: antes se tiraban y «braga de 42» buscaba
+    // solo «braga» (todas las tallas, con la 42 sin saldo al final). Se buscan como número
+    // ENTERO (entero(): «42» no es «142» ni el código 000142). Solo números cortos sueltos
+    // («42») se buscan como siempre, como trozo de código o nombre.
+    const corto = (x) => /^\d{1,2}$/.test(x);
     function palabras(term) {
         const bajo = String(term).toLowerCase();
-        const t = bajo.split(ESPACIOS).filter((x) => x !== '' && !STOP.has(x) && !/^\d{1,2}$/.test(x));
-        return t.length ? t : [bajo];
+        const t = bajo.split(ESPACIOS).filter((x) => x !== '' && !STOP.has(x));
+        return t.some((x) => !corto(x)) ? t : [bajo];
+    }
+    function entero(n) {
+        const re = new RegExp('(^|[^0-9])' + n + '([^0-9]|$)');
+        return (v) => re.test(v);
     }
     const comoTexto = (s) => s.replace(/[%_\\]/g, '\\$&');
 
@@ -188,7 +197,7 @@
     // demasiadas formas): se queda la búsqueda exacta.
     function palabrasAPerdonar(ctx, term) {
         const n = Array.from(ctx.productos.values()).filter((p) => p.activo).map(np);
-        const raras = palabras(txt(term)).filter((t) => {
+        const raras = palabras(txt(term)).filter((t) => !corto(t)).filter((t) => {
             const ms = formas(t, false).map((f) => molde('%' + f + '%'));
             return !n.some((x) => coincide(x, ms));
         });
@@ -201,7 +210,8 @@
     // perdon: Set de palabras con perdón de tipeo (palabrasAPerdonar) o null.
     function buscador(term, perdon) {
         const toks = palabras(term);
-        const grupos = toks.map((t) => formas(t, !!perdon && perdon.has(t)).map((f) => molde('%' + f + '%')));
+        const grupos = toks.map((t) => (corto(t) && toks.length > 1 ? [entero(t)]
+            : formas(t, !!perdon && perdon.has(t)).map((f) => molde('%' + f + '%'))));
         return (p) => {
             const n = np(p);
             return grupos.every((fs) => coincide(n, fs));
@@ -215,9 +225,6 @@
         const f = comoTexto(frase.toLowerCase());
         const fr = [molde(f + '%'), molde('% ' + f + '%'), molde('%' + f + '%')];
         const toks = palabras(frase);
-        frase.toLowerCase().split(ESPACIOS).forEach((s) => {
-            if (s !== '' && /^\d{1,2}$/.test(s) && toks.indexOf(s) < 0) toks.push(s);
-        });
         const niveles = toks.map((t) => {
             const fs = formas(t, !!perdon && perdon.has(t));
             return ['@%', '% @%', '%@%'].map((m) => fs.map((x) => molde(m.replace('@', () => x)))).concat([fs.map((x) => molde('%' + x + '%'))]);
