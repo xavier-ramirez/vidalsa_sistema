@@ -65,11 +65,25 @@ class NotasReservadas
         return $reservado;
     }
 
-    /** @return list<string> */
+    /**
+     * Una salida sin internet que el servidor rechazó y el usuario DESCARTÓ: su papel ya se
+     * imprimió, así que el número no vuelve a darse nunca (quedaría otro papel con el mismo
+     * número). Se marca como usado sin movimiento: queda como hueco en la numeración.
+     * Devuelve false si el número no es de este usuario o ya se usó.
+     */
+    public static function anular(string $numero, int $idUsuario): bool
+    {
+        return DB::table(self::TABLA)
+            ->where('NUMERO_NOTA', trim($numero))->where('ID_USUARIO', $idUsuario)->whereNull('USADA_AT')
+            ->update(['USADA_AT' => now()]) > 0;
+    }
+
+    /** @return list<string> los libres del año en curso (los de un año anterior ya no se dan). */
     private static function libres(int $idUsuario, string $dispositivo): array
     {
         return DB::table(self::TABLA)
             ->where('ID_USUARIO', $idUsuario)->where('DISPOSITIVO', $dispositivo)->whereNull('USADA_AT')
+            ->where('NUMERO_NOTA', 'like', 'NE-' . date('Y') . '-%')
             ->orderBy('NUMERO_NOTA')->pluck('NUMERO_NOTA')->all();
     }
 }

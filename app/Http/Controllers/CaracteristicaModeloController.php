@@ -1244,6 +1244,10 @@ class CaracteristicaModeloController extends Controller
                     $eq->ID_ESPEC = null;
                     $eq->save(); // dispara EquipoObserver (auditoría + caché)
                 }
+                // Su compatibilidad con productos se borra A MANO: el borrado en cascada de la
+                // llave foránea no dispara el trigger de `modelo_filtro`, y la copia local de
+                // Almacén seguía mostrando este modelo como compatible (RegistroCambios).
+                DB::table('modelo_filtro')->where('ID_ESPEC', $snapshotId)->delete();
                 $catalogo->delete();
             });
 

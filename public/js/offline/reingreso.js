@@ -67,7 +67,11 @@
     async function estado() {
         const r = await crudo('/refresh-csrf').catch(() => null);
         if (!r || !r.ok) return null;
-        return { csrf: (await r.text()).trim(), conSesion: r.headers.get('X-Auth-Status') === 'authenticated' };
+        const conSesion = r.headers.get('X-Auth-Status') === 'authenticated';
+        // La cookie es de OTRO usuario (entró en otra pestaña del mismo equipo): ni se le pide
+        // un pase a su nombre para guardarlo como de este, ni se da esta sesión por recuperada.
+        const deOtro = conSesion && (r.headers.get('X-Auth-Usuario') || '') !== usuario();
+        return { csrf: (await r.text()).trim(), conSesion: conSesion && !deOtro, deOtro };
     }
 
     // ── Con sesión: tener el pase al día ─────────────────────────────────────
@@ -77,7 +81,7 @@
             const g = todos()[usuario()];   // dentro del candado: otra pestaña pudo renovarlo recién
             if (g && Date.now() - g.emitido < RENOVAR_MS) return;
             const e = await estado();
-            if (!e || !e.conSesion || !(await window.LlaveLocal.lista())) return;
+            if (!e || !e.conSesion || !(await window.LlaveLocal.lista())) return;   // deOtro: conSesion es false
             const anterior = g ? await leer() : null;
             const r = await enviar('/sesion/pase', e.csrf, { anterior });
             if (r.ok) await guardar((await r.json()).pase);
@@ -101,6 +105,9 @@
             if (!e) return 'sin_red';
             // Otra pestaña ya la recuperó: la cookie es la misma, no hay nada que canjear.
             if (e.conSesion) return listo(e.csrf);
+            // Hay otra persona dentro en este equipo: canjear el pase le cerraría su sesión.
+            // Como un pase que no sirve: la barra «Volvió la conexión… Entrar».
+            if (e.deOtro) return false;
             const pase = await leer();
             if (!pase) return false;
             const r = await enviar('/sesion/reanudar', e.csrf, { pase }).catch(() => null);

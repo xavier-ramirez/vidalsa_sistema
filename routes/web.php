@@ -462,6 +462,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post  ('almacen/movimientos-lote',             [App\Http\Controllers\AlmacenController::class, 'registrarMovimientoLote'])->name('almacen.movimientos.lote');
             // Números de Nota apartados para el dispositivo: salidas sin internet.
             Route::post  ('almacen/notas-reservadas',             App\Http\Controllers\NotasReservadasController::class)->name('almacen.notas-reservadas');
+            Route::post  ('almacen/notas-reservadas/anular',      [App\Http\Controllers\NotasReservadasController::class, 'anular'])->name('almacen.notas-reservadas.anular');
             // Preview PDF de la Nota de Entrega ANTES de confirmar la salida — genera
             // el documento sin tocar BD para que el usuario lo revise antes de guardar.
             // Si aprieta "Confirmar" se llama el endpoint regular movimientos-lote.

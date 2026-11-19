@@ -56,6 +56,15 @@ window.salirDelSistema = function (aviso) {
     // quedan (son para entrar sin internet; se tiran si entra otra persona: DUENO en sw.js).
     if (window.LlaveLocal) window.LlaveLocal.cerrar();
     try { localStorage.removeItem('vidalsa_sesion_abierta'); } catch (e) { /* sin localStorage */ }
+    // «Salir» a propósito: su pase de reingreso se tira, para que otra pestaña que trabajaba
+    // sin servidor no vuelva a abrir la sesión con él (reingreso.js). Al entrar se pide otro.
+    if (aviso === 'salida') {
+        try {
+            const u = (document.querySelector('meta[name="usuario-id"]') || {}).content || '';
+            const pases = JSON.parse(localStorage.getItem('vidalsa_pases') || '{}') || {};
+            if (u && pases[u]) { delete pases[u]; localStorage.setItem('vidalsa_pases', JSON.stringify(pases)); }
+        } catch (e) { /* sin localStorage */ }
+    }
     // Ya se sale: un 401 de algo en vuelo (la copia local) no manda al login con otro aviso.
     window.__saliendo = true;
     const token = window.getCsrf();

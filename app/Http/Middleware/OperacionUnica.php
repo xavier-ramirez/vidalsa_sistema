@@ -28,6 +28,13 @@ class OperacionUnica
     public const CABECERA = 'X-Clave-Operacion';
     public const TABLA = 'operaciones_cliente';
     private const DIAS = 30;
+    /**
+     * Una clave «en curso» más vieja que esto es de una petición que murió sin terminar (PHP
+     * pasó su tiempo máximo —Registrar equipo pone 600 s—, se quedó sin memoria o mataron el
+     * proceso): ahí no llega el catch y la fila quedaba sin respuesta, con 409 para siempre y
+     * la bandeja detenida detrás de ella hasta la purga de 30 días. Se suelta y se aplica.
+     */
+    private const MINUTOS_EN_CURSO = 15;
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -39,8 +46,16 @@ class OperacionUnica
         if (! preg_match('/^[A-Za-z0-9-]{8,64}$/', $clave)) {
             return response()->json(['message' => 'Clave de operación inválida.'], 422);
         }
+        // Lo guardó sin internet OTRO usuario y la cookie es de quien entró después en el mismo
+        // equipo: no se aplica a su nombre. 401 = la bandeja la guarda hasta que entre su dueño.
+        $esperado = (string) $request->header('X-Usuario-Esperado', '');
+        if ($esperado !== '' && $esperado !== (string) $usuario->ID_USUARIO) {
+            return response()->json(['message' => 'La sesión abierta es de otro usuario.'], 401);
+        }
 
         $donde = ['CLAVE' => $clave, 'ID_USUARIO' => $usuario->ID_USUARIO];
+        DB::table(self::TABLA)->where($donde)->whereNull('ESTADO_HTTP')
+            ->where('created_at', '<', now()->subMinutes(self::MINUTOS_EN_CURSO))->delete();
         $hecha = DB::table(self::TABLA)->where($donde)->first();
         if ($hecha) {
             return $this->repetida($hecha);

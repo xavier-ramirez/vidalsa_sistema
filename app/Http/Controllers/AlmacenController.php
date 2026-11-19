@@ -2039,6 +2039,29 @@ class AlmacenController extends Controller
     }
 
     /**
+     * Una Auditoría hecha SIN internet sube cuando vuelve la red, quizás horas después. El
+     * conteo físico valía para el saldo que la pantalla mostraba en ese momento: si mientras
+     * tanto alguien registró otra salida o entrada, dejar el saldo en lo contado se comería
+     * ese movimiento sin aviso. Se rechaza (queda en rojo en la bandeja) para volver a contar.
+     * Con internet no aplica: el conteo es de ahora y manda sobre el sistema.
+     *
+     * @param float|\Closure():float $actual saldo actual, ya bloqueado
+     */
+    private function comprobarSaldoVisto(array $data, array $linea, float|\Closure $actual): void
+    {
+        if (empty($data['en_diferido']) || !isset($linea['saldo_visto'])) {
+            return;
+        }
+        $actual = $actual instanceof \Closure ? $actual() : $actual;
+        $visto  = (float) $linea['saldo_visto'];
+        if (abs($actual - $visto) >= InventarioService::EPS) {
+            throw new \InvalidArgumentException(
+                'Mientras esta auditoría esperaba sin internet el saldo cambió (de ' . $visto . ' a ' . $actual . '): vuelve a contar.'
+            );
+        }
+    }
+
+    /**
      * Registra un MOVIMIENTO con varias líneas — un "documento" de inventario al
      * estilo de un ERP de tienda: ENTRADA / SALIDA / AJUSTE con N productos, todo
      * en UNA transacción (si una línea falla, no se aplica nada).
@@ -2103,6 +2126,10 @@ class AlmacenController extends Controller
             'lineas.*.id_frente_saldo' => 'nullable|integer|min:0',
             // Destino de ESE renglón (columna DESTINO de la nota horizontal). Texto libre.
             'lineas.*.destino'      => 'nullable|string|max:150',
+            // AJUSTE que esperó en la bandeja sin internet (bandeja.js · marcarDiferido): el
+            // saldo que la pantalla mostraba al contar. Ver comprobarSaldoVisto().
+            'en_diferido'           => 'nullable|boolean',
+            'lineas.*.saldo_visto'  => 'nullable|numeric',
         ] + $this->reglasNotaSalida());
 
         $this->assertPuedeVerAlmacen($request, (int) $data['id_almacen']);
@@ -2313,9 +2340,15 @@ class AlmacenController extends Controller
                         $actual = (float) AlmacenStock::where('ID_ALMACEN', (int) $data['id_almacen'])
                             ->where('ID_PRODUCTO', $idProducto)->where('ID_FRENTE', $linea['bolsa_ajuste'])
                             ->lockForUpdate()->value('CANTIDAD');
+                        $this->comprobarSaldoVisto($data, $linea, $actual);
                         if (abs($actual - $cantidad) < InventarioService::EPS) {
                             continue;
                         }
+                    }
+
+                    if ($data['tipo'] === 'AJUSTE' && !array_key_exists('bolsa_ajuste', $linea)) {
+                        $this->comprobarSaldoVisto($data, $linea, fn () => (float) AlmacenStock::where('ID_ALMACEN', (int) $data['id_almacen'])
+                            ->where('ID_PRODUCTO', $idProducto)->lockForUpdate()->sum('CANTIDAD'));
                     }
 
                     $mov = match ($data['tipo']) {

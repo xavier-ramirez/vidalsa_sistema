@@ -47,6 +47,9 @@ class SystemController extends Controller
             ->header('Content-Type', 'text/plain')
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
-            ->header('X-Auth-Status', auth()->check() ? 'authenticated' : 'guest');
+            ->header('X-Auth-Status', auth()->check() ? 'authenticated' : 'guest')
+            // De quién es la sesión (reingreso.js): en un equipo compartido la cookie puede ser
+            // de otro usuario que entró en otra pestaña.
+            ->header('X-Auth-Usuario', (string) (auth()->id() ?? ''));
     }
 }

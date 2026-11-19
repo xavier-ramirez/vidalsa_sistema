@@ -2982,6 +2982,7 @@
         var m = el('almAjusteModal');
         m.dataset.idProducto = idProducto;
         m.dataset.nombre = nombre || '';
+        m.dataset.saldoVisto = String(parseFloat(saldo) || 0);   // ver almGuardarAjuste
         // Mostrar el saldo actual (sistema) para que el usuario sepa desde qué valor ajusta.
         var sv = el('almAjSaldoActual');
         if (sv) { var s = parseFloat(saldo); sv.textContent = (isNaN(s) ? '—' : formatNum(s)) + (um ? ' ' + um : ''); }
@@ -3040,7 +3041,7 @@
             var q = parseFloat(raw);
             if (isNaN(q) || q < 0) return { error: 'El conteo debe ser un número ≥ 0.' };
             total += q;
-            lineas.push({ id_producto: idProducto, cantidad: q, id_frente_saldo: parseInt(inp.getAttribute('data-frente'), 10) });
+            lineas.push({ id_producto: idProducto, cantidad: q, id_frente_saldo: parseInt(inp.getAttribute('data-frente'), 10), saldo_visto: sistema });
         }
         if (!lineas.length) return { error: 'Escribe el conteo de al menos un proyecto.' };
         return { lineas: lineas, total: Math.round(total * 1000) / 1000 };
@@ -3088,7 +3089,7 @@
             if (nuevoSaldoRaw === '') { showErr('almAjError', 'Indica el saldo según el conteo físico.'); return; }
             ns = parseFloat(nuevoSaldoRaw);
             if (isNaN(ns) || ns < 0) { showErr('almAjError', 'El nuevo saldo debe ser un número ≥ 0.'); return; }
-            lineas = [{ id_producto: idProducto, cantidad: ns }];
+            lineas = [{ id_producto: idProducto, cantidad: ns, saldo_visto: parseFloat(m.dataset.saldoVisto) || 0 }];
             titulo = 'Auditoría · ' + (m.dataset.nombre || ('Producto #' + idProducto)) + ' → ' + ns;
         }
 
@@ -3101,7 +3102,9 @@
             body: { id_almacen: idAlm, tipo: 'AJUSTE', motivo: 'Auditoría de Inventario', lineas: lineas },
         }, {
             titulo: titulo,
-            tipo: 'ajuste', datos: { id_almacen: parseInt(idAlm, 10), lineas: lineas },
+            // saldo_visto + marcarDiferido: si esto espera sin internet y al subir el saldo ya no
+            // es el que se contó (otro movió el producto), el servidor lo rechaza para recontar.
+            tipo: 'ajuste', datos: { id_almacen: parseInt(idAlm, 10), lineas: lineas }, marcarDiferido: true,
         }).then(function (res) {
               unpre();
               if (res.enBandeja) { almCerrar('almAjusteModal'); toast('Auditoría guardada. Se registra al volver internet.'); return; }
@@ -4410,8 +4413,11 @@
         if (window._almConfirmando) return;
         window._almConfirmando = true;
         var payload = almSalidaDraft;
-        // Sin internet sale con un número apartado: es el definitivo, el que tendrá la Nota.
-        if (window.Bandeja.sinConexion() && !payload.numero_nota_reservado) {
+        // Sin internet, o con algo esperando en la bandeja (esto irá detrás, sin mandarse ahora),
+        // sale con un número apartado: es el definitivo, el de la Nota que se imprime ya.
+        var vaABandeja = window.Bandeja.sinConexion()
+            || window.Bandeja.pendientes().some(function (x) { return x.estado === 'pendiente'; });
+        if (vaABandeja && !payload.numero_nota_reservado) {
             payload.numero_nota_reservado = window.Bandeja.tomarNumeroNota();
         }
 
@@ -4423,7 +4429,8 @@
         window.Bandeja.enviar(ROUTE_LOTE, { method: 'POST', body: payload }, {
             titulo: 'Salida' + (payload.numero_nota_reservado ? ' · Nota ' + payload.numero_nota_reservado : ''),
             tipo: 'salida',
-            datos: { id_almacen: Number(payload.id_almacen), id_frente_destino: Number(payload.id_frente_destino) || null, lineas: payload.lineas },
+            // nota: para volver a bajarla desde la bandeja mientras no suba (bandeja.js · bajarNota).
+            datos: { id_almacen: Number(payload.id_almacen), id_frente_destino: Number(payload.id_frente_destino) || null, lineas: payload.lineas, nota: notaLocal },
         })
         .then(function (res) {
             unpre();
@@ -4441,7 +4448,11 @@
                 almSalidaDraft = null;
                 if (window.almSelClear) window.almSelClear();
                 toast(res.enBandeja
-                    ? 'Salida guardada' + (payload.numero_nota_reservado ? ' (Nota ' + payload.numero_nota_reservado + ')' : '') + '. Se registra al volver internet.'
+                    ? 'Salida guardada' + (payload.numero_nota_reservado
+                        ? ' (Nota ' + payload.numero_nota_reservado + '). Se registra al volver internet.'
+                        // Se cortó la red con la petición en camino: pudo haber llegado, así
+                        // que el número lo pone el servidor y la Nota baja cuando suba.
+                        : '. Se registra al volver internet y entonces se descarga su Nota.')
                     : (res.b.message || 'Movimiento registrado.'));
                 almCargar();
                 if (res.enBandeja && notaLocal) almDescargarNotaLocal(notaLocal);

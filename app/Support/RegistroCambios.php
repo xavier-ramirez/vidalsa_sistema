@@ -464,7 +464,11 @@ class RegistroCambios
      */
     public static function cubre(int $cursor): bool
     {
-        return $cursor >= (int) DB::table(self::TABLA)->where('TABLA', self::MARCA_PURGA)->max('ID_FILA');
+        // Un cursor por ENCIMA del último anotado viene de otra base (se restauró o se importó
+        // la del servidor, o se vació `cambios`): sin esto no le llegaba nada más, sin aviso,
+        // hasta que la numeración nueva lo alcanzara. Recarga entera.
+        return $cursor >= (int) DB::table(self::TABLA)->where('TABLA', self::MARCA_PURGA)->max('ID_FILA')
+            && $cursor <= self::ultimo();
     }
 
     /**

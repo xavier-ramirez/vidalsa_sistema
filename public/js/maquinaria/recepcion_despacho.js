@@ -116,7 +116,11 @@ window.RecepcionDespacho = {
             })
             .catch(function (e) {
                 if (window.hidePreloader) window.hidePreloader();
-                var msg = (e && e.message) || 'Error generando la vista previa.';
+                // Sin red el fetch falla con TypeError («Failed to fetch»): la Recepción y el
+                // despacho necesitan conexión (no hay bandeja para ellos), y se dice así.
+                var msg = (e instanceof TypeError || (window.Bandeja && window.Bandeja.sinConexion()))
+                    ? 'Registrar y despachar necesita internet: vuelve a intentarlo con conexión.'
+                    : ((e && e.message) || 'Error generando la vista previa.');
                 if (!(e && e.soloToast)) err(msg);
                 toast(msg, 'error');
             });

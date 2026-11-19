@@ -42,6 +42,7 @@
     const DB_NOMBRE = 'vidalsa_bandeja';
     const CABECERA = 'X-Clave-Operacion';
     const RUTA_NOTAS = '/admin/almacen/notas-reservadas';
+    const RUTA_ANULAR = '/admin/almacen/notas-reservadas/anular';
     const REINTENTO_MS = 30000;
 
     const usuario = () => (document.querySelector('meta[name="usuario-id"]') || {}).content || '';
@@ -134,12 +135,17 @@
         else memoria.delete(clave);
     }
 
+    // Las demás pestañas del equipo se enteran de cada cambio: así ponen encima de su copia lo
+    // que otra dejó pendiente, y lo nuevo que guarden va detrás de eso.
+    const canal = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('vidalsa-bandeja') : null;
     let cache = [];
-    async function refrescar() {
+    async function refrescar(avisar = true) {
         cache = await todos();
         window.dispatchEvent(new CustomEvent('bandeja', { detail: { pendientes: cache.length } }));
         pintarPanel();
+        if (avisar && canal) canal.postMessage('cambio');
     }
+    if (canal) canal.onmessage = () => { refrescar(false); };
 
     const clave = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
         : 'op-' + Date.now().toString(16) + '-' + Math.random().toString(16).slice(2, 10);
@@ -153,6 +159,9 @@
 
     function mandar(it) {
         const cabeceras = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', [CABECERA]: it.clave };
+        // De quién es: si la cookie ya es de otro usuario (equipo compartido), el servidor
+        // contesta 401 en vez de aplicarlo a nombre de ese otro (OperacionUnica).
+        if (it.u) cabeceras['X-Usuario-Esperado'] = String(it.u);
         let cuerpo;
         if (it.formulario) {
             // Sin Content-Type: el navegador pone el multipart con su separador.
@@ -180,8 +189,16 @@
             titulo: meta.titulo || url, tipo: meta.tipo || '',
             datos: meta.datos || null, creado: Date.now(), estado: 'pendiente', motivo: '',
         };
+        // meta.marcarDiferido: lo que queda guardado aquí sube con `en_diferido: true`, para
+        // que el servidor sepa que no es de ahora (la Auditoría: AlmacenController::comprobarSaldoVisto).
+        const diferir = () => {
+            if (meta.marcarDiferido && !esFormulario && it.cuerpo && typeof it.cuerpo === 'object') {
+                it.cuerpo = Object.assign({}, it.cuerpo, { en_diferido: true });
+            }
+        };
         // Lo de antes va primero: si quedó algo en la bandeja, esto espera su turno.
         if (sinConexion() || cache.some((x) => x.estado === 'pendiente')) {
+            diferir();
             await guardarItem(it);
             await refrescar();
             subir();
@@ -193,6 +210,7 @@
             // La sesión se cerró en el servidor (401, o 419 si ni el token nuevo sirvió): se
             // guarda aquí, sube al volver a entrar, y recién entonces al inicio de sesión.
             if (r.status === 401 || r.status === 419) {
+                diferir();
                 await guardarItem(it);
                 await refrescar();
                 window.irAlInicioDeSesion(r);
@@ -201,6 +219,7 @@
             return { ok: r.ok, status: r.status, b, enBandeja: false };
         } catch (e) {
             conectado = false;
+            diferir();
             await guardarItem(it);
             await refrescar();
             return { ok: false, status: 0, b: {}, enBandeja: true };
@@ -223,6 +242,9 @@
             const { r, b } = res;
             if (r.ok) {
                 await borrarItem(it.clave);
+                // Fuera ya de lo que se pone encima: la copia que llega ahora la trae aplicada
+                // y, si siguiera aquí hasta el final de la tanda, se restaría dos veces.
+                cache = cache.filter((x) => x.clave !== it.clave);
                 subidos++;
                 window.dispatchEvent(new CustomEvent('bandeja-subida', { detail: { tipo: it.tipo, datos: it.datos } }));
                 if (b && b.nota_url && window.descargarPdf) {
@@ -259,11 +281,18 @@
         await refrescar();
         subir();
     }
+    // Una salida con Nota apartada ya tiene su papel impreso: al descartarla, ese número queda
+    // ANULADO en el servidor (no vuelve a la lista: saldría otro papel con el mismo número).
+    // Sin red, la anulación espera en la bandeja como cualquier otra operación.
     async function descartar(c) {
         const it = cache.find((x) => x.clave === c);
         await borrarItem(c);
-        if (it && it.cuerpo && it.cuerpo.numero_nota_reservado) devolverNumero(it.cuerpo.numero_nota_reservado);
         await refrescar();
+        const n = it && it.cuerpo && it.cuerpo.numero_nota_reservado;
+        if (n) {
+            toast('La Nota ' + n + ' queda ANULADA: si se imprimió, ese papel ya no vale.', 'warning');
+            enviar(RUTA_ANULAR, { method: 'POST', body: { numero: n } }, { titulo: 'Anular Nota ' + n, tipo: 'anular-nota' });
+        }
     }
 
     // ── Números de Nota apartados para este equipo (App\Support\NotasReservadas) ─
@@ -314,10 +343,6 @@
         guardarNumeros(lista);
         return n;
     }
-    function devolverNumero(n) {
-        const lista = numeros();
-        if (lista.indexOf(n) < 0) { lista.unshift(n); lista.sort(); guardarNumeros(lista); }
-    }
 
     window.Bandeja = {
         enviar, subir, sinConexion, tomarNumeroNota, apartarNumeros,
@@ -345,17 +370,27 @@
         $('outboxTrayCount').textContent = cache.length;
         const hayRojo = cache.some((it) => it.estado === 'rechazada');
         $('outboxTrayBtn').style.background = hayRojo ? '#dc2626' : '#0067b1';
+        const BTN = 'border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;';
         $('outboxTrayList').innerHTML = cache.map((it) => {
             const rojo = it.estado === 'rechazada';
-            const botones = rojo
-                ? '<div style="display:flex;gap:8px;margin-top:6px;">'
-                    + (it.ilegible ? '' : '<button data-reintentar="' + esc(it.clave) + '" style="background:#0067b1;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Reintentar</button>')
-                    + '<button data-descartar="' + esc(it.clave) + '" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Descartar</button></div>'
+            const numero = it.cuerpo && it.cuerpo.numero_nota_reservado;
+            // La Nota armada en este equipo se vuelve a bajar mientras la salida no suba
+            // (impresora que falló, archivo perdido): bajarNota.
+            const btnNota = it.datos && it.datos.nota
+                ? '<button data-nota="' + esc(it.clave) + '" style="background:#fff;color:#0067b1;border:1px solid #0067b1;' + BTN + '">Nota</button>' : '';
+            const botones = (rojo || btnNota)
+                ? '<div style="display:flex;gap:8px;margin-top:6px;">' + btnNota
+                    + (rojo && !it.ilegible ? '<button data-reintentar="' + esc(it.clave) + '" style="background:#0067b1;color:#fff;border:none;' + BTN + '">Reintentar</button>' : '')
+                    + (rojo ? '<button data-descartar="' + esc(it.clave) + '" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;' + BTN + '">Descartar</button>' : '')
+                    + '</div>'
+                : '';
+            const avisoNota = rojo && numero
+                ? '<div style="font-size:11px;color:#92400e;margin-top:3px;">Reintentar la registra con la Nota ' + esc(numero) + '; descartarla ANULA esa Nota.</div>'
                 : '';
             return '<div style="padding:11px 14px;border-bottom:1px solid #f1f5f9;">'
                 + '<div style="font-size:12.5px;font-weight:700;color:#1e293b;">' + esc(it.titulo) + '</div>'
                 + '<div style="font-size:11.5px;font-weight:700;color:' + (rojo ? '#dc2626' : '#0067b1') + ';margin-top:3px;">'
-                + esc(rojo ? 'No se aplicó · ' + it.motivo : 'Por subir') + '</div>' + botones + '</div>';
+                + esc(rojo ? 'No se aplicó · ' + it.motivo : 'Por subir') + '</div>' + avisoNota + botones + '</div>';
         }).join('');
     }
     document.addEventListener('click', (e) => {
@@ -371,9 +406,22 @@
         if (r) { reintentar(r.getAttribute('data-reintentar')); return; }
         const d = t.closest('[data-descartar]');
         if (d) { descartar(d.getAttribute('data-descartar')); return; }
+        const n = t.closest('[data-nota]');
+        if (n) { bajarNota(n.getAttribute('data-nota')); return; }
         const panel = $('outboxTrayPanel');
         if (panel && panel.style.display === 'block' && !t.closest('#outboxTray')) panel.style.display = 'none';
     });
+
+    function bajarNota(c) {
+        const it = cache.find((x) => x.clave === c);
+        const datos = it && it.datos && it.datos.nota;
+        if (!datos) return;
+        // Quien la arma (nota_entrega_local.js) se carga con Almacén.
+        if (!window.NotaEntregaLocal) { toast('Abre Almacén para volver a bajar la Nota ' + datos.numero + '.', 'warning'); return; }
+        window.NotaEntregaLocal.generar(datos)
+            .then((blob) => window.descargarBlob(blob, 'Nota_' + datos.numero + '.pdf'))
+            .catch(() => toast('No se pudo armar la Nota ' + datos.numero + ' en este equipo.', 'error'));
+    }
 
     // ── La cola del modo sin conexión anterior (IndexedDB vidalsa_offline) ────
     // Lo que quedó sin subir en un equipo con la versión vieja (cambio de estado o

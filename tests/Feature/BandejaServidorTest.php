@@ -217,4 +217,106 @@ class BandejaServidorTest extends MySqlTestCase
         // La auditoría deja el total en lo contado, y lo que sale después se resta de ahí.
         $this->assertEqualsWithDelta(2, $total($this->stockLocal($u, [$item('salida', 3), $item('ajuste', 4), $item('salida', 2)])), 1e-9);
     }
+    /** Descartar en la bandeja una salida rechazada con su Nota ya impresa: ese número no se vuelve a dar. */
+    public function test_la_nota_de_una_salida_descartada_queda_anulada(): void
+    {
+        [$alm, $p] = $this->almacenConStock();
+        $u = $this->usuario();
+        $disp = (string) Str::uuid();
+        $numeros = $this->actingAs($u)->postJson(route('almacen.notas-reservadas'), ['dispositivo' => $disp])->json('numeros');
+        $nota = $numeros[0];
+
+        // Sin stock: rechazada, el número sigue libre (rollback).
+        $this->salida($u, $alm, $p, 50, ['numero_nota_reservado' => $nota])->assertStatus(422);
+        $this->actingAs($u)->postJson(route('almacen.notas-reservadas.anular'), ['numero' => $nota])
+            ->assertOk()->assertJsonPath('anulada', true);
+
+        $this->assertNotContains($nota, $this->actingAs($u)->postJson(route('almacen.notas-reservadas'), ['dispositivo' => $disp])->json('numeros'));
+        $this->salida($u, $alm, $p, 1, ['numero_nota_reservado' => $nota])->assertStatus(422);
+        $this->assertSame(10.0, $this->saldo($alm, $p));
+
+        // Uno de otro usuario no se puede anular.
+        $otro = Usuario::where('ID_USUARIO', '!=', $u->ID_USUARIO)->value('ID_USUARIO');
+        $ajeno = DB::transaction(fn () => NotasReservadas::paraDispositivo((int) $otro, (string) Str::uuid()))[0];
+        $this->actingAs($u)->postJson(route('almacen.notas-reservadas.anular'), ['numero' => $ajeno])->assertJsonPath('anulada', false);
+    }
+
+    /** Un bloque apartado el año pasado ya no se reparte. */
+    public function test_los_numeros_de_otro_anio_no_se_reparten(): void
+    {
+        $u = $this->usuario();
+        $disp = (string) Str::uuid();
+        DB::table(NotasReservadas::TABLA)->insert([
+            'NUMERO_NOTA' => 'NE-' . (date('Y') - 1) . '-99' . random_int(100, 999), 'ID_USUARIO' => $u->ID_USUARIO,
+            'DISPOSITIVO' => $disp, 'created_at' => now(),
+        ]);
+        $numeros = $this->actingAs($u)->postJson(route('almacen.notas-reservadas'), ['dispositivo' => $disp])->json('numeros');
+        $this->assertCount(NotasReservadas::BLOQUE, $numeros);
+        foreach ($numeros as $n) {
+            $this->assertStringStartsWith('NE-' . date('Y') . '-', $n);
+        }
+    }
+
+    /** La bandeja de A no se aplica con la sesión de B (equipo compartido): 401 y nada cambia. */
+    public function test_la_operacion_de_otro_usuario_no_se_aplica_con_esta_sesion(): void
+    {
+        [$alm, $p] = $this->almacenConStock();
+        $u = $this->usuario();
+        $cab = [OperacionUnica::CABECERA => (string) Str::uuid(), 'X-Usuario-Esperado' => (string) ($u->ID_USUARIO + 999999)];
+
+        $this->salida($u, $alm, $p, 3, [], $cab)->assertStatus(401);
+        $this->assertSame(10.0, $this->saldo($alm, $p));
+
+        $cab['X-Usuario-Esperado'] = (string) $u->ID_USUARIO;
+        $this->salida($u, $alm, $p, 3, [], $cab)->assertCreated();
+        $this->assertSame(7.0, $this->saldo($alm, $p));
+    }
+
+    /** Una clave que quedó «en curso» porque PHP murió a mitad ya no frena la bandeja para siempre. */
+    public function test_una_operacion_que_murio_a_mitad_se_vuelve_a_aplicar(): void
+    {
+        [$alm, $p] = $this->almacenConStock();
+        $u = $this->usuario();
+        $clave = (string) Str::uuid();
+        DB::table(OperacionUnica::TABLA)->insert([
+            'CLAVE' => $clave, 'ID_USUARIO' => $u->ID_USUARIO, 'RUTA' => 'x',
+            'created_at' => now()->subMinutes(5), 'updated_at' => now()->subMinutes(5),
+        ]);
+        $this->salida($u, $alm, $p, 3, [], [OperacionUnica::CABECERA => $clave])->assertStatus(409);
+
+        DB::table(OperacionUnica::TABLA)->where('CLAVE', $clave)->update(['created_at' => now()->subMinutes(20)]);
+        $this->salida($u, $alm, $p, 3, [], [OperacionUnica::CABECERA => $clave])->assertCreated();
+        $this->assertSame(7.0, $this->saldo($alm, $p));
+    }
+
+    /**
+     * Una Auditoría que esperó sin internet: si mientras tanto otro registró una salida, no
+     * la borra (se rechaza para recontar). Con internet, o con el saldo igual, se aplica.
+     */
+    public function test_una_auditoria_sin_internet_no_borra_lo_que_otro_movio_despues(): void
+    {
+        [$alm, $p] = $this->almacenConStock();
+        $u = $this->usuario();
+        $ajuste = fn (float $contado, array $extra = []) => $this->actingAs($u)->postJson(route('almacen.movimientos.lote'), [
+            'tipo' => 'AJUSTE', 'id_almacen' => $alm->ID_ALMACEN, 'motivo' => 'Auditoría de Inventario',
+            'lineas' => [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => $contado, 'saldo_visto' => 10]],
+        ] + $extra);
+
+        // Contó 9 viendo 10, sin internet; otro saca 4 con internet antes de que suba.
+        $this->salida($u, $alm, $p, 4)->assertCreated();
+        $ajuste(9, ['en_diferido' => true])->assertStatus(422)->assertJsonFragment(['message' => 'Mientras esta auditoría esperaba sin internet el saldo cambió (de 10 a 6): vuelve a contar.']);
+        $this->assertSame(6.0, $this->saldo($alm, $p));
+
+        // Con internet el conteo es de ahora: manda.
+        $ajuste(5)->assertCreated();
+        $this->assertSame(5.0, $this->saldo($alm, $p));
+    }
+
+    /** Un cursor de la copia por encima de lo anotado (base restaurada o importada) recarga entero. */
+    public function test_un_cursor_mas_alto_que_el_registro_recarga_entero(): void
+    {
+        $ultimo = \App\Support\RegistroCambios::ultimo();
+        $this->assertTrue(\App\Support\RegistroCambios::cubre($ultimo));
+        $this->assertFalse(\App\Support\RegistroCambios::cubre($ultimo + 1000));
+    }
 }

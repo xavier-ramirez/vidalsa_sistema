@@ -23,4 +23,20 @@ class NotasReservadasController extends Controller
             'numeros' => NotasReservadas::paraDispositivo((int) $request->user()->ID_USUARIO, $datos['dispositivo']),
         ]);
     }
+
+    /**
+     * POST /admin/almacen/notas-reservadas/anular: la bandeja descartó una salida rechazada
+     * que ya tenía su Nota impresa; ese número no se vuelve a dar (NotasReservadas::anular).
+     */
+    public function anular(Request $request)
+    {
+        if ($error = $this->errorSinPermisoMovimiento($request)) {
+            return $error;
+        }
+        $datos = $request->validate(['numero' => ['required', 'string', 'regex:/^NE-\d{4}-\d+$/']]);
+
+        return response()->json([
+            'anulada' => NotasReservadas::anular($datos['numero'], (int) $request->user()->ID_USUARIO),
+        ]);
+    }
 }
