@@ -314,8 +314,9 @@
         if (t.closest('#vfVincular')) { vincular(); return; }
         if ((card = t.closest('#vfModal .vf-item'))) {
             elegir(card);
-            // El recuadro de la foto: elige ESA ficha y pide la foto (como en el Catálogo).
-            if (t.closest('[data-vf-foto]') && estado.guardando !== estado.idEquipo) {
+            // El recuadro de la foto: elige ESA ficha y pide la foto (como en el Catálogo). Una vez:
+            // el 2.º clic de un doble clic (e.detail 2) no vuelve a pedirla.
+            if (t.closest('[data-vf-foto]') && e.detail < 2 && estado.guardando !== estado.idEquipo) {
                 var inp = $('vfFoto'); if (inp) { inp.value = ''; inp.click(); }
             }
         }

@@ -58,7 +58,7 @@
     #vfModal .vf-vincular { flex:1; width:100%; height:42px; border-radius:12px; font-weight:700; font-size:14px; background:#0067b1; color:#fff; border:none; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; font-family:inherit; transition:opacity .2s; }
     #vfModal .vf-vincular .material-icons { font-size:19px; }
     #vfModal .vf-vincular:disabled { opacity:.5; cursor:not-allowed; }
-    #vfModal .vf-acciones { display:flex; gap:10px; }
+    #vfModal .vf-acciones { display:flex; }
     @media (max-width: 480px) {
         #vfModal { padding:8px; }
         #vfModal .vf-body { padding:14px; }
