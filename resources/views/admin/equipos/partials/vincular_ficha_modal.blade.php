@@ -9,8 +9,9 @@
     buscador arriba (modelo, tipo o año), lista de filas con foto a la izquierda y un solo
     botón abajo. Abre con las fichas sugeridas para el equipo y, mientras no exista la de su
     modelo + año + tipo, ofrece arriba crearla (catalogo.asegurarFicha) y vincularlo en un paso —
-    también mientras se busca. "Subir foto" pone la foto del MODELO en la ficha elegida (o en la
-    que ya tiene el equipo; si es "Crear su ficha", la crea antes) y vincula el equipo a ella.
+    también mientras se busca. Tocar el recuadro de la foto de una ficha (la cámara, como en el
+    Catálogo) pone la foto del MODELO en ESA ficha (si es "Crear su ficha", la crea antes) y
+    vincula a ella este equipo, nada más.
 
     Las fichas las busca CaracteristicaModeloController::elegir (mismas tarjetas que el
     catálogo) y el vínculo lo guarda EquipoController::vincularFicha. El comportamiento vive
@@ -35,9 +36,6 @@
             </label>
             <div class="vf-lista" id="vfResultados"></div>
             <div class="vf-acciones">
-                <button type="button" class="vf-subir-foto" id="vfSubirFoto" disabled>
-                    <i class="material-icons">photo_camera</i> Subir foto
-                </button>
                 <button type="button" class="vf-vincular" id="vfVincular" disabled>
                     <i class="material-icons">link</i> Vincular
                 </button>

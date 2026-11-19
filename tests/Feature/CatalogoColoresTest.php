@@ -337,7 +337,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->actingAs($u)->getJson(route('catalogo.elegir'))->assertOk();
         $this->actingAs($u)->postJson(route('equipos.vincularFicha', $e->ID_EQUIPO), ['ID_ESPEC' => $f->ID_ESPEC])->assertOk();
         $this->assertSame((int) $f->ID_ESPEC, (int) $e->fresh()->ID_ESPEC);
-        // "Subir foto" del modal: la del modelo, también sin permiso. Ficha sin foto, como las
+        // La cámara en la foto de la ficha (modal): la del modelo, también sin permiso. Ficha sin foto, como las
         // recién creadas (el Drive falso no sabe mandar la vieja a la papelera).
         $f->update(['FOTO_REFERENCIAL' => null]);
         $this->actingAs($u)->post(route('catalogo.uploadFoto', $f->ID_ESPEC), [

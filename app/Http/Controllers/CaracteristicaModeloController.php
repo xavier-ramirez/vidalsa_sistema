@@ -27,8 +27,8 @@ class CaracteristicaModeloController extends Controller
     {
         $this->middleware('auth');
         // elegir, asegurarFicha y uploadFoto: el modal "Vincular a una ficha" de /admin/equipos
-        // (con su "Subir foto"), que usa cualquiera con sesión, sin permiso (decisión del
-        // usuario, 18-11-2026). uploadFoto es también "Cambiar foto" del Catálogo.
+        // (la cámara en la foto de cada ficha), que usa cualquiera con sesión, sin permiso
+        // (decisión del usuario, 18-11-2026). uploadFoto es también "Cambiar foto" del Catálogo.
         $this->middleware('can:equipos.create')->only(['store', 'update']);
         $this->middleware('can:super.admin')->only(['destroy', 'deleteFoto']);
     }

@@ -11,8 +11,9 @@
  * La foto que muestra cada fila es la que tomaría ESTE equipo: la de su color en esa
  * ficha, si no la del modelo y, si la ficha no tiene ninguna, la suya propia (la misma
  * regla de Equipo::fotoParaMostrar).
- * "Subir foto": la foto del MODELO va a la ficha elegida —o a la que el equipo ya tiene—
- * (CaracteristicaModeloController::uploadFoto) y el equipo queda vinculado a esa ficha.
+ * Foto: tocar el recuadro de la foto de una ficha (con la cámara, como en el Catálogo) sube
+ * la foto del MODELO a ESA ficha (CaracteristicaModeloController::uploadFoto) y vincula a
+ * ella ESTE equipo, nada más. En "Crear su ficha", antes la crea.
  *
  * Se carga bajo demanda (cargarScriptUnaVez) desde window.eqVincularFicha. Los listeners
  * van sobre el DOCUMENTO y buscan el modal en cada evento: la SPA reemplaza el HTML al
@@ -141,7 +142,7 @@
 
     function filaCrear(c) {
         return '<button type="button" class="vf-item vf-crear" data-vf-id="' + NUEVA + '">' +
-            '<div class="vf-foto"><i class="material-icons">note_add</i></div>' +
+            cajaFoto('', 'note_add', false) +
             '<div class="vf-info">' +
                 textoFicha('Crear su ficha', c.marca, c.modelo) +
                 '<div class="vf-meta">' + (c.tipo ? '<span>' + esc(c.tipo) + '</span>' : '') + '<span>Año: ' + esc(c.anio) + '</span>' +
@@ -162,9 +163,7 @@
                     esc(c.color + ': ' + c.total + (c.foto_url ? '' : ' · sin foto propia')) + '"></span>';
             }).join('');
             return '<button type="button" class="vf-item" data-vf-id="' + esc(it.id) + '">' +
-                '<div class="vf-foto">' +
-                    (foto ? '<img src="' + esc(foto) + '" alt="" loading="lazy">' : '<i class="material-icons">' + esc(it.placeholder || 'image_not_supported') + '</i>') +
-                '</div>' +
+                cajaFoto(foto, it.placeholder || 'precision_manufacturing', !!it.foto_url) +
                 '<div class="vf-info">' +
                     textoFicha(it.tipo || 'S/TIPO', it.marca, it.modelo) +
                     '<div class="vf-meta">' +
@@ -179,6 +178,18 @@
         }).join('');
     }
 
+    // Recuadro de la foto, como .cat-photo del Catálogo: la foto (o el ícono) y la cámara;
+    // tocarlo sube la foto a esa ficha (data-vf-foto, ver los eventos). «Cambiar» solo si la
+    // FICHA ya tiene foto (la que se ve puede ser la del propio equipo).
+    function cajaFoto(foto, iconoFicha, fichaConFoto) {
+        var txt = fichaConFoto ? 'Cambiar foto' : 'Subir foto';
+        return '<span class="vf-foto" data-vf-foto title="' + txt + '">' +
+            (foto ? '<img src="' + esc(foto) + '" alt="" loading="lazy">' : '<i class="material-icons">' + esc(iconoFicha) + '</i>') +
+            '<span class="vf-foto-overlay"><i class="material-icons">photo_camera</i>' + txt + '</span>' +
+            '<i class="material-icons vf-foto-cam">photo_camera</i>' +
+        '</span>';
+    }
+
     function elegir(card) {
         estado.elegida = card.getAttribute('data-vf-id');
         document.querySelectorAll('#vfModal .vf-item.sel').forEach(function (c) { c.classList.remove('sel'); });
@@ -190,12 +201,6 @@
         var b = $('vfVincular'); if (!b) return;
         var yaEsLaSuya = estado.elegida && String(estado.elegida) === String(estado.espec);
         var ocupado = estado.guardando === estado.idEquipo;
-        var f = $('vfSubirFoto');
-        if (f) {
-            f.disabled = !(estado.elegida || estado.espec) || ocupado;
-            f.title = estado.elegida ? 'Subir la foto a la ficha elegida y vincular el equipo'
-                : (estado.espec ? 'Subir la foto a la ficha del equipo' : 'Elige primero una ficha');
-        }
         b.disabled = !estado.elegida || yaEsLaSuya || ocupado;
         b.title = yaEsLaSuya ? 'El equipo ya está vinculado a esta ficha' : '';
         b.innerHTML = estado.elegida === NUEVA
@@ -209,17 +214,17 @@
         guardar(null);
     }
 
-    // Foto elegida en el <input type=file>: va a la ficha elegida o, sin elegir, a la suya.
+    // Foto elegida en el <input type=file>: va a la ficha cuyo recuadro se tocó (la elegida).
     function subirFoto(archivo) {
-        if (!archivo || !(estado.elegida || estado.espec)) return;
+        if (!archivo || !estado.elegida) return;
         guardar(archivo);
     }
 
-    // Vincula el equipo a la ficha elegida (o a la suya) y, con `archivo`, antes le sube la foto.
+    // Vincula el equipo a la ficha elegida y, con `archivo`, antes le sube la foto.
     function guardar(archivo) {
         var m = modal();
-        if (!m || estado.guardando === estado.idEquipo) return;
-        var fotoEl = estado.fotoEl, idEquipo = estado.idEquipo, elegida = estado.elegida || estado.espec;
+        if (!m || !estado.elegida || estado.guardando === estado.idEquipo) return;
+        var fotoEl = estado.fotoEl, idEquipo = estado.idEquipo, elegida = estado.elegida;
         var crear = elegida === NUEVA ? estado.crear : null;
         var terminar = function () { if (estado.guardando === idEquipo) estado.guardando = null; actualizarBoton(); };
         estado.guardando = idEquipo;
@@ -307,13 +312,18 @@
         // Solo la X (data-vf-cerrar) lo cierra; un clic en el fondo no (pedido 01-10-2026).
         if (t.closest('[data-vf-cerrar]')) { cerrar(); return; }
         if (t.closest('#vfVincular')) { vincular(); return; }
-        if (t.closest('#vfSubirFoto')) { var inp = $('vfFoto'); if (inp) { inp.value = ''; inp.click(); } return; }
-        if ((card = t.closest('#vfModal .vf-item'))) elegir(card);
+        if ((card = t.closest('#vfModal .vf-item'))) {
+            elegir(card);
+            // El recuadro de la foto: elige ESA ficha y pide la foto (como en el Catálogo).
+            if (t.closest('[data-vf-foto]') && estado.guardando !== estado.idEquipo) {
+                var inp = $('vfFoto'); if (inp) { inp.value = ''; inp.click(); }
+            }
+        }
     });
     document.addEventListener('dblclick', function (e) {
         // Doble clic en una fila: elegirla y vincular de una vez.
         var card = abierto() && e.target.closest('#vfModal .vf-item');
-        if (card) { elegir(card); vincular(); }
+        if (card && !e.target.closest('[data-vf-foto]')) { elegir(card); vincular(); }
     });
     document.addEventListener('change', function (e) {
         if (e.target.id !== 'vfFoto' || !abierto()) return;
