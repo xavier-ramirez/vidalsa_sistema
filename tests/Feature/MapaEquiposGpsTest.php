@@ -205,14 +205,8 @@ class MapaEquiposGpsTest extends MySqlTestCase
             return Http::response($this->respuestaGps51(9.7, -63.2));
         });
 
-        // El export vacía los buffers de salida antes de mandar el archivo (igual que el de
-        // Equipos, por php-fpm): se reponen para que PHPUnit no lo marque como prueba riesgosa.
-        $nivel = ob_get_level();
-        $exportar = function (string $ids) use ($u, $nivel) {
-            $r = $this->actingAs($u)->get(route('mapa.equiposGps.exportar', ['ids' => $ids]));
-            while (ob_get_level() < $nivel) ob_start();
-            return $r;
-        };
+        $exportar = fn (string $ids) => $this->descargarExcel(
+            fn () => $this->actingAs($u)->get(route('mapa.equiposGps.exportar', ['ids' => $ids])));
         $r = $exportar($elegidos->pluck('ID_EQUIPO')->implode(','));
         $r->assertOk();
         $hoja = \PhpOffice\PhpSpreadsheet\IOFactory::load($r->baseResponse->getFile()->getPathname())->getActiveSheet();

@@ -40,12 +40,8 @@ class ExcelCebraTest extends MySqlTestCase
             $ids[] = Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'CEBRA', 'ANIO' => 2026, 'SERIAL_CHASIS' => $prefijo . $n])->ID_EQUIPO;
         }
 
-        // El export de Equipos vacía los buffers de salida antes de mandar el archivo (por
-        // php-fpm): se reponen para que PHPUnit no la marque como prueba riesgosa.
-        $nivel = ob_get_level();
-        $resp = $this->actingAs($this->superAdminGlobal())->post(route('equipos.export'), ['ids' => implode(',', $ids)]);
-        while (ob_get_level() < $nivel) ob_start();
-        $hoja = $this->hoja($resp->assertOk());
+        $hoja = $this->hoja($this->descargarExcel(fn () => $this->actingAs($this->superAdminGlobal())
+            ->post(route('equipos.export'), ['ids' => implode(',', $ids)]))->assertOk());
 
         $this->assertSame(['FFFFFFFF', 'FFF1F5F9', 'FFFFFFFF'],
             array_map(fn ($f) => $hoja->getStyle('K' . $f)->getFill()->getStartColor()->getARGB(), [6, 7, 8]));

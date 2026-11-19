@@ -68,6 +68,21 @@ abstract class MySqlTestCase extends TestCase
         // Sin control: la conexión real es justamente lo que se quiere aquí.
     }
 
+    /**
+     * Pide una descarga de Excel. Los export vacían TODOS los buffers de salida antes de
+     * mandar el archivo (en php-fpm un nivel suelto corrompe la descarga), también el de
+     * PHPUnit, que marcaba la prueba como riesgosa. Se reponen al volver.
+     */
+    protected function descargarExcel(callable $pedir)
+    {
+        $nivel = ob_get_level();
+        try {
+            return $pedir();
+        } finally {
+            while (ob_get_level() < $nivel) ob_start();
+        }
+    }
+
     /** Un super.admin real (con equipos.create), global y sin cambio de clave pendiente. */
     protected function superAdminGlobal(): Usuario
     {
