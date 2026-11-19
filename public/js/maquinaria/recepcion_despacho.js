@@ -118,7 +118,10 @@ window.RecepcionDespacho = {
                 if (window.hidePreloader) window.hidePreloader();
                 // Sin red el fetch falla con TypeError («Failed to fetch»): la Recepción y el
                 // despacho necesitan conexión (no hay bandeja para ellos), y se dice así.
-                var msg = (e instanceof TypeError || (window.Bandeja && window.Bandeja.sinConexion()))
+                // Solo el TypeError de la RED (Chrome «Failed to fetch», Firefox «NetworkError», Safari «Load failed»), no
+                // cualquiera: un fallo del código también es TypeError.
+                var deRed = e instanceof TypeError && /fetch|network|load failed/i.test(String(e.message || ''));
+                var msg = (deRed || (window.Bandeja && window.Bandeja.sinConexion()))
                     ? 'Registrar y despachar necesita internet: vuelve a intentarlo con conexión.'
                     : ((e && e.message) || 'Error generando la vista previa.');
                 if (!(e && e.soloToast)) err(msg);

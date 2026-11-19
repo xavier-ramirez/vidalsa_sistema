@@ -2045,14 +2045,13 @@ class AlmacenController extends Controller
      * ese movimiento sin aviso. Se rechaza (queda en rojo en la bandeja) para volver a contar.
      * Con internet no aplica: el conteo es de ahora y manda sobre el sistema.
      *
-     * @param float|\Closure():float $actual saldo actual, ya bloqueado
+     * @param float $actual saldo actual, ya bloqueado
      */
-    private function comprobarSaldoVisto(array $data, array $linea, float|\Closure $actual): void
+    private function comprobarSaldoVisto(array $data, array $linea, float $actual): void
     {
         if (empty($data['en_diferido']) || !isset($linea['saldo_visto'])) {
             return;
         }
-        $actual = $actual instanceof \Closure ? $actual() : $actual;
         $visto  = (float) $linea['saldo_visto'];
         if (abs($actual - $visto) >= InventarioService::EPS) {
             throw new \InvalidArgumentException(
@@ -2340,15 +2339,23 @@ class AlmacenController extends Controller
                         $actual = (float) AlmacenStock::where('ID_ALMACEN', (int) $data['id_almacen'])
                             ->where('ID_PRODUCTO', $idProducto)->where('ID_FRENTE', $linea['bolsa_ajuste'])
                             ->lockForUpdate()->value('CANTIDAD');
-                        $this->comprobarSaldoVisto($data, $linea, $actual);
+                        // Si ya coincide con lo contado no hay nada que pisar: se salta antes de
+                        // mirar el saldo visto (si no, rechazaba un conteo que ya era correcto).
                         if (abs($actual - $cantidad) < InventarioService::EPS) {
                             continue;
                         }
+                        $this->comprobarSaldoVisto($data, $linea, $actual);
                     }
 
-                    if ($data['tipo'] === 'AJUSTE' && !array_key_exists('bolsa_ajuste', $linea)) {
-                        $this->comprobarSaldoVisto($data, $linea, fn () => (float) AlmacenStock::where('ID_ALMACEN', (int) $data['id_almacen'])
-                            ->where('ID_PRODUCTO', $idProducto)->lockForUpdate()->sum('CANTIDAD'));
+                    if ($data['tipo'] === 'AJUSTE' && !array_key_exists('bolsa_ajuste', $linea) && !empty($data['en_diferido'])) {
+                        $actual = (float) AlmacenStock::where('ID_ALMACEN', (int) $data['id_almacen'])
+                            ->where('ID_PRODUCTO', $idProducto)->lockForUpdate()->sum('CANTIDAD');
+                        // Lo contado sin internet ya es el saldo de hoy: nada que ajustar ni que
+                        // rechazar (como la bolsa de arriba).
+                        if (abs($actual - $cantidad) < InventarioService::EPS) {
+                            continue;
+                        }
+                        $this->comprobarSaldoVisto($data, $linea, $actual);
                     }
 
                     $mov = match ($data['tipo']) {
@@ -2359,6 +2366,11 @@ class AlmacenController extends Controller
                     $ids[] = $mov->ID_MOVIMIENTO;
                 }
                 if (!$ids) {
+                    // Una Auditoría que esperó sin internet y al subir ya coincide: hecha (si se
+                    // rechazara, «Reintentar» la volvería a rechazar siempre).
+                    if (!empty($data['en_diferido'])) {
+                        return ['ids' => [], 'numero_nota' => null, 'ya_coincidia' => true];
+                    }
                     throw new \InvalidArgumentException('El conteo coincide con el sistema: no hay nada que ajustar.');
                 }
                 return ['ids' => $ids, 'numero_nota' => $opts['numero_nota'] ?? null];
@@ -2378,7 +2390,9 @@ class AlmacenController extends Controller
             'AJUSTE'  => 'Auditoría registrada',
         ][$data['tipo']] ?? 'Movimiento registrado';
 
-        $payload = ['message' => "{$etiqueta} ({$n} producto" . ($n === 1 ? '' : 's') . ')'];
+        $payload = ['message' => !empty($result['ya_coincidia'])
+            ? 'Auditoría: el saldo ya coincidía con lo contado, no hubo que ajustar.'
+            : "{$etiqueta} ({$n} producto" . ($n === 1 ? '' : 's') . ')'];
         // Sólo en SALIDA devolvemos la URL del PDF de Nota de Entrega; el frontend la abre
         // en el visor in-page (#pdfPreviewModal vía window.openPdfPreview).
         if ($data['tipo'] === 'SALIDA') {

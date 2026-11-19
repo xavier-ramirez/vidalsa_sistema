@@ -3032,6 +3032,14 @@
     // ajustar una bolsa contada. Devuelve {lineas, total} o {error}.
     function almAjusteLineasPorProyecto(idProducto) {
         var total = 0, lineas = [];
+        // Con una salida de este producto esperando en la bandeja, lo que se ve por proyecto es
+        // una suposición (a qué bolsa irá: el servidor decide al subir) y el saldo visto por
+        // bolsa podía no coincidir aunque nadie más lo moviera: entonces no se manda.
+        var pend = (window.Bandeja && window.Bandeja.pendientes) ? window.Bandeja.pendientes() : [];
+        var supuesto = pend.some(function (it) {
+            return it.estado === 'pendiente' && it.cuerpo && Array.isArray(it.cuerpo.lineas)
+                && it.cuerpo.lineas.some(function (l) { return String(l.id_producto) === String(idProducto); });
+        });
         var filas = document.querySelectorAll('#almAjBolsas .alm-aj-bolsa');
         for (var i = 0; i < filas.length; i++) {
             var fila = filas[i], inp = fila.querySelector('input');
@@ -3041,7 +3049,9 @@
             var q = parseFloat(raw);
             if (isNaN(q) || q < 0) return { error: 'El conteo debe ser un número ≥ 0.' };
             total += q;
-            lineas.push({ id_producto: idProducto, cantidad: q, id_frente_saldo: parseInt(inp.getAttribute('data-frente'), 10), saldo_visto: sistema });
+            var linea = { id_producto: idProducto, cantidad: q, id_frente_saldo: parseInt(inp.getAttribute('data-frente'), 10) };
+            if (!supuesto) linea.saldo_visto = sistema;
+            lineas.push(linea);
         }
         if (!lineas.length) return { error: 'Escribe el conteo de al menos un proyecto.' };
         return { lineas: lineas, total: Math.round(total * 1000) / 1000 };
@@ -4424,8 +4434,13 @@
         // Los datos de la Nota se leen YA: al registrar se limpia la selección (nombres, UM).
         var notaLocal = (payload.numero_nota_reservado && window.NotaEntregaLocal)
             ? almNotaLocalDatos(payload, payload.numero_nota_reservado) : null;
-        // La hora que lleva ese papel: la Nota del servidor imprime la misma al subir.
-        if (notaLocal) payload.hora_emision = notaLocal.hora;
+        // La fecha y la hora que lleva ese papel: la Nota del servidor imprime las mismas al
+        // subir (sin la fecha, una salida de las 11:50 PM que sube al otro día salía con el día
+        // de la subida).
+        if (notaLocal) {
+            payload.hora_emision = notaLocal.hora;
+            if (!payload.fecha) payload.fecha = notaLocal.fecha.split('/').reverse().join('-');
+        }
 
         pre();
         window.Bandeja.enviar(ROUTE_LOTE, { method: 'POST', body: payload }, {

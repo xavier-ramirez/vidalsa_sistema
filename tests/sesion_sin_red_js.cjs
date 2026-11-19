@@ -84,6 +84,16 @@ const L = window.LlaveLocal;
     assert.strictEqual(localStorage.getItem('vidalsa_offline_auth'), null);
     assert.deepStrictEqual(llamadas, ['5']);
 
+    // ── 4b) A cambió su clave en otro equipo y el candado de aquí es de B: las huellas de A
+    // se tiran igual (el servidor ya las borró), y el candado de B se queda.
+    llamadas.length = 0;
+    await A.sincronizar('a-v1', 6);
+    const candadoB = { identifier: 'b@x', salt: '00', hash: '11', claveV: 'b-v1', u: '7' };
+    localStorage.setItem('vidalsa_offline_auth', JSON.stringify(candadoB));
+    await A.sincronizar('a-v2', 6);
+    assert.deepStrictEqual(llamadas, ['6'], 'huellas de A tiradas');
+    assert.deepStrictEqual(JSON.parse(localStorage.getItem('vidalsa_offline_auth')), candadoB, 'el candado de B se queda');
+
     // ── 5) Candado de antes (sin `u`): como siempre, se compara la versión ──
     llamadas.length = 0;
     localStorage.setItem('vidalsa_offline_auth', JSON.stringify({ identifier: 'a@x', salt: '00', hash: '11', claveV: 'v1' }));

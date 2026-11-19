@@ -333,7 +333,11 @@
             body: JSON.stringify({ dispositivo: d }),
         }).then((r) => (r.ok ? r.json() : null)).then((b) => {
             if (!b || !Array.isArray(b.numeros)) return;
-            const usados = new Set(cache.map((it) => it.cuerpo && it.cuerpo.numero_nota_reservado).filter(Boolean));
+            // Fuera los que ya lleva algo de la bandeja: una salida pendiente, o una Nota
+            // descartada cuya anulación todavía no subió (el servidor aún la da por libre, y
+            // volvería a la lista: dos papeles con el mismo número).
+            const usados = new Set(cache.map((it) => it.cuerpo
+                && (it.tipo === 'anular-nota' ? it.cuerpo.numero : it.cuerpo.numero_nota_reservado)).filter(Boolean));
             guardarNumeros(b.numeros.filter((n) => !usados.has(n)));
         }).catch(() => {});
     }

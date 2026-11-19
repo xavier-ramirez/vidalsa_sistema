@@ -44,7 +44,9 @@
 
     // ── Números: 3 decimales como máximo, coma decimal y punto de miles (como $fmt del blade).
     function fmt(n) {
-        const v = Number(n) || 0;
+        // Redondeo como number_format de PHP (el 5 sube): toFixed a secas daba 1,234 donde el
+        // servidor imprime 1,235 (1.2345 no es exacto en binario).
+        const v = Math.round(((Number(n) || 0) + Number.EPSILON) * 1000) / 1000;
         const partes = Math.abs(v).toFixed(3).split('.');
         const miles = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         const dec = partes[1].replace(/0+$/, '');
@@ -54,9 +56,12 @@
 
     // Las líneas de un mismo producto, nº de parte y destino van en UN renglón con la suma
     // (salen de varios proyectos = varias líneas del lote; el papel lista productos).
+    // El destino, como limpiarDestino del servidor (un espacio, mayúsculas, 150 letras): si no,
+    // «pozo 3» y «POZO 3» salían aquí en dos renglones y en uno en la Nota del servidor.
+    const destino = (d) => String(d == null ? '' : d).replace(/\s+/g, ' ').trim().toUpperCase().slice(0, 150);
     function agrupar(lineas) {
         const orden = [], por = {};
-        (lineas || []).forEach((l) => {
+        (lineas || []).map((l) => Object.assign({}, l, { destino: destino(l.destino) })).forEach((l) => {
             const k = [l.clave, l.numero_parte || '', l.destino || ''].join('|');
             if (!por[k]) { por[k] = Object.assign({}, l, { cantidad: 0 }); orden.push(k); }
             por[k].cantidad += Number(l.cantidad) || 0;
@@ -79,14 +84,19 @@
         const NEGRO = rgb(0, 0, 0), ROJO = rgb(0xdc / 255, 0x26 / 255, 0x26 / 255), GRIS = rgb(0xd9 / 255, 0xd9 / 255, 0xd9 / 255);
         const pagW = (horizontal ? 297 : 210) * MM, pagH = (horizontal ? 210 : 297) * MM;
         const X0 = 10 * MM, ANCHO = pagW - 20 * MM;
-        // 2 mm de holgura: TCPDF parte la hoja un poco antes del margen de 16 mm (medido).
-        const TOP = 40 * MM, FONDO = pagH - 18 * MM;
-        const GROSOR = 0.15 * MM;
+        // Medido contra el PDF del servidor: TCPDF corta la hoja en su margen de 16 mm (FONDO),
+        // pero su "¿cabe en una hoja?" (quitar relleno) sale como si sobraran 2 mm (FONDO_CABE).
+        // Con un solo valor, o sobraba un renglón de relleno o el bloque de firmas se partía
+        // en otro sitio.
+        const TOP = 40 * MM, FONDO = pagH - 16 * MM, FONDO_CABE = pagH - 18 * MM;
+        // Lo que de verdad dibuja el servidor: TCPDF pinta los bordes de las tablas HTML a 1 pt
+        // (medido en su PDF), no a los 0,15 mm de SetLineWidth.
+        const GROSOR = 1;
 
         // Lo que Helvetica (WinAnsi) no puede escribir se cambia por algo parecido.
         const soporta = {};
         function limpio(t) {
-            let s = String(t == null ? '' : t).replace(/[\r\t]/g, ' ').replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
+            let s = String(t == null ? '' : t).replace(/[\r\t]/g, ' ');
             let out = '';
             for (const ch of s) {
                 if (ch === '\n') { out += ch; continue; }
@@ -112,7 +122,8 @@
             runs.forEach((r) => {
                 r.t.split('\n').forEach((parrafo, ip) => {
                     if (ip > 0) nueva();
-                    parrafo.split(/(\s+)/).forEach((pal) => {
+                    // Como TCPDF, también se puede cortar justo después de un guion («NP-|01»).
+                    parrafo.split(/(\s+)/).flatMap((p) => (/^\s+$/.test(p) ? [p] : p.split(/(?<=-)/))).forEach((pal) => {
                         if (!pal) return;
                         const esp = /^\s+$/.test(pal);
                         if (esp && usado === 0) return;
@@ -290,12 +301,12 @@
         }
 
         // Reparte las filas en hojas: [{ y, fila }] por hoja. La de ítems repite su encabezado.
-        function maquetar(tablas) {
+        function maquetar(tablas, fondo) {
             const hojas = [[]];
             let y = TOP;
             const poner = (f) => {
                 const h = altoFila(f);
-                if (y + h > FONDO && y > TOP) { hojas.push([]); y = TOP; return false; }
+                if (y + h > fondo && y > TOP) { hojas.push([]); y = TOP; return false; }
                 hojas[hojas.length - 1].push({ y, h, fila: f }); y += h; return true;
             };
             tablas.forEach((t) => {
@@ -314,7 +325,7 @@
         const oficiales = FILAS[horizontal ? 'HORIZONTAL' : 'VERTICAL'];
         const nItems = agrupar(datos.lineas).length;
         // Cada intento recuerda si fue compacto: el interlineado se pinta con el mismo.
-        const intento = (n, comp) => Object.assign(maquetar(cuerpo(n, comp)), { compacto: comp });
+        const intento = (n, comp) => Object.assign(maquetar(cuerpo(n, comp), FONDO_CABE), { n, compacto: comp });
         let hojas = intento(oficiales, false);
         if (hojas.length > 1 && nItems < oficiales) {
             const sin = intento(nItems, false);
@@ -334,7 +345,10 @@
             if (comp.length <= hojas.length) hojas = comp;
         }
 
-        LINEA = hojas.compacto ? 0.9 : 1.25;
+        // Lo elegido, repartido en hojas con el margen de verdad.
+        const compacto = hojas.compacto;
+        hojas = maquetar(cuerpo(hojas.n, compacto), FONDO);
+        LINEA = compacto ? 0.9 : 1.25;
         hojas.forEach((filas, i) => {
             const page = doc.addPage([pagW, pagH]);
             cabezote(page, i + 1, hojas.length);
@@ -377,6 +391,7 @@
     const api = {
         construir,
         fmt,
+        agrupar,
         // Con red: la librería, el logo y (teléfono) el visor quedan en el equipo, así la Nota se
         // arma y se ve sin internet. Solo lo que falta: pedirlos siempre volvía a bajar la
         // librería (~500 KB) en cada sesión.

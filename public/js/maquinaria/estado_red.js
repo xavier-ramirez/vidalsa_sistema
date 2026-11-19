@@ -87,6 +87,10 @@
         sinConexion = false;
         showBanner('Conexión restaurada', 'wifi', '#16a34a', 2500);
         ajustarResondeo();   // ya volvio: se apaga el temporizador
+        // La marca «sin servidor» (mostrarOffline) se resuelve YA: si la sesión sigue viva se
+        // quita (conServidor); si cayó mientras tanto se recupera con el pase. Si se quedaba
+        // puesta, un F5 horas después con la sesión vencida entraba con el pase sin la clave.
+        if (window.Reingreso) window.Reingreso.reanudar();
         if (window.CopiaLocal) window.CopiaLocal.alGuardar();
     }
 

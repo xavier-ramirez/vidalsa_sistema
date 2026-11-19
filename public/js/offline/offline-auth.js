@@ -76,6 +76,30 @@
         return v.u == null || idUsuario == null || String(v.u) === String(idUsuario);
     }
 
+    // La versión de clave con que entró la última vez CADA usuario en este equipo. El candado es
+    // uno solo (del último que entró): sin esto, si A cambiaba su clave y el candado era de B,
+    // las huellas sin internet de A seguían abriendo (el servidor ya las había borrado).
+    const VERSIONES = 'vidalsa_clave_v';
+    function claveCambio(claveV, idUsuario) {
+        if (!claveV || idUsuario == null) return false;
+        let m = {};
+        try { m = JSON.parse(localStorage.getItem(VERSIONES) || '{}') || {}; } catch (e) { m = {}; }
+        const antes = m[String(idUsuario)];
+        m[String(idUsuario)] = claveV;
+        try { localStorage.setItem(VERSIONES, JSON.stringify(m)); } catch (e) {}
+        return !!antes && antes !== claveV;
+    }
+
+    // Solo una página de ESTE sitio: el navegador quita tabs y saltos de línea de la dirección,
+    // así que «/<tab>/otro.com» pasaba un filtro de texto y terminaba en //otro.com.
+    function mismaWeb(volver) {
+        if (!volver || volver.charAt(0) !== '/') return null;
+        try {
+            const u = new URL(volver, location.origin);
+            return u.origin === location.origin ? u.pathname + u.search + u.hash : null;
+        } catch (e) { return null; }
+    }
+
     // `disponible()` NO se exporta: solo lo usa este módulo por dentro. Cada método
     // público ya se protege solo cuando falta WebCrypto o localStorage.
     window.OfflineAuth = {
@@ -114,6 +138,9 @@
         sincronizar: async function (claveV, idUsuario) {
             tomarVolverA();   // entró con servidor: va a donde lo lleve el inicio de sesión
             const desfasado = !!claveV && candadoDesfasado(claveV, idUsuario);
+            // Su clave cambió aunque el candado sea de otro: sus huellas también (si el candado es
+            // suyo, ya se tiran abajo con él).
+            if (claveCambio(claveV, idUsuario) && !desfasado && window.LlaveLocal) window.LlaveLocal.olvidarHuellas(idUsuario);
             const p = _preparado;
             _preparado = null;
             if (window.LlaveLocal) await window.LlaveLocal.confirmar();
@@ -207,8 +234,7 @@
         document.head.appendChild(meta);
         const r = await window.Reingreso.reanudar().catch(() => false);
         if (r === true) {
-            const volver = params.get('volver');
-            location.replace(volver && /^\/(?![\/\\])/.test(volver) ? volver : '/menu');
+            location.replace(mismaWeb(params.get('volver')) || '/menu');
             return true;
         }
         meta.remove();

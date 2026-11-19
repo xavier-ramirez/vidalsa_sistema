@@ -290,6 +290,30 @@ class BandejaServidorTest extends MySqlTestCase
     }
 
     /**
+     * Pero si murió DESPUÉS de guardar (el commit ya pasó: PDF, Drive, tiempo máximo), la clave
+     * quedó marcada en esa transacción y repetirla no la aplica otra vez.
+     */
+    public function test_una_operacion_que_murio_despues_de_guardar_no_se_repite(): void
+    {
+        $u = $this->usuario();
+        $veces = 0;
+        \Illuminate\Support\Facades\Route::post('/_prueba_operacion_unica', function () use (&$veces) {
+            $veces++;
+            // Lo que hace el commit de la transacción de negocio (en las pruebas todo va dentro
+            // de la transacción de la prueba y el commit real no llega a dispararse).
+            event(new \Illuminate\Database\Events\TransactionCommitting(DB::connection()));
+            throw new \RuntimeException('murió después de guardar');
+        })->middleware(['web', 'auth', OperacionUnica::class]);
+        $clave = (string) Str::uuid();
+
+        $this->actingAs($u)->postJson('/_prueba_operacion_unica', [], [OperacionUnica::CABECERA => $clave])->assertStatus(500);
+        DB::table(OperacionUnica::TABLA)->where('CLAVE', $clave)->update(['created_at' => now()->subMinutes(20)]);
+        $this->actingAs($u)->postJson('/_prueba_operacion_unica', [], [OperacionUnica::CABECERA => $clave])
+            ->assertOk()->assertHeader('X-Operacion-Repetida', '1')->assertJson(['success' => true]);
+        $this->assertSame(1, $veces);
+    }
+
+    /**
      * Una Auditoría que esperó sin internet: si mientras tanto otro registró una salida, no
      * la borra (se rechaza para recontar). Con internet, o con el saldo igual, se aplica.
      */
@@ -309,6 +333,13 @@ class BandejaServidorTest extends MySqlTestCase
 
         // Con internet el conteo es de ahora: manda.
         $ajuste(5)->assertCreated();
+        $this->assertSame(5.0, $this->saldo($alm, $p));
+
+        // Contó 5 viendo 10 y al subir el saldo ya es 5: hecha, sin ajuste ni rechazo (si no,
+        // «Reintentar» la rechazaba siempre).
+        $antes = MovimientoInventario::count();
+        $ajuste(5, ['en_diferido' => true])->assertCreated()->assertJsonFragment(['message' => 'Auditoría: el saldo ya coincidía con lo contado, no hubo que ajustar.']);
+        $this->assertSame($antes, MovimientoInventario::count());
         $this->assertSame(5.0, $this->saldo($alm, $p));
     }
 

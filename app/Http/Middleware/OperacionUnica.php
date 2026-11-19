@@ -3,8 +3,10 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Database\Events\TransactionCommitting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -33,8 +35,19 @@ class OperacionUnica
      * pasó su tiempo máximo —Registrar equipo pone 600 s—, se quedó sin memoria o mataron el
      * proceso): ahí no llega el catch y la fila quedaba sin respuesta, con 409 para siempre y
      * la bandeja detenida detrás de ella hasta la purga de 30 días. Se suelta y se aplica.
+     * Sin peligro de aplicarla dos veces: si la operación llegó a guardarse, su clave quedó
+     * marcada en la MISMA transacción (marcarAplicada) y ya no está «en curso».
      */
     private const MINUTOS_EN_CURSO = 15;
+
+    /**
+     * Lo que recibe quien repite una operación que se guardó pero cuya respuesta se perdió (la
+     * petición murió después de confirmar: el PDF, Drive, el tiempo máximo de PHP).
+     */
+    public const RESPUESTA_APLICADA = '{"success":true,"message":"La operación ya se había aplicado."}';
+
+    /** La clave de la petición en marcha (una por proceso). */
+    private static ?array $enMarcha = null;
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -66,16 +79,22 @@ class OperacionUnica
             return $this->repetida(DB::table(self::TABLA)->where($donde)->first());
         }
 
+        self::escucharCommit();
+        self::$enMarcha = $donde;
         try {
             $respuesta = $next($request);
         } catch (Throwable $e) {
-            DB::table(self::TABLA)->where($donde)->delete();
+            // Solo si no llegó a guardarse nada: entonces se puede volver a intentar.
+            DB::table(self::TABLA)->where($donde)->whereNull('ESTADO_HTTP')->delete();
             throw $e;
+        } finally {
+            self::$enMarcha = null;
         }
 
         $estado = $respuesta->getStatusCode();
         if ($estado >= 500 || in_array($estado, [401, 419, 429], true)) {
-            DB::table(self::TABLA)->where($donde)->delete();
+            // Ídem: si la operación ya se guardó, se queda marcada como aplicada.
+            DB::table(self::TABLA)->where($donde)->whereNull('ESTADO_HTTP')->delete();
         } else {
             DB::table(self::TABLA)->where($donde)->update([
                 'ESTADO_HTTP' => $estado, 'RESPUESTA' => (string) $respuesta->getContent(), 'updated_at' => now(),
@@ -83,6 +102,35 @@ class OperacionUnica
         }
 
         return $respuesta;
+    }
+
+    /**
+     * La clave queda aplicada DENTRO de la transacción que guarda la operación (justo antes de
+     * su commit): o las dos cosas quedan, o ninguna. Antes se marcaba al terminar la petición, y
+     * si moría entre medias (el PDF, Drive, el tiempo máximo) a los 15 min se soltaba la clave y
+     * la salida se registraba otra vez: stock descontado dos veces y otra Nota.
+     */
+    private static function escucharCommit(): void
+    {
+        // Una vez por aplicación (no por proceso: en las pruebas cada una arma la suya).
+        if (app()->bound('operacion-unica.escucha')) {
+            return;
+        }
+        app()->instance('operacion-unica.escucha', true);
+        Event::listen(TransactionCommitting::class, function (TransactionCommitting $e) {
+            if (self::$enMarcha === null || $e->connectionName !== DB::getDefaultConnection()) {
+                return;
+            }
+            self::marcarAplicada(self::$enMarcha);
+        });
+    }
+
+    /** Justo antes del commit, dentro de la transacción. */
+    private static function marcarAplicada(array $donde): void
+    {
+        DB::table(self::TABLA)->where($donde)->whereNull('ESTADO_HTTP')->update([
+            'ESTADO_HTTP' => 200, 'RESPUESTA' => self::RESPUESTA_APLICADA, 'updated_at' => now(),
+        ]);
     }
 
     private function repetida(?object $fila): Response

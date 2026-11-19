@@ -93,6 +93,8 @@ class DominioAlmacen
         }
         // Un frente ligado a un almacén que se borra (o se restaura) cambia qué almacenes ve el
         // usuario (Almacen::visiblesPara no cuenta los frentes borrados): también entera.
+        // El registro no dice QUÉ columna cambió, así que renombrarlo también la recarga; editar
+        // un frente con almacén es raro (lo hace un administrador) y así no se escapa nada.
         if (! empty($agregados['frentes'])
             && DB::table('almacen_frentes')->whereIn('ID_FRENTE', $agregados['frentes'])->exists()) {
             return null;

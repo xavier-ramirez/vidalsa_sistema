@@ -3,6 +3,7 @@
 // Cubre: con red, prepararSinRed deja la librería del PDF y el logo en su caché propia
 // ('nota-sin-red-v1', fuera de la limpieza del service worker) y no los vuelve a bajar; sin red
 // y sin service worker que los entregue, generar() los lee de esa caché y saca un PDF real.
+// Y que redondea y agrupa por destino como la Nota del servidor (AlmacenController).
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
@@ -73,6 +74,16 @@ const api = require(path.join(PUB, 'js', 'maquinaria', 'nota_entrega_local.js'))
     const sinLogo = await api.construir(window.PDFLib, datos, null);
     assert.ok(bytes.length > sinLogo.length + 5000, 'lleva el logo (' + bytes.length + ' vs ' + sinLogo.length + ' bytes sin él)');
     assert.ok(scripts.some((s) => s.startsWith('blob:')), 'la librería salió de la caché');
+
+    // 3) Igual que la Nota del servidor: números como number_format de PHP (el 5 sube) y el
+    // destino normalizado como limpiarDestino (agrupa «pozo 3» con «POZO 3»).
+    const esperado = { 1.2345: '1,235', 1.0005: '1,001', 0.1235: '0,124', 1234.5: '1.234,5', 0.125: '0,125', 1000000: '1.000.000', '-0.0001': '0' };
+    Object.entries(esperado).forEach(([n, t]) => assert.strictEqual(api.fmt(Number(n)), t, 'fmt(' + n + ')'));
+    const g = api.agrupar([
+        { clave: 1, cantidad: 2, destino: 'pozo  3' }, { clave: 1, cantidad: 3, destino: ' POZO 3' },
+        { clave: 1, cantidad: 1, destino: 'Tanque norte' },
+    ]);
+    assert.deepStrictEqual(g.map((l) => [l.destino, l.cantidad]), [['POZO 3', 5], ['TANQUE NORTE', 1]]);
 
     console.log('ok');
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -110,6 +110,24 @@ const clic = (attr, valor) => clics.forEach((fn) => fn({ target: { closest: (s) 
     assert.ok(toasts.some(([m]) => m.includes('NE-2026-0101 queda ANULADA')));
     assert.strictEqual(B.pendientes().length, 0);
 
+    // 4b) Descartada SIN red: la anulación espera en la bandeja; si mientras tanto el servidor
+    // todavía da ese número por libre, no vuelve a la lista (serían dos papeles con él).
+    red = false;
+    const n2 = B.tomarNumeroNota();
+    await B.enviar('/admin/almacen/movimientos-lote', { method: 'POST', body: { tipo: 'SALIDA', numero_nota_reservado: n2, lineas: [] } },
+        { tipo: 'salida', titulo: 'Salida · Nota ' + n2 });
+    const sal2 = B.pendientes().find((x) => x.cuerpo.numero_nota_reservado === n2);
+    clic('data-descartar', sal2.clave);
+    await esperar(10);
+    assert.ok(B.pendientes().some((x) => x.tipo === 'anular-nota' && x.cuerpo.numero === n2), 'anulación en espera');
+    red = true;
+    responder = (p) => (p.url.includes('notas-reservadas') && !p.url.includes('anular')
+        ? { status: 200, body: { numeros: [n2, 'NE-2026-0103'] } } : { status: 200, body: {} });
+    await B.apartarNumeros();
+    assert.deepStrictEqual(JSON.parse(localStorage.getItem('vidalsa_notas_7')), ['NE-2026-0103'], 'la anulada pendiente no vuelve');
+    await B.subir();
+    assert.strictEqual(B.pendientes().length, 0);
+
     // 5) Las demás pestañas se enteraron de los cambios.
     await esperar(10);
     assert.ok(escuchado.length > 0, 'BroadcastChannel avisa a las otras pestañas');
