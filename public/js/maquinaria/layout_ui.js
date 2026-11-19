@@ -357,12 +357,12 @@ window.downloadPdfDirect = function (url, documentLabel, soloEste) {
     let filename = limpio ? limpio + '.pdf' : 'documento.pdf';
 
     // Descarga con un <a download> apuntando a una URL (blob o directa).
-    // (dom_helpers.js · descargarEnlace). Si era un blob, se suelta al minuto: si el
-    // navegador muestra "Guardar como", la descarga no inicia hasta que el usuario confirme.
-    const downloadViaAnchor = function (href, revoke) {
-        window.descargarEnlace(href, filename);
+    // Baja el PDF (un Blob, o la URL directa si no se pudo traer) y devuelve el botón a
+    // «Descargar» (dom_helpers.js · descargarBlob / descargarEnlace).
+    const bajar = function (blobOUrl) {
+        if (typeof blobOUrl === 'string') window.descargarEnlace(blobOUrl, filename);
+        else window.descargarBlob(blobOUrl, filename);
         setTimeout(function () { pintarBoton(false); }, 800);
-        if (revoke) setTimeout(function () { URL.revokeObjectURL(href); }, 60000);
     };
 
     pintarBoton(true);
@@ -372,7 +372,7 @@ window.downloadPdfDirect = function (url, documentLabel, soloEste) {
             // El expediente entero: se marca en el nombre para no confundirlo con el
             // archivo suelto que pueda tener ya guardado.
             if (limpio) filename = limpio + '_completo.pdf';
-            downloadViaAnchor(URL.createObjectURL(unido), true);
+            bajar(unido);
             return;
         }
 
@@ -387,8 +387,8 @@ window.downloadPdfDirect = function (url, documentLabel, soloEste) {
         // rechaza. Aqui va fetch pelado.
         fetch(url, { credentials: 'include', cache: 'force-cache' })
             .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
-            .then(function (blob) { downloadViaAnchor(URL.createObjectURL(blob), true); })
-            .catch(function () { downloadViaAnchor(url, false); });
+            .then(function (blob) { bajar(blob); })
+            .catch(function () { bajar(url); });
     });
 };
 
