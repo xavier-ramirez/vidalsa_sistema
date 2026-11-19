@@ -326,9 +326,9 @@
                         </div>
                         <div class="dropdown-content" id="estadoOptions">
                             {{-- Opciones equipo --}}
-                            @foreach(['OPERATIVO', 'INOPERATIVO', 'EN MANTENIMIENTO' => 'MANTENIMIENTO', 'DESINCORPORADO'] as $key => $val)
-                                @php $vd = is_numeric($key) ? $val : $val; $vv = is_numeric($key) ? $val : $key; @endphp
-                                <div class="dropdown-item estado-opt-eq" onclick="selectOption('estadoSelect', '{{ $vv }}', '{{ addslashes($vd) }}', 'estatus')">{{ $vd }}</div>
+                            @foreach(\App\Models\Equipo::ESTADOS as $vv)
+                                @php $vd = $vv === 'EN MANTENIMIENTO' ? 'MANTENIMIENTO' : $vv; @endphp
+                                <div class="dropdown-item estado-opt-eq" onclick="selectOption('estadoSelect', '{{ $vv }}', '{{ $vd }}', 'estatus')">{{ $vd }}</div>
                             @endforeach
                             {{-- Opciones auxiliar (ocultas inicialmente) --}}
                             @foreach($estadosAux as $k => $label)

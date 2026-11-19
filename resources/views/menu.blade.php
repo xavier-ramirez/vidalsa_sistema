@@ -498,20 +498,13 @@
                 if (!response.ok) throw new Error('El servidor no pudo generar el reporte');
 
                 const blob = await response.blob();
-                const objUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = objUrl;
                 let filename = cfg.respaldo;
                 const disposition = response.headers.get('Content-Disposition');
                 if (disposition && disposition.indexOf('filename=') !== -1) {
                     const m = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
                     if (m && m[1]) filename = m[1].replace(/['"]/g, '');
                 }
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(objUrl); }, 100);
+                window.descargarBlob(blob, filename);   // dom_helpers.js
 
                 window.toast('Reporte descargado correctamente.', 'success');
 

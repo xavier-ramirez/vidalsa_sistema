@@ -333,8 +333,10 @@
     //  no tiene acta, así que se guarda directo.
     // ════════════════════════════════════════════════════════════════════
     let _previewBlobUrl = null;
+    let _previewBlob = null;   // el mismo PDF, para bajarlo al Confirmar (descargarBlob)
     function _revokePreview() {
         if (_previewBlobUrl) { try { URL.revokeObjectURL(_previewBlobUrl); } catch (_) {} _previewBlobUrl = null; }
+        _previewBlob = null;
     }
 
     window.flCrearReporte = function () {
@@ -367,6 +369,7 @@
         .then(blob => {
             _revokePreview();
             _previewBlobUrl = URL.createObjectURL(blob);
+            _previewBlob = blob;
             const frame = document.getElementById('flActaPreviewFrame');
             // #toolbar=0... oculta la barra nativa del visor PDF del navegador (incluido
             // su botón de descarga), igual que la vista previa del acta de movilización.
@@ -396,15 +399,12 @@
 
     // "Confirmar": guarda el reporte y descarga el acta que se previsualizó.
     window.flConfirmarPreviewActa = function () {
-        const blobUrl = _previewBlobUrl;
+        // El Blob, no la URL de la vista previa: _revokePreview la suelta enseguida y, si el
+        // navegador preguntaba «Guardar como», la descarga se perdía.
+        const blob = _previewBlob;
         window.submitNuevoReporte({
             onSuccess: function (falla) {
-                if (blobUrl) {
-                    const a = document.createElement('a');
-                    a.href = blobUrl;
-                    a.download = 'Reporte_Falla_' + ((falla && falla.CODIGO_REPORTE) || '') + '.pdf';
-                    document.body.appendChild(a); a.click(); a.remove();
-                }
+                if (blob) window.descargarBlob(blob, 'Reporte_Falla_' + ((falla && falla.CODIGO_REPORTE) || '') + '.pdf');   // dom_helpers.js
                 document.getElementById('flActaPreviewOverlay').classList.remove('active');
                 _revokePreview();
             }

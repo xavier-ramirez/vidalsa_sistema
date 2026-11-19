@@ -632,10 +632,7 @@ window.descargarPanelHtmlFDM = async function(panelId, nombre) {
             }
         }
     }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = nombre + '_' + fecha + '.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+        window.descargarEnlace(canvas.toDataURL('image/png'), nombre + '_' + fecha + '.png');   // dom_helpers.js
     }).catch(err => {
         // Sin este catch el fallo era MUDO: se pulsaba la camara y no bajaba nada,
         // sin aviso ni error en consola (la promesa quedaba rechazada y ya).

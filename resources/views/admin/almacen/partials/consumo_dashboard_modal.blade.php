@@ -233,10 +233,7 @@
                     doc.querySelectorAll('.cdash-chart-dl').forEach(function (b) { b.style.display = 'none'; });
                 }
             }).then(function (canvas) {
-                var a = document.createElement('a');
-                a.href = canvas.toDataURL('image/png');
-                a.download = (nombre || 'grafico') + '.png';
-                document.body.appendChild(a); a.click(); a.remove();
+                window.descargarEnlace(canvas.toDataURL('image/png'), (nombre || 'grafico') + '.png');   // dom_helpers.js
             }).catch(function () {});
         });
     };

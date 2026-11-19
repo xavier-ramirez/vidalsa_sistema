@@ -1106,10 +1106,7 @@
                 return;
             }
             const fecha = new Date().toISOString().slice(0, 10);
-            const link = document.createElement('a');
-            link.download = `${nombre}_${fecha}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+            window.descargarEnlace(canvas.toDataURL('image/png'), `${nombre}_${fecha}.png`);   // dom_helpers.js
         }
 
         // ── Helper: capturar cualquier panel del DOM tal como se ve en pantalla ──────
@@ -1141,10 +1138,7 @@
                     if (callbackClone) callbackClone(clonedDoc);
                 }
             }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = nombre + '_' + fecha + '.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
+                window.descargarEnlace(canvas.toDataURL('image/png'), nombre + '_' + fecha + '.png');   // dom_helpers.js
             });
         }
 

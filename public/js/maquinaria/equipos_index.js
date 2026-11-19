@@ -2686,20 +2686,7 @@ window.openBulkModal = function (event) {
                             if (!r.ok) throw new Error('HTTP ' + r.status);
                             return r.blob();
                         })
-                        .then(blob => {
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `Acta_Traslado_${firstId}.pdf`;
-                            a.style.display = 'none';
-                            a.setAttribute('data-no-spa', 'true');
-                            document.body.appendChild(a);
-                            a.click();
-                            setTimeout(() => {
-                                document.body.removeChild(a);
-                                URL.revokeObjectURL(url);
-                            }, 1000);
-                        })
+                        .then(blob => window.descargarBlob(blob, `Acta_Traslado_${firstId}.pdf`))   // dom_helpers.js
                         .catch(err => {
                             console.error('[Acta PDF Error]:', err);
                             if (typeof window.showToast === 'function') {

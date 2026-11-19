@@ -4156,11 +4156,7 @@
                     return r.blob().then(function (b) { return { blob: b, nombre: nombre }; });
                 })
                 .then(function (arch) {
-                    var a = document.createElement('a');
-                    a.href = URL.createObjectURL(arch.blob);
-                    a.download = arch.nombre;
-                    document.body.appendChild(a); a.click(); a.remove();
-                    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+                    window.descargarBlob(arch.blob, arch.nombre);   // dom_helpers.js
                     window.toast('Excel descargado · ' + ids.length + ' equipos', 'success');
                 })
                 .catch(function () { window.toast('No se pudo exportar el Excel de equipos.', 'error'); })
@@ -4957,12 +4953,7 @@
             // diseño (bordes redondeados + borde blanco) que cuando sale dentro de la foto.
             dibujar(cv.getContext('2d'), m, m, null, true);
             cv.toBlob(function (blob) {
-                if (!blob) return;
-                var a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = nombre + '_' + new Date().toISOString().slice(0, 10) + '.png';
-                document.body.appendChild(a); a.click(); a.remove();
-                setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+                if (blob) window.descargarBlob(blob, nombre + '_' + new Date().toISOString().slice(0, 10) + '.png');
             }, 'image/png');
         }
         function descargarLeyendaSola() {
@@ -5246,11 +5237,7 @@
                 canvas.toBlob(function (blob) {
                     overlayExport(false);
                     if (!blob) { window.toast('No se pudo generar la imagen.', 'error'); return; }
-                    var a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = 'mapa_' + tam + (expUsaOrientacion(tam) ? '_' + ori : '') + '_' + Pw + 'x' + Ph + '_' + new Date().toISOString().slice(0, 10) + '.png';
-                    document.body.appendChild(a); a.click(); a.remove();
-                    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+                    window.descargarBlob(blob, 'mapa_' + tam + (expUsaOrientacion(tam) ? '_' + ori : '') + '_' + Pw + 'x' + Ph + '_' + new Date().toISOString().slice(0, 10) + '.png');   // dom_helpers.js
                     window.toast('Imagen descargada · ' + tam.toUpperCase() + ' · ' + Pw + '×' + Ph + ' px', 'success');
                 }, 'image/png');
             }).catch(function () {

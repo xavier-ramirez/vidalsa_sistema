@@ -444,13 +444,23 @@
             .catch(function () {});
     };
 
-    // Baja un Blob ya armado como archivo (lo usa descargarPdf y la Nota sin internet).
+    // Bajar un archivo, en TODA la app (Nota, acta, reporte de falla, Excel, visor de PDF…):
+    //   descargarBlob(blob, nombre)  → un Blob ya armado.
+    //   descargarEnlace(href, nombre) → una URL (blob: o del servidor).
+    // data-no-spa: el router de la SPA no toma el clic. El blob se suelta al minuto, no antes:
+    // si el navegador pregunta «Guardar como», la descarga no empieza hasta que se confirma, y
+    // soltarlo antes la cancelaba.
+    window.descargarEnlace = function (href, nombre) {
+        var a = document.createElement('a');
+        a.href = href; a.download = nombre || ''; a.style.display = 'none';
+        a.setAttribute('data-no-spa', 'true');
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { if (a.parentNode) a.parentNode.removeChild(a); }, 800);
+    };
     window.descargarBlob = function (blob, nombre) {
         var burl = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = burl; a.download = nombre; a.style.display = 'none';
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
+        window.descargarEnlace(burl, nombre);
+        setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 60000);
     };
 
     /**
@@ -474,11 +484,7 @@
                 return r.blob();
             })
             .then(function (blob) {
-                var burl = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = burl; a.download = nombre; a.style.display = 'none';
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 2000);
+                window.descargarBlob(blob, nombre);
                 window.toast('Excel descargado.', 'success');
             })
             .catch(function () { window.toast(errMsg, 'error'); })

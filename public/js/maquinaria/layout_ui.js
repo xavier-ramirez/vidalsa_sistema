@@ -357,21 +357,11 @@ window.downloadPdfDirect = function (url, documentLabel, soloEste) {
     let filename = limpio ? limpio + '.pdf' : 'documento.pdf';
 
     // Descarga con un <a download> apuntando a una URL (blob o directa).
+    // (dom_helpers.js · descargarEnlace). Si era un blob, se suelta al minuto: si el
+    // navegador muestra "Guardar como", la descarga no inicia hasta que el usuario confirme.
     const downloadViaAnchor = function (href, revoke) {
-        const a = document.createElement('a');
-        a.href = href;
-        a.download = filename;
-        a.setAttribute('data-no-spa', 'true');
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        // Quitar el <a> y restaurar el boton rapido; pero si era un blob, NO lo
-        // revocamos aun: si el navegador muestra "Guardar como", la descarga no
-        // inicia hasta que el usuario confirme — revocar antes la cancelaria.
-        setTimeout(function () {
-            if (a.parentNode) a.parentNode.removeChild(a);
-            pintarBoton(false);
-        }, 800);
+        window.descargarEnlace(href, filename);
+        setTimeout(function () { pintarBoton(false); }, 800);
         if (revoke) setTimeout(function () { URL.revokeObjectURL(href); }, 60000);
     };
 

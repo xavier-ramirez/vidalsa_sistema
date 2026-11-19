@@ -4914,7 +4914,7 @@ class EquipoController extends Controller
         }
         $frentes    = $frentesQuery->pluck('NOMBRE_FRENTE')->toArray();
         $categorias = ['FLOTA LIVIANA', 'FLOTA PESADA'];
-        $statuses   = ['OPERATIVO', 'INOPERATIVO', 'EN MANTENIMIENTO', 'DESINCORPORADO'];
+        $statuses   = Equipo::ESTADOS;
 
         // fromArray llena listas en columnas de golpe (orders of magnitude mas rapido)
         $listSheet->fromArray([['TipoEquipo']], null, 'A1');
