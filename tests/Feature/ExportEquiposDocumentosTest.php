@@ -33,7 +33,11 @@ class ExportEquiposDocumentosTest extends MySqlTestCase
         $ids = $this->idsExportarLocal($admin, ['search_query' => $serial]);
         $this->assertSame([$equipo->ID_EQUIPO], $ids['equipos']);
 
+        // El export vacía los buffers de salida antes de mandar el archivo (por php-fpm): se
+        // reponen para que PHPUnit no la marque como prueba riesgosa (como en MapaEquiposGpsTest).
+        $nivel = ob_get_level();
         $resp = $this->actingAs($admin)->post(route('equipos.export'), ['ids' => implode(',', $ids['equipos'])]);
+        while (ob_get_level() < $nivel) ob_start();
         $resp->assertOk();
         $hoja = \PhpOffice\PhpSpreadsheet\IOFactory::load($resp->baseResponse->getFile()->getPathname())->getSheetByName('Equipos');
 
