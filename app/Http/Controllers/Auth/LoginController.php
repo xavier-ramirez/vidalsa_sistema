@@ -117,6 +117,8 @@ class LoginController extends Controller
                 'success'  => true,
                 'redirect' => $redirect,
                 'clave_v'  => Auth::user()?->claveVersion(),
+                // De quién es el candado sin internet (offline-auth.js · sincronizar).
+                'usuario'  => Auth::user()?->ID_USUARIO,
             ]);
         }
         if ($exito) {

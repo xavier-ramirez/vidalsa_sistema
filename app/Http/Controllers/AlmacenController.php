@@ -2724,6 +2724,8 @@ class AlmacenController extends Controller
             'motivo'          => 'nullable|string|max:200',
             // Nº apartado para este dispositivo: la salida se hizo sin internet (NotasReservadas).
             'numero_nota_reservado' => 'nullable|string|max:20',
+            // La hora impresa en ese papel (NotaEntregaLocal): la Nota del servidor pone la misma.
+            'hora_emision'          => ['nullable', 'regex:/^\d{2}:\d{2} (AM|PM)$/'],
         ] + $this->reglasTransporte();
     }
 
@@ -2735,6 +2737,8 @@ class AlmacenController extends Controller
             'numero_rq'       => $data['numero_rq']       ?? null,
             'solicitante'     => $data['solicitante']     ?? null,
             'departamento'    => $data['departamento']    ?? null,
+            // Solo con número apartado: es la de un papel ya impreso sin internet.
+            'hora_emision'    => !empty($data['numero_nota_reservado']) ? ($data['hora_emision'] ?? null) : null,
         ];
     }
 
@@ -2851,7 +2855,8 @@ class AlmacenController extends Controller
             // Sale de created_at y NO de FECHA: FECHA es la fecha CONTABLE del movimiento
             // (el usuario puede retrofecharla al registrar la salida) y viene casteada a
             // fecha sin hora, asi que su hora seria siempre 00:00.
-            'hora'          => optional($hd->created_at)->format('h:i A') ?: '',
+            // Hecha sin internet: la hora que se imprimió en su papel (HORA_EMISION).
+            'hora'          => $hd->HORA_EMISION ?: (optional($hd->created_at)->format('h:i A') ?: ''),
             'rq'            => $hd->NUMERO_RQ ?? '',
             'solicitante'   => $hd->SOLICITANTE ?? '',
             'departamento'  => $hd->DEPARTAMENTO ?? '',

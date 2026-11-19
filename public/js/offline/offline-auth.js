@@ -66,10 +66,14 @@
     // ¿El candado guardado se hizo con OTRA clave? `claveV` es la huella de la clave
     // actual que manda el servidor (Usuario::claveVersion). Un candado sin `claveV` es de
     // antes de esta comprobación y tampoco se puede dar por bueno.
-    function candadoDesfasado(claveV) {
+    // Solo cuenta el candado del MISMO usuario: el de otro que usó este equipo no dice nada de
+    // la clave de quien entra (antes, entrar B tiraba el candado y las huellas de A y las suyas).
+    // Un candado de antes, sin `u`, se compara como siempre.
+    function candadoDesfasado(claveV, idUsuario) {
         let v;
         try { v = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return false; }
-        return !!v && v.claveV !== claveV;
+        if (!v || v.claveV === claveV) return false;
+        return v.u == null || idUsuario == null || String(v.u) === String(idUsuario);
     }
 
     // `disponible()` NO se exporta: solo lo usa este módulo por dentro. Cada método
@@ -107,9 +111,9 @@
         // En los dos, si la clave cambió desde el último candado se tira también la huella sin
         // internet (cambiar la clave borra las huellas en el servidor). Se mira ANTES de
         // guardar el candado nuevo, que ya trae la versión de hoy.
-        sincronizar: async function (claveV) {
+        sincronizar: async function (claveV, idUsuario) {
             tomarVolverA();   // entró con servidor: va a donde lo lleve el inicio de sesión
-            const desfasado = !!claveV && candadoDesfasado(claveV);
+            const desfasado = !!claveV && candadoDesfasado(claveV, idUsuario);
             const p = _preparado;
             _preparado = null;
             if (window.LlaveLocal) await window.LlaveLocal.confirmar();
@@ -118,13 +122,17 @@
                     const v = await p;
                     if (v) {
                         v.claveV = claveV || null;
+                        v.u = idUsuario == null ? null : String(idUsuario);
                         localStorage.setItem(KEY, JSON.stringify(v));
-                        if (desfasado && window.LlaveLocal) window.LlaveLocal.olvidarHuellas();
+                        if (desfasado && window.LlaveLocal) window.LlaveLocal.olvidarHuellas(idUsuario);
                         return;
                     }
                 } catch (e) {}
             }
-            if (desfasado) this.olvidar();
+            if (desfasado) {
+                try { localStorage.removeItem(KEY); } catch (e) {}
+                if (window.LlaveLocal) window.LlaveLocal.olvidarHuellas(idUsuario);
+            }
         },
         // El intento no prosperó (credenciales rechazadas, red caída, o la clave está a
         // punto de cambiarse): el verificador a medio hacer se tira y el guardado de antes
@@ -166,7 +174,46 @@
     if (!loginForm) return;
 
     // En el inicio de sesión no hay nadie dentro: la llave abierta de lo guardado se olvida.
-    if (window.LlaveLocal) window.LlaveLocal.cerrar();
+    // Salvo un caso: quien ENTRÓ SIN CONEXIÓN (o siguió trabajando con la red caída) y, con la
+    // red ya de vuelta, pulsó F5 o reabrió la app. El servidor no tenía su sesión y lo trajo
+    // aquí (bootstrap/app.php, con ?volver=); dentro de la app el pase lo habría recuperado
+    // sin pedir la clave, así que aquí también: se canjea y vuelve a su página.
+    const llaveAlLlegar = (function () { try { return sessionStorage.getItem('vidalsa_llave_sesion'); } catch (e) { return null; } })();
+    reanudarEnElLogin().then(function (ok) {
+        if (ok || !window.LlaveLocal) return;
+        // Mientras se probaba el pase pudo entrar con su clave (la llave ya es la nueva o está
+        // por envolverse): eso no se toca.
+        let ahora = null, pendiente = null;
+        try { ahora = sessionStorage.getItem('vidalsa_llave_sesion'); pendiente = sessionStorage.getItem('vidalsa_llave_pendiente'); } catch (e) {}
+        if (ahora === llaveAlLlegar && !pendiente) window.LlaveLocal.cerrar();
+    });
+    async function reanudarEnElLogin() {
+        const params = new URLSearchParams(location.search);
+        // Solo la sesión vencida sin más (F5 / reabrir). Salir, inactividad, clave cambiada o
+        // un pase que ya no sirvió (volvio_conexion) van a pedir la clave como siempre.
+        if (!/^(sesion_expirada(_pendientes)?)?$/.test(params.get('aviso') || '')) return false;
+        // Y solo si el servidor lo trajo desde una pantalla (?volver=): abrir el inicio de sesión
+        // a propósito (otra persona, entrar con huella) muestra el formulario.
+        if (!params.get('volver')) return false;
+        let s = null;
+        try { s = JSON.parse(sessionStorage.getItem('vidalsa_llave_sesion') || 'null'); } catch (e) { return false; }
+        let pases = {};
+        try { pases = JSON.parse(localStorage.getItem('vidalsa_pases') || '{}') || {}; } catch (e) { return false; }
+        if (!s || !s.sinServidor || !s.u || !pases[s.u] || !window.Reingreso || !window.LlaveLocal || !navigator.onLine) return false;
+        // reingreso.js y la llave leen de quién es la sesión en <meta usuario-id>: aquí no hay.
+        const meta = document.createElement('meta');
+        meta.name = 'usuario-id';
+        meta.content = s.u;
+        document.head.appendChild(meta);
+        const r = await window.Reingreso.reanudar().catch(() => false);
+        if (r === true) {
+            const volver = params.get('volver');
+            location.replace(volver && /^\/(?![\/\\])/.test(volver) ? volver : '/menu');
+            return true;
+        }
+        meta.remove();
+        return false;
+    }
 
     // Página de LOGIN. Hay UN solo botón, «Iniciar sesión», y con qué se entra lo decide la
     // app: con servidor, el inicio de sesión normal; sin él (o si se cae a mitad del

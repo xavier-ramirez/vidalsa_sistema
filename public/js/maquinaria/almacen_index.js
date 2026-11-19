@@ -4424,6 +4424,8 @@
         // Los datos de la Nota se leen YA: al registrar se limpia la selección (nombres, UM).
         var notaLocal = (payload.numero_nota_reservado && window.NotaEntregaLocal)
             ? almNotaLocalDatos(payload, payload.numero_nota_reservado) : null;
+        // La hora que lleva ese papel: la Nota del servidor imprime la misma al subir.
+        if (notaLocal) payload.hora_emision = notaLocal.hora;
 
         pre();
         window.Bandeja.enviar(ROUTE_LOTE, { method: 'POST', body: payload }, {

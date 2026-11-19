@@ -69,6 +69,11 @@
     function mostrarOffline() {
         if (sinConexion) return;
         sinConexion = true;
+        // Alguien está dentro y se quedó sin servidor: si este cierra la sesión mientras tanto,
+        // al volver la red se recupera con el pase (reingreso.js) en vez de pedir la clave.
+        // Antes solo lo anotaba el aviso a la sesión, que tarda: un corte corto no quedaba
+        // anotado y al volver la red mandaba al inicio de sesión (probado en Chrome).
+        if (window.LlaveLocal) window.LlaveLocal.marcarSinServidor();
         showBanner('Sin internet' + desdeCuando() + ' · trabajando con la copia local', 'cloud_off', '#b45309', 0);
         ajustarResondeo();   // a partir de aqui hay que vigilar si vuelve
     }

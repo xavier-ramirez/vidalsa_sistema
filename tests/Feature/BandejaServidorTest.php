@@ -312,6 +312,23 @@ class BandejaServidorTest extends MySqlTestCase
         $this->assertSame(5.0, $this->saldo($alm, $p));
     }
 
+    /** La Nota hecha sin internet guarda la hora de su papel; con internet vale la del registro. */
+    public function test_la_salida_sin_internet_guarda_la_hora_impresa_en_su_nota(): void
+    {
+        [$alm, $p] = $this->almacenConStock();
+        $u = $this->usuario();
+        $nota = $this->actingAs($u)->postJson(route('almacen.notas-reservadas'), ['dispositivo' => (string) Str::uuid()])->json('numeros')[0];
+
+        $this->salida($u, $alm, $p, 1, ['numero_nota_reservado' => $nota, 'hora_emision' => '07:05 AM'])->assertCreated();
+        $this->assertSame('07:05 AM', MovimientoInventario::where('NUMERO_NOTA', $nota)->value('HORA_EMISION'));
+
+        // Sin número apartado (con internet) no se acepta una hora de fuera.
+        $n2 = $this->salida($u, $alm, $p, 1, ['hora_emision' => '07:05 AM'])->assertCreated()->json('numero_nota');
+        $this->assertNull(MovimientoInventario::where('NUMERO_NOTA', $n2)->value('HORA_EMISION'));
+
+        $this->salida($u, $alm, $p, 1, ['numero_nota_reservado' => $nota, 'hora_emision' => '7:05'])->assertStatus(422);
+    }
+
     /** Un cursor de la copia por encima de lo anotado (base restaurada o importada) recarga entero. */
     public function test_un_cursor_mas_alto_que_el_registro_recarga_entero(): void
     {

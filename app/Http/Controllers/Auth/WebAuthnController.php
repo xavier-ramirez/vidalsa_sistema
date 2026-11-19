@@ -302,6 +302,7 @@ class WebAuthnController extends Controller
             'success'  => true,
             'redirect' => $redirect,
             'clave_v'  => $user->claveVersion(),
+            'usuario'  => $user->ID_USUARIO,
         ]);
     }
 

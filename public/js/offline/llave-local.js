@@ -100,6 +100,14 @@
                     if (!dek && mia.srv) { try { dek = await desenvolver(srv, mia.srv); } catch (e) { dek = null; } }
                     // La del servidor ya no abre (cambió APP_KEY): la recupera la clave recién escrita.
                     if (!dek && pend && pend.dek && mia.pwd && mia.pwd.id === pend.id) dek = deB64(pend.dek);
+                    // ...o la huella con que se acaba de entrar, si ya la envolvía (misma sal).
+                    // Sin esto se creaba una llave nueva y lo guardado sin subir quedaba ilegible.
+                    if (!dek && pendHuella) {
+                        const e = (leer(localStorage, HUELLAS) || {})[pendHuella.cred];
+                        if (e && e.ct && e.salt === pendHuella.salt && String(e.u) === String(u)) {
+                            try { dek = await desenvolver(deB64(pendHuella.kek), e); } catch (x) { dek = null; }
+                        }
+                    }
                     if (!dek) {
                         dek = crypto.getRandomValues(new Uint8Array(32));
                         delete mia.pwd;   // envolvía otra llave: ya no abre nada
@@ -243,9 +251,17 @@
                 return true;
             } catch (err) { return false; }   // otra huella u otra sal: no abre
         },
-        olvidarHuellas() {
-            escribir(localStorage, HUELLAS, null);
-            escribir(sessionStorage, PENDIENTE_HUELLA, null);
+        // Sin usuario, todas (cambio de clave en este equipo); con él, solo las suyas: la huella
+        // que acaba de usar otro para entrar (PENDIENTE_HUELLA) y las de los demás se quedan.
+        olvidarHuellas(idUsuario) {
+            if (idUsuario == null) {
+                escribir(localStorage, HUELLAS, null);
+                escribir(sessionStorage, PENDIENTE_HUELLA, null);
+                return;
+            }
+            const hs = leer(localStorage, HUELLAS) || {};
+            Object.keys(hs).forEach((c) => { if (hs[c] && String(hs[c].u) === String(idUsuario)) delete hs[c]; });
+            escribir(localStorage, HUELLAS, hs);
         },
         trabajaSinServidor() {
             const s = leer(sessionStorage, SESION);

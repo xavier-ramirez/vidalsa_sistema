@@ -33,6 +33,7 @@
     const LOGO = '/img/imagen_uno.jpg?v=1';
     // El visor de la vista previa en el teléfono (dom_helpers.js · cargarPdfJs).
     const PDFJS = ['/js/vendor/pdf-3.11.174.min.js?v=3.11.174', '/js/vendor/pdf.worker-3.11.174.min.js?v=3.11.174'];
+    const CACHE_SIN_RED = 'nota-sin-red-v1';   // ver prepararSinRed
     const MM = 72 / 25.4;
     // Medido contra el PDF del servidor: TCPDF toma los alto/padding del HTML como pt, y el
     // primer renglón de cada celda mide con la letra del documento (9,5) si la suya es menor.
@@ -351,29 +352,48 @@
     }
 
     // ── Navegador ──
+    // Lo guardado por prepararSinRed, leído a mano: si el service worker no controla la página
+    // (o no la tenía), la petición normal sin red falla aunque el archivo esté en el equipo.
+    const deLaCache = (u) => (typeof caches !== 'undefined' ? caches.match(u).catch(() => null) : Promise.resolve(null));
     function cargarLibreria() {
         if (raiz.PDFLib) return Promise.resolve(raiz.PDFLib);
-        return raiz.cargarScriptUnaVez(PDFLIB, () => !!raiz.PDFLib).then(() => raiz.PDFLib);
+        return raiz.cargarScriptUnaVez(PDFLIB, () => !!raiz.PDFLib)
+            .catch((err) => deLaCache(PDFLIB).then((r) => {
+                if (!r) throw err;
+                return r.text().then((codigo) => {
+                    const url = URL.createObjectURL(new Blob([codigo], { type: 'text/javascript' }));
+                    return raiz.cargarScriptUnaVez(url, () => !!raiz.PDFLib).finally(() => URL.revokeObjectURL(url));
+                });
+            }))
+            .then(() => raiz.PDFLib);
     }
     function bajarLogo() {
         return fetch(LOGO, { credentials: 'same-origin' })
-            .then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null);
+            .then((r) => (r.ok ? r : deLaCache(LOGO)))
+            .catch(() => deLaCache(LOGO))
+            .then((r) => (r && r.ok ? r.arrayBuffer() : null)).catch(() => null);
     }
 
     const api = {
         construir,
         fmt,
-        // Con red: la librería, el logo y (teléfono) el visor quedan en la caché del service
-        // worker (/js y /img son cache-first), así la Nota se arma y se ve sin internet.
-        // Solo lo que falta: el SW revalida por detrás cada archivo que sirve de la caché, y
-        // pedirlos siempre volvía a bajar la librería (~500 KB) en cada sesión.
+        // Con red: la librería, el logo y (teléfono) el visor quedan en el equipo, así la Nota se
+        // arma y se ve sin internet. Solo lo que falta: pedirlos siempre volvía a bajar la
+        // librería (~500 KB) en cada sesión.
+        // Se guardan AQUÍ, en una caché propia: antes se pedían y se confiaba en que el service
+        // worker los guardara al pasar, y eso solo pasa si ya controla la página (la primera vez
+        // que se entra no siempre): probado en Chrome, sin red la Nota no se podía armar. El SW
+        // las encuentra igual (caches.match mira todas) y esta caché no empieza por 'vidalsa-',
+        // así que su limpieza de cada despliegue no la toca.
         prepararSinRed() {
-            if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.resolve();
+            if (typeof caches === 'undefined') return Promise.resolve();
             const urls = [PDFLIB, LOGO].concat(raiz.pdfEsMovil && raiz.pdfEsMovil() ? PDFJS : []);
-            const hay = (u) => (typeof caches !== 'undefined' ? caches.match(u).catch(() => null) : Promise.resolve(null));
-            urls.forEach((u) => {
-                hay(u).then((ya) => ya || fetch(u, { credentials: 'same-origin' })).catch(() => {});
-            });
+            return caches.open(CACHE_SIN_RED).then((cache) => Promise.all(urls.map((u) =>
+                cache.match(u).then((ya) => ya || fetch(u, { credentials: 'same-origin' }).then((r) => {
+                    if (r && r.ok) return cache.put(u, r);
+                })).catch(() => {})
+            ))).catch(() => {});
         },
         generar(datos) {
             return Promise.all([cargarLibreria(), bajarLogo()])

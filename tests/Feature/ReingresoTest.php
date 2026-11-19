@@ -100,10 +100,23 @@ class ReingresoTest extends MySqlTestCase
             ->update(['PASSWORD_HASH' => bcrypt('clave-de-prueba'), 'REQUIERE_CAMBIO_CLAVE' => 0]);
 
         $this->postJson('/', ['login_identifier' => $usuario->CORREO_ELECTRONICO, 'password' => 'clave-de-prueba'])
-            ->assertOk()->assertJson(['success' => true])
+            ->assertOk()->assertJson(['success' => true, 'usuario' => $usuario->ID_USUARIO])
             ->assertCookie(\App\Http\Controllers\Auth\LoginController::COOKIE_SESION_PREVIA);
         $this->assertAuthenticatedAs($usuario);
         $this->assertSame($usuario->fresh()->SESSION_TOKEN, session('current_session_token'));
+    }
+
+    /**
+     * F5 (o reabrir la app) en una pantalla interna sin sesión: el login recibe a qué página
+     * volver, para que quien entró sin conexión la recupere con su pase (offline-auth.js).
+     */
+    public function test_sin_sesion_una_pantalla_manda_al_login_con_la_pagina_de_vuelta(): void
+    {
+        $this->get('/admin/almacen?id_almacen=3')->assertRedirect('/?volver=' . rawurlencode('/admin/almacen?id_almacen=3'));
+        $this->withCookie(\App\Http\Controllers\Auth\LoginController::COOKIE_SESION_PREVIA, '1')
+            ->get('/menu')->assertRedirect('/?aviso=sesion_expirada&volver=' . rawurlencode('/menu'));
+        // Una petición de datos no lleva la vuelta: responde 401.
+        $this->getJson('/menu')->assertUnauthorized();
     }
 
     /** Un pase pedido con sesión, como lo pide reingreso.js; después se sale. */

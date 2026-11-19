@@ -91,9 +91,16 @@ return Application::configure(basePath: dirname(__DIR__))
             //   entró y se le venció  -> hay marca   -> se explica el motivo
             //   cerró sesión él mismo -> no hay marca -> login limpio, ya sabe por qué
             //   nunca entró aquí      -> no hay marca -> login limpio
-            return redirect($request->cookies->has(\App\Http\Controllers\Auth\LoginController::COOKIE_SESION_PREVIA)
+            $destino = $request->cookies->has(\App\Http\Controllers\Auth\LoginController::COOKIE_SESION_PREVIA)
                 ? '/?aviso=sesion_expirada'
-                : '/');
+                : '/';
+            // La página que se pidió (F5 o reabrir la app en una pantalla interna): quien
+            // había entrado sin conexión recupera la sesión con su pase EN el login y vuelve
+            // aquí (offline-auth.js · reanudarEnElLogin). Solo rutas propias (lo filtra el JS).
+            if ($request->isMethod('GET') && !$request->expectsJson() && $request->getRequestUri() !== '/') {
+                $destino .= (str_contains($destino, '?') ? '&' : '?') . 'volver=' . rawurlencode($request->getRequestUri());
+            }
+            return redirect($destino);
         });
 
         // Acceso denegado (middleware can:* / Gate::denies / authorize()) en rutas WEB.

@@ -637,7 +637,7 @@
                                     const off = window.OfflineAuth;
                                     if (!off) { window.location.href = data.redirect; return; }
                                     if (data.redirect === RUTA_CAMBIO_CLAVE) off.descartar();
-                                    return off.sincronizar(data.clave_v).catch(function () {}).then(function () {
+                                    return off.sincronizar(data.clave_v, data.usuario).catch(function () {}).then(function () {
                                         window.location.href = data.redirect;  // → menú
                                     });
                                 }
@@ -665,6 +665,9 @@ if ('serviceWorker' in navigator) {
 <script src="{{ asset('js/pwa-update-overlay.js') }}?v={{ @filemtime(public_path('js/pwa-update-overlay.js')) }}" defer></script>
 {{-- La llave de lo guardado en el equipo: se prepara con la clave y se cierra aquí. --}}
 <script src="{{ asset('js/offline/llave-local.js') }}?v={{ @filemtime(public_path('js/offline/llave-local.js')) }}" defer></script>
+{{-- El pase de reingreso: quien entró sin conexión y llega aquí con F5 al volver la red
+     recupera la sesión sin escribir la clave (offline-auth.js · reanudarEnElLogin). --}}
+<script src="{{ asset('js/offline/reingreso.js') }}?v={{ @filemtime(public_path('js/offline/reingreso.js')) }}" defer></script>
 {{-- Login OFFLINE: sin servidor, «Iniciar sesión» verifica contra el hash local. --}}
 <script src="{{ asset('js/offline/offline-auth.js') }}?v={{ @filemtime(public_path('js/offline/offline-auth.js')) }}" defer></script>
 {{-- Helpers DOM compartidos (window.getCsrf / escapeHtml / escapeAttrJs / apiFetch).
@@ -728,7 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Mismo punto que el login con contraseña. Aquí no hay verificador que
                     // guardar (nadie escribió una clave), así que lo que hace es tirar el
                     // candado de acceso sin internet si se hizo con una clave que ya cambió.
-                    return window.OfflineAuth.sincronizar(data.clave_v).then(function () {
+                    return window.OfflineAuth.sincronizar(data.clave_v, data.usuario).then(function () {
                         window.location.href = data.redirect;
                     });
                 }

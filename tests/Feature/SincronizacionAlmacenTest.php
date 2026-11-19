@@ -109,6 +109,18 @@ class SincronizacionAlmacenTest extends MySqlTestCase
         $this->sync($usuario, $primera)->assertJson(['completo' => true]);
     }
 
+    /** Borrar el frente de un almacén cambia qué almacenes se ven: la copia baja entera. */
+    public function test_borrar_el_frente_de_un_almacen_recarga_la_copia_entera(): void
+    {
+        [, $frente] = $this->almacenConFrente();
+        $usuario = $this->usuario(1);
+        $primera = $this->sync($usuario)->json();
+
+        DB::table('frentes_trabajo')->where('ID_FRENTE', $frente)->update(['deleted_at' => now()]);
+
+        $this->sync($usuario, $primera)->assertJson(['completo' => true]);
+    }
+
     public function test_una_correccion_de_nota_llega(): void
     {
         $usuario = $this->usuario(1);

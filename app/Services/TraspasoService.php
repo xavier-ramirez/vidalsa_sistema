@@ -164,6 +164,7 @@ class TraspasoService
                 'numero_rq'       => $opts['numero_rq']       ?? null,
                 'solicitante'     => $opts['solicitante']     ?? null,
                 'departamento'    => $opts['departamento']    ?? null,
+                'hora_emision'    => $opts['hora_emision']    ?? null,
             ] + array_intersect_key($opts, \App\Models\MovimientoInventario::CAMPOS_TRANSPORTE);
 
             // Bolsa del almacén ORIGEN de la que se descuenta cada producto, cuando se eligió en

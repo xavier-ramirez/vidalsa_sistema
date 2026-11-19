@@ -68,6 +68,7 @@ class MovimientoInventario extends Model
         'TRANSPORTE_CHOFER',
         'TRANSPORTE_CEDULA',
         'NUMERO_NOTA',
+        'HORA_EMISION',
         // Plantilla con la que se emitió la Nota (VERTICAL/HORIZONTAL) — se congela al
         // registrar para que el historial reimprima la hoja que se firmó, no la que el
         // almacén emita hoy. Ver InventarioService::aplicarMovimiento.
