@@ -449,12 +449,11 @@
         const alm = almacenElegido(ctx, f.id_almacen, porDefecto);
         const sal = alm ? saldos(ctx, alm.id) : new Map();
         const hay = hayFiltroInventario(f);
-        let filas = [], aproximada = false, hasMore = false, perdonUsado = null;
+        let filas = [], hasMore = false, perdon = null;   // perdon: Set si la búsqueda fue aproximada
         if (alm && hay) {
             const [todas, pd] = conPerdonDeTipeo(ctx, f, offset,
-                (perdon) => ordenarInventario(filtrarInventario(ctx, sal, f, perdon), sal, f, perdon));
-            perdonUsado = pd;
-            aproximada = !!pd;
+                (conPerdon) => ordenarInventario(filtrarInventario(ctx, sal, f, conPerdon), sal, f, conPerdon));
+            perdon = pd;
             filas = todas.slice(offset, offset + lote);
             hasMore = todas.length > offset + lote;
         }
@@ -462,11 +461,11 @@
             html: offset > 0 && !filas.length ? '' : filasInventario(ctx, filas, alm, sal, !hay, f),
             hasMore,
             nextOffset: hasMore ? offset + lote : null,
-            aproximada,
+            aproximada: !!perdon,
         };
         if (offset === 0 && !si(f.solo_filas)) {
             r.stats = statsInventario(ctx, sal);
-            r.distribucionHtml = htmlDistribucion(alm ? distribucion(ctx, sal, f, perdonUsado) : []);
+            r.distribucionHtml = htmlDistribucion(alm ? distribucion(ctx, sal, f, perdon) : []);
         }
         return r;
     }
@@ -477,7 +476,7 @@
         const alm = almacenElegido(ctx, f.id_almacen, porDefecto);
         if (!alm) return [];
         const sal = saldos(ctx, alm.id);
-        return conPerdonDeTipeo(ctx, f, 0, (perdon) => filtrarInventario(ctx, sal, f, perdon))[0].map((p) => p.id);
+        return conPerdonDeTipeo(ctx, f, 0, (conPerdon) => filtrarInventario(ctx, sal, f, conPerdon))[0].map((p) => p.id);
     }
 
     // Consolidado: siempre del almacén entero, sin los filtros de la tabla.
