@@ -4283,7 +4283,9 @@
         return {
             formato:      a.FORMATO_NOTA,
             numero:       numero,
-            proyecto:     item ? t(item.textContent) : '',
+            // La opción elegida; si la lista se repintó sin ella, lo que muestra el campo (el
+            // nombre elegido): el papel nunca sale con PROYECTO vacío habiendo uno.
+            proyecto:     item ? t(item.textContent) : t((document.getElementById('almSalidaProyectoSearch') || {}).value),
             contrato:     t(payload.numero_contrato),
             fecha:        f && f.length === 3 ? f[2] + '/' + f[1] + '/' + f[0] : dd(ahora.getDate()) + '/' + dd(ahora.getMonth() + 1) + '/' + ahora.getFullYear(),
             hora:         dd(ahora.getHours() % 12 || 12) + ':' + dd(ahora.getMinutes()) + ' ' + (ahora.getHours() < 12 ? 'AM' : 'PM'),

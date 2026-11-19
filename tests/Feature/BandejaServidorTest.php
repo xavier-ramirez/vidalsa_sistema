@@ -343,6 +343,25 @@ class BandejaServidorTest extends MySqlTestCase
         $this->assertSame(5.0, $this->saldo($alm, $p));
     }
 
+    /** Una salida solo va a un proyecto ACTIVO: a uno FINALIZADO se rechaza y no descuenta nada. */
+    public function test_la_salida_a_un_proyecto_finalizado_se_rechaza(): void
+    {
+        [$alm, $p] = $this->almacenConStock();
+        $u = $this->usuario();
+        $id = DB::table('frentes_trabajo')->insertGetId([
+            'NOMBRE_FRENTE' => 'FIN ' . $this->marca, 'UBICACION' => 'X', 'TIPO_FRENTE' => 'OPERACION',
+            'ESTATUS_FRENTE' => 'FINALIZADO', 'created_at' => now(), 'updated_at' => now(),
+        ], 'ID_FRENTE');
+
+        $this->salida($u, $alm, $p, 2, ['id_frente_destino' => $id])->assertStatus(422)
+            ->assertJsonFragment(['El proyecto destino no está activo (finalizado o borrado): elige uno activo.']);
+        $this->assertSame(10.0, $this->saldo($alm, $p));
+
+        DB::table('frentes_trabajo')->where('ID_FRENTE', $id)->update(['ESTATUS_FRENTE' => 'ACTIVO']);
+        $this->salida($u, $alm, $p, 2, ['id_frente_destino' => $id])->assertCreated();
+        $this->assertSame(8.0, $this->saldo($alm, $p));
+    }
+
     /** La Nota hecha sin internet guarda la hora de su papel; con internet vale la del registro. */
     public function test_la_salida_sin_internet_guarda_la_hora_impresa_en_su_nota(): void
     {

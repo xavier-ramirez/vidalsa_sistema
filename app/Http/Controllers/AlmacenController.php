@@ -2104,7 +2104,7 @@ class AlmacenController extends Controller
             'id_frente'            => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             // Alias del frente destino para el flujo unificado de SALIDA. El frontend lo
             // manda como `id_frente_destino`; si solo viene `id_frente` lo usamos también.
-            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
+            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL,ESTATUS_FRENTE,ACTIVO',
             // Almacén destino EXPLÍCITO de la salida a otro proyecto. Solo hace falta
             // cuando el frente destino está asignado a más de un almacén PROYECTO y por
             // tanto no se puede deducir; el formulario lo pregunta en ese caso.
@@ -2598,7 +2598,7 @@ class AlmacenController extends Controller
         $data = $request->validate([
             'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
             'fecha'                => 'nullable|date',
-            'id_frente_destino'    => 'required|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
+            'id_frente_destino'    => 'required|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL,ESTATUS_FRENTE,ACTIVO',
             'id_almacen_destino'   => 'nullable|integer|exists:almacenes,ID_ALMACEN',
             'lineas'               => 'required|array|min:1',
             'lineas.*.id_producto' => 'required|integer|exists:productos_inventario,ID_PRODUCTO',
@@ -3074,7 +3074,7 @@ class AlmacenController extends Controller
         $data = $request->validate([
             'id_almacen'           => 'required|integer|exists:almacenes,ID_ALMACEN',
             'fecha'                => 'nullable|date',
-            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
+            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL,ESTATUS_FRENTE,ACTIVO',
             // El almacén destino elegido cuando el proyecto lo manejan varios: sin él,
             // almacenDestinoDeSalida no sabe si la salida va por traspaso (ver abajo).
             'id_almacen_destino'   => 'nullable|integer|exists:almacenes,ID_ALMACEN',
@@ -3241,8 +3241,9 @@ class AlmacenController extends Controller
             'solicitante'   => $fixReq($data['solicitante'] ?? ''),
             'departamento'  => $fixReq($data['departamento'] ?? ''),
             'almacen'       => $almacen?->NOMBRE ?? '',
-            'entregado_por' => $almacen?->ALMACENISTA ?? '',
-            'cargo_entrega' => $almacen?->CARGO_ALMACENISTA ?? '',
+            // trim, como la Nota emitida y la hecha sin internet: la vista previa no difiere.
+            'entregado_por' => trim((string) ($almacen?->ALMACENISTA ?? '')),
+            'cargo_entrega' => trim((string) ($almacen?->CARGO_ALMACENISTA ?? '')),
             'motivo'        => $fixReq($data['motivo'] ?? ''),
         ] + array_map(fn ($v) => $fixReq($v ?? ''), $this->logistica->transporteDe($data));
 

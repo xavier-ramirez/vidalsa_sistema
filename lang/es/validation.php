@@ -71,6 +71,12 @@ return [
      * Nombre legible de cada campo. Sin esto Laravel parte los nombres en MAYÚSCULAS con
      * guion bajo letra por letra ("i d  f r e n t e  a c t u a l").
      */
+    // Una salida solo va a un proyecto ACTIVO (el desplegable de la Nota solo ofrece esos:
+    // DatosNotaSalida::frentes); uno FINALIZADO o borrado se rechaza también por la API.
+    'custom' => [
+        'id_frente_destino' => ['exists' => 'El proyecto destino no está activo (finalizado o borrado): elige uno activo.'],
+    ],
+
     'attributes' => [
         // Comunes a equipos y auxiliares
         'ID_FRENTE_ACTUAL'         => 'el frente de trabajo',
