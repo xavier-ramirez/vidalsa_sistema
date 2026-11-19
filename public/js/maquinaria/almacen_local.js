@@ -28,8 +28,9 @@
  *   · Comparar como la base (colación utf8mb4_unicode_ci): sin mayúsculas ni acentos.
  *   · La búsqueda de producto parte en palabras (sin "de", "la"… ni números de 1-2 cifras),
  *     exige todas, mira código, descripción y nºs de parte, y "botas" encuentra "bota". Si no
- *     encuentra nada y lo escrito no está en ningún producto, perdona UN error de tipeo por
- *     palabra (hasta 3 palabras de 4 a 12 letras) y avisa que son parecidos.
+ *     encuentra nada y lo escrito no está en ningún producto, perdona UN error de tipeo en
+ *     las palabras que no salen en NINGÚN producto (hasta 3 de 4 a 16 letras; las que sí
+ *     existen se buscan tal cual, así que la frase puede ser larga) y avisa que son parecidos.
  *   · El inventario sin filtro abre VACÍO; el Consolidado es siempre del almacén entero.
  *   · Las cantidades se suman por producto (un almacén multi-proyecto tiene una fila por
  *     proyecto); el reparto por proyecto solo existe donde el almacén separa.
@@ -41,8 +42,8 @@
     const POR_PAGINA = 50;
     const EPS = 0.0005;
     const MAX_PALABRAS_CON_PERDON = 3;
-    const MAX_LETRAS_CON_PERDON = 12;
-    const MAX_FORMAS_CON_PERDON = 120;
+    const MAX_LETRAS_CON_PERDON = 16;
+    const MAX_FORMAS_CON_PERDON = 200;
     const BOLSA_COMUN = 'Sin proyecto (común)';
     const BOLSA_COMUN_EN_FRASE = 'material sin asignar';
     const STOCK_INICIAL = 'STOCK INICIAL';
@@ -156,6 +157,8 @@
             v.push(antes + '_' + despues, antes + despues);
         }
         for (let i = 0; i <= l.length; i++) v.push(l.slice(0, i).join('') + '_' + l.slice(i).join(''));
+        // Dos letras seguidas al revés (lo más común al teclear rápido: «ABARZADERA», «PLSATICA»).
+        for (let i = 0; i + 1 < l.length; i++) if (l[i] !== l[i + 1]) v.push(l.slice(0, i).join('') + l[i + 1] + l[i] + l.slice(i + 2).join(''));
         return Array.from(new Set(v));
     }
 
@@ -173,31 +176,50 @@
         return Array.from(new Set(f));
     }
 
+    // Palabra que sale en el código, la descripción o algún nº de parte de un producto.
+    function coincide(n, ms) {
+        return ms.some((m) => (n.cod !== null && m(n.cod)) || (n.nom !== null && m(n.nom)) || n.partes.some(m));
+    }
+
+    // Las palabras a las que se les perdona el tipeo: SOLO las que no salen en ningún producto
+    // activo (las demás ya están bien escritas). Antes se perdonaba todo o nada y con más de 3
+    // palabras nada: «ABARZADERA 5" PARA MANGUERA DE ADMISIÓN JAC» no encontraba la abrazadera.
+    // null = nada que perdonar, o demasiado (más de 3 palabras desconocidas —un texto pegado— o
+    // demasiadas formas): se queda la búsqueda exacta.
+    function palabrasAPerdonar(ctx, term) {
+        const n = Array.from(ctx.productos.values()).filter((p) => p.activo).map(np);
+        const raras = palabras(txt(term)).filter((t) => {
+            const ms = formas(t, false).map((f) => molde('%' + f + '%'));
+            return !n.some((x) => coincide(x, ms));
+        });
+        if (!raras.length || raras.length > MAX_PALABRAS_CON_PERDON
+            || Array.from(new Set(raras)).reduce((s, t) => s + formas(t, true).length, 0) > MAX_FORMAS_CON_PERDON) return null;
+        return new Set(raras);
+    }
+
     // AND entre palabras; cada palabra en código, descripción o algún nº de parte.
-    function buscador(term, tolerante) {
+    // perdon: Set de palabras con perdón de tipeo (palabrasAPerdonar) o null.
+    function buscador(term, perdon) {
         const toks = palabras(term);
-        const tol = tolerante && toks.length <= MAX_PALABRAS_CON_PERDON;
-        const grupos = toks.map((t) => formas(t, tol).map((f) => molde('%' + f + '%')));
+        const grupos = toks.map((t) => formas(t, !!perdon && perdon.has(t)).map((f) => molde('%' + f + '%')));
         return (p) => {
             const n = np(p);
-            return grupos.every((fs) => fs.some((m) => (n.cod !== null && m(n.cod)) || (n.nom !== null && m(n.nom)) || n.partes.some(m)));
+            return grupos.every((fs) => coincide(n, fs));
         };
     }
 
     // Cercanía a lo escrito: la frase entera pesa más que cada palabra, y el inicio más que el medio.
-    function puntuador(term, tolerante) {
+    function puntuador(term, perdon) {
         const frase = txt(term);
         if (frase === '') return null;
         const f = comoTexto(frase.toLowerCase());
         const fr = [molde(f + '%'), molde('% ' + f + '%'), molde('%' + f + '%')];
         const toks = palabras(frase);
-        const tol = tolerante && toks.length <= MAX_PALABRAS_CON_PERDON
-            && toks.reduce((s, t) => s + formas(t, true).length, 0) <= MAX_FORMAS_CON_PERDON;
         frase.toLowerCase().split(ESPACIOS).forEach((s) => {
             if (s !== '' && /^\d{1,2}$/.test(s) && toks.indexOf(s) < 0) toks.push(s);
         });
         const niveles = toks.map((t) => {
-            const fs = formas(t, tol);
+            const fs = formas(t, !!perdon && perdon.has(t));
             return ['@%', '% @%', '%@%'].map((m) => fs.map((x) => molde(m.replace('@', () => x)))).concat([fs.map((x) => molde('%' + x + '%'))]);
         });
         return (p) => {
@@ -222,7 +244,7 @@
         if (ids.length) { const s = new Set(ids); return (m) => s.has(m.prod); }
         if (lleno(f.id_producto)) { const id = parseInt(f.id_producto, 10) || 0; return (m) => m.prod === id; }
         if (conBusqueda && lleno(f.search)) {
-            const b = buscador(txt(f.search), false);
+            const b = buscador(txt(f.search), null);
             return (m) => { const p = ctx.productos.get(m.prod); return !!p && b(p); };
         }
         return null;
@@ -368,8 +390,8 @@
             || lleno(f.um) || si(f.solo_bajo) || si(f.solo_con_saldo) || si(f.ver_todo);
     }
 
-    // Productos activos que deja la tabla (sin ordenar). $tolerante perdona el tipeo.
-    function filtrarInventario(ctx, sal, f, tolerante) {
+    // Productos activos que deja la tabla (sin ordenar). perdon: palabras con perdón de tipeo.
+    function filtrarInventario(ctx, sal, f, perdon) {
         const puntual = lleno(f.id_producto) || lleno(f.id_producto_in);
         const catalogo = si(f.ver_todo) || lleno(f.search) || lleno(f.categoria) || lleno(f.um);
         const exigeStock = !puntual && !catalogo;
@@ -381,7 +403,7 @@
         } else {
             const cs = [];
             if (lleno(f.id_producto)) { const id = parseInt(f.id_producto, 10) || 0; cs.push((p) => p.id === id); }
-            else if (lleno(f.search)) cs.push(buscador(txt(f.search), tolerante));
+            else if (lleno(f.search)) cs.push(buscador(txt(f.search), perdon));
             if (lleno(f.categoria) && f.categoria !== 'all') { const pat = '%' + txt(f.categoria) + '%'; cs.push((p) => como(p.cat, pat)); }
             if (lleno(f.um)) { const um = txt(f.um); cs.push((p) => igual(p.um, um)); }
             if (si(f.solo_bajo)) cs.push((p) => { const a = sal.get(p.id); return !!a && a.min !== null && a.cant <= a.min; });
@@ -395,8 +417,8 @@
         return fuera;
     }
 
-    function ordenarInventario(lista, sal, f, tolerante) {
-        const punt = puntuador(f.search, tolerante);
+    function ordenarInventario(lista, sal, f, perdon) {
+        const punt = puntuador(f.search, perdon);
         const conSaldoPrimero = lleno(f.search);
         const clave = new Map(lista.map((p) => [p, punt ? punt(p) : 0]));
         const sinSaldo = (p) => ((sal.get(p.id) || {}).cant || 0) <= 0;
@@ -405,15 +427,18 @@
             || ordenNulos(a.nombre, b.nombre) || (a.id - b.id));
     }
 
-    // Busca exacto y, si lo escrito no está en ningún producto, perdonando un error de tipeo.
+    // Busca exacto y, si lo escrito no está en ningún producto, perdonando un error de tipeo en
+    // las palabras que no existen (palabrasAPerdonar). Devuelve [filas, perdon]: perdon es el
+    // Set usado (búsqueda aproximada) o null (exacta).
     function conPerdonDeTipeo(ctx, f, offset, consulta) {
-        if (si(f.aprox) && offset > 0) return [consulta(true), true];
-        const exacto = consulta(false);
-        if (exacto.length || !lleno(f.search) || lleno(f.id_producto) || lleno(f.id_producto_in)) return [exacto, false];
-        const b = buscador(txt(f.search), false);
-        for (const p of ctx.productos.values()) if (p.activo && b(p)) return [exacto, false];
-        const aprox = consulta(true);
-        return aprox.length ? [aprox, true] : [exacto, false];
+        if (si(f.aprox) && offset > 0) { const pd = palabrasAPerdonar(ctx, f.search); return [consulta(pd), pd]; }
+        const exacto = consulta(null);
+        if (exacto.length || !lleno(f.search) || lleno(f.id_producto) || lleno(f.id_producto_in)) return [exacto, null];
+        const b = buscador(txt(f.search), null);
+        for (const p of ctx.productos.values()) if (p.activo && b(p)) return [exacto, null];
+        const pd = palabrasAPerdonar(ctx, f.search);
+        const aprox = pd ? consulta(pd) : [];
+        return aprox.length ? [aprox, pd] : [exacto, null];
     }
 
     function inventario(vista, f, offset, porDefecto, cuantos) {
@@ -424,11 +449,12 @@
         const alm = almacenElegido(ctx, f.id_almacen, porDefecto);
         const sal = alm ? saldos(ctx, alm.id) : new Map();
         const hay = hayFiltroInventario(f);
-        let filas = [], aproximada = false, hasMore = false;
+        let filas = [], aproximada = false, hasMore = false, perdonUsado = null;
         if (alm && hay) {
-            const [todas, aprox] = conPerdonDeTipeo(ctx, f, offset,
-                (tol) => ordenarInventario(filtrarInventario(ctx, sal, f, tol), sal, f, tol));
-            aproximada = aprox;
+            const [todas, pd] = conPerdonDeTipeo(ctx, f, offset,
+                (perdon) => ordenarInventario(filtrarInventario(ctx, sal, f, perdon), sal, f, perdon));
+            perdonUsado = pd;
+            aproximada = !!pd;
             filas = todas.slice(offset, offset + lote);
             hasMore = todas.length > offset + lote;
         }
@@ -440,7 +466,7 @@
         };
         if (offset === 0 && !si(f.solo_filas)) {
             r.stats = statsInventario(ctx, sal);
-            r.distribucionHtml = htmlDistribucion(alm ? distribucion(ctx, sal, f, aproximada) : []);
+            r.distribucionHtml = htmlDistribucion(alm ? distribucion(ctx, sal, f, perdonUsado) : []);
         }
         return r;
     }
@@ -451,7 +477,7 @@
         const alm = almacenElegido(ctx, f.id_almacen, porDefecto);
         if (!alm) return [];
         const sal = saldos(ctx, alm.id);
-        return conPerdonDeTipeo(ctx, f, 0, (tol) => filtrarInventario(ctx, sal, f, tol))[0].map((p) => p.id);
+        return conPerdonDeTipeo(ctx, f, 0, (perdon) => filtrarInventario(ctx, sal, f, perdon))[0].map((p) => p.id);
     }
 
     // Consolidado: siempre del almacén entero, sin los filtros de la tabla.
@@ -468,9 +494,9 @@
     }
 
     // Lo que filtra la tabla con existencia, repartido por categoría.
-    function distribucion(ctx, sal, f, tolerante) {
+    function distribucion(ctx, sal, f, perdon) {
         const grupos = new Map();
-        filtrarInventario(ctx, sal, f, tolerante).forEach((p) => {
+        filtrarInventario(ctx, sal, f, perdon).forEach((p) => {
             const a = sal.get(p.id);
             if (!a || !(a.cant > 0)) return;
             const cat = trimSql(p.cat) || 'SIN CATEGORÍA';

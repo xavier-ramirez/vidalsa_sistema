@@ -250,43 +250,6 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Query base del inventario: productos_inventario activos + stock del almacén
-     * dado (LEFT JOIN) + filtros del listado. SIN columnas explícitas: el llamador
-     * añade el select que necesita (filas / count / agregado).
-     *
-     * COMPORTAMIENTO HÍBRIDO (resuelve dos confusiones opuestas):
-     *  - Navegación normal: se exige fila en `almacen_stock` (whereNotNull abajo),
-     *    así un almacén muestra SOLO sus productos y no se inunda con el catálogo
-     *    global a saldo 0.
-     *  - Selección puntual (id_producto desde la sugerencia, o id_producto_in del
-     *    "ver solo seleccionados"): NO se exige la fila → el LEFT JOIN deja ver ese
-     *    producto aunque aún no tenga stock aquí (saldo 0). Así, tras hacer clic en
-     *    una sugerencia la tabla NUNCA queda vacía (que hacía creer "no registrado"
-     *    y disparaba que la persona lo registrara de nuevo).
-     */
-
-    /**
-     * Techos del perdon de tipeo. Cada palabra genera ~3 variantes por letra, y cada
-     * variante son varios LIKE en el WHERE y otros tantos en el ORDER BY, asi que el coste
-     * crece con el LARGO y con el NUMERO de palabras: medido, "manguera hidraulica
-     * reforzada" (3 palabras) ya son 261 LIKE y 107 ms. Un texto pegado de 50 palabras
-     * generaria miles y un SQL de cientos de KB.
-     *
-     * Los terminos reales del almacen son de una a tres palabras ("filtro aceite motor"),
-     * y equivocarse en una palabra de mas de doce letras sin que ninguna de sus doce
-     * primeras coincida es raro. Pasados estos topes se busca EXACTO, como antes.
-     */
-    private const MAX_PALABRAS_CON_PERDON = 3;
-    private const MAX_LETRAS_CON_PERDON   = 12;
-    /**
-     * Y un techo sobre el TOTAL de formas (sumando todas las palabras): los plurales
-     * duplican las variantes (plural y singular, cada uno con las suyas), asi que tres
-     * palabras en plural llegaban a ~1.240 LIKE y 270 ms con 5.000 productos. Por encima
-     * se busca exacto.
-     */
-    private const MAX_FORMAS_CON_PERDON   = 120;
-
-    /**
      * "Despachos": notas que el general despacho y los almacenes de PROYECTO
      * visibles todavia no terminan de recibir. Mismo criterio que "Por revisar" de la
      * bandeja de Recepcion (Traspaso::ESTADOS_RECIBIBLES).

@@ -227,9 +227,9 @@ class AlmacenOrdenBusquedaTest extends MySqlTestCase
     }
 
     /**
-     * El perdón de tipeo tiene techo (MAX_PALABRAS_CON_PERDON = 3): pasado el tope se busca
-     * exacto, como siempre — que es justo lo que se quiere con una frase larga o un texto
-     * pegado, que si no generaría miles de comparaciones por producto.
+     * El perdón de tipeo tiene techo (MAX_PALABRAS_CON_PERDON = 3 palabras que no salen en
+     * ningún producto): pasado el tope se busca exacto, como siempre — que es justo lo que se
+     * quiere con un texto pegado, que si no generaría miles de comparaciones por producto.
      */
     public function test_una_frase_larga_no_dispara_el_perdon_de_tipeo(): void
     {
@@ -242,6 +242,21 @@ class AlmacenOrdenBusquedaTest extends MySqlTestCase
         $fuera = $this->tabla(['id_almacen' => $idAlmacen, 'search' => implode(' ', array_fill(0, 4, $conError))]);
         $this->assertFalse($fuera['aproximada'], 'Pasado el tope se busca exacto.');
         $this->assertStringNotContainsString(e($nombre), $fuera['html']);
+    }
+
+    /**
+     * La descripción entera con UN error en una palabra encuentra el producto, aunque sea
+     * larga: el tope cuenta solo las palabras que no salen en ningún producto, no todas
+     * (antes, con más de 3 palabras no se perdonaba nada y había que escribirla idéntica).
+     */
+    public function test_la_descripcion_entera_con_un_error_encuentra_el_producto(): void
+    {
+        [$idAlmacen, $nombre, $palabra, $conError] = $this->casoConErrorDeTipeo();
+        $frase = $conError . ' ' . trim(mb_substr($nombre, mb_strlen($palabra)));
+
+        $r = $this->tabla(['id_almacen' => $idAlmacen, 'search' => $frase]);
+        $this->assertTrue($r['aproximada'], 'Se perdona la palabra mal escrita.');
+        $this->assertStringContainsString(e($nombre), $r['html']);
     }
 
     /**
