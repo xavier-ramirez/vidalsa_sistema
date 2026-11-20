@@ -14,30 +14,12 @@
 (function () {
     'use strict';
 
-    var GEOCODER_CSS = '/vendor/leaflet/Control.Geocoder.css';
-    var GEOCODER_JS  = '/vendor/leaflet/Control.Geocoder.js';
-    var PROJ4_JS     = '/vendor/leaflet/proj4.js'; // convertir UTM ↔ lat/lng
-    // Agrupador de marcadores (Leaflet.markercluster 1.5.3), también alojado aquí y no en un CDN.
-    // Su CSS trae SOLO las animaciones: el aspecto del grupo lo pone el sistema (.mapa-eq-grupo).
-    var CLUSTER_CSS  = '/vendor/leaflet/MarkerCluster.css';
-    var CLUSTER_JS   = '/vendor/leaflet/leaflet.markercluster.js';
-
-    // Garantiza Leaflet + sus plugins (CSS + JS), luego resuelve. Leaflet lo baja
-    // window.cargarLeaflet (lazy_loader.js), el MISMO cargador que usa el modal de GPS de Equipos:
-    // si el modal ya lo pidió, aquí se reutiliza esa descarga en vez de meter otra copia. Todo
-    // va "en orden" (async=false): se baja a la vez pero se EJECUTA en el orden pedido, así los
-    // plugins corren detrás de Leaflet sin esperar a que termine de bajar.
+    // Leaflet + sus plugins (window.cargarLeafletMapa, lazy_loader.js). El layout ya los pidió
+    // a la vez que este archivo; aquí se reusan esas descargas. Leaflet sale del MISMO cargador
+    // que el modal de GPS de Equipos, así nunca hay dos copias. El aspecto del grupo de equipos
+    // lo pone el sistema (.mapa-eq-grupo): MarkerCluster.css trae solo las animaciones.
     function ensureLeaflet() {
-        var cargar = window.cargarScriptUnaVez;
-        window.cargarCssUnaVez(GEOCODER_CSS);
-        window.cargarCssUnaVez(CLUSTER_CSS);
-        var pedidos = [window.cargarLeaflet()];
-        pedidos.push(cargar(GEOCODER_JS, function () { return typeof L !== 'undefined' && L.Control && !!L.Control.Geocoder; }, true));
-        // Si el agrupador no llegara, el mapa sigue funcionando: la capa de equipos cae a un grupo
-        // normal y se ven todos los iconos sueltos, como antes.
-        pedidos.push(cargar(CLUSTER_JS, function () { return typeof L !== 'undefined' && !!L.markerClusterGroup; }, true).catch(function () {}));
-        pedidos.push(cargar(PROJ4_JS, function () { return typeof proj4 !== 'undefined'; }, true).catch(function () {})); // proj4 opcional (UTM)
-        return Promise.all(pedidos);
+        return window.cargarLeafletMapa();
     }
 
     // Construye el mapa dentro del contenedor dado.

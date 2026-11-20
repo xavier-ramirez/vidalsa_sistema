@@ -1214,6 +1214,9 @@
                     // el mapa dibujado y no un hueco.
                     var genMapa = window.preloaderGeneracion ? window.preloaderGeneracion() : 0;
                     if (window.showPreloader) window.showPreloader();
+                    // Leaflet y sus plugins A LA VEZ que mapa_index.js: antes esperaban a que
+                    // este terminara de bajar (dos viajes seguidos). initMapa reusa las descargas.
+                    window.cargarLeafletMapa().catch(function () {});
                     window.cargarScriptUnaVez(
                         window.lazyBaseUrl() + '/js/maquinaria/mapa_index.js?v={{ @filemtime(public_path('js/maquinaria/mapa_index.js')) }}'
                     )

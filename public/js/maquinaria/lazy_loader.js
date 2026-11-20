@@ -15,6 +15,7 @@
  *   · window.cargarScriptUnaVez(src, yaCargado, enOrden) → Promise
  *   · window.cargarCssUnaVez(href)
  *   · window.cargarLeaflet()                    → Promise (Leaflet: /mapa y el modal de GPS)
+ *   · window.cargarLeafletMapa()                → Promise (Leaflet + plugins de /mapa)
  *   · window.ensureChartJS()                    → Promise (Chart.js + DataLabels)
  */
 (function () {
@@ -71,6 +72,27 @@
         window.cargarCssUnaVez('/vendor/leaflet/leaflet.css');
         return window.cargarScriptUnaVez('/vendor/leaflet/leaflet.js',
             function () { return typeof L !== 'undefined' && !!L.map; }, true);
+    };
+
+    /**
+     * Leaflet + los plugins de /mapa (geocoder, agrupador, proj4). Lo llaman el layout —AL
+     * MISMO TIEMPO que pide mapa_index.js, para que no bajen uno detrás del otro— y el propio
+     * mapa_index (que reusa esas descargas). Todo "en orden" (async=false): se baja a la vez
+     * pero se ejecuta detrás de Leaflet. Resuelve cuando se puede dibujar el mapa: proj4 (solo
+     * para buscar coordenadas UTM) termina de bajar por su cuenta, sin hacer esperar al mapa;
+     * el agrupador, si no llegara, deja los equipos sueltos (la capa lo comprueba).
+     */
+    window.cargarLeafletMapa = function () {
+        var cargar = window.cargarScriptUnaVez;
+        window.cargarCssUnaVez('/vendor/leaflet/Control.Geocoder.css');
+        window.cargarCssUnaVez('/vendor/leaflet/MarkerCluster.css');
+        var pedidos = [
+            window.cargarLeaflet(),
+            cargar('/vendor/leaflet/Control.Geocoder.js', function () { return typeof L !== 'undefined' && L.Control && !!L.Control.Geocoder; }, true),
+            cargar('/vendor/leaflet/leaflet.markercluster.js', function () { return typeof L !== 'undefined' && !!L.markerClusterGroup; }, true).catch(function () {})
+        ];
+        cargar('/vendor/leaflet/proj4.js', function () { return typeof proj4 !== 'undefined'; }, true).catch(function () {});
+        return Promise.all(pedidos);
     };
 
     /** Base para armar URLs absolutas (el layout la publica en un <meta>). */
