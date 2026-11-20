@@ -2067,7 +2067,8 @@ class AlmacenController extends Controller
             'id_frente'            => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             // Alias del frente destino para el flujo unificado de SALIDA. El frontend lo
             // manda como `id_frente_destino`; si solo viene `id_frente` lo usamos también.
-            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL,ESTATUS_FRENTE,ACTIVO',
+            // Que esté ACTIVO se mira abajo (rama SALIDA), con cualquiera de los dos nombres.
+            'id_frente_destino'    => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             // Almacén destino EXPLÍCITO de la salida a otro proyecto. Solo hace falta
             // cuando el frente destino está asignado a más de un almacén PROYECTO y por
             // tanto no se puede deducir; el formulario lo pregunta en ese caso.
@@ -2151,6 +2152,14 @@ class AlmacenController extends Controller
         // el flujo termine con PDF Nota de Entrega igual que una SALIDA pura.
         if ($data['tipo'] === 'SALIDA') {
             $idFrenteDest = $data['id_frente_destino'] ?? $data['id_frente'] ?? null;
+            // Solo a un proyecto ACTIVO (el desplegable solo ofrece esos). Menos la que se hizo
+            // sin internet (trae su número apartado): su Nota ya está impresa y el material
+            // salió cuando el proyecto estaba activo; rechazarla al subir dejaría el papel
+            // firmado sin registro si entre medias lo finalizaron.
+            if ($idFrenteDest && empty($data['numero_nota_reservado'])
+                && \App\Models\FrenteTrabajo::whereKey($idFrenteDest)->value('ESTATUS_FRENTE') !== 'ACTIVO') {
+                return response()->json(['message' => __('validation.custom.id_frente_destino.exists')], 422);
+            }
             if ($idFrenteDest) {
                 $idAlmDestino = $this->almacenDestinoDeSalida($data, (int) $idFrenteDest);
                 if ($idAlmDestino instanceof \Illuminate\Http\JsonResponse) {

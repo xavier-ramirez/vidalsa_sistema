@@ -355,11 +355,19 @@ class BandejaServidorTest extends MySqlTestCase
 
         $this->salida($u, $alm, $p, 2, ['id_frente_destino' => $id])->assertStatus(422)
             ->assertJsonFragment(['El proyecto destino no está activo (finalizado o borrado): elige uno activo.']);
+        // Tampoco con el otro nombre del campo.
+        $this->salida($u, $alm, $p, 2, ['id_frente' => $id])->assertStatus(422);
         $this->assertSame(10.0, $this->saldo($alm, $p));
+
+        // La hecha SIN internet sí entra: su Nota ya se imprimió cuando el proyecto estaba
+        // activo, y rechazarla dejaría el papel firmado sin registro.
+        $numero = NotasReservadas::paraDispositivo($u->ID_USUARIO, 'disp-' . $this->marca)[0];
+        $this->salida($u, $alm, $p, 1, ['id_frente_destino' => $id, 'numero_nota_reservado' => $numero])->assertCreated();
+        $this->assertSame(9.0, $this->saldo($alm, $p));
 
         DB::table('frentes_trabajo')->where('ID_FRENTE', $id)->update(['ESTATUS_FRENTE' => 'ACTIVO']);
         $this->salida($u, $alm, $p, 2, ['id_frente_destino' => $id])->assertCreated();
-        $this->assertSame(8.0, $this->saldo($alm, $p));
+        $this->assertSame(7.0, $this->saldo($alm, $p));
     }
 
     /** La Nota hecha sin internet guarda la hora de su papel; con internet vale la del registro. */

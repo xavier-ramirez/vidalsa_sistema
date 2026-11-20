@@ -26,7 +26,8 @@
  *
  * Reglas (las mismas que tenía AlmacenController):
  *   · Comparar como la base (colación utf8mb4_unicode_ci): sin mayúsculas ni acentos.
- *   · La búsqueda de producto parte en palabras (sin "de", "la"… ni números de 1-2 cifras),
+ *   · La búsqueda de producto parte en palabras (sin "de", "la"…; un número de 1-2 cifras
+ *     junto a otras palabras cuenta ENTERO, y sin él si con él no sale nada: ver buscador),
  *     exige todas, mira código, descripción y nºs de parte, y "botas" encuentra "bota". Si no
  *     encuentra nada y lo escrito no está en ningún producto, perdona UN error de tipeo en
  *     las palabras que no salen en NINGÚN producto (hasta 3 de 4 a 16 letras; las que sí
@@ -142,17 +143,18 @@
 
     // ── Búsqueda de producto ──────────────────────────────────────────────────
     // Los números cortos («42», «3») también cuentan: antes se tiraban y «braga de 42» buscaba
-    // solo «braga» (todas las tallas, con la 42 sin saldo al final). Se buscan como número
-    // ENTERO (entero(): «42» no es «142» ni el código 000142). Solo números cortos sueltos
-    // («42») se buscan como siempre, como trozo de código o nombre.
+    // solo «braga» (todas las tallas, con la 42 sin saldo al final). Cómo se buscan: entero() y
+    // buscador(). Un número corto solo («42») se busca como siempre, como trozo.
     const corto = (x) => /^\d{1,2}$/.test(x);
     function palabras(term) {
         const bajo = String(term).toLowerCase();
         const t = bajo.split(ESPACIOS).filter((x) => x !== '' && !STOP.has(x));
         return t.some((x) => !corto(x)) ? t : [bajo];
     }
+    // Número ENTERO: ni dentro de otro número (42 en 142 o en el código 000142) ni de una
+    // fracción o decimal (el 2 de 1/2", 2,5 MM o 22.5).
     function entero(n) {
-        const re = new RegExp('(^|[^0-9])' + n + '([^0-9]|$)');
+        const re = new RegExp('(?<![0-9])(?<![0-9][.,/])' + n + '(?![0-9])(?![.,/][0-9])');
         return (v) => re.test(v);
     }
     const comoTexto = (s) => s.replace(/[%_\\]/g, '\\$&');
@@ -208,14 +210,44 @@
 
     // AND entre palabras; cada palabra en código, descripción o algún nº de parte.
     // perdon: Set de palabras con perdón de tipeo (palabrasAPerdonar) o null.
-    function buscador(term, perdon) {
+    // ctx: con él se mira si cada número corto encuentra algo; el que no (con las demás
+    // palabras) se deja fuera y queda en `sinNumeros` del buscador, para avisarlo («guante 10»
+    // sigue trayendo los guantes, como antes, pero la pantalla dice que no hay talla 10).
+    // conInactivos: el historial también lista movimientos de productos ya inactivos.
+    function buscador(term, perdon, ctx, conInactivos) {
         const toks = palabras(term);
-        const grupos = toks.map((t) => (corto(t) && toks.length > 1 ? [entero(t)]
-            : formas(t, !!perdon && perdon.has(t)).map((f) => molde('%' + f + '%'))));
-        return (p) => {
-            const n = np(p);
-            return grupos.every((fs) => coincide(n, fs));
+        const nums = toks.length > 1 ? Array.from(new Set(toks.filter(corto))) : [];
+        const base = toks.filter((t) => nums.indexOf(t) < 0).map((t) => {
+            const ms = formas(t, !!perdon && perdon.has(t)).map((f) => molde('%' + f + '%'));
+            return (n) => coincide(n, ms);
+        });
+        // En el nombre y el código, entero; en un nº de parte también vale el final de las
+        // cifras («filtro 31» encuentra el MIS0531: se suele teclear la cola del número).
+        const delNumero = (t) => {
+            const e = entero(t);
+            return (n) => (n.nom !== null && e(n.nom)) || (n.cod !== null && e(n.cod))
+                || n.partes.some((x) => e(x) || (x.slice(-t.length) === t && /[0-9]$/.test(x)));
         };
+        const armar = (gs) => (p) => { const n = np(p); return gs.every((g) => g(n)); };
+        let grupos = base.concat(nums.map(delNumero));
+        const sinNumeros = [];
+        if (ctx && nums.length) {
+            const encuentra = (gs) => {
+                const b = armar(gs);
+                for (const p of ctx.productos.values()) if ((conInactivos || p.activo) && b(p)) return true;
+                return false;
+            };
+            if (!encuentra(grupos)) {
+                grupos = base.slice();
+                nums.forEach((t) => {
+                    const con = grupos.concat([delNumero(t)]);
+                    if (encuentra(con)) grupos = con; else sinNumeros.push(t);
+                });
+            }
+        }
+        const b = armar(grupos);
+        b.sinNumeros = sinNumeros;
+        return b;
     }
 
     // Cercanía a lo escrito: la frase entera pesa más que cada palabra, y el inicio más que el medio.
@@ -251,7 +283,7 @@
         if (ids.length) { const s = new Set(ids); return (m) => s.has(m.prod); }
         if (lleno(f.id_producto)) { const id = parseInt(f.id_producto, 10) || 0; return (m) => m.prod === id; }
         if (conBusqueda && lleno(f.search)) {
-            const b = buscador(txt(f.search), null);
+            const b = buscador(txt(f.search), null, ctx, true);
             return (m) => { const p = ctx.productos.get(m.prod); return !!p && b(p); };
         }
         return null;
@@ -410,7 +442,7 @@
         } else {
             const cs = [];
             if (lleno(f.id_producto)) { const id = parseInt(f.id_producto, 10) || 0; cs.push((p) => p.id === id); }
-            else if (lleno(f.search)) cs.push(buscador(txt(f.search), perdon));
+            else if (lleno(f.search)) cs.push(buscador(txt(f.search), perdon, ctx));
             if (lleno(f.categoria) && f.categoria !== 'all') { const pat = '%' + txt(f.categoria) + '%'; cs.push((p) => como(p.cat, pat)); }
             if (lleno(f.um)) { const um = txt(f.um); cs.push((p) => igual(p.um, um)); }
             if (si(f.solo_bajo)) cs.push((p) => { const a = sal.get(p.id); return !!a && a.min !== null && a.cant <= a.min; });
@@ -441,7 +473,7 @@
         if (si(f.aprox) && offset > 0) { const pd = palabrasAPerdonar(ctx, f.search); return [consulta(pd), pd]; }
         const exacto = consulta(null);
         if (exacto.length || !lleno(f.search) || lleno(f.id_producto) || lleno(f.id_producto_in)) return [exacto, null];
-        const b = buscador(txt(f.search), null);
+        const b = buscador(txt(f.search), null, ctx);
         for (const p of ctx.productos.values()) if (p.activo && b(p)) return [exacto, null];
         const pd = palabrasAPerdonar(ctx, f.search);
         const aprox = pd ? consulta(pd) : [];
@@ -469,6 +501,9 @@
             hasMore,
             nextOffset: hasMore ? offset + lote : null,
             aproximada: !!perdon,
+            // Números escritos que ningún producto tiene: se buscó sin ellos (buscador).
+            sinNumeros: alm && hay && lleno(f.search) && !lleno(f.id_producto) && !lleno(f.id_producto_in)
+                ? buscador(txt(f.search), perdon, ctx).sinNumeros : [],
         };
         if (offset === 0 && !si(f.solo_filas)) {
             r.stats = statsInventario(ctx, sal);

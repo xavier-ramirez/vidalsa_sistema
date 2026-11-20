@@ -109,4 +109,20 @@ class TraspasoCancelacionBolsaTest extends MySqlTestCase
         $this->assertSame($bolsa, (int) $retorno->ID_FRENTE_SALDO,
             'El retorno debe registrar la bolsa a la que entró.');
     }
+
+    /** Un traspaso nuevo solo va a un proyecto ACTIVO, como la salida (no a uno FINALIZADO). */
+    public function test_un_traspaso_nuevo_a_un_proyecto_finalizado_se_rechaza(): void
+    {
+        $u = $this->superAdminGlobal();
+        $origen = Almacen::create(['NOMBRE' => 'ORIGEN ' . uniqid(), 'TIPO' => Almacen::TIPO_GENERAL]);
+        $id = DB::table('frentes_trabajo')->insertGetId([
+            'NOMBRE_FRENTE' => 'FIN ' . uniqid(), 'UBICACION' => 'X', 'TIPO_FRENTE' => 'OPERACION',
+            'ESTATUS_FRENTE' => 'FINALIZADO', 'created_at' => now(), 'updated_at' => now(),
+        ], 'ID_FRENTE');
+
+        $this->actingAs($u)->postJson(route('almacen.recepcion.store'), [
+            'id_almacen_origen' => $origen->ID_ALMACEN, 'id_frente_destino' => $id,
+        ])->assertStatus(422)->assertJsonValidationErrors(['id_frente_destino'])
+            ->assertJsonFragment(['El proyecto destino no está activo (finalizado o borrado): elige uno activo.']);
+    }
 }

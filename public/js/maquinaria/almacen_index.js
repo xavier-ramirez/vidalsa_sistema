@@ -360,7 +360,7 @@
                 // El aviso se repinta SOLO en la primera página. El término sale de los filtros
                 // CONGELADOS, que son los que se consultaron de verdad.
                 if (!append) {
-                    almPintarAvisoBusqueda(data.aproximada, f.get('search') || '');
+                    almPintarAvisoBusqueda(data.aproximada, f.get('search') || '', data.sinNumeros);
                     // Si esta búsqueda salió aproximada, los lotes siguientes van DIRECTOS al
                     // modo tolerante en vez de repetir la búsqueda exacta que ya se sabe vacía.
                     if (data.aproximada) {
@@ -1155,12 +1155,18 @@
     // Lo enciende el backend (aproximada=true) cuando lo escrito no coincidio con NADA y
     // hubo que buscar parecidos perdonando un error de tipeo. Sin este aviso la tabla
     // mostraria filas que no contienen lo escrito y pareceria que el filtro esta roto.
-    function almPintarAvisoBusqueda(aproximada, termino) {
+    // También cuando un número escrito no lo tiene ningún producto («guante 10»): se buscó sin
+    // él (AlmacenLocal · buscador) y hay que decirlo, o parecería que todas son talla 10.
+    function almPintarAvisoBusqueda(aproximada, termino, sinNumeros) {
         var box = el('almBuscarAviso'); if (!box) return;
-        if (!aproximada) { box.hidden = true; box.innerHTML = ''; return; }
+        var nums = (sinNumeros || []).map(function (n) { return '<b>' + escHtml(n) + '</b>'; }).join(', ');
+        if (!aproximada && !nums) { box.hidden = true; box.innerHTML = ''; return; }
         box.innerHTML = '<i class="material-icons">info_outline</i>'
-                      + '<div>Sin coincidencias exactas de <b>' + escHtml(termino || '') + '</b>. '
-                      + 'Mostrando resultados parecidos.</div>';
+                      + (aproximada
+                          ? '<div>Sin coincidencias exactas de <b>' + escHtml(termino || '') + '</b>. '
+                            + 'Mostrando resultados parecidos.</div>'
+                          : '<div>Ningún producto tiene ' + nums + ' junto a lo demás escrito: '
+                            + 'mostrando sin ese número.</div>');
         box.hidden = false;
     }
 
@@ -4283,9 +4289,9 @@
         return {
             formato:      a.FORMATO_NOTA,
             numero:       numero,
-            // La opción elegida; si la lista se repintó sin ella, lo que muestra el campo (el
-            // nombre elegido): el papel nunca sale con PROYECTO vacío habiendo uno.
-            proyecto:     item ? t(item.textContent) : t((document.getElementById('almSalidaProyectoSearch') || {}).value),
+            // La opción elegida; si la lista se repintó sin ella, el nombre que se guardó al
+            // elegirla (almacen_salida_nota.js): el papel no sale con PROYECTO vacío habiendo uno.
+            proyecto:     item ? t(item.textContent) : t(((document.getElementById('almSalidaProyecto') || {}).dataset || {}).nombre),
             contrato:     t(payload.numero_contrato),
             fecha:        f && f.length === 3 ? f[2] + '/' + f[1] + '/' + f[0] : dd(ahora.getDate()) + '/' + dd(ahora.getMonth() + 1) + '/' + ahora.getFullYear(),
             hora:         dd(ahora.getHours() % 12 || 12) + ':' + dd(ahora.getMinutes()) + ' ' + (ahora.getHours() < 12 ? 'AM' : 'PM'),

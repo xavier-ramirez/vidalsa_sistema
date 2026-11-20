@@ -59,9 +59,22 @@
     // Puntúa un token contra el texto: substring fuerte (con bonus por inicio de
     // palabra / palabra completa / número) o fuzzy débil (Levenshtein). Devuelve
     // { score, hit }.
-    function scoreToken(palabras, hayFull, token) {
+    // entero: un número corto (1-2 cifras) junto a otras palabras cuenta solo ENTERO, como en
+    // la tabla de Almacén (almacen_local.js · entero): «braga 42» no sugiere la talla 142 ni
+    // el 2 de 1/2".
+    function posEntera(hay, token) {
+        for (var i = hay.indexOf(token); i > -1; i = hay.indexOf(token, i + 1)) {
+            var a = hay.charAt(i - 1), a2 = hay.charAt(i - 2), d = hay.charAt(i + token.length), d2 = hay.charAt(i + token.length + 1);
+            var dig = function (c) { return c >= '0' && c <= '9'; };
+            var sep = function (c) { return c === '.' || c === ',' || c === '/'; };
+            if (dig(a) || (sep(a) && dig(a2)) || dig(d) || (sep(d) && dig(d2))) continue;
+            return i;
+        }
+        return -1;
+    }
+    function scoreToken(palabras, hayFull, token, entero) {
         var esNum = /^\d+$/.test(token);
-        var idx = hayFull.indexOf(token);
+        var idx = entero && /^\d{1,2}$/.test(token) ? posEntera(hayFull, token) : hayFull.indexOf(token);
         if (idx > -1) {
             var s = 12;
             if (idx === 0) s += 12;
@@ -119,7 +132,7 @@
 
             var total = 0, matched = 0;
             for (var k = 0; k < tokens.length; k++) {
-                var r = scoreToken(palabras, hayFull, tokens[k]);
+                var r = scoreToken(palabras, hayFull, tokens[k], tokens.length > 1);
                 if (r.hit) { matched++; total += r.score; }
             }
             if (matched < minTokens) continue;

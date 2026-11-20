@@ -377,7 +377,13 @@
     };
     // Al elegir proyecto (componente custom-dropdown global): contratos y almacén destino.
     window.addEventListener('dropdown-selection', function (e) {
-        if (e.detail && e.detail.dropdownId === 'almSalidaProyectoDropdown') window.almSalidaOnProyectoChange();
+        if (e.detail && e.detail.dropdownId === 'almSalidaProyectoDropdown') {
+            // El nombre elegido, para la Nota sin internet si la lista se repinta sin él
+            // (almNotaLocalDatos): el buscador puede tener otra cosa escrita.
+            var hid = el('almSalidaProyecto');
+            if (hid) hid.setAttribute('data-nombre', String(e.detail.label || ''));
+            window.almSalidaOnProyectoChange();
+        }
     });
 
     window.AlmSalidaNota = {
@@ -412,6 +418,7 @@
             if (typeof window.clearDropdownFilter === 'function') {
                 window.clearDropdownFilter('almSalidaProyectoDropdown');
             }
+            var hidP = el('almSalidaProyecto'); if (hidP) hidP.removeAttribute('data-nombre');
             var fe = el('almSalidaFecha'); if (fe) fe.value = window.hoyISO();
             // Reset del dropdown de contratos: vaciar items, cerrar el panel, ocultar el clear-btn.
             // La lista se rellena cuando el usuario elige proyecto destino.

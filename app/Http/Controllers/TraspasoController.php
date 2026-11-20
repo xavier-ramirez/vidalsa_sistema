@@ -816,7 +816,9 @@ class TraspasoController extends Controller
         $reglas = [
             'id_almacen_origen'  => ['required','integer','exists:almacenes,ID_ALMACEN'],
             'id_almacen_destino' => ['nullable','required_without:id_frente_destino','integer','exists:almacenes,ID_ALMACEN','different:id_almacen_origen'],
-            'id_frente_destino'  => ['nullable','required_without:id_almacen_destino','integer','exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL'],
+            // Solo a un proyecto ACTIVO (como la salida); al editar un borrador (abajo) basta
+            // que exista: pudo hacerse cuando el proyecto aún estaba activo.
+            'id_frente_destino'  => ['nullable','required_without:id_almacen_destino','integer','exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL,ESTATUS_FRENTE,ACTIVO'],
             'referencia'         => ['nullable','string','max:100'],
             'motivo'             => ['nullable','string','max:200'],
             'notas'              => ['nullable','string'],

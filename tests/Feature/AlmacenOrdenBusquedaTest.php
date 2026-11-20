@@ -425,7 +425,8 @@ class AlmacenOrdenBusquedaTest extends MySqlTestCase
     /**
      * «braga de 42» o «42 braga» encuentran la talla 42: los números cortos se tiraban y se
      * buscaba solo «braga» (todas las tallas, con la 42 en cero al final). El número cuenta
-     * ENTERO: no trae la talla 142 ni un código que contenga 42.
+     * ENTERO: no trae la talla 142 ni un código que contenga 42. Con el número sin ningún
+     * producto, se busca sin él (como antes).
      */
     public function test_un_numero_corto_en_la_busqueda_cuenta(): void
     {
@@ -444,8 +445,24 @@ class AlmacenOrdenBusquedaTest extends MySqlTestCase
         foreach (["braga {$marca} de 42", "42 braga {$marca}", "BRAGA {$marca} 42"] as $term) {
             $this->assertSame([$ids[42]], array_map('intval', $this->idsInventarioLocal($u, ['id_almacen' => $alm->ID_ALMACEN, 'search' => $term])), $term);
         }
-        // Sin número, todas; y un número suelto sigue buscando como trozo (de código o nombre).
+        // Sin número, todas. Y si con el número no sale ninguna («talla 99»), se busca sin él,
+        // como antes: no se queda vacío lo que antes encontraba.
         $this->assertCount(4, $this->idsInventarioLocal($u, ['id_almacen' => $alm->ID_ALMACEN, 'search' => "braga {$marca}"]));
+        $this->assertCount(4, $this->idsInventarioLocal($u, ['id_almacen' => $alm->ID_ALMACEN, 'search' => "braga {$marca} 99"]));
+        // …y la pantalla lo dice (no parece que todas sean talla 99).
+        $r = $this->tabla(['id_almacen' => $alm->ID_ALMACEN, 'search' => "braga {$marca} 42 99"]);
+        $this->assertSame(['99'], $r['sinNumeros']);
+        $this->assertStringContainsString("TALLA 42", $r['html']);
+        $this->assertStringNotContainsString("TALLA 40", $r['html']);
+
+        // El número corto no es un trozo de una fracción o un decimal: «2» no trae 1/2" ni 2,5.
+        foreach (['MANGUERA {m} 1/2"', 'MANGUERA {m} 2,5 MM', 'MANGUERA {m} 2"'] as $n) {
+            \App\Models\ProductoInventario::create(['CODIGO' => 'M' . strtoupper(\Illuminate\Support\Str::random(7)), 'NOMBRE' => str_replace('{m}', $marca, $n), 'UM' => 'UND']);
+        }
+        $html = $this->tabla(['id_almacen' => $alm->ID_ALMACEN, 'search' => "manguera {$marca} 2"])['html'];
+        $this->assertStringContainsString("MANGUERA {$marca} 2&quot;", $html);
+        $this->assertStringNotContainsString("1/2", $html);
+        $this->assertStringNotContainsString("2,5 MM", $html);
 
         // El historial de movimientos busca igual: solo la talla 42.
         app(\App\Services\InventarioService::class)->registrarEntrada($alm->ID_ALMACEN, $ids[42], 1);
