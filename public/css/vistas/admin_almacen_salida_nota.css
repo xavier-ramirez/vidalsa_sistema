@@ -30,13 +30,16 @@
         color:#92400e; font-size:10px; font-weight:700; letter-spacing:.3px; white-space:nowrap; }
     .alm-log-doc { flex:0 0 auto; font-size:12px; font-weight:700; color:#475569; font-variant-numeric:tabular-nums; }
     /* Vehículos: primero el tipo y después la placa (o el serial de chasis), sin marca ni modelo
-       (almLogRenglonVehiculo). El tipo con ancho fijo para que las placas queden en columna. */
+       (almLogRenglonVehiculo). Tipo, placa y serial con la MISMA letra (pedido del cliente); el
+       tipo con ancho fijo para que las placas queden en columna. */
     .alm-suggest-inline .alm-log-item.veh { justify-content:flex-start; align-items:baseline; column-gap:12px; }
-    .alm-log-item.veh .alm-log-doc { min-width:66px; font-size:13px; color:#0f172a; }
-    .alm-log-item.veh .alm-log-doc.sin-placa { font-size:10.5px; color:#94a3b8; letter-spacing:.3px; }
-    .alm-log-serial { flex:0 0 auto; font-size:11px; font-weight:600; color:#475569; font-variant-numeric:tabular-nums; }
-    .alm-log-tipo { flex:0 0 110px; min-width:0; font-size:12px; font-weight:700; color:#0067b1;
-        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .alm-log-item.veh .alm-log-tipo, .alm-log-item.veh .alm-log-doc, .alm-log-item.veh .alm-log-serial {
+        font-size:13px; font-weight:700; color:#0f172a; letter-spacing:normal; font-variant-numeric:tabular-nums; }
+    .alm-log-tipo { flex:0 0 110px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .alm-log-item.veh .alm-log-doc { min-width:66px; }
+    .alm-log-serial { flex:0 0 auto; }
+    /* «SIN PLACA» no es un dato: misma letra, en gris. */
+    .alm-log-item.veh .alm-log-doc.sin-placa { color:#94a3b8; }
     /* Se guardan en mayúsculas (LogisticaAlmacenService): se ven así mientras se escriben. El
        ejemplo del campo no: "EJ: CAMIONETA TOYOTA HILUX" parecía un valor ya escrito. */
     #almSalidaVehiculo, #almSalidaPlaca, #almSalidaChofer, .alm-log-fila input { text-transform:uppercase; }
