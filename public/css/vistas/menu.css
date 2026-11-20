@@ -222,13 +222,13 @@
 
     /* ── Modal "¿PDF o Excel?" (reemplaza en pantalla al de Alertas) ──
        Hereda overlay y tarjeta de .alertas-modal-*; aquí solo va lo que cambia:
-       la tarjeta es más chica (no lleva lista) y, mientras se elige el formato, el
-       modal de alertas se retira —dos tarjetas apiladas con la lista asomando por
-       detrás se leían mal—. La clase la pone y la quita el par
-       abrir/cerrarFormatoReporteAlertas; el z-index mayor es solo el respaldo por si
-       los dos llegaran a coincidir en pantalla. */
+       la tarjeta es más chica (no lleva lista). El z-index mayor es solo el respaldo
+       por si los dos llegaran a coincidir en pantalla. */
     .formato-modal-overlay { z-index: 9600; }
-    .alertas-modal-overlay.open.oculto-tras-formato { display: none; }
+    /* La lista de Alertas se retira mientras haya otra capa abierta encima (este modal,
+       el detalle del equipo, la confirmación de gestión o el visor del PDF) y vuelve al
+       cerrarla. La clase la pone y la quita menu.js · sincronizarAlertasTapadas. */
+    .alertas-modal-overlay.open.oculto-tras-capa { display: none; }
     /* Sin las notas de abajo el modal ya no necesita 420px: se estrecha a lo que ocupan
        las dos opciones, que es lo único que hay que leer. */
     .formato-modal-content { max-width: 320px; max-height: none; }

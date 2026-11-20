@@ -32,9 +32,9 @@ if (!window._alertasModalEscHandler) {
         // flotando sobre nada — y de paso toggleExpiredDocs devolvía el scroll del body
         // con un modal todavía abierto.
         //
-        // Se cierra SIEMPRE por cerrarFormatoReporteAlertas(), nunca quitando la clase a
-        // mano: ese cierre es también el que devuelve el modal de alertas. La función
-        // existe seguro —el modal solo se abre llamando a su pareja abrir...()—.
+        // Se cierra por cerrarFormatoReporteAlertas() (existe seguro: el modal solo se abre
+        // con su pareja abrir...()). La lista de alertas vuelve sola al cerrarse cualquier
+        // capa de encima (sincronizarAlertasTapadas).
         const formato = document.getElementById('formatoReporteModal');
         if (formato && formato.classList.contains('open')) {
             window.cerrarFormatoReporteAlertas();
@@ -57,6 +57,43 @@ if (!window._alertasModalEscHandler) {
     });
 }
 
+// ── Una capa a la vez: la lista de Alertas se retira mientras haya algo abierto ENCIMA ──
+// (el detalle del equipo, la confirmación de gestión, el visor del PDF o el "¿PDF o Excel?")
+// y vuelve sola en cuanto eso se cierra. Dos tarjetas apiladas con la lista asomando por
+// detrás se leían mal. Se mira el estado real de cada capa (clase / existencia) con un solo
+// observador, así da igual por dónde se abra o se cierre (botón, ✕, Escape, clic fuera,
+// o una capa abierta desde otra: el PDF desde el detalle sigue tapando la lista).
+// La lista conserva su clase 'open': el scroll del fondo sigue bloqueado y el filtro de
+// búsqueda escrito sigue ahí al volver.
+window.sincronizarAlertasTapadas = function () {
+    const alertas = document.getElementById('expiredDocsContainer');
+    if (!alertas) return;
+    const CAPAS_SOBRE_ALERTAS = [
+        { id: 'detailsModal', cls: 'active' },
+        { id: 'auxDetailsModal', cls: 'active' },
+        { id: 'pdfPreviewModal', cls: 'active' },
+        { id: 'formatoReporteModal', cls: 'open' },
+        { id: 'dashboardGestionModal', cls: null },   // existe = abierta (salvo mientras se desvanece)
+    ];
+    const tapada = CAPAS_SOBRE_ALERTAS.some(function (c) {
+        const el = document.getElementById(c.id);
+        if (!el) return false;
+        return c.cls ? el.classList.contains(c.cls) : el.dataset.cerrando !== '1';
+    });
+    alertas.classList.toggle('oculto-tras-capa', tapada);
+};
+if (!window.__alertasCapasObserver) {
+    let pendiente = false;
+    window.__alertasCapasObserver = new MutationObserver(function () {
+        if (pendiente) return;
+        pendiente = true;
+        requestAnimationFrame(function () { pendiente = false; window.sincronizarAlertasTapadas(); });
+    });
+    window.__alertasCapasObserver.observe(document.body, {
+        subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'data-cerrando'],
+    });
+}
+
 // Contador "Por Renovar" de la card + campanita. Misma regla que menu.blade.php: solo se
 // agita si queda algo por renovar.
 function pintarTotalAlertas(total) {
@@ -72,7 +109,25 @@ function aplicarAlertasDashboard(listContainer, data) {
     // Los datos del detalle de sus equipos: abierto desde el panel, el detalle sale completo
     // (showDetailsImproved mezcla estos con los data-* de la tarjeta).
     window.equiposData = Object.assign(window.equiposData || {}, data.equiposData || {});
+    // Si el detalle está abierto desde ESTA lista, su botón (window.activeEquipoButton) se
+    // iría con el HTML viejo y las siguientes subidas/borrados en el detalle ya no lo
+    // repintarían (exigen el botón en la página). Se pasa al botón nuevo del mismo equipo;
+    // si el equipo salió de la lista (documento ya al día), se guarda el viejo, oculto.
+    const activo = window.activeEquipoButton;
+    const eraDeLaLista = activo && listContainer.contains(activo);
     listContainer.innerHTML = data.html;
+    if (eraDeLaLista) {
+        const id = activo.dataset.equipoId;
+        const nuevo = id && listContainer.querySelector('button[data-equipo-id="' + CSS.escape(id) + '"]');
+        if (nuevo) {
+            window.activeEquipoButton = nuevo;
+        } else {
+            const guarda = document.createElement('div');
+            guarda.hidden = true;
+            guarda.appendChild(activo);
+            listContainer.appendChild(guarda);
+        }
+    }
     listContainer.style.opacity = '0';
     setTimeout(() => {
         listContainer.style.transition = 'opacity 0.3s ease';
@@ -260,6 +315,8 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
     });
 
     const closeHandler = () => {
+        // Marca de cierre: la lista de Alertas vuelve ya, no tras el desvanecido.
+        overlay.dataset.cerrando = '1';
         overlay.style.opacity = '0';
         overlay.children[0].style.transform = 'scale(0.95)';
         setTimeout(() => overlay.remove(), 200);

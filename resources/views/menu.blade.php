@@ -180,7 +180,8 @@
 
                 {{-- Elegir formato del reporte de Alertas. Reutiliza el overlay y la tarjeta
                      del modal de alertas (.alertas-modal-overlay/.alertas-modal-content) para
-                     que se vea igual; mientras está abierto, aquel se retira de pantalla.
+                     que se vea igual; mientras está abierto, aquel se retira de pantalla
+                     (menu.js · sincronizarAlertasTapadas).
                      Las dos rutas devuelven el mismo reporte con las mismas filas: lo único
                      que cambia es el formato del archivo. --}}
                 <div class="alertas-modal-overlay formato-modal-overlay" id="formatoReporteModal"
@@ -446,16 +447,13 @@
         window.abrirFormatoReporteAlertas = function () {
             const modal = document.getElementById('formatoReporteModal');
             if (modal) modal.classList.add('open');
-            // El de alertas se retira mientras se elige formato (lo devuelve el cerrar).
-            const alertas = document.getElementById('expiredDocsContainer');
-            if (alertas) alertas.classList.add('oculto-tras-formato');
+            // La lista de alertas se retira sola mientras este está abierto y vuelve al
+            // cerrarlo (menu.js · sincronizarAlertasTapadas).
         };
 
         window.cerrarFormatoReporteAlertas = function () {
             const modal = document.getElementById('formatoReporteModal');
             if (modal) modal.classList.remove('open');
-            const alertas = document.getElementById('expiredDocsContainer');
-            if (alertas) alertas.classList.remove('oculto-tras-formato');
         };
 
         // Descarga el reporte en el formato pedido. Los dos formatos comparten TODO el
