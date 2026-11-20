@@ -372,9 +372,11 @@ class AlmacenOrdenBusquedaTest extends MySqlTestCase
             $texto = (string) $zip->getFromName('xl/sharedStrings.xml');
             $zip->close();
 
+            // Se compara el texto YA decodificado: el XLSX escapa las comillas (&quot;) y un
+            // producto real con comillas —ABRAZADERA (1/16" - 9/16")— no se encontraba.
             $this->assertStringContainsString(
-                htmlspecialchars($nombre, ENT_XML1),
-                $texto,
+                $nombre,
+                html_entity_decode($texto, ENT_QUOTES | ENT_XML1, 'UTF-8'),
                 "«{$nombre}» sale en la tabla al escribir «{$conError}», así que el Excel tiene que traerlo también."
             );
         } finally {

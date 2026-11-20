@@ -24,6 +24,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\ValidarSesionUnica::class,
             \App\Http\Middleware\VaryNavegacionSpa::class,
+            // La pestaña de un usuario no recibe los datos de otro que entró después en el
+            // mismo equipo. Va ANTES de OperacionUnica: lo de otro no llega a apuntarse.
+            \App\Http\Middleware\UsuarioEsperado::class,
             // Lo que la bandeja sin internet vuelve a mandar se aplica una sola vez.
             \App\Http\Middleware\OperacionUnica::class,
         ]);

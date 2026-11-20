@@ -59,12 +59,9 @@ class OperacionUnica
         if (! preg_match('/^[A-Za-z0-9-]{8,64}$/', $clave)) {
             return response()->json(['message' => 'Clave de operación inválida.'], 422);
         }
-        // Lo guardó sin internet OTRO usuario y la cookie es de quien entró después en el mismo
-        // equipo: no se aplica a su nombre. 401 = la bandeja la guarda hasta que entre su dueño.
-        $esperado = (string) $request->header('X-Usuario-Esperado', '');
-        if ($esperado !== '' && $esperado !== (string) $usuario->ID_USUARIO) {
-            return response()->json(['message' => 'La sesión abierta es de otro usuario.'], 401);
-        }
+        // Lo guardado sin internet por OTRO usuario (cookie de quien entró después en el mismo
+        // equipo) ya no llega aquí: lo para antes UsuarioEsperado con 401, y la bandeja lo
+        // guarda hasta que entre su dueño.
 
         $donde = ['CLAVE' => $clave, 'ID_USUARIO' => $usuario->ID_USUARIO];
         DB::table(self::TABLA)->where($donde)->whereNull('ESTADO_HTTP')

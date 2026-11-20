@@ -126,6 +126,8 @@ function avisarLoginNuevo() {
 // quien salió, y sin estas páginas al día siguiente no podría entrar sin red. Sin dueño
 // anotado (lo guardado antes de existir esta marca) se adopta, sin tirar nada.
 // Se quedan el login ('/'), que no tiene datos de nadie, y los CSS/JS.
+// La lee también el inicio de sesión sin internet (offline-auth.js · duenoDeLoGuardado): si
+// cambia esta ruta, cambiarla allí.
 const DUENO = '/__dueno-paginas';
 
 function esPagina(req) {

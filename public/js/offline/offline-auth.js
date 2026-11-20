@@ -434,12 +434,38 @@
     }
 
     // Lo guardado ya quedó abierto sin servidor (con la clave o con la huella): adentro.
-    window.OfflineAuth.adentroSinServidor = function () {
+    // Promise<boolean>: false = no entra (las pantallas guardadas son de otro usuario).
+    //
+    // Las pantallas guardadas (resources/sw.js · DUENO) son de UNA persona, la última que entró
+    // con internet; el candado y la huella sin internet pueden ser de otra (Y entró con clave y
+    // después X con huella). Sin mirar, Y veía el menú de X —su nombre, sus contadores— y la
+    // llave, que no es de esa página, lo devolvía al login: un bucle sin poder entrar.
+    window.OfflineAuth.adentroSinServidor = async function () {
+        const dueno = await duenoDeLoGuardado();
+        const quien = usuarioQueEntra();
+        if (dueno && quien && dueno !== quien) {
+            if (window.LlaveLocal) window.LlaveLocal.cerrar();
+            window.mostrarMsgLogin('Sin conexión, y las pantallas guardadas en este equipo son de otro usuario.\nEntra una vez con internet.', true);
+            return false;
+        }
         // El menú omite el spinner general en esta primera carga tras login.
         if (window.marcarLoginReciente) window.marcarLoginReciente();
         const destino = tomarVolverA() || '/menu';
         avisarSwSinServidor().then(function () { window.location.href = destino; });
+        return true;
     };
+    // De quién son las pantallas guardadas: la marca que deja el service worker (DUENO en sw.js).
+    // null si no hay ninguna (nada guardado, o sin Cache Storage).
+    function duenoDeLoGuardado() {
+        if (!window.caches) return Promise.resolve(null);
+        return caches.match('/__dueno-paginas').then((r) => (r ? r.text() : null)).catch(() => null);
+    }
+    // Quién acaba de abrir lo guardado sin servidor: la llave de esta pestaña, que dejan
+    // LlaveLocal.abrirConClave y abrirConHuella (misma clave que lee reanudarEnElLogin).
+    function usuarioQueEntra() {
+        try { const s = JSON.parse(sessionStorage.getItem('vidalsa_llave_sesion') || 'null'); return s && s.u ? String(s.u) : null; }
+        catch (e) { return null; }
+    }
 
     // Le dice al service worker que no hay servidor ANTES de navegar: si no, con el wifi sin
     // salida espera su tope (6 s) por el menú, en blanco y sin spinner. Espera su respuesta

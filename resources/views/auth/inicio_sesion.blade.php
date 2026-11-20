@@ -739,8 +739,11 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function (hay) { return hay ? VidalsaWebAuthn.autenticar() : VidalsaWebAuthn.autenticarSinServidor(); })
             .then(function(data) {
                 if (data && data.sinServidor) {
-                    window.OfflineAuth.adentroSinServidor();
-                    return;
+                    // No entra si lo guardado es de otro usuario (ya mostró el aviso): el botón
+                    // de la huella vuelve a quedar listo.
+                    return window.OfflineAuth.adentroSinServidor().then(function (entro) {
+                        if (!entro) restaurarBotonHuella();
+                    });
                 }
                 if (data && data.success && data.redirect) {
                     window.marcarLoginReciente(); // solo en éxito confirmado

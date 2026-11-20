@@ -337,22 +337,29 @@
             const corta = typeof AbortController === 'function' ? new AbortController() : null;
             const tope = corta ? setTimeout(() => corta.abort(), ESPERA_RESPUESTA_MS) : null;
             return (window.fetchSinInterceptor || window.fetch)('/sync/' + d + '?' + q, {
-                credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' },
+                // X-Usuario-Esperado: si la sesión ya es de otro (salió en otra pestaña y entró
+                // otra persona), el servidor no manda SUS datos para guardarlos a nombre de este.
+                credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json', 'X-Usuario-Esperado': usuario() },
                 signal: corta ? corta.signal : undefined,
             }).finally(() => clearTimeout(tope)).then((res) => {
                 if (res.status === 403) return olvidar(d).then(() => avisar(d, true));
                 if (res.status === 401) {
                     c.sinSesion = true;
-                    // Como ya no hace falta navegar para que la copia pregunte, es ella la que
-                    // se entera de que la sesión murió: se repite por el fetch con interceptor,
-                    // que la recupera con el pase de reingreso (si se entró sin conexión) o
-                    // lleva al inicio de sesión con el motivo (fetch_interceptor.js).
-                    if (window.fetchSinInterceptor) {
-                        window.fetch(res.url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-                            .then((r) => { if (r.ok) { c.sinSesion = false; sincronizarTras(d); } })
-                            .catch(() => {});
-                    }
-                    return;
+                    return res.json().catch(() => null).then((cuerpo) => {
+                        // La sesión es de OTRO usuario (UsuarioEsperado): esta pestaña ya no es de
+                        // nadie. Se recarga y queda como la de quien entró (o el inicio de sesión).
+                        // Sin reintentar: sin la cabecera, el reintento SÍ contestaría con sus datos.
+                        if (cuerpo && cuerpo.code === 'otro_usuario') { window.location.reload(); return; }
+                        // Como ya no hace falta navegar para que la copia pregunte, es ella la que
+                        // se entera de que la sesión murió: se repite por el fetch con interceptor,
+                        // que la recupera con el pase de reingreso (si se entró sin conexión) o
+                        // lleva al inicio de sesión con el motivo (fetch_interceptor.js).
+                        if (window.fetchSinInterceptor) {
+                            window.fetch(res.url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+                                .then((r) => { if (r.ok) { c.sinSesion = false; sincronizarTras(d); } })
+                                .catch(() => {});
+                        }
+                    });
                 }
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 return res.json().then((r) => {

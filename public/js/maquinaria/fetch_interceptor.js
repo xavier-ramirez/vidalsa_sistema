@@ -78,6 +78,10 @@ window.irAlInicioDeSesion = async function (response) {
     if (response && response.status === 401) {
         try {
             var _cuerpo = await response.clone().json();
+            // La sesión no murió: es de OTRO usuario que entró después en este equipo
+            // (UsuarioEsperado). Esta pestaña ya no es de nadie: se recarga y queda como la de
+            // quien entró. Mismo trato que en la copia local (copia-local.js).
+            if (_cuerpo && _cuerpo.code === 'otro_usuario') { window.location.reload(); return true; }
             if (_cuerpo && (_cuerpo.motivo === 'clave_cambiada' || _cuerpo.motivo === 'usuario_inactivo')) {
                 _motivo = _cuerpo.motivo;
             }

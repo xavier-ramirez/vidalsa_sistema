@@ -34,7 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // 'application/json' por defecto, wantsJson() da true y la navegación
         // recibe JSON en vez de la página: loadPage no puede inyectarlo y cae a
         // recarga completa (spinner, recarga, y recién ahí el módulo).
-        'Accept': 'text/html, application/xhtml+xml'
+        'Accept': 'text/html, application/xhtml+xml',
+        // De quién es esta pestaña (su <meta usuario-id>, que la SPA no cambia). Si la sesión
+        // ya es de otro (salió en otra pestaña y entró otra persona), el servidor contesta 401
+        // en vez de la pantalla del otro (UsuarioEsperado): no se pinta ni se guarda como suya.
+        'X-Usuario-Esperado': (document.querySelector('meta[name="usuario-id"]') || {}).content || ''
     };
 
     // ¿Este <a> lo maneja la navegación SPA? Fuente ÚNICA de la regla: la usan el
@@ -271,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             vistaBase = huella(ruta, nueva);
             window.dispatchEvent(new CustomEvent('pantalla-al-dia', { detail: { ruta, doc } }));
-        });
+        }).catch((e) => console.warn('SPA: no se pudo poner al día la pantalla', e));
     }
 
     // Recién abierta desde la guardada, que puede ser de hace horas: se pone al día. Si se
@@ -504,6 +508,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = '';
     }
 
+    // La dirección de lo que está PINTADO en el contenido. Se mueve solo al pintar una pantalla
+    // (loadPage) o al corregir la barra; la usa el 403 de Atrás/Adelante para devolverla.
+    let urlPintada = window.location.href;
+
     // Handle back/forward buttons
     window.addEventListener('popstate', () => {
         if (atrasPropio) {
@@ -548,6 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // Sin copia: se deja el menu y la direccion pasa a decir la verdad.
             history.replaceState(null, '', mainViewport.dataset.ruta);
+            urlPintada = window.location.href;
             avisarDeLaCopia('sinCopia');
         });
     }
@@ -577,6 +586,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         for (const oldScript of scripts) {
+            // Otra navegación ya cambió el contenido (dos clics seguidos mientras bajaba un
+            // archivo de esta): lo que falta de ESTA pantalla no corre sobre la nueva.
+            if (!oldScript.isConnected) break;
             await new Promise(resolve => {
                 try {
                     const newScript = document.createElement('script');
@@ -606,7 +618,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         // Esperar a que cargue o falle antes de continuar con el siguiente
                         newScript.onload  = () => { srcEjecutados.add(newScript.src); resolve(); };
-                        newScript.onerror = () => resolve(); // Continuar aunque falle
+                        // Continuar aunque falle, pero SIN dejar la etiqueta: su presencia en el
+                        // <head> es lo que mira yaCargado, y un archivo que no llegó (red que va y
+                        // viene) dejaba el módulo sin su JS hasta F5. Así la próxima visita lo
+                        // vuelve a pedir.
+                        newScript.onerror = () => { newScript.remove(); resolve(); };
                         document.head.appendChild(newScript);
                     } else {
                         // Script inline: se ejecuta de forma síncrona al añadirse
@@ -816,6 +832,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         const body = await response.json();
                         if (body && body.message) msg = body.message;
                     } catch (_) { /* sin body JSON, usar default */ }
+                    // Con Atrás/Adelante la barra YA dice el módulo prohibido y la pantalla sigue
+                    // siendo la anterior: la dirección vuelve a la que se ve (un F5 ahí daba el 403).
+                    if (!pushHistory) history.replaceState(null, '', urlPintada);
                     if (typeof window.showToast === 'function') {
                         window.showToast(msg, 'error');
                     } else if (typeof window.showModal === 'function') {
@@ -950,6 +969,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // del historial en la que ya estamos, sin sumar otra.
                 history.replaceState(null, '', destino);
             }
+            urlPintada = window.location.href;
 
             const titleEl = doc.querySelector('title');
             document.title = titleEl ? titleEl.innerText : document.title;
@@ -975,6 +995,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Re-ejecutar scripts del contenido inyectado EN ORDEN y esperando
             // cada externo (CDN) antes de continuar — crítico para Chart.js, etc.
             await executeScripts(mainViewport);
+            // Mientras bajaba un archivo de esta pantalla pudo abrirse otra: entonces la huella,
+            // el enlace activo del menú, el aviso spa:contentLoaded y el scroll son de aquella.
+            if (_yaNoEsLaActual()) { handledCleanup = true; return; }
 
             vistaBase = rutaDe(destino) in PANTALLAS_LOCALES ? huella(rutaDe(destino), newContent) : null;
             updateActiveLinks(destino);
