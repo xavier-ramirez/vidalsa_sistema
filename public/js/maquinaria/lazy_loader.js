@@ -64,8 +64,8 @@
 
     /**
      * Leaflet (CSS + JS) desde /vendor/leaflet, UNA sola vez para toda la app: lo usan /mapa
-     * (que además pide sus plugins, en orden detrás de este) y el mapa del modal de GPS de
-     * Equipos. Antes cada uno tenía su cargador y, si se cruzaban, Leaflet podía ejecutarse dos
+     * (cargarLeafletMapa le suma sus plugins, en orden detrás de este) y el mapa del modal de
+     * GPS de Equipos. Antes cada uno tenía su cargador y, si se cruzaban, Leaflet podía ejecutarse dos
      * veces y borrar los plugins de /mapa.
      */
     window.cargarLeaflet = function () {

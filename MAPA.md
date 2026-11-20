@@ -254,9 +254,10 @@ decide nada: propone y una persona confirma.
 - La clave va en el `.env` del servidor — **nunca** en el repositorio (`config/services.php`
   la lee de `GEMINI_API_KEY`, con los topes por env para no tocar código si se paga un plan).
 
-**Mapa (`/mapa`, `mapa_index.js`).** Leaflet y sus librerías se piden A LA VEZ y se ejecutan en
-orden; Leaflet lo baja `window.cargarLeaflet` (`lazy_loader.js`), el MISMO cargador del mapa del
-modal de GPS de Equipos, así nunca se baja dos veces. En la primera visita `initMapa` mantiene el
+**Mapa (`/mapa`, `mapa_index.js`).** Leaflet y sus librerías los pide `window.cargarLeafletMapa`
+(`lazy_loader.js`): el layout lo llama A LA VEZ que `mapa_index.js` y se ejecutan en orden; el
+mapa no espera a proj4 (solo para buscar UTM). Leaflet sale de `window.cargarLeaflet`, el MISMO
+cargador del mapa del modal de GPS de Equipos, así nunca se baja dos veces. En la primera visita `initMapa` mantiene el
 spinner hasta que el mapa existe (aunque el modal ya hubiera traído Leaflet solo). Los créditos "Elaborado
 por / Fuente" van SOLO en la foto exportada (`CREDITOS` → `dibujarCreditos`), no en pantalla.
 Todo lo que llega tarde (proyectos, capas, municipios) mira `desmontado`: si se salió del mapa
