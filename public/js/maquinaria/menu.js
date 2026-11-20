@@ -69,7 +69,6 @@ window.sincronizarAlertasTapadas = function () {
     if (!alertas) return;
     const CAPAS_SOBRE_ALERTAS = [
         { id: 'detailsModal', cls: 'active' },
-        { id: 'auxDetailsModal', cls: 'active' },
         { id: 'pdfPreviewModal', cls: 'active' },
         { id: 'formatoReporteModal', cls: 'open' },
         { id: 'dashboardGestionModal', cls: null },   // existe = abierta (salvo mientras se desvanece)
