@@ -67,6 +67,20 @@ const L = window.LlaveLocal;
     L.olvidarHuellas();
     assert.strictEqual(localStorage.getItem('vidalsa_llaves_huella'), null, 'sin usuario: todas');
 
+    // ── 2b) Huella recién registrada: con la llave abierta queda lista para entrar sin red ──
+    //    (webauthn.js · prepararSinServidor → envolverConHuella). Otra lectura no abre.
+    const prfNueva = rnd(32), salNueva = rnd(32);
+    assert.ok(await L.envolverConHuella('credN', 'localhost', salNueva, prfNueva), 'envuelve la llave abierta');
+    hs = JSON.parse(localStorage.getItem('vidalsa_llaves_huella'));
+    assert.strictEqual(hs.credN.u, '5');
+    assert.strictEqual(hs.credN.salt, b64(salNueva), 'con la sal con que se pidió');
+    assert.deepStrictEqual(L.huellasLocales(['credN']).map((h) => h.cred), ['credN'], 'cuenta como huella sin servidor');
+    assert.ok(!(await L.abrirConHuella('credN', rnd(32))), 'otra llave no abre');
+    sessionStorage.removeItem('vidalsa_llave_sesion');
+    assert.ok(await L.abrirConHuella('credN', prfNueva), 'la suya abre');
+    assert.deepStrictEqual(JSON.parse(sessionStorage.getItem('vidalsa_llave_sesion')).k, b64(dek), 'la misma llave de siempre');
+    L.olvidarHuellas();
+
     // ── 3) offline-auth.sincronizar: el candado de OTRO usuario no se toca ──
     const llamadas = [];
     window.LlaveLocal = { confirmar: async () => {}, olvidarHuellas: (u) => llamadas.push(u === undefined ? 'todas' : String(u)), cerrar() {} };

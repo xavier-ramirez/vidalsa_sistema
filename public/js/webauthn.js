@@ -11,8 +11,9 @@
  * RECUPERAN del servidor (sin preguntar nada) y solo se pregunta si de verdad no hay.
  *
  * SIN SERVIDOR: al leer el dedo se pide también la extensión PRF (una llave que el lector
- * solo entrega tras la huella). Entrando con servidor, llave-local.js envuelve con ella la
- * llave de los datos guardados; sin servidor, esa misma lectura los abre
+ * solo entrega tras la huella). Al registrarla (prepararSinServidor) y entrando con servidor,
+ * llave-local.js envuelve con ella la llave de los datos guardados; sin servidor, esa misma
+ * lectura los abre
  * (autenticarSinServidor). Si el teléfono no tiene PRF, la huella sigue pidiendo internet.
  */
 const VidalsaWebAuthn = (() => {
@@ -135,6 +136,8 @@ const VidalsaWebAuthn = (() => {
             return false;
         }
 
+        // Sal de la llave PRF de esta huella (la credencial aún no tiene id: se le asigna al nacer).
+        const salRegistro = crypto.getRandomValues(new Uint8Array(32));
         let options;
         try {
             const res = await window.apiFetch('/webauthn/register-options', {
@@ -162,9 +165,10 @@ const VidalsaWebAuthn = (() => {
             authenticatorSelection: options.authenticatorSelection,
             attestation:            options.attestation,
             // PRF desde el registro: varios lectores (los de llave de seguridad y Windows
-            // Hello) solo la dan después si la credencial nació con ella. Sin PRF no pasa
-            // nada: la huella sigue entrando con servidor.
-            extensions:             { prf: {} }
+            // Hello) solo la dan después si la credencial nació con ella. Con `eval` el que
+            // pueda la da ya aquí (ver prepararSinServidor). Sin PRF no pasa nada: la huella
+            // sigue entrando con servidor.
+            extensions:             { prf: { eval: { first: salRegistro } } }
         };
 
         let credential;
@@ -200,11 +204,40 @@ const VidalsaWebAuthn = (() => {
             // Recién registrada en ESTE teléfono: ni dudas ni recordatorios pendientes.
             quitar(SIN_VERIFICAR_KEY);
             quitar(VINCULAR_ESTE_KEY);
+            await prepararSinServidor(credential, body.credential_id, options.rp && options.rp.id, salRegistro);
             return true;
         } catch (e) {
             alert('Error al guardar la huella: ' + e.message);
             return false;
         }
+    }
+
+    // La huella recién registrada sirve YA para entrar sin internet: lo guardado en el equipo se
+    // envuelve ahora con su llave PRF (antes hacía falta entrar una vez con ella y con internet,
+    // y quien siempre entra con la clave nunca la tenía sin red). La llave sale del propio
+    // registro si el lector la da; si no, se lee el dedo una vez más aquí (sin servidor: solo
+    // hace falta la llave PRF, no una firma que verificar). Sin PRF (enabled false) no se pide
+    // nada. Si no sale, la huella se prepara al entrar con ella y con internet, como antes.
+    async function prepararSinServidor(credential, cred, rpId, sal) {
+        if (!window.LlaveLocal || !window.LlaveLocal.envolverConHuella) return false;
+        try {
+            const ext = credential.getClientExtensionResults().prf || {};
+            let prf = ext.results && ext.results.first;
+            if (!prf && ext.enabled === true) {
+                const porCredencial = {};
+                porCredencial[bytesToBase64Url(new Uint8Array(credential.rawId))] = { first: sal };
+                const a = await navigator.credentials.get({ publicKey: {
+                    challenge:        crypto.getRandomValues(new Uint8Array(32)),
+                    rpId:             rpId || location.hostname,
+                    allowCredentials: [{ type: 'public-key', id: credential.rawId }],
+                    userVerification: 'required',
+                    timeout:          60000,
+                    extensions:       { prf: { evalByCredential: porCredencial } },
+                } });
+                prf = resultadoPrf(a);
+            }
+            return prf ? await window.LlaveLocal.envolverConHuella(cred, rpId || location.hostname, sal, prf) : false;
+        } catch { return false; }   // canceló o el lector no la da: queda para la próxima con red
     }
 
     // ─── AUTENTICACIÓN ───────────────────────────────────────────────

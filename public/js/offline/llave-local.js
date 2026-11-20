@@ -12,8 +12,8 @@
  *     SIN internet, al iniciar sesión sin servidor. Se rehace en cada inicio de sesión con clave.
  * Y una tercera, por huella ('vidalsa_llaves_huella', { credencial: { u, rpId, salt, iv, ct } }):
  *   · con la llave que da la propia huella (extensión PRF de WebAuthn: el lector solo la
- *     entrega tras leer el dedo). Se rehace en cada inicio de sesión con huella CON servidor y
- *     es la que deja entrar con huella SIN internet. Si el teléfono no tiene PRF, no se crea.
+ *     entrega tras leer el dedo). Se crea al registrar la huella, se rehace en cada inicio de
+ *     sesión con huella CON servidor y es la que deja entrar con huella SIN internet. Si el teléfono no tiene PRF, no se crea.
  * Abierta, vive solo en sessionStorage (esta ventana): se borra al cerrar la app o el
  * navegador y al volver a la pantalla de inicio de sesión. Si se abrió con la clave SIN
  * servidor (inicio de sesión sin red), o se siguió trabajando con la red caída (lo anota
@@ -28,7 +28,8 @@
  *   LlaveLocal.abrirConClave(id, clave) → Promise<boolean>. Inicio de sesión sin servidor.
  *   LlaveLocal.salHuella(cred) → la sal PRF de esa credencial (se crea la primera vez).
  *       huellaPreparada(cred, rpId, prf) → el servidor aceptó la huella: la página siguiente
- *       envuelve la llave también con ella. huellasLocales(creds) → las que abren sin servidor.
+ *       envuelve la llave también con ella. envolverConHuella(cred, rpId, sal, prf) → huella
+ *       recién registrada: la envuelve ya (con la llave abierta). huellasLocales(creds) → las que abren sin servidor.
  *       abrirConHuella(cred, prf) → Promise<boolean>. olvidarHuellas() → las tira todas.
  *   LlaveLocal.trabajaSinServidor() → boolean · marcarSinServidor() → la pone (se cortó la red
  *       con alguien trabajando) · conServidor() → la quita (el servidor contestó con sesión).
@@ -236,6 +237,18 @@
             const hs = leer(localStorage, HUELLAS) || {};
             if (!sub || !prf || !hs[cred] || !hs[cred].salt) return;
             escribir(sessionStorage, PENDIENTE_HUELLA, { cred, rpId: rpId || location.hostname, salt: hs[cred].salt, kek: b64(prf) });
+        },
+        // Huella recién registrada (webauthn.js · prepararSinServidor): la llave ABIERTA en esta
+        // sesión se envuelve ya con su llave PRF, con la sal con que se pidió. true = lista para
+        // entrar sin internet.
+        async envolverConHuella(cred, rpId, sal, prf) {
+            if (!sub || !cred || !prf || !(await lista())) return false;
+            const s = leer(sessionStorage, SESION);
+            if (!s || s.u !== usuario()) return false;
+            const hs = leer(localStorage, HUELLAS) || {};
+            hs[cred] = Object.assign({ u: s.u, rpId, salt: b64(sal) }, await envolver(new Uint8Array(prf), deB64(s.k)));
+            escribir(localStorage, HUELLAS, hs);
+            return true;
         },
         huellasLocales(creds) {
             const hs = leer(localStorage, HUELLAS) || {};
