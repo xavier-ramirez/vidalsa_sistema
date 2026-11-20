@@ -30,7 +30,10 @@
     // librería y el logo desaparecían de la caché y la Nota no se podía armar sin internet.
     // Si se cambia el logo, subir su v.
     const PDFLIB = '/js/vendor/pdf-lib-1.17.1.min.js?v=1.17.1';
-    const LOGO = '/img/imagen_uno.jpg?v=1';
+    // El mismo logo que el PDF del servidor, con su fecha como versión (data-logo-v del <script>):
+    // si se cambia el archivo, cambia la dirección y ningún equipo se queda con el viejo (el
+    // servidor deja guardar los estáticos un año).
+    const LOGO = '/img/imagen_uno.jpg?v=' + (((typeof document !== 'undefined' && document.currentScript) || { dataset: {} }).dataset.logoV || '1');
     // El visor de la vista previa en el teléfono (dom_helpers.js · cargarPdfJs).
     const PDFJS = ['/js/vendor/pdf-3.11.174.min.js?v=3.11.174', '/js/vendor/pdf.worker-3.11.174.min.js?v=3.11.174'];
     const CACHE_SIN_RED = 'nota-sin-red-v1';   // ver prepararSinRed
@@ -370,7 +373,10 @@
     // ── Navegador ──
     // Lo guardado por prepararSinRed, leído a mano: si el service worker no controla la página
     // (o no la tenía), la petición normal sin red falla aunque el archivo esté en el equipo.
-    const deLaCache = (u) => (typeof caches !== 'undefined' ? caches.match(u).catch(() => null) : Promise.resolve(null));
+    // otraVersion: si no está esa versión exacta, cualquier otra guardada del mismo archivo (el
+    // logo, recién desplegado y sin red antes de bajar el nuevo: mejor el anterior que ninguno).
+    const deLaCache = (u, otraVersion) => (typeof caches === 'undefined' ? Promise.resolve(null)
+        : caches.match(u).then((r) => r || (otraVersion ? caches.match(u, { ignoreSearch: true }) : null)).catch(() => null));
     function cargarLibreria() {
         if (raiz.PDFLib) return Promise.resolve(raiz.PDFLib);
         return raiz.cargarScriptUnaVez(PDFLIB, () => !!raiz.PDFLib)
@@ -383,10 +389,19 @@
             }))
             .then(() => raiz.PDFLib);
     }
+    // Borra de la caché de la Nota las otras versiones (?v=) del archivo de url.
+    function quitarOtrasVersiones(cache, url) {
+        const base = url.split('?')[0];
+        return cache.keys().then((reqs) => Promise.all(reqs.filter((q) => {
+            const u = new URL(q.url);
+            return u.pathname === base && (u.pathname + u.search) !== url;
+        }).map((q) => cache.delete(q))));
+    }
+
     function bajarLogo() {
         return fetch(LOGO, { credentials: 'same-origin' })
-            .then((r) => (r.ok ? r : deLaCache(LOGO)))
-            .catch(() => deLaCache(LOGO))
+            .then((r) => (r.ok ? r : deLaCache(LOGO, true)))
+            .catch(() => deLaCache(LOGO, true))
             .then((r) => (r && r.ok ? r.arrayBuffer() : null)).catch(() => null);
     }
 
@@ -408,7 +423,8 @@
             const urls = [PDFLIB, LOGO].concat(raiz.pdfEsMovil && raiz.pdfEsMovil() ? PDFJS : []);
             return caches.open(CACHE_SIN_RED).then((cache) => Promise.all(urls.map((u) =>
                 cache.match(u).then((ya) => ya || fetch(u, { credentials: 'same-origin' }).then((r) => {
-                    if (r && r.ok) return cache.put(u, r);
+                    // Al guardar una versión nueva, fuera las anteriores del mismo archivo.
+                    if (r && r.ok) return cache.put(u, r).then(() => quitarOtrasVersiones(cache, u));
                 })).catch(() => {})
             ))).catch(() => {});
         },

@@ -16,13 +16,22 @@ const cajas = new Map();
 const caja = (n) => {
     if (!cajas.has(n)) {
         const m = new Map();
-        cajas.set(n, { _m: m, match: async (u) => m.get(u), put: async (u, r) => { m.set(u, r); } });
+        cajas.set(n, {
+            _m: m, match: async (u) => m.get(u), put: async (u, r) => { m.set(u, r); },
+            keys: async () => [...m.keys()].map((u) => ({ url: 'http://localhost' + u })),
+            delete: async (q) => m.delete(new URL(q.url).pathname + new URL(q.url).search),
+        });
     }
     return cajas.get(n);
 };
 global.caches = {
     open: async (n) => caja(n),
-    match: async (u) => { for (const c of cajas.values()) { const r = await c.match(u); if (r) return r; } return undefined; },
+    match: async (u, op) => {
+        for (const c of cajas.values()) {
+            for (const [k, r] of c._m) if (k === u || (op && op.ignoreSearch && k.split('?')[0] === u.split('?')[0])) return r.clone();
+        }
+        return undefined;
+    },
 };
 
 let red = true;
@@ -51,7 +60,9 @@ URL.revokeObjectURL = () => {};
 const api = require(path.join(PUB, 'js', 'maquinaria', 'nota_entrega_local.js'));
 
 (async () => {
-    // 1) Con red: quedan en su caché propia, una sola vez.
+    // 1) Con red: quedan en su caché propia, una sola vez. Una versión vieja del logo (otro
+    //    ?v=, el archivo cambió) sale de la caché al guardar la nueva.
+    await caja('nota-sin-red-v1').put('/img/imagen_uno.jpg?v=0', new Response('viejo'));
     await api.prepararSinRed();
     const propia = cajas.get('nota-sin-red-v1');
     assert.ok(propia, 'caché nota-sin-red-v1 creada');
@@ -74,6 +85,14 @@ const api = require(path.join(PUB, 'js', 'maquinaria', 'nota_entrega_local.js'))
     const sinLogo = await api.construir(window.PDFLib, datos, null);
     assert.ok(bytes.length > sinLogo.length + 5000, 'lleva el logo (' + bytes.length + ' vs ' + sinLogo.length + ' bytes sin él)');
     assert.ok(scripts.some((s) => s.startsWith('blob:')), 'la librería salió de la caché');
+
+    // 2b) Recién desplegado (el logo trae otra versión) y sin red antes de bajarla: usa el logo
+    //     guardado de antes en vez de salir sin logo.
+    const propiaM = cajas.get('nota-sin-red-v1')._m;
+    propiaM.set('/img/imagen_uno.jpg?v=0', propiaM.get('/img/imagen_uno.jpg?v=1'));
+    propiaM.delete('/img/imagen_uno.jpg?v=1');
+    const conAnterior = new Uint8Array(await (await api.generar(datos)).arrayBuffer());
+    assert.ok(conAnterior.length > sinLogo.length + 5000, 'con la versión anterior del logo');
 
     // 3) Igual que la Nota del servidor: números como number_format de PHP (el 5 sube) y el
     // destino normalizado como limpiarDestino (agrupa «pozo 3» con «POZO 3»).
