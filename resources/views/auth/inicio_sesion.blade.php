@@ -465,7 +465,10 @@
                         }).finally(precalentarCsrf);
                         return null;
                     }
+                    // Con el logo encima: si el formulario ya se veía (servidor lento al reabrir
+                    // la app), saltaba al menú sin transición, a veces con el clic recién dado.
                     window.__yendoAlMenu = true;
+                    window.spinnerLogin(true);
                     window.marcarLoginReciente();
                     window.location.replace(@json(route('menu')));
                     return null;
@@ -536,7 +539,8 @@
             e.preventDefault(); // Stop native submission immediately
             // Un intento a la vez: Enter otra vez durante la espera (el spinner tapa los clics,
             // no el teclado) lanzaba un segundo intento que pisaba el verificador del primero.
-            if (window._loginEnCurso) return;
+            // Ya va al menú (la sesión seguía abierta): un login encima chocaría con esa sesión.
+            if (window._loginEnCurso || window.__yendoAlMenu) return;
 
             // Limpia un mensaje previo y muestra el spinner. La bandera evita que el
             // guard de 4s lo oculte a mitad del intento (ver arriba); se limpia en
@@ -699,6 +703,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var bioLabel = document.getElementById('bioLabel');
 
     btnBio.addEventListener('click', function() {
+        if (window.__yendoAlMenu) return; // ya va al menú (mismo motivo que el submit)
         window._loginEnCurso = true; // el guard de 4s no debe quitar el spinner a mitad del intento
         cortarPrecalentar();
         btnBio.style.pointerEvents = 'none';
