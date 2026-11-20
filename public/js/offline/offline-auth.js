@@ -234,7 +234,10 @@
         document.head.appendChild(meta);
         const r = await window.Reingreso.reanudar().catch(() => false);
         if (r === true) {
-            location.replace(mismaWeb(params.get('volver')) || '/menu');
+            const destino = mismaWeb(params.get('volver')) || '/menu';
+            // Respaldo: un login viejo en la caché del SW (sin irDesdeLogin) igual navega.
+            if (window.irDesdeLogin) window.irDesdeLogin(destino);
+            else location.replace(destino);
             return true;
         }
         meta.remove();

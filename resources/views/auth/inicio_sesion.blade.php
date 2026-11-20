@@ -269,6 +269,16 @@
     setTimeout(function () {
         if (!window._loginEnCurso && !window.__yendoAlMenu) window.spinnerLogin(false);
     }, 4000);
+    // Punto ÚNICO de salida de esta pantalla con una sesión que ya estaba abierta (precalentarCsrf)
+    // o que se recuperó (offline-auth.js · reanudarEnElLogin): con el logo encima y sin aceptar
+    // otro inicio de sesión. Antes saltaba sin spinner y, si el formulario ya se veía (servidor
+    // lento al reabrir la app), un clic recién dado parecía no hacer nada.
+    window.irDesdeLogin = function (url) {
+        window.__yendoAlMenu = true;
+        window.spinnerLogin(true);
+        window.marcarLoginReciente();
+        window.location.replace(url);
+    };
 
     document.addEventListener('DOMContentLoaded', () => {
         if (!esperarSesion) window.spinnerLogin(false);
@@ -318,6 +328,7 @@
     // `rojo`: los avisos de sesión cerrada (?aviso=, abajo) van en rojo; el resto en ámbar.
     // El color se pone en cada llamada porque el <div> es el mismo para todos los mensajes.
     window.mostrarMsgLogin = function (texto, rojo) {
+        if (window.__yendoAlMenu) return; // ya se va (irDesdeLogin): ni mensaje ni quitar el logo
         window._loginEnCurso = false; // el intento terminó: el guard de 4s vuelve a aplicar
         window.spinnerLogin(false);
         const msg = document.getElementById('offlineLoginMsg');
@@ -465,12 +476,7 @@
                         }).finally(precalentarCsrf);
                         return null;
                     }
-                    // Con el logo encima: si el formulario ya se veía (servidor lento al reabrir
-                    // la app), saltaba al menú sin transición, a veces con el clic recién dado.
-                    window.__yendoAlMenu = true;
-                    window.spinnerLogin(true);
-                    window.marcarLoginReciente();
-                    window.location.replace(@json(route('menu')));
+                    window.irDesdeLogin(@json(route('menu')));
                     return null;
                 }
                 // Sin sesión: la salida ya se completó y la marca se apaga.
