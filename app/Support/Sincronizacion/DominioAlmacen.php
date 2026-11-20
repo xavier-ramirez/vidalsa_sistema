@@ -2,6 +2,7 @@
 
 namespace App\Support\Sincronizacion;
 
+use App\Casts\MojibakeFix;
 use App\Models\Almacen;
 use App\Models\AlmacenStock;
 use App\Models\CorreccionNota;
@@ -206,12 +207,28 @@ class DominioAlmacen
             ->all();
     }
 
+    /**
+     * El kardex es lo que más pesa de la copia (~10.000 filas y creciendo) y la copia ENTERA
+     * se arma para cada usuario que entra por primera vez en un equipo: con un modelo Eloquent
+     * por fila, leer sus campos (fechas, decimales y los textos con MojibakeFix) costaba 1,3 s.
+     * Se leen las filas en bruto (toBase: mismos where del query) y se aplica a mano lo que
+     * hacían los casts —el mismo MojibakeFix::fix en los campos que lo llevan—: igual salida,
+     * una fracción del tiempo.
+     */
     private function filasMovimientos($query): array
     {
-        return $query
-            ->with('usuario:ID_USUARIO,NOMBRE_COMPLETO,CORREO_ELECTRONICO')
-            ->get()
-            ->map(fn (MovimientoInventario $m) => [
+        $filas = $query->toBase()->get();
+
+        $usuarios = DB::table('usuarios')
+            ->whereIn('ID_USUARIO', $filas->pluck('ID_USUARIO')->filter()->unique()->values())
+            ->get(['ID_USUARIO', 'NOMBRE_COMPLETO', 'CORREO_ELECTRONICO'])
+            ->keyBy('ID_USUARIO');
+        $txt = fn ($v) => MojibakeFix::fix($v === null ? null : (string) $v);
+
+        return $filas->map(function ($m) use ($usuarios, $txt) {
+            $u = $m->ID_USUARIO !== null ? $usuarios->get($m->ID_USUARIO) : null;
+
+            return [
                 'id'        => (int) $m->ID_MOVIMIENTO,
                 'alm'       => (int) $m->ID_ALMACEN,
                 'prod'      => (int) $m->ID_PRODUCTO,
@@ -219,8 +236,8 @@ class DominioAlmacen
                 'cant'      => (float) $m->CANTIDAD,
                 'ant'       => (float) $m->CANTIDAD_ANTERIOR,
                 'res'       => (float) $m->CANTIDAD_RESULTANTE,
-                'fecha'     => $m->FECHA?->format('Y-m-d'),
-                'creado'    => $m->created_at?->format('Y-m-d H:i:s'),
+                'fecha'     => $m->FECHA !== null ? substr((string) $m->FECHA, 0, 10) : null,
+                'creado'    => $m->created_at !== null ? substr((string) $m->created_at, 0, 19) : null,
                 'contra'    => $m->ID_ALMACEN_CONTRAPARTE ? (int) $m->ID_ALMACEN_CONTRAPARTE : null,
                 'rel'       => $m->ID_MOVIMIENTO_RELACIONADO ? (int) $m->ID_MOVIMIENTO_RELACIONADO : null,
                 'frente'    => $m->ID_FRENTE ? (int) $m->ID_FRENTE : null,
@@ -228,15 +245,15 @@ class DominioAlmacen
                 'ref'       => $m->REFERENCIA,
                 'parte'     => $m->NUMERO_PARTE,
                 'nota'      => $m->NUMERO_NOTA,
-                'rq'        => $m->NUMERO_RQ,
-                'contrato'  => $m->NUMERO_CONTRATO,
-                'solicita'  => $m->SOLICITANTE,
-                'motivo'    => $m->MOTIVO,
-                'notas'     => $m->NOTAS,
-                'usuario'   => $m->usuario?->NOMBRE_COMPLETO,
-                'correo'    => $m->usuario?->CORREO_ELECTRONICO,
-            ])
-            ->all();
+                'rq'        => $txt($m->NUMERO_RQ),
+                'contrato'  => $txt($m->NUMERO_CONTRATO),
+                'solicita'  => $txt($m->SOLICITANTE),
+                'motivo'    => $txt($m->MOTIVO),
+                'notas'     => $txt($m->NOTAS),
+                'usuario'   => $u?->NOMBRE_COMPLETO,
+                'correo'    => $u?->CORREO_ELECTRONICO,
+            ];
+        })->all();
     }
 
     private function filasCorrecciones($query): array
