@@ -58,4 +58,17 @@ class DatosNotaSalida
                 'nombre' => $f->NOMBRE,
             ])->values());
     }
+
+    /**
+     * { ID_ALMACEN: [ID_FRENTE, …] }: los proyectos de cada almacén (el modal "Editar
+     * almacén"). El campo "Proyecto" de la salida los pone PRIMERO: lo normal es despachar
+     * para consumo del propio proyecto del almacén.
+     */
+    public static function frentesPorAlmacen(): Collection
+    {
+        return DB::table('almacen_frentes')
+            ->get(['ID_ALMACEN', 'ID_FRENTE'])
+            ->groupBy('ID_ALMACEN')
+            ->map(fn ($filas) => $filas->pluck('ID_FRENTE')->map(fn ($id) => (int) $id)->values());
+    }
 }

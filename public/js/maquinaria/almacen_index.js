@@ -4070,11 +4070,17 @@
     // Datos del formulario de la Nota. Se pasan al abrir el modal —y no una sola vez— porque
     // el formulario es compartido: la recepción pudo dejar los suyos si se pasó por ella.
     function almSalidaNotaConfigurar() {
-        var formatos = {};
-        Object.keys(window.almAlmacenesData || {}).forEach(function (id) { formatos[id] = window.almAlmacenesData[id].FORMATO_NOTA; });
+        // Formato de la hoja y proyectos de cada almacén, de los datos del almacén (al día si se
+        // editó en el modal "Editar almacén" sin recargar).
+        var formatos = {}, frentes = {};
+        Object.keys(window.almAlmacenesData || {}).forEach(function (id) {
+            formatos[id] = window.almAlmacenesData[id].FORMATO_NOTA;
+            frentes[id] = window.almAlmacenesData[id].frentes || [];
+        });
         window.AlmSalidaNota.configurar({
             frenteContratos:       window.almFrenteContratos || {},
             almacenesPorFrente:    CFG.almacenesPorFrente || {},
+            frentesPorAlmacen:     frentes,
             formatoPorAlmacen:     formatos,
             formatoNotaHorizontal: ALM_FORMATO_NOTA_HORIZONTAL,
             rutaLogistica:         ROUTE_ALM_LOGISTICA('__ID__'),

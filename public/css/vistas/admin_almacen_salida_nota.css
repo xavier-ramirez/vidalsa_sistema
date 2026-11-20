@@ -22,18 +22,17 @@
     .alm-modal .alm-modal-body { overflow-y: auto; min-height: 0; }
     /* Transporte de la salida: en la lista de sugerencias, el nombre a la izquierda y la
        cédula o placa a la derecha, agrupados por de dónde salen (lista del almacén / flota). */
-    .alm-log-grupo { padding:6px 12px 3px; font-size:10.5px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.4px; }
     .alm-suggest-inline .alm-log-item { justify-content:space-between; padding:8px 12px; }
     .alm-log-nom { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:#0f172a; }
     .alm-log-doc { flex:0 0 auto; font-size:12px; font-weight:700; color:#475569; font-variant-numeric:tabular-nums; }
-    /* Vehículos: placa, serial de chasis y tipo, sin marca ni modelo. Si no caben en una línea
-       (teléfono, campo angosto) el tipo baja al renglón siguiente, alineado a la derecha. */
-    .alm-suggest-inline .alm-log-item.veh { justify-content:flex-start; flex-wrap:wrap; column-gap:12px; row-gap:1px; }
+    /* Vehículos: primero el tipo y después la placa (o el serial de chasis), sin marca ni modelo
+       (almLogRenglonVehiculo). El tipo con ancho fijo para que las placas queden en columna. */
+    .alm-suggest-inline .alm-log-item.veh { justify-content:flex-start; align-items:baseline; column-gap:12px; }
     .alm-log-item.veh .alm-log-doc { min-width:66px; font-size:13px; color:#0f172a; }
     .alm-log-item.veh .alm-log-doc.sin-placa { font-size:10.5px; color:#94a3b8; letter-spacing:.3px; }
     .alm-log-serial { flex:0 0 auto; font-size:11px; font-weight:600; color:#475569; font-variant-numeric:tabular-nums; }
-    .alm-log-tipo { margin-left:auto; min-width:0; max-width:100%; font-size:12px; font-weight:700; color:#0067b1;
-        text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .alm-log-tipo { flex:0 0 110px; min-width:0; font-size:12px; font-weight:700; color:#0067b1;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     /* Se guardan en mayúsculas (LogisticaAlmacenService): se ven así mientras se escriben. El
        ejemplo del campo no: "EJ: CAMIONETA TOYOTA HILUX" parecía un valor ya escrito. */
     #almSalidaVehiculo, #almSalidaPlaca, #almSalidaChofer, .alm-log-fila input { text-transform:uppercase; }

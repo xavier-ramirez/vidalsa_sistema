@@ -26,13 +26,14 @@
     // Datos de la apertura (los pasa cada pantalla en configurar):
     //   frenteContratos     { ID_FRENTE: ["CTR-…", …] }      → sugerencias de "Contrato N°"
     //   almacenesPorFrente  { ID_FRENTE: [{id, nombre}, …] } → "Almacén destino"
+    //   frentesPorAlmacen   { ID_ALMACEN: [ID_FRENTE, …] }   → "Proyecto": los del almacén, primero
     //   formatoPorAlmacen   { ID_ALMACEN: "VERTICAL"|… }     → qué campos imprime la hoja
     //   formatoNotaHorizontal  valor de Almacen::FORMATO_NOTA_HORIZONTAL
     //   rutaLogistica       URL con __ID__ → choferes y vehículos del almacén
     //   idUsuario           para recordar sus departamentos
     //   antesDeSugerir      (opcional) se llama antes de abrir una lista de sugerencias:
     //                       /admin/almacen cierra ahí su menú Acciones (no deben coexistir)
-    var CFG = { frenteContratos: {}, almacenesPorFrente: {}, formatoPorAlmacen: {}, formatoNotaHorizontal: '', rutaLogistica: '', idUsuario: 0, antesDeSugerir: null };
+    var CFG = { frenteContratos: {}, almacenesPorFrente: {}, frentesPorAlmacen: {}, formatoPorAlmacen: {}, formatoNotaHorizontal: '', rutaLogistica: '', idUsuario: 0, antesDeSugerir: null };
     // Almacén de ORIGEN de la salida (el que despacha). Texto, como llega del DOM.
     var ID_ORIGEN = '';
 
@@ -112,6 +113,25 @@
         var g2 = el('almSalidaGridDatos');    if (g2) g2.style.gridTemplateColumns = horizontal ? '1fr 1.4fr' : '1fr 1fr 1.4fr';
     }
 
+    // ── Proyecto: primero los del almacén que despacha (consumo interno) ──
+    // Los demás siguen debajo, en orden alfabético como vienen. Se reordena en cada apertura
+    // (el almacén puede cambiar sin recargar); data-orden guarda el orden original.
+    function almSalidaOrdenarProyectos(idAlmacen) {
+        var cont = document.querySelector('#almSalidaProyectoDropdown .dropdown-item-list');
+        if (!cont) return;
+        var propios = {};
+        ((CFG.frentesPorAlmacen || {})[String(idAlmacen || '')] || []).forEach(function (id) { propios[String(id)] = 1; });
+        var items = Array.prototype.slice.call(cont.querySelectorAll('.dropdown-item'));
+        items.forEach(function (it, i) { if (!it.hasAttribute('data-orden')) it.setAttribute('data-orden', String(i)); });
+        items.sort(function (a, b) {
+            return ((propios[b.getAttribute('data-value')] || 0) - (propios[a.getAttribute('data-value')] || 0))
+                || (parseInt(a.getAttribute('data-orden'), 10) - parseInt(b.getAttribute('data-orden'), 10));
+        }).forEach(function (it) {
+            it.classList.toggle('alm-proy-propio', !!propios[it.getAttribute('data-value')]);
+            cont.appendChild(it);
+        });
+    }
+
     // ── Transporte de la salida: vehículo + placa y chofer + cédula ──
     // Campo del modal → campo que manda el payload (MovimientoInventario::CAMPOS_TRANSPORTE) y
     // lista a la que pertenece. ÚNICO sitio que los empareja: lo usan el reset, el payload y
@@ -141,18 +161,21 @@
     }
     // Lista de su fila, filtrada por lo escrito. Vehículos: se busca ESCRIBIENDO la placa, el
     // serial de chasis o el nombre, y la lista no se abre entera al entrar (eran decenas para
-    // elegir a ojo); cada renglón va con placa, serial de chasis y tipo (almLogRenglonVehiculo). Choferes: al entrar
+    // elegir a ojo); cada renglón va con tipo y placa o serial (almLogRenglonVehiculo). Choferes: al entrar
     // a un campo vacío se ve la lista entera (son pocos). Sin nada que sugerir no se abre: el
     // campo sigue siendo libre.
-    // Renglón de un vehículo: placa, serial de chasis y tipo, sin marca ni modelo (pedido del
-    // cliente). El que no tiene placa de verdad trae el serial como documento, así que no se repite.
-    // Los de la lista del almacén traen serial y tipo si también están en la flota; si no, se ven
-    // con el nombre con que se guardaron (no hay tipo del que tirar).
-    function almLogRenglonVehiculo(it) {
+    // Renglón de un vehículo: primero el TIPO y después la placa; el serial de chasis en vez de la
+    // placa si se buscó por serial (lo escrito está en él y no en la placa) o si no tiene placa.
+    // Sin marca ni modelo (pedido del cliente). El que no tiene placa de verdad trae el serial
+    // como documento. Los de la lista del almacén traen serial y tipo si también están en la
+    // flota; si no, se ven con el nombre con que se guardaron (no hay tipo del que tirar).
+    function almLogRenglonVehiculo(it, term) {
         var serial = it.serial || '', placa = serial && it.documento === serial ? '' : (it.documento || '');
-        return '<span class="alm-log-doc' + (placa ? '' : ' sin-placa') + '">' + escHtml(placa || 'SIN PLACA') + '</span>'
-            + (serial ? '<span class="alm-log-serial">S/C ' + escHtml(serial) + '</span>' : '')
-            + '<span class="alm-log-tipo">' + escHtml(it.tipo || (it.origen === 'flota' ? '' : (it.nombre || ''))) + '</span>';
+        var porSerial = !!serial && (!placa || (!!term && almNorm(serial).indexOf(term) > -1 && almNorm(placa).indexOf(term) < 0));
+        var tipo = it.tipo || (it.origen === 'flota' ? '' : (it.nombre || ''));
+        return '<span class="alm-log-tipo">' + escHtml(tipo || 'VEHÍCULO') + '</span>'
+            + (porSerial ? '<span class="alm-log-serial">S/C ' + escHtml(serial) + '</span>'
+                         : '<span class="alm-log-doc' + (placa ? '' : ' sin-placa') + '">' + escHtml(placa || 'SIN PLACA') + '</span>');
     }
     window.almLogSugerir = function (inp, alEntrar) {
         var tipo = inp.getAttribute('data-log'), lista = ALM_LOG[tipo] || [];
@@ -162,14 +185,12 @@
         var veh = tipo === 'vehiculos';
         var term = almNorm(inp.value.trim());
         if (!lista.length || (veh && !term)) return;
-        var html = '', grupo = '', n = 0;
+        var html = '', n = 0;
         lista.forEach(function (it, i) {
             var serial = it.serial || '';
             if (n >= 80 || !(alEntrar && !term || almNorm(it.nombre + ' ' + it.documento + ' ' + serial).indexOf(term) > -1)) return;
-            var g = it.origen === 'flota' ? 'Flota de los frentes' : 'Logística del almacén';
-            if (g !== grupo) { html += '<div class="alm-log-grupo">' + g + '</div>'; grupo = g; }
             html += '<div class="si-item alm-log-item' + (veh ? ' veh' : '') + '" data-log="' + tipo + '" data-i="' + i + '">'
-                + (veh ? almLogRenglonVehiculo(it)
+                + (veh ? almLogRenglonVehiculo(it, term)
                        : '<span class="alm-log-nom">' + escHtml(it.nombre) + '</span><span class="alm-log-doc">' + escHtml(it.documento) + '</span>')
                 + '</div>';
             n++;
@@ -178,7 +199,7 @@
         // entero y en el teléfono la del chofer salía debajo de la cédula. Si el modal tiene sitio,
         // la lista no baja de un ancho legible (chofer y cédula; el vehículo en una sola línea).
         box.dataset.ancla = inp.id;
-        box.dataset.anchoMin = veh ? '420' : '260';
+        box.dataset.anchoMin = veh ? '320' : '260';
         mostrarSugerencias(box, html, '<div class="alm-suggest-empty">Sin coincidencias: se imprime lo que escribas.</div>');
     };
     // Elegir uno llena los dos campos de su fila (nombre y documento).
@@ -421,6 +442,7 @@
                 window.clearDropdownFilter('almSalidaProyectoDropdown');
             }
             var hidP = el('almSalidaProyecto'); if (hidP) hidP.removeAttribute('data-nombre');
+            almSalidaOrdenarProyectos(ID_ORIGEN);
             var fe = el('almSalidaFecha'); if (fe) fe.value = window.hoyISO();
             // Reset del dropdown de contratos: vaciar items, cerrar el panel, ocultar el clear-btn.
             // La lista se rellena cuando el usuario elige proyecto destino.

@@ -443,6 +443,7 @@ class TraspasoController extends Controller
         return [$frentesLista, [
             'frenteContratos'       => \App\Support\DatosNotaSalida::contratosPorFrente($frentesLista),
             'almacenesPorFrente'    => \App\Support\DatosNotaSalida::almacenesPorFrente(),
+            'frentesPorAlmacen'     => \App\Support\DatosNotaSalida::frentesPorAlmacen(),
             'formatoPorAlmacen'     => $formatoPorAlmacen,
             'formatoNotaHorizontal' => Almacen::FORMATO_NOTA_HORIZONTAL,
             'rutaLogistica'         => route('almacen.almacenes.logistica', ['id' => '__ID__']),

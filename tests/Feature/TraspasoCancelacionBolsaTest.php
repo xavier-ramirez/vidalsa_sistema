@@ -155,4 +155,20 @@ class TraspasoCancelacionBolsaTest extends MySqlTestCase
         ])
             ->assertSuccessful();
     }
+
+    /** El campo "Proyecto" de la salida pone primero los del almacén: el mapa los trae todos. */
+    public function test_los_proyectos_de_cada_almacen_para_la_salida(): void
+    {
+        $alm = Almacen::create(['NOMBRE' => 'MAPA ' . uniqid(), 'TIPO' => Almacen::TIPO_GENERAL]);
+        $ids = collect(['A', 'B'])->map(fn ($n) => DB::table('frentes_trabajo')->insertGetId([
+            'NOMBRE_FRENTE' => "MAPA {$n} " . uniqid(), 'UBICACION' => 'X', 'TIPO_FRENTE' => 'OPERACION',
+            'ESTATUS_FRENTE' => 'ACTIVO', 'created_at' => now(), 'updated_at' => now(),
+        ], 'ID_FRENTE'));
+        $ids->each(fn ($id) => DB::table('almacen_frentes')->insert(['ID_ALMACEN' => $alm->ID_ALMACEN, 'ID_FRENTE' => $id]));
+
+        $mapa = \App\Support\DatosNotaSalida::frentesPorAlmacen();
+        $this->assertEqualsCanonicalizing($ids->all(), $mapa[$alm->ID_ALMACEN]->all());
+        // En el JSON de la página va como objeto { ID_ALMACEN: [ids] }.
+        $this->assertStringContainsString('"' . $alm->ID_ALMACEN . '":[', json_encode($mapa));
+    }
 }
