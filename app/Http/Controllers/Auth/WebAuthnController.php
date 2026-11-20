@@ -85,7 +85,7 @@ class WebAuthnController extends Controller
 
         $challenge = $request->session()->pull('webauthn_register_challenge');
         if (!$challenge) {
-            return response()->json(['error' => 'Challenge expirado. Intente de nuevo.'], 422);
+            return response()->json(['error' => "Challenge expirado.\nIntente de nuevo."], 422);
         }
 
         // Lo mismo que login(): la respuesta tiene que ser de una creación hecha en ESTE
@@ -226,7 +226,7 @@ class WebAuthnController extends Controller
         $challengeData = $request->session()->pull('webauthn_login_challenge');
         $challenge = is_array($challengeData) ? ($challengeData['bytes'] ?? null) : null;
         if (!$challenge || (now()->timestamp - ($challengeData['issued_at'] ?? 0)) > self::LOGIN_CHALLENGE_TTL) {
-            return response()->json(['error' => 'Challenge expirado. Recargue la página.'], 422);
+            return response()->json(['error' => "Challenge expirado.\nRecargue la página."], 422);
         }
 
         $credential = WebAuthnCredential::where('credential_id', $request->input('credential_id'))->first();
@@ -276,7 +276,7 @@ class WebAuthnController extends Controller
         }
 
         if ($user->ESTATUS === 'INACTIVO') {
-            return response()->json(['error' => 'Usuario inactivo. Contacte al administrador.'], 403);
+            return response()->json(['error' => "Usuario inactivo.\nContacte al administrador."], 403);
         }
 
         Auth::login($user);

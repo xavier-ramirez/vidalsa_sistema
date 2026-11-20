@@ -46,7 +46,7 @@ class LoginController extends Controller
             return $this->respuestaLogin($request, false, null, $motivo);
         }
         if ($segundos = BloqueoIp::cuentaFrenada($cuenta, $equipo)) {
-            return $this->respuestaLogin($request, false, null, 'Demasiadas claves incorrectas para esta cuenta. Intente de nuevo en ' . (int) ceil($segundos / 60) . ' min.');
+            return $this->respuestaLogin($request, false, null, "Demasiadas claves incorrectas para esta cuenta.\nIntente de nuevo en " . (int) ceil($segundos / 60) . ' min.');
         }
 
         try {
@@ -66,7 +66,7 @@ class LoginController extends Controller
                     Auth::logout(); // Cerramos la sesión que attempt acaba de abrir
                     BloqueoIp::registrarFallo($ip, $equipo, $cuenta); // Contamos como intento fallido para seguridad
 
-                    return $this->respuestaLogin($request, false, null, 'Usuario inactivo. Contacte al administrador.');
+                    return $this->respuestaLogin($request, false, null, "Usuario inactivo.\nContacte al administrador.");
                 }
 
                 // 4. Éxito: la sesión queda abierta como en toda entrada (abrirSesion).
@@ -93,7 +93,7 @@ class LoginController extends Controller
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Login Error: ' . $e->getMessage());
-            return $this->respuestaLogin($request, false, null, 'Error del sistema al iniciar sesión. Intente nuevamente.');
+            return $this->respuestaLogin($request, false, null, "Error del sistema al iniciar sesión.\nIntente nuevamente.");
         }
     }
 

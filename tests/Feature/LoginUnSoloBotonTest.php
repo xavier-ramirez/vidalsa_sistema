@@ -19,7 +19,7 @@ class LoginUnSoloBotonTest extends TestCase
         $this->assertStringNotContainsString('btnOfflineLogin', $html);
         $this->assertStringNotContainsString('Entrar sin conexión', $html);
         $this->assertStringContainsString('id="loginSinRedNota"', $html);
-        $this->assertStringContainsString('Sin internet: entrarás con los datos guardados en este equipo.', $html);
+        $this->assertStringContainsString('Sin internet.<br>Entrarás con los datos guardados en este equipo.', $html);
     }
 
     public function test_el_js_ya_no_tiene_el_camino_del_segundo_boton(): void

@@ -201,7 +201,7 @@
                          entra con lo guardado aquí, y esto lo dice antes de pulsar. La pinta
                          refrescarAccesos() en offline-auth.js. --}}
                     <div id="loginSinRedNota" style="display:none;margin-top:10px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;">
-                        Sin internet: entrarás con los datos guardados en este equipo.
+                        Sin internet.<br>Entrarás con los datos guardados en este equipo.
                     </div>
                     <div id="offlineLoginMsg" style="display:none;margin-top:20px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;white-space:pre-line;"></div>
                 </form>
@@ -331,6 +331,10 @@
         if (window.__yendoAlMenu) return; // ya se va (irDesdeLogin): ni mensaje ni quitar el logo
         window._loginEnCurso = false; // el intento terminó: el guard de 4s vuelve a aplicar
         window.spinnerLogin(false);
+        // Un aviso a la vez: la nota «Sin internet» dice lo mismo que el mensaje (ver
+        // refrescarAccesos en offline-auth.js, que no la vuelve a pintar con un mensaje puesto).
+        const nota = document.getElementById('loginSinRedNota');
+        if (nota) nota.style.display = 'none';
         const msg = document.getElementById('offlineLoginMsg');
         if (msg) { msg.textContent = texto; msg.style.color = rojo ? '#dc2626' : '#b45309'; msg.style.display = 'block'; }
     };
@@ -396,7 +400,7 @@
     // El servidor contestó, pero con un error (o una página que no es la suya).
     function avisarServidorConError() {
         if (window.OfflineAuth) window.OfflineAuth.descartar();
-        mostrarMsgLogin('El servidor no respondió bien. Intenta de nuevo en un momento.');
+        mostrarMsgLogin('El servidor no respondió bien.\nIntenta de nuevo en un momento.');
     }
     // Aviso "sin conexión": evita que el navegador muestre su página de error (la
     // "boba fea") cuando el login no puede contactar al servidor. Con una sesión anterior
@@ -756,7 +760,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // La huella guardada era de otro teléfono (webauthn.js ya la descartó):
                     // se quita el ícono y, al entrar con la clave, se ofrece vincular este.
                     if (window.OfflineAuth && window.OfflineAuth.deshabilitarHuella) window.OfflineAuth.deshabilitarHuella();
-                    mostrarMsgLogin('Este teléfono no tiene la huella vinculada. Entre con su clave y podrá activarla.');
+                    mostrarMsgLogin('Este teléfono no tiene la huella vinculada.\nEntre con su clave y podrá activarla.');
                     return;
                 }
                 if (err.message === 'HUELLA_NO_ABRE') {

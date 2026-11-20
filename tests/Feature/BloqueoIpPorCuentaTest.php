@@ -54,7 +54,7 @@ class BloqueoIpPorCuentaTest extends MySqlTestCase
 
         $ana = $this->usuario();
         $this->entrar($ana->CORREO_ELECTRONICO, self::CLAVE, $equipo)
-            ->assertStatus(422)->assertJsonFragment(['message' => 'Este equipo fue bloqueado por demasiadas claves incorrectas. Contacte al administrador.']);
+            ->assertStatus(422)->assertJsonFragment(['message' => "Este equipo fue bloqueado por demasiadas claves incorrectas.\nContacte al administrador."]);
 
         // Misma IP, otro navegador: entra.
         $this->entrar($ana->CORREO_ELECTRONICO, self::CLAVE, $this->equipo())->assertOk();
@@ -98,7 +98,7 @@ class BloqueoIpPorCuentaTest extends MySqlTestCase
 
         // Una cuenta más llega a CUENTAS_IP: bloqueada, y para todos los equipos.
         $motivo = BloqueoIp::registrarFallo($this->ip, $this->equipo(), 'una-mas');
-        $this->assertSame('Su conexión fue bloqueada por seguridad. Contacte al administrador.', $motivo);
+        $this->assertSame("Su conexión fue bloqueada por seguridad.\nContacte al administrador.", $motivo);
         $this->entrar($this->usuario()->CORREO_ELECTRONICO, self::CLAVE, $this->equipo())->assertStatus(422);
 
         // Entrar no lo libera: es permanente hasta que un administrador lo borre.

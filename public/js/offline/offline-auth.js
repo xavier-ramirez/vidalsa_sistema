@@ -307,7 +307,10 @@
     // Punto ÚNICO que decide qué se ve según haya servidor.
     function refrescarAccesos() {
         // Sin servidor y con acceso local: se avisa ANTES de pulsar con qué se va a entrar.
-        if (nota) nota.style.display = (sinServidor && window.OfflineAuth.tieneOffline()) ? 'block' : 'none';
+        // Con un mensaje a la vista (mostrarMsgLogin) no: los dos decían lo mismo a la vez.
+        const msg = document.getElementById('offlineLoginMsg');
+        const hayMensaje = !!(msg && msg.style.display === 'block');
+        if (nota) nota.style.display = (sinServidor && window.OfflineAuth.tieneOffline() && !hayMensaje) ? 'block' : 'none';
         if (btnBio) btnBio.style.display = (huellaHabilitada && (!sinServidor || huellaSinServidor())) ? 'flex' : 'none';
         // Mientras no haya servidor hay que seguir preguntando: puede volver con el usuario
         // mirando esta pantalla. Va aquí porque este es el punto que YA conoce el estado.
@@ -412,7 +415,7 @@
     async function entrarLocal(id, pw) {
         const ok = await window.OfflineAuth.verificar(id, pw).catch(function () { return false; });
         if (!ok) {
-            window.mostrarMsgLogin('Sin conexión, y el correo o la clave no coinciden con la última vez que se entró en este equipo.', true);
+            window.mostrarMsgLogin('Sin conexión, y el correo o la clave no coinciden\ncon la última vez que se entró en este equipo.', true);
             return;
         }
         // La misma clave abre la copia cifrada que quedó en el equipo. Si no abre (la primera

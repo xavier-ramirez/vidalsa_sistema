@@ -98,8 +98,8 @@ class BloqueoIp extends Model
             ->value('TIPO');
 
         return match ($tipo) {
-            self::TIPO_EQUIPO => 'Este equipo fue bloqueado por demasiadas claves incorrectas. Contacte al administrador.',
-            self::TIPO_IP     => 'Su conexión fue bloqueada por seguridad. Contacte al administrador.',
+            self::TIPO_EQUIPO => "Este equipo fue bloqueado por demasiadas claves incorrectas.\nContacte al administrador.",
+            self::TIPO_IP     => "Su conexión fue bloqueada por seguridad.\nContacte al administrador.",
             default           => null,
         };
     }
