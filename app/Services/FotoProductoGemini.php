@@ -34,7 +34,8 @@ class FotoProductoGemini
     /** La instrucción, con el producto que debe quedar en la foto si se conoce. */
     private static function instruccion(string $descripcion): string
     {
-        $descripcion = trim(preg_replace('/\s+/u', ' ', $descripcion));
+        // preg_replace da null con texto que no es UTF-8 válido: entonces va sin descripción.
+        $descripcion = trim(preg_replace('/\s+/u', ' ', $descripcion) ?? '');
         if ($descripcion === '') return self::INSTRUCCION;
         return self::INSTRUCCION . ' El producto es: «' . mb_substr($descripcion, 0, 300) . '». '
             . 'Deja SOLO ese producto y quita todo lo demás.';
