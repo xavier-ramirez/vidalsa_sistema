@@ -218,7 +218,7 @@
                 if (otros.length < ALM_LOG_OTROS_TOPE && almLogParecido(it, inp.value, parte)) otros.push(i);
             });
         }
-        if (!lista.length && !otros.length || (veh && !term)) return;
+        if ((!lista.length && !otros.length) || (veh && !term)) return;
         var html = '', n = 0;
         lista.forEach(function (it, i) {
             var serial = it.serial || '';
@@ -232,7 +232,7 @@
         otros.forEach(function (i) {
             var it = ALM_LOG.otros[i];
             html += '<div class="si-item alm-log-item" data-log="choferes" data-fuente="otros" data-i="' + i + '">'
-                + '<span class="alm-log-nom">' + escHtml(it.nombre) + '<span class="alm-log-alm">' + escHtml(it.almacen) + '</span></span>'
+                + '<span class="alm-log-nom">' + escHtml(it.nombre) + '</span><span class="alm-log-alm">' + escHtml(it.almacen) + '</span>'
                 + '<span class="alm-log-doc">' + escHtml(it.documento) + '</span></div>';
         });
         // Debajo del campo que se escribe y con su ancho: colgada de la fila cruzaba el modal
