@@ -145,4 +145,17 @@ class TandasNotaTest extends MySqlTestCase
 
         $this->assertSame(2, preg_match_all('/\/Type\s*\/Page[^s]/', $pdf));
     }
+
+    /** Si una nota no cabe así (acostada, nombres largos), se mide y se compacta: una hoja igual. */
+    public function test_la_vista_previa_compacta_la_nota_que_no_cabe(): void
+    {
+        [$alm, $ids] = $this->almacenCon(21);
+        $alm->update(['FORMATO_NOTA' => 'HORIZONTAL']);
+        ProductoInventario::whereIn('ID_PRODUCTO', $ids)->update(['NOMBRE' => DB::raw("CONCAT(NOMBRE, ' ', REPEAT('MATERIAL DE NOMBRE MUY LARGO ', 1))")]);
+        $pdf = $this->actingAs($this->usuario())->post(route('almacen.salida.preview'), [
+            'tipo' => 'SALIDA', 'id_almacen' => $alm->ID_ALMACEN, 'lineas' => $this->lineas($ids),
+        ])->assertOk()->getContent();
+
+        $this->assertSame(2, preg_match_all('/\/Type\s*\/Page[^s]/', $pdf));
+    }
 }

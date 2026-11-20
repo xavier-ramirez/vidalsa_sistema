@@ -1151,9 +1151,26 @@ class InventarioService
         }
     }
 
+    /**
+     * Almacenes y productos ya leídos por esta instancia (vive lo que la petición): una salida
+     * de N renglones leía el almacén 2N veces y cada producto una vez. Mismo criterio que
+     * separaCache. Los saldos NO se guardan aquí: se leen siempre, bloqueados (aplicarMovimiento).
+     */
+    private array $almacenesLeidos = [];
+    private array $productosLeidos = [];
+
+    /** Lee de una vez los productos de un lote (los que falten): luego cargarProducto no consulta. */
+    public function precargarProductos(array $ids): void
+    {
+        $faltan = array_diff(array_unique(array_map('intval', $ids)), array_keys($this->productosLeidos));
+        if ($faltan) {
+            $this->productosLeidos += ProductoInventario::whereIn('ID_PRODUCTO', $faltan)->get()->keyBy('ID_PRODUCTO')->all();
+        }
+    }
+
     private function cargarAlmacen(int $id): Almacen
     {
-        $almacen = Almacen::find($id);
+        $almacen = $this->almacenesLeidos[$id] ??= Almacen::find($id);
         if (!$almacen) {
             throw new InvalidArgumentException("El almacén #{$id} no existe.");
         }
@@ -1165,7 +1182,7 @@ class InventarioService
 
     private function cargarProducto(int $id): ProductoInventario
     {
-        $producto = ProductoInventario::find($id);
+        $producto = $this->productosLeidos[$id] ??= ProductoInventario::find($id);
         if (!$producto) {
             throw new InvalidArgumentException("El producto #{$id} no existe.");
         }

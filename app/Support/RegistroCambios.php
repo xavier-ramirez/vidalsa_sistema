@@ -443,17 +443,41 @@ class RegistroCambios
     /**
      * El cursor con el que arranca una carga COMPLETA. No es ultimo(): una transacción que
      * aún no confirmó puede tener un número menor que el último visible, y su cambio no
-     * entra en la carga. Se retrocede hasta antes de lo anotado en los últimos
-     * ESPERA_HUECO_SEG segundos: eso se vuelve a mandar en la siguiente sincronización
-     * (repetir es inofensivo) y lo que confirme tarde entra con ello.
+     * entra en la carga. Se llega hasta el primer HUECO reciente (la misma regla que desde()):
+     * lo que está antes ya confirmó y entra en la carga; lo que confirme tarde viene después.
+     *
+     * Antes se retrocedía hasta antes de TODO lo de los últimos ESPERA_HUECO_SEG segundos, y
+     * eso volvía a llegar en la siguiente sincronización. Repetir una fila es inofensivo, pero
+     * un cambio que pide la carga completa (un almacén editado, DominioAlmacen::cambios) la
+     * volvía a pedir: cada equipo bajaba la copia entera en cada vuelta durante 5 minutos.
      */
     public static function cursorDeCargaCompleta(): int
     {
-        $reciente = DB::table(self::TABLA)
+        $recientes = DB::table(self::TABLA)
             ->where('created_at', '>=', self::haceSegundos(self::ESPERA_HUECO_SEG))
-            ->min('ID_CAMBIO');
+            ->orderBy('ID_CAMBIO')
+            ->limit(self::MAX_FILAS + 1)
+            ->pluck('ID_CAMBIO');
 
-        return $reciente === null ? self::ultimo() : (int) $reciente - 1;
+        if ($recientes->isEmpty()) {
+            return self::ultimo();
+        }
+        // Desde la última fila VISIBLE anterior: un hueco justo antes de la primera reciente
+        // también puede ser una transacción sin confirmar.
+        // Sin ninguna (tabla recién vaciada), desde antes de la primera reciente.
+        $antes = DB::table(self::TABLA)->where('ID_CAMBIO', '<', $recientes->first())->max('ID_CAMBIO');
+        $hasta = $antes === null ? (int) $recientes->first() - 1 : (int) $antes;
+        if ($recientes->count() > self::MAX_FILAS) {
+            return $hasta;   // demasiadas para revisarlas: como antes, desde antes de todas
+        }
+        foreach ($recientes as $id) {
+            if ((int) $id !== $hasta + 1) {
+                break;
+            }
+            $hasta = (int) $id;
+        }
+
+        return $hasta;
     }
 
     /**

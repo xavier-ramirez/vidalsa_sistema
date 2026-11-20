@@ -109,6 +109,38 @@ class SincronizacionAlmacenTest extends MySqlTestCase
         $this->sync($usuario, $primera)->assertJson(['completo' => true]);
     }
 
+    /**
+     * La carga entera ya trae ese cambio: la siguiente sincronización es normal. Antes su cursor
+     * retrocedía 5 minutos, volvía a ver el cambio y cada equipo bajaba la copia entera en cada
+     * vuelta (cada 15 s) durante esos 5 minutos.
+     */
+    public function test_despues_de_recargar_entera_no_la_vuelve_a_pedir(): void
+    {
+        // Sin huecos recientes de otras pruebas (sus transacciones revertidas): lo de antes se
+        // da por viejo y la numeración sigue desde una fila conocida.
+        $ahora = DB::scalar('SELECT CURRENT_TIMESTAMP');
+        $viejo = date('Y-m-d H:i:s', strtotime($ahora) - 3600);
+        DB::table(RegistroCambios::TABLA)->where('created_at', '>', $viejo)->update(['created_at' => $viejo]);
+        // El ancla la numera el contador (no ultimo()+N: las pruebas revertidas lo dejan adelante),
+        // así lo que anoten los triggers va pegado a ella.
+        DB::table(RegistroCambios::TABLA)->insert(['TABLA' => 'equipos', 'ID_FILA' => 1, 'created_at' => $viejo]);
+
+        [$alm] = $this->almacenConFrente();
+        $usuario = $this->usuario(1);
+        $primera = $this->sync($usuario)->json();
+        $frenteNuevo = DB::table('frentes_trabajo')->whereNotIn('ID_FRENTE', DB::table('almacen_frentes')->where('ID_ALMACEN', $alm)->pluck('ID_FRENTE'))->value('ID_FRENTE');
+        DB::table('almacen_frentes')->insert(['ID_ALMACEN' => $alm, 'ID_FRENTE' => $frenteNuevo, 'created_at' => now(), 'updated_at' => now()]);
+
+        $entera = $this->sync($usuario, $primera)->assertJson(['completo' => true])->json();
+        $this->assertSame('c:' . RegistroCambios::ultimo(), $entera['hasta'], 'sin huecos, la carga entera llega hasta el último cambio');
+        $this->sync($usuario, $entera)->assertJson(['completo' => false, 'datos' => []]);
+
+        // Un hueco reciente (transacción que aún no confirma): la carga entera espera antes de él.
+        $n = RegistroCambios::ultimo();
+        DB::table(RegistroCambios::TABLA)->insert(['ID_CAMBIO' => $n + 2, 'TABLA' => 'stock', 'ID_FILA' => 1, 'created_at' => $ahora]);
+        $this->assertSame($n, RegistroCambios::cursorDeCargaCompleta());
+    }
+
     /** Borrar el frente de un almacén cambia qué almacenes se ven: la copia baja entera. */
     public function test_borrar_el_frente_de_un_almacen_recarga_la_copia_entera(): void
     {

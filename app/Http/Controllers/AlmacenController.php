@@ -2294,6 +2294,8 @@ class AlmacenController extends Controller
                 // ordenada por su propio criterio (ver buscarMovimientosDeNota).
                 $lineasOrdenadas = $data['lineas'];
                 usort($lineasOrdenadas, fn ($a, $b) => (int) $a['id_producto'] <=> (int) $b['id_producto']);
+                // Los productos de una vez (no uno por renglón): solo su ficha, no el saldo.
+                $this->inventario->precargarProductos(array_column($lineasOrdenadas, 'id_producto'));
 
                 foreach ($lineasOrdenadas as $linea) {
                     $idProducto = (int) $linea['id_producto'];
@@ -3549,11 +3551,23 @@ class AlmacenController extends Controller
         if ($tandas->count() === 1) {
             [$pdf] = $medir($movs, $numero);
         } else {
+            $deEsta = fn (int $i) => $numero . ' (' . ($i + 1) . '/' . $tandas->count() . ')';
+            // Lo normal: cada nota cabe en una hoja con el relleno oficial (lo primero que prueba
+            // $medir). Se pintan todas de una vez; solo si alguna se pasa se mide cada una, que
+            // arma cada nota dos veces o más.
             $pdf = $nuevo();
+            $cabe = true;
             foreach ($tandas as $i => $tanda) {
-                $deEsta = $numero . ' (' . ($i + 1) . '/' . $tandas->count() . ')';
-                [, $filas, $compacto] = $medir($tanda, $deEsta);
-                $pintar($pdf, $tanda, $deEsta, $filas, $compacto);
+                $antes = $pdf->getNumPages();
+                $pintar($pdf, $tanda, $deEsta($i), $filasOficiales, false);
+                if ($pdf->getNumPages() - $antes > 1) { $cabe = false; break; }
+            }
+            if (! $cabe) {
+                $pdf = $nuevo();
+                foreach ($tandas as $i => $tanda) {
+                    [, $filas, $compacto] = $medir($tanda, $deEsta($i));
+                    $pintar($pdf, $tanda, $deEsta($i), $filas, $compacto);
+                }
             }
         }
         // Numeracion de paginas: con el documento ya completo (ver sellarPaginacion).
