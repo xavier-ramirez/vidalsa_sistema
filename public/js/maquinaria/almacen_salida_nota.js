@@ -126,10 +126,7 @@
         items.sort(function (a, b) {
             return ((propios[b.getAttribute('data-value')] || 0) - (propios[a.getAttribute('data-value')] || 0))
                 || (parseInt(a.getAttribute('data-orden'), 10) - parseInt(b.getAttribute('data-orden'), 10));
-        }).forEach(function (it) {
-            it.classList.toggle('alm-proy-propio', !!propios[it.getAttribute('data-value')]);
-            cont.appendChild(it);
-        });
+        }).forEach(function (it) { cont.appendChild(it); });
     }
 
     // ── Transporte de la salida: vehículo + placa y chofer + cédula ──

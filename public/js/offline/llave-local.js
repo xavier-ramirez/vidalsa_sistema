@@ -13,7 +13,8 @@
  * Y una tercera, por huella ('vidalsa_llaves_huella', { credencial: { u, rpId, salt, iv, ct } }):
  *   · con la llave que da la propia huella (extensión PRF de WebAuthn: el lector solo la
  *     entrega tras leer el dedo). Se crea al registrar la huella, se rehace en cada inicio de
- *     sesión con huella CON servidor y es la que deja entrar con huella SIN internet. Si el teléfono no tiene PRF, no se crea.
+ *     sesión con huella CON servidor y es la que deja entrar con huella SIN internet. Si el
+ *     teléfono no tiene PRF, no se crea.
  * Abierta, vive solo en sessionStorage (esta ventana): se borra al cerrar la app o el
  * navegador y al volver a la pantalla de inicio de sesión. Si se abrió con la clave SIN
  * servidor (inicio de sesión sin red), o se siguió trabajando con la red caída (lo anota
@@ -29,7 +30,8 @@
  *   LlaveLocal.salHuella(cred) → la sal PRF de esa credencial (se crea la primera vez).
  *       huellaPreparada(cred, rpId, prf) → el servidor aceptó la huella: la página siguiente
  *       envuelve la llave también con ella. envolverConHuella(cred, rpId, sal, prf) → huella
- *       recién registrada: la envuelve ya (con la llave abierta). huellasLocales(creds) → las que abren sin servidor.
+ *       recién registrada: la envuelve ya (con la llave abierta). huellasLocales(creds) → las
+ *       que abren sin servidor.
  *       abrirConHuella(cred, prf) → Promise<boolean>. olvidarHuellas() → las tira todas.
  *   LlaveLocal.trabajaSinServidor() → boolean · marcarSinServidor() → la pone (se cortó la red
  *       con alguien trabajando) · conServidor() → la quita (el servidor contestó con sesión).
