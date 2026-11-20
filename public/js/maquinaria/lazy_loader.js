@@ -80,7 +80,8 @@
      * mapa_index (que reusa esas descargas). Todo "en orden" (async=false): se baja a la vez
      * pero se ejecuta detrás de Leaflet. Resuelve cuando se puede dibujar el mapa: proj4 (solo
      * para buscar coordenadas UTM) termina de bajar por su cuenta, sin hacer esperar al mapa;
-     * el agrupador, si no llegara, deja los equipos sueltos (la capa lo comprueba).
+     * el agrupador, si no llegara, deja los equipos sueltos (la capa lo comprueba). Su CSS trae
+     * solo las animaciones: el aspecto del grupo lo pone el sistema (.mapa-eq-grupo).
      */
     window.cargarLeafletMapa = function () {
         var cargar = window.cargarScriptUnaVez;

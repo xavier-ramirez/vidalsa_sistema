@@ -1202,20 +1202,19 @@
                     // no viajan en el layout: se piden AHORA, al entrar al módulo. loadPage
                     // solo espera a que esté pintado el CASCARÓN, así que apagaba el spinner
                     // con #mapa-leaflet todavía vacío y el mapa aparecía después, en seco —
-                    // "se quita el spinner y aún no ha cargado el mapa". Antes no pasaba
-                    // porque el script ya venía cargado desde el layout.
+                    // "se quita el spinner y aún no ha cargado el mapa".
                     //
                     // Se toma una referencia del preloader (es un CONTADOR: el spinner no se
                     // va hasta que todas las operaciones que lo pidieron terminan) y se
                     // suelta cuando el script ya corrió. En la PRIMERA visita el mapa aún no
-                    // está: initMapa baja Leaflet y toma su propia referencia hasta montarlo
+                    // está: initMapa espera a Leaflet y toma su propia referencia hasta montarlo
                     // (ver initMapa en mapa_index.js), así el spinner no se va antes. Los tiles
                     // siguen llegando después, como en cualquier mapa, pero el usuario ya ve
                     // el mapa dibujado y no un hueco.
                     var genMapa = window.preloaderGeneracion ? window.preloaderGeneracion() : 0;
                     if (window.showPreloader) window.showPreloader();
-                    // Leaflet y sus plugins A LA VEZ que mapa_index.js: antes esperaban a que
-                    // este terminara de bajar (dos viajes seguidos). initMapa reusa las descargas.
+                    // Leaflet y sus plugins A LA VEZ que mapa_index.js, no detrás de él (serían
+                    // dos viajes seguidos al servidor). initMapa reusa estas descargas.
                     window.cargarLeafletMapa().catch(function () {});
                     window.cargarScriptUnaVez(
                         window.lazyBaseUrl() + '/js/maquinaria/mapa_index.js?v={{ @filemtime(public_path('js/maquinaria/mapa_index.js')) }}'

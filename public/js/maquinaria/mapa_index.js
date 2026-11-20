@@ -14,14 +14,6 @@
 (function () {
     'use strict';
 
-    // Leaflet + sus plugins (window.cargarLeafletMapa, lazy_loader.js). El layout ya los pidió
-    // a la vez que este archivo; aquí se reusan esas descargas. Leaflet sale del MISMO cargador
-    // que el modal de GPS de Equipos, así nunca hay dos copias. El aspecto del grupo de equipos
-    // lo pone el sistema (.mapa-eq-grupo): MarkerCluster.css trae solo las animaciones.
-    function ensureLeaflet() {
-        return window.cargarLeafletMapa();
-    }
-
     // Construye el mapa dentro del contenedor dado.
     function buildMap(el) {
         if (el._leaflet_id) return; // ya inicializado (evita doble init)
@@ -5279,7 +5271,8 @@
     function initMapa() {
         var el = document.getElementById('mapa-leaflet');
         if (!el || el._leaflet_id) return; // no estamos en /mapa (o ya inicializado)
-        // Primera visita: Leaflet aún no está y hay que bajarlo. El layout suelta su referencia
+        // Primera visita: Leaflet aún no está y hay que esperarlo (window.cargarLeafletMapa: el
+        // layout lo pidió a la vez que este archivo; aquí se reusa esa descarga). El layout suelta su referencia
         // del spinner cuando termina ESTE archivo, antes de que exista el mapa; esta otra
         // referencia lo mantiene hasta que el mapa está montado (si no, se veía el hueco vacío).
         // Cuenta como "ya está" solo con los plugins: el modal de GPS de Equipos baja Leaflet SOLO,
@@ -5287,7 +5280,7 @@
         var esperaLeaflet = !(typeof L !== 'undefined' && L.map && L.Control && L.Control.Geocoder);
         var gen = window.preloaderGeneracion ? window.preloaderGeneracion() : 0;
         if (esperaLeaflet && window.showPreloader) window.showPreloader();
-        ensureLeaflet()
+        window.cargarLeafletMapa()
             .then(function () { if (document.body.contains(el)) buildMap(el); })
             .catch(function () { /* sin internet: no se puede cargar Leaflet */ })
             .then(function () {
