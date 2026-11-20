@@ -95,7 +95,7 @@ const api = require(path.join(PUB, 'js', 'maquinaria', 'nota_entrega_local.js'))
     assert.ok(conAnterior.length > sinLogo.length + 5000, 'con la versión anterior del logo');
 
     // 3) Igual que la Nota del servidor: números como number_format de PHP (el 5 sube) y el
-    // destino normalizado como limpiarDestino (agrupa «pozo 3» con «POZO 3»).
+    // destino normalizado como TandasNota::destino (agrupa «pozo 3» con «POZO 3»).
     const esperado = { 1.2345: '1,235', 1.0005: '1,001', 0.1235: '0,124', 1234.5: '1.234,5', 0.125: '0,125', 1000000: '1.000.000', '-0.0001': '0' };
     Object.entries(esperado).forEach(([n, t]) => assert.strictEqual(api.fmt(Number(n)), t, 'fmt(' + n + ')'));
     const g = api.agrupar([

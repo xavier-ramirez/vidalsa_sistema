@@ -67,7 +67,7 @@
 
     // Las líneas de un mismo producto, nº de parte y destino van en UN renglón con la suma
     // (salen de varios proyectos = varias líneas del lote; el papel lista productos).
-    // El destino, como limpiarDestino del servidor (un espacio, mayúsculas, 150 letras): si no,
+    // El destino, como TandasNota::destino del servidor (un espacio, mayúsculas, 150 letras): si no,
     // «pozo 3» y «POZO 3» salían aquí en dos renglones y en uno en la Nota del servidor.
     const destino = (d) => String(d == null ? '' : d).replace(/\s+/g, ' ').trim().toUpperCase().slice(0, 150);
     function agrupar(lineas) {

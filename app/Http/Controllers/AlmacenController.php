@@ -3437,7 +3437,8 @@ class AlmacenController extends Controller
         // que haga falta, buscando el mayor numero que aun cabe) y, si ni sin relleno cabe,
         // se pasa la tabla de items a modo compacto (letra y aire de celda menores). Solo si
         // aun asi no entra la nota sigue en mas hojas —nunca se recorta un item—: las de antes
-        // de TandasNota con mas de RENGLONES renglones, o un pie de devoluciones muy largo.
+        // de TandasNota con mas de RENGLONES renglones, nombres muy largos en la acostada o un
+        // pie de devoluciones muy largo.
         $filasOficiales = $horizontal ? self::NOTA_FILAS_HORIZONTAL : self::NOTA_FILAS_VERTICAL;
         $nuevo = function () use ($horizontal, $datos, $esPreview, $correcciones): NotaEntregaPDF {
             $pdf = new NotaEntregaPDF($horizontal ? 'L' : 'P', 'mm', 'A4', true, 'UTF-8', false);
