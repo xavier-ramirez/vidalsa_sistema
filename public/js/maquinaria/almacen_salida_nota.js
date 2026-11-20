@@ -144,15 +144,17 @@
     ];
     // Sugerencias del almacén que despacha (las pide cada vez que se abre la salida: una nota
     // registrada recién pudo agregar un chofer). Si llegan tarde de otro almacén, se descartan.
-    var ALM_LOG = { idAlmacen: '', choferes: [], vehiculos: [] };
+    // `otros`: choferes de los DEMÁS almacenes; solo se ofrecen si lo escrito se les parece mucho
+    // (almLogParecido).
+    var ALM_LOG = { idAlmacen: '', choferes: [], vehiculos: [], otros: [] };
     function almLogCargar(idAlmacen) {
-        ALM_LOG = { idAlmacen: String(idAlmacen || ''), choferes: [], vehiculos: [] };
+        ALM_LOG = { idAlmacen: String(idAlmacen || ''), choferes: [], vehiculos: [], otros: [] };
         if (!idAlmacen || !CFG.rutaLogistica) return;
         window.apiFetch(CFG.rutaLogistica.replace('__ID__', encodeURIComponent(idAlmacen)), { headers: { 'Accept': 'application/json' } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) {
                 if (!d || ALM_LOG.idAlmacen !== String(idAlmacen)) return;
-                ALM_LOG.choferes = d.choferes || []; ALM_LOG.vehiculos = d.vehiculos || [];
+                ALM_LOG.choferes = d.choferes || []; ALM_LOG.vehiculos = d.vehiculos || []; ALM_LOG.otros = d.choferesOtros || [];
             })
             .catch(function () { /* sin sugerencias el transporte se escribe a mano */ });
     }
@@ -177,6 +179,28 @@
             + (porSerial ? '<span class="alm-log-serial">S/C ' + escHtml(serial) + '</span>'
                          : '<span class="alm-log-doc' + (placa ? '' : ' sin-placa') + '">' + escHtml(placa || 'SIN PLACA') + '</span>');
     }
+    // ¿Lo escrito es casi seguro ESTE chofer de otro almacén? En la cédula, 5 cifras o más que
+    // estén dentro de la suya, o la cédula entera con un dígito errado; en el nombre, todas las
+    // palabras escritas (de 3 letras o más, y al menos 4 letras en total) al comienzo de alguna
+    // de las suyas, con un dedazo (dos si la palabra tiene 6 letras o más). Más flojo que eso
+    // llenaría la lista de choferes ajenos.
+    var ALM_LOG_CIFRAS_MIN = 5;
+    function almLogParecido(it, valor, parte) {
+        var FS = window.FuzzySearch;
+        if (parte === 'documento') {
+            var d = String(valor).replace(/\D/g, ''), c = String(it.documento || '').replace(/\D/g, '');
+            if (d.length < ALM_LOG_CIFRAS_MIN || !c) return false;
+            return c.indexOf(d) > -1 || (d.length >= 7 && Math.abs(d.length - c.length) <= 1 && FS.leven(d, c, 1) <= 1);
+        }
+        var palabras = FS.tokenize(valor).filter(function (t) { return t.length >= 3; });
+        if (!palabras.length || palabras.join('').length < 4) return false;
+        var suyas = FS.norm(it.nombre).split(/\s+/).filter(Boolean);
+        return palabras.every(function (t) {
+            var tope = t.length >= 6 ? 2 : 1;
+            return suyas.some(function (w) { return FS.leven(t, w.substr(0, t.length), tope) <= tope; });
+        });
+    }
+    var ALM_LOG_OTROS_TOPE = 5;
     window.almLogSugerir = function (inp, alEntrar) {
         var tipo = inp.getAttribute('data-log'), lista = ALM_LOG[tipo] || [];
         var box = el(tipo === 'choferes' ? 'almSalidaChoferesSug' : 'almSalidaVehiculosSug');
@@ -184,7 +208,17 @@
         almLogOcultar();
         var veh = tipo === 'vehiculos';
         var term = almNorm(inp.value.trim());
-        if (!lista.length || (veh && !term)) return;
+        // Choferes de otros almacenes: solo con algo escrito que se les parezca mucho, debajo de
+        // los propios y con el almacén de donde vienen. Al elegirlo entra a la lista de este
+        // almacén (recordar, al registrar la nota) y la próxima vez ya sale como propio.
+        var parte = (ALM_LOG_CAMPOS.filter(function (c) { return c.id === inp.id; })[0] || {}).parte;
+        var otros = [];
+        if (!veh && term) {
+            ALM_LOG.otros.forEach(function (it, i) {
+                if (otros.length < ALM_LOG_OTROS_TOPE && almLogParecido(it, inp.value, parte)) otros.push(i);
+            });
+        }
+        if (!lista.length && !otros.length || (veh && !term)) return;
         var html = '', n = 0;
         lista.forEach(function (it, i) {
             var serial = it.serial || '';
@@ -194,6 +228,12 @@
                        : '<span class="alm-log-nom">' + escHtml(it.nombre) + '</span><span class="alm-log-doc">' + escHtml(it.documento) + '</span>')
                 + '</div>';
             n++;
+        });
+        otros.forEach(function (i) {
+            var it = ALM_LOG.otros[i];
+            html += '<div class="si-item alm-log-item" data-log="choferes" data-fuente="otros" data-i="' + i + '">'
+                + '<span class="alm-log-nom">' + escHtml(it.nombre) + '<span class="alm-log-alm">' + escHtml(it.almacen) + '</span></span>'
+                + '<span class="alm-log-doc">' + escHtml(it.documento) + '</span></div>';
         });
         // Debajo del campo que se escribe y con su ancho: colgada de la fila cruzaba el modal
         // entero y en el teléfono la del chofer salía debajo de la cédula. Si el modal tiene sitio,
@@ -207,7 +247,8 @@
         var item = e.target.closest('.alm-log-item');
         if (item) {
             e.preventDefault();
-            var tipo = item.getAttribute('data-log'), it = (ALM_LOG[tipo] || [])[parseInt(item.getAttribute('data-i'), 10)];
+            var tipo = item.getAttribute('data-log');
+            var it = (ALM_LOG[item.getAttribute('data-fuente') || tipo] || [])[parseInt(item.getAttribute('data-i'), 10)];
             if (it) ALM_LOG_CAMPOS.forEach(function (c) { if (c.lista === tipo) el(c.id).value = it[c.parte] || ''; });
             almLogOcultar();
             return;

@@ -170,6 +170,32 @@ class LogisticaAlmacenTest extends MySqlTestCase
     }
 
     /**
+     * Los choferes de los DEMÁS almacenes viajan aparte (choferesOtros), con su almacén, para que
+     * el formulario los ofrezca solo si lo escrito se les parece. Ni los que ya son propios ni
+     * los de un almacén borrado; si está en dos almacenes, una vez.
+     */
+    public function test_los_choferes_de_otros_almacenes_van_aparte_con_su_almacen(): void
+    {
+        [$alm] = $this->almacen();
+        [$guaira] = $this->almacen();
+        [$tercero] = $this->almacen();
+        [$borrado] = $this->almacen();
+        $chofer = fn ($a, $nombre, $ced, $uso = null) => AlmacenLogistica::create(['ID_ALMACEN' => $a->ID_ALMACEN, 'TIPO' => 'CHOFER',
+            'NOMBRE' => $nombre, 'DOCUMENTO' => $ced, 'CLAVE' => AlmacenLogistica::clave('CHOFER', $ced), 'ULTIMO_USO' => $uso]);
+        $chofer($alm, 'PEDRO PROPIO', 'V-91.000.001');
+        $chofer($guaira, 'PEDRO PROPIO', '91000001');                 // ya es propio: no se repite
+        $chofer($guaira, 'LUIS DE LA GUAIRA', 'V-91.000.002', now());
+        $chofer($tercero, 'LUIS DE LA GUAIRA', '91.000.002', now()->subDay()); // en dos almacenes: una vez, el más reciente
+        $chofer($borrado, 'ANA BORRADA', '91000003');
+        $borrado->delete();
+
+        $r = $this->actingAs($this->usuario())->getJson(route('almacen.almacenes.logistica', ['id' => $alm->ID_ALMACEN]))->assertOk();
+        $this->assertSame([['nombre' => 'PEDRO PROPIO', 'documento' => 'V-91.000.001', 'origen' => 'almacen']], $r->json('choferes'));
+        $mios = collect($r->json('choferesOtros'))->filter(fn ($c) => str_starts_with(AlmacenLogistica::clave('CHOFER', $c['documento']), '91000'))->values()->all();
+        $this->assertSame([['nombre' => 'LUIS DE LA GUAIRA', 'documento' => 'V-91.000.002', 'almacen' => mb_strtoupper($guaira->NOMBRE), 'origen' => 'otro']], $mios);
+    }
+
+    /**
      * El campo Vehículo de la Nota de Entrega solo ofrece lo que puede LLEVAR material.
      *
      * Son dos reglas distintas y hacen falta las dos: la flota PESADA se descarta por su

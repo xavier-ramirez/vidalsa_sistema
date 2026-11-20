@@ -21,9 +21,12 @@
     .alm-modal-wide { max-width: 980px; }
     .alm-modal .alm-modal-body { overflow-y: auto; min-height: 0; }
     /* Transporte de la salida: en la lista de sugerencias, el nombre a la izquierda y la
-       cédula o placa a la derecha, agrupados por de dónde salen (lista del almacén / flota). */
+       cédula o placa a la derecha; primero los del almacén y después los de la flota. */
     .alm-suggest-inline .alm-log-item { justify-content:space-between; padding:8px 12px; }
     .alm-log-nom { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:#0f172a; }
+    /* Chofer de OTRO almacén (solo sale si lo escrito se le parece mucho): de dónde viene. */
+    .alm-log-alm { margin-left:8px; padding:1px 6px; border-radius:4px; background:#fef3c7; color:#92400e;
+        font-size:10px; font-weight:700; letter-spacing:.3px; vertical-align:1px; }
     .alm-log-doc { flex:0 0 auto; font-size:12px; font-weight:700; color:#475569; font-variant-numeric:tabular-nums; }
     /* Vehículos: primero el tipo y después la placa (o el serial de chasis), sin marca ni modelo
        (almLogRenglonVehiculo). El tipo con ancho fijo para que las placas queden en columna. */

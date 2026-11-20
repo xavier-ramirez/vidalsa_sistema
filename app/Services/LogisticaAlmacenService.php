@@ -16,17 +16,6 @@ use Illuminate\Support\Facades\DB;
 class LogisticaAlmacenService
 {
     /**
-     * Sugerencias para la Nota que emite este almacén: primero su lista (lo usado hace menos
-     * arriba) y después la flota de sus frentes, con la persona asignada a cada vehículo como
-     * chofer. Sin repetir: lo que ya está en la lista no se vuelve a ofrecer.
-     *
-     * Cada vehículo de la flota trae `serial` (de chasis) para buscarlo también por ahí; el que
-     * no tiene placa de verdad se ofrece con su serial como documento: es lo que lo identifica.
-     * Trae además su `tipo`: la lista muestra placa, serial y tipo, sin marca ni modelo, mientras
-     * que `nombre` (tipo, marca y modelo) es lo que llena el campo Vehículo de la nota. Un vehículo
-     * de la lista del almacén que también está en la flota toma de ahí su serial y su tipo.
-     */
-    /**
      * Lo que NUNCA se sugiere como vehiculo de la Nota de Entrega.
      *
      * La flota PESADA (payloaders, excavadoras, tractores de oruga...) no sale de la obra a
@@ -41,6 +30,19 @@ class LogisticaAlmacenService
      */
     private const TIPOS_QUE_NO_TRANSPORTAN = ['VACUUM'];
 
+    /**
+     * Sugerencias para la Nota que emite este almacén: primero su lista (lo usado hace menos
+     * arriba) y después la flota de sus frentes, con la persona asignada a cada vehículo como
+     * chofer. Sin repetir: lo que ya está en la lista no se vuelve a ofrecer.
+     *
+     * Cada vehículo de la flota trae `serial` (de chasis) para buscarlo también por ahí; el que
+     * no tiene placa de verdad se ofrece con su serial como documento: es lo que lo identifica.
+     * Trae además su `tipo`: la lista muestra placa, serial y tipo, sin marca ni modelo, mientras
+     * que `nombre` (tipo, marca y modelo) es lo que llena el campo Vehículo de la nota. Un vehículo
+     * de la lista del almacén que también está en la flota toma de ahí su serial y su tipo.
+     *
+     * Aparte, en `choferesOtros`, los choferes de los demás almacenes (choferesDeOtrosAlmacenes).
+     */
     public function sugerencias(Almacen $almacen): array
     {
         $filas = AlmacenLogistica::where('ID_ALMACEN', $almacen->ID_ALMACEN)
@@ -71,7 +73,34 @@ class LogisticaAlmacenService
             'documento' => trim((string) $r->CEDULA_RESPONSABLE),
         ]));
 
-        return ['choferes' => $choferes->values()->all(), 'vehiculos' => $vehiculos->values()->all()];
+        return [
+            'choferes'      => $choferes->values()->all(),
+            'vehiculos'     => $vehiculos->values()->all(),
+            'choferesOtros' => $this->choferesDeOtrosAlmacenes($almacen, $choferes),
+        ];
+    }
+
+    /**
+     * Los choferes de la lista de los DEMÁS almacenes, con el almacén de donde vienen. No se
+     * mezclan con los propios: el formulario los ofrece solo si lo escrito se parece mucho a su
+     * cédula o a su nombre (un logístico de Barcelona que despacha con un chofer de La Guaira).
+     * Sin repetir los que ya están entre los propios; si está en varios almacenes, sale el del
+     * uso más reciente.
+     */
+    private function choferesDeOtrosAlmacenes(Almacen $almacen, Collection $propios): array
+    {
+        $ya = $propios->map(fn ($x) => AlmacenLogistica::clave(AlmacenLogistica::TIPO_CHOFER, (string) $x['documento']))->flip();
+        return DB::table('almacen_logistica as l')
+            ->join('almacenes as a', 'a.ID_ALMACEN', '=', 'l.ID_ALMACEN')
+            ->whereNull('a.deleted_at')
+            ->where('l.TIPO', AlmacenLogistica::TIPO_CHOFER)
+            ->where('l.ID_ALMACEN', '!=', $almacen->ID_ALMACEN)
+            ->orderByRaw('l.ULTIMO_USO IS NULL')->orderByDesc('l.ULTIMO_USO')->orderBy('l.NOMBRE')
+            ->get(['l.CLAVE', 'l.NOMBRE', 'l.DOCUMENTO', 'a.NOMBRE as ALMACEN'])
+            ->reject(fn ($f) => $ya->has($f->CLAVE))
+            ->unique('CLAVE')
+            ->map(fn ($f) => ['nombre' => $f->NOMBRE, 'documento' => $f->DOCUMENTO, 'almacen' => mb_strtoupper(trim((string) $f->ALMACEN)), 'origen' => 'otro'])
+            ->values()->all();
     }
 
     /**
