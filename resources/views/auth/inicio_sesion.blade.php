@@ -200,10 +200,12 @@
                     {{-- Sin servidor y con una sesión anterior en este equipo: «Iniciar sesión»
                          entra con lo guardado aquí, y esto lo dice antes de pulsar. La pinta
                          refrescarAccesos() en offline-auth.js. --}}
-                    <div id="loginSinRedNota" style="display:none;margin-top:10px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;">
-                        Sin internet.<br>Entrarás con los datos guardados en este equipo.
+                    {{-- text-wrap:balance: el navegador reparte el texto en líneas parejas (antes
+                         quedaba «equipo.» sola en la segunda línea), en cualquier ancho. --}}
+                    <div id="loginSinRedNota" style="display:none;margin-top:10px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;text-wrap:balance;">
+                        Sin internet: entrarás con los datos guardados en este equipo.
                     </div>
-                    <div id="offlineLoginMsg" style="display:none;margin-top:20px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;white-space:pre-line;"></div>
+                    <div id="offlineLoginMsg" style="display:none;margin-top:20px;color:#b45309;font-size:12.5px;text-align:center;font-weight:600;white-space:pre-line;text-wrap:balance;"></div>
                 </form>
             </div>
             {{-- Figuras geométricas ABAJO de la tarjeta — ancladas a la propia tarjeta
