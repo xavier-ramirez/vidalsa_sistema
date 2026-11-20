@@ -1152,22 +1152,18 @@
     }
 
     // ── Aviso de busqueda aproximada (#almBuscarAviso) ──
-    // Lo enciende el backend (aproximada=true) cuando lo escrito no coincidio con NADA y
+    // Lo enciende AlmacenLocal.inventario (aproximada=true) cuando lo escrito no coincidio con NADA y
     // hubo que buscar parecidos perdonando un error de tipeo. Sin este aviso la tabla
     // mostraria filas que no contienen lo escrito y pareceria que el filtro esta roto.
     // También cuando un número escrito no lo tiene ningún producto («guante 10»): se buscó sin
     // él (AlmacenLocal · buscador) y hay que decirlo, o parecería que todas son talla 10.
     function almPintarAvisoBusqueda(aproximada, termino, sinNumeros) {
         var box = el('almBuscarAviso'); if (!box) return;
-        var nums = (sinNumeros || []).map(function (n) { return '<b>' + escHtml(n) + '</b>'; }).join(', ');
-        if (!aproximada && !nums) { box.hidden = true; box.innerHTML = ''; return; }
-        box.innerHTML = '<i class="material-icons">info_outline</i>'
-                      + (aproximada
-                          ? '<div>Sin coincidencias exactas de <b>' + escHtml(termino || '') + '</b>. '
-                            + 'Mostrando resultados parecidos.</div>'
-                          : '<div>Ningún producto tiene ' + nums + ' junto a lo demás escrito: '
-                            + 'mostrando sin ese número.</div>');
-        box.hidden = false;
+        box.innerHTML = aproximada
+            ? '<i class="material-icons">info_outline</i><div>Sin coincidencias exactas de <b>'
+              + escHtml(termino || '') + '</b>. Mostrando resultados parecidos.</div>'
+            : (window.AlmacenLocal ? window.AlmacenLocal.avisoSinNumeros(sinNumeros) : '');
+        box.hidden = !box.innerHTML;
     }
 
     // ── Aviso de la salida por corregir (#almSalidaAviso) ──

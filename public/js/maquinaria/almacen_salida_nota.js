@@ -380,8 +380,10 @@
         if (e.detail && e.detail.dropdownId === 'almSalidaProyectoDropdown') {
             // El nombre elegido, para la Nota sin internet si la lista se repinta sin él
             // (almNotaLocalDatos): el buscador puede tener otra cosa escrita.
+            // Con la ✕ (sin valor) llega el texto de relleno «Selecciona uno»: se borra.
             var hid = el('almSalidaProyecto');
-            if (hid) hid.setAttribute('data-nombre', String(e.detail.label || ''));
+            if (hid && e.detail.value) hid.setAttribute('data-nombre', String(e.detail.label || ''));
+            else if (hid) hid.removeAttribute('data-nombre');
             window.almSalidaOnProyectoChange();
         }
     });

@@ -101,6 +101,10 @@ window.almMovArrancar = function (CFG) {
                 window.repintarFilas(body, data.html);   // solo las filas distintas
                 var pg = el('almMovPagination'); if (pg) pg.innerHTML = data.pagination;
                 var tot = el('almMovTotal'); if (tot) tot.textContent = data.total;
+                // Como en Inventario: el número que ningún producto tiene se quitó de la
+                // búsqueda (AlmacenLocal · buscador) y se dice, para no creer que filtró.
+                var av = el('almMovBuscarAviso');
+                if (av) { av.innerHTML = window.AlmacenLocal.avisoSinNumeros(data.sinNumeros); av.hidden = !av.innerHTML; }
                 var cc = el('almMovConsumoContainer'); if (cc) cc.innerHTML = window.AlmacenLocal.consumo(vista, f, POR_DEFECTO);
                 window.almMovNotasFiltro = window.AlmacenLocal.notasFiltro(vista, f, POR_DEFECTO);
                 window.almMovNotasTodas = window.AlmacenLocal.notasFiltro(vista);

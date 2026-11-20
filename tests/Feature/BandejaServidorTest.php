@@ -355,8 +355,14 @@ class BandejaServidorTest extends MySqlTestCase
 
         $this->salida($u, $alm, $p, 2, ['id_frente_destino' => $id])->assertStatus(422)
             ->assertJsonFragment(['El proyecto destino no está activo (finalizado o borrado): elige uno activo.']);
-        // Tampoco con el otro nombre del campo.
+        // Tampoco con el otro nombre del campo, ni con los dos (uno activo y el otro no:
+        // id_frente decide el proyecto del movimiento).
         $this->salida($u, $alm, $p, 2, ['id_frente' => $id])->assertStatus(422);
+        $activo = DB::table('frentes_trabajo')->insertGetId([
+            'NOMBRE_FRENTE' => 'ACT ' . $this->marca, 'UBICACION' => 'X', 'TIPO_FRENTE' => 'OPERACION',
+            'ESTATUS_FRENTE' => 'ACTIVO', 'created_at' => now(), 'updated_at' => now(),
+        ], 'ID_FRENTE');
+        $this->salida($u, $alm, $p, 2, ['id_frente_destino' => $activo, 'id_frente' => $id])->assertStatus(422);
         $this->assertSame(10.0, $this->saldo($alm, $p));
 
         // La hecha SIN internet sí entra: su Nota ya se imprimió cuando el proyecto estaba

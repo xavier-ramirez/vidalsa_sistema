@@ -60,8 +60,10 @@
     // palabra / palabra completa / número) o fuzzy débil (Levenshtein). Devuelve
     // { score, hit }.
     // entero: un número corto (1-2 cifras) junto a otras palabras cuenta solo ENTERO, como en
-    // la tabla de Almacén (almacen_local.js · entero): «braga 42» no sugiere la talla 142 ni
-    // el 2 de 1/2".
+    // el nombre y el código en la tabla de Almacén (almacen_local.js · entero): «braga 42» no
+    // sugiere la talla 142 ni el 2 de 1/2". Solo con rank(…, { enteros: true }) (productos);
+    // la cola de un nº de parte («filtro 31» → MIS0531) aquí no cuenta: el haystack mezcla
+    // código y partes, y el 42 del código 000142 no debe sumar.
     function posEntera(hay, token) {
         for (var i = hay.indexOf(token); i > -1; i = hay.indexOf(token, i + 1)) {
             var a = hay.charAt(i - 1), a2 = hay.charAt(i - 2), d = hay.charAt(i + token.length), d2 = hay.charAt(i + token.length + 1);
@@ -114,13 +116,14 @@
      * descendente. Con término vacío devuelve los items tal cual (orden original);
      * el caller decide el límite y cualquier dedupe/filtrado adicional.
      */
-    function rank(items, rawTerm, accessor) {
+    function rank(items, rawTerm, accessor, opts) {
         items = items || [];
         var tokens = tokenize(rawTerm);
         if (!tokens.length) return items.slice();
 
         var rawNorm = norm(rawTerm).replace(/\s+/g, ' ');
         var minTokens = Math.ceil(tokens.length / 2);
+        var enteros = !!(opts && opts.enteros) && tokens.length > 1;
         var scored = [];
 
         for (var j = 0; j < items.length; j++) {
@@ -132,7 +135,7 @@
 
             var total = 0, matched = 0;
             for (var k = 0; k < tokens.length; k++) {
-                var r = scoreToken(palabras, hayFull, tokens[k], tokens.length > 1);
+                var r = scoreToken(palabras, hayFull, tokens[k], enteros);
                 if (r.hit) { matched++; total += r.score; }
             }
             if (matched < minTokens) continue;

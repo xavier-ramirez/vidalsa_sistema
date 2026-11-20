@@ -67,7 +67,7 @@
                 haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''),
                 label: p.NOMBRE || '',
             };
-        });
+        }, { enteros: true });
     }
 
     /**

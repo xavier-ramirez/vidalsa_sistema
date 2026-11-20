@@ -228,7 +228,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         var lista = window.trProductosLista || [];
         var matches = window.FuzzySearch.rank(lista, rawTerm, function (p) {
             return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''), label: p.NOMBRE || '' };
-        }).slice(0, 17);
+        }, { enteros: true }).slice(0, 17);
         var html = '';
         if (!matches.length) {
             html = '<div class="tr-suggest-empty">Sin coincidencias.</div>';

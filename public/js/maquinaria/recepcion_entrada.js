@@ -123,7 +123,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         // parte alterno de un FILTRO lo encuentre, igual que el buscador de /admin/almacen.
         var matches = window.FuzzySearch.rank(PRODUCTOS, rawTerm, function (p) {
             return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''), label: p.NOMBRE || '' };
-        }).slice(0, 12);
+        }, { enteros: true }).slice(0, 12);
         if (matches.length === 0) {
             // Sin coincidencias → invitar a registrar el producto nuevo. El usuario
             // puede igual presionar Enter en Cantidad y se crea al vuelo (ver

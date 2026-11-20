@@ -125,4 +125,34 @@ class TraspasoCancelacionBolsaTest extends MySqlTestCase
         ])->assertStatus(422)->assertJsonValidationErrors(['id_frente_destino'])
             ->assertJsonFragment(['El proyecto destino no está activo (finalizado o borrado): elige uno activo.']);
     }
+
+    /** Un borrador no se puede pasar a un proyecto FINALIZADO; dejarle el suyo sí vale. */
+    public function test_un_borrador_no_se_cambia_a_un_proyecto_finalizado(): void
+    {
+        $u = $this->superAdminGlobal();
+        $origen = Almacen::create(['NOMBRE' => 'ORIGEN ' . uniqid(), 'TIPO' => Almacen::TIPO_GENERAL]);
+        $destino = Almacen::create(['NOMBRE' => 'DESTINO ' . uniqid(), 'TIPO' => Almacen::TIPO_GENERAL]);
+        $frente = fn (string $estatus) => DB::table('frentes_trabajo')->insertGetId([
+            'NOMBRE_FRENTE' => $estatus . ' ' . uniqid(), 'UBICACION' => 'X', 'TIPO_FRENTE' => 'OPERACION',
+            'ESTATUS_FRENTE' => $estatus, 'created_at' => now(), 'updated_at' => now(),
+        ], 'ID_FRENTE');
+        $suyo = $frente('ACTIVO');
+        $fin = $frente('FINALIZADO');
+        $id = \App\Models\Traspaso::create([
+            'NUMERO' => 'T-' . uniqid(), 'ID_ALMACEN_ORIGEN' => $origen->ID_ALMACEN, 'ID_ALMACEN_DESTINO' => $destino->ID_ALMACEN,
+            'ID_FRENTE_DESTINO' => $suyo, 'ESTADO' => 'BORRADOR', 'ID_USUARIO_CREO' => $u->ID_USUARIO,
+        ])->ID_TRASPASO;
+
+        $this->actingAs($u)->patchJson(route('almacen.recepcion.update', $id), ['id_frente_destino' => $fin])
+            ->assertStatus(422)->assertJsonValidationErrors(['id_frente_destino']);
+        $this->assertSame($suyo, (int) \App\Models\Traspaso::whereKey($id)->value('ID_FRENTE_DESTINO'));
+
+        // El que ya tenía, aunque lo finalicen después, sigue valiendo.
+        DB::table('frentes_trabajo')->where('ID_FRENTE', $suyo)->update(['ESTATUS_FRENTE' => 'FINALIZADO']);
+        $this->actingAs($u)->patchJson(route('almacen.recepcion.update', $id), [
+            'id_frente_destino' => $suyo, 'notas' => 'x',
+            'lineas' => [['id_producto' => ProductoInventario::create(['CODIGO' => 'T' . uniqid(), 'NOMBRE' => 'PRUEBA TRASPASO', 'UM' => 'UND'])->ID_PRODUCTO, 'cantidad' => 1]],
+        ])
+            ->assertSuccessful();
+    }
 }

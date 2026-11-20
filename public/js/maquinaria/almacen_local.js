@@ -153,9 +153,18 @@
     }
     // Número ENTERO: ni dentro de otro número (42 en 142 o en el código 000142) ni de una
     // fracción o decimal (el 2 de 1/2", 2,5 MM o 22.5).
+    // Sin lookbehind (?<!…): Safari antes de 16.4 no lo entiende (misma regla que
+    // FuzzySearch · posEntera).
     function entero(n) {
-        const re = new RegExp('(?<![0-9])(?<![0-9][.,/])' + n + '(?![0-9])(?![.,/][0-9])');
-        return (v) => re.test(v);
+        const dig = (c) => c >= '0' && c <= '9';
+        const sep = (c) => c === '.' || c === ',' || c === '/';
+        return (v) => {
+            for (let i = v.indexOf(n); i > -1; i = v.indexOf(n, i + 1)) {
+                const a = v.charAt(i - 1), a2 = v.charAt(i - 2), d = v.charAt(i + n.length), d2 = v.charAt(i + n.length + 1);
+                if (!(dig(a) || (sep(a) && dig(a2)) || dig(d) || (sep(d) && dig(d2)))) return true;
+            }
+            return false;
+        };
     }
     const comoTexto = (s) => s.replace(/[%_\\]/g, '\\$&');
 
@@ -210,34 +219,38 @@
 
     // AND entre palabras; cada palabra en código, descripción o algún nº de parte.
     // perdon: Set de palabras con perdón de tipeo (palabrasAPerdonar) o null.
-    // ctx: con él se mira si cada número corto encuentra algo; el que no (con las demás
-    // palabras) se deja fuera y queda en `sinNumeros` del buscador, para avisarlo («guante 10»
-    // sigue trayendo los guantes, como antes, pero la pantalla dice que no hay talla 10).
-    // conInactivos: el historial también lista movimientos de productos ya inactivos.
-    function buscador(term, perdon, ctx, conInactivos) {
+    // ctx: con él se mira si cada número corto encuentra algo entre los productos que la
+    // pantalla puede mostrar (dentro: por defecto los activos; la tabla le suma sus filtros, el
+    // historial deja también los inactivos). El que no encuentra nada se deja fuera y queda en
+    // `sinNumeros` para avisarlo («guante 10» sigue trayendo los guantes, como antes, pero la
+    // pantalla dice que no hay talla 10). Si ni sin números sale nada, no se quita ninguno.
+    function buscador(term, perdon, ctx, dentro) {
         const toks = palabras(term);
         const nums = toks.length > 1 ? Array.from(new Set(toks.filter(corto))) : [];
         const base = toks.filter((t) => nums.indexOf(t) < 0).map((t) => {
             const ms = formas(t, !!perdon && perdon.has(t)).map((f) => molde('%' + f + '%'));
             return (n) => coincide(n, ms);
         });
-        // En el nombre y el código, entero; en un nº de parte también vale el final de las
-        // cifras («filtro 31» encuentra el MIS0531: se suele teclear la cola del número).
+        // En el nombre y el código, entero; en un nº de parte también valen las 2 últimas
+        // cifras de un número largo («filtro 31» encuentra el MIS0531: se suele teclear la
+        // cola), no de uno corto (el 42 de la parte 142 no cuenta) ni una sola cifra.
         const delNumero = (t) => {
             const e = entero(t);
+            const cola = t.length === 2 ? (x) => /[0-9]{4,}$/.test(x) && x.slice(-2) === t : () => false;
             return (n) => (n.nom !== null && e(n.nom)) || (n.cod !== null && e(n.cod))
-                || n.partes.some((x) => e(x) || (x.slice(-t.length) === t && /[0-9]$/.test(x)));
+                || n.partes.some((x) => e(x) || cola(x));
         };
         const armar = (gs) => (p) => { const n = np(p); return gs.every((g) => g(n)); };
         let grupos = base.concat(nums.map(delNumero));
         const sinNumeros = [];
         if (ctx && nums.length) {
+            const puede = dentro || ((p) => p.activo);
             const encuentra = (gs) => {
                 const b = armar(gs);
-                for (const p of ctx.productos.values()) if ((conInactivos || p.activo) && b(p)) return true;
+                for (const p of ctx.productos.values()) if (puede(p) && b(p)) return true;
                 return false;
             };
-            if (!encuentra(grupos)) {
+            if (!encuentra(grupos) && encuentra(base)) {
                 grupos = base.slice();
                 nums.forEach((t) => {
                     const con = grupos.concat([delNumero(t)]);
@@ -283,8 +296,10 @@
         if (ids.length) { const s = new Set(ids); return (m) => s.has(m.prod); }
         if (lleno(f.id_producto)) { const id = parseInt(f.id_producto, 10) || 0; return (m) => m.prod === id; }
         if (conBusqueda && lleno(f.search)) {
-            const b = buscador(txt(f.search), null, ctx, true);
-            return (m) => { const p = ctx.productos.get(m.prod); return !!p && b(p); };
+            const b = buscador(txt(f.search), null, ctx, () => true);
+            const filtro = (m) => { const p = ctx.productos.get(m.prod); return !!p && b(p); };
+            filtro.sinNumeros = b.sinNumeros;
+            return filtro;
         }
         return null;
     }
@@ -435,24 +450,32 @@
         const catalogo = si(f.ver_todo) || lleno(f.search) || lleno(f.categoria) || lleno(f.um);
         const exigeStock = !puntual && !catalogo;
         const ids = idsCsv(f.id_producto_in);
-        let cond;
+        let cond, b = null;
         if (ids.length) {
             const s = new Set(ids);
             cond = (p) => s.has(p.id);
         } else {
             const cs = [];
             if (lleno(f.id_producto)) { const id = parseInt(f.id_producto, 10) || 0; cs.push((p) => p.id === id); }
-            else if (lleno(f.search)) cs.push(buscador(txt(f.search), perdon, ctx));
             if (lleno(f.categoria) && f.categoria !== 'all') { const pat = '%' + txt(f.categoria) + '%'; cs.push((p) => como(p.cat, pat)); }
             if (lleno(f.um)) { const um = txt(f.um); cs.push((p) => igual(p.um, um)); }
             if (si(f.solo_bajo)) cs.push((p) => { const a = sal.get(p.id); return !!a && a.min !== null && a.cant <= a.min; });
             if (si(f.solo_con_saldo)) cs.push((p) => { const a = sal.get(p.id); return !!a && a.cant > 0; });
+            // El buscador mira los números entre lo que los OTROS filtros dejan (categoría, UM,
+            // stock…): si no, «guante 10» con la categoría puesta se quedaba vacío sin aviso.
+            if (!lleno(f.id_producto) && lleno(f.search)) {
+                const otros = cs.slice();
+                b = buscador(txt(f.search), perdon, ctx,
+                    (p) => p.activo && (!exigeStock || sal.has(p.id)) && otros.every((c) => c(p)));
+                cs.push(b);
+            }
             cond = (p) => cs.every((c) => c(p));
         }
         const fuera = [];
         ctx.productos.forEach((p) => {
             if (p.activo && (!exigeStock || sal.has(p.id)) && cond(p)) fuera.push(p);
         });
+        fuera.sinNumeros = b ? b.sinNumeros : [];   // números que se quitaron (buscador)
         return fuera;
     }
 
@@ -489,9 +512,13 @@
         const sal = alm ? saldos(ctx, alm.id) : new Map();
         const hay = hayFiltroInventario(f);
         let filas = [], hasMore = false, perdon = null;   // perdon: Set si la búsqueda fue aproximada
+        let sinNumeros = [];
         if (alm && hay) {
+            // ordenarInventario ordena la misma lista: conserva su sinNumeros (filtrarInventario),
+            // el de la consulta que quedó (exacta o aproximada).
             const [todas, pd] = conPerdonDeTipeo(ctx, f, offset,
                 (conPerdon) => ordenarInventario(filtrarInventario(ctx, sal, f, conPerdon), sal, f, conPerdon));
+            sinNumeros = todas.sinNumeros || [];
             perdon = pd;
             filas = todas.slice(offset, offset + lote);
             hasMore = todas.length > offset + lote;
@@ -502,8 +529,7 @@
             nextOffset: hasMore ? offset + lote : null,
             aproximada: !!perdon,
             // Números escritos que ningún producto tiene: se buscó sin ellos (buscador).
-            sinNumeros: alm && hay && lleno(f.search) && !lleno(f.id_producto) && !lleno(f.id_producto_in)
-                ? buscador(txt(f.search), perdon, ctx).sinNumeros : [],
+            sinNumeros,
         };
         if (offset === 0 && !si(f.solo_filas)) {
             r.stats = statsInventario(ctx, sal);
@@ -723,7 +749,9 @@
         if (lleno(f.id_frente) && f.id_frente !== 'all') { const id = parseInt(f.id_frente, 10) || 0; conds.push((m) => m.frente === id); }
         const enPeriodo = periodo(f.desde, f.hasta);
         conds.push((m) => enPeriodo(m.fecha));
-        return ctx.vista.filas('movimientos').filter((m) => conds.every((c) => c(m))).sort((a, b) => b.id - a.id);
+        const lista = ctx.vista.filas('movimientos').filter((m) => conds.every((c) => c(m))).sort((a, b) => b.id - a.id);
+        lista.sinNumeros = (prod && prod.sinNumeros) || [];   // números que se quitaron (buscador)
+        return lista;
     }
 
     function movimientos(vista, f, pagina, op) {
@@ -740,6 +768,7 @@
             pagination: window.paginadorHtml(actual, ultima),
             total: todas.length,
             ids: todas.map((m) => m.id),
+            sinNumeros: todas.sinNumeros,
         };
     }
 
@@ -1039,5 +1068,14 @@
             }));
     }
 
-    window.AlmacenLocal = { inventario, idsInventario, panelOtros, movimientos, consumo, notas, notasFiltro, listaProductos, stockConPendientes, bolsasAuditoria, fmt };
+    // Texto del aviso de los números que se quitaron de la búsqueda (sinNumeros de inventario()
+    // y movimientos()): uno solo para Inventario y el historial. '' si no hay ninguno.
+    function avisoSinNumeros(nums) {
+        if (!nums || !nums.length) return '';
+        return '<i class="material-icons">info_outline</i><div>Ningún producto tiene '
+            + nums.map((n) => '<b>' + h(n) + '</b>').join(', ')
+            + ' junto a lo demás escrito: mostrando sin ese número.</div>';
+    }
+
+    window.AlmacenLocal = { inventario, idsInventario, panelOtros, movimientos, consumo, notas, notasFiltro, listaProductos, stockConPendientes, bolsasAuditoria, fmt, avisoSinNumeros };
 })();

@@ -462,7 +462,7 @@
             var ya = {}; S.ed.items.forEach(function (i) { ya[i.id_producto] = 1; });
             var lista = window.FuzzySearch.rank(window.almProductosLista, q, function (p) {
                 return { haystack: p.CODIGO + ' ' + p.NOMBRE + ' ' + (p.EQUIV || ''), label: p.NOMBRE };
-            }).filter(function (p) { return !ya[p.ID_PRODUCTO]; }).slice(0, 30);
+            }, { enteros: true }).filter(function (p) { return !ya[p.ID_PRODUCTO]; }).slice(0, 30);
             sugLista(box, lista.length
                 ? lista.map(function (p) {
                     return '<button type="button" onclick="window.AlmKits.agregarProducto(' + Number(p.ID_PRODUCTO) + ')"><span class="t">' + esc(p.CODIGO) + '</span>' + esc(p.NOMBRE) + '</button>';

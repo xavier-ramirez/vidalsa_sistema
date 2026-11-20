@@ -667,6 +667,15 @@ class TraspasoController extends Controller
         $this->assertPuedeOperarOrigen($request, (int) $traspaso->ID_ALMACEN_ORIGEN);
 
         $data = $this->validarCabecera($request, parcial: true);
+
+        // Cambiar el proyecto de un borrador: solo a uno ACTIVO (como al crearlo). Si se deja
+        // el que ya tenía, vale aunque lo hayan finalizado después.
+        $frenteNuevo = $data['id_frente_destino'] ?? null;
+        if ($frenteNuevo && (int) $frenteNuevo !== (int) $traspaso->ID_FRENTE_DESTINO
+            && \App\Models\FrenteTrabajo::whereKey($frenteNuevo)->value('ESTATUS_FRENTE') !== 'ACTIVO') {
+            return response()->json(['message' => __('validation.custom.id_frente_destino.exists'),
+                'errors' => ['id_frente_destino' => [__('validation.custom.id_frente_destino.exists')]]], 422);
+        }
         $lineas = $this->validarLineas($request);
 
         // El destino resultante debe seguir siendo válido contra el origen (que no cambia en
@@ -816,8 +825,8 @@ class TraspasoController extends Controller
         $reglas = [
             'id_almacen_origen'  => ['required','integer','exists:almacenes,ID_ALMACEN'],
             'id_almacen_destino' => ['nullable','required_without:id_frente_destino','integer','exists:almacenes,ID_ALMACEN','different:id_almacen_origen'],
-            // Solo a un proyecto ACTIVO (como la salida); al editar un borrador (abajo) basta
-            // que exista: pudo hacerse cuando el proyecto aún estaba activo.
+            // Solo a un proyecto ACTIVO (como la salida). Al editar un borrador (abajo) basta
+            // que exista; update() pide ACTIVO solo si se cambia a otro proyecto.
             'id_frente_destino'  => ['nullable','required_without:id_almacen_destino','integer','exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL,ESTATUS_FRENTE,ACTIVO'],
             'referencia'         => ['nullable','string','max:100'],
             'motivo'             => ['nullable','string','max:200'],

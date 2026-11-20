@@ -282,6 +282,9 @@
         </div>
     </div>
 
+    {{-- Número buscado que ningún producto tiene (almacen_movimientos.js, como #almBuscarAviso). --}}
+    <div id="almMovBuscarAviso" role="status" hidden></div>
+
     {{-- ── Tabla ── --}}
     {{-- En mobile el wrapper pierde border + border-radius (la regla en
          @media ≤768px) — sino se veia una "caja gris" envolviendo todas las

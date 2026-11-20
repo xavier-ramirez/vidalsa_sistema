@@ -2152,12 +2152,14 @@ class AlmacenController extends Controller
         // el flujo termine con PDF Nota de Entrega igual que una SALIDA pura.
         if ($data['tipo'] === 'SALIDA') {
             $idFrenteDest = $data['id_frente_destino'] ?? $data['id_frente'] ?? null;
-            // Solo a un proyecto ACTIVO (el desplegable solo ofrece esos). Menos la que se hizo
-            // sin internet (trae su número apartado): su Nota ya está impresa y el material
-            // salió cuando el proyecto estaba activo; rechazarla al subir dejaría el papel
-            // firmado sin registro si entre medias lo finalizaron.
-            if ($idFrenteDest && empty($data['numero_nota_reservado'])
-                && \App\Models\FrenteTrabajo::whereKey($idFrenteDest)->value('ESTATUS_FRENTE') !== 'ACTIVO') {
+            // Solo a un proyecto ACTIVO (el desplegable solo ofrece esos), con CUALQUIERA de los
+            // dos nombres: el destino decide el traspaso y id_frente el proyecto del movimiento.
+            // Menos la que trae número apartado (la que pasó por la bandeja): su Nota ya está
+            // impresa y firmada; rechazarla al subir dejaría ese papel sin registro si entre
+            // medias finalizaron el proyecto.
+            $frentesPedidos = array_unique(array_filter([$data['id_frente_destino'] ?? null, $data['id_frente'] ?? null]));
+            if ($frentesPedidos && empty($data['numero_nota_reservado'])
+                && \App\Models\FrenteTrabajo::whereKey($frentesPedidos)->where('ESTATUS_FRENTE', 'ACTIVO')->count() !== count($frentesPedidos)) {
                 return response()->json(['message' => __('validation.custom.id_frente_destino.exists')], 422);
             }
             if ($idFrenteDest) {

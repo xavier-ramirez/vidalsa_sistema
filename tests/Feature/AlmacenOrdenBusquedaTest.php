@@ -425,12 +425,15 @@ class AlmacenOrdenBusquedaTest extends MySqlTestCase
     /**
      * «braga de 42» o «42 braga» encuentran la talla 42: los números cortos se tiraban y se
      * buscaba solo «braga» (todas las tallas, con la 42 en cero al final). El número cuenta
-     * ENTERO: no trae la talla 142 ni un código que contenga 42. Con el número sin ningún
-     * producto, se busca sin él (como antes).
+     * ENTERO: no trae la talla 142, ni un código que contenga 42, ni el 2 de 1/2". Con el
+     * número sin ningún producto (entre lo que dejan los otros filtros), se busca sin él y se
+     * avisa (sinNumeros), en Inventario y en el historial.
      */
     public function test_un_numero_corto_en_la_busqueda_cuenta(): void
     {
-        $marca = 'ZQ' . strtoupper(\Illuminate\Support\Str::random(5));
+        // Solo letras: una cifra al azar en la marca o el código («MK2ON») cuenta como número.
+        $letras = fn (int $n) => substr(str_shuffle(str_repeat('ABCDEFGHJKLMNPQRSTUVWXYZ', 3)), 0, $n);
+        $marca = 'ZQ' . $letras(5);
         $alm = \App\Models\Almacen::create(['NOMBRE' => 'ALMACEN ' . $marca, 'TIPO' => \App\Models\Almacen::TIPO_GENERAL]);
         $ids = [];
         foreach ([40, 42, 44, 142] as $talla) {
@@ -457,20 +460,45 @@ class AlmacenOrdenBusquedaTest extends MySqlTestCase
 
         // El número corto no es un trozo de una fracción o un decimal: «2» no trae 1/2" ni 2,5.
         foreach (['MANGUERA {m} 1/2"', 'MANGUERA {m} 2,5 MM', 'MANGUERA {m} 2"'] as $n) {
-            \App\Models\ProductoInventario::create(['CODIGO' => 'M' . strtoupper(\Illuminate\Support\Str::random(7)), 'NOMBRE' => str_replace('{m}', $marca, $n), 'UM' => 'UND']);
+            \App\Models\ProductoInventario::create(['CODIGO' => 'M' . $letras(7), 'NOMBRE' => str_replace('{m}', $marca, $n), 'UM' => 'UND']);
         }
         $html = $this->tabla(['id_almacen' => $alm->ID_ALMACEN, 'search' => "manguera {$marca} 2"])['html'];
         $this->assertStringContainsString("MANGUERA {$marca} 2&quot;", $html);
         $this->assertStringNotContainsString("1/2", $html);
         $this->assertStringNotContainsString("2,5 MM", $html);
 
+        // Si ni sin el número sale nada, no se quita ni se avisa (la tabla vacía es la verdad).
+        $this->assertSame([], $this->tabla(['id_almacen' => $alm->ID_ALMACEN, 'search' => "qwzx {$marca} 99"])['sinNumeros']);
+
+        // Con otros filtros puestos, el número se mira dentro de lo que dejan: «braga 42» con
+        // «Con stock» no tiene la 42 (en cero) → se busca sin él, se avisa y no queda vacío.
+        $r = $this->tabla(['id_almacen' => $alm->ID_ALMACEN, 'search' => "braga {$marca} 42", 'solo_con_saldo' => '1']);
+        $this->assertSame(['42'], $r['sinNumeros']);
+        $this->assertStringContainsString("BRAGA {$marca} TALLA 40", $r['html']);
+
+        // Nº de parte: valen las 2 últimas cifras de un número largo («filtro 31» → MIS0531),
+        // no las de uno corto (el 42 de la parte 142).
+        $largo = \App\Models\ProductoInventario::create(['CODIGO' => 'F' . $marca, 'NOMBRE' => "FILTRO {$marca} A", 'UM' => 'UND']);
+        $corto = \App\Models\ProductoInventario::create(['CODIGO' => 'G' . $marca, 'NOMBRE' => "FILTRO {$marca} B", 'UM' => 'UND']);
+        \App\Models\ProductoEquivalencia::create(['ID_PRODUCTO' => $largo->ID_PRODUCTO, 'NUMERO_PARTE' => 'MIS0531', 'ES_PRINCIPAL' => true]);
+        \App\Models\ProductoEquivalencia::create(['ID_PRODUCTO' => $corto->ID_PRODUCTO, 'NUMERO_PARTE' => 'X142', 'ES_PRINCIPAL' => true]);
+        \App\Models\ProductoEquivalencia::create(['ID_PRODUCTO' => $corto->ID_PRODUCTO, 'NUMERO_PARTE' => 'Y0042', 'ES_PRINCIPAL' => false]);
+        $this->assertSame([$largo->ID_PRODUCTO], array_map('intval', $this->idsInventarioLocal($u, ['id_almacen' => $alm->ID_ALMACEN, 'search' => "filtro {$marca} 31"])));
+        $this->assertSame([$corto->ID_PRODUCTO], array_map('intval', $this->idsInventarioLocal($u, ['id_almacen' => $alm->ID_ALMACEN, 'search' => "filtro {$marca} 42"])),
+            'el 42 entra por la cola de Y0042, no por X142');
+        \App\Models\ProductoEquivalencia::where('NUMERO_PARTE', 'Y0042')->where('ID_PRODUCTO', $corto->ID_PRODUCTO)->delete();
+        $this->assertSame(['42'], $this->tabla(['id_almacen' => $alm->ID_ALMACEN, 'search' => "filtro {$marca} 42"])['sinNumeros'], 'X142 no cuenta');
+
         // El historial de movimientos busca igual: solo la talla 42.
         app(\App\Services\InventarioService::class)->registrarEntrada($alm->ID_ALMACEN, $ids[42], 1);
-        $html = $this->movimientosLocal($u, ['id_almacen' => $alm->ID_ALMACEN, 'search' => "42 braga {$marca}"])['html'];
-        $this->assertStringContainsString("BRAGA {$marca} TALLA 42", $html);
+        $mov = $this->movimientosLocal($u, ['id_almacen' => $alm->ID_ALMACEN, 'search' => "42 braga {$marca}"]);
+        $this->assertStringContainsString("BRAGA {$marca} TALLA 42", $mov['html']);
         foreach ([40, 44, 142] as $otra) {
-            $this->assertStringNotContainsString("BRAGA {$marca} TALLA {$otra}", $html);
+            $this->assertStringNotContainsString("BRAGA {$marca} TALLA {$otra}", $mov['html']);
         }
+        $this->assertSame([], $mov['sinNumeros']);
+        // …y avisa el número que ningún producto tiene, como Inventario.
+        $this->assertSame(['99'], $this->movimientosLocal($u, ['id_almacen' => $alm->ID_ALMACEN, 'search' => "braga {$marca} 99"])['sinNumeros']);
     }
 
     /**

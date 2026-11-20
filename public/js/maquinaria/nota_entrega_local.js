@@ -123,7 +123,9 @@
                 r.t.split('\n').forEach((parrafo, ip) => {
                     if (ip > 0) nueva();
                     // Como TCPDF, también se puede cortar justo después de un guion («NP-|01»).
-                    parrafo.split(/(\s+)/).flatMap((p) => (/^\s+$/.test(p) ? [p] : p.split(/(?<=-)/))).forEach((pal) => {
+                    // Sin lookbehind (/(?<=-)/): Safari antes de 16.4 no lo entiende y el
+                    // archivo entero no cargaba (sin Nota sin internet en esos iPhone).
+                    parrafo.split(/(\s+)/).flatMap((p) => (/^\s+$/.test(p) ? [p] : (p.match(/[^-]*-|[^-]+/g) || [p]))).forEach((pal) => {
                         if (!pal) return;
                         const esp = /^\s+$/.test(pal);
                         if (esp && usado === 0) return;
