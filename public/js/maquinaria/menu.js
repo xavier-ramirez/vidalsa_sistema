@@ -1,8 +1,7 @@
-// menu.js - Dashboard Interaction Logic
-// Handlers for "Movilizaciones Hoy" and "Alertas Documentos" cards
-
-// Assign directly to window to ensure global availability across SPA navigation
-// No IIFE wrapper to prevent any scoping issues
+// menu.js — Tablero (/menu): panel de Alertas de Documentos (abrir/cerrar, lista en segundo
+// plano, buscador, capas de encima e «Iniciar gestión»).
+// Se carga UNA vez en el layout (estructura_base); todo cuelga de window para seguir
+// disponible entre navegaciones SPA.
 
 window.toggleExpiredDocs = function () {
     const overlay = document.getElementById('expiredDocsContainer');
@@ -342,28 +341,29 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
                 })
             });
 
-            const data = await response.json();
+            // Un error que no es JSON (sesión vencida, caída del servidor) no debe acabar
+            // en «Unexpected token <»: se queda con el aviso genérico.
+            const data = await response.json().catch(() => ({}));
 
-            if (!data.success) {
-                throw new Error(data.message || 'Error al iniciar gestión');
+            // 409 = otro frente la tomó antes: la lista que la ofrecía estaba vieja, así que
+            // se pide de nuevo para que el botón salga deshabilitado con quién la lleva.
+            if (response.status === 409) window.refreshDashboardAlerts();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'No se pudo iniciar la gestión. Intente de nuevo.');
             }
 
-            // El POST ya terminó (rápido: 1 update + limpiar caché). Damos feedback
-            // y ocultamos el spinner DE INMEDIATO. El refresco de la lista regenera
-            // TODAS las alertas en el servidor (generateAlertsList recorre la flota),
-            // así que lo lanzamos en SEGUNDO PLANO (sin await) para no dejar al usuario
-            // mirando el spinner — antes se esperaba a ese refresco y por eso tardaba.
-            if (typeof window.hidePreloader === 'function') window.hidePreloader();
-            if (typeof window.showToast === 'function') {
-                window.showToast('Gestión iniciada con éxito', 'success');
-            }
-            if (typeof window.refreshDashboardAlerts === 'function') {
-                window.refreshDashboardAlerts(); // background: la lista se actualiza sola al terminar
-            }
+            // El POST ya terminó (rápido: 1 update + limpiar caché). Damos feedback y el
+            // spinner se va DE INMEDIATO (finally). El refresco de la lista regenera TODAS
+            // las alertas en el servidor (generateAlertsList recorre la flota), así que va
+            // en SEGUNDO PLANO (sin await): la lista se actualiza sola al terminar.
+            window.toast('Gestión iniciada con éxito', 'success');
+            window.refreshDashboardAlerts();
         } catch (error) {
-            console.error('Error:', error);
+            // Sin red (TypeError de fetch) el mensaje del navegador no dice nada al usuario.
+            window.toast(error instanceof TypeError ? 'Sin conexión: no se pudo iniciar la gestión.' : error.message, 'error');
+        } finally {
             if (typeof window.hidePreloader === 'function') window.hidePreloader();
-            window.showToast(error.message, 'error');
         }
     };
 };

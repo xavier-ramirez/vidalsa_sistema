@@ -471,7 +471,7 @@
     margin-bottom: 5px;
 }
 
-/* .cards-wrapper se define UNA sola vez, en el <style> de menu.blade.php (grid de 3
+/* .cards-wrapper se define UNA sola vez, en css/vistas/menu.css (grid de 3
    columnas con sus breakpoints). Aquí había una copia en flex, del diseño anterior,
    que solo ganaba el blade por orden de carga; se fue junto con .card-yellow
    .icon-wrapper, .card-label, .card-value y el @media de .grid-row-2, clases que ya
@@ -522,13 +522,5 @@
     animation: bellShake 2s infinite ease-in-out;
     transform-origin: top center;
     display: inline-block;
-}
-
-/* Mobile Responsive for Movilizaciones List */
-@media (max-width: 768px) {
-}
-
-/* Hide button text on very small screens, show only icon */
-@media (max-width: 480px) {
 }
 

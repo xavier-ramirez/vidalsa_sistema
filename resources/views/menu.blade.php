@@ -160,7 +160,7 @@
                                 <i class="material-icons">search</i>
                                 <input type="text" id="alertSearch" class="alertas-search-input"
                                        placeholder="Buscar por placa, chasis, modelo…"
-                                       onkeyup="filterDashboardAlerts()"
+                                       oninput="filterDashboardAlerts()"
                                        autocomplete="off">
                             </div>
                         </div>
@@ -494,6 +494,11 @@
                 });
 
                 if (!response.ok) throw new Error('El servidor no pudo generar el reporte');
+                // Si lo que llega no es el archivo pedido (p. ej. la página de login con la
+                // sesión vencida), no se guarda como .pdf/.xlsx roto.
+                if (!(response.headers.get('Content-Type') || '').includes(cfg.accept)) {
+                    throw new Error('La respuesta no es el reporte');
+                }
 
                 const blob = await response.blob();
                 let filename = cfg.respaldo;

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Equipo;
-use App\Models\FrenteTrabajo;
 use App\Models\CaracteristicaModelo;
 use App\Support\MensajeError;
 
@@ -37,18 +36,8 @@ class DashboardController extends Controller
         // segundo plano cuando ya se ve (getAlertsHtml, menu.js · cargarAlertasDashboard).
         // Pintada en la página pesaba 900 KB y 3.400 elementos que se montaban en cada visita
         // aunque el panel estuviera cerrado, y su caché (2,4 MB) se leía entera cada vez.
-        $data = \Illuminate\Support\Facades\Cache::remember("dashboard_resumen_{$clave}", now()->addMinutes(10), function () use ($frentesVisibles, $frentesBloqueados) {
-            // 1. Pending Mobilizations (disabled since transit is instant)
-            $pendientes = 0;
-
-            // 2. Frentes activos (modal de Recepción Directa) — oculta los no visibles
-            //    (whitelist LOCAL + blacklist de bloqueados) para no recibir en frente prohibido.
-            $frentesQuery = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->orderBy('NOMBRE_FRENTE');
-            \App\Models\Usuario::aplicarScopeIds($frentesQuery, $frentesVisibles, 'ID_FRENTE');
-            \App\Models\Usuario::aplicarBloqueoIds($frentesQuery, $frentesBloqueados, 'ID_FRENTE');
-            $frentes = $frentesQuery->get();
-
-            // 3. Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
+        $data = \Illuminate\Support\Facades\Cache::remember("dashboard_resumen_{$clave}", now()->addMinutes(10), function () {
+            // Salud operacional — base query excluyendo DESINCORPORADO y frentes ESPECIAL.
             // Los 3 conteos (total / operativos / mantenimiento) se resuelven en UNA sola
             // consulta con agregación condicional, en vez de 3 count() separados (3 round-trips
             // → 1). Ayuda al rebuild frío del dashboard, sobre todo con BD remota en producción.
@@ -87,7 +76,7 @@ class DashboardController extends Controller
             }
 
             return compact(
-                'pendientes', 'frentes', 'totalFlotaActiva',
+                'totalFlotaActiva',
                 'equiposOperativos', 'equiposInoperativos', 'equiposMantenimiento',
                 'catalogosDestacados'
             );
@@ -289,86 +278,37 @@ class DashboardController extends Controller
 
         $alerts = collect();
 
+        // Los cuatro documentos del equipo siguen el MISMO flujo; solo cambian sus columnas,
+        // la relación del frente que lo gestiona y el rótulo. Certificado = Documento
+        // Adicional en la BD ("Certificado Asociado" en la UI).
+        $documentos = [
+            ['poliza',    'FECHA_VENC_POLIZA', 'LINK_POLIZA_SEGURO', 'frenteGestionPoliza',    'Póliza Vencida',      'Póliza Por Vencer'],
+            ['rotc',      'FECHA_ROTC',        'LINK_ROTC',          'frenteGestionRotc',      'ROTC Vencido',        'ROTC Por Vencer'],
+            ['racda',     'FECHA_RACDA',       'LINK_RACDA',         'frenteGestionRacda',     'RACDA Vencido',       'RACDA Por Vencer'],
+            ['adicional', 'FECHA_ADICIONAL',   'LINK_DOC_ADICIONAL', 'frenteGestionAdicional', 'Certificado Vencido', 'Certificado Por Vencer'],
+        ];
+
         foreach ($equipos as $equipo) {
             $doc = $equipo->documentacion;
-            
-            // Poliza
-            if ($doc->FECHA_VENC_POLIZA) {
-                $fechaPoliza = \Carbon\Carbon::parse($doc->FECHA_VENC_POLIZA);
-                
-                // Determine Status
-                $status = $fechaPoliza->lt($now) ? 'expired' : ($fechaPoliza->lt($in30Days) ? 'warning' : 'valid');
-                
-                if ($status !== 'valid') {
-                    $alerts->push((object)[
-                        'equipo' => $equipo,
-                        'type_key' => 'poliza',
-                        'label' => $status === 'expired' ? 'Póliza Vencida' : 'Póliza Por Vencer',
-                        'fecha' => $doc->FECHA_VENC_POLIZA,
-                        'current_link' => $doc->LINK_POLIZA_SEGURO,
-                        'status' => $status,
-                        'gestionado_por' => $doc->frenteGestionPoliza ? $doc->frenteGestionPoliza->NOMBRE_FRENTE : null,
-                        'fecha_gestion' => $doc->poliza_gestion_fecha
-                    ]);
-                }
-            }
 
-            // ROTC
-            if ($doc->FECHA_ROTC) {
-                $fechaRotc = \Carbon\Carbon::parse($doc->FECHA_ROTC);
-                $status = $fechaRotc->lt($now) ? 'expired' : ($fechaRotc->lt($in30Days) ? 'warning' : 'valid');
-                
-                if ($status !== 'valid') {
-                    $alerts->push((object)[
-                        'equipo' => $equipo,
-                        'type_key' => 'rotc',
-                        'label' => $status === 'expired' ? 'ROTC Vencido' : 'ROTC Por Vencer',
-                        'fecha' => $doc->FECHA_ROTC,
-                        'current_link' => $doc->LINK_ROTC,
-                        'status' => $status,
-                        'gestionado_por' => $doc->frenteGestionRotc ? $doc->frenteGestionRotc->NOMBRE_FRENTE : null,
-                        'fecha_gestion' => $doc->rotc_gestion_fecha
-                    ]);
+            foreach ($documentos as [$tipo, $colFecha, $colLink, $relFrente, $rotuloVencido, $rotuloPorVencer]) {
+                if (!$doc->$colFecha) {
+                    continue;   // sin fecha nunca alerta
                 }
-            }
-
-            // RACDA
-            if ($doc->FECHA_RACDA) {
-                $fechaRacda = \Carbon\Carbon::parse($doc->FECHA_RACDA);
-                $status = $fechaRacda->lt($now) ? 'expired' : ($fechaRacda->lt($in30Days) ? 'warning' : 'valid');
-                
-                if ($status !== 'valid') {
-                    $alerts->push((object)[
-                        'equipo' => $equipo,
-                        'type_key' => 'racda',
-                        'label' => $status === 'expired' ? 'RACDA Vencido' : 'RACDA Por Vencer',
-                        'fecha' => $doc->FECHA_RACDA,
-                        'current_link' => $doc->LINK_RACDA,
-                        'status' => $status,
-                        'gestionado_por' => $doc->frenteGestionRacda ? $doc->frenteGestionRacda->NOMBRE_FRENTE : null,
-                        'fecha_gestion' => $doc->racda_gestion_fecha
-                    ]);
+                $fecha  = \Carbon\Carbon::parse($doc->$colFecha);
+                $status = $fecha->lt($now) ? 'expired' : ($fecha->lt($in30Days) ? 'warning' : 'valid');
+                if ($status === 'valid') {
+                    continue;
                 }
-            }
-
-            // Certificado (= Documento Adicional en la BD, "Certificado Asociado" en la UI).
-            // Mismo flujo y MISMOS botones que poliza/rotc/racda (es un documento del equipo).
-            if ($doc->FECHA_ADICIONAL) {
-                $fechaCert = \Carbon\Carbon::parse($doc->FECHA_ADICIONAL);
-                $status = $fechaCert->lt($now) ? 'expired' : ($fechaCert->lt($in30Days) ? 'warning' : 'valid');
-
-                if ($status !== 'valid') {
-                    $alerts->push((object)[
-                        'equipo' => $equipo,
-                        'type_key' => 'adicional',
-                        'label' => $status === 'expired' ? 'Certificado Vencido' : 'Certificado Por Vencer',
-                        'fecha' => $doc->FECHA_ADICIONAL,
-                        'current_link' => $doc->LINK_DOC_ADICIONAL,
-                        'status' => $status,
-                        'gestionado_por' => $doc->frenteGestionAdicional ? $doc->frenteGestionAdicional->NOMBRE_FRENTE : null,
-                        'fecha_gestion' => $doc->adicional_gestion_fecha
-                    ]);
-                }
+                $alerts->push((object) [
+                    'equipo'         => $equipo,
+                    'type_key'       => $tipo,
+                    'label'          => $status === 'expired' ? $rotuloVencido : $rotuloPorVencer,
+                    'fecha'          => $doc->$colFecha,
+                    'current_link'   => $doc->$colLink,
+                    'status'         => $status,
+                    'gestionado_por' => $doc->$relFrente?->NOMBRE_FRENTE,
+                ]);
             }
         }
 
@@ -409,7 +349,6 @@ class DashboardController extends Controller
                 'current_link'   => $aux->LINK_CERTIFICADO,
                 'status'         => $status,
                 'gestionado_por' => null,   // la gestion de documentos es cosa de equipos
-                'fecha_gestion'  => null,
                 // Textos ya resueltos: el auxiliar no tiene las relaciones del equipo
                 // (tipo, frenteActual) ni sus columnas. Se calculan aqui, una sola vez,
                 // y los leen igual la tarjeta del panel y el PDF de vencidos.
@@ -479,6 +418,13 @@ class DashboardController extends Controller
             ], 403);
         }
 
+        // Misma barrera por frente que la lista (frentes visibles + bloqueados): sin ella,
+        // con el ID a mano se podía tomar la gestión de un equipo que no le aparece.
+        $visible = $user->aplicarScopeFrentesEquipos(Equipo::whereKey($request->equipo_id))->exists();
+        if (!$visible) {
+            return response()->json(['success' => false, 'message' => 'Este equipo no está en tus frentes.'], 403);
+        }
+
         $doc = \App\Models\Documentacion::where('ID_EQUIPO', $request->equipo_id)->first();
         if (!$doc) {
             return response()->json(['success' => false, 'message' => 'Documentación no encontrada.'], 404);
@@ -486,6 +432,12 @@ class DashboardController extends Controller
 
         $frenteField = $request->doc_type . '_gestion_frente_id';
         $fechaField  = $request->doc_type . '_gestion_fecha';
+
+        // Ya la tomó otro frente (la lista que la ofrecía estaba vieja, o dos a la vez):
+        // en la lista el botón sale deshabilitado; aquí tampoco se pisa.
+        if ($doc->$frenteField) {
+            return response()->json(['success' => false, 'message' => 'Este documento ya está en gestión.'], 409);
+        }
 
         $doc->$frenteField = $frentes[0];
         $doc->$fechaField  = now();
@@ -579,8 +531,7 @@ class DashboardController extends Controller
                     : 'eq:' . $e->ID_EQUIPO)
                 ->count();
 
-            // MANUAL LOADING OF TCPDF (Emergency Mode)
-            // If the package is physically present but not autoloaded yet
+            // TCPDF por si el autoload de composer aún no lo registró.
             if (!class_exists('TCPDF')) {
                 $tcpdfPath = base_path('vendor/tecnickcom/tcpdf/tcpdf.php');
                 if (file_exists($tcpdfPath)) {
@@ -608,8 +559,7 @@ class DashboardController extends Controller
                 $pdf->SetAuthor($nombreUsuario);
                 $pdf->SetTitle('Reporte de Documentos Vencidos');
 
-                // Configuración de Márgenes (2cm)
-                // Configuración de Márgenes
+                // Márgenes
                 $pdf->setPrintHeader(true); 
                 $pdf->setPrintFooter(true); 
                 $pdf->SetMargins(25, 40, 25); // Margen superior 4cm para bajar el contenido y no chocar con el header grande
@@ -633,8 +583,7 @@ class DashboardController extends Controller
             }
 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('PDF Export Error: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Error al generar PDF: ' . MensajeError::texto($e, MensajeError::REINTENTAR)]);
+            return $this->errorDeReporte($e, 'Error al generar PDF: ');
         }
     }
 
@@ -773,9 +722,24 @@ class DashboardController extends Controller
             }, $nombre, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Excel Export Error: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Error al generar el Excel: ' . MensajeError::texto($e, MensajeError::REINTENTAR)]);
+            return $this->errorDeReporte($e, 'Error al generar el Excel: ');
         }
+    }
+
+    /**
+     * Respuesta de error de los dos reportes. El menú los pide por fetch (menu.blade.php ·
+     * descargarReporteAlertas): un back() redirigía al /menu, el fetch lo seguía, llegaba
+     * un 200 con HTML y se guardaba como «Reporte_Documentos.pdf» roto, sin aviso. A una
+     * petición del menú se le contesta con un 500; abierto a mano, sigue el back() de siempre.
+     */
+    private function errorDeReporte(\Exception $e, string $prefijo)
+    {
+        \Illuminate\Support\Facades\Log::error($prefijo . $e->getMessage());
+        $mensaje = $prefijo . MensajeError::texto($e, MensajeError::REINTENTAR);
+
+        return request()->ajax() || request()->expectsJson()
+            ? response()->json(['message' => $mensaje], 500)
+            : back()->withErrors(['error' => $mensaje]);
     }
 }
 
