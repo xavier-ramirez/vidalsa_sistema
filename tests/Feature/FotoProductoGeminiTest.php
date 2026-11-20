@@ -49,6 +49,19 @@ class FotoProductoGeminiTest extends TestCase
             && $req['contents'][0]['parts'][1]['inline_data']['data'] === base64_encode(file_get_contents($this->foto)));
     }
 
+    public function test_la_descripcion_del_producto_va_en_la_instruccion(): void
+    {
+        Http::fake(['*' => Http::response(['candidates' => [['content' => ['parts' => [
+            ['inlineData' => ['mimeType' => 'image/png', 'data' => base64_encode('PNG')]],
+        ]]]]])]);
+
+        app(FotoProductoGemini::class)->fondoBlanco($this->foto, 'image/jpeg', "FILTRO DE ACEITE
+ 1R-0739 (FILTROS)");
+
+        Http::assertSent(fn ($req) => str_contains($req['contents'][0]['parts'][0]['text'], '«FILTRO DE ACEITE 1R-0739 (FILTROS)»')
+            && str_contains($req['contents'][0]['parts'][0]['text'], 'fondo blanco'));
+    }
+
     public function test_sin_cupo_devuelve_null_y_no_vuelve_a_preguntar_enseguida(): void
     {
         Http::fake(['*' => Http::response(['error' => ['code' => 429, 'message' => 'quota']], 429)]);

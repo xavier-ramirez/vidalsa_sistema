@@ -275,7 +275,8 @@ class AlmacenController extends Controller
      * camino que las fotos de equipos y del catalogo: el archivo vive en Drive y la app lo
      * sirve por esa ruta, asi que la carpeta NO necesita ser publica.
      *
-     * Antes de guardarla, Gemini la rehace con fondo blanco tipo catálogo (FotoProductoGemini).
+     * Antes de guardarla, Gemini la rehace con fondo blanco tipo catálogo (FotoProductoGemini),
+     * con el nombre y la categoría del producto para que sepa qué objeto dejar.
      * Se le manda ya achicada a FOTO_GEMINI_ANCHO (no hace falta más y el envío es liviano).
      * Respuesta `fondo_blanco`: true = la rehizo; false = no pudo (sin cupo, sin red) y quedó
      * la foto tal como vino; null = Gemini no está configurado. Cuando sí la rehace, la ORIGINAL
@@ -310,7 +311,8 @@ class AlmacenController extends Controller
             // Fondo blanco con Gemini. Lo que devuelve se escribe a un temporal y sigue como si
             // el usuario hubiera subido esa imagen; sin respuesta, sigue la original.
             $foto   = $previa['file'];
-            $blanca = $gemini->fondoBlanco($foto->getRealPath(), $foto->getMimeType());
+            $blanca = $gemini->fondoBlanco($foto->getRealPath(), $foto->getMimeType(),
+                trim($producto->NOMBRE . ($producto->CATEGORIA ? ' (' . $producto->CATEGORIA . ')' : '')));
             if ($blanca) {
                 $tmp = tempnam(sys_get_temp_dir(), 'gem_');
                 if ($tmp !== false && file_put_contents($tmp, $blanca['binario']) !== false) {

@@ -31,6 +31,15 @@ class FotoProductoGemini
         . 'ni el texto del producto, no agregues objetos y no pongas textos ni marcas de agua. '
         . 'Encuadre cuadrado.';
 
+    /** La instrucción, con el producto que debe quedar en la foto si se conoce. */
+    private static function instruccion(string $descripcion): string
+    {
+        $descripcion = trim(preg_replace('/\s+/u', ' ', $descripcion));
+        if ($descripcion === '') return self::INSTRUCCION;
+        return self::INSTRUCCION . ' El producto es: «' . mb_substr($descripcion, 0, 300) . '». '
+            . 'Deja SOLO ese producto y quita todo lo demás.';
+    }
+
     /** true si hay clave y modelo de imagen configurados (si no, ni se intenta). */
     public function activo(): bool
     {
@@ -41,9 +50,13 @@ class FotoProductoGemini
     /**
      * Imagen con fondo blanco a partir del archivo $ruta, o null si no se pudo.
      *
+     * $descripcion = nombre del producto en el inventario (y su categoría): le dice a Gemini CUÁL
+     * de los objetos de la foto es el producto, cuando hay más cosas alrededor (una mesa, otras
+     * piezas, la mano). Vacía, Gemini decide solo.
+     *
      * @return array{binario: string, mime: string}|null
      */
-    public function fondoBlanco(string $ruta, string $mime): ?array
+    public function fondoBlanco(string $ruta, string $mime, string $descripcion = ''): ?array
     {
         if (!$this->activo() || !is_readable($ruta) || Cache::has(self::CLAVE_SIN_CUPO)) {
             return null;
@@ -53,7 +66,7 @@ class FotoProductoGemini
         $body = [
             'contents' => [[
                 'parts' => [
-                    ['text' => self::INSTRUCCION],
+                    ['text' => self::instruccion($descripcion)],
                     ['inline_data' => ['mime_type' => $mime, 'data' => base64_encode(file_get_contents($ruta))]],
                 ],
             ]],
