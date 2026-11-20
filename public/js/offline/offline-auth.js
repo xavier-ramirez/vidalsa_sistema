@@ -307,7 +307,8 @@
     // Punto ÚNICO que decide qué se ve según haya servidor.
     function refrescarAccesos() {
         // Sin servidor y con acceso local: se avisa ANTES de pulsar con qué se va a entrar.
-        // Con un mensaje a la vista (mostrarMsgLogin) no: los dos decían lo mismo a la vez.
+        // Con un mensaje a la vista no: los dos decían lo mismo a la vez (mostrarMsgLogin
+        // llama aquí al pintar uno).
         const msg = document.getElementById('offlineLoginMsg');
         const hayMensaje = !!(msg && msg.style.display === 'block');
         if (nota) nota.style.display = (sinServidor && window.OfflineAuth.tieneOffline() && !hayMensaje) ? 'block' : 'none';
@@ -365,7 +366,9 @@
         refrescarAccesos();
     };
     // Los mensajes salen por window.mostrarMsgLogin (inicio_sesion.blade.php): es el
-    // único sitio que escribe #offlineLoginMsg y además apaga el spinner.
+    // único sitio que escribe #offlineLoginMsg y además apaga el spinner. Al pintar uno
+    // llama aquí, para que la nota «Sin internet» no salga a la vez.
+    window.OfflineAuth.refrescarAccesos = refrescarAccesos;
 
     // Comodidad: precarga el correo de la última sesión local. Se hace en 'load'
     // (después del loginForm.reset() que corre en DOMContentLoaded) para que no se borre.
@@ -415,7 +418,7 @@
     async function entrarLocal(id, pw) {
         const ok = await window.OfflineAuth.verificar(id, pw).catch(function () { return false; });
         if (!ok) {
-            window.mostrarMsgLogin('Sin conexión, y el correo o la clave no coinciden\ncon la última vez que se entró en este equipo.', true);
+            window.mostrarMsgLogin('Sin conexión, y el correo o la clave no coinciden con la última vez que se entró en este equipo.', true);
             return;
         }
         // La misma clave abre la copia cifrada que quedó en el equipo. Si no abre (la primera

@@ -333,12 +333,11 @@
         if (window.__yendoAlMenu) return; // ya se va (irDesdeLogin): ni mensaje ni quitar el logo
         window._loginEnCurso = false; // el intento terminó: el guard de 4s vuelve a aplicar
         window.spinnerLogin(false);
-        // Un aviso a la vez: la nota «Sin internet» dice lo mismo que el mensaje (ver
-        // refrescarAccesos en offline-auth.js, que no la vuelve a pintar con un mensaje puesto).
-        const nota = document.getElementById('loginSinRedNota');
-        if (nota) nota.style.display = 'none';
         const msg = document.getElementById('offlineLoginMsg');
         if (msg) { msg.textContent = texto; msg.style.color = rojo ? '#dc2626' : '#b45309'; msg.style.display = 'block'; }
+        // Un aviso a la vez: con el mensaje puesto, la nota «Sin internet» (dice lo mismo) se
+        // quita. La decide su único dueño, refrescarAccesos (offline-auth.js).
+        if (window.OfflineAuth && window.OfflineAuth.refrescarAccesos) window.OfflineAuth.refrescarAccesos();
     };
     // Sin servidor y con una sesión anterior en este equipo (lo dicen el aviso de la URL y
     // avisarSinConexion): un solo texto.
