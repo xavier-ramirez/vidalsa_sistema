@@ -10,6 +10,7 @@ use App\Models\ProductoInventario;
 use App\Models\Traspaso;
 use App\Services\InventarioService;
 use App\Support\NotasReservadas;
+use App\Support\TandasNota;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -2259,13 +2260,21 @@ class AlmacenController extends Controller
 
         try {
             // En SALIDA generamos el NUMERO_NOTA (NE-YYYY-NNNN) DENTRO de la transacción
-            // y lo stampamos en todos los movimientos del lote para identificar la Nota
-            // de Entrega. Permite reimprimir/eliminar la nota completa por código desde
-            // /admin/almacen/movimientos. Capturamos también los IDs para devolver la URL
-            // del PDF al frontend (pre-open tab inmediata, sin segunda búsqueda).
+            // y lo estampamos en los movimientos de su nota para identificar la Nota de
+            // Entrega. Permite reimprimir/eliminar la nota completa por código desde
+            // /admin/almacen/movimientos. Con más de TandasNota::RENGLONES renglones son
+            // varias notas, una por tanda y cada una con su número: [renglón => número].
             $result = DB::transaction(function () use ($data, $opts) {
+                $numeroDelRenglon = [];
+                $numeros = [];
                 if ($data['tipo'] === 'SALIDA') {
-                    $opts['numero_nota'] = NotasReservadas::tomar($data['numero_nota_reservado'] ?? null, $opts['id_usuario']);
+                    $tandas  = TandasNota::partir($data['lineas']);
+                    $numeros = NotasReservadas::tomarVarias(count($tandas), $data, $opts['id_usuario']);
+                    foreach ($tandas as $i => $tanda) {
+                        foreach ($tanda as $linea) {
+                            $numeroDelRenglon[TandasNota::renglon($linea)] = $numeros[$i];
+                        }
+                    }
                 }
                 $ids = [];
 
@@ -2290,6 +2299,9 @@ class AlmacenController extends Controller
                     // Nº de parte específico entregado — es POR LÍNEA (cada filtro puede llevar
                     // una equivalencia distinta), por eso se mezcla aquí y no en $opts global.
                     $optsLinea = $opts;
+                    if ($data['tipo'] === 'SALIDA') {
+                        $optsLinea['numero_nota'] = $numeroDelRenglon[TandasNota::renglon($linea)];
+                    }
                     if ($data['tipo'] === 'SALIDA' && !empty($linea['numero_parte'])) {
                         $optsLinea['numero_parte'] = trim((string) $linea['numero_parte']);
                     }
@@ -2343,11 +2355,11 @@ class AlmacenController extends Controller
                     // Una Auditoría que esperó sin internet y al subir ya coincide: hecha (si se
                     // rechazara, «Reintentar» la volvería a rechazar siempre).
                     if (!empty($data['en_diferido'])) {
-                        return ['ids' => [], 'numero_nota' => null, 'ya_coincidia' => true];
+                        return ['ids' => [], 'numeros' => [], 'ya_coincidia' => true];
                     }
                     throw new \InvalidArgumentException('El conteo coincide con el sistema: no hay nada que ajustar.');
                 }
-                return ['ids' => $ids, 'numero_nota' => $opts['numero_nota'] ?? null];
+                return ['ids' => $ids, 'numeros' => $numeros];
             });
         } catch (Throwable $e) {
             return response()->json(['message' => MensajeError::para($e)], 422);
@@ -2371,8 +2383,7 @@ class AlmacenController extends Controller
         // en el visor in-page (#pdfPreviewModal vía window.openPdfPreview).
         if ($data['tipo'] === 'SALIDA') {
             $this->recordarTransporte((int) $data['id_almacen'], $transporte);
-            $payload['nota_url']    = route('almacen.nota-entrega', ['numero' => $result['numero_nota']]);
-            $payload['numero_nota'] = $result['numero_nota'];
+            $payload = $this->conNotas($payload, $result['numeros']);
         }
 
         return response()->json($payload, 201);
@@ -2395,34 +2406,21 @@ class AlmacenController extends Controller
     {
         $idUsuario  = optional($request->user())->ID_USUARIO;
         $transporte = $this->logistica->transporteDe($data);
-        $lineas     = array_map(
-            fn ($l) => ['id_producto' => (int) $l['id_producto'], 'cantidad' => (float) $l['cantidad']],
-            $data['lineas'],
-        );
-        // ORDEN DE BLOQUEO por ID_PRODUCTO, por el mismo motivo que en la rama de SALIDA pura
-        // (ver el comentario del bucle en registrarMovimientoLote): cada linea acaba tomando
-        // el lock de la fila de `almacen_stock` de su producto, y dos despachos simultaneos
-        // del MISMO almacen con los mismos productos en orden contrario se traban entre si.
-        // Esta rama es la que corre cuando el destino tiene almacen propio — o sea, la mas
-        // frecuente — asi que sin esto la correccion de la otra rama no serviria de nada.
-        usort($lineas, fn ($a, $b) => $a['id_producto'] <=> $b['id_producto']);
 
         try {
-            $resultado = $this->crearYEnviarTraspaso($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $bolsaPorProducto, $transporte);
+            $resultado = $this->enviarEnTraspasos($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $data['lineas'], $bolsaPorProducto, $transporte);
         } catch (Throwable $e) {
             return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
         $this->recordarTransporte((int) $data['id_almacen'], $transporte);
 
-        $n = count($lineas);
-        return response()->json([
+        $n = count($data['lineas']);
+        return response()->json($this->conNotas([
             // Texto plano: showToast (uicomponents.js) pinta el message con textContent.
             'message'         => "Salida hacia otro proyecto enviada ({$n} producto" . ($n === 1 ? '' : 's') . '), pendiente de recepción.',
-            'nota_url'        => route('almacen.nota-entrega', ['numero' => $resultado['numero_nota']]),
-            'numero_nota'     => $resultado['numero_nota'],
-            'numero_traspaso' => $resultado['numero_traspaso'],
-        ], 201);
+            'numero_traspaso' => $resultado['traspasos'][0],
+        ], $resultado['numeros'], $resultado['traspasos']), 201);
     }
 
     /**
@@ -2496,26 +2494,30 @@ class AlmacenController extends Controller
 
                 if ($idAlmDestino !== null) {
                     // El proyecto tiene almacén propio: traspaso enviado, como la salida normal.
-                    return $this->crearYEnviarTraspaso($data, $idFrente, $idAlmDestino, $idUsuario, $lineas,
+                    return $this->enviarEnTraspasos($data, $idFrente, $idAlmDestino, $idUsuario, $lineas,
                         array_fill_keys(array_column($lineas, 'id_producto'), $bolsa), $transporte);
                 }
 
-                // El proyecto se atiende desde este almacén: salida (consumo) con su nota.
+                // El proyecto se atiende desde este almacén: salida (consumo) con su nota, o sus
+                // notas si pasa de TandasNota::RENGLONES (cada tanda con su número).
                 $opts = [
                     'fecha'             => $data['fecha'] ?? null,
                     'id_frente'         => $idFrente,
                     'motivo'            => $data['motivo'] ?? null,
                     'id_usuario'        => $idUsuario,
                     'permitir_negativo' => false,
-                    'numero_nota'       => NotasReservadas::tomar($data['numero_nota_reservado'] ?? null, $idUsuario),
                     '_frente_saldo'     => $bolsa,
                 ] + $this->datosNotaSalida($data) + $transporte;
-                foreach ($lineas as $l) {
-                    // Destino del renglón (nota horizontal): sale en su columna DESTINO.
-                    $optsLinea = $l['destino'] !== null ? ['destino_item' => $l['destino']] + $opts : $opts;
-                    $this->inventario->registrarSalida($idAlmacen, $l['id_producto'], $l['cantidad'], $optsLinea);
+                $tandas  = TandasNota::partir($lineas);
+                $numeros = NotasReservadas::tomarVarias(count($tandas), $data, $idUsuario);
+                foreach ($tandas as $i => $tanda) {
+                    foreach ($tanda as $l) {
+                        // Destino del renglón (nota horizontal): sale en su columna DESTINO.
+                        $optsLinea = ['numero_nota' => $numeros[$i]] + ($l['destino'] !== null ? ['destino_item' => $l['destino']] : []) + $opts;
+                        $this->inventario->registrarSalida($idAlmacen, $l['id_producto'], $l['cantidad'], $optsLinea);
+                    }
                 }
-                return ['numero_nota' => $opts['numero_nota'], 'numero_traspaso' => null];
+                return ['numeros' => $numeros, 'traspasos' => []];
             });
         } catch (Throwable $e) {
             return response()->json(['message' => MensajeError::para($e)], 422);
@@ -2524,13 +2526,11 @@ class AlmacenController extends Controller
         $this->recordarTransporte($idAlmacen, $transporte);
 
         $n = count($lineas);
-        return response()->json([
-            'message'         => "Entrada registrada y despachada ({$n} producto" . ($n === 1 ? '' : 's') . ') — Nota ' . $resultado['numero_nota']
-                . ($resultado['numero_traspaso'] ? ', pendiente de recepción en el almacén del proyecto.' : '.'),
-            'nota_url'        => route('almacen.nota-entrega', ['numero' => $resultado['numero_nota']]),
-            'numero_nota'     => $resultado['numero_nota'],
-            'numero_traspaso' => $resultado['numero_traspaso'],
-        ], 201);
+        return response()->json($this->conNotas([
+            'message'         => "Entrada registrada y despachada ({$n} producto" . ($n === 1 ? '' : 's') . ') — Nota ' . $resultado['numeros'][0]
+                . ($resultado['traspasos'] ? ', pendiente de recepción en el almacén del proyecto.' : '.'),
+            'numero_traspaso' => $resultado['traspasos'][0] ?? null,
+        ], $resultado['numeros'], $resultado['traspasos']), 201);
     }
 
     /**
@@ -2590,7 +2590,7 @@ class AlmacenController extends Controller
         $porClave = [];
         foreach ($data['lineas'] as $l) {
             $idp     = (int) $l['id_producto'];
-            $destino = $this->limpiarDestino($l['destino'] ?? null);
+            $destino = TandasNota::destino($l['destino'] ?? null);
             $clave   = $idp . '|' . $destino;
             $porClave[$clave] ??= ['id_producto' => $idp, 'cantidad' => 0.0, 'destino' => $destino];
             $porClave[$clave]['cantidad'] += (float) $l['cantidad'];
@@ -2618,52 +2618,77 @@ class AlmacenController extends Controller
     }
 
     /**
-     * Crea el traspaso de una salida hacia el almacén de otro proyecto y lo envía, con su
-     * Nota de Entrega (NUMERO_NOTA), en UNA transacción. Lo usan la salida normal
+     * Envía una salida hacia el almacén de otro proyecto: UN traspaso por Nota de Entrega
+     * (TandasNota: con más de RENGLONES renglones son varias notas y cada una viaja y se recibe
+     * como su propio traspaso), todo en UNA transacción. Lo usan la salida normal
      * (registrarSalidaViaTraspaso) y el despacho directo de la recepción
      * (registrarRecepcionConDespacho), que corre dentro de su propia transacción: ahí esta
      * queda anidada (savepoint) y, si algo falla después, se deshace con todo lo demás.
      *
-     * $lineas ya vienen ordenadas por ID_PRODUCTO (orden de bloqueo).
-     *
-     * @return array{numero_nota: string, numero_traspaso: string}
+     * @return array{numeros: list<string>, traspasos: list<string>}
      */
-    private function crearYEnviarTraspaso(array $data, int $idFrenteDestino, int $idAlmacenDestino, ?int $idUsuario, array $lineas, array $bolsaPorProducto, array $transporte): array
+    private function enviarEnTraspasos(array $data, int $idFrenteDestino, int $idAlmacenDestino, ?int $idUsuario, array $lineas, array $bolsaPorProducto, array $transporte): array
     {
         return DB::transaction(function () use ($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $lineas, $bolsaPorProducto, $transporte) {
-            $numeroNota = NotasReservadas::tomar($data['numero_nota_reservado'] ?? null, $idUsuario);
+            $tandas  = TandasNota::partir($lineas);
+            $numeros = NotasReservadas::tomarVarias(count($tandas), $data, $idUsuario);
+            // Varias notas = varios envíos seguidos, cada uno bloqueando sus productos: se toman
+            // TODOS antes, en el orden de cualquier salida, para no cruzarse con otro despacho.
+            if (count($tandas) > 1) {
+                $this->inventario->bloquearSaldos((int) $data['id_almacen'], array_column($lineas, 'id_producto'));
+            }
+            $traspasos = [];
+            foreach ($tandas as $i => $tanda) {
+                $deLaTanda = array_map(fn ($l) => ['id_producto' => (int) $l['id_producto'], 'cantidad' => (float) $l['cantidad']], $tanda);
+                // ORDEN DE BLOQUEO por ID_PRODUCTO, por el mismo motivo que en la rama de SALIDA
+                // pura (ver el comentario del bucle en registrarMovimientoLote): dos despachos
+                // simultáneos del MISMO almacén con los mismos productos en orden contrario se
+                // traban entre sí.
+                usort($deLaTanda, fn ($a, $b) => $a['id_producto'] <=> $b['id_producto']);
+                $traspasos[] = $this->crearYEnviarTraspaso($data, $idFrenteDestino, $idAlmacenDestino, $idUsuario, $deLaTanda, $bolsaPorProducto, $transporte, $numeros[$i]);
+            }
 
-            $traspaso = $this->traspasos->crearBorrador(
-                datos: [
-                    'id_almacen_origen'  => (int) $data['id_almacen'],
-                    'id_almacen_destino' => $idAlmacenDestino,
-                    'id_frente_destino'  => $idFrenteDestino,
-                    // El número de nota se usa también como REFERENCIA del traspaso
-                    // — así el kardex y el documento comparten el mismo identificador
-                    // visible al usuario (TR-... para auditoría, NE-... para el PDF).
-                    'referencia'         => $numeroNota,
-                    'motivo'             => $data['motivo'] ?? null,
-                    'id_usuario'         => $idUsuario,
-                ],
-                lineas: $lineas,
-            );
-
-            $this->traspasos->enviar($traspaso, [
-                // De qué bolsa del almacén ORIGEN se descuenta cada producto. Los que no
-                // estén en el mapa van en automático: la del frente destino, como siempre.
-                'bolsa_por_producto' => $bolsaPorProducto,
-                // Destino escrito en cada renglón (nota horizontal), mismo mapa por producto.
-                'destino_por_producto' => $data['destino_por_producto'] ?? [],
-                'id_usuario_envio'  => $idUsuario,
-                'fecha_envio'       => $data['fecha'] ?? null,
-                // Un envío a otro almacén también es una SALIDA física: no se puede enviar
-                // material que no existe. No permitimos negativo, ni a super.admin.
-                'permitir_negativo' => false,
-                'numero_nota'       => $numeroNota,
-            ] + $this->datosNotaSalida($data) + $transporte);
-
-            return ['numero_nota' => $numeroNota, 'numero_traspaso' => $traspaso->NUMERO];
+            return ['numeros' => $numeros, 'traspasos' => $traspasos];
         });
+    }
+
+    /**
+     * Crea UN traspaso (una Nota de Entrega, $numeroNota) y lo envía. Solo desde
+     * enviarEnTraspasos, que reparte las notas y abre la transacción. $lineas ya vienen
+     * ordenadas por ID_PRODUCTO (orden de bloqueo). Devuelve el número del traspaso.
+     */
+    private function crearYEnviarTraspaso(array $data, int $idFrenteDestino, int $idAlmacenDestino, ?int $idUsuario, array $lineas, array $bolsaPorProducto, array $transporte, string $numeroNota): string
+    {
+        $traspaso = $this->traspasos->crearBorrador(
+            datos: [
+                'id_almacen_origen'  => (int) $data['id_almacen'],
+                'id_almacen_destino' => $idAlmacenDestino,
+                'id_frente_destino'  => $idFrenteDestino,
+                // El número de nota se usa también como REFERENCIA del traspaso
+                // — así el kardex y el documento comparten el mismo identificador
+                // visible al usuario (TR-... para auditoría, NE-... para el PDF).
+                'referencia'         => $numeroNota,
+                'motivo'             => $data['motivo'] ?? null,
+                'id_usuario'         => $idUsuario,
+            ],
+            lineas: $lineas,
+        );
+
+        $this->traspasos->enviar($traspaso, [
+            // De qué bolsa del almacén ORIGEN se descuenta cada producto. Los que no
+            // estén en el mapa van en automático: la del frente destino, como siempre.
+            'bolsa_por_producto' => $bolsaPorProducto,
+            // Destino escrito en cada renglón (nota horizontal), mismo mapa por producto.
+            'destino_por_producto' => $data['destino_por_producto'] ?? [],
+            'id_usuario_envio'  => $idUsuario,
+            'fecha_envio'       => $data['fecha'] ?? null,
+            // Un envío a otro almacén también es una SALIDA física: no se puede enviar
+            // material que no existe. No permitimos negativo, ni a super.admin.
+            'permitir_negativo' => false,
+            'numero_nota'       => $numeroNota,
+        ] + $this->datosNotaSalida($data) + $transporte);
+
+        return $traspaso->NUMERO;
     }
 
     /**
@@ -2676,24 +2701,12 @@ class AlmacenController extends Controller
         $mapa = [];
         foreach ($lineas as $l) {
             $idp     = (int) ($l['id_producto'] ?? 0);
-            $destino = $this->limpiarDestino($l['destino'] ?? null);
+            $destino = TandasNota::destino($l['destino'] ?? null);
             if ($destino !== null && !array_key_exists($idp, $mapa)) {
                 $mapa[$idp] = $destino;
             }
         }
         return $mapa;
-    }
-
-    /**
-     * Destino de un renglón listo para guardar: texto reparado (MojibakeFix, como el resto de
-     * la nota), espacios colapsados y en mayúsculas. Se corta a 150 DESPUÉS de pasarlo a
-     * mayúsculas porque eso puede alargarlo (ß → SS) y la columna DESTINO_ITEM es de 150.
-     */
-    private function limpiarDestino(?string $texto): ?string
-    {
-        $t = (string) \App\Casts\MojibakeFix::fix($texto);
-        $t = mb_substr(mb_strtoupper(trim(preg_replace('/\s+/u', ' ', $t))), 0, 150);
-        return $t === '' ? null : $t;
     }
 
     /**
@@ -2712,6 +2725,9 @@ class AlmacenController extends Controller
             'motivo'          => 'nullable|string|max:200',
             // Nº apartado para este dispositivo: la salida se hizo sin internet (NotasReservadas).
             'numero_nota_reservado' => 'nullable|string|max:20',
+            // Los de las notas siguientes cuando pasa de TandasNota::RENGLONES (NotasReservadas::tomarVarias).
+            'numeros_nota_extra'    => 'nullable|array|max:50',
+            'numeros_nota_extra.*'  => 'string|max:20',
             // La hora impresa en ese papel (NotaEntregaLocal): la Nota del servidor pone la misma.
             'hora_emision'          => ['nullable', 'regex:/^\d{2}:\d{2} (AM|PM)$/'],
         ] + $this->reglasTransporte();
@@ -2728,6 +2744,28 @@ class AlmacenController extends Controller
             // Solo con número apartado: es la de un papel ya impreso sin internet.
             'hora_emision'    => !empty($data['numero_nota_reservado']) ? ($data['hora_emision'] ?? null) : null,
         ];
+    }
+
+    /**
+     * La respuesta de una salida con sus Notas de Entrega: `notas` (una por tanda, ver
+     * TandasNota) con su número y su PDF, y `nota_url`/`numero_nota` de la primera. La pantalla
+     * descarga todas; con más de una, el mensaje dice en cuántas salió.
+     */
+    private function conNotas(array $payload, array $numeros, array $traspasos = []): array
+    {
+        $payload['notas'] = array_map(fn ($numero, $i) => array_filter([
+            'numero_nota'     => $numero,
+            'nota_url'        => route('almacen.nota-entrega', ['numero' => $numero]),
+            'numero_traspaso' => $traspasos[$i] ?? null,
+        ]), $numeros, array_keys($numeros));
+        $payload['numero_nota'] = $numeros[0] ?? null;
+        $payload['nota_url']    = $payload['notas'][0]['nota_url'] ?? null;
+        if (count($numeros) > 1) {
+            $payload['message'] .= ' — en ' . count($numeros) . ' Notas de Entrega (' . implode(', ', $numeros) . '): '
+                . TandasNota::RENGLONES . ' materiales por nota.';
+        }
+
+        return $payload;
     }
 
     /**
@@ -3240,7 +3278,7 @@ class AlmacenController extends Controller
                 // Nº de parte específico (filtros): el preview también lo muestra, igual que
                 // el PDF final. El blade lo lee null-safe, así que si no vino queda vacío.
                 'NUMERO_PARTE' => $l['numero_parte'] ?? null,
-                'DESTINO_ITEM' => $this->limpiarDestino($l['destino'] ?? null),
+                'DESTINO_ITEM' => TandasNota::destino($l['destino'] ?? null),
                 'producto'     => $productos[(int) $l['id_producto']] ?? null,
                 // Frente de ESTA linea — lo lee la columna DESTINO del formato HORIZONTAL.
                 // En el preview la nota entera va a un solo frente (el formulario pide uno
@@ -3385,7 +3423,7 @@ class AlmacenController extends Controller
             ->orderBy('FECHA')->orderBy('ID_MOVIMIENTO')
             ->get();
 
-        // UNA operacion = UNA hoja. El formulario se rellena con renglones vacios hasta su
+        // UNA nota = UNA hoja. El formulario se rellena con renglones vacios hasta su
         // numero oficial (20 de pie, 12 acostada), pero lo que ocupa cada renglon depende de
         // lo que se entrega: un nombre largo o un nº de parte parten la descripcion en dos o
         // tres lineas, y el bloque de devoluciones suma alto al pie. Con numeros fijos eso
@@ -3394,16 +3432,11 @@ class AlmacenController extends Controller
         // Por eso se ARMA y se MIDE: si no cabe en una hoja, se quitan renglones VACIOS (los
         // que haga falta, buscando el mayor numero que aun cabe) y, si ni sin relleno cabe,
         // se pasa la tabla de items a modo compacto (letra y aire de celda menores). Solo si
-        // aun asi no entra —muchisimos items— la nota sigue en mas hojas, que es lo que tiene
-        // que pasar: nunca se recorta un item.
+        // aun asi no entra la nota sigue en mas hojas —nunca se recorta un item—: las de antes
+        // de TandasNota con mas de RENGLONES renglones, o un pie de devoluciones muy largo.
         $filasOficiales = $horizontal ? self::NOTA_FILAS_HORIZONTAL : self::NOTA_FILAS_VERTICAL;
-        $armar = function (int $filas, bool $compacto) use (
-            $horizontal, $datos, $esPreview, $vista, $movs, $devoluciones, $almacen, $correcciones
-        ): NotaEntregaPDF {
+        $nuevo = function () use ($horizontal, $datos, $esPreview, $correcciones): NotaEntregaPDF {
             $pdf = new NotaEntregaPDF($horizontal ? 'L' : 'P', 'mm', 'A4', true, 'UTF-8', false);
-            // El N° de Nota va en el cabezote (esquina derecha, donde antes estaba "CODIGO:").
-            // Header() lo lee de esta propiedad pública.
-            $pdf->numeroNota = $datos['numero_nota'] ?? '';
             // El formato se le DICE, no se deduce. El cabezote arma un sello distinto para cada
             // uno y antes lo averiguaba mirando si $fechaHora venia vacia — un contrato
             // implicito: rellenar esa propiedad para el vertical le habria cambiado el sello sin
@@ -3440,6 +3473,16 @@ class AlmacenController extends Controller
                 . ($correcciones->isNotEmpty() ? ' (original, antes de corregir)' : ''));
             $pdf->SetAuthor('Constructora Vidalsa 27, C.A.');
             $pdf->SetCreator('Sistema de Gestión VIDALSA');
+            return $pdf;
+        };
+        // Una nota (sus renglones, $movsNota) en hojas nuevas del $pdf.
+        $pintar = function (NotaEntregaPDF $pdf, $movsNota, string $numero, int $filas, bool $compacto) use (
+            $horizontal, $datos, $vista, $devoluciones, $almacen, $correcciones
+        ): NotaEntregaPDF {
+            // El N° de Nota va en el cabezote (esquina derecha, donde antes estaba "CODIGO:").
+            // Header() lo lee de esta propiedad pública al abrir cada hoja.
+            $pdf->numeroNota = $numero;
+            $pdf->empezarNota();
             $pdf->AddPage();
             // Línea fina (0.15mm) para que las tablas HTML del cuerpo usen el mismo
             // grosor que el cabezote — TCPDF usa SetLineWidth como default para los
@@ -3448,13 +3491,12 @@ class AlmacenController extends Controller
             $pdf->SetFont('helvetica', '', 9.5);
             // En compacto tambien se cierra el interlineado: el alto minimo de cada renglon lo
             // pone el line-height (1,25 por defecto en TCPDF), no la letra ni el cellpadding.
-            if ($compacto) {
-                $pdf->setCellHeightRatio(0.9);
-            }
+            // Siempre se pone: la nota anterior del mismo PDF pudo dejarlo en compacto.
+            $pdf->setCellHeightRatio($compacto ? 0.9 : K_CELL_HEIGHT_RATIO);
 
             $html = view($vista, [
                 'datos' => $datos,
-                'movs'  => $movs,
+                'movs'  => $movsNota,
                 'devoluciones' => $devoluciones,
                 // Solo en la nota ORIGINAL de una nota corregida: el bloque rojo del pie.
                 'correcciones' => $correcciones,
@@ -3470,27 +3512,46 @@ class AlmacenController extends Controller
             $pdf->writeHTML($html, true, false, true, false, '');
             return $pdf;
         };
-
-        $items = $movs->count();
-        $pdf = $armar($filasOficiales, false);
-        if ($pdf->getNumPages() > 1 && $items < $filasOficiales) {
-            // Busqueda binaria del mayor relleno que cabe (cada intento es un PDF en memoria).
-            $sinRelleno = $armar($items, false);
-            if ($sinRelleno->getNumPages() === 1) {
-                [$cabe, $noCabe, $pdf] = [$items, $filasOficiales, $sinRelleno];
-                while ($noCabe - $cabe > 1) {
-                    $medio = intdiv($cabe + $noCabe, 2);
-                    $intento = $armar($medio, false);
-                    if ($intento->getNumPages() === 1) { [$cabe, $pdf] = [$medio, $intento]; } else { $noCabe = $medio; }
+        // La mejor forma de una nota sola: [el PDF ya armado, relleno, compacto].
+        $medir = function ($movsNota, string $numero) use ($nuevo, $pintar, $filasOficiales): array {
+            $armar = fn (int $filas, bool $compacto) => $pintar($nuevo(), $movsNota, $numero, $filas, $compacto);
+            $items = $movsNota->count();
+            [$pdf, $filas, $compacto] = [$armar($filasOficiales, false), $filasOficiales, false];
+            if ($pdf->getNumPages() > 1 && $items < $filasOficiales) {
+                // Busqueda binaria del mayor relleno que cabe (cada intento es un PDF en memoria).
+                $sinRelleno = $armar($items, false);
+                [$pdf, $filas] = [$sinRelleno, $items];
+                if ($sinRelleno->getNumPages() === 1) {
+                    $noCabe = $filasOficiales;
+                    while ($noCabe - $filas > 1) {
+                        $medio = intdiv($filas + $noCabe, 2);
+                        $intento = $armar($medio, false);
+                        if ($intento->getNumPages() === 1) { [$filas, $pdf] = [$medio, $intento]; } else { $noCabe = $medio; }
+                    }
                 }
-            } else {
-                $pdf = $sinRelleno;
             }
-        }
-        if ($pdf->getNumPages() > 1) {
-            $compacto = $armar($items, true);
-            if ($compacto->getNumPages() <= $pdf->getNumPages()) {
-                $pdf = $compacto;
+            if ($pdf->getNumPages() > 1) {
+                $enCompacto = $armar($items, true);
+                if ($enCompacto->getNumPages() <= $pdf->getNumPages()) {
+                    [$pdf, $filas, $compacto] = [$enCompacto, $items, true];
+                }
+            }
+            return [$pdf, $filas, $compacto];
+        };
+
+        // Una nota emitida trae solo sus renglones. La VISTA PREVIA de una salida con más de
+        // TandasNota::RENGLONES muestra las notas en que se va a emitir, cada una en sus hojas
+        // y con su paginación: los renglones ya vienen en el orden en que TandasNota los reparte.
+        $tandas = $esPreview ? $movs->chunk(TandasNota::RENGLONES)->map->values()->values() : collect([$movs]);
+        $numero = $datos['numero_nota'] ?? '';
+        if ($tandas->count() === 1) {
+            [$pdf] = $medir($movs, $numero);
+        } else {
+            $pdf = $nuevo();
+            foreach ($tandas as $i => $tanda) {
+                $deEsta = $numero . ' (' . ($i + 1) . '/' . $tandas->count() . ')';
+                [, $filas, $compacto] = $medir($tanda, $deEsta);
+                $pintar($pdf, $tanda, $deEsta, $filas, $compacto);
             }
         }
         // Numeracion de paginas: con el documento ya completo (ver sellarPaginacion).
@@ -4035,6 +4096,18 @@ class NotaEntregaPDF extends \TCPDF
      */
     public int $pagPt = 7;
 
+    /**
+     * Primera hoja de cada nota del documento. Casi siempre una sola nota; la vista previa de
+     * una salida de más de TandasNota::RENGLONES lleva varias, y cada una se pagina aparte.
+     */
+    private array $iniciosNota = [];
+
+    /** Lo llama renderNotaEntregaPdfBinary antes de abrir la primera hoja de cada nota. */
+    public function empezarNota(): void
+    {
+        $this->iniciosNota[] = $this->getNumPages() + 1;
+    }
+
     public function Header()
     {
         // ── Cabezote de la Nota — UNA tabla HTML con bordes ────────────────────
@@ -4247,11 +4320,16 @@ class NotaEntregaPDF extends \TCPDF
             return;   // Header() nunca corrio (setPrintHeader(false)): nada que sellar.
         }
         [$x, $y, $w, $h] = $this->celdaPag;
-        $total  = max(1, $this->getNumPages());
-        $actual = $this->getPage();
+        $paginas = max(1, $this->getNumPages());
+        $actual  = $this->getPage();
+        $inicios = $this->iniciosNota ?: [1];
 
-        for ($p = 1; $p <= $total; $p++) {
+        for ($p = 1; $p <= $paginas; $p++) {
             $this->setPage($p);
+            // X DE Y dentro de SU nota: la que empieza en la última hoja de inicio <= p.
+            $desde = max(array_filter($inicios, fn ($i) => $i <= $p) ?: [1]);
+            $hasta = (current(array_filter($inicios, fn ($i) => $i > $p)) ?: $paginas + 1) - 1;
+            [$pagina, $total] = [$p - $desde + 1, $hasta - $desde + 1];
             // MultiCell con valign='M', y NO writeHTMLCell: aquel escribe DESDE ARRIBA de la
             // celda, asi que el "PAG. X DE Y" quedaba pegado al borde superior mientras las
             // filas de encima —celdas de la tabla del cabezote, con valign="middle"— salian
@@ -4268,7 +4346,7 @@ class NotaEntregaPDF extends \TCPDF
             // que mide es exactamente la misma con la que pinta.
             $this->SetFont('helvetica', '', $this->pagPt);
             $this->MultiCell(
-                $w, $h, 'PAG. ' . $p . ' DE ' . $total,
+                $w, $h, 'PAG. ' . $pagina . ' DE ' . $total,
                 0, 'C', false, 0, $x, $y, true, 0, false, true, $h, 'M'
             );
         }

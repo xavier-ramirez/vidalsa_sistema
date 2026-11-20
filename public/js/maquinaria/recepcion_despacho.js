@@ -155,8 +155,8 @@ window.RecepcionDespacho = {
                     api.reiniciar();
                     cfg.alTerminar(res.b || {});
                     toast((res.b && res.b.message) || 'Entrada registrada y despachada.', 'success');
-                    // La nota, descargada como archivo (dom_helpers.js), igual que la salida de /admin/almacen.
-                    if (res.b && res.b.nota_url) window.descargarPdf(res.b.nota_url, res.b.numero_nota ? ('Nota_' + res.b.numero_nota + '.pdf') : 'nota_entrega.pdf');
+                    // Las notas, descargadas como archivo (dom_helpers.js), igual que la salida de /admin/almacen.
+                    window.descargarNotas(res.b);
                     return;
                 }
                 // No se registró (algo cambió desde la vista previa): de vuelta a la nota con el motivo.

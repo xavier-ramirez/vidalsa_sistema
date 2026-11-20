@@ -66,6 +66,29 @@ class NotasReservadas
     }
 
     /**
+     * Los números de una salida que se emite en $cuantas notas (TandasNota), uno por nota y en
+     * su orden. Sin números apartados, nuevos. Con apartados (salida sin internet) tienen que ser
+     * justo $cuantas, el primero en numero_nota_reservado y el resto en numeros_nota_extra: son
+     * los que ya llevan los papeles impresos, y si el servidor la partiera distinto, alguno
+     * quedaría con un número que no es el suyo.
+     *
+     * @return list<string>
+     */
+    public static function tomarVarias(int $cuantas, array $data, ?int $idUsuario): array
+    {
+        $apartados = array_values(array_filter(array_map(
+            fn ($n) => trim((string) $n),
+            array_merge([$data['numero_nota_reservado'] ?? null], (array) ($data['numeros_nota_extra'] ?? []))
+        ), fn ($n) => $n !== ''));
+        if ($apartados && count($apartados) !== $cuantas) {
+            throw new RuntimeException('La salida trae ' . count($apartados) . ' Nota(s) apartada(s) y se emite en ' . $cuantas
+                . '. Vuelve a hacer la vista previa y regístrala de nuevo.');
+        }
+
+        return array_map(fn ($i) => self::tomar($apartados[$i] ?? null, $idUsuario), range(0, $cuantas - 1));
+    }
+
+    /**
      * Una salida sin internet que el servidor rechazó y el usuario DESCARTÓ: su papel ya se
      * imprimió, así que el número no vuelve a darse nunca (quedaría otro papel con el mismo
      * número). Se marca como usado sin movimiento: queda como hueco en la numeración.

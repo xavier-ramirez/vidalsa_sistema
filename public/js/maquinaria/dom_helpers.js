@@ -444,6 +444,15 @@
             .catch(function () {});
     };
 
+    // Las Notas de Entrega de una salida recién registrada (`notas` de la respuesta: una por
+    // cada TandasNota::RENGLONES materiales), cada una como archivo. La usan la salida de
+    // /admin/almacen, "Registrar y despachar" de la recepción y la bandeja al subir.
+    window.descargarNotas = function (respuesta) {
+        ((respuesta && respuesta.notas) || []).forEach(function (n) {
+            window.descargarPdf(n.nota_url, 'Nota_' + n.numero_nota + '.pdf');
+        });
+    };
+
     // Bajar un archivo, en TODA la app (Nota, acta, reporte de falla, Excel, visor de PDF…):
     //   descargarBlob(blob, nombre)  → un Blob ya armado.
     //   descargarEnlace(href, nombre) → una URL (blob: o del servidor).

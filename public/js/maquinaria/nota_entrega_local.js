@@ -15,8 +15,14 @@
  *                                       en el teléfono, el visor de la vista previa (pdf.js).
  *   NotaEntregaLocal.generar(datos)   → Promise<Blob> (application/pdf).
  *   NotaEntregaLocal.construir(PDFLib, datos, logoBytes) → Promise<Uint8Array> (sin DOM; Node).
+ *   NotaEntregaLocal.numeros(datos) / archivo(datos) → sus números y el nombre del archivo.
+ *   NotaEntregaLocal.tandas(lineas)  → las líneas repartidas en notas de RENGLONES_POR_NOTA
+ *                                       renglones (App\Support\TandasNota, misma regla).
  *
- * datos = { formato: 'VERTICAL'|'HORIZONTAL', numero, proyecto, contrato, fecha (d/m/Y), hora,
+ * Con más de RENGLONES_POR_NOTA renglones el PDF lleva varias notas seguidas, cada una con su
+ * número: datos.numeros (uno por tanda, en orden; el primero es datos.numero).
+ *
+ * datos = { formato: 'VERTICAL'|'HORIZONTAL', numero, numeros, proyecto, contrato, fecha (d/m/Y), hora,
  *           rq, solicitante, departamento, almacen, entregado_por, cargo_entrega, motivo,
  *           transporte_vehiculo, transporte_placa, transporte_chofer, transporte_cedula,
  *           firmantes: [{ rol, nombre, cargo, cedula }],
@@ -43,6 +49,8 @@
     const PX = 1;
     const LETRA_DOC = 9.5;
     const FILAS = { VERTICAL: 20, HORIZONTAL: 12 };
+    // Renglones por Nota: = App\Support\TandasNota::RENGLONES (lo vigila TandasNotaTest).
+    const RENGLONES_POR_NOTA = 20;
     const EMPRESA = 'CONSTRUCTORA VIDALSA 27, C.A.';
 
     // ── Números: 3 decimales como máximo, coma decimal y punto de miles (como $fmt del blade).
@@ -72,6 +80,24 @@
         return orden.map((k) => por[k]);
     }
 
+    // Las líneas repartidas en notas, como App\Support\TandasNota::partir: cada RENGLONES_POR_NOTA
+    // renglones (misma clave que agrupar), en su orden; las líneas de un renglón van a la nota
+    // donde apareció primero. El servidor reparte igual y exige un número apartado por nota.
+    function tandas(lineas) {
+        const res = [], dondeVa = {};
+        let enLaUltima = 0;
+        (lineas || []).forEach((l) => {
+            const k = [l.clave, String(l.numero_parte || '').trim(), destino(l.destino)].join('|');
+            if (!(k in dondeVa)) {
+                if (!res.length || enLaUltima === RENGLONES_POR_NOTA) { res.push([]); enLaUltima = 0; }
+                dondeVa[k] = res.length - 1;
+                enLaUltima++;
+            }
+            res[dondeVa[k]].push(l);
+        });
+        return res;
+    }
+
     async function construir(PDFLib, datos, logoBytes) {
         let LINEA = 1.25;                     // cell height ratio de TCPDF (0,9 en compacto)
         const { PDFDocument, StandardFonts, rgb } = PDFLib;
@@ -83,6 +109,9 @@
         const F = { r: await doc.embedFont(StandardFonts.Helvetica), b: await doc.embedFont(StandardFonts.HelveticaBold) };
         let logo = null;
         try { if (logoBytes) logo = await doc.embedJpg(logoBytes); } catch (e) { logo = null; }
+
+        // La nota que se está pintando: el documento lleva una por tanda (ver el final).
+        let nota = datos;
 
         const NEGRO = rgb(0, 0, 0), ROJO = rgb(0xdc / 255, 0x26 / 255, 0x26 / 255), GRIS = rgb(0xd9 / 255, 0xd9 / 255, 0xd9 / 255);
         const pagW = (horizontal ? 297 : 210) * MM, pagH = (horizontal ? 210 : 297) * MM;
@@ -197,9 +226,9 @@
             const cx = X0, cy = 16 * MM, cw = ANCHO, ch = 24 * MM;
             const wLogo = cw * 0.20, wTit = cw * 0.52, wSel = cw * 0.28;
             const filas = horizontal
-                ? [[run('N° de Nota: ', 9, true), run(datos.numero, 9, true, ROJO)],
+                ? [[run('N° de Nota: ', 9, true), run(nota.numero, 9, true, ROJO)],
                    [run('FECHA: ' + (datos.fecha || '') + ' HORA: ' + (datos.hora || ''), 10, true)]]
-                : [[run('N° de Nota: ', 8, true), run(datos.numero, 8, true, ROJO)],
+                : [[run('N° de Nota: ', 8, true), run(nota.numero, 8, true, ROJO)],
                    [run('FECHA EMIS: 01/10/19', 7)],
                    [run('REV: 2. FECHA REV: 06/09/26', 7)]];
             filas.push([run('PAG. ' + p + ' DE ' + total, horizontal ? 8 : 7)]);
@@ -226,7 +255,7 @@
         function cuerpo(filasRelleno, compacto) {
             LINEA = compacto ? 0.9 : 1.25;
             const fi = compacto ? 7 : 8, pad = (compacto ? 1 : 2) * PX;
-            const items = agrupar(datos.lineas);
+            const items = agrupar(nota.lineas);
             const tablas = [];
             const fila = (celdas, minH) => ({ celdas, minH: minH || 0 });
             const b = (t, s) => run(t, s, true);
@@ -326,47 +355,51 @@
             return hojas;
         }
 
-        // Una hoja si cabe (como el servidor): quitar relleno; si ni así, ítems compactos.
-        const oficiales = FILAS[horizontal ? 'HORIZONTAL' : 'VERTICAL'];
-        const nItems = agrupar(datos.lineas).length;
-        // Cada intento recuerda si fue compacto: el interlineado se pinta con el mismo.
-        const intento = (n, comp) => Object.assign(maquetar(cuerpo(n, comp), FONDO_CABE), { n, compacto: comp });
-        let hojas = intento(oficiales, false);
-        if (hojas.length > 1 && nItems < oficiales) {
-            const sin = intento(nItems, false);
-            if (sin.length === 1) {
-                let cabe = nItems, noCabe = oficiales; hojas = sin;
-                while (noCabe - cabe > 1) {
-                    const medio = Math.floor((cabe + noCabe) / 2);
-                    const prueba = intento(medio, false);
-                    if (prueba.length === 1) { cabe = medio; hojas = prueba; } else { noCabe = medio; }
+        const numeros = datos.numeros && datos.numeros.length ? datos.numeros : [datos.numero];
+        for (const [t, lineas] of tandas(datos.lineas).entries()) {
+            nota = Object.assign({}, datos, { numero: numeros[t] || datos.numero, lineas });
+            // Una hoja si cabe (como el servidor): quitar relleno; si ni así, ítems compactos.
+            const oficiales = FILAS[horizontal ? 'HORIZONTAL' : 'VERTICAL'];
+            const nItems = agrupar(nota.lineas).length;
+            // Cada intento recuerda si fue compacto: el interlineado se pinta con el mismo.
+            const intento = (n, comp) => Object.assign(maquetar(cuerpo(n, comp), FONDO_CABE), { n, compacto: comp });
+            let hojas = intento(oficiales, false);
+            if (hojas.length > 1 && nItems < oficiales) {
+                const sin = intento(nItems, false);
+                if (sin.length === 1) {
+                    let cabe = nItems, noCabe = oficiales; hojas = sin;
+                    while (noCabe - cabe > 1) {
+                        const medio = Math.floor((cabe + noCabe) / 2);
+                        const prueba = intento(medio, false);
+                        if (prueba.length === 1) { cabe = medio; hojas = prueba; } else { noCabe = medio; }
+                    }
+                } else {
+                    hojas = sin;
                 }
-            } else {
-                hojas = sin;
             }
-        }
-        if (hojas.length > 1) {
-            const comp = intento(nItems, true);
-            if (comp.length <= hojas.length) hojas = comp;
-        }
+            if (hojas.length > 1) {
+                const comp = intento(nItems, true);
+                if (comp.length <= hojas.length) hojas = comp;
+            }
 
-        // Lo elegido, repartido en hojas con el margen de verdad.
-        const compacto = hojas.compacto;
-        hojas = maquetar(cuerpo(hojas.n, compacto), FONDO);
-        LINEA = compacto ? 0.9 : 1.25;
-        hojas.forEach((filas, i) => {
-            const page = doc.addPage([pagW, pagH]);
-            cabezote(page, i + 1, hojas.length);
-            filas.forEach(({ y, h, fila }) => {
-                let x = X0;
-                fila.celdas.forEach((c) => {
-                    const w = ANCHO * c.w / 100;
-                    medir(c, w);
-                    pintarCelda(page, c, x, y, w, h);
-                    x += w;
+            // Lo elegido, repartido en hojas con el margen de verdad.
+            const compacto = hojas.compacto;
+            hojas = maquetar(cuerpo(hojas.n, compacto), FONDO);
+            LINEA = compacto ? 0.9 : 1.25;
+            hojas.forEach((filas, i) => {
+                const page = doc.addPage([pagW, pagH]);
+                cabezote(page, i + 1, hojas.length);
+                filas.forEach(({ y, h, fila }) => {
+                    let x = X0;
+                    fila.celdas.forEach((c) => {
+                        const w = ANCHO * c.w / 100;
+                        medir(c, w);
+                        pintarCelda(page, c, x, y, w, h);
+                        x += w;
+                    });
                 });
             });
-        });
+        }
         return doc.save();
     }
 
@@ -409,6 +442,10 @@
         construir,
         fmt,
         agrupar,
+        tandas,
+        // Los números de la Nota local (uno por tanda) y el nombre de su archivo.
+        numeros: (datos) => (datos.numeros && datos.numeros.length ? datos.numeros : [datos.numero]),
+        archivo: (datos) => 'Nota_' + api.numeros(datos).join('_') + '.pdf',
         // Con red: la librería, el logo y (teléfono) el visor quedan en el equipo, así la Nota se
         // arma y se ve sin internet. Solo lo que falta: pedirlos siempre volvía a bajar la
         // librería (~500 KB) en cada sesión.

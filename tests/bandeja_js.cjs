@@ -62,7 +62,10 @@ const clic = (attr, valor) => clics.forEach((fn) => fn({ target: { closest: (s) 
     // 1) Sin red: guardado, marcado como diferido solo si se pide.
     red = false;
     localStorage.setItem('vidalsa_notas_7', JSON.stringify(['NE-2026-0101', 'NE-2026-0102']));
-    const n = B.tomarNumeroNota();
+    // Una salida de 3 Notas con 2 números: ninguno (medio juego dejaría papeles sin número).
+    assert.deepStrictEqual(B.tomarNumerosNota(3), []);
+    assert.strictEqual(B.numerosLibres(), 2, 'no gastó ninguno');
+    const [n] = B.tomarNumerosNota(1);
     assert.strictEqual(n, 'NE-2026-0101');
     let r = await B.enviar('/admin/almacen/movimientos-lote', { method: 'POST', body: { tipo: 'AJUSTE', lineas: [] } }, { tipo: 'ajuste', marcarDiferido: true });
     assert.ok(r.enBandeja);
@@ -75,7 +78,9 @@ const clic = (attr, valor) => clics.forEach((fn) => fn({ target: { closest: (s) 
     // 2) El panel ofrece volver a bajar la Nota mientras no suba.
     assert.ok(elementos.outboxTrayList.innerHTML.includes('data-nota="' + sal.clave + '"'), 'botón Nota en el panel');
     let bajada = null;
-    window.NotaEntregaLocal = { generar: async (d) => ({ blob: d.numero }) };
+    // generar simulado; los números y el nombre del archivo, los del módulo de verdad.
+    const notaLocal = require(path.join(__dirname, '..', 'public', 'js', 'maquinaria', 'nota_entrega_local.js'));
+    window.NotaEntregaLocal = { generar: async (d) => ({ blob: d.numero }), numeros: notaLocal.numeros, archivo: notaLocal.archivo };
     window.descargarBlob = (b, nombre) => { bajada = nombre; };
     clic('data-nota', sal.clave);
     await esperar(5);
@@ -113,7 +118,7 @@ const clic = (attr, valor) => clics.forEach((fn) => fn({ target: { closest: (s) 
     // 4b) Descartada SIN red: la anulación espera en la bandeja; si mientras tanto el servidor
     // todavía da ese número por libre, no vuelve a la lista (serían dos papeles con él).
     red = false;
-    const n2 = B.tomarNumeroNota();
+    const [n2] = B.tomarNumerosNota(1);
     await B.enviar('/admin/almacen/movimientos-lote', { method: 'POST', body: { tipo: 'SALIDA', numero_nota_reservado: n2, lineas: [] } },
         { tipo: 'salida', titulo: 'Salida · Nota ' + n2 });
     const sal2 = B.pendientes().find((x) => x.cuerpo.numero_nota_reservado === n2);

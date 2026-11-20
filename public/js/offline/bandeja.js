@@ -15,9 +15,10 @@
  *   Bandeja.pendientes() → array (síncrono): lo que todavía no subió.
  *   Bandeja.subir() → manda lo pendiente ya.
  *   Bandeja.sinConexion() → sin red, o la copia local no llegó al servidor la última vez.
- *   Bandeja.tomarNumeroNota() → el siguiente número de Nota apartado para este equipo (o null).
+ *   Bandeja.tomarNumerosNota(n) → los n siguientes números de Nota apartados para este equipo
+ *                                  (uno por Nota de la salida), o [] si no alcanzan.
  *   Bandeja.numerosLibres() → cuántos números de Nota apartados le quedan a este equipo.
- *   Bandeja.verNumeroNota() → el que tomará la próxima salida, SIN gastarlo (vista previa).
+ *   Bandeja.verNumerosNota(n) → los que tomará la próxima salida, SIN gastarlos (vista previa).
  *   Bandeja.apartarNumeros() → pide al servidor el bloque de números (con conexión).
  *   Evento 'bandeja' en window cada vez que cambia lo pendiente, y 'bandeja-subida' por cada
  *   cosa que el servidor aceptó ({ tipo, datos }): la copia todavía no la trae, y la pantalla
@@ -247,9 +248,7 @@
                 cache = cache.filter((x) => x.clave !== it.clave);
                 subidos++;
                 window.dispatchEvent(new CustomEvent('bandeja-subida', { detail: { tipo: it.tipo, datos: it.datos } }));
-                if (b && b.nota_url && window.descargarPdf) {
-                    window.descargarPdf(b.nota_url, b.numero_nota ? 'Nota_' + b.numero_nota + '.pdf' : 'nota_entrega.pdf');
-                }
+                if (window.descargarNotas) window.descargarNotas(b);
             } else if (r.status === 401 || r.status === 419) {
                 sinSesion = r;                                             // sube al volver a entrar
                 break;
@@ -288,11 +287,18 @@
         const it = cache.find((x) => x.clave === c);
         await borrarItem(c);
         await refrescar();
-        const n = it && it.cuerpo && it.cuerpo.numero_nota_reservado;
-        if (n) {
-            toast('La Nota ' + n + ' queda ANULADA: si se imprimió, ese papel ya no vale.', 'warning');
-            enviar(RUTA_ANULAR, { method: 'POST', body: { numero: n } }, { titulo: 'Anular Nota ' + n, tipo: 'anular-nota' });
+        const nums = it ? apartados(it) : [];
+        if (nums.length) {
+            toast((nums.length > 1 ? 'Las Notas ' + nums.join(', ') + ' quedan ANULADAS: si se imprimieron, esos papeles ya no valen.'
+                : 'La Nota ' + nums[0] + ' queda ANULADA: si se imprimió, ese papel ya no vale.'), 'warning');
+            nums.forEach((n) => enviar(RUTA_ANULAR, { method: 'POST', body: { numero: n } }, { titulo: 'Anular Nota ' + n, tipo: 'anular-nota' }));
         }
+    }
+    // Los números apartados que lleva una salida: el de su Nota y, si pasó de 20 materiales, los
+    // de las siguientes (numeros_nota_extra, ver NotasReservadas::tomarVarias).
+    function apartados(it) {
+        const c = it.cuerpo || {};
+        return [c.numero_nota_reservado].concat(c.numeros_nota_extra || []).filter(Boolean);
     }
 
     // ── Números de Nota apartados para este equipo (App\Support\NotasReservadas) ─
@@ -336,22 +342,25 @@
             // Fuera los que ya lleva algo de la bandeja: una salida pendiente, o una Nota
             // descartada cuya anulación todavía no subió (el servidor aún la da por libre, y
             // volvería a la lista: dos papeles con el mismo número).
-            const usados = new Set(cache.map((it) => it.cuerpo
-                && (it.tipo === 'anular-nota' ? it.cuerpo.numero : it.cuerpo.numero_nota_reservado)).filter(Boolean));
+            const usados = new Set([].concat(...cache.map((it) => (it.tipo === 'anular-nota'
+                ? [it.cuerpo && it.cuerpo.numero] : apartados(it)))).filter(Boolean));
             guardarNumeros(b.numeros.filter((n) => !usados.has(n)));
         }).catch(() => {});
     }
-    function tomarNumeroNota() {
+    // Los `cuantos` siguientes (una salida de más de 20 materiales lleva una Nota por cada 20),
+    // o ninguno si no alcanzan: medio juego de números dejaría papeles sin el suyo.
+    function tomarNumerosNota(cuantos) {
         const lista = numeros();
-        const n = lista.shift() || null;
+        if (lista.length < cuantos) return [];
+        const tomados = lista.splice(0, cuantos);
         guardarNumeros(lista);
-        return n;
+        return tomados;
     }
 
     window.Bandeja = {
-        enviar, subir, sinConexion, tomarNumeroNota, apartarNumeros,
+        enviar, subir, sinConexion, tomarNumerosNota, apartarNumeros,
         numerosLibres: () => numeros().length,
-        verNumeroNota: () => numeros()[0] || null,
+        verNumerosNota: (cuantos) => numeros().slice(0, cuantos),
         // Una petición de la pantalla se quedó sin respuesta antes de que la copia lo notara
         // (WiFi conectado sin salida: navigator.onLine sigue en true hasta 2 min). Lo siguiente
         // va ya a la bandeja; la próxima respuesta del servidor lo vuelve a poner en true.
@@ -377,7 +386,7 @@
         const BTN = 'border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;';
         $('outboxTrayList').innerHTML = cache.map((it) => {
             const rojo = it.estado === 'rechazada';
-            const numero = it.cuerpo && it.cuerpo.numero_nota_reservado;
+            const nums = apartados(it), numero = nums.join(', ');
             // La Nota armada en este equipo se vuelve a bajar mientras la salida no suba
             // (impresora que falló, archivo perdido): bajarNota.
             const btnNota = it.datos && it.datos.nota
@@ -389,7 +398,7 @@
                     + '</div>'
                 : '';
             const avisoNota = rojo && numero
-                ? '<div style="font-size:11px;color:#92400e;margin-top:3px;">Reintentar la registra con la Nota ' + esc(numero) + '; descartarla ANULA esa Nota.</div>'
+                ? '<div style="font-size:11px;color:#92400e;margin-top:3px;">Reintentar la registra con la Nota ' + esc(numero) + '; descartarla ANULA ' + (nums.length > 1 ? 'esas Notas' : 'esa Nota') + '.</div>'
                 : '';
             return '<div style="padding:11px 14px;border-bottom:1px solid #f1f5f9;">'
                 + '<div style="font-size:12.5px;font-weight:700;color:#1e293b;">' + esc(it.titulo) + '</div>'
@@ -422,9 +431,10 @@
         if (!datos) return;
         // Quien la arma (nota_entrega_local.js) se carga con Almacén.
         if (!window.NotaEntregaLocal) { toast('Abre Almacén para volver a bajar la Nota ' + datos.numero + '.', 'warning'); return; }
+        const nums = window.NotaEntregaLocal.numeros(datos).join(', ');
         window.NotaEntregaLocal.generar(datos)
-            .then((blob) => window.descargarBlob(blob, 'Nota_' + datos.numero + '.pdf'))
-            .catch(() => toast('No se pudo armar la Nota ' + datos.numero + ' en este equipo.', 'error'));
+            .then((blob) => window.descargarBlob(blob, window.NotaEntregaLocal.archivo(datos)))
+            .catch(() => toast('No se pudo armar la Nota ' + nums + ' en este equipo.', 'error'));
     }
 
     // ── La cola del modo sin conexión anterior (IndexedDB vidalsa_offline) ────

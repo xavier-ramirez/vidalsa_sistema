@@ -4328,16 +4328,25 @@
     // Sin internet la Nota se arma en el navegador (NotaEntregaLocal): la misma hoja que haría el
     // servidor, con el número apartado que tomará al registrar (Bandeja.apartarNumeros, al abrir
     // el módulo con internet). Sin números no se puede: el número tiene que ser el definitivo.
+    // Cuántas Notas lleva la salida (una por cada 20 materiales, NotaEntregaLocal.tandas = el
+    // reparto del servidor): sin internet hace falta un número apartado para cada una.
+    function almSalidaCuantasNotas(payload) {
+        return window.NotaEntregaLocal ? window.NotaEntregaLocal.tandas(almNotaLocalDatos(payload, '').lineas).length : 1;
+    }
     function almSalidaPreviaSinInternet(payload) {
-        if (!window.Bandeja.numerosLibres()) {
-            showErr('almSalidaError', 'Sin internet y sin números de Nota apartados en este equipo: conéctate una vez para apartarlos.');
+        var cuantas = almSalidaCuantasNotas(payload);
+        if (window.Bandeja.numerosLibres() < cuantas) {
+            showErr('almSalidaError', cuantas > 1
+                ? 'Sin internet, esta salida va en ' + cuantas + ' Notas y este equipo tiene ' + window.Bandeja.numerosLibres() + ' número(s) apartado(s): conéctate una vez para apartar más.'
+                : 'Sin internet y sin números de Nota apartados en este equipo: conéctate una vez para apartarlos.');
             return;
         }
         almCerrar('almSalidaModal');
         var avisoBox = el('almPreviewAviso');
         if (avisoBox) {
             avisoBox.innerHTML = '<i class="material-icons" style="font-size:18px;color:#b45309;flex-shrink:0;">cloud_off</i>'
-                + '<span><b>Sin internet:</b> al registrar, la Nota se descarga para imprimir y la salida se registra sola al volver internet.</span>';
+                + '<span><b>Sin internet:</b> al registrar, ' + (cuantas > 1 ? 'las ' + cuantas + ' Notas (una por cada 20 materiales) se descargan'
+                    : 'la Nota se descarga') + ' para imprimir y la salida se registra sola al volver internet.</span>';
             avisoBox.style.display = 'flex';
         }
         var frame = el('almPreviewFrame'); if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
@@ -4345,7 +4354,8 @@
         almOpen('almPreviewModal');
         if (window.NotaEntregaLocal) {
             pre();
-            window.NotaEntregaLocal.generar(almNotaLocalDatos(payload, window.Bandeja.verNumeroNota()))
+            var numeros = window.Bandeja.verNumerosNota(cuantas);
+            window.NotaEntregaLocal.generar(Object.assign(almNotaLocalDatos(payload, numeros[0]), { numeros: numeros }))
                 .then(function (blob) {
                     unpre();
                     // Se cerró la vista previa mientras se armaba: no pintar en el modal cerrado.
@@ -4411,11 +4421,11 @@
     // la del servidor (bandeja.js).
     function almDescargarNotaLocal(datos) {
         window.NotaEntregaLocal.generar(datos)
-            .then(function (blob) { window.descargarBlob(blob, 'Nota_' + datos.numero + '.pdf'); })   // dom_helpers.js
+            .then(function (blob) { window.descargarBlob(blob, window.NotaEntregaLocal.archivo(datos)); })   // dom_helpers.js
             .catch(function (err) {
                 console.error('[Almacén] Nota sin internet:', err);
                 // La salida sí quedó guardada; solo falta el papel, que baja al subir.
-                toast('No se pudo armar la Nota ' + datos.numero + ' en este equipo: se descarga al volver internet.', 'error');
+                toast('No se pudo armar la Nota ' + window.NotaEntregaLocal.numeros(datos).join(', ') + ' en este equipo: se descarga al volver internet.', 'error');
             });
     }
 
@@ -4437,13 +4447,20 @@
         // sale con un número apartado: es el definitivo, el de la Nota que se imprime ya.
         var vaABandeja = window.Bandeja.sinConexion()
             || window.Bandeja.pendientes().some(function (x) { return x.estado === 'pendiente'; });
+        // Una por Nota (una cada 20 materiales); si no alcanzan, ninguna: el servidor las numera
+        // al subir y las Notas bajan entonces.
         if (vaABandeja && !payload.numero_nota_reservado) {
-            payload.numero_nota_reservado = window.Bandeja.tomarNumeroNota();
+            var tomados = window.Bandeja.tomarNumerosNota(almSalidaCuantasNotas(payload));
+            if (tomados.length) {
+                payload.numero_nota_reservado = tomados[0];
+                if (tomados.length > 1) payload.numeros_nota_extra = tomados.slice(1);
+            }
         }
+        var apartados = payload.numero_nota_reservado ? [payload.numero_nota_reservado].concat(payload.numeros_nota_extra || []) : [];
 
         // Los datos de la Nota se leen YA: al registrar se limpia la selección (nombres, UM).
-        var notaLocal = (payload.numero_nota_reservado && window.NotaEntregaLocal)
-            ? almNotaLocalDatos(payload, payload.numero_nota_reservado) : null;
+        var notaLocal = (apartados.length && window.NotaEntregaLocal)
+            ? Object.assign(almNotaLocalDatos(payload, apartados[0]), { numeros: apartados }) : null;
         // La fecha y la hora que lleva ese papel: la Nota del servidor imprime las mismas al
         // subir (sin la fecha, una salida de las 11:50 PM que sube al otro día salía con el día
         // de la subida).
@@ -4454,7 +4471,7 @@
 
         pre();
         window.Bandeja.enviar(ROUTE_LOTE, { method: 'POST', body: payload }, {
-            titulo: 'Salida' + (payload.numero_nota_reservado ? ' · Nota ' + payload.numero_nota_reservado : ''),
+            titulo: 'Salida' + (apartados.length ? ' · Nota ' + apartados.join(', ') : ''),
             tipo: 'salida',
             // nota: para volver a bajarla desde la bandeja mientras no suba (bandeja.js · bajarNota).
             datos: { id_almacen: Number(payload.id_almacen), id_frente_destino: Number(payload.id_frente_destino) || null, lineas: payload.lineas, nota: notaLocal },
@@ -4475,18 +4492,16 @@
                 almSalidaDraft = null;
                 if (window.almSelClear) window.almSelClear();
                 toast(res.enBandeja
-                    ? 'Salida guardada' + (payload.numero_nota_reservado
-                        ? ' (Nota ' + payload.numero_nota_reservado + '). Se registra al volver internet.'
+                    ? 'Salida guardada' + (apartados.length
+                        ? ' (Nota ' + apartados.join(', ') + '). Se registra al volver internet.'
                         // Se cortó la red con la petición en camino: pudo haber llegado, así
                         // que el número lo pone el servidor y la Nota baja cuando suba.
                         : '. Se registra al volver internet y entonces se descarga su Nota.')
                     : (res.b.message || 'Movimiento registrado.'));
                 almCargar();
                 if (res.enBandeja && notaLocal) almDescargarNotaLocal(notaLocal);
-                if (res.b && res.b.nota_url) {
-                    // Como archivo, sin abrir otro visor (dom_helpers.js).
-                    window.descargarPdf(res.b.nota_url, res.b.numero_nota ? ('Nota_' + res.b.numero_nota + '.pdf') : 'nota_entrega.pdf');
-                }
+                // Como archivo, sin abrir otro visor (dom_helpers.js): una por Nota.
+                window.descargarNotas(res.b);
             } else {
                 // Error tardio (algo cambio entre el preview y el confirm: stock se
                 // movio, validacion fallo, etc.). Cerramos preview y reabrimos salida
