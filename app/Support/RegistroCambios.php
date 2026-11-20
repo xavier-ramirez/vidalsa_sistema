@@ -462,9 +462,9 @@ class RegistroCambios
         if ($recientes->isEmpty()) {
             return self::ultimo();
         }
-        // Desde la última fila VISIBLE anterior: un hueco justo antes de la primera reciente
-        // también puede ser una transacción sin confirmar.
-        // Sin ninguna (tabla recién vaciada), desde antes de la primera reciente.
+        // Se cuenta desde la última fila VISIBLE anterior (un hueco justo antes de la primera
+        // reciente también puede ser una transacción sin confirmar) o, si no hay ninguna (tabla
+        // recién vaciada), desde antes de la primera reciente.
         $antes = DB::table(self::TABLA)->where('ID_CAMBIO', '<', $recientes->first())->max('ID_CAMBIO');
         $hasta = $antes === null ? (int) $recientes->first() - 1 : (int) $antes;
         if ($recientes->count() > self::MAX_FILAS) {
