@@ -176,5 +176,52 @@
         return fallback;
     }
 
-    w.FuzzySearch = { norm: norm, tokenize: tokenize, leven: leven, scoreToken: scoreToken, rank: rank, matchedPart: matchedPart };
+    /**
+     * ¿`texto` sirve para lo escrito? Para FILTRAR listas (uicomponents.js ·
+     * filterDropdownOptions: Frente, Tipo… de todos los módulos). Cada palabra escrita tiene
+     * que estar, en cualquier orden y sin importar acentos ni espacios dobles («tramo i
+     * veladero» → TUBERÍA DE 30'' VELADERO TRAMO I). Más estricto que rank, que deja entrar
+     * con la mitad de las palabras porque ordena: aquí no se ordena, se quita.
+     *   - Una palabra de 4 letras o más tolera una letra mal (dos desde 7): «carabbo». Dos
+     *     letras vecinas cambiadas de sitio cuentan como una («camoin» → CAMION).
+     *     Con 3 o menos, no: «v» o «cam» con una letra de margen dejarían entrar casi todo.
+     *   - Un número de 1-2 cifras junto a otras palabras cuenta entero (posEntera): «brazo 6
+     *     ton» no trae el de 16 TON. Solo, es un trozo, como siempre («1» → TRAMO 1, 12'').
+     * exacto: sin margen y CON las palabras cortas (de, con…). El que filtra una lista prueba
+     * primero así y solo si nada sale usa el margen y las salta: «cama» trae CAMA BAJA y no
+     * también los CAMION por «cami»; «camion con» trae los CAMION CON…, no todos los CAMION;
+     * «camion de volteo» sigue encontrando CAMION VOLTEO.
+     */
+    function coincide(rawTerm, texto, exacto) {
+        var tokens = exacto ? norm(rawTerm || '').split(/\s+/).filter(Boolean) : tokenize(rawTerm);
+        if (!tokens.length) return true;
+        var hay = norm(texto).replace(/\s+/g, ' ');
+        var palabras = hay.split(/[\s\/\-.,()'"]+/).filter(Boolean);
+        var enteros = tokens.length > 1;
+        return tokens.every(function (t) {
+            if (enteros && /^\d{1,2}$/.test(t)) return posEntera(hay, t) > -1;
+            if (hay.indexOf(t) > -1) return true;
+            if (exacto || t.length < 4 || /\d/.test(t)) return false;
+            var tol = t.length <= 6 ? 1 : 2;
+            return palabras.some(function (p) {
+                var inicio = p.substr(0, t.length);
+                return leven(t, p, tol) <= tol || vecinasCambiadas(t, inicio)
+                    || (p.length > t.length && leven(t, inicio, tol) <= tol);
+            });
+        });
+    }
+    // «camoin» / «camion»: iguales salvo dos letras vecinas intercambiadas (Levenshtein lo
+    // cuenta como dos cambios).
+    function vecinasCambiadas(a, b) {
+        if (a.length !== b.length) return false;
+        for (var i = 0; i < a.length - 1; i++) {
+            if (a.charAt(i) !== b.charAt(i)) {
+                return a.charAt(i) === b.charAt(i + 1) && a.charAt(i + 1) === b.charAt(i)
+                    && a.substr(i + 2) === b.substr(i + 2);
+            }
+        }
+        return false;
+    }
+
+    w.FuzzySearch = { norm: norm, tokenize: tokenize, leven: leven, scoreToken: scoreToken, rank: rank, matchedPart: matchedPart, coincide: coincide };
 })(window);

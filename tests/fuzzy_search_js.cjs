@@ -30,4 +30,41 @@ assert.ok(F.scoreToken(['000142'], '000142 braga', '42', false).hit, 'sin otras 
 const sin = rank('braga 42', null);
 assert.ok(sin.indexOf('BRAGA TALLA 142') < sin.indexOf('BRAGA TALLA 40'), 'sin la opción, 142 suma por el 42');
 
+// coincide: el filtro de las listas desplegables (Frente, Tipo… en uicomponents.js).
+// Cada palabra en cualquier orden, sin acentos ni espacios dobles, una letra de margen en las largas.
+const L = ["TUBERÍA DE 30'' VELADERO TRAMO I", 'ESTACIÓN  DE VALVULAS', 'CORTAFUEGO CARABOBO FASE II',
+    'CORTAFUEGO AYACUCHO FASE II', 'TRANSVERSALES CARABOBO', 'CAMION CON BRAZO 6 TON', 'CHUTO CON BRAZO 16 TON',
+    'CAMION PLATAF/B HIDRAULICO', 'PLATAFORMA / BRAZO HIDRAULICO', 'CAMION ELEVADOR 12 TON'];
+// Como lo usa la lista (uicomponents.js · filterDropdownOptions): primero sin margen; si nada sale, con margen.
+const filtrarLista = (q, lista) => { const ex = lista.filter((t) => F.coincide(q, t, true)); return ex.length ? ex : lista.filter((t) => F.coincide(q, t)); };
+const filtra = (q) => filtrarLista(q, L);
+const eq = (q, esperado) => assert.deepStrictEqual(filtra(q), esperado, q);
+eq('tramo i veladero', ["TUBERÍA DE 30'' VELADERO TRAMO I"]);                   // otro orden
+eq('veladero tuberia', ["TUBERÍA DE 30'' VELADERO TRAMO I"]);                   // sin acento
+eq('estacion de valvulas', ['ESTACIÓN  DE VALVULAS']);                           // dos espacios en el nombre
+eq('carabobo cortafuego', ['CORTAFUEGO CARABOBO FASE II']);
+eq('carabbo', ['CORTAFUEGO CARABOBO FASE II', 'TRANSVERSALES CARABOBO']);        // una letra de menos
+eq('cortafuegos', ['CORTAFUEGO CARABOBO FASE II', 'CORTAFUEGO AYACUCHO FASE II']); // plural
+eq('brazo camion', ['CAMION CON BRAZO 6 TON']);                                  // sin el «con»
+eq('brazo 6 ton', ['CAMION CON BRAZO 6 TON']);                                   // el 6 no es el de 16
+eq('hidraulico plataf', ['CAMION PLATAF/B HIDRAULICO', 'PLATAFORMA / BRAZO HIDRAULICO']); // la barra separa
+eq('12', ['CAMION ELEVADOR 12 TON']);                                            // número solo: trozo
+eq('ayacucho carabobo', []);                                                     // TODAS las palabras
+// Las cortas no toleran: «cam» no trae lo que tenga «can», «car»…; una letra sola es trozo.
+eq('cam', ['CAMION CON BRAZO 6 TON', 'CAMION PLATAF/B HIDRAULICO', 'CAMION ELEVADOR 12 TON']);
+assert.strictEqual(filtra('v').length, 4, 'v: solo lo que lleva v (VELADERO, VALVULAS, TRANSVERSALES, ELEVADOR)');
+// Lo de antes sigue entrando: el texto tal cual y en el mismo orden.
+for (const t of L) assert.ok(F.coincide(t, t) && F.coincide(t.slice(2, 9), t), t);
+assert.ok(F.coincide('', 'CUALQUIERA') && F.coincide('   ', 'CUALQUIERA'), 'vacío: todo');
+// Primero sin margen: «cama» trae la CAMA BAJA y no también los CAMION (por «cami»); si no hay
+// ninguna exacta, entra el margen (las de arriba: «carabbo», «cortafuegos»).
+assert.deepStrictEqual(filtrarLista('cama', ['CAMA BAJA', 'CAMION CISTERNA', 'CAMION VOLTEO']), ['CAMA BAJA']);
+assert.deepStrictEqual(filtrarLista('camoin', ['CAMA BAJA', 'CAMION CISTERNA']), ['CAMION CISTERNA']);
+assert.ok(F.coincide('cama', 'CAMION CISTERNA') && !F.coincide('cama', 'CAMION CISTERNA', true), 'exacto quita el margen');
+// La pasada exacta exige las palabras cortas («con»); la segunda las salta («de» de volteo).
+const T = ['CAMION CON BRAZO 6 TON', 'CAMION CISTERNA', 'CAMION VOLTEO'];
+assert.deepStrictEqual(filtrarLista('camion con', T), ['CAMION CON BRAZO 6 TON']);
+assert.deepStrictEqual(filtrarLista('camion de volteo', T), ['CAMION VOLTEO']);
+assert.deepStrictEqual(filtrarLista('volteo camoin', T), ['CAMION VOLTEO']);
+
 console.log('ok');

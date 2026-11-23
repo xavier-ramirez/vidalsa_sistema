@@ -527,8 +527,8 @@ window.filterDropdownOptions = function (input) {
     const dropdown = input.closest(".custom-dropdown");
     if (!dropdown) return;
 
-    // Standard Client-Side Filtering (Original Logic) for small lists (Frente, Tipo, etc.)
-    // Normalize helper: lowercase and remove accents
+    // Filtro en el navegador de las listas (Frente, Tipo…). normalize: solo para el respaldo
+    // sin FuzzySearch y para saber si hay algo escrito.
     const normalize = (str) => {
         return str
             .toLowerCase()
@@ -540,17 +540,27 @@ window.filterDropdownOptions = function (input) {
     const items = dropdown.querySelectorAll(
         ".dropdown-item, .filter-option-item",
     );
+    // Cada palabra escrita, en cualquier orden (FuzzySearch.coincide). Antes era el texto tal
+    // cual y en el mismo orden: «tramo i veladero» no traía TUBERÍA DE 30'' VELADERO TRAMO I,
+    // ni «estacion de valvulas» a ESTACIÓN  DE VALVULAS (dos espacios). Primero sin margen; si
+    // así no sale nada, con una letra de margen en las palabras largas («carabbo»). Sin
+    // FuzzySearch (no debería pasar: va en el layout) queda el «contiene» de antes.
+    const FS = window.FuzzySearch && window.FuzzySearch.coincide ? window.FuzzySearch : null;
+    const exacto = !FS || Array.prototype.some.call(items, (i) =>
+        !i.classList.contains("eq-tipo-oculto") && FS.coincide(input.value, i.textContent, true));
 
     items.forEach((item) => {
         // textContent en vez de innerText: innerText es "layout-aware" y FUERZA un reflow
         // por cada item en cada tecla — con muchos frentes/tipos eso daba tirones en PC.
         // textContent no reflowa; para estos items (texto plano) el resultado es el mismo.
-        const text = normalize(item.textContent);
+        const coincide = FS
+            ? FS.coincide(input.value, item.textContent, exacto)
+            : normalize(item.textContent).includes(filter);
         // Respeta el filtrado dependiente por frente del modulo Equipos: un item marcado
         // como oculto por frente (clase 'eq-tipo-oculto', la pone eqSyncTiposFrente) NO se
         // re-muestra aunque coincida con el texto buscado. Otros dropdowns no usan esa clase,
         // asi que su comportamiento no cambia.
-        const shouldShow = text.includes(filter) && !item.classList.contains("eq-tipo-oculto");
+        const shouldShow = coincide && !item.classList.contains("eq-tipo-oculto");
 
         // Use setProperty to override any potential CSS conflicts
         item.style.setProperty(
@@ -561,8 +571,8 @@ window.filterDropdownOptions = function (input) {
     });
 
     // ORDEN POR RELEVANCIA (opt-in con data-fuzzy en el .custom-dropdown).
-    // Sin ese atributo el comportamiento es el de siempre: filtrar por "contiene" y dejar
-    // el orden del HTML. Con el atributo, ademas se reordenan los visibles para que el
+    // Sin ese atributo se filtra como arriba (coincide) y queda el orden del HTML. Con el
+    // atributo, ademas se reordenan los visibles para que el
     // mejor resultado quede arriba y se toleran erratas ("barcelna" -> BARCELONA), usando
     // el MISMO window.FuzzySearch que el resto del proyecto. Es opt-in a proposito: hay
     // ~30 dropdowns usando esta funcion y en listas cortas el orden del HTML es preferible.
