@@ -60,11 +60,11 @@ class FrentesBordesTest extends MySqlTestCase
         $destino = (int) Almacen::forceCreate(['NOMBRE' => 'PRUEBA BORDE ' . uniqid(), 'TIPO' => Almacen::TIPO_PROYECTO, 'ESTATUS' => 'ACTIVO'])->ID_ALMACEN;
         DB::table('almacen_frentes')->insert(array_map(fn ($f) => ['ID_ALMACEN' => $destino, 'ID_FRENTE' => $f], [$c, $d, $e]));
         $origen = (int) Almacen::forceCreate(['NOMBRE' => 'PRUEBA BORDE ORIGEN ' . uniqid(), 'TIPO' => 'GENERAL', 'ESTATUS' => 'ACTIVO'])->ID_ALMACEN;
-        $prod = (int) ProductoInventario::where('ESTATUS', 'ACTIVO')->value('ID_PRODUCTO');
+        [$prod, $prod2] = ProductoInventario::where('ESTATUS', 'ACTIVO')->limit(2)->pluck('ID_PRODUCTO')->map(fn ($v) => (int) $v)->all();
 
         $ts = app(TraspasoService::class);
         $t = $ts->crearBorrador(['id_almacen_origen' => $origen, 'id_almacen_destino' => $destino, 'id_frente_destino' => $e,
-            'id_usuario' => $this->admin->ID_USUARIO], [['id_producto' => $prod, 'cantidad' => 3]]);
+            'id_usuario' => $this->admin->ID_USUARIO], [['id_producto' => $prod, 'cantidad' => 3], ['id_producto' => $prod2, 'cantidad' => 1]]);
         $this->deleteJson("/admin/frentes/{$e}")->assertStatus(422)->assertJson(['envios_pendientes' => 1]);
 
         $t = $ts->enviar($t, ['id_usuario_envio' => $this->admin->ID_USUARIO, 'permitir_negativo' => true, 'numero_nota' => 'NE-T-' . $t->ID_TRASPASO]);
@@ -73,11 +73,17 @@ class FrentesBordesTest extends MySqlTestCase
         $this->assertNotContains($e, collect($this->getJson('/admin/frentes/sin-equipos')->json('frentes'))->pluck('id')->all(),
             'El modal «Frentes sin equipos» no debe ofrecer eliminar lo que el servidor rechaza.');
 
-        // Recibido el envío, el material queda en SU bolsa y ya se puede eliminar... si no tiene stock.
-        $l = $t->lineas()->first();
-        $ts->recibir($t->fresh(), [['id_linea' => $l->ID_LINEA, 'cantidad_recibida' => 3]], ['id_usuario_recepcion' => $this->admin->ID_USUARIO]);
+        // Recibido A MEDIAS (un ítem sí, el otro todavía no): lo que falta aún puede recibirse,
+        // así que sigue bloqueado.
+        $linea = fn (int $p) => $t->lineas()->where('ID_PRODUCTO', $p)->first();
+        $t = $ts->recibir($t->fresh(), [['id_linea' => $linea($prod)->ID_LINEA, 'cantidad_recibida' => 3]], ['id_usuario_recepcion' => $this->admin->ID_USUARIO]);
+        $this->assertSame(\App\Models\Traspaso::ESTADO_RECIBIDO_PARCIAL, $t->fresh()->ESTADO);
+        $this->deleteJson("/admin/frentes/{$e}")->assertStatus(422)->assertJson(['envios_pendientes' => 1]);
+
+        // Recibido todo, el material queda en SU bolsa: ahora lo que bloquea es ese stock.
+        $ts->recibir($t->fresh(), [['id_linea' => $linea($prod2)->ID_LINEA, 'cantidad_recibida' => 1]], ['id_usuario_recepcion' => $this->admin->ID_USUARIO]);
         $this->assertEquals(3, (float) AlmacenStock::where('ID_ALMACEN', $destino)->where('ID_PRODUCTO', $prod)->where('ID_FRENTE', $e)->value('CANTIDAD'));
-        $this->deleteJson("/admin/frentes/{$e}")->assertStatus(422)->assertJson(['productos_con_stock' => 1, 'envios_pendientes' => 0]);
+        $this->deleteJson("/admin/frentes/{$e}")->assertStatus(422)->assertJson(['productos_con_stock' => 2, 'envios_pendientes' => 0]);
     }
 
     public function test_no_deja_eliminar_un_frente_asignado_a_un_usuario_activo(): void

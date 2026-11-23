@@ -188,39 +188,23 @@ class FrenteTrabajoController extends Controller
     {
         $frente = $this->buscar($request, $id);
 
-        $equiposAsignados    = \App\Models\Equipo::where('ID_FRENTE_ACTUAL', $id)->count();
-        $auxiliaresAsignados = \App\Models\EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $id)->count();
-        // Stock de almacén repartido a este frente: eliminado, ya no se podría elegir el
-        // frente para mover ese stock y quedaría colgado.
-        $productosConStock   = \App\Models\AlmacenStock::where('ID_FRENTE', $id)->where('CANTIDAD', '>', 0)->count();
-        // Envíos de almacén hacia este frente que aún no se reciben: al recibirlos el material
-        // entraría a la bolsa de un frente eliminado, donde nada lo puede elegir.
-        $enviosPendientes    = \App\Models\Traspaso::where('ID_FRENTE_DESTINO', $id)
-            ->whereIn('ESTADO', [\App\Models\Traspaso::ESTADO_BORRADOR, \App\Models\Traspaso::ESTADO_ENVIADO])->count();
-        // Usuarios activos con este frente asignado: un usuario LOCAL se quedaría sin nada que ver.
-        $usuariosAsignados   = \App\Models\Usuario::where('ID_FRENTE_ASIGNADO', $id)->where('ESTATUS', 'ACTIVO')->count();
-
-        if ($equiposAsignados > 0 || $auxiliaresAsignados > 0 || $productosConStock > 0
-            || $enviosPendientes > 0 || $usuariosAsignados > 0) {
+        $bloqueos = self::bloqueosParaEliminar([(int) $frente->ID_FRENTE])[(int) $frente->ID_FRENTE] ?? [];
+        if ($bloqueos) {
             $partes = [];
-            if ($equiposAsignados > 0)    $partes[] = "{$equiposAsignados} equipo(s)";
-            if ($auxiliaresAsignados > 0) $partes[] = "{$auxiliaresAsignados} auxiliar(es)";
-            if ($productosConStock > 0)   $partes[] = "{$productosConStock} producto(s) con stock en almacén";
-            if ($enviosPendientes > 0)    $partes[] = "{$enviosPendientes} envío(s) de almacén sin recibir";
-            if ($usuariosAsignados > 0)   $partes[] = "{$usuariosAsignados} usuario(s)";
+            foreach (self::BLOQUEOS as $clave => $etiqueta) {
+                if (!empty($bloqueos[$clave])) {
+                    $partes[] = $bloqueos[$clave] . ' ' . $etiqueta;
+                }
+            }
             $msg = 'No se puede eliminar el frente: tiene ' . implode(' y ', $partes) .
                    ' asignados. Reasignelos primero a otro frente.';
 
             if ($request->wantsJson() || $request->has('json')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $msg,
-                    'equipos_asignados'    => $equiposAsignados,
-                    'auxiliares_asignados' => $auxiliaresAsignados,
-                    'productos_con_stock'  => $productosConStock,
-                    'envios_pendientes'    => $enviosPendientes,
-                    'usuarios_asignados'   => $usuariosAsignados,
-                ], 422);
+                return response()->json(array_merge(
+                    ['success' => false, 'message' => $msg],
+                    array_fill_keys(array_keys(self::BLOQUEOS), 0),
+                    $bloqueos
+                ), 422);
             }
             return redirect()->route('frentes.create')->with('error', $msg);
         }
@@ -279,25 +263,14 @@ class FrenteTrabajoController extends Controller
     }
 
     /**
-     * Lista TODOS los frentes que no tienen NINGÚN equipo ni auxiliar asignado, stock de
-     * almacén, envío sin recibir ni usuario activo (candidatos a eliminar: lo mismo que exige destroy()), SIN importar su estatus: incluye ACTIVOS y
+     * Lista TODOS los frentes que no tienen nada de bloqueosParaEliminar() (candidatos a
+     * eliminar: lo mismo que exige destroy()), SIN importar su estatus: incluye ACTIVOS y
      * FINALIZADOS. Lo consume el modal "Frentes sin equipos" del formulario, que
      * muestra el ESTATUS_FRENTE junto al nombre y ofrece Eliminar en cada fila.
      */
     public function sinEquipos(Request $request)
     {
-        $frentes = FrenteTrabajo::whereDoesntHave('equipos')
-            ->whereDoesntHave('equiposAuxiliares')
-            ->whereNotExists(fn ($q) => $q->from('almacen_stock')
-                ->whereColumn('almacen_stock.ID_FRENTE', 'frentes_trabajo.ID_FRENTE')
-                ->where('almacen_stock.CANTIDAD', '>', 0))
-            ->whereNotExists(fn ($q) => $q->from('traspasos')
-                ->whereColumn('traspasos.ID_FRENTE_DESTINO', 'frentes_trabajo.ID_FRENTE')
-                ->whereNull('traspasos.deleted_at')
-                ->whereIn('traspasos.ESTADO', [\App\Models\Traspaso::ESTADO_BORRADOR, \App\Models\Traspaso::ESTADO_ENVIADO]))
-            ->whereNotExists(fn ($q) => $q->from('usuarios')
-                ->whereColumn('usuarios.ID_FRENTE_ASIGNADO', 'frentes_trabajo.ID_FRENTE')
-                ->where('usuarios.ESTATUS', 'ACTIVO'))
+        $frentes = FrenteTrabajo::whereKeyNot(array_keys(self::bloqueosParaEliminar()))
             ->orderBy('NOMBRE_FRENTE')
             ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'UBICACION', 'TIPO_FRENTE', 'ESTATUS_FRENTE']);
 
@@ -312,6 +285,53 @@ class FrenteTrabajoController extends Controller
                 'estatus'   => $f->ESTATUS_FRENTE,
             ]),
         ]);
+    }
+
+    /**
+     * Lo que impide eliminar un frente (clave de la respuesta JSON => texto del aviso).
+     * Una sola lista para destroy() y el modal «Frentes sin equipos»: antes cada uno tenía
+     * sus propias consultas y podían dejar de coincidir.
+     */
+    private const BLOQUEOS = [
+        'equipos_asignados'    => 'equipo(s)',
+        'auxiliares_asignados' => 'auxiliar(es)',
+        'productos_con_stock'  => 'producto(s) con stock en almacén',
+        'envios_pendientes'    => 'envío(s) de almacén sin recibir',
+        'usuarios_asignados'   => 'usuario(s)',
+    ];
+
+    /**
+     * [ID_FRENTE => [clave de BLOQUEOS => cuántos]] de los frentes que NO se pueden eliminar
+     * (todos, o solo $ids). Un frente sin nada no aparece.
+     *  - equipos / auxiliares cuyo frente actual es este;
+     *  - stock de almacén repartido a su bolsa: eliminado, nada lo podría elegir;
+     *  - envíos de almacén hacia él que aún admiten recepción (borrador, enviado o recibido
+     *    a medias): al recibirlos el material entraría a la bolsa de un frente eliminado;
+     *  - usuarios activos con el frente asignado: un LOCAL se quedaría sin nada que ver.
+     */
+    private static function bloqueosParaEliminar(?array $ids = null): array
+    {
+        $consultas = [
+            'equipos_asignados'    => [\App\Models\Equipo::query(), 'ID_FRENTE_ACTUAL'],
+            'auxiliares_asignados' => [\App\Models\EquipoAuxiliar::query(), 'ID_FRENTE_ACTUAL'],
+            'productos_con_stock'  => [\App\Models\AlmacenStock::where('CANTIDAD', '>', 0), 'ID_FRENTE'],
+            'envios_pendientes'    => [\App\Models\Traspaso::whereIn('ESTADO', array_merge(
+                [\App\Models\Traspaso::ESTADO_BORRADOR], \App\Models\Traspaso::ESTADOS_RECIBIBLES)), 'ID_FRENTE_DESTINO'],
+            'usuarios_asignados'   => [\App\Models\Usuario::where('ESTATUS', 'ACTIVO'), 'ID_FRENTE_ASIGNADO'],
+        ];
+        $bloqueos = [];
+        foreach ($consultas as $clave => [$q, $col]) {
+            $conteo = $q->whereNotNull($col)
+                ->when($ids !== null, fn ($qq) => $qq->whereIn($col, $ids))
+                ->groupBy($col)
+                ->selectRaw("{$col} AS frente, COUNT(*) AS n")
+                ->toBase()->pluck('n', 'frente');
+            foreach ($conteo as $frente => $n) {
+                $bloqueos[(int) $frente][$clave] = (int) $n;
+            }
+        }
+
+        return $bloqueos;
     }
 
     /**
@@ -336,7 +356,7 @@ class FrenteTrabajoController extends Controller
     /** El nombre lo acaba de ocupar otro registro (doble clic o dos personas a la vez). */
     private function nombreOcupado(Request $request)
     {
-        $msg = 'Ya existe un frente de trabajo con este nombre.';
+        $msg = (new \App\Http\Requests\FrenteRequest())->messages()['NOMBRE_FRENTE.unique'];
         if ($request->wantsJson() || $request->has('json')) {
             return response()->json(['success' => false, 'message' => $msg, 'errors' => ['NOMBRE_FRENTE' => [$msg]]], 422);
         }
