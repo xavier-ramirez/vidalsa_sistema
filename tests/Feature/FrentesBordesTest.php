@@ -7,7 +7,6 @@ use App\Models\AlmacenStock;
 use App\Models\FrenteTrabajo;
 use App\Models\ProductoInventario;
 use App\Models\Usuario;
-use App\Services\InventarioService;
 use App\Services\TraspasoService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
