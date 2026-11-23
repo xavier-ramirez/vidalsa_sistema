@@ -2272,8 +2272,9 @@ window.openBulkModal = function (event) {
         return;
     }
 
-    // 2. Nuclear Cleanup: Remove any existing dynamic modals
-    document.querySelectorAll(".dynamic-bulk-modal").forEach((el) => el.remove());
+    // 2. Si ya había uno abierto (doble toque en Movilizar), se cierra con SU cierre: quitar
+    // solo el overlay dejaba su lista de frentes suelta en el body y su oyente del teclado.
+    document.querySelectorAll(".dynamic-bulk-modal").forEach((el) => el._cerrar());
 
     // 3. Lo seleccionado: equipos y auxiliares (los dos traen `tipo` para el resumen).
     const selectedList = Object.values(window.selectedEquipos).concat(auxSel);
@@ -2320,12 +2321,12 @@ window.openBulkModal = function (event) {
     content.style.cssText = "background:white;border-radius:16px;width:90%;max-width:440px;max-height:92vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.30);animation:slideDown 0.2s ease-out;display:flex;flex-direction:column;";
 
     // 7. Header — mismo patron que Anclaje/Ubicacion: fondo #1e293b solido,
-    // titulo centrado con icono de acento, close button absoluto arriba-derecha.
+    // titulo centrado con su icono en blanco (pedido 23-11-2026), close button absoluto arriba-derecha.
     const header = document.createElement("div");
     header.style.cssText = "background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;";
     header.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;">
-            <i class="material-icons" style="color:#0067b1;font-size:20px;">local_shipping</i>
+            <i class="material-icons" style="color:white;font-size:20px;">local_shipping</i>
             <h2 style="margin:0;font-size:16px;font-weight:700;">Movilización</h2>
         </div>
         <button type="button" id="btnCloseDynamic" aria-label="Cerrar" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
@@ -2486,15 +2487,29 @@ window.openBulkModal = function (event) {
     });
 
     // ── Close handlers ──
-    const _closeModal = () => { removePortal(); overlay.remove(); };
+    // El modal cuelga del body, fuera del módulo: al cambiar de pantalla (menú o botón Atrás
+    // del teléfono) se quedaba encima de la nueva. Se cierra al llegar otra pantalla.
+    const _closeModal = () => {
+        window.removeEventListener('spa:contentLoaded', _closeModal);
+        removePortal();
+        overlay.remove();
+    };
+    overlay._cerrar = _closeModal;
+    window.addEventListener('spa:contentLoaded', _closeModal);
     // Solo se cierra con la X (pedido 01-10-2026): un clic fuera por descuido perdia lo escrito.
     overlay.querySelector('#btnCloseDynamic').onclick = _closeModal;
 
     // ── Submit ──
+    // ¿Es el mismo frente? Sin tildes, mayúsculas ni espacios repetidos. Antes era el texto
+    // exacto: «LOGISTICA DIVISION CARABOBO» (sin tilde) se tomaba por frente NUEVO —pedía
+    // ubicación— aunque el servidor (collation _ci) usaba el que ya existe, y «ESTACION DE
+    // VALVULAS» con un espacio (el registrado lleva dos) creaba un frente duplicado.
+    const claveFrente = (t) => window.FuzzySearch.norm(t).replace(/\s+/g, ' ').trim();
+    const frenteLlamado = (nombre) => frentesData.find(f => claveFrente(f.nombre) === claveFrente(nombre));
     // Texto ya avisado como frente nuevo (ver abajo): confirmar otra vez con él sí lo crea.
     let avisadoNuevo = '';
     overlay.querySelector("#bm-submit-btn").onclick = async function () {
-        const dest = (hiddenInput.value || searchInput.value).trim();
+        let dest = (hiddenInput.value || searchInput.value).trim();
         const generarPdfBox = overlay.querySelector("#bm-generar-pdf");
         const generarPdf = generarPdfBox ? generarPdfBox.checked : true;
 
@@ -2504,8 +2519,10 @@ window.openBulkModal = function (event) {
             return;
         }
 
+        const matchedFrente = frenteLlamado(dest);
+        // Se manda el nombre tal como está registrado: el servidor lo busca por igualdad.
+        if (matchedFrente) dest = matchedFrente.nombre;
         const destUpper = dest.toUpperCase();
-        const matchedFrente = frentesData.find(f => (f.nombre || '').toUpperCase() === destUpper);
         const isNewFrente = !matchedFrente;
         const needsUbicacion = isNewFrente || !matchedFrente.ubicacion;
 
@@ -2514,7 +2531,9 @@ window.openBulkModal = function (event) {
         // parece a frentes que ya existen, primero se avisa; confirmar otra vez con el mismo
         // texto sí lo crea. CON acta no se avisa: el frente nuevo abre directo el formulario
         // del acta (ubicación del destino, firmas), que ya es la confirmación.
-        if (!generarPdf && isNewFrente && avisadoNuevo !== destUpper && window.FuzzySearch.filtrar(frentesData, dest, f => f.nombre).length) {
+        // Sin red no se avisa: no se pueden crear frentes y lo dice el bloque de abajo.
+        if (!generarPdf && isNewFrente && avisadoNuevo !== destUpper && !window.EquiposLocal.sinConexion()
+            && window.FuzzySearch.filtrar(frentesData, dest, f => f.nombre).length) {
             avisadoNuevo = destUpper;
             searchInput.focus();   // su onfocus abre la lista con lo escrito
             inputBox.style.borderColor = "#ef4444";
@@ -2631,13 +2650,12 @@ window.openBulkModal = function (event) {
             // las filas se pintan YA, igual que sin red (eqAplicarYa), y el spinner no espera a la
             // copia. Frente nuevo o con auxiliares: se espera a la copia (más abajo), que es la
             // única que los conoce.
-            const frenteFinal = frentesData.find(f => (f.nombre || '').toUpperCase() === (actaState.destination || '').toUpperCase());
+            const frenteFinal = frenteLlamado(actaState.destination || '');
             const pintarYa = !!(frenteFinal && frenteFinal.id) && !actaState.aux_ids.length;
             const idsPintar = pintarYa ? noEstanEn(actaState.ids, frenteFinal.id) : [];
 
             // Cerrar modal y limpiar selección.
-            removePortal();
-            overlay.remove();
+            _closeModal();
             window.clearSelection();
             if (pintarYa && idsPintar.length) window.eqAplicarYa('movilizar', { ids: idsPintar, id_frente_destino: Number(frenteFinal.id) });
 
@@ -2645,17 +2663,14 @@ window.openBulkModal = function (event) {
             // ubicación nueva para él. Sin esto, al reabrir el modal en la misma
             // sesión el campo de ubicación volvería a aparecer aunque ya fue guardado.
             if (actaState.destination_ubicacion) {
-                const destUpperNow = (actaState.destination || '').toUpperCase();
-                const idx = frentesData.findIndex(f => (f.nombre || '').toUpperCase() === destUpperNow);
-                if (idx !== -1) {
-                    frentesData[idx].ubicacion = actaState.destination_ubicacion.toUpperCase();
-                }
+                const fr = frenteLlamado(actaState.destination || '');
+                if (fr) fr.ubicacion = actaState.destination_ubicacion.toUpperCase();
                 // También actualizar el datalist del DOM para que futuras
                 // instancias del modal lean el valor correcto desde el HTML.
                 const dl = document.querySelector('#dynamicFrentesList');
                 if (dl) {
                     const opt = Array.from(dl.querySelectorAll('option')).find(o =>
-                        (o.getAttribute('value') || '').toUpperCase() === destUpperNow
+                        claveFrente(o.getAttribute('value') || '') === claveFrente(actaState.destination || '')
                     );
                     if (opt) opt.setAttribute('data-ubicacion', actaState.destination_ubicacion.toUpperCase());
                 }
@@ -2881,6 +2896,10 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
         document.head.appendChild(st);
     }
 
+    // Una previa anterior que siguiera abierta se cierra con SU cierre (lleva su oyente).
+    var previa = document.getElementById('movPreviewOverlay');
+    if (previa) previa._cerrar();
+
     var ov = document.createElement('div');
     ov.id = 'movPreviewOverlay';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:100050;display:flex;align-items:center;justify-content:center;padding:16px;';
@@ -2900,7 +2919,15 @@ window._mostrarVistaPreviaActa = async function (actaState, onConfirm, opts) {
     var footEl = ov.querySelector('#mov-prev-foot');
 
     function revoke() { try { URL.revokeObjectURL(pdfUrl); } catch (_) {} }
-    function cerrar() { revoke(); ov.remove(); }
+    // Cuelga del body como el modal de Movilización: al cambiar de pantalla (menú o Atrás) se
+    // quedaba encima de la nueva. Se cierra al llegar otra pantalla.
+    function cerrar() {
+        window.removeEventListener('spa:contentLoaded', cerrar);
+        revoke();
+        ov.remove();
+    }
+    ov._cerrar = cerrar;
+    window.addEventListener('spa:contentLoaded', cerrar);
 
     // Solo se cierra con la X (pedido 01-10-2026), como los demas modales de Equipos.
     ov.querySelector('#mov-prev-x').onclick = cerrar;

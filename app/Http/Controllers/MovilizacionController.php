@@ -219,6 +219,21 @@ class MovilizacionController extends Controller
         return $partes ? implode(' · ', $partes) : 'HISTORIAL COMPLETO';
     }
 
+    /**
+     * El nombre con el que se busca o se crea el frente destino: en mayúsculas también con
+     * tilde (strtoupper dejaba «TUBERíA») y sin espacios repetidos. Si ya hay uno que solo
+     * difiere en tildes, mayúsculas o espacios («ESTACION DE VALVULAS» y el registrado
+     * «ESTACIÓN  DE VALVULAS»), se usa ESE: antes se creaba un frente duplicado. Se compara
+     * en PHP (son pocos frentes) para no depender de REGEXP_REPLACE, que no está en todas
+     * las versiones de MySQL. Los eliminados no cuentan: esos los revive revivirPorNombre.
+     */
+    private static function nombreDeFrente($escrito): string
+    {
+        $nombre = preg_replace('/\s+/u', ' ', mb_strtoupper(trim((string) $escrito), 'UTF-8'));
+        $clave  = fn ($n) => mb_strtoupper(\Illuminate\Support\Str::ascii(preg_replace('/\s+/u', ' ', trim((string) $n))), 'UTF-8');
+        return FrenteTrabajo::pluck('NOMBRE_FRENTE')->first(fn ($n) => $clave($n) === $clave($nombre)) ?? $nombre;
+    }
+
     public function bulkStore(Request $request)
     {
         // Equipos (ids) y auxiliares (aux_ids) se movilizan JUNTOS: un solo registro con un
@@ -253,7 +268,7 @@ class MovilizacionController extends Controller
 
         DB::beginTransaction();
         try {
-            $destNombre    = strtoupper(trim($request->destination));
+            $destNombre    = self::nombreDeFrente($request->destination);
             $destUbicacion = trim((string) $request->input('destination_ubicacion', ''));
             $generarPdf    = (bool) $request->input('generar_pdf', true);
 
@@ -294,7 +309,7 @@ class MovilizacionController extends Controller
                 ['NOMBRE_FRENTE' => $destNombre],
                 [
                     'ESTATUS_FRENTE' => 'ACTIVO',
-                    'UBICACION'      => $destUbicacion !== '' ? strtoupper($destUbicacion) : null,
+                    'UBICACION'      => $destUbicacion !== '' ? mb_strtoupper($destUbicacion, 'UTF-8') : null,
                 ]
             );
 
@@ -303,7 +318,7 @@ class MovilizacionController extends Controller
             // hay que guardarla explícitamente ahora. Sin este bloque la ubicacion
             // se pierde silenciosamente en frentes viejos sin UBICACION registrada.
             if (!$frente->wasRecentlyCreated && $destUbicacion !== '' && empty(trim((string)($frente->UBICACION ?? '')))) {
-                $frente->UBICACION = strtoupper($destUbicacion);
+                $frente->UBICACION = mb_strtoupper($destUbicacion, 'UTF-8');
                 $frente->save();
             }
 
@@ -449,7 +464,7 @@ class MovilizacionController extends Controller
                 $firmasAudit  = $this->normalizeFirmasOverride($request->input('firmas'));
                 $overrideOrig = strtoupper(trim((string) $request->input('origin', '')));
                 $overrideZona = strtoupper(trim((string) $request->input('origin_zona', '')));
-                $ubicLabel    = $destUbicacion !== '' ? strtoupper($destUbicacion) : (string) ($frente->UBICACION ?? '');
+                $ubicLabel    = $destUbicacion !== '' ? mb_strtoupper($destUbicacion, 'UTF-8') : (string) ($frente->UBICACION ?? '');
                 $actaNum      = $generarPdf ? str_pad((string) $nextId, 6, '0', STR_PAD_LEFT) : null;
 
                 // $origenNombres ya se calculó arriba (para el snapshot del historial) con
