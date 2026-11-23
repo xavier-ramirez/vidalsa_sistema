@@ -145,35 +145,70 @@ window.prepararAperturaDropdown = function (dropdown) {
 };
 
 /**
- * Que la lista abierta quepa en la pantalla. Si debajo no cabe (el final de un panel, como
- * Combustible en el filtro avanzado de Equipos en teléfono, o el teclado del teléfono tapando
- * la mitad de abajo), se abre hacia ARRIBA si ahí hay más sitio; si no, se acorta a lo que
- * queda y se desplaza por dentro. Antes la lista seguía de largo y sus últimas opciones no
- * se podían ver. Se recalcula al aparecer/ocultarse el teclado (visualViewport).
- * Solo usa sus clases (dd-arriba, dd-acotada) y la variable --dd-max: NO toca el style propio
- * de la lista (p.ej. el max-height:none del filtro de Frente).
+ * Que la lista abierta quepa en la pantalla, y SIEMPRE hacia abajo de su caja. Si debajo no
+ * cabe (el final de un panel, como Combustible en el filtro avanzado de Equipos en teléfono,
+ * o el teclado del teléfono tapando la mitad de abajo), primero se sube lo que la contiene
+ * (subirParaLista) hasta que quepa o la caja llegue arriba; si aun así no cabe, se acorta a lo
+ * que queda y se desplaza por dentro. Antes se abría hacia ARRIBA cuando ahí había más sitio:
+ * con el teclado abierto Tipo de Equipos se desplegaba sobre el encabezado.
+ * Se recalcula al aparecer/ocultarse el teclado (visualViewport).
+ * Solo usa su clase (dd-acotada) y la variable --dd-max: NO toca el style propio de la lista
+ * (p.ej. el max-height:none del filtro de Frente).
  */
 window.ajustarListaDropdown = function (dropdown) {
     const lista = dropdown && (dropdown.querySelector(":scope > .dropdown-content") || dropdown.querySelector(".dropdown-content"));
     if (!lista) return;
-    lista.classList.remove("dd-arriba", "dd-acotada");
+    lista.classList.remove("dd-acotada");
     lista.style.removeProperty("--dd-max");
     if (!dropdown.classList.contains("active")) return;
     const vv = window.visualViewport;
+    const techo = vv ? vv.offsetTop : 0;
     const alto = vv ? vv.height + vv.offsetTop : window.innerHeight;
-    const r = lista.getBoundingClientRect();
     const MARGEN = 8;
-    if (!r.height || r.bottom <= alto - MARGEN) return;   // cabe: como siempre
-    const caja = dropdown.getBoundingClientRect();   // = su caja: la lista va en absoluto
-    const abajo = alto - r.top - MARGEN;
-    const arriba = caja.top - (vv ? vv.offsetTop : 0) - MARGEN - 5;
-    let max = abajo;
-    if (arriba > abajo) { lista.classList.add("dd-arriba"); max = arriba; }
-    if (max < r.height) {
-        lista.style.setProperty("--dd-max", Math.max(120, Math.floor(max)) + "px");
+    // Dónde queda la lista SIN la animación de entrada (fadeInDownSmall la sube 5 px al
+    // empezar): se descuenta lo que esté movida en este instante. Medida tal cual, daba por
+    // buena una lista que al terminar de bajar se salía de la pantalla.
+    const sitio = () => {
+        const tf = getComputedStyle(lista).transform;
+        const movida = tf && tf !== "none" ? new DOMMatrixReadOnly(tf).m42 : 0;
+        const top = lista.getBoundingClientRect().top - movida;
+        return { caja: dropdown.getBoundingClientRect().top, top: top, bottom: top + lista.offsetHeight };
+    };
+    let r = sitio();
+    if (r.bottom === r.top || r.bottom <= alto - MARGEN) return;   // cabe: como siempre
+    subirParaLista(dropdown, Math.min(r.bottom - (alto - MARGEN), r.caja - techo - MARGEN));
+    // Lo que aún sobre se acorta. Se vuelve a medir tras cada recorte: la lista también
+    // alargaba la página, y al acortarla el navegador baja el scroll lo que ya no existe, con
+    // lo que la lista vuelve a bajar unos píxeles.
+    for (let vuelta = 0; vuelta < 4; vuelta++) {
+        r = sitio();
+        const sobra = r.bottom - (alto - MARGEN);
+        if (sobra <= 0.5) break;
+        const max = Math.max(120, Math.floor(r.bottom - r.top - sobra));
+        lista.style.setProperty("--dd-max", max + "px");
         lista.classList.add("dd-acotada");
+        if (max === 120) break;
     }
 };
+// Sube `px` lo que contiene al dropdown: primero los paneles con su propio scroll (una
+// ventana de filtros, un modal) y por último la página. Lo que no puede subir, no sube.
+function subirParaLista(dropdown, px) {
+    let falta = Math.floor(px);
+    const pagina = document.scrollingElement || document.documentElement;
+    for (let el = dropdown.parentElement; el && falta > 0; el = el.parentElement) {
+        const esPagina = el === pagina || el === document.body;
+        if (!esPagina) {
+            if (el.scrollHeight <= el.clientHeight) continue;
+            const oy = getComputedStyle(el).overflowY;
+            if (oy !== "auto" && oy !== "scroll") continue;
+        }
+        const objetivo = esPagina ? pagina : el;
+        const antes = objetivo.scrollTop;
+        objetivo.scrollTop = antes + falta;
+        falta -= objetivo.scrollTop - antes;
+        if (esPagina) break;
+    }
+}
 if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", function () {
         document.querySelectorAll(".custom-dropdown.active").forEach(window.ajustarListaDropdown);
