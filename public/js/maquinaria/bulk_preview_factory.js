@@ -7,7 +7,6 @@
  * recibe como CONFIG sólo lo que de verdad difiere entre módulos:
  *   - ids de los elementos del DOM y endpoints,
  *   - columns del preview,
- *   - cómo se marca un <option> como seleccionado (exacto vs case-insensitive),
  *   - atributos data-* extra por fila y cómo se recolecta cada fila (collectRow),
  *   - mapeo de errores del servidor y la UX del 422 (modal vs toast).
  *
@@ -38,7 +37,6 @@
             el.btn.dataset.bulkInit = '1';
 
             const formCard = () => document.getElementById(config.ids.formCard);
-            const ciMatch = !!config.ciSelectMatch;
             const esc = window.escapeHtml;
 
             // ── 1) Selección de archivo ──────────────────────────────────────
@@ -107,7 +105,7 @@
 
                 let tbody = '<tbody>';
                 rows.forEach((row, idx) => {
-                    const extraAttrs = config.buildRowDataset ? config.buildRowDataset(row, esc) : '';
+                    const extraAttrs = config.buildRowDataset ? config.buildRowDataset(row) : '';
                     tbody += `<tr data-row-idx="${idx}"${extraAttrs ? ' ' + extraAttrs : ''}>`;
                     tbody += `<td class="row-num"${config.rowNumStyle ? ` style="${config.rowNumStyle}"` : ''}>${idx + 1}</td>`;
                     columns.forEach(col => {
@@ -123,9 +121,9 @@
                             tbody += `<select data-field="${col.key}"><option value="">-- Seleccionar --</option>`;
                             list.forEach(opt => {
                                 const v = typeof opt === 'string' ? opt : String(opt);
-                                const selected = ciMatch
-                                    ? v.toUpperCase() === String(val).toUpperCase()
-                                    : v === val;
+                                // Sin importar mayúsculas: el Excel trae «planta km 30» y el
+                                // frente se llama «Planta km 30» (los estados, igual).
+                                const selected = v.toUpperCase() === String(val).toUpperCase();
                                 tbody += `<option value="${esc(v)}"${selected ? ' selected' : ''}>${esc(v)}</option>`;
                             });
                             tbody += '</select>';
@@ -198,8 +196,8 @@
                     });
                 });
 
-                // Hook por módulo para wiring extra (ej. resolver id_frente/tipo_codigo en aux).
-                if (config.bindRowExtras) config.bindRowExtras(el.table, options, tiposList);
+                // Hook por módulo para wiring extra (ej. resolver id_frente en aux).
+                if (config.bindRowExtras) config.bindRowExtras(el.table, options);
 
                 el.panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }

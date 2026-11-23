@@ -26,7 +26,6 @@ var initAuxiliaresBulk = window.createBulkPreview({
     on422: 'toast',
     flashToast: true,
     tipoField: 'tipo',
-    ciSelectMatch: true, // los estados se comparan case-insensitive
     columns: [
         { key: 'tipo', label: 'Tipo', type: 'datalist' },
         { key: 'marca', label: 'Marca', type: 'text' },
@@ -37,45 +36,32 @@ var initAuxiliaresBulk = window.createBulkPreview({
         { key: 'frente', label: 'Frente', type: 'select', optionsKey: 'frentes', optionValue: o => o.nombre },
         { key: 'estado', label: 'Estado', type: 'select', optionsKey: 'estados' },
     ],
-    // tipo_codigo + id_frente_resuelto viajan en data-* para el submit final.
-    buildRowDataset: (row, esc) =>
-        `data-tipo-codigo="${esc(row.data.tipo_codigo || '')}" data-id-frente="${row.data.id_frente_resuelto || ''}"`,
-    // El server valida con keys "rows.{idx}.{field}" (tipo_codigo, id_frente_resuelto,
+    // id_frente_resuelto viaja en un data-* para el submit final. El TIPO va como se ve en la
+    // celda: el servidor lo traduce a su código (codigoDeTipo), igual que en el alta a mano.
+    buildRowDataset: (row) => `data-id-frente="${row.data.id_frente_resuelto || ''}"`,
+    // El server valida con keys "rows.{idx}.{field}" (id_frente_resuelto,
     // frente_de_trabajo…); este mapeo las lleva a las claves de celda del preview.
     serverFieldMap: {
-        'tipo_codigo': 'tipo', 'tipo': 'tipo', 'marca': 'marca', 'modelo': 'modelo',
+        'tipo': 'tipo', 'marca': 'marca', 'modelo': 'modelo',
         'serial': 'serial', 'capacidad': 'capacidad', 'anio': 'anio',
         'id_frente_resuelto': 'frente', 'frente_de_trabajo': 'frente', 'frente': 'frente',
         'estado': 'estado',
     },
     // El server devuelve el error del frente como "frente_de_trabajo".
     errKey: (col) => (col.key === 'frente' ? 'frente_de_trabajo' : col.key),
-    // Al cambiar frente/tipo, resolver id_frente / tipo_codigo en los data-* de la fila.
-    bindRowExtras: (tableEl, options, tiposList) => {
-        tableEl.querySelectorAll('input,select').forEach(el => {
-            if (el.tagName === 'SELECT' && el.dataset.field === 'frente') {
-                el.addEventListener('change', () => {
-                    const tr = el.closest('tr'); if (!tr) return;
-                    const sel = el.value.trim().toLowerCase();
-                    const match = (options.frentes || []).find(f => String(f.nombre).trim().toLowerCase() === sel);
-                    tr.dataset.idFrente = match ? match.id : '';
-                });
-            }
-            if (el.dataset.field === 'tipo') {
-                el.addEventListener('change', () => {
-                    const tr = el.closest('tr'); if (!tr) return;
-                    const v = el.value.trim();
-                    const found = tiposList.find(t => t.toLowerCase() === v.toLowerCase());
-                    tr.dataset.tipoCodigo = found
-                        ? found.toUpperCase().replace(/\s+/g, '_')
-                        : v.toUpperCase().replace(/\s+/g, '_');
-                });
-            }
+    // Al cambiar el frente, resolver su id en el data-* de la fila.
+    bindRowExtras: (tableEl, options) => {
+        tableEl.querySelectorAll('select[data-field="frente"]').forEach(el => {
+            el.addEventListener('change', () => {
+                const tr = el.closest('tr'); if (!tr) return;
+                const sel = el.value.trim().toLowerCase();
+                const match = (options.frentes || []).find(f => String(f.nombre).trim().toLowerCase() === sel);
+                tr.dataset.idFrente = match ? match.id : '';
+            });
         });
     },
     collectRow: (tr) => {
         const data = {
-            tipo_codigo: tr.dataset.tipoCodigo || '',
             id_frente_resuelto: tr.dataset.idFrente ? parseInt(tr.dataset.idFrente, 10) : null,
         };
         tr.querySelectorAll('[data-field]').forEach(el => {
@@ -85,10 +71,6 @@ var initAuxiliaresBulk = window.createBulkPreview({
             if (f === 'anio') data.anio = v === '' ? null : parseInt(v, 10);
             else data[f] = v;
         });
-        // Si el user editó el tipo manualmente y no disparó change, fallback al value.
-        if (!data.tipo_codigo && data.tipo) {
-            data.tipo_codigo = String(data.tipo).toUpperCase().replace(/\s+/g, '_');
-        }
         return data;
     },
 });

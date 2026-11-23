@@ -827,14 +827,7 @@
             // de 2 por equipo. El combustible elegido también viajaba al siguiente.
             // El FRENTE se conserva a propósito (se ve en su caja): al cargar en tanda suele ser
             // el mismo, y se cambia como siempre.
-            var host = document.getElementById('ID_EQUIPO_HOST');
-            if (host) host.value = '';
-            var hostBusca = document.getElementById('hostSearchInput');
-            if (hostBusca) hostBusca.value = '';
-            var hostWrap = document.getElementById('hostSearchWrapper');
-            if (hostWrap) hostWrap.style.display = 'block';
-            var hostCard = document.getElementById('hostSelectedCard');
-            if (hostCard) hostCard.style.display = 'none';
+            if (window.auxHostClear) window.auxHostClear(false);
             form.querySelectorAll('input[type="file"]').forEach(marcarPdf);
             var auxProp = document.getElementById('aux_doc_propiedad_meta');
             if (auxProp) auxProp.value = '';
@@ -939,8 +932,10 @@
                         // Los campos anidados llegan con punto (documentacion.FECHA_ROTC) y el
                         // input se llama con corchetes (documentacion[FECHA_ROTC]): sin traducirlo
                         // el error de la fecha de un documento salia en el banner pero en ningun campo.
+                        // Primero el campo HABILITADO con ese name: doc_propiedad existe dos veces
+                        // (equipo y auxiliar) y por id se marcaba el del modo apagado, invisible.
                         var nombre = field.replace(/\.([^.]+)/g, '[$1]');
-                        var input = document.getElementById(field) || document.querySelector('[name="' + nombre + '"]');
+                        var input = form.querySelector('[name="' + nombre + '"]:not(:disabled)') || document.getElementById(field);
                         if (!input) return;
                         // Los desplegables propios guardan el valor en un <input type="hidden">, que NO
                         // tiene caja: marcarlo de rojo no se veia y el scrollIntoView de abajo no movia

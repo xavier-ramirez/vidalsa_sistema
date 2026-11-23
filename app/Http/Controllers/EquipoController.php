@@ -712,14 +712,28 @@ class EquipoController extends Controller
         'modelos_aux_list_form_v3',
     ];
 
+    /**
+     * ¿Puede $u registrar un equipo en el frente $id? No si está en su lista negra, ni si es
+     * LOCAL y el frente no es de los suyos. La usan store() (403) y create() (la lista del
+     * formulario): antes el formulario ofrecía frentes que al guardar daban 403.
+     */
+    private static function puedeRegistrarEnFrente(?\App\Models\Usuario $u, $id): bool
+    {
+        if (!$u) return true;
+        $id = (string) $id;
+        if (in_array($id, array_map('strval', $u->getFrentesBloqueadosIds()), true)) return false;
+        return $u->veTodosLosFrentesEquipos() || in_array($id, array_map('strval', $u->getFrentesIds()), true);
+    }
+
     public function create()
     {
-        // Cache dropdown lists for 1 hour to avoid repeated DB queries
+        // Cache dropdown lists for 1 hour to avoid repeated DB queries. La caché es la
+        // misma para todos; cada usuario ve solo los frentes donde puede registrar.
         $frentes = \Illuminate\Support\Facades\Cache::remember('frentes_activos_form', 3600, function () {
             return FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
                 ->orderBy('NOMBRE_FRENTE', 'asc')
                 ->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
-        });
+        })->filter(fn ($nombre, $id) => self::puedeRegistrarEnFrente(auth()->user(), $id));
 
         $seguros = \Illuminate\Support\Facades\Cache::remember('seguros_list_form', 3600, function () {
             return CatalogoSeguro::orderBy('NOMBRE_ASEGURADORA', 'asc')
@@ -924,7 +938,7 @@ class EquipoController extends Controller
         if ($request->filled('ID_ESPEC') && $request->hasFile('foto_referencial')) {
             $file = $request->file('foto_referencial');
             $filename = 'catalog_ref_' . time() . '.' . $file->getClientOriginalExtension();
-            $path = $file->storeAs('temp_staging', $filename, 'local');
+            $path = $file->storeAs('temp_staging', \Illuminate\Support\Str::uuid() . '_' . $filename, 'local');
             $filesToProcess[] = [
                 'type' => 'foto_referencial',
                 'path' => $path,
@@ -937,7 +951,7 @@ class EquipoController extends Controller
         if ($request->hasFile('foto_equipo')) {
             $file = $request->file('foto_equipo');
             $filename = 'foto_unidad_' . time() . '.' . $file->getClientOriginalExtension();
-            $path = $file->storeAs('temp_staging', $filename, 'local');
+            $path = $file->storeAs('temp_staging', \Illuminate\Support\Str::uuid() . '_' . $filename, 'local');
             $filesToProcess[] = [
                 'type' => 'foto_equipo',
                 'path' => $path,
@@ -971,7 +985,7 @@ class EquipoController extends Controller
                 }
 
                 $filename = $docType . '_' . time() . '.pdf';
-                $path = $file->storeAs('temp_staging', $filename, 'local');
+                $path = $file->storeAs('temp_staging', \Illuminate\Support\Str::uuid() . '_' . $filename, 'local');
                 $filesToProcess[] = [
                     'type' => $inputName,
                     'path' => $path,
@@ -1028,11 +1042,7 @@ class EquipoController extends Controller
             // PENDIENTE (CONFIRMADO_EN_SITIO=0 por default) hasta confirmarse en sitio.
             $frenteNuevo = trim((string) $request->input('ID_FRENTE_ACTUAL', ''));
             if ($frenteNuevo !== '' && \App\Models\FrenteTrabajo::where('ID_FRENTE', $frenteNuevo)->exists()) {
-                $u = auth()->user();
-                $esLocal    = $u ? !$u->veTodosLosFrentesEquipos() : false;
-                $permitidos = $u ? array_map('strval', $u->getFrentesIds()) : [];
-                $bloqueados = $u ? array_map('strval', $u->getFrentesBloqueadosIds()) : [];
-                if (in_array($frenteNuevo, $bloqueados, true) || ($esLocal && !in_array($frenteNuevo, $permitidos, true))) {
+                if (!self::puedeRegistrarEnFrente(auth()->user(), $frenteNuevo)) {
                     abort(403, 'No tiene permisos para registrar equipos en este frente.');
                 }
                 $equipo->ID_FRENTE_ACTUAL = $frenteNuevo;
@@ -5179,8 +5189,9 @@ class EquipoController extends Controller
             if ($f[$campo] === '') $errors[$campo] = 'Campo requerido.';
         }
 
-        // Topes = columnas de `equipos` y de `tipo_equipos` (los mismos de store()/update()).
-        foreach (['tipo_equipo' => 255, 'marca' => 50, 'modelo' => 50, 'numero_etiqueta' => 50, 'serial_chasis' => 100, 'serial_de_motor' => 100] as $campo => $tope) {
+        // Topes = los mismos de store()/update() (el del tipo, 35, es el del formulario: uno más
+        // largo entraba por aquí y después la ficha no se podía editar sin cambiarle el tipo).
+        foreach (['tipo_equipo' => 35, 'marca' => 50, 'modelo' => 50, 'numero_etiqueta' => 50, 'serial_chasis' => 100, 'serial_de_motor' => 100] as $campo => $tope) {
             if (mb_strlen($f[$campo]) > $tope) $errors[$campo] = "Máximo {$tope} caracteres.";
         }
         if ($f['anio'] !== '' && (!ctype_digit($f['anio']) || (int) $f['anio'] < 1900 || (int) $f['anio'] > 2100)) {
@@ -5309,7 +5320,8 @@ class EquipoController extends Controller
                 'marca'                   => $rawMarca,
                 'modelo'                  => $rawModelo,
                 'anio'                    => $rawAnio,
-                'numero_etiqueta'         => $rawEtiqueta !== '' ? $rawEtiqueta : null,
+                // La etiqueta solo la pone quien tiene equipos.edit, como en store().
+                'numero_etiqueta'         => $rawEtiqueta !== '' && $user->can('equipos.edit') ? $rawEtiqueta : null,
                 'serial_chasis'           => $chasisUpper,
                 'serial_de_motor'         => $motorUpper,
                 'frente_trabajo'          => $rawFrente,

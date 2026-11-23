@@ -58,7 +58,9 @@
             _hostLastQuery = '';
             return;
         }
-        if (q === _hostLastQuery) return;
+        // Lo ya buscado no se repite mientras su lista está a la vista; con la lista cerrada
+        // (clic fuera y volver a entrar) se busca otra vez para mostrarla.
+        if (q === _hostLastQuery && document.getElementById('hostResultsBox').style.display !== 'none') return;
         _hostLastQuery = q;
         clearTimeout(_hostDebounce);
         _hostDebounce = setTimeout(() => {
@@ -183,7 +185,8 @@
         if (box) box.style.display = 'none';
     };
 
-    window.auxHostClear = function () {
+    // enfocar = false: al dejar el formulario listo para otro registro no se salta a la búsqueda.
+    window.auxHostClear = function (enfocar) {
         const hidden  = document.getElementById('ID_EQUIPO_HOST');
         const search  = document.getElementById('hostSearchInput');
         const wrapper = document.getElementById('hostSearchWrapper');
@@ -194,6 +197,6 @@
         if (card)    card.style.display    = 'none';
         _hostLastQuery = '';
         window.auxHostClose();
-        if (search) search.focus();
+        if (search && enfocar !== false) search.focus();
     };
 })();

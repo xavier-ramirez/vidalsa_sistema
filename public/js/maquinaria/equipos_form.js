@@ -147,6 +147,12 @@ function initEquiposForm() {
                 // Fuerza ocultar el loader aunque el fetch haya fallado, asi
                 // el submit no queda esperando forever via setInterval.
                 feedbackLoader.style.display = 'none';
+                // Sin respuesta no se sabe nada del valor NUEVO: se borra la marca del
+                // anterior (si no, un serial corregido seguía "repetido") y se olvida el
+                // último revisado para que el próximo blur vuelva a preguntar.
+                clearFieldError(input);
+                input.dataset.isDuplicate = "false";
+                input.dataset.lastChecked = '';
                 console.error('checkUniqueness:', err);
             });
     };

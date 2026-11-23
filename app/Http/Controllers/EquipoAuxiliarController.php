@@ -561,6 +561,27 @@ class EquipoAuxiliarController extends Controller
         return $tipos;
     }
 
+    /**
+     * El código con que se guarda un TIPO escrito o elegido: el del catálogo si el texto es
+     * su código o su etiqueta, sin importar mayúsculas ("Contenedor" → CONTAINER, "Luminaria
+     * / Torre" → LUMINARIA); si no es ninguno, un tipo nuevo en mayúsculas con guiones bajos
+     * (las claves de tiposLabel() siguen esa misma forma, para no duplicar tipos). Es la
+     * única traducción: la usan el alta a mano, la previa del Excel y su guardado.
+     */
+    private function codigoDeTipo(string $texto, ?array $tipos = null): string
+    {
+        $texto = trim($texto);
+        $clave = mb_strtolower($texto);
+        $tipos ??= $this->getTiposDinamicos();
+        foreach ($tipos as $codigo => $etiqueta) {
+            if (mb_strtolower($codigo) === $clave) return $codigo;
+        }
+        foreach ($tipos as $codigo => $etiqueta) {
+            if (mb_strtolower($etiqueta) === $clave) return $codigo;
+        }
+        return mb_strtoupper(preg_replace('/\s+/', '_', $texto));
+    }
+
     public function update(Request $request, $id)
     {
         $auxiliar = EquipoAuxiliar::findOrFail($id);
@@ -1361,21 +1382,9 @@ class EquipoAuxiliarController extends Controller
             }
         }
 
-        // TIPO: si el usuario seleccionó una etiqueta legible del datalist
-        // (ej. "Maquina de Soldar"), mapearla al codigo enum correspondiente
-        // (MAQUINA_DE_SOLDAR) para preservar la consistencia con los registros
-        // existentes. Comparacion case-insensitive. Si no hay match, se
-        // normaliza como tipo custom (uppercase + underscores) — y las claves de
-        // tiposLabel() estan escritas para COINCIDIR con esa normalizacion, para
-        // que las dos vias produzcan el MISMO codigo y no se dupliquen tipos.
+        // TIPO: la etiqueta del datalist ("Máquina de Soldar") se guarda como su código.
         if ($request->filled('TIPO')) {
-            $input = trim($request->input('TIPO'));
-            $labels = EquipoAuxiliar::tiposLabel(); // [code => label]
-            $code = null;
-            foreach ($labels as $k => $label) {
-                if (mb_strtolower($label) === mb_strtolower($input)) { $code = $k; break; }
-            }
-            $request->merge(['TIPO' => $code ?? mb_strtoupper(preg_replace('/\s+/', '_', $input))]);
+            $request->merge(['TIPO' => $this->codigoDeTipo($request->input('TIPO'))]);
         }
 
         // TIPO y ESTADO_OPERATIVO son SIEMPRE requeridos, tanto en create como
@@ -1657,12 +1666,6 @@ class EquipoAuxiliarController extends Controller
 
         // Lookups en memoria (1 llamada c/u, no por fila)
         $tiposMap = $this->getTiposDinamicos();            // [CODE => Label]
-        $tiposByCodeLower  = [];
-        $tiposByLabelLower = [];
-        foreach ($tiposMap as $code => $label) {
-            $tiposByCodeLower[mb_strtolower($code)]   = $code;
-            $tiposByLabelLower[mb_strtolower($label)] = $code;
-        }
         // Barrera de frentes (lista blanca LOCAL + lista negra de bloqueados), igual que el
         // bulk de equipos: un frente fuera del scope no se resuelve → la fila da error. Sin
         // esto la previa aceptaba cualquier frente activo y el store lo guardaba (el alta
@@ -1711,19 +1714,6 @@ class EquipoAuxiliarController extends Controller
                 if ($val === '') $errors[$field] = 'Campo requerido.';
             }
 
-            // TIPO: resolver a code. Match por label o por code (case-insensitive).
-            // Si no matchea, normalizar como custom (UPPERCASE + _).
-            $tipoCodigo = null;
-            if ($rawTipo !== '') {
-                $key = mb_strtolower($rawTipo);
-                if (isset($tiposByCodeLower[$key])) {
-                    $tipoCodigo = $tiposByCodeLower[$key];
-                } elseif (isset($tiposByLabelLower[$key])) {
-                    $tipoCodigo = $tiposByLabelLower[$key];
-                } else {
-                    $tipoCodigo = mb_strtoupper(preg_replace('/\s+/', '_', $rawTipo));
-                }
-            }
 
             // ESTADO
             if ($rawEstado !== '' && !in_array($estadoUpper, $validEstados)) {
@@ -1752,14 +1742,13 @@ class EquipoAuxiliarController extends Controller
 
             $anio = $rawAnio !== '' ? (int) $rawAnio : null;
             if ($anio !== null && ($anio < 1950 || $anio > 2100)) {
-                $errors['año'] = 'Debe estar entre 1950 y 2100.';
+                $errors['anio'] = 'Debe estar entre 1950 y 2100.';
             }
 
             $rows[] = [
                 'row_index' => $n,
                 'data' => [
                     'tipo'               => mb_strtoupper($rawTipo),
-                    'tipo_codigo'        => $tipoCodigo,
                     'marca'              => mb_strtoupper($rawMarca),
                     'modelo'             => mb_strtoupper($rawModelo),
                     'serial'             => $serialUpper,
@@ -1800,7 +1789,7 @@ class EquipoAuxiliarController extends Controller
 
         $validator = \Validator::make($request->all(), [
             'rows'                       => 'required|array|min:1|max:500',
-            'rows.*.tipo_codigo'         => 'required|string|max:60',
+            'rows.*.tipo'                => 'required|string|max:60',
             'rows.*.marca'               => 'required|string|max:80',
             'rows.*.modelo'              => 'required|string|max:80',
             'rows.*.serial'              => 'required|string|max:100',
@@ -1810,8 +1799,8 @@ class EquipoAuxiliarController extends Controller
             'rows.*.estado'              => 'required|string|in:' . implode(',', array_keys(EquipoAuxiliar::estadosLabel())),
         ], [
             // Mensajes en español por fila (regla :input/:position se reemplaza por el numero de fila +2 = numero real en el Excel)
-            'rows.*.tipo_codigo.required'        => 'Fila :position: el Tipo es obligatorio.',
-            'rows.*.tipo_codigo.max'             => 'Fila :position: el Tipo no puede exceder 60 caracteres.',
+            'rows.*.tipo.required'               => 'Fila :position: el Tipo es obligatorio.',
+            'rows.*.tipo.max'                    => 'Fila :position: el Tipo no puede exceder 60 caracteres.',
             'rows.*.marca.required'              => 'Fila :position: la Marca es obligatoria.',
             'rows.*.marca.max'                   => 'Fila :position: la Marca no puede exceder 80 caracteres.',
             'rows.*.modelo.required'             => 'Fila :position: el Modelo es obligatorio.',
@@ -1899,12 +1888,14 @@ class EquipoAuxiliarController extends Controller
         $creadoPor = auth()->id();
         $now = now();
 
+        $tipos = $this->getTiposDinamicos();
+
         DB::beginTransaction();
         try {
             $batch = [];
             foreach ($data['rows'] as $row) {
                 $batch[] = [
-                    'TIPO'             => mb_strtoupper(preg_replace('/\s+/', '_', $row['tipo_codigo'])),
+                    'TIPO'             => $this->codigoDeTipo($row['tipo'], $tipos),
                     'MARCA'            => mb_strtoupper(trim($row['marca'])),
                     'MODELO'           => mb_strtoupper(trim($row['modelo'])),
                     'SERIAL'           => mb_strtoupper(trim($row['serial'])),
