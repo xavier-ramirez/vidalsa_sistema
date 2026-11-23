@@ -86,6 +86,23 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     // Normalizacion (tildes + mayusculas): delega en el modulo compartido FuzzySearch
     // (public/js/maquinaria/fuzzy_search.js, cargado global en el layout base).
     function norm(s) { return window.FuzzySearch.norm(s); }
+    // Mismo texto para el catálogo: sin tildes ni mayúsculas, sin espacios de sobra.
+    function mismoTexto(a, b) {
+        var f = function (s) { return norm(String(s || '').trim().replace(/\s+/g, ' ')); };
+        return f(a) === f(b);
+    }
+    // Productos del catálogo con ese nombre y esa UM.
+    function delCatalogo(nombre, um) {
+        return PRODUCTOS.filter(function (p) { return mismoTexto(p.NOMBRE, nombre) && mismoTexto(p.UM, um); });
+    }
+
+    // Captura vigente. Una respuesta del servidor que llega tarde (crear un producto al vuelo)
+    // solo toca la tabla si nadie la vació entretanto (Cancelar, un registro) y si la pantalla
+    // sigue siendo ESTA: al volver al módulo la SPA monta otra corrida con su propia tabla.
+    var capturaId = 0;
+    var miMontaje = window.__entMontaje = (window.__entMontaje || 0) + 1;
+    var miTabla = document.getElementById('entLineasTbody');
+    function montajeVivo() { return miMontaje === window.__entMontaje && miTabla.isConnected !== false; }
 
     // ── Estado ────────────────────────────────────────────────────────────
     // entLineas: array de {id_producto, codigo, nombre, um, cantidad}. Lo que
@@ -163,13 +180,20 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     // Prefija el input de UM con la UM del producto pero lo deja EDITABLE — si el
     // usuario la cambia, entAgregar registra una presentacion aparte (ver caso 1).
     function entPick(item) {
-        entSelected = {
+        entElegir({
             id_producto: parseInt(item.getAttribute('data-id'), 10),
             codigo:      item.getAttribute('data-cod') || '',
             nombre:      item.getAttribute('data-nom') || '',
             um:          item.getAttribute('data-um') || '',
             categoria:   item.getAttribute('data-cat') || '',
-        };
+        });
+        // Saltar a cantidad para captura rapida: codigo → enter → cantidad → enter.
+        setTimeout(function () { var c = el('entCant'); if (c) c.focus(); }, 30);
+    }
+    // Deja elegido un producto (badge + UM). Lo usan entPick y la creación al vuelo que
+    // falla, para devolver la barra como estaba.
+    function entElegir(prod) {
+        entSelected = prod;
         var badge = el('entSelectedBadge');
         el('entSelectedCod').textContent = entSelected.codigo;
         // Solo CODIGO · NOMBRE en el badge. La UM se muestra (y eventualmente se edita)
@@ -192,9 +216,6 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             umInp.value = entSelected.um;
             entUmHide();
         }
-
-        // Saltar a cantidad para captura rapida: codigo → enter → cantidad → enter.
-        setTimeout(function () { var c = el('entCant'); if (c) c.focus(); }, 30);
     }
     // El parametro (true) suprime el siguiente entSuggest para que el dropdown NO
     // se abra solo al refocar el buscador. Lo usan entInsertarLinea (tras agregar
@@ -241,14 +262,25 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         }
         box.classList.add('open');
     };
+    // La UM escrita, tal como la guarda el catálogo. Es la MISMA regla al pulsar Enter en el
+    // campo y al agregar la línea, para que el resultado no dependa de cómo se sale del campo:
+    // si es una UM registrada (sin mirar tildes ni mayúsculas: «galon» → GALÓN) se toma esa;
+    // si no, lo escrito, en mayúsculas. Nunca se completa una UM a medias: «ROL» puede ser una
+    // UM nueva y no ROLLO. Para completar está la lista (clic en la sugerencia).
+    // Antes Enter tomaba la primera sugerencia que CONTENÍA lo escrito («M» → AMPOLLA) y el
+    // clic fuera dejaba lo escrito.
+    function resolverUm(texto) {
+        var t = String(texto || '').trim();
+        if (!t) return '';
+        var exacta = UNIDADES_MEDIDA.filter(function (u) { return mismoTexto(u, t); })[0];
+        return exacta || t.toUpperCase();
+    }
     window.entUmKey = function (ev) {
         if (ev.key === 'Escape') { entUmHide(); return; }
         if (ev.key === 'Enter') {
             ev.preventDefault();
-            // Si hay una sugerencia ACTIVA, la toma; sino conserva lo tipeado.
-            var first = document.querySelector('#entUmSuggest .ent-um-suggest-item');
             var inp = el('entUm');
-            if (first && inp) inp.value = first.getAttribute('data-um') || inp.value;
+            if (inp && inp.value.trim()) inp.value = resolverUm(inp.value);
             entUmHide();
             // Saltar a cantidad — pipeline rapido para producto nuevo.
             var c = el('entCant'); if (c) c.focus();
@@ -324,7 +356,8 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     // Inserta una linea ya resuelta (con id_producto valido) en entLineas.
     // Si el producto ya estaba, suma la cantidad en vez de duplicar la fila
     // — UX clasica de capturas tipo POS.
-    function entInsertarLinea(prod, cant) {
+    // limpiar=false deja la barra de captura como está (ver entDoCreateProducto).
+    function entInsertarLinea(prod, cant, limpiar) {
         var existing = entLineas.find(function (l) { return l.id_producto === prod.id_producto; });
         if (existing) {
             existing.cantidad = +(existing.cantidad + cant).toFixed(3);
@@ -338,6 +371,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             });
         }
         entRender();
+        if (limpiar === false) return;
         // Limpiar inputs y devolver foco al buscador — siguiente producto. El flag
         // `true` suprime la auto-apertura del dropdown (Enter en Cantidad agrega
         // la linea; no es una intencion de "ver mas sugerencias").
@@ -369,6 +403,19 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         // final (entGuardar / "Registrar" del modal). El guard entCreandoProducto ya
         // evita el doble-POST mientras la creacion esta en curso.
         entCreandoProducto = true;
+        // La barra se vacía YA, como al agregar un producto del catálogo: lo que se escriba
+        // mientras responde el servidor es del SIGUIENTE producto y no se pega a éste. Si la
+        // creación falla, la barra vuelve como estaba (si nadie escribió otra cosa encima).
+        var miCaptura = capturaId;
+        var barra = { sel: entSelected, txt: v('entSearch'), cant: v('entCant'), um: v('entUm') };
+        window.entClearSelected(true);
+        el('entCant').value = '';
+        function devolverBarra() {
+            if (miCaptura !== capturaId || entSelected || v('entSearch') || v('entCant')) return;
+            if (barra.sel) entElegir(barra.sel); else el('entSearch').value = barra.txt;
+            el('entUm').value = barra.um;
+            el('entCant').value = barra.cant;
+        }
         // IMPORTANTE: mandamos id_almacen aunque NO haya cantidad inicial — el backend
         // (AlmacenController::storeProducto) llama a asegurarStock() que crea la fila
         // almacen_stock con CANTIDAD=0 si no existia. Sin esto, el producto creado al
@@ -391,9 +438,12 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
             entCreandoProducto = false;
+            // Se salió del módulo mientras tanto: esta tabla ya no está en la página.
+            if (!montajeVivo()) return;
             if (!res.ok) {
                 var msg = (res.b && res.b.message) || 'No se pudo registrar el producto nuevo.';
                 if (res.b && res.b.errors) msg = Object.values(res.b.errors).map(function (a) { return a.join(' '); }).join(' ');
+                devolverBarra();
                 showErr(msg); toast(msg, 'error');
                 var i = el('entSearch'); if (i) i.focus();
                 return;
@@ -410,19 +460,51 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
                 UM:          p.UM || 'UND',
                 CATEGORIA:   p.CATEGORIA || categoria || '',
             });
+            // Una UM nueva pasa a la lista: la próxima vez se reconoce igual que las demás.
+            var umCreada = p.UM || um;
+            if (!UNIDADES_MEDIDA.some(function (u) { return mismoTexto(u, umCreada); })) UNIDADES_MEDIDA.push(umCreada);
+            var etiqueta = (p.CODIGO || '') + ' · ' + (p.NOMBRE || nombre);
+            // La tabla se vació mientras tanto (Cancelar): el producto ya quedó en el
+            // catálogo, pero la línea no vuelve a una tabla vaciada.
+            if (miCaptura !== capturaId) {
+                toast('Producto nuevo registrado en el catálogo: ' + etiqueta + '. No se agregó a la tabla porque la tabla se vació.', 'info');
+                return;
+            }
+            // La barra ya se vació al pedirlo y puede tener el siguiente producto: no se toca.
             entInsertarLinea({
                 id_producto: p.ID_PRODUCTO,
                 codigo:      p.CODIGO || '',
                 nombre:      p.NOMBRE || nombre,
                 um:          p.UM || 'UND',
-            }, cant);
-            toast('Producto nuevo registrado: ' + (p.CODIGO || '') + ' · ' + (p.NOMBRE || nombre));
+            }, cant, false);
+            toast('Producto nuevo registrado: ' + etiqueta);
         })
         .catch(function () {
             entCreandoProducto = false;
+            if (!montajeVivo()) return;
+            devolverBarra();
             var m = 'Error de red al registrar el producto.';
             showErr(m); toast(m, 'error');
         });
+    }
+
+    // Un nombre con gemelos (varios productos con ese nombre y la misma UM, distintos por su
+    // nº de parte: los filtros, 28 «FILTRO DE ACEITE DE MOTOR») no señala a un producto. De él no
+    // se deduce una presentación nueva: se reusaría la de OTRO filtro o nacería una sin nº de
+    // parte. Avisa y devuelve true si es el caso.
+    function avisoGemelos(nombre, umNueva) {
+        var porUm = {};
+        PRODUCTOS.forEach(function (p) {
+            if (mismoTexto(p.NOMBRE, nombre)) { var k = norm(p.UM); porUm[k] = (porUm[k] || 0) + 1; }
+        });
+        var conGemelos = Object.keys(porUm).filter(function (k) { return porUm[k] > 1; });
+        if (!conGemelos.length) return false;
+        var umGemelos = delCatalogo(nombre, conGemelos[0])[0].UM;
+        var m = 'Hay ' + porUm[conGemelos[0]] + ' productos «' + String(nombre).trim().toUpperCase() + '» en ' + umGemelos
+            + ' (se distinguen por el nº de parte): aquí no se puede registrar en ' + umNueva
+            + '. Elige el tuyo de la lista en ' + umGemelos + ' o crea la presentación desde Almacén.';
+        showErr(m); toast(m, 'error');
+        return true;
     }
 
     window.entAgregar = function () {
@@ -446,12 +528,12 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             // La UM puede haberse cambiado a una presentacion distinta (UND→CAJA, etc.).
             // Comparamos la UM tipeada contra la del producto elegido:
             var umInp1 = el('entUm');
-            var umNueva = umInp1 ? String(umInp1.value || '').trim().toUpperCase() : '';
+            var umNueva = resolverUm(umInp1 ? umInp1.value : '');
             if (!umNueva) umNueva = entSelected.um;   // campo vacio → presentacion original
             // Misma UM (o equivalente sin tildes/case) → es el mismo producto, fluye normal.
             // Si el producto base no trae UM registrada (entSelected.um vacio) tampoco
             // ramificamos: no hay una UM "original" contra la cual comparar.
-            if (!entSelected.um || norm(umNueva) === norm(entSelected.um)) {
+            if (!entSelected.um || mismoTexto(umNueva, entSelected.um)) {
                 entInsertarLinea(entSelected, cant);
                 return;
             }
@@ -459,9 +541,13 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             // queda intacto con su UM; esta entra como un producto aparte (mismo nombre,
             // nueva UM). Reusamos una presentacion ya existente en el catalogo si la hay
             // (mismo nombre + misma UM) para no duplicar; si no, se crea al vuelo.
-            var existenteVariante = PRODUCTOS.find(function (p) {
-                return norm(p.NOMBRE) === norm(entSelected.nombre) && norm(p.UM) === norm(umNueva);
-            });
+            //
+            // El NOMBRE tiene que señalar a un solo producto: hay varios con el mismo nombre
+            // y la misma UM que solo se distinguen por su nº de parte (los filtros: 28
+            // «FILTRO DE ACEITE DE MOTOR»). De uno de ellos no se puede deducir la
+            // presentación: se reusaría la de OTRO filtro, o nacería una sin nº de parte.
+            if (avisoGemelos(entSelected.nombre, umNueva)) return;
+            var existenteVariante = delCatalogo(entSelected.nombre, umNueva)[0];
             if (existenteVariante) {
                 entInsertarLinea({
                     id_producto: existenteVariante.ID_PRODUCTO,
@@ -478,7 +564,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             var catHeredada = (entSelected.categoria || '').trim();
             if (!catHeredada) {
                 var conCat = PRODUCTOS.find(function (p) {
-                    return norm(p.NOMBRE) === norm(entSelected.nombre) && p.CATEGORIA && String(p.CATEGORIA).trim();
+                    return mismoTexto(p.NOMBRE, entSelected.nombre) && p.CATEGORIA && String(p.CATEGORIA).trim();
                 });
                 if (conCat) catHeredada = String(conCat.CATEGORIA).trim();
             }
@@ -497,9 +583,29 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             showErr(mc); toast(mc, 'error'); return;
         }
         if (textoBuscador.length >= 2) {
-            // entDoCreateProducto normaliza nombre y UM a mayusculas (y UM vacia → UND).
             var umInp = el('entUm');
-            entDoCreateProducto(textoBuscador, cant, umInp ? umInp.value : 'UND');
+            var umTxt = resolverUm(umInp ? umInp.value : '') || 'UND';
+            // Lo escrito puede ser un producto que YA existe (se tecleó el nombre completo y se
+            // pasó a Cantidad sin elegir la sugerencia), o el mismo producto nuevo por segunda
+            // vez. Se usa el que hay: crearlo otra vez duplicaría el producto con otro código.
+            var iguales = delCatalogo(textoBuscador, umTxt);
+            if (iguales.length === 1) {
+                var q = iguales[0];
+                entInsertarLinea({ id_producto: q.ID_PRODUCTO, codigo: q.CODIGO || '', nombre: q.NOMBRE, um: q.UM }, cant);
+                return;
+            }
+            if (iguales.length > 1) {
+                var mI = 'Hay ' + iguales.length + ' productos «' + iguales[0].NOMBRE + '» en ' + umTxt
+                    + ' (se distinguen por el nº de parte): elige el tuyo de la lista.';
+                showErr(mI); toast(mI, 'error');
+                var s = el('entSearch'); if (s) s.focus();
+                return;
+            }
+            // Nombre que ya existe en OTRA UM: es una presentación nueva, con la misma regla que
+            // al cambiar la UM de uno elegido (caso 1): no de un nombre con gemelos.
+            if (avisoGemelos(textoBuscador, umTxt)) return;
+            // entDoCreateProducto normaliza nombre y UM a mayusculas (y UM vacia → UND).
+            entDoCreateProducto(textoBuscador, cant, umTxt);
             return;
         }
         // Caso 3: ni hay seleccion ni texto util → pedir descripcion.
@@ -700,6 +806,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     // navega ni recarga, solo deja el formulario en blanco para la siguiente
     // captura. No muestra notificacion — cada quien muestra la suya.
     function entLimpiarTodo() {
+        capturaId++;   // una respuesta pendiente ya no agrega a esta captura (entDoCreateProducto)
         entLineas = [];
         entRender();
         // Reset del panel de captura (buscador + badge + UM). El `true` suprime
