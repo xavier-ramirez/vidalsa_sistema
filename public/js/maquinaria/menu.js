@@ -318,6 +318,9 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
     document.getElementById('btnCancelGestion').onclick = closeHandler;
 
     document.getElementById('btnConfirmGestion').onclick = async function () {
+        // Una sola vez: el modal tarda 200 ms en irse y un doble clic mandaba dos pedidos;
+        // el segundo respondía «ya está en gestión» en rojo aunque todo saliera bien.
+        if (overlay.dataset.cerrando === '1') return;
         // Cerrar el modal de confirmacion y dejar que el preloader global
         // de la app sea el unico indicador de carga mientras procesamos.
         closeHandler();

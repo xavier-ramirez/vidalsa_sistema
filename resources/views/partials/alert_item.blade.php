@@ -139,6 +139,14 @@
             style="flex-shrink: 0; box-sizing: border-box; width: 32px; height: 32px; border-radius: 8px; border: none; padding: 0; background: #e2e8f0; color: #94a3b8; display: flex; align-items: center; justify-content: center; cursor: default;">
             <i class="material-icons" style="font-size: 18px; pointer-events: none;">manage_accounts</i>
         </button>
+        @elseif(! auth()->user()?->getFrentesIds())
+        {{-- La gestión queda a nombre del frente del usuario (DashboardController::iniciarGestion
+             la niega sin uno): sin frente asignado se dice aquí, no tras confirmar. --}}
+        <button type="button" disabled
+            title="Necesitas un frente asignado para gestionar documentos"
+            style="flex-shrink: 0; box-sizing: border-box; width: 32px; height: 32px; border-radius: 8px; border: none; padding: 0; background: #e2e8f0; color: #94a3b8; display: flex; align-items: center; justify-content: center; cursor: default;">
+            <i class="material-icons" style="font-size: 18px; pointer-events: none;">manage_accounts</i>
+        </button>
         @else
         <button type="button"
             onclick="window.iniciarGestionCustom('{{ $equipoId }}', '{{ $docType }}', event)"

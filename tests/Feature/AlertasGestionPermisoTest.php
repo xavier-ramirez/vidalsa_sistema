@@ -78,11 +78,22 @@ class AlertasGestionPermisoTest extends MySqlTestCase
             ->assertForbidden();
     }
 
-    public function test_con_equipos_edit_el_boton_se_ofrece(): void
+    public function test_con_equipos_edit_y_frente_el_boton_se_ofrece(): void
     {
-        $con = $this->usuario('equipos.edit');
+        [, $frente] = $this->equipoConFrente();
+        $con = $this->usuario('equipos.edit', 1, (string) $frente);
         $html = $this->actingAs($con)->getJson(route('dashboard.alertsHtml'))->assertOk()->json('html');
         $this->assertStringContainsString('iniciarGestionCustom', $html);
         $this->assertStringNotContainsString('No tienes permiso para gestionar documentos', $html);
+    }
+
+    /** La gestión queda a nombre del frente del usuario: sin uno, el botón ya sale apagado
+     *  (antes se ofrecía y el «Debes pertenecer a un frente» llegaba tras confirmar). */
+    public function test_sin_frente_asignado_el_boton_sale_deshabilitado(): void
+    {
+        $sinFrente = $this->usuario('equipos.edit');
+        $html = $this->actingAs($sinFrente)->getJson(route('dashboard.alertsHtml'))->assertOk()->json('html');
+        $this->assertStringNotContainsString('iniciarGestionCustom', $html);
+        $this->assertStringContainsString('Necesitas un frente asignado para gestionar documentos', $html);
     }
 }
