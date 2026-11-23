@@ -707,6 +707,12 @@ window.showDetailsImproved = function (target, event) {
         modal
             .querySelectorAll("details")
             .forEach((det) => det.removeAttribute("open"));
+        // Desde Alertas de Documentos (data-solo-documentos en el botón): solo la
+        // Documentación Legal, ya abierta. Desde cualquier otro sitio, la ficha completa.
+        const soloDocs = target.dataset.soloDocumentos === "1";
+        modal.classList.toggle("solo-documentos", soloDocs);
+        const docs = document.getElementById("docs_accordion");
+        if (soloDocs && docs) docs.setAttribute("open", "");
     }
 
     // Helper to identify empty values (also rejects the string "null" emitted by PHP when value is null)

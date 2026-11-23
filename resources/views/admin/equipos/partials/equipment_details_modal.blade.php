@@ -68,8 +68,8 @@ Estructura: overlay > modal-content > header + sub-header + body
         <div class="modal-body-scroll" style="padding: 25px; max-height: 80vh; overflow-y: auto; overflow-x: hidden;">
             <div style="display: flex; flex-direction: column; gap: 15px;">
 
-                {{-- Documentacion Legal --}}
-                <details name="equipment_accordion"
+                {{-- Documentacion Legal (lo único que se ve abriendo desde Alertas de Documentos) --}}
+                <details id="docs_accordion" name="equipment_accordion"
                     style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden;">
                     <summary
                         style="padding: 15px 20px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; background: #f8fafc; list-style: none;">
@@ -455,6 +455,11 @@ MODAL GPS TRACKER — Rastreo Satelital en Vivo
 
 <style>
     details[name="equipment_accordion"] summary { cursor: default; }
+
+    /* Abierta desde Alertas de Documentos (el ojo de cada alerta): solo la Documentación
+       Legal; el resto de la ficha no interesa ahí (pedido 23-11-2026). La clase la pone
+       showDetailsImproved (uicomponents.js) según data-solo-documentos del botón. */
+    #detailsModal.solo-documentos .modal-body-scroll > div > :not(#docs_accordion) { display: none !important; }
 
     /* ── Modal Rastreo Satelital: mapa satelital + ficha blanca con letra negra ──
        PC: mapa a la izquierda y ficha a la derecha. Tablet: igual, ficha más angosta.

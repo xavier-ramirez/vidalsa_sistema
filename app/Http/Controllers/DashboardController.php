@@ -115,7 +115,9 @@ class DashboardController extends Controller
         ));
         sort($permisosUser);   // el orden en que se marcaron no cambia lo que ve
 
-        $huella = substr(sha1(json_encode([$frentesVisibles, $frentesBloqueados, $permisosUser])), 0, 10);
+        // VersionVistas: un despliegue que cambia las vistas (p. ej. alert_item) no puede seguir
+        // sirviendo hasta 10 min el HTML guardado con la vista anterior.
+        $huella = substr(sha1(json_encode([$frentesVisibles, $frentesBloqueados, $permisosUser, \App\Support\VersionVistas::actual()])), 0, 10);
 
         return "{$userId}_v{$ver}_{$huella}";
     }

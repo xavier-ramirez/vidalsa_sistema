@@ -90,6 +90,7 @@
     @else
         <button type="button"
             data-equipo-id="{{ $equipoId }}"
+            data-solo-documentos="1"
             data-codigo="{{ $alert->equipo->CODIGO_PATIO }}"
             data-marca="{{ $alert->equipo->MARCA }}"
             data-modelo="{{ $alert->equipo->MODELO }}"
