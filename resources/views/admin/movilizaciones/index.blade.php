@@ -135,7 +135,7 @@
                         <div class="search-wrapper" style="width: 100%; border-color: {{ request('search') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('search') ? '#e1effa' : '#fff' }};">
                             <i class="material-icons search-icon">search</i>
                             <input type="text" id="searchInput" name="search" value="{{ request('search') }}"
-                                placeholder="Buscar Control o Equipo"
+                                placeholder="Buscar por seriales"
                                 class="search-input-field"
                                 autocomplete="off"
                                 oninput="clearTimeout(window._mvSearchTimer); window._mvSearchTimer = setTimeout(() => { const btn = document.getElementById('btn_clear_search'); if (btn) btn.style.display = this.value.length > 0 ? 'block' : 'none'; window.loadMovilizaciones(); }, 400);">

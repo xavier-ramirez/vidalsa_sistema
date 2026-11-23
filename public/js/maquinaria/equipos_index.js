@@ -2329,8 +2329,8 @@ window.openBulkModal = function (event) {
             <i class="material-icons" style="color:white;font-size:20px;">local_shipping</i>
             <h2 style="margin:0;font-size:16px;font-weight:700;">Movilización</h2>
         </div>
-        <button type="button" id="btnCloseDynamic" aria-label="Cerrar" style="position:absolute;right:15px;background:transparent;border:none;color:white;cursor:pointer;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
-            <i class="material-icons">close</i>
+        <button type="button" id="btnCloseDynamic" aria-label="Cerrar" style="position:absolute;right:15px;background:rgba(255,255,255,0.1);border:none;color:white;cursor:default;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;transition:0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+            <i class="material-icons" style="font-size:18px;">close</i>
         </button>
     `;
 
