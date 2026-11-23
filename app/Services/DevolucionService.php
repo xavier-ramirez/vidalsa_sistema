@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\MovimientoInventario;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -107,7 +106,8 @@ class DevolucionService
      */
     public function registrar(string $numero, array $lineas, array $datos): void
     {
-        DB::transaction(function () use ($numero, $lineas, $datos) {
+        // transaccionAlDia: si choca con otra operación simultánea del producto, se repite sola.
+        $this->inventario->transaccionAlDia(function () use ($numero, $lineas, $datos) {
             // La nota entera bloqueada ANTES de leer lo ya devuelto: dos devoluciones a la vez
             // (doble clic, dos pestañas) quedan en fila y la segunda ve lo que registró la
             // primera, así que nunca se devuelve dos veces lo mismo. eliminarNota toma el

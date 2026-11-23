@@ -2266,6 +2266,8 @@ class AlmacenController extends Controller
             // Entrega. Permite reimprimir/eliminar la nota completa por código desde
             // /admin/almacen/movimientos. Con más de TandasNota::RENGLONES renglones son
             // varias notas, una por tanda y cada una con su número: [renglón => número].
+            // Si choca con otra operación simultánea (InnoDB 1213) se repite entera: todo lo de
+            // dentro sale de la base, y el número de nota también se deshace.
             $result = DB::transaction(function () use ($data, $opts) {
                 $numeroDelRenglon = [];
                 $numeros = [];
@@ -2364,7 +2366,7 @@ class AlmacenController extends Controller
                     throw new \InvalidArgumentException('El conteo coincide con el sistema: no hay nada que ajustar.');
                 }
                 return ['ids' => $ids, 'numeros' => $numeros];
-            });
+            }, InventarioService::INTENTOS);
         } catch (Throwable $e) {
             return response()->json(['message' => MensajeError::para($e)], 422);
         }
@@ -2522,7 +2524,7 @@ class AlmacenController extends Controller
                     }
                 }
                 return ['numeros' => $numeros, 'traspasos' => []];
-            });
+            }, InventarioService::INTENTOS);   // choque simultáneo (1213): se repite entera
         } catch (Throwable $e) {
             return response()->json(['message' => MensajeError::para($e)], 422);
         }
@@ -2653,7 +2655,7 @@ class AlmacenController extends Controller
             }
 
             return ['numeros' => $numeros, 'traspasos' => $traspasos];
-        });
+        }, InventarioService::INTENTOS);   // choque simultáneo (1213): se repite entera
     }
 
     /**
@@ -3676,7 +3678,8 @@ class AlmacenController extends Controller
         $this->assertPuedeVerAlmacen($request, (int) $previa->first()->ID_ALMACEN);
 
         try {
-            DB::transaction(function () use ($request, $numero) {
+            // transaccionAlDia: si choca con otra operación simultánea del producto, se repite sola.
+            $this->inventario->transaccionAlDia(function () use ($request, $numero) {
                 // Relectura bajo lock: la primera transacción que llegue aquí gana. La segunda
                 // se queda esperando el lock y, cuando entra, ya ve NUMERO_NOTA=null → colección
                 // vacía → aborta sin revertir nada por segunda vez.

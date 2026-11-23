@@ -31,6 +31,11 @@ use InvalidArgumentException;
  */
 class InventarioService
 {
+    use \Illuminate\Database\DetectsConcurrencyErrors;
+
+    /** Veces que se prueba una operación que chocó con otra simultánea (ver transaccionAlDia). */
+    public const INTENTOS = 3;
+
     /**
      * Magnitud mínima representable (3 decimales). Pública para que quien compare
      * cantidades del kardex fuera de aquí (DevolucionService, eliminarNota) use la misma.
@@ -321,10 +326,24 @@ class InventarioService
      */
     public function transaccionAlDia(\Closure $fn)
     {
-        if (DB::transactionLevel() === 0 && DB::getDriverName() === 'mysql') {
-            DB::statement('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+        // Si choca con otra operación del mismo producto (InnoDB 1213/1205) se repite entera,
+        // hasta INTENTOS veces: no se escribió nada. El nivel se fija en cada intento porque
+        // SET TRANSACTION vale solo para la transacción siguiente.
+        for ($intento = 1; ; $intento++) {
+            $abre = DB::transactionLevel() === 0;
+            if ($abre && DB::getDriverName() === 'mysql') {
+                DB::statement('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+            }
+            try {
+                return DB::transaction($fn);
+            } catch (\Throwable $e) {
+                // Dentro de una transacción anidada Laravel lo relanza como DeadlockException
+                // (no QueryException): se reconoce por el error, no por la clase.
+                if (!$abre || $intento >= self::INTENTOS || !$this->causedByConcurrencyError($e)) {
+                    throw $e;
+                }
+            }
         }
-        return DB::transaction($fn);
     }
 
     /**
@@ -347,12 +366,9 @@ class InventarioService
         $idsProducto = array_values(array_unique(array_map('intval', $idsProducto)));
         sort($idsProducto);
         foreach ($idsProducto as $idProducto) {
-            // La fila de la bolsa se crea ANTES del bloqueo, y solo si falta (se mira sin
-            // bloquear). Así el bloqueo de abajo la incluye en su orden, sin un INSERT IGNORE
-            // sobre una fila existente (que tomaría un candado compartido fuera de orden) y
-            // sin dos transacciones peleando por el mismo hueco vacío.
-            if ($bolsa !== null && !AlmacenStock::where('ID_ALMACEN', $idAlmacen)
-                    ->where('ID_PRODUCTO', $idProducto)->where('ID_FRENTE', $bolsa)->exists()) {
+            // La fila de la bolsa se crea ANTES del bloqueo, si falta: así el bloqueo de abajo
+            // la incluye en su orden.
+            if ($bolsa !== null) {
                 $this->crearFilaSaldoSiFalta($idAlmacen, $idProducto, $bolsa);
             }
             AlmacenStock::where('ID_ALMACEN', $idAlmacen)
@@ -367,9 +383,18 @@ class InventarioService
      * Crea la fila de saldo (almacén, producto, bolsa) en 0 si no existe, SIN romper en
      * carreras: insertOrIgnore no lanza excepción si otra transacción ya la creó (choca con el
      * índice único). Un solo sitio para todos los que la necesitan.
+     *
+     * Primero se MIRA sin bloquear y solo se inserta si falta. Un INSERT IGNORE sobre una fila
+     * que ya existe le pone un candado compartido; dos operaciones simultáneas del mismo saldo
+     * (dos entradas, o una entrada y una devolución) lo tomaban las dos y se trababan al
+     * pedir el exclusivo (InnoDB 1213, reproducido con procesos en paralelo).
      */
     private function crearFilaSaldoSiFalta(int $idAlmacen, int $idProducto, int $idFrente): void
     {
+        if (AlmacenStock::where('ID_ALMACEN', $idAlmacen)->where('ID_PRODUCTO', $idProducto)
+                ->where('ID_FRENTE', $idFrente)->exists()) {
+            return;
+        }
         DB::table((new AlmacenStock())->getTable())->insertOrIgnore([
             'ID_ALMACEN'  => $idAlmacen,
             'ID_PRODUCTO' => $idProducto,
@@ -503,7 +528,7 @@ class InventarioService
     }
 
     /** [clave "almacén-producto", bolsa] de una fila del kardex, como las agrupa aperturasDeBolsas. */
-    private function bolsaDeFila(MovimientoInventario $m): array
+    public function bolsaDeFila(MovimientoInventario $m): array
     {
         $bolsa = $this->almacenSepara((int) $m->ID_ALMACEN)
             ? (int) ($m->ID_FRENTE_SALDO ?? self::FRENTE_BOLSA_COMUN)

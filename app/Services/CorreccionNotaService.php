@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AlmacenStock;
 use App\Models\CorreccionNota;
 use App\Models\MovimientoInventario;
 use Illuminate\Support\Collection;
@@ -110,6 +111,9 @@ class CorreccionNotaService
                 ));
             }
 
+            // Los saldos del producto, tomados ya (en el orden de todos): el reparto lee lo que
+            // tiene cada bolsa y nadie lo cambia hasta terminar.
+            $this->inventario->bloquearSaldos((int) $filas->first()->ID_ALMACEN, [$idProducto]);
             $this->inventario->corregirCantidadesSalida($this->repartir($filas, $nueva - $actual));
 
             CorreccionNota::create([
@@ -126,8 +130,11 @@ class CorreccionNotaService
     /**
      * Cantidad nueva de cada fila del producto. [ID_MOVIMIENTO => cantidad].
      *
-     * SUBIR va entero a la PRIMERA fila: es la bolsa por la que empezó el despacho (la del
-     * proyecto, o la que se eligió en «¿De qué proyecto sale?»).
+     * SUBIR empieza por la PRIMERA fila —la bolsa por la que empezó el despacho (la del
+     * proyecto, o la que se eligió en «¿De qué proyecto sale?»)— y sigue por las demás filas de
+     * la nota hasta lo que tiene cada bolsa, como la salida en cascada que las creó. Antes iba
+     * entero a la primera: si esa bolsa estaba en 0 se rechazaba aunque la bolsa prestada
+     * tuviera de sobra. Lo que ninguna cubre queda en la primera, y el recálculo dice cuánto falta.
      *
      * BAJAR empieza por la ÚLTIMA, igual que la devolución: la salida en cascada consume
      * primero la bolsa del proyecto y después las prestadas, así que lo que sobra es primero
@@ -138,8 +145,23 @@ class CorreccionNotaService
         $nuevas = $filas->mapWithKeys(fn ($m) => [(int) $m->ID_MOVIMIENTO => (float) $m->CANTIDAD])->all();
 
         if ($delta > 0) {
+            $resto = round($delta, 3);
+            $libre = [];   // [bolsa => lo que le queda], para no contar dos veces la misma
+            foreach ($filas as $m) {
+                $bolsa = $this->inventario->bolsaDeFila($m)[1];
+                $libre[$bolsa] ??= max(0.0, (float) AlmacenStock::where('ID_ALMACEN', $m->ID_ALMACEN)
+                    ->where('ID_PRODUCTO', $m->ID_PRODUCTO)->where('ID_FRENTE', $bolsa)->value('CANTIDAD'));
+                $toma = round(min($resto, $libre[$bolsa]), 3);
+                $id   = (int) $m->ID_MOVIMIENTO;
+                $nuevas[$id]   = round($nuevas[$id] + $toma, 3);
+                $libre[$bolsa] = round($libre[$bolsa] - $toma, 3);
+                $resto         = round($resto - $toma, 3);
+                if ($resto <= self::EPS) {
+                    return $nuevas;
+                }
+            }
             $primera = (int) $filas->first()->ID_MOVIMIENTO;
-            $nuevas[$primera] = round($nuevas[$primera] + $delta, 3);
+            $nuevas[$primera] = round($nuevas[$primera] + $resto, 3);
             return $nuevas;
         }
 
