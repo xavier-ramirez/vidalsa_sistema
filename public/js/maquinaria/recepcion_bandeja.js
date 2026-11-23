@@ -472,6 +472,11 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     // cancelar/enviar) ANTES de postear, para que el cierre del modal que disparan
     // al terminar no vuelva a auto-guardar. Se resetea al abrir un modal nuevo.
     var _trModalSubmitted = false;
+    // Nº de la última apertura del detalle (mismo criterio que _trSeq de la bandeja). Abrir
+    // la nota A, cerrarla y abrir la B antes de que A conteste dejaba que la respuesta TARDÍA
+    // de A pisara el modal ya abierto en B —y _trModalId con ella—: el almacenista veía A
+    // y "Aceptar" confirmaba A creyendo que era B. Cerrar el modal también invalida.
+    var _trDetSeq = 0;
 
     window.trOpenModal = function (id) {
         _trModalId = id;
@@ -479,6 +484,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         var overlay = el('trDetalleOverlay');
         var box     = el('trDetalleBox');
         if (!overlay || !box) return;
+        var miSeq = ++_trDetSeq;
         box.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;padding:60px;"><i class="material-icons" style="font-size:32px;color:#94a3b8;animation:spin 1s linear infinite;">autorenew</i></div>';
         overlay.classList.add('open');
         document.body.style.overflow = 'hidden';
@@ -486,10 +492,12 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         window.apiFetch(DETALLE_URL + '/' + id, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
             .then(function (data) {
+                if (miSeq !== _trDetSeq) return;   // llegó tarde: ya se cerró o se abrió otra nota
                 box.innerHTML = data.html || '';
                 _trModalId = data.id || id;
             })
             .catch(function () {
+                if (miSeq !== _trDetSeq) return;
                 box.innerHTML = '<div style="padding:40px;text-align:center;color:#dc2626;font-weight:600;">No se pudo cargar el detalle.</div>';
             });
     };
@@ -509,6 +517,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         var overlay = el('trDetalleOverlay');
         if (overlay) overlay.classList.remove('open');
         document.body.style.overflow = '';
+        _trDetSeq++;   // una respuesta del detalle que aún venga en camino ya no se pinta
         _trModalId = null;
         _trModalSubmitted = false;
     };

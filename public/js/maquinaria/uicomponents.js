@@ -324,10 +324,18 @@ document.addEventListener("focusin", function (e) {
             // Close others
             closeAllDropdowns(parent);
 
-            // Open this one if not active
+            // Open this one if not active. Si la caja es un BUSCADOR ([data-filter-search]) se
+            // abre con prepararAperturaDropdown, que ademas borra la busqueda vieja: al hacer
+            // clic en la caja este focusin llega ANTES que el click, abre la lista, y el click
+            // ya la encuentra abierta y no hace nada; asi el texto de una busqueda abandonada
+            // ("gua") se quedaba y la lista reabria filtrada a una sola opcion. Solo en
+            // buscadores donde se escribe: hay cajas de trigger que son el DATO (Nombre del
+            // almacen, Rol del usuario) o que, de solo lectura, ensenan la opcion elegida
+            // (Tipo de almacen), y borrarlas al enfocar perderia lo que muestran.
             if (!parent.classList.contains("active")) {
                 parent.classList.add("active");
-                window.ajustarListaDropdown(parent);
+                if (e.target.matches("[data-filter-search]:not([readonly])")) window.prepararAperturaDropdown(parent);
+                else window.ajustarListaDropdown(parent);
             }
         }
     }
