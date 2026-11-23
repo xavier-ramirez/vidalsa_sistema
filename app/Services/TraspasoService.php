@@ -508,19 +508,21 @@ class TraspasoService
      *
      *  - arrastrados: filas que el deshacer tiene que llevarse sin estar enlazadas a $mov
      *    en el kardex (ver movimientosDelItem) → InventarioService::eliminarMovimientoConReverso.
+     *  - ids: TODAS las filas que borra (la misma lista que el deshacer), para el aviso previo.
      *  - lineas: líneas de envío cuya salida o entrada va a desaparecer →
      *    quitarLineasDeshechas(), después del borrado y en la misma transacción.
      *
-     * @return array{arrastrados:int[], lineas:int[]}
+     * @return array{arrastrados:int[], ids:int[], lineas:int[]}
      */
     public function prepararDeshacer(MovimientoInventario $mov): array
     {
         $arrastrados = $this->movimientosDelItem($mov);
         // Las filas que el deshacer va a borrar, con la MISMA regla que usa él.
-        $ids = $this->inventario->idsMovimientoYContraparte($mov)->merge($arrastrados)->all();
+        $ids = $this->inventario->idsMovimientoYContraparte($mov, $arrastrados)->all();
 
         return [
             'arrastrados' => $arrastrados,
+            'ids'         => $ids,
             'lineas'      => TraspasoLinea::whereIn('ID_MOVIMIENTO_SALIDA', $ids)
                 ->orWhereIn('ID_MOVIMIENTO_ENTRADA', $ids)
                 ->pluck('ID_LINEA')

@@ -339,6 +339,66 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->assertSame(0.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
     }
 
+    public function test_deshacer_un_tramo_del_envio_se_lleva_las_devoluciones_de_todos(): void
+    {
+        // Almacén por proyecto: el envío sale en DOS tramos (bolsa B y bolsa A).
+        [$fA, $fB] = $this->frentes(2);
+        $origen  = $this->almacen(Almacen::TIPO_PROYECTO, [$fA, $fB]);
+        $destino = $this->destino();
+        $p = $this->producto('45');
+        $this->inv->registrarEntrada($origen->ID_ALMACEN, $p->ID_PRODUCTO, 3, ['id_frente' => $fA]);
+        $this->inv->registrarEntrada($origen->ID_ALMACEN, $p->ID_PRODUCTO, 4, ['id_frente' => $fB]);
+        [$nota, $envio] = $this->envioConNota($origen->ID_ALMACEN, $destino->ID_ALMACEN, $p->ID_PRODUCTO, 5);
+        $tramos = MovimientoInventario::where('NUMERO_NOTA', $nota)->orderBy('ID_MOVIMIENTO')->get();
+        $this->assertCount(2, $tramos);
+        $this->recibir($envio, 5);
+
+        // Vuelve todo: una devolución (y su retorno) por tramo.
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 5]])->assertCreated();
+        $this->assertSame(2, MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)->where('REFERENCIA', $nota)->count());
+        $this->assertSame(7.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(0.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
+
+        // El aviso dice lo mismo que va a borrar.
+        $admin = Usuario::all()->first(fn ($u) => $u->can('super.admin') && Almacen::usuarioEsGlobal($u));
+        $this->assertNotNull($admin, 'Hace falta un super.admin GLOBAL para el aviso de deshacer.');
+        $this->actingAs($admin)->getJson(route('almacen.movimientos.impactoDeshacer', ['id' => $tramos[1]->ID_MOVIMIENTO]))
+            ->assertOk()->assertJsonFragment(['También se deshacen sus 2 devoluciones.']);
+
+        // Deshacer el tramo que NO lleva el enlace con la entrada: se va el envío entero, con
+        // las devoluciones y los retornos de los dos tramos. Nada queda suelto.
+        $r = $this->inv->eliminarMovimientoConReverso($tramos[1]->ID_MOVIMIENTO,
+            app(TraspasoService::class)->prepararDeshacer($tramos[1])['arrastrados']);
+        $this->assertSame(7, $r['eliminados']);   // 2 tramos + entrada + 2 devoluciones + 2 retornos
+        $this->assertSame(0, MovimientoInventario::where('ID_PRODUCTO', $p->ID_PRODUCTO)->whereIn('TIPO', [
+            MovimientoInventario::TIPO_DEVOLUCION, MovimientoInventario::TIPO_TRASPASO_SALIDA, MovimientoInventario::TIPO_TRASPASO_ENTRADA])->count());
+        $this->assertSame(3.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO, $fA));
+        $this->assertSame(4.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO, $fB));
+        $this->assertSame(0.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
+    }
+
+    public function test_el_aviso_de_deshacer_la_devolucion_de_un_envio_nombra_el_otro_almacen(): void
+    {
+        $origen  = $this->almacen();
+        $destino = $this->destino();
+        $p = $this->producto('45');
+        $this->inv->registrarEntrada($origen->ID_ALMACEN, $p->ID_PRODUCTO, 10);
+        [$nota, $envio] = $this->envioConNota($origen->ID_ALMACEN, $destino->ID_ALMACEN, $p->ID_PRODUCTO, 5);
+        $this->recibir($envio, 5);
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 2]])->assertCreated();
+        $dev = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)->where('REFERENCIA', $nota)->firstOrFail();
+        $retorno = MovimientoInventario::where('ID_MOVIMIENTO_RELACIONADO', $dev->ID_MOVIMIENTO)->firstOrFail();
+
+        $admin = Usuario::all()->first(fn ($u) => $u->can('super.admin') && Almacen::usuarioEsGlobal($u));
+        $this->assertNotNull($admin, 'Hace falta un super.admin GLOBAL para el aviso de deshacer.');
+        $avisos = fn ($id) => $this->actingAs($admin)->getJson(route('almacen.movimientos.impactoDeshacer', ['id' => $id]))->assertOk()->json('avisos');
+
+        $this->assertContains("Es la devolución de un envío: el material vuelve a contarse en {$destino->NOMBRE}.", $avisos($dev->ID_MOVIMIENTO));
+        $deRetorno = $avisos($retorno->ID_MOVIMIENTO);
+        $this->assertContains("Es el retorno de una devolución: también se deshace la devolución en {$origen->NOMBRE}.", $deRetorno);
+        $this->assertNotContains('También se deshace su devolución.', $deRetorno);
+    }
+
     public function test_desde_un_movimiento_se_devuelve_solo_ese_producto(): void
     {
         $alm = $this->almacen();

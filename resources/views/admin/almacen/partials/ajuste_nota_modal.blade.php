@@ -27,7 +27,7 @@
      onclick="if (event.target === this) window.AjusteNota.cerrar();">
     <div class="ajn-box" role="dialog" aria-modal="true" aria-labelledby="ajNotaTitulo">
         <div class="ajn-head">
-            <h3 id="ajNotaTitulo" class="ajn-nota"><i class="material-icons">receipt_long</i><span class="ajn-nota-txt">Nota de Entrega</span></h3>
+            <h3 id="ajNotaTitulo"><i class="material-icons">receipt_long</i><span class="ajn-nota-txt">Nota de Entrega</span></h3>
             <button type="button" class="ajn-x" aria-label="Cerrar" onclick="window.AjusteNota.cerrar()"><i class="material-icons">close</i></button>
         </div>
         <div class="ajn-body">

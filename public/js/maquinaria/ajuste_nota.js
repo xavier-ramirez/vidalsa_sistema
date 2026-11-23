@@ -21,6 +21,7 @@
     if (w.AjusteNota) return;
 
     var EPS = 0.0005;
+    var SEP = ' <span class="ajn-sep">&middot;</span> ';
     // Lo que cambia según la operación elegida. Una sola tabla: el campo, el motivo y el botón
     // se pintan desde aquí y no hay dos ramas de código que se puedan desincronizar.
     var OPS = {
@@ -87,9 +88,7 @@
         $('ajNotaContenido').hidden = true;
         $('ajNotaGuardar').disabled = true;
         $('ajNotaGuardar').innerHTML = OPS.devolucion.boton;
-        // Mientras carga, la cabecera ya dice qué nota es (la fecha llega con los datos).
-        $('ajNotaTitulo').title = '';
-        $('ajNotaTitulo').innerHTML = '<i class="material-icons">receipt_long</i><span class="ajn-nota-txt"><b class="ajn-nota-num">' + esc(numero) + '</b></span>';
+        cabecera(numero, null, '');   // la fecha llega con los datos
         mensaje('Cargando la nota ' + esc(numero) + '…', 'info');
         m.classList.add('open');
         w.bloquearScrollFondo();
@@ -112,24 +111,27 @@
     }
 
     // ── Pintar ───────────────────────────────────────────────────────────────
+    // La cabecera del modal es la nota: número · fecha. El proyecto y quién recibió, en el title.
+    function cabecera(numero, fecha, title) {
+        var h = $('ajNotaTitulo');
+        h.title = title;
+        h.innerHTML = '<i class="material-icons">receipt_long</i><span class="ajn-nota-txt"><b>' + esc(numero) + '</b>'
+            + (fecha ? SEP + esc(fecha) : '') + '</span>';
+    }
+
     function pintar(nota) {
         estado.nota = nota;
         var l = nota.linea;
         var um = esc(l.um || '');
-        var sep = ' <span class="ajn-sep">&middot;</span> ';
 
-        // La cabecera del modal es la nota: número y fecha. El proyecto y quién recibió van en el title.
-        $('ajNotaTitulo').title = [nota.numero, nota.fecha, nota.proyecto, nota.solicitante].filter(Boolean).join(' · ');
-        $('ajNotaTitulo').innerHTML = '<i class="material-icons">receipt_long</i>'
-            + '<span class="ajn-nota-txt"><b class="ajn-nota-num">' + esc(nota.numero) + '</b>'
-            + (nota.fecha ? sep + esc(nota.fecha) : '') + '</span>';
+        cabecera(nota.numero, nota.fecha, [nota.numero, nota.fecha, nota.proyecto, nota.solicitante].filter(Boolean).join(' · '));
 
         $('ajNotaProducto').innerHTML = '<div class="ajn-prod-cab">'
             +   '<div class="ajn-foto"><i class="material-icons">inventory_2</i></div>'
             +   '<div class="ajn-info">'
-            +     '<span class="ajn-titulo">' + (l.codigo ? '<span class="ajn-codigo">' + esc(l.codigo) + '</span>' + sep : '') + esc(l.nombre) + '</span>'
+            +     '<span class="ajn-titulo">' + (l.codigo ? '<span class="ajn-codigo">' + esc(l.codigo) + '</span>' + SEP : '') + esc(l.nombre) + '</span>'
             +     '<span class="ajn-datos">Entregado <b>' + num(l.entregado) + ' ' + um + '</b>'
-            +       (l.devuelto > EPS ? sep + 'Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b>' : '') + '</span>'
+            +       (l.devuelto > EPS ? SEP + 'Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b>' : '') + '</span>'
             +   '</div>'
             + '</div>';
         $('ajNotaUm').textContent = l.um || '';

@@ -3833,21 +3833,36 @@ class AlmacenController extends Controller
                 : "Es el único ítem de la Nota {$conNota->NUMERO_NOTA}: la nota desaparece.";
         }
 
-        if ($mov->TIPO === MovimientoInventario::TIPO_SALIDA) {
-            $devoluciones = MovimientoInventario::where('ID_MOVIMIENTO_RELACIONADO', $mov->ID_MOVIMIENTO)
-                ->where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
-                ->count();
+        try {
+            // Las filas que el deshacer va a borrar, con la MISMA lista que usa él.
+            $filas = MovimientoInventario::with('almacen:ID_ALMACEN,NOMBRE')
+                ->whereIn('ID_MOVIMIENTO', $this->traspasos->prepararDeshacer($mov)['ids'])
+                ->where('ID_MOVIMIENTO', '!=', $mov->ID_MOVIMIENTO)
+                ->get(['ID_MOVIMIENTO', 'ID_ALMACEN', 'TIPO', 'ID_MOVIMIENTO_RELACIONADO']);
+            $envio = $this->traspasos->resumenDeshacer($mov);
+        } catch (Throwable $e) {
+            return response()->json(['avisos' => array_merge($avisos, [MensajeError::para($e)])]);
+        }
+
+        // La devolución de un envío y su retorno desde el almacén que lo recibió se deshacen
+        // juntos (InventarioService::registrarRetornoEnvio): se dice qué pasa en el otro.
+        $otroAlmacen = $filas->first(fn ($f) => (int) $f->ID_ALMACEN !== (int) $mov->ID_ALMACEN)?->almacen?->NOMBRE ?? 'el otro almacén';
+        $esRetorno = $mov->TIPO === MovimientoInventario::TIPO_TRASPASO_SALIDA && $mov->ID_MOVIMIENTO_RELACIONADO
+            && $filas->contains(fn ($f) => $f->TIPO === MovimientoInventario::TIPO_DEVOLUCION && (int) $f->ID_MOVIMIENTO === (int) $mov->ID_MOVIMIENTO_RELACIONADO);
+        if ($esRetorno) {
+            $avisos[] = "Es el retorno de una devolución: también se deshace la devolución en {$otroAlmacen}.";
+        } elseif ($mov->TIPO === MovimientoInventario::TIPO_DEVOLUCION) {
+            if ($filas->contains('TIPO', MovimientoInventario::TIPO_TRASPASO_SALIDA)) {
+                $avisos[] = "Es la devolución de un envío: el material vuelve a contarse en {$otroAlmacen}.";
+            }
+        } else {
+            // Sus devoluciones —de una salida o de un envío— se van con él.
+            $devoluciones = $filas->where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)->count();
             if ($devoluciones > 0) {
                 $avisos[] = $devoluciones === 1
                     ? 'También se deshace su devolución.'
                     : "También se deshacen sus {$devoluciones} devoluciones.";
             }
-        }
-
-        try {
-            $envio = $this->traspasos->resumenDeshacer($mov);
-        } catch (Throwable $e) {
-            return response()->json(['avisos' => array_merge($avisos, [MensajeError::para($e)])]);
         }
         if ($envio) {
             $destino = $envio['destino'] ?? 'el almacén destino';

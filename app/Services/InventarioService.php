@@ -295,11 +295,7 @@ class InventarioService
             // Reunir las filas a borrar: la propia + su contraparte de traspaso (helper
             // compartido con el borrado SIN reverso, para no duplicar la lógica del enlace)
             // + las que se arrastran sin enlace.
-            $ids = $this->idsMovimientoYContraparte($mov)
-                ->merge($idsArrastrados)
-                ->map(fn ($v) => (int) $v)
-                ->unique()
-                ->values();
+            $ids = $this->idsMovimientoYContraparte($mov, $idsArrastrados);
 
             // Los saldos de cada almacén tocado, en el orden de cualquier salida, ANTES de leer
             // el kardex: una salida del mismo producto confirmada mientras tanto entra en el
@@ -717,13 +713,18 @@ class InventarioService
      * Devoluciones: el enlace va en UN solo sentido. Borrar una SALIDA se lleva sus
      * devoluciones (sin la salida, devolver material que nunca salió inflaría el stock),
      * pero borrar una DEVOLUCION no toca la salida: esa entrega sí ocurrió.
+     *
+     * $arrastrados: las demás filas del ítem de envío (TraspasoService::movimientosDelItem).
+     * Entran ANTES de buscar lo que cuelga, para que las devoluciones de CUALQUIER tramo del
+     * envío —y sus retornos— se vayan con él, no solo las del tramo pulsado.
      */
-    public function idsMovimientoYContraparte(MovimientoInventario $mov): \Illuminate\Support\Collection
+    public function idsMovimientoYContraparte(MovimientoInventario $mov, array $arrastrados = []): \Illuminate\Support\Collection
     {
         $ids = collect([(int) $mov->ID_MOVIMIENTO]);
         if ($mov->ID_MOVIMIENTO_RELACIONADO && $mov->TIPO !== MovimientoInventario::TIPO_DEVOLUCION) {
             $ids->push((int) $mov->ID_MOVIMIENTO_RELACIONADO);
         }
+        $ids = $ids->merge($arrastrados)->map(fn ($v) => (int) $v)->unique()->values();
         // Las filas que cuelgan de esas: la entrada de un envío y las devoluciones. Se miran
         // las de la contraparte también, para que deshacer la ENTRADA de un envío se lleve las
         // devoluciones de su salida (la salida se va con ella).

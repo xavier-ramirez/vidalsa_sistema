@@ -85,13 +85,11 @@ class DevolucionService
         if ($envios->isEmpty()) {
             return null;
         }
+        // La línea apunta al primer tramo; si ese enlace se perdió, se busca por envío + producto.
         $primera = $envios->first();
-        $linea = TraspasoLinea::with(['traspaso.almacenDestino:ID_ALMACEN,NOMBRE', 'movimientoEntrada'])
-            ->whereIn('ID_MOVIMIENTO_SALIDA', $envios->pluck('ID_MOVIMIENTO'))
-            ->first()
-            ?? TraspasoLinea::with(['traspaso.almacenDestino:ID_ALMACEN,NOMBRE', 'movimientoEntrada'])
-                ->where('ID_TRASPASO', $primera->ID_TRASPASO)->where('ID_PRODUCTO', $primera->ID_PRODUCTO)
-                ->first();
+        $q = fn () => TraspasoLinea::with(['traspaso.almacenDestino:ID_ALMACEN,NOMBRE', 'movimientoEntrada']);
+        $linea = $q()->whereIn('ID_MOVIMIENTO_SALIDA', $envios->pluck('ID_MOVIMIENTO'))->first()
+            ?? $q()->where('ID_TRASPASO', $primera->ID_TRASPASO)->where('ID_PRODUCTO', $primera->ID_PRODUCTO)->first();
         $traspaso = $linea?->traspaso;
 
         return [
@@ -113,10 +111,8 @@ class DevolucionService
         $porDevolver = MovimientoInventario::porDevolver($salidas);
 
         return $salidas->groupBy('ID_PRODUCTO')->map(function (Collection $filas) use ($porDevolver) {
-            $producto  = $filas->first()->producto;
-            $entregado = round($filas->sum(fn ($s) => (float) $s->CANTIDAD), 3);
-            $pendiente = $this->pendiente($filas, $porDevolver, $this->envio($filas));
-            $devuelto  = round($entregado - round($filas->sum(fn ($s) => $porDevolver[$s->ID_MOVIMIENTO]), 3), 3);
+            $producto = $filas->first()->producto;
+            [$entregado, $devuelto, $pendiente] = $this->cuentas($filas, $porDevolver, $this->envio($filas));
 
             return [
                 'id_producto' => (int) $filas->first()->ID_PRODUCTO,
@@ -131,17 +127,16 @@ class DevolucionService
     }
 
     /**
-     * Lo que falta por devolver de estas filas (un producto). En un envío no pasa de lo que
-     * entró al destino menos lo ya devuelto: lo que no llegó no puede regresar.
+     * [entregado, devuelto, pendiente] de estas filas (un producto). En un envío lo pendiente
+     * no pasa de lo que entró al destino menos lo ya devuelto: lo que no llegó no regresa.
      */
-    private function pendiente(Collection $filas, array $porDevolver, ?array $envio): float
+    private function cuentas(Collection $filas, array $porDevolver, ?array $envio): array
     {
-        $pendiente = round($filas->sum(fn ($s) => $porDevolver[$s->ID_MOVIMIENTO]), 3);
-        if ($envio === null) {
-            return $pendiente;
-        }
-        $devuelto = round($filas->sum(fn ($s) => (float) $s->CANTIDAD) - $pendiente, 3);
-        return max(0.0, round(min($pendiente, $envio['recibido'] - $devuelto), 3));
+        $entregado   = round($filas->sum(fn ($s) => (float) $s->CANTIDAD), 3);
+        $sinDevolver = round($filas->sum(fn ($s) => $porDevolver[$s->ID_MOVIMIENTO]), 3);
+        $devuelto    = round($entregado - $sinDevolver, 3);
+        $pendiente   = $envio === null ? $sinDevolver : max(0.0, round(min($sinDevolver, $envio['recibido'] - $devuelto), 3));
+        return [$entregado, $devuelto, $pendiente];
     }
 
     /** Devoluciones anteriores de estas salidas, para el modal. */
@@ -213,7 +208,7 @@ class DevolucionService
                 if ($motivo = $this->motivoEnvio($envio)) {
                     throw new RuntimeException("«{$nombre}»: {$motivo}");
                 }
-                $pendiente = $this->pendiente($filas, $porDevolver, $envio);
+                [, , $pendiente] = $this->cuentas($filas, $porDevolver, $envio);
                 if ($cantidad > $pendiente + self::EPS) {
                     if ($envio) {
                         throw new RuntimeException(sprintf(

@@ -19,16 +19,10 @@
     #ajNotaModal .ajn-msg.error { background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; }
     #ajNotaModal .ajn-msg.info  { background:#e0f2fe; color:#075985; border:1px solid #bae6fd; }
 
-    /* De qué nota viene: una sola línea con su icono. Si el proyecto no cabe se corta con "…"
-       y el texto entero queda en el title. */
-    /* Centrada: es el encabezado de la ficha (de qué nota se devuelve), no una lista. */
-    #ajNotaModal .ajn-nota { display:flex; align-items:center; justify-content:center; gap:8px; min-width:0; font-size:13px; font-weight:500; }
-    #ajNotaModal .ajn-nota .material-icons { font-size:18px; color:#0067b1; flex-shrink:0; }
+    /* La cabecera es la nota: número · fecha en una línea; si no cabe se corta con "…" y el
+       texto entero (con proyecto y quién recibió) queda en el title del h3. */
     #ajNotaModal .ajn-nota-txt { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    #ajNotaModal .ajn-nota-num { font-weight:700; }
     #ajNotaModal .ajn-sep { color:#94a3b8; }
-    #ajNotaModal .ajn-head .ajn-nota { font-size:15px; }
-    #ajNotaModal .ajn-head .ajn-nota .material-icons { color:#fff; font-size:20px; }
 
     /* El producto en su tarjeta: qué es, cuánto se entregó y cuánto volvió ya. */
     #ajNotaModal .ajn-linea { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px; box-shadow:0 1px 2px rgba(15,23,42,.05); }
