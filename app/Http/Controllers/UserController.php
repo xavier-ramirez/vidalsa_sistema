@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\FrenteTrabajo;
 use App\Models\BloqueoIp;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -403,13 +404,13 @@ class UserController extends Controller
         $user->NIVEL_ACCESO_ALMACEN = $request->NIVEL_ACCESO_ALMACEN;
         $user->ESTATUS = $request->ESTATUS;
         // Guardar frentes como CSV (igual que PERMISOS). NULL si usuario GLOBAL sin frente asignado.
-        // Sin repetidos: una casilla mandada dos veces no debe ocupar dos veces la columna
-        // (PERMISOS es varchar(255) y con todas las claves ya roza el tope).
+        // Frentes y permisos sin repetidos: una casilla mandada dos veces no ocupa dos veces la columna.
         $frentesSeleccionados = array_unique((array) $request->input('ID_FRENTE_ASIGNADO', []));
         $user->setAttribute('ID_FRENTE_ASIGNADO', !empty($frentesSeleccionados) ? implode(',', $frentesSeleccionados) : null);
         // Frentes BLOQUEADOS (lista negra): se restan de la visibilidad incluso al GLOBAL.
         $frentesBloqueados = array_unique((array) $request->input('ID_FRENTE_BLOQUEADO', []));
         $user->setAttribute('ID_FRENTE_BLOQUEADO', !empty($frentesBloqueados) ? implode(',', $frentesBloqueados) : null);
+        // PERMISOS es varchar(255) y con todas las claves ya roza el tope: un repetido lo pasaría.
         $user->PERMISOS = array_values(array_unique((array) $request->PERMISOS)) ?: null;
     }
 
@@ -424,7 +425,7 @@ class UserController extends Controller
         }
         // Quien creó un traspaso no se puede borrar (la llave de traspasos lo impide, para no
         // perder quién lo hizo): se le desactiva. Antes reventaba con un error 500.
-        if (\Illuminate\Support\Facades\DB::table('traspasos')->where('ID_USUARIO_CREO', $user->ID_USUARIO)->exists()) {
+        if (DB::table('traspasos')->where('ID_USUARIO_CREO', $user->ID_USUARIO)->exists()) {
             return response()->json(['success' => false, 'message' => 'Este usuario registró traspasos y no se puede eliminar: desactívalo (Estatus INACTIVO).'], 422);
         }
         $user->delete();

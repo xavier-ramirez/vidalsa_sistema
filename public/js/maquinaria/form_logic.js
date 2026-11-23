@@ -957,11 +957,13 @@ window.addEventListener('spa:contentLoaded', function () {
 
                 } else if (status === 422) {
                     if (window.hidePreloader) window.hidePreloader();
-                    handleValidationErrors(body.errors);
+                    const sinCampo = handleValidationErrors(body.errors || {});
                     window.showModal({
                         type: 'warning',
                         title: 'Atención',
-                        message: 'El formulario contiene errores. Por favor revise los campos marcados.',
+                        message: sinCampo.length
+                            ? sinCampo.map(window.escapeHtml).join('<br>')
+                            : 'El formulario contiene errores. Por favor revise los campos marcados.',
                         confirmText: 'Entendido',
                         hideCancel: true
                     });
@@ -1005,9 +1007,12 @@ window.addEventListener('spa:contentLoaded', function () {
         if (!formData.get('NIVEL_ACCESO_EQUIPOS')) errors['NIVEL_ACCESO_EQUIPOS'] = ['El nivel de acceso a Equipos es obligatorio.'];
         if (!formData.get('NIVEL_ACCESO_ALMACEN')) errors['NIVEL_ACCESO_ALMACEN'] = ['El nivel de acceso a Almacén es obligatorio.'];
         if (!formData.get('ESTATUS')) errors['ESTATUS'] = ['El estatus es obligatorio.'];
-        // ID_FRENTE_ASIGNADO y PERMISOS son opcionales — sin validación aquí. Frentes:
-        // los usuarios GLOBAL no necesitan frente. Permisos: coherente con el backend
-        // ('nullable|array' en UserRequest); se pueden asignar después desde "Editar".
+        // Frentes: obligatorios solo con acceso LOCAL (en Equipos o en Almacén), igual que en
+        // UserRequest; un GLOBAL no los necesita. Permisos: opcionales ('nullable|array').
+        if ((formData.get('NIVEL_ACCESO_EQUIPOS') === '2' || formData.get('NIVEL_ACCESO_ALMACEN') === '2')
+            && formData.getAll('ID_FRENTE_ASIGNADO[]').length === 0) {
+            errors['ID_FRENTE_ASIGNADO'] = ['Con acceso LOCAL (a Equipos o a Almacén) asígnale al menos un frente: si no, no verá nada.'];
+        }
 
         // 3. Password (Only if creating)
         const method = formData.get('_method');
@@ -1023,32 +1028,40 @@ window.addEventListener('spa:contentLoaded', function () {
         return errors;
     }
 
+    // Marca cada campo con su mensaje. Devuelve los mensajes que no tienen campo donde
+    // pintarse, para mostrarlos en el aviso en vez de perderlos. Las claves de una lista
+    // llegan con su posición (ID_FRENTE_BLOQUEADO.0): se buscan por el nombre de la lista.
     function handleValidationErrors(errors) {
-        for (const [field, messages] of Object.entries(errors)) {
+        const sinCampo = [];
+        for (const [clave, messages] of Object.entries(errors)) {
+            const field = clave.replace(/\.\d+$/, '');
             const input = document.querySelector(`[name="${field}"]`) || document.querySelector(`[name="${field}[]"]`);
-            if (input) {
-                input.classList.add('is-invalid');
+            if (!input) {
+                if (!sinCampo.includes(messages[0])) sinCampo.push(messages[0]);
+                continue;
+            }
+            input.classList.add('is-invalid');
 
-                const dropdown = input.closest('.custom-dropdown') || input.closest('.custom-multiselect');
-                if (dropdown) {
-                    const trigger = dropdown.querySelector('.dropdown-trigger') || dropdown.querySelector('.multiselect-trigger');
-                    if (trigger) trigger.classList.add('is-invalid-border');
-                }
+            const dropdown = input.closest('.custom-dropdown') || input.closest('.custom-multiselect');
+            if (dropdown) {
+                const trigger = dropdown.querySelector('.dropdown-trigger') || dropdown.querySelector('.multiselect-trigger');
+                if (trigger) trigger.classList.add('is-invalid-border');
+            }
 
-                const errorSpan = document.createElement('span');
-                errorSpan.className = 'error-message-inline';
-                errorSpan.innerText = messages[0];
+            const errorSpan = document.createElement('span');
+            errorSpan.className = 'error-message-inline';
+            errorSpan.innerText = messages[0];
 
-                let parent = input.closest('div');
-                if (dropdown) {
-                    parent = dropdown.closest('div');
-                }
+            let parent = input.closest('div');
+            if (dropdown) {
+                parent = dropdown.closest('div');
+            }
 
-                if (parent) {
-                    parent.appendChild(errorSpan);
-                }
+            if (parent) {
+                parent.appendChild(errorSpan);
             }
         }
+        return sinCampo;
     }
 
 })();
