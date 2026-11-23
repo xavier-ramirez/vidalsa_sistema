@@ -442,6 +442,10 @@ class InventarioService
      * $nuevas = [ID_MOVIMIENTO => cantidad nueva]. Una fila que queda en 0 se BORRA: una
      * salida de cero no es una salida (quien llama ya comprobó que no tenía devoluciones).
      *
+     * También acepta la TRASPASO_ENTRADA de un envío ya recibido, que solo BAJA (la corrección
+     * de la nota baja lo que el destino dio por recibido, ver CorreccionNotaService) y nunca a
+     * 0. Para ella lo peligroso es bajar: el destino pudo haber gastado ese material.
+     *
      * Si una fila SUBE y su bolsa queda en negativo —al final o en CUALQUIER punto del kardex
      * desde esa salida, porque la corrección es retroactiva: subir la salida del día 1 exige
      * que el día 1 hubiera ese material—, se aborta: es material que no había, y una salida
@@ -458,9 +462,18 @@ class InventarioService
         if ($movs->count() !== count($nuevas)) {
             throw new RuntimeException('Una de las líneas de la nota ya no existe: vuelve a abrir la corrección.');
         }
-        if ($movs->contains(fn ($m) => !in_array($m->TIPO, MovimientoInventario::TIPOS_SALIDA, true))) {
+        $esEntrada = fn ($m) => $m->TIPO === MovimientoInventario::TIPO_TRASPASO_ENTRADA;
+        if ($movs->contains(fn ($m) => !$esEntrada($m) && !in_array($m->TIPO, MovimientoInventario::TIPOS_SALIDA, true))) {
             throw new InvalidArgumentException('Solo se puede corregir la cantidad de una salida.');
         }
+        if ($movs->contains(fn ($m) => $esEntrada($m)
+                && round((float) $nuevas[$m->ID_MOVIMIENTO], 3) <= self::EPS)) {
+            throw new InvalidArgumentException('Lo recibido en el destino no puede quedar en 0: usa «Deshacer».');
+        }
+        // La fila deja la bolsa MÁS BAJA que antes: una salida que sube o una entrada que baja.
+        $empeora = fn ($m) => $esEntrada($m)
+            ? round((float) $nuevas[$m->ID_MOVIMIENTO], 3) < (float) $m->CANTIDAD - self::EPS
+            : round((float) $nuevas[$m->ID_MOVIMIENTO], 3) > (float) $m->CANTIDAD + self::EPS;
 
         // Todas las filas de saldo de los productos, YA y en el orden de siempre (ver
         // bloquearSaldos): desde aquí ningún movimiento de estos productos entra a medias, y
@@ -477,7 +490,7 @@ class InventarioService
         // un negativo que ya estaba de uno que crea la corrección.
         $antes = [];
         foreach ($movs as $m) {
-            if (round((float) $nuevas[$m->ID_MOVIMIENTO], 3) > (float) $m->CANTIDAD + self::EPS) {
+            if ($empeora($m)) {
                 [$clave, $bolsa] = $this->bolsaDeFila($m);
                 if (!isset($antes[$clave . '|' . $bolsa])) {
                     $foto = [];
@@ -495,7 +508,7 @@ class InventarioService
             if ($nueva < 0) {
                 throw new InvalidArgumentException('La cantidad corregida no puede ser negativa.');
             }
-            if ($nueva > (float) $m->CANTIDAD + self::EPS) {
+            if ($empeora($m)) {
                 $suben[] = $m;
             }
             if ($nueva <= self::EPS) {
@@ -529,7 +542,9 @@ class InventarioService
             }
             if ($faltan > self::EPS) {
                 throw new RuntimeException(sprintf(
-                    'No hay stock suficiente para subir la cantidad: faltan %s %s.',
+                    $esEntrada($m)
+                        ? 'El almacén que lo recibió ya usó parte de ese material: faltan %s %s para bajar lo recibido.'
+                        : 'No hay stock suficiente para subir la cantidad: faltan %s %s.',
                     self::num($faltan),
                     $m->producto?->UM ?? ''
                 ));

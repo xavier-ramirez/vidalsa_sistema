@@ -288,7 +288,7 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->recibir($envio, 4);
         // Lo devuelto antes de recibir no salió del destino: allá quedan 4 por devolver.
         $ver()->assertJsonPath('devolucion.motivo_no', null)->assertJsonPath('linea.pendiente', 4)
-            ->assertJsonPath('correccion.motivo_no', "{$destino->NOMBRE} ya lo recibió: si regresó material, usa «Devolución».");
+            ->assertJsonPath('correccion.motivo_no', null);
 
         // Regresan 2: salen del destino y vuelven al origen.
         $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 2]])->assertCreated();

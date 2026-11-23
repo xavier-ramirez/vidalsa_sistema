@@ -142,14 +142,13 @@
             + '</div>';
         $('ajNotaUm').textContent = l.um || '';
 
-        // Cada opción, encendida o apagada con su porqué.
+        // Cada opción, encendida o apagada. El porqué de una apagada va en el title, no dentro
+        // de la tarjeta (pedido del cliente, 23-11-2026).
         var primera = null;
         document.querySelectorAll('#ajNotaModal .ajn-opcion').forEach(function (b) {
             var no = nota[b.dataset.op].motivo_no;
-            var aviso = b.querySelector('.ajn-opcion-no');
             b.disabled = !!no;
-            aviso.textContent = no || '';
-            aviso.hidden = !no;
+            b.title = no || '';
             if (!no && !primera) primera = b.dataset.op;
         });
 
@@ -159,7 +158,7 @@
             elegir(primera);
         } else {
             elegir(null);
-            mensaje('Con este producto de la nota no se puede hacer nada desde aquí: cada opción dice por qué.', 'info');
+            mensaje(esc(nota.devolucion.motivo_no || nota.correccion.motivo_no || 'Con este producto de la nota no se puede hacer nada desde aquí.'), 'info');
         }
     }
 

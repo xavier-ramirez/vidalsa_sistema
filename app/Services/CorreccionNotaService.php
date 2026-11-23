@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AlmacenStock;
 use App\Models\CorreccionNota;
 use App\Models\MovimientoInventario;
+use App\Models\TraspasoLinea;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use RuntimeException;
@@ -33,9 +34,8 @@ class CorreccionNotaService
 
     /**
      * Por qué no se puede corregir este producto de la nota, o null si se puede.
-     * - Un envío a otro almacén (TRASPASO_SALIDA) se corrige mientras el destino no lo haya
-     *   recibido: después, lo que entró allá es lo que se contó, y si regresó material es
-     *   una devolución.
+     * - Un envío a otro almacén (TRASPASO_SALIDA) se corrige esté en camino o ya recibido
+     *   (el destino puede haberlo recibido sin contar). Cancelado no: el material ya volvió.
      * - Si el producto va en VARIAS líneas impresas (distinto Nº de parte, proyecto o destino), la
      *   cantidad de "el producto" no dice cuál de ellas cambiar.
      */
@@ -50,9 +50,6 @@ class CorreccionNotaService
             }
             if ($envio['repetido']) {
                 return DevolucionService::REPETIDO;
-            }
-            if ($envio['linea']->estaConfirmada()) {
-                return $envio['destino'] . ' ya lo recibió: si regresó material, usa «Devolución».';
             }
         }
         // Misma clave de línea que la nota impresa (AlmacenController::renderNotaEntregaPdfBinary):
@@ -131,14 +128,11 @@ class CorreccionNotaService
             // Los saldos del producto, tomados ya (en el orden de todos): el reparto lee lo que
             // tiene cada bolsa y nadie lo cambia hasta terminar.
             $this->inventario->bloquearSaldos((int) $filas->first()->ID_ALMACEN, [$idProducto]);
-            $this->inventario->corregirCantidadesSalida($this->repartir($filas, $nueva - $actual));
-            // En un envío, la línea del pedido también: es lo que Recepción espera recibir (ya
-            // bloqueada por bloquearEnvio y sin confirmar, lo dijo motivoNoCorregible). Lo
-            // devuelto antes de recibir ya no está en camino: no se espera.
+            $nuevas = $this->repartir($filas, $nueva - $actual);
             if ($envio = $this->devoluciones->envio($filas)) {
-                $envio['linea']->CANTIDAD_ENVIADA = round($nueva - $linea['devuelto'], 3);
-                $envio['linea']->save();
+                $nuevas += $this->ajustarEnvio($envio, $nueva, $linea['devuelto'], $um);
             }
+            $this->inventario->corregirCantidadesSalida($nuevas);
 
             CorreccionNota::create([
                 'NUMERO_NOTA'      => $numero,
@@ -149,6 +143,53 @@ class CorreccionNotaService
                 'ID_USUARIO'       => $datos['id_usuario'] ?? null,
             ]);
         });
+    }
+
+    /**
+     * Pone la línea del envío (ya bloqueada por bloquearEnvio) de acuerdo con la nota
+     * corregida, y devuelve [ID_MOVIMIENTO => cantidad] de la entrada del destino si también
+     * cambia.
+     *
+     *  - CANTIDAD_ENVIADA (lo que Recepción espera) = lo que salió menos lo devuelto antes de
+     *    recibir (eso ya no estaba en camino).
+     *  - Ya recibido: lo recibido no puede pasar de lo que salió. Si la nota BAJA por debajo de
+     *    lo que el destino dio por recibido, eso baja también —y su entrada— con el saldo del
+     *    destino comprobado (corregirCantidadesSalida). Si SUBE, lo recibido no se inventa:
+     *    queda como se contó y la línea marca el faltante.
+     */
+    private function ajustarEnvio(array $envio, float $nueva, float $devuelto, string $um): array
+    {
+        $linea = $envio['linea'];
+        $devueltoAntes = round($devuelto - $envio['devuelto_destino'], 3);
+        $enviada = round($nueva - $devueltoAntes, 3);
+        $linea->CANTIDAD_ENVIADA = $enviada;
+
+        $cambios = [];
+        if ($linea->estaConfirmada()) {
+            $recibida = (float) $linea->CANTIDAD_RECIBIDA;
+            if ($recibida > $enviada + self::EPS) {
+                if ($enviada < $envio['devuelto_destino'] - self::EPS) {
+                    throw new RuntimeException(sprintf(
+                        '%s ya devolvió %s %s de este envío: la nota no puede quedar por debajo de eso.',
+                        $envio['destino'], InventarioService::num($envio['devuelto_destino']), $um
+                    ));
+                }
+                $linea->CANTIDAD_RECIBIDA = $enviada;
+                if ($envio['entrada'] && (float) $envio['entrada']->CANTIDAD > $enviada + self::EPS) {
+                    if ($enviada <= self::EPS) {
+                        throw new RuntimeException('Así no quedaría nada recibido en ' . $envio['destino'] . ': usa «Deshacer».');
+                    }
+                    $cambios[(int) $envio['entrada']->ID_MOVIMIENTO] = $enviada;
+                }
+            }
+            if ($linea->ESTADO_LINEA !== TraspasoLinea::ESTADO_DANADO) {
+                $diff = round((float) $linea->CANTIDAD_RECIBIDA - $enviada, 3);
+                $linea->ESTADO_LINEA = abs($diff) < self::EPS ? TraspasoLinea::ESTADO_OK
+                    : ($diff < 0 ? TraspasoLinea::ESTADO_FALTANTE : TraspasoLinea::ESTADO_SOBRANTE);
+            }
+        }
+        $linea->save();
+        return $cambios;
     }
 
     /**

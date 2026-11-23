@@ -40,12 +40,10 @@
                     <button type="button" class="ajn-opcion" data-op="devolucion" role="radio" aria-checked="false">
                         <span class="ajn-opcion-tit"><i class="material-icons">assignment_return</i>Devolución</span>
                         <span class="ajn-opcion-txt">Regresó al almacén</span>
-                        <span class="ajn-opcion-no" hidden></span>
                     </button>
                     <button type="button" class="ajn-opcion" data-op="correccion" role="radio" aria-checked="false">
                         <span class="ajn-opcion-tit"><i class="material-icons">edit_note</i>Corrección</span>
                         <span class="ajn-opcion-txt">Cantidad mal anotada</span>
-                        <span class="ajn-opcion-no" hidden></span>
                     </button>
                 </div>
 

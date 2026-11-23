@@ -304,11 +304,29 @@ class CorreccionNotaTest extends MySqlTestCase
         $this->assertSame(7.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
         $this->assertSame(3.0, (float) $envio->lineas->first()->fresh()->CANTIDAD_ENVIADA);
 
-        // Recibido: ya no se corrige.
+        // Recibido también se corrige. Sube a 4: lo recibido no se inventa (queda 3, faltante).
         $svc->recibir($envio->fresh(), [['id_linea' => $envio->lineas->first()->ID_LINEA, 'cantidad_recibida' => 3]], ['id_usuario_recepcion' => $u->ID_USUARIO]);
-        $this->corregir($nota, $p->ID_PRODUCTO, 4)->assertStatus(422)
-            ->assertJsonPath('message', "{$destino->NOMBRE} ya lo recibió: si regresó material, usa «Devolución».");
+        $this->corregir($nota, $p->ID_PRODUCTO, 4)->assertCreated();
+        $linea = fn () => $envio->lineas->first()->fresh();
+        $this->assertSame(6.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
         $this->assertSame(3.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(4.0, (float) $linea()->CANTIDAD_ENVIADA);
+        $this->assertSame('FALTANTE', $linea()->ESTADO_LINEA);
+
+        // Baja a 2, por debajo de lo recibido: lo recibido y la entrada del destino bajan a 2.
+        $this->corregir($nota, $p->ID_PRODUCTO, 2)->assertCreated();
+        $this->assertSame(8.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(2.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(2.0, (float) $linea()->CANTIDAD_RECIBIDA);
+        $this->assertSame('OK', $linea()->ESTADO_LINEA);
+        $this->assertSame(2.0, (float) MovimientoInventario::find($linea()->ID_MOVIMIENTO_ENTRADA)->CANTIDAD);
+
+        // Si el destino ya lo gastó, no se puede bajar lo que recibió.
+        $this->inv->registrarSalida($destino->ID_ALMACEN, $p->ID_PRODUCTO, 2);
+        $this->corregir($nota, $p->ID_PRODUCTO, 1)->assertStatus(422)
+            ->assertJsonPath('message', 'El almacén que lo recibió ya usó parte de ese material: faltan 1 UND para bajar lo recibido.');
+        $this->assertSame(8.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(2.0, (float) $linea()->CANTIDAD_RECIBIDA);
     }
 
     public function test_un_envio_cancelado_no_se_corrige(): void
