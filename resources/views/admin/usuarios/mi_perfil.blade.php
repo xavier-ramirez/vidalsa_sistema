@@ -64,6 +64,18 @@
 
                 <div>
                     <label class="pw-label">
+                        Contraseña Actual
+                    </label>
+                    <div class="pw-input-wrap">
+                        <input type="password" name="clave_actual" id="pw_actual" placeholder="La que usas hoy para entrar"
+                            autocomplete="current-password" readonly data-sin-autollenado>
+                        <i class="material-icons pw-toggle-icon"
+                            onclick="window.togglePw('pw_actual', this)">visibility_off</i>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="pw-label">
                         Nueva Contraseña
                     </label>
                     <div class="pw-input-wrap">

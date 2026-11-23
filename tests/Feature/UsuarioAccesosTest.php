@@ -51,7 +51,8 @@ class UsuarioAccesosTest extends MySqlTestCase
         $this->assertStringContainsString($permiso, (string) $u->PERMISOS);
         $this->assertSame(1, (int) $u->REQUIERE_CAMBIO_CLAVE, 'Al crear, pide cambiar la clave.');
 
-        // Editar: rol existente por id, niveles al revés, sin frentes, sin permisos.
+        // Editar: rol existente por id, niveles al revés (Almacén LOCAL, con un solo frente),
+        // sin permisos.
         $this->actingAs($admin)->putJson('/admin/usuarios/' . $u->ID_USUARIO, [
             'NOMBRE_COMPLETO'      => 'prueba accesos',
             'CORREO_ELECTRONICO'   => $correo,
@@ -59,6 +60,7 @@ class UsuarioAccesosTest extends MySqlTestCase
             'NIVEL_ACCESO_EQUIPOS' => 1,
             'NIVEL_ACCESO_ALMACEN' => 2,
             'ESTATUS'              => 'INACTIVO',
+            'ID_FRENTE_ASIGNADO'   => [$frentes[1]],
         ])->assertOk()->assertJson(['success' => true]);
 
         $e = DB::table('usuarios')->where('ID_USUARIO', $u->ID_USUARIO)->first();
@@ -66,7 +68,7 @@ class UsuarioAccesosTest extends MySqlTestCase
         $this->assertSame(1, (int) $e->NIVEL_ACCESO_EQUIPOS);
         $this->assertSame(2, (int) $e->NIVEL_ACCESO_ALMACEN);
         $this->assertSame('INACTIVO', $e->ESTATUS);
-        $this->assertNull($e->ID_FRENTE_ASIGNADO);
+        $this->assertSame((string) $frentes[1], $e->ID_FRENTE_ASIGNADO);
         $this->assertNull($e->ID_FRENTE_BLOQUEADO);
         $this->assertSame(1, Role::where('NOMBRE_ROL', $rolNuevo)->count());
     }
@@ -135,7 +137,7 @@ class UsuarioAccesosTest extends MySqlTestCase
     {
         $u = $this->usuarioNormal(['SESSION_TOKEN' => 'token-viejo']);
         $this->actingAs($u)->withSession(['current_session_token' => 'token-viejo'])
-            ->putJson('/admin/usuarios/mi-perfil', ['password' => 'Nueva#2026', 'password_confirmation' => 'Nueva#2026'])
+            ->putJson('/admin/usuarios/mi-perfil', ['clave_actual' => '123456', 'password' => 'Nueva#2026', 'password_confirmation' => 'Nueva#2026'])
             ->assertOk()->assertJson(['success' => true]);
 
         $nuevo = DB::table('usuarios')->where('ID_USUARIO', $u->ID_USUARIO)->value('SESSION_TOKEN');

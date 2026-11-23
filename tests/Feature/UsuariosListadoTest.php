@@ -90,6 +90,7 @@ class UsuariosListadoTest extends MySqlTestCase
         $this->actingAs($admin)->putJson(route('usuarios.update', $u->ID_USUARIO), [
             'NOMBRE_COMPLETO' => $u->NOMBRE_COMPLETO, 'CORREO_ELECTRONICO' => $u->CORREO_ELECTRONICO,
             'ID_ROL' => (string) $u->ID_ROL, 'NIVEL_ACCESO_EQUIPOS' => 2, 'NIVEL_ACCESO_ALMACEN' => 2, 'ESTATUS' => 'ACTIVO',
+            'ID_FRENTE_ASIGNADO' => array_filter(explode(',', (string) $u->getRawOriginal('ID_FRENTE_ASIGNADO'))) ?: [DB::table('frentes_trabajo')->where('ESTATUS_FRENTE', 'ACTIVO')->value('ID_FRENTE')],
             'return_url' => $lista,
         ])->assertOk()->assertJson(['redirect' => $lista]);
     }

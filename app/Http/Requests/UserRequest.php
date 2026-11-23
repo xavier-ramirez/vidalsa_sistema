@@ -43,7 +43,11 @@ class UserRequest extends FormRequest
             // Si es creacion password required, si es actualizacion nullable
             'password' => $id ? 'nullable|string|min:6' : 'required|string|min:6',
             'ID_ROL' => 'required|string|max:150',
-            'ID_FRENTE_ASIGNADO' => 'nullable|array',
+            // LOCAL (en Equipos o en Almacén) = ve SOLO sus frentes: sin ninguno no vería nada.
+            'ID_FRENTE_ASIGNADO' => [
+                Rule::requiredIf(fn () => (int) $this->input('NIVEL_ACCESO_EQUIPOS') === 2 || (int) $this->input('NIVEL_ACCESO_ALMACEN') === 2),
+                'nullable', 'array',
+            ],
             'ID_FRENTE_ASIGNADO.*' => 'exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             'ID_FRENTE_BLOQUEADO' => 'nullable|array',
             // Un frente no puede estar a la vez asignado y bloqueado: no se sabría si lo ve.
@@ -78,6 +82,7 @@ class UserRequest extends FormRequest
             'NIVEL_ACCESO_ALMACEN.in' => 'El nivel de acceso a Almacén seleccionado no es válido.',
             'ESTATUS.required' => 'El estatus es obligatorio.',
             'ESTATUS.in' => 'El estatus seleccionado no es válido.',
+            'ID_FRENTE_ASIGNADO.required' => 'Con acceso LOCAL (a Equipos o a Almacén) asígnale al menos un frente: si no, no verá nada.',
             'ID_FRENTE_BLOQUEADO.*.not_in' => 'Un frente no puede estar asignado y bloqueado a la vez.',
         ];
     }
