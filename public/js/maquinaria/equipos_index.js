@@ -2321,7 +2321,8 @@ window.openBulkModal = function (event) {
     content.style.cssText = "background:white;border-radius:16px;width:90%;max-width:440px;max-height:92vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.30);animation:slideDown 0.2s ease-out;display:flex;flex-direction:column;";
 
     // 7. Header — mismo patron que Anclaje/Ubicacion: fondo #1e293b solido,
-    // titulo centrado con su icono en blanco (pedido 23-11-2026), close button absoluto arriba-derecha.
+    // titulo centrado con su icono en blanco (pedido 23-11-2026). La X, absoluta arriba-derecha,
+    // va en circulo como la del detalle del equipo (equipment_details_modal), no como la de Anclaje/Ubicacion.
     const header = document.createElement("div");
     header.style.cssText = "background:#1e293b;padding:18px;color:white;display:flex;justify-content:center;align-items:center;position:relative;";
     header.innerHTML = `
