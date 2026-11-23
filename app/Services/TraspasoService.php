@@ -528,7 +528,64 @@ class TraspasoService
                 ->pluck('ID_LINEA')
                 ->map(fn ($v) => (int) $v)
                 ->all(),
+            'reponer'     => $this->reponerAlDeshacer($mov),
         ];
+    }
+
+    /**
+     * Deshacer la devolución de un envío que el destino todavía no había recibido
+     * (DevolucionService: esa devolución bajó la línea, CANTIDAD_ENVIADA) vuelve a dejar
+     * pendiente por recibir lo que había bajado: [ID_LINEA => cantidad] → reponerLineas().
+     * Si mientras tanto el envío se recibió o se canceló, ya se contó sin eso y deshacerla
+     * dejaría el material fuera de los dos almacenes: se rechaza.
+     *
+     * @return array<int, float>
+     */
+    private function reponerAlDeshacer(MovimientoInventario $mov): array
+    {
+        if ($mov->TIPO !== MovimientoInventario::TIPO_DEVOLUCION || ! $mov->ID_MOVIMIENTO_RELACIONADO) {
+            return [];
+        }
+        $salida = MovimientoInventario::find($mov->ID_MOVIMIENTO_RELACIONADO);
+        if (! $salida || $salida->TIPO !== MovimientoInventario::TIPO_TRASPASO_SALIDA || ! $salida->ID_TRASPASO) {
+            return [];
+        }
+        // La devolución de lo ya recibido lleva su retorno desde el destino: no tocó la línea.
+        $conRetorno = MovimientoInventario::where('ID_MOVIMIENTO_RELACIONADO', $mov->ID_MOVIMIENTO)
+            ->where('TIPO', MovimientoInventario::TIPO_TRASPASO_SALIDA)->exists();
+        if ($conRetorno) {
+            return [];
+        }
+        $envio = Traspaso::withTrashed()->with('almacenDestino:ID_ALMACEN,NOMBRE')->find($salida->ID_TRASPASO);
+        $linea = $envio?->lineas()->where('ID_PRODUCTO', $salida->ID_PRODUCTO)->first();
+        if (! $envio || ! $linea) {
+            return [];
+        }
+        if ($envio->esCancelado() || $linea->estaConfirmada()) {
+            $destino = $envio->almacenDestino?->NOMBRE ?? 'el almacén destino';
+            throw new RuntimeException($envio->esCancelado()
+                ? "Esta devolución es de antes de cancelar el envío {$envio->NUMERO}: ya no se puede deshacer."
+                : "Esta devolución es de antes de que {$destino} recibiera el envío {$envio->NUMERO}, y ya lo recibió: no se puede deshacer.");
+        }
+
+        return [(int) $linea->ID_LINEA => round((float) $mov->CANTIDAD, 3)];
+    }
+
+    /**
+     * Devuelve a cada línea de envío lo que tenía antes de una devolución deshecha
+     * ('reponer' de prepararDeshacer). En la MISMA transacción que el borrado del kardex.
+     *
+     * @param  array<int, float>  $reponer
+     */
+    public function reponerLineas(array $reponer): void
+    {
+        foreach ($reponer as $idLinea => $cantidad) {
+            $linea = TraspasoLinea::whereKey($idLinea)->lockForUpdate()->first();
+            if ($linea && ! $linea->estaConfirmada()) {
+                $linea->CANTIDAD_ENVIADA = round((float) $linea->CANTIDAD_ENVIADA + $cantidad, 3);
+                $linea->save();
+            }
+        }
     }
 
     /**

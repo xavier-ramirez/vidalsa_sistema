@@ -273,20 +273,29 @@ class DevolucionMaterialTest extends MySqlTestCase
         $ver = fn () => $this->actingAs($this->usuario())
             ->getJson(route('almacen.ajuste-nota.show', ['numero' => $nota, 'id_producto' => $p->ID_PRODUCTO]))->assertOk();
 
-        // Sin recibir: no regresó nada todavía; lo que se ofrece es corregir.
-        $ver()->assertJsonPath('devolucion.motivo_no', "Este envío todavía no se recibe en {$destino->NOMBRE}. Si salió de más, usa «Corrección».")
-            ->assertJsonPath('correccion.motivo_no', null);
-        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]])->assertStatus(422);
-
-        $this->recibir($envio, 5);
+        // Sin recibir también se devuelve (el destino puede no usar la app): vuelve al origen
+        // y Recepción espera menos.
         $ver()->assertJsonPath('devolucion.motivo_no', null)->assertJsonPath('linea.pendiente', 5)
+            ->assertJsonPath('correccion.motivo_no', null);
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 6]])->assertStatus(422)
+            ->assertJsonPath('message', "De «{$p->NOMBRE}» solo se pueden devolver 5 UND: es lo que sigue en camino a {$destino->NOMBRE}.");
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]])->assertCreated();
+        $this->assertSame(6.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(4.0, (float) $envio->lineas->first()->fresh()->CANTIDAD_ENVIADA);
+        $antes = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)->where('REFERENCIA', $nota)->firstOrFail();
+        $this->assertFalse(MovimientoInventario::where('ID_MOVIMIENTO_RELACIONADO', $antes->ID_MOVIMIENTO)->exists(), 'Sin recibir no hay retorno del destino.');
+
+        $this->recibir($envio, 4);
+        // Lo devuelto antes de recibir no salió del destino: allá quedan 4 por devolver.
+        $ver()->assertJsonPath('devolucion.motivo_no', null)->assertJsonPath('linea.pendiente', 4)
             ->assertJsonPath('correccion.motivo_no', "{$destino->NOMBRE} ya lo recibió: si regresó material, usa «Devolución».");
 
         // Regresan 2: salen del destino y vuelven al origen.
         $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 2]])->assertCreated();
-        $this->assertSame(7.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
-        $this->assertSame(3.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
-        $dev = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)->where('REFERENCIA', $nota)->firstOrFail();
+        $this->assertSame(8.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(2.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
+        $dev = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)->where('REFERENCIA', $nota)
+            ->where('ID_MOVIMIENTO', '>', $antes->ID_MOVIMIENTO)->firstOrFail();
         $retorno = MovimientoInventario::where('ID_MOVIMIENTO_RELACIONADO', $dev->ID_MOVIMIENTO)->firstOrFail();
         $this->assertSame(MovimientoInventario::TIPO_TRASPASO_SALIDA, $retorno->TIPO);
         $this->assertSame((int) $destino->ID_ALMACEN, (int) $retorno->ID_ALMACEN);
@@ -302,18 +311,59 @@ class DevolucionMaterialTest extends MySqlTestCase
             $this->consumoLocal($this->usuario(), ['id_almacen' => $origen->ID_ALMACEN]));
 
         // No más de lo que queda en el destino por devolver.
-        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 4]])->assertStatus(422)
-            ->assertJsonPath('message', "De «{$p->NOMBRE}» solo se pueden devolver 3 UND: es lo que recibió {$destino->NOMBRE} y no se ha devuelto.");
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 3]])->assertStatus(422)
+            ->assertJsonPath('message', "De «{$p->NOMBRE}» solo se pueden devolver 2 UND: es lo que recibió {$destino->NOMBRE} y no se ha devuelto.");
 
         // Si el destino ya lo gastó, no puede regresarlo.
-        $this->inv->registrarSalida($destino->ID_ALMACEN, $p->ID_PRODUCTO, 3);
+        $this->inv->registrarSalida($destino->ID_ALMACEN, $p->ID_PRODUCTO, 2);
         $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]])->assertStatus(422);
-        $this->assertSame(7.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(8.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+
+        // La devolución de antes de recibir ya no se deshace: el destino recibió sin eso.
+        try {
+            app(TraspasoService::class)->prepararDeshacer($antes->fresh());
+            $this->fail('Deshacer una devolución de antes de recibir, con el envío ya recibido, debía rechazarse.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('ya lo recibió', $e->getMessage());
+        }
 
         // Deshacer la devolución se lleva las dos patas.
         $this->assertSame(2, $this->inv->eliminarMovimientoConReverso($dev->ID_MOVIMIENTO)['eliminados']);
-        $this->assertSame(5.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(6.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
         $this->assertSame(2.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
+    }
+
+    public function test_devolver_un_envio_sin_recibir_cuadra_con_la_correccion_la_cancelacion_y_el_deshacer(): void
+    {
+        $origen  = $this->almacen();
+        $destino = $this->destino();
+        $p = $this->producto('44');
+        $this->inv->registrarEntrada($origen->ID_ALMACEN, $p->ID_PRODUCTO, 10);
+        [$nota, $envio] = $this->envioConNota($origen->ID_ALMACEN, $destino->ID_ALMACEN, $p->ID_PRODUCTO, 5);
+        $linea = fn () => $envio->lineas->first()->fresh();
+        $tras  = app(TraspasoService::class);
+
+        // Vuelve 1, y deshacerla lo repone en lo que Recepción espera.
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]])->assertCreated();
+        $dev = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)->where('REFERENCIA', $nota)->firstOrFail();
+        DB::transaction(function () use ($tras, $dev) {
+            $prep = $tras->prepararDeshacer($dev);
+            $this->inv->eliminarMovimientoConReverso($dev->ID_MOVIMIENTO, $prep['arrastrados']);
+            $tras->reponerLineas($prep['reponer']);
+        });
+        $this->assertSame(5.0, (float) $linea()->CANTIDAD_ENVIADA);
+        $this->assertSame(5.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+
+        // Vuelve 1 otra vez y se corrige la nota a 4: en camino quedan 3 (4 − 1 devuelto).
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]])->assertCreated();
+        app(CorreccionNotaService::class)->corregir($nota, $p->ID_PRODUCTO, 4, ['motivo' => 'prueba', 'id_usuario' => $this->usuario()->ID_USUARIO]);
+        $this->assertSame(3.0, (float) $linea()->CANTIDAD_ENVIADA);
+        $this->assertSame(7.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+
+        // Cancelar devuelve solo lo que seguía en camino: el origen queda entero.
+        $tras->cancelar($envio->fresh(), ['id_usuario' => $this->usuario()->ID_USUARIO]);
+        $this->assertSame(10.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(0.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
     }
 
     public function test_deshacer_el_envio_se_lleva_sus_devoluciones_y_el_retorno(): void

@@ -27,7 +27,7 @@
     var OPS = {
         devolucion: {
             cant: 'Cantidad que vuelve', motivo: 'Motivo (opcional)', motivoEj: 'Ej.: sobró en la obra',
-            boton: '<i class="material-icons">assignment_return</i>Devolver', motivoObligatorio: false,
+            boton: 'Aceptar', motivoObligatorio: false,
         },
         correccion: {
             cant: 'Cantidad que de verdad salió', motivo: 'Motivo (obligatorio)', motivoEj: 'Ej.: salieron 100, se cargó 180 por error',
@@ -126,10 +126,16 @@
 
         cabecera(nota.numero, nota.fecha, [nota.numero, nota.fecha, nota.proyecto, nota.solicitante].filter(Boolean).join(' · '));
 
+        // Foto, código y nombre como la fila del Inventario (almacen_local.js): la miniatura
+        // (?sz=w120) o el recuadro gris con el ícono, y el código chico encima del nombre.
+        var foto = l.foto
+            ? '<img src="' + esc(l.foto + (l.foto.indexOf('?') >= 0 ? '&' : '?') + 'sz=w120') + '" alt="" class="ajn-foto">'
+            : '<span class="ajn-foto ajn-foto-sin" title="Sin foto"><i class="material-icons">inventory_2</i></span>';
         $('ajNotaProducto').innerHTML = '<div class="ajn-prod-cab">'
-            +   '<div class="ajn-foto"><i class="material-icons">inventory_2</i></div>'
+            +   foto
             +   '<div class="ajn-info">'
-            +     '<span class="ajn-titulo">' + (l.codigo ? '<span class="ajn-codigo">' + esc(l.codigo) + '</span>' + SEP : '') + esc(l.nombre) + '</span>'
+            +     (l.codigo ? '<span class="ajn-codigo">' + esc(l.codigo) + '</span>' : '')
+            +     '<span class="ajn-titulo">' + esc(l.nombre) + '</span>'
             +     '<span class="ajn-datos">Entregado <b>' + num(l.entregado) + ' ' + um + '</b>'
             +       (l.devuelto > EPS ? SEP + 'Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b>' : '') + '</span>'
             +   '</div>'

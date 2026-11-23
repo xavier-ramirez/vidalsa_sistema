@@ -5,8 +5,6 @@ namespace App\Services;
 use App\Models\AlmacenStock;
 use App\Models\CorreccionNota;
 use App\Models\MovimientoInventario;
-use App\Models\Traspaso;
-use App\Models\TraspasoLinea;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use RuntimeException;
@@ -100,7 +98,7 @@ class CorreccionNotaService
             // una recepción o cancelación a la vez queda en fila, y lo que se mira abajo
             // (motivoNoCorregible) ya es lo que dejó. Sin esto, una cancelación devolvía al
             // origen lo enviado original y la corrección, además, lo que bajó.
-            $this->bloquearEnvio($numero, $idProducto);
+            $this->devoluciones->bloquearEnvio($numero, $idProducto);
             // La nota entera bloqueada, con el MISMO candado que la devolución y el borrado de
             // la nota: una corrección y una devolución a la vez quedan en fila, y la segunda
             // ve lo que dejó la primera.
@@ -135,9 +133,10 @@ class CorreccionNotaService
             $this->inventario->bloquearSaldos((int) $filas->first()->ID_ALMACEN, [$idProducto]);
             $this->inventario->corregirCantidadesSalida($this->repartir($filas, $nueva - $actual));
             // En un envío, la línea del pedido también: es lo que Recepción espera recibir (ya
-            // bloqueada por bloquearEnvio y sin confirmar, lo dijo motivoNoCorregible).
+            // bloqueada por bloquearEnvio y sin confirmar, lo dijo motivoNoCorregible). Lo
+            // devuelto antes de recibir ya no está en camino: no se espera.
             if ($envio = $this->devoluciones->envio($filas)) {
-                $envio['linea']->CANTIDAD_ENVIADA = $nueva;
+                $envio['linea']->CANTIDAD_ENVIADA = round($nueva - $linea['devuelto'], 3);
                 $envio['linea']->save();
             }
 
@@ -150,18 +149,6 @@ class CorreccionNotaService
                 'ID_USUARIO'       => $datos['id_usuario'] ?? null,
             ]);
         });
-    }
-
-    /** Bloquea el envío de este producto de la nota y su línea, si la nota es un envío. */
-    private function bloquearEnvio(string $numero, int $idProducto): void
-    {
-        $idTraspaso = MovimientoInventario::where('NUMERO_NOTA', $numero)->where('ID_PRODUCTO', $idProducto)
-            ->where('TIPO', MovimientoInventario::TIPO_TRASPASO_SALIDA)->whereNotNull('ID_TRASPASO')
-            ->value('ID_TRASPASO');
-        if ($idTraspaso) {
-            Traspaso::whereKey($idTraspaso)->lockForUpdate()->first();
-            TraspasoLinea::where('ID_TRASPASO', $idTraspaso)->where('ID_PRODUCTO', $idProducto)->lockForUpdate()->get();
-        }
     }
 
     /**

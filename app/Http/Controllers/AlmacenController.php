@@ -3781,6 +3781,7 @@ class AlmacenController extends Controller
                 }
                 $envio = $this->traspasos->prepararDeshacer($mov);
                 $r     = $this->inventario->eliminarMovimientoConReverso($id, $envio['arrastrados']);
+                $this->traspasos->reponerLineas($envio['reponer']);
 
                 return [$r, $this->traspasos->quitarLineasDeshechas($envio['lineas'])];
             });

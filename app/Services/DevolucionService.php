@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\MovimientoInventario;
+use App\Models\Traspaso;
 use App\Models\TraspasoLinea;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -23,9 +24,14 @@ use RuntimeException;
  * Si además hay que entregar otra cosa (la talla 42), eso es una salida normal con su propia
  * Nota: se registra desde el inventario, no desde aquí (decisión del cliente, 14-09-2026).
  *
- * Una nota de ENVÍO a otro almacén (TRASPASO_SALIDA) también se devuelve: el material sale
- * del almacén que lo recibió (TRASPASO_SALIDA de retorno, enlazada a la DEVOLUCION) y vuelve
- * al de origen, a la bolsa de la que salió. Solo lo que ya se recibió y sigue sin devolver.
+ * Una nota de ENVÍO a otro almacén (TRASPASO_SALIDA) también se devuelve, se haya recibido
+ * o no (el destino puede no usar la app y no recibirlo nunca):
+ *  - ya recibido: el material sale del almacén que lo recibió (TRASPASO_SALIDA de retorno,
+ *    enlazada a la DEVOLUCION) y vuelve al de origen, a la bolsa de la que salió. Tope: lo
+ *    que entró allá y no ha regresado.
+ *  - sin recibir: vuelve al origen y la línea del envío (CANTIDAD_ENVIADA, lo que Recepción
+ *    espera) baja en lo devuelto, para que el destino no lo reciba después ni una
+ *    cancelación lo devuelva dos veces. Deshacerla lo repone (TraspasoService::reponerLineas).
  *
  * Todo en una transacción: o vuelve todo lo indicado, o no vuelve nada.
  */
@@ -43,7 +49,7 @@ class DevolucionService
     /** Filas de la nota, en orden de registro. $bloquear las toma FOR UPDATE. */
     public function salidasDeNota(string $numero, bool $bloquear = false): Collection
     {
-        return MovimientoInventario::with('producto:ID_PRODUCTO,CODIGO,NOMBRE,UM')
+        return MovimientoInventario::with('producto:ID_PRODUCTO,CODIGO,NOMBRE,UM,FOTO')
             ->where('NUMERO_NOTA', $numero)
             ->orderBy('ID_MOVIMIENTO')
             ->when($bloquear, fn ($q) => $q->lockForUpdate())
@@ -51,8 +57,29 @@ class DevolucionService
     }
 
     /**
+     * Si la nota es un envío, bloquea el envío y sus líneas (las del producto, si se da) en el
+     * orden de Recepción (envío → líneas), ANTES que las filas de la nota: así una recepción
+     * o cancelación a la vez queda en fila y lo que se lee después ya es lo que dejó. Lo usan
+     * la devolución y la corrección, que cambian lo que Recepción espera recibir.
+     */
+    public function bloquearEnvio(string $numero, ?int $idProducto = null): void
+    {
+        $idTraspaso = MovimientoInventario::where('NUMERO_NOTA', $numero)
+            ->when($idProducto, fn ($q) => $q->where('ID_PRODUCTO', $idProducto))
+            ->where('TIPO', MovimientoInventario::TIPO_TRASPASO_SALIDA)->whereNotNull('ID_TRASPASO')
+            ->value('ID_TRASPASO');
+        if ($idTraspaso) {
+            Traspaso::whereKey($idTraspaso)->lockForUpdate()->first();
+            TraspasoLinea::where('ID_TRASPASO', $idTraspaso)
+                ->when($idProducto, fn ($q) => $q->where('ID_PRODUCTO', $idProducto))
+                ->orderBy('ID_LINEA')->lockForUpdate()->get();
+        }
+    }
+
+    /**
      * Por qué no se puede devolver este producto de la nota, o null si se puede. Solo los
-     * envíos a otro almacén tienen motivos propios: lo que no llegó no puede regresar.
+     * envíos a otro almacén tienen motivos propios (cancelado, línea repetida o perdida, o
+     * recibido en 0). Sin recibir SÍ se devuelve: ver el docblock de la clase.
      */
     public function motivoNoDevolvible(Collection $filas): ?string
     {
@@ -71,10 +98,10 @@ class DevolucionService
         if ($envio['repetido']) {
             return self::REPETIDO;
         }
-        if (!$envio['linea'] || !$envio['linea']->estaConfirmada()) {
-            return 'Este envío todavía no se recibe en ' . $envio['destino'] . '. Si salió de más, usa «Corrección».';
+        if (!$envio['linea']) {
+            return 'No se encontró el envío de este producto.';
         }
-        if ($envio['recibido'] <= self::EPS) {
+        if ($envio['linea']->estaConfirmada() && $envio['recibido'] <= self::EPS) {
             return 'El destino no recibió este producto (llegó en 0 o dañado): no hay nada que devolver.';
         }
         return null;
@@ -83,7 +110,8 @@ class DevolucionService
     /**
      * Datos del envío de estas filas (todas del mismo producto), o null si son salidas
      * directas: la línea del pedido, el pedido, el nombre del destino y lo que entró al
-     * destino (la TRASPASO_ENTRADA; lo dañado no entra).
+     * destino (la TRASPASO_ENTRADA; lo dañado no entra) y lo que ya regresó de allá (los
+     * retornos de sus devoluciones; las de antes de recibir no salieron del destino).
      */
     public function envio(Collection $filas): ?array
     {
@@ -97,6 +125,10 @@ class DevolucionService
         $linea = $q()->whereIn('ID_MOVIMIENTO_SALIDA', $envios->pluck('ID_MOVIMIENTO'))->first()
             ?? $q()->where('ID_TRASPASO', $primera->ID_TRASPASO)->where('ID_PRODUCTO', $primera->ID_PRODUCTO)->first();
         $traspaso = $linea?->traspaso;
+        $devoluciones = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
+            ->whereIn('ID_MOVIMIENTO_RELACIONADO', $envios->pluck('ID_MOVIMIENTO'))->pluck('ID_MOVIMIENTO');
+        $devueltoDestino = $devoluciones->isEmpty() ? 0.0 : (float) MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_TRASPASO_SALIDA)
+            ->whereIn('ID_MOVIMIENTO_RELACIONADO', $devoluciones)->sum('CANTIDAD');
 
         return [
             // Dos líneas del mismo producto en el envío: no se sabe qué filas son de cuál
@@ -108,6 +140,7 @@ class DevolucionService
             'destino'  => $traspaso?->almacenDestino?->NOMBRE ?? 'el almacén destino',
             'entrada'  => $linea?->movimientoEntrada,
             'recibido' => round((float) ($linea?->movimientoEntrada?->CANTIDAD ?? 0), 3),
+            'devuelto_destino' => round($devueltoDestino, 3),
         ];
     }
 
@@ -128,6 +161,7 @@ class DevolucionService
                 'id_producto' => (int) $filas->first()->ID_PRODUCTO,
                 'codigo'      => $producto?->CODIGO,
                 'nombre'      => $producto?->NOMBRE ?? '—',
+                'foto'        => $producto?->FOTO,
                 'um'          => $producto?->UM,
                 'entregado'   => $entregado,
                 'devuelto'    => $devuelto,
@@ -138,14 +172,21 @@ class DevolucionService
 
     /**
      * [entregado, devuelto, pendiente] de estas filas (un producto). En un envío lo pendiente
-     * no pasa de lo que entró al destino menos lo ya devuelto: lo que no llegó no regresa.
+     * no pasa de lo que el destino tiene de él: si ya lo recibió, lo que entró allá menos lo
+     * que ya regresó de allá; si no, lo que Recepción todavía espera (CANTIDAD_ENVIADA).
      */
     private function cuentas(Collection $filas, array $porDevolver, ?array $envio): array
     {
         $entregado   = round($filas->sum(fn ($s) => (float) $s->CANTIDAD), 3);
         $sinDevolver = round($filas->sum(fn ($s) => $porDevolver[$s->ID_MOVIMIENTO]), 3);
         $devuelto    = round($entregado - $sinDevolver, 3);
-        $pendiente   = $envio === null ? $sinDevolver : max(0.0, round(min($sinDevolver, $envio['recibido'] - $devuelto), 3));
+        $pendiente   = $sinDevolver;
+        if ($envio !== null) {
+            $tope = $envio['linea']?->estaConfirmada()
+                ? $envio['recibido'] - $envio['devuelto_destino']
+                : (float) ($envio['linea']?->CANTIDAD_ENVIADA ?? 0);
+            $pendiente = max(0.0, round(min($sinDevolver, $tope), 3));
+        }
         return [$entregado, $devuelto, $pendiente];
     }
 
@@ -175,6 +216,9 @@ class DevolucionService
     {
         // transaccionAlDia: si choca con otra operación simultánea del producto, se repite sola.
         $this->inventario->transaccionAlDia(function () use ($numero, $lineas, $datos) {
+            // Si es un envío, primero el envío y sus líneas (como la corrección): la devolución
+            // sin recibir baja la línea, y no se cruza con una recepción o cancelación a la vez.
+            $this->bloquearEnvio($numero);
             // La nota entera bloqueada ANTES de leer lo ya devuelto: dos devoluciones a la vez
             // (doble clic, dos pestañas) quedan en fila y la segunda ve lo que registró la
             // primera, así que nunca se devuelve dos veces lo mismo. eliminarNota toma el
@@ -220,6 +264,12 @@ class DevolucionService
                 }
                 [, , $pendiente] = $this->cuentas($filas, $porDevolver, $envio);
                 if ($cantidad > $pendiente + self::EPS) {
+                    if ($envio && !$envio['linea']->estaConfirmada()) {
+                        throw new RuntimeException(sprintf(
+                            'De «%s» solo se pueden devolver %s %s: es lo que sigue en camino a %s.',
+                            $nombre, InventarioService::num($pendiente), $producto?->UM ?? '', $envio['destino']
+                        ));
+                    }
                     if ($envio) {
                         throw new RuntimeException(sprintf(
                             'De «%s» solo se pueden devolver %s %s: es lo que recibió %s y no se ha devuelto.',
@@ -242,7 +292,12 @@ class DevolucionService
                         continue;
                     }
                     $tramo = round(min($resto, $libre), 3);
-                    $pasos[] = ['producto' => $idProducto, 'salida' => $salida, 'cantidad' => $tramo, 'entrada' => $envio['entrada'] ?? null];
+                    $pasos[] = [
+                        'producto' => $idProducto, 'salida' => $salida, 'cantidad' => $tramo,
+                        // Recibido: sale del destino (su entrada). Sin recibir: baja la línea.
+                        'entrada'  => $envio['entrada'] ?? null,
+                        'linea'    => ($envio && !$envio['linea']->estaConfirmada()) ? $envio['linea'] : null,
+                    ];
                     $porDevolver[$salida->ID_MOVIMIENTO] = round($libre - $tramo, 3);
                     $resto = round($resto - $tramo, 3);
                     if ($resto <= self::EPS) {
@@ -264,7 +319,10 @@ class DevolucionService
                     'id_usuario' => $idUsuario,
                     'motivo'     => $motivoDevolucion,
                 ]);
-                if ($paso['entrada']) {
+                if ($paso['linea']) {
+                    $paso['linea']->CANTIDAD_ENVIADA = round((float) $paso['linea']->CANTIDAD_ENVIADA - $paso['cantidad'], 3);
+                    $paso['linea']->save();
+                } elseif ($paso['entrada']) {
                     $this->inventario->registrarRetornoEnvio($paso['entrada'], $devolucion, [
                         'fecha'      => $fecha,
                         'id_usuario' => $idUsuario,

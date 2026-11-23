@@ -27,13 +27,16 @@
     /* El producto en su tarjeta: qué es, cuánto se entregó y cuánto volvió ya. */
     #ajNotaModal .ajn-linea { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px; box-shadow:0 1px 2px rgba(15,23,42,.05); }
     #ajNotaModal .ajn-prod-cab { display:flex; align-items:center; gap:12px; min-width:0; }
-    #ajNotaModal .ajn-foto { width:52px; height:52px; flex-shrink:0; border-radius:8px; background:#eff6ff; display:flex; align-items:center; justify-content:center; }
-    #ajNotaModal .ajn-foto .material-icons { font-size:26px; color:#0067b1; }
+    /* Foto, código y nombre con el mismo diseño que la fila del Inventario (.alm-foto,
+       .alm-cod-mini, .alm-nombre-txt en admin_almacen_index.css; pedido del cliente,
+       23-11-2026): recuadro de 58 px con la foto o el ícono gris, y el código chico y
+       monoespaciado en su renglón, encima del nombre. */
+    #ajNotaModal .ajn-foto { width:58px; height:58px; flex-shrink:0; box-sizing:border-box; border-radius:9px; border:1px solid #e2e8f0; background:#f8fafc; object-fit:cover; display:block; }
+    #ajNotaModal .ajn-foto-sin { display:flex; align-items:center; justify-content:center; color:#cbd5e0; }
+    #ajNotaModal .ajn-foto-sin .material-icons { font-size:26px; }
     #ajNotaModal .ajn-info { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
-    /* Código y descripción más chicos (pedido del cliente, 07-10-2026: se veían muy grandes);
-       el código un punto más apagado que la descripción. */
-    #ajNotaModal .ajn-titulo { font-size:12.5px; font-weight:600; line-height:1.35; overflow-wrap:anywhere; }
-    #ajNotaModal .ajn-codigo { font-weight:500; color:#475569; }
+    #ajNotaModal .ajn-codigo { display:block; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:10px; font-weight:700; letter-spacing:.9px; color:#64748b; line-height:1.2; }
+    #ajNotaModal .ajn-titulo { font-size:12px; font-weight:600; color:#1e293b; line-height:1.35; overflow-wrap:anywhere; }
     #ajNotaModal .ajn-datos { font-size:12px; font-weight:500; }
     #ajNotaModal .ajn-datos b { font-weight:700; }
 
