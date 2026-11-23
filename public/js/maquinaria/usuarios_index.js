@@ -14,9 +14,9 @@ window.clearUsuariosFilter = function () {
 };
 
 // Filtra la tabla por un usuario concreto (clic en el panel "Usuarios Activos").
-// Reutiliza el buscador: mete el CORREO (único) como término, así el filtro de la
-// tabla —que matchea por nombre O correo— devuelve exactamente esa fila. No añade
-// una vía de filtrado nueva: es el mismo camino que escribir en el buscador.
+// Reutiliza el buscador: mete el CORREO (único) como término; un correo completo el
+// servidor lo busca EXACTO (UserController::index), así sale solo esa fila. No añade una
+// vía de filtrado nueva: es el mismo camino que escribir en el buscador.
 window.filtrarUsuarioActivo = function (correo) {
     const input = document.getElementById('searchInput');
     if (!input) return;
@@ -29,6 +29,16 @@ window.filtrarUsuarioActivo = function (correo) {
     const table = document.getElementById('usuariosTableBody');
     if (table && table.scrollIntoView) table.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 };
+
+// Cuerpo JSON de una respuesta, o {} si el servidor mandó una página de error (419, 500):
+// así el aviso dice algo entendible en vez de «Unexpected token '<'».
+function usrLeerJson(r) {
+    return r.json().catch(function () { return {}; });
+}
+
+// Turno de la última carga pedida: si el usuario cambia de filtro antes de que llegue la
+// respuesta anterior, esa respuesta vieja no pinta la tabla ni cambia la URL.
+var usrTurnoCarga = 0;
 
 // Main load function - Equipos-style architecture
 window.loadUsuarios = function (url = null) {
@@ -79,6 +89,7 @@ window.loadUsuarios = function (url = null) {
     const finalUrl = query ? baseUrl + '?' + query : baseUrl;
     tableBody.style.opacity = '0.5';
     if (window.showPreloader) window.showPreloader();
+    const turno = ++usrTurnoCarga;
 
     window.apiFetch(finalUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
         .then(response => {
@@ -86,6 +97,10 @@ window.loadUsuarios = function (url = null) {
             return response.json();
         })
         .then(data => {
+            if (turno !== usrTurnoCarga) {
+                if (window.hidePreloader) window.hidePreloader();
+                return;
+            }
             tableBody.innerHTML = data.html;
             tableBody.style.opacity = '1';
 
@@ -109,7 +124,7 @@ window.loadUsuarios = function (url = null) {
         })
         .catch(error => {
             console.error('Error loading usuarios:', error);
-            tableBody.style.opacity = '1';
+            if (turno === usrTurnoCarga) tableBody.style.opacity = '1';
             if (window.hidePreloader) window.hidePreloader();
         });
 };
@@ -130,7 +145,7 @@ window.usrEliminar = function (id, nombre) {
                 method: 'DELETE',
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
             })
-                .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body: body }; }); })
+                .then(function (r) { return usrLeerJson(r).then(function (body) { return { ok: r.ok, body: body }; }); })
                 .then(function (res) {
                     if (window.hidePreloader) window.hidePreloader();
                     if (!res.ok || !res.body.success) throw new Error(res.body.message || 'No se pudo eliminar el usuario.');
@@ -147,37 +162,44 @@ window.usrEliminar = function (id, nombre) {
     });
 };
 
-// Pagination click handler. En fase de CAPTURA: este archivo se carga con su vista, asi que
-// al entrar por la SPA se registra DESPUES del clic de navegacion.js; en captura corre antes y
-// su preventDefault le dice a la navegacion que el clic ya esta atendido.
-document.addEventListener('click', function (e) {
-    const link = e.target.closest('#usuariosPagination a');
-    if (link) {
-        e.preventDefault();
-        window.loadUsuarios(link.getAttribute('href'));
-    }
-}, true);
+// Listeners de documento UNA sola vez: tras un despliegue la SPA vuelve a ejecutar este
+// archivo (cambia su ?v=) en una pestaña abierta, y sin la guarda cada clic de paginación
+// pedía la tabla dos veces y la burbuja del móvil se abría y cerraba sola.
+if (!window.__usuariosListenersBound) {
+    window.__usuariosListenersBound = true;
 
-// Móvil: tocar una tarjeta de usuario muestra su detalle (fecha de creación + frentes) en
-// una burbuja flotante por encima (en escritorio sale al pasar el mouse). Solo en el layout
-// de tarjeta (≤768px). Una sola burbuja abierta a la vez; se cierra al tocar fuera o en un
-// botón de acción. Listener único a nivel documento (SPA-safe: sobrevive al re-render).
-document.addEventListener('click', function (e) {
-    if (!window.matchMedia || !window.matchMedia('(max-width: 768px)').matches) return;
-    const body = document.getElementById('usuariosTableBody');
-    if (!body) return;
-    const fila = e.target.closest('.table-usuarios-mobile tbody tr');
-    const enAccion = e.target.closest('a, button, .btn-action-maquinaria');
-    const abiertas = body.querySelectorAll('tr.tip-abierto');
-    // Tocar fuera de una tarjeta (o en un botón de acción) → cerrar lo que hubiera abierto.
-    if (!fila || !body.contains(fila) || enAccion) {
-        abiertas.forEach(function (t) { t.classList.remove('tip-abierto'); });
-        return;
-    }
-    const yaAbierta = fila.classList.contains('tip-abierto');
-    abiertas.forEach(function (t) { t.classList.remove('tip-abierto'); }); // solo una a la vez
-    if (!yaAbierta) fila.classList.add('tip-abierto');
-});
+    // Pagination click handler. En fase de CAPTURA: este archivo se carga con su vista, asi que
+    // al entrar por la SPA se registra DESPUES del clic de navegacion.js; en captura corre antes y
+    // su preventDefault le dice a la navegacion que el clic ya esta atendido.
+    document.addEventListener('click', function (e) {
+        const link = e.target.closest('#usuariosPagination a');
+        if (link) {
+            e.preventDefault();
+            window.loadUsuarios(link.getAttribute('href'));
+        }
+    }, true);
+
+    // Móvil: tocar una tarjeta de usuario muestra su detalle (fecha de creación + frentes) en
+    // una burbuja flotante por encima (en escritorio sale al pasar el mouse). Solo en el layout
+    // de tarjeta (≤768px). Una sola burbuja abierta a la vez; se cierra al tocar fuera o en un
+    // botón de acción. Listener único a nivel documento (SPA-safe: sobrevive al re-render).
+    document.addEventListener('click', function (e) {
+        if (!window.matchMedia || !window.matchMedia('(max-width: 768px)').matches) return;
+        const body = document.getElementById('usuariosTableBody');
+        if (!body) return;
+        const fila = e.target.closest('.table-usuarios-mobile tbody tr');
+        const enAccion = e.target.closest('a, button, .btn-action-maquinaria');
+        const abiertas = body.querySelectorAll('tr.tip-abierto');
+        // Tocar fuera de una tarjeta (o en un botón de acción) → cerrar lo que hubiera abierto.
+        if (!fila || !body.contains(fila) || enAccion) {
+            abiertas.forEach(function (t) { t.classList.remove('tip-abierto'); });
+            return;
+        }
+        const yaAbierta = fila.classList.contains('tip-abierto');
+        abiertas.forEach(function (t) { t.classList.remove('tip-abierto'); }); // solo una a la vez
+        if (!yaAbierta) fila.classList.add('tip-abierto');
+    });
+}
 
 // ── Autocompletado del buscador (nombre / correo) ───────────────────────────
 // La lista completa de usuarios (nombre + correo) viene embebida como JSON en el
@@ -194,8 +216,8 @@ function escHtmlUsuarios(s) { return window.escapeHtml(s); }
 // Cache: parseamos el JSON y PRE-NORMALIZAMOS nombre+correo UNA sola vez. Antes se
 // re-parseaba y re-normalizaba la lista COMPLETA de usuarios en CADA tecla → esa era
 // la lentitud. Se reconstruye solo si el nodo de datos cambia (recarga que lo reemplace).
-let _usuariosSugCache = null;
-let _usuariosSugNode = null;
+var _usuariosSugCache = null;
+var _usuariosSugNode = null;
 function getUsuariosSugerencias() {
     const node = document.getElementById('usuariosSugerenciasData');
     if (!node) return [];
@@ -311,7 +333,7 @@ window.checkUnusedRoles = function () {
 
 window.deleteUnusedRoles = function () {
     window.apiFetch('/admin/usuarios/roles/unused', { method: 'DELETE', headers: { 'Accept': 'application/json' } })
-        .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body: body }; }); })
+        .then(function (r) { return usrLeerJson(r).then(function (body) { return { ok: r.ok, body: body }; }); })
         .then(function (res) {
             if (!res.ok || !res.body.success) throw new Error(res.body.message);
             document.getElementById('modalLimpiarRoles').style.display = 'none';
@@ -459,11 +481,14 @@ if (document.readyState === 'loading') {
     initUsuarios();
 }
 
-// SPA navigation listener
-window.addEventListener('spa:contentLoaded', function () {
-    if (document.getElementById('usuariosTableBody')) {
-        initUsuarios();
-    }
-});
+// SPA navigation listener (una sola vez, por lo mismo que los de arriba).
+if (!window.__usuariosSpaBound) {
+    window.__usuariosSpaBound = true;
+    window.addEventListener('spa:contentLoaded', function () {
+        if (document.getElementById('usuariosTableBody')) {
+            initUsuarios();
+        }
+    });
+}
 
 

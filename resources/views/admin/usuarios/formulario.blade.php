@@ -200,7 +200,9 @@
                     </div>
                     <div class="multiselect-content" id="frentesMultiselectContent">
                         @php
-                            $rawFrente = old('ID_FRENTE_ASIGNADO', isset($user) ? $user->getRawOriginal('ID_FRENTE_ASIGNADO') : '');
+                            // Tras un error de validación manda lo que se envió, aunque fuera NADA (todas
+                            // desmarcadas no viajan: sin esto volvían las de la base y se guardaban otra vez).
+                            $rawFrente = session()->hasOldInput() ? old('ID_FRENTE_ASIGNADO', []) : (isset($user) ? $user->getRawOriginal('ID_FRENTE_ASIGNADO') : '');
                             $selectedFrentes = is_array($rawFrente)
                                 ? $rawFrente
                                 : array_filter(array_map('trim', explode(',', $rawFrente ?? '')));
@@ -245,7 +247,7 @@
                     </div>
                     <div class="multiselect-content" id="frentesBloqueadosMultiselectContent">
                         @php
-                            $rawFrenteBloq = old('ID_FRENTE_BLOQUEADO', isset($user) ? $user->getRawOriginal('ID_FRENTE_BLOQUEADO') : '');
+                            $rawFrenteBloq = session()->hasOldInput() ? old('ID_FRENTE_BLOQUEADO', []) : (isset($user) ? $user->getRawOriginal('ID_FRENTE_BLOQUEADO') : '');
                             $selectedFrentesBloq = is_array($rawFrenteBloq)
                                 ? $rawFrenteBloq
                                 : array_filter(array_map('trim', explode(',', $rawFrenteBloq ?? '')));
@@ -278,7 +280,7 @@
                     </div>
                     <div class="multiselect-content" id="multiselectContent">
                         @php
-                            $user_perms = old('PERMISOS', $user->PERMISOS ?? []);
+                            $user_perms = session()->hasOldInput() ? old('PERMISOS', []) : ($user->PERMISOS ?? []);
                             // Agrupar los permisos por MODULO (segun el prefijo de la clave) para que
                             // la lista sea navegable en vez de un bloque plano gigante. Es SOLO
                             // presentacion: availablePermissions() sigue siendo la fuente plana

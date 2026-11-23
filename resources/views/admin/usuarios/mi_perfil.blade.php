@@ -11,11 +11,12 @@
 
         {{-- Alertas Globales (Fallback si no usa AJAX) --}}
         @if(session('success_perfil'))
+            {{-- Por la SPA el DOMContentLoaded ya pasó: si no, se muestra ya. @js escapa para JS. --}}
             <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    if (typeof window.showToast === 'function') {
-                        window.showToast("{{ session('success_perfil') }}", 'success');
-                    }
+                (function (avisar) {
+                    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', avisar); else avisar();
+                })(function () {
+                    if (typeof window.showToast === 'function') window.showToast(@js(session('success_perfil')), 'success');
                 });
             </script>
         @endif
@@ -47,10 +48,10 @@
 
         @if($errors->any())
             <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    if (typeof window.showToast === 'function') {
-                        window.showToast("{{ $errors->first() }}", 'error');
-                    }
+                (function (avisar) {
+                    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', avisar); else avisar();
+                })(function () {
+                    if (typeof window.showToast === 'function') window.showToast(@js($errors->first()), 'error');
                 });
             </script>
         @endif
@@ -151,7 +152,8 @@
                         method: 'POST',
                         body: formData});
 
-                    const data = await response.json();
+                    // Una página de error (419, 500) no es JSON: se trata como respuesta vacía.
+                    const data = await response.json().catch(() => ({}));
 
                     if (typeof window.hidePreloader === 'function') window.hidePreloader();
 

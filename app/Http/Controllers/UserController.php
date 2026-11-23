@@ -79,8 +79,11 @@ class UserController extends Controller
             // id->nombre una vez por proceso (no hay N+1).
             ->with(['rol:ID_ROL,NOMBRE_ROL']);
 
-        // FILTER 1: nombre o correo. % y _ se buscan como texto, no como comodines.
-        if ($request->filled('search')) {
+        // FILTER 1: nombre o correo. % y _ se buscan como texto, no como comodines. Un correo
+        // completo se busca EXACTO (clic en «Usuarios activos»): jose@ no debe traer a mjose@.
+        if ($request->filled('search') && filter_var(trim($request->input('search')), FILTER_VALIDATE_EMAIL)) {
+            $query->where('CORREO_ELECTRONICO', trim($request->input('search')));
+        } elseif ($request->filled('search')) {
             $like = '%' . addcslashes(trim($request->input('search')), '%_\\') . '%';
             $query->where(function($q) use ($like) {
                 $q->where('NOMBRE_COMPLETO', 'like', $like)
@@ -297,7 +300,11 @@ class UserController extends Controller
         // ensucian las sugerencias. Para asignar un rol nuevo se escribe el nombre y
         // firstOrCreate lo resuelve/crea al guardar.
         $roles = Role::select('ID_ROL', 'NOMBRE_ROL')->has('usuarios')->get();
-        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')->select('ID_FRENTE', 'NOMBRE_FRENTE')->get();
+        // Los activos y, además, los que el usuario YA tiene (asignados o bloqueados) aunque el
+        // frente se haya cerrado: si no salen en la lista, al guardar se le quitaban sin aviso.
+        $suyos = array_filter(explode(',', $user->getRawOriginal('ID_FRENTE_ASIGNADO') . ',' . $user->getRawOriginal('ID_FRENTE_BLOQUEADO')));
+        $frentes = FrenteTrabajo::where(fn ($q) => $q->where('ESTATUS_FRENTE', 'ACTIVO')->orWhereIn('ID_FRENTE', $suyos))
+            ->select('ID_FRENTE', 'NOMBRE_FRENTE')->get();
         $available_permissions = self::availablePermissions();
 
         return view('admin.usuarios.formulario', compact('user', 'roles', 'frentes', 'available_permissions', 'returnUrl'));
@@ -383,13 +390,12 @@ class UserController extends Controller
      */
     private function asignarAccesos(Usuario $user, \App\Http\Requests\UserRequest $request): void
     {
-        // Rol: si lo escribieron nuevo, se crea; si enviaron uno existente (id o nombre), se usa.
+        // Rol: el formulario manda su NOMBRE (si no existe, se crea); un número solo es el ID de
+        // un rol existente. Antes cualquier texto pasaba por find(), y MySQL lee «3ER TURNO»
+        // como 3: el usuario quedaba con el rol 3 y el rol nuevo no se creaba.
         $rolInput = trim($request->ID_ROL);
-        $roleObj = \App\Models\Role::find($rolInput);
-        if (!$roleObj) {
-            $rolName = mb_strtoupper($rolInput, 'UTF-8');
-            $roleObj = \App\Models\Role::firstOrCreate(['NOMBRE_ROL' => $rolName]);
-        }
+        $roleObj = (ctype_digit($rolInput) ? Role::find($rolInput) : null)
+            ?? Role::firstOrCreate(['NOMBRE_ROL' => mb_strtoupper($rolInput, 'UTF-8')]);
         $user->ID_ROL = $roleObj->ID_ROL;
         // Dos niveles independientes: equipos y almacen. Se asignan explicitamente
         // (no via fill()) porque son campos sensibles fuera de $fillable.
@@ -397,12 +403,14 @@ class UserController extends Controller
         $user->NIVEL_ACCESO_ALMACEN = $request->NIVEL_ACCESO_ALMACEN;
         $user->ESTATUS = $request->ESTATUS;
         // Guardar frentes como CSV (igual que PERMISOS). NULL si usuario GLOBAL sin frente asignado.
-        $frentesSeleccionados = $request->input('ID_FRENTE_ASIGNADO', []);
+        // Sin repetidos: una casilla mandada dos veces no debe ocupar dos veces la columna
+        // (PERMISOS es varchar(255) y con todas las claves ya roza el tope).
+        $frentesSeleccionados = array_unique((array) $request->input('ID_FRENTE_ASIGNADO', []));
         $user->setAttribute('ID_FRENTE_ASIGNADO', !empty($frentesSeleccionados) ? implode(',', $frentesSeleccionados) : null);
         // Frentes BLOQUEADOS (lista negra): se restan de la visibilidad incluso al GLOBAL.
-        $frentesBloqueados = $request->input('ID_FRENTE_BLOQUEADO', []);
+        $frentesBloqueados = array_unique((array) $request->input('ID_FRENTE_BLOQUEADO', []));
         $user->setAttribute('ID_FRENTE_BLOQUEADO', !empty($frentesBloqueados) ? implode(',', $frentesBloqueados) : null);
-        $user->PERMISOS = $request->PERMISOS;
+        $user->PERMISOS = array_values(array_unique((array) $request->PERMISOS)) ?: null;
     }
 
     /**
@@ -413,6 +421,11 @@ class UserController extends Controller
         $user = Usuario::findOrFail($id);
         if ((int) $user->ID_USUARIO === (int) auth()->id()) {
             return response()->json(['success' => false, 'message' => 'No puedes eliminar tu propio usuario.'], 422);
+        }
+        // Quien creó un traspaso no se puede borrar (la llave de traspasos lo impide, para no
+        // perder quién lo hizo): se le desactiva. Antes reventaba con un error 500.
+        if (\Illuminate\Support\Facades\DB::table('traspasos')->where('ID_USUARIO_CREO', $user->ID_USUARIO)->exists()) {
+            return response()->json(['success' => false, 'message' => 'Este usuario registró traspasos y no se puede eliminar: desactívalo (Estatus INACTIVO).'], 422);
         }
         $user->delete();
 

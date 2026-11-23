@@ -19,8 +19,8 @@ class UserRequest extends FormRequest
     {
         if ($this->has('NOMBRE_COMPLETO')) {
             $this->merge([
-                'NOMBRE_COMPLETO' => mb_convert_case($this->input('NOMBRE_COMPLETO'), MB_CASE_TITLE, 'UTF-8'),
-                'CORREO_ELECTRONICO' => strtolower($this->input('CORREO_ELECTRONICO')),
+                'NOMBRE_COMPLETO' => mb_convert_case((string) $this->input('NOMBRE_COMPLETO'), MB_CASE_TITLE, 'UTF-8'),
+                'CORREO_ELECTRONICO' => strtolower(trim((string) $this->input('CORREO_ELECTRONICO'))),
             ]);
         }
     }
@@ -46,7 +46,8 @@ class UserRequest extends FormRequest
             'ID_FRENTE_ASIGNADO' => 'nullable|array',
             'ID_FRENTE_ASIGNADO.*' => 'exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             'ID_FRENTE_BLOQUEADO' => 'nullable|array',
-            'ID_FRENTE_BLOQUEADO.*' => 'exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
+            // Un frente no puede estar a la vez asignado y bloqueado: no se sabría si lo ve.
+            'ID_FRENTE_BLOQUEADO.*' => ['exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL', Rule::notIn((array) $this->input('ID_FRENTE_ASIGNADO', []))],
             // Dos niveles INDEPENDIENTES (1 = GLOBAL, 2 = LOCAL): uno gobierna la
             // visibilidad por frente en Equipos y otro la de Almacén. Ambos obligatorios.
             'NIVEL_ACCESO_EQUIPOS' => 'required|integer|in:1,2',
@@ -77,6 +78,7 @@ class UserRequest extends FormRequest
             'NIVEL_ACCESO_ALMACEN.in' => 'El nivel de acceso a Almacén seleccionado no es válido.',
             'ESTATUS.required' => 'El estatus es obligatorio.',
             'ESTATUS.in' => 'El estatus seleccionado no es válido.',
+            'ID_FRENTE_BLOQUEADO.*.not_in' => 'Un frente no puede estar asignado y bloqueado a la vez.',
         ];
     }
 }
