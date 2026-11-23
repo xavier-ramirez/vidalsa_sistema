@@ -374,13 +374,18 @@
                              dejar teclear) de uno en el contenedor (alternar). Teniendo ademas el
                              onclick, cada clic ejecutaba la apertura DOS veces. Es el mismo montaje
                              que el filtro de Frente de /admin/equipos, que tampoco lleva onclick. --}}
+                        {{-- Mismo alto que las cajas de texto (.form-input-custom = 12px arriba/abajo
+                             + letra de 15px): el relleno vertical lo pone el INPUT, no el trigger, asi
+                             la caja mide exactamente lo mismo con cualquier tipo de letra. El 11px de la
+                             izquierda + los 4px que .dropdown-trigger:has(> input) le da al input = 15px,
+                             el texto arranca donde arranca en las demas cajas. --}}
                         <div class="dropdown-trigger" tabindex="0" role="button"
-                             style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                             style="display: flex; align-items: center; gap: 6px; overflow: hidden; padding: 0 15px 0 11px;">
                             <input type="text" data-filter-search id="label_frente_trabajo"
                                    placeholder="{{ old('ID_FRENTE_ACTUAL') ? ($frentes[old('ID_FRENTE_ACTUAL')] ?? 'SELECCIONE') : 'SELECCIONE' }}"
                                    autocomplete="off" aria-label="Frente de Trabajo"
                                    oninput="window.filterDropdownOptions(this)"
-                                   style="flex:1; min-width:0; border:none; background:transparent; padding:0; font-size:14px; line-height:normal; outline:none; color:#0f172a; cursor:text;">
+                                   style="flex:1; min-width:0; border:none; background:transparent; padding:12px 0; font-size:15px; line-height:normal; font-family:inherit; outline:none; color:#0f172a; cursor:text;">
                             <i class="material-icons">expand_more</i>
                         </div>
                         <div class="dropdown-content">
@@ -576,7 +581,7 @@
             <a href="{{ route('equipos.index') }}" class="btn-primary-maquinaria btn-secondary">Cancelar</a>
             <button type="submit" class="btn-primary-maquinaria" id="btnSubmitUnified">
                 <i class="material-icons">save</i>
-                <span id="btnSubmitLabel">Registrar</span>
+                <span id="btnSubmitLabel">Guardar</span>
             </button>
         </div>
     </form>
@@ -721,9 +726,6 @@
         // Title
         var titleMap = { liviana: 'Registro de Equipos — Flota Liviana', pesada: 'Registro de Maquinarias — Flota Pesada', auxiliar: 'Registro de Equipo Auxiliar' };
         document.getElementById('pageTitleText').textContent = titleMap[mode] || 'Registro de Equipos y Maquinarias';
-
-        // Submit label
-        document.getElementById('btnSubmitLabel').textContent = isAux ? 'Registrar Auxiliar' : 'Registrar Equipo';
 
         // Disable hidden inputs in inactive section to prevent them from being submitted
         document.querySelectorAll('#equipoFieldsSection input, #equipoFieldsSection select').forEach(function (el) { el.disabled = isAux; });
