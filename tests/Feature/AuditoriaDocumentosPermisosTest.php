@@ -137,6 +137,11 @@ class AuditoriaDocumentosPermisosTest extends MySqlTestCase
         // En la Revisión no descarta lo de la carga masiva (va con su clave). El historial no
         // borra registros, ni para super.admin (pedido del cliente, 29-10-2026).
         $this->assertStringNotContainsString('id="cpdf-selection-chip-eliminar"', $html);
+        // "Ver equipos" de un PDF de varias unidades sale a todos: su visor tiene que existir
+        // (antes vivía dentro del permiso y el botón daba error), pero sin los botones de enlazar.
+        $this->assertStringContainsString('window.cpdfAbrirUnidades = function', $html);
+        $this->assertStringContainsString('window.cpdfCerrarAtar = function', $html);
+        $this->assertStringNotContainsString('window.cpdfAtarFalta = function', $html);
         $hist = $this->actingAs($u)->get(route('historial-documentos.index', ['pestana' => 'historial']))->assertOk()->getContent();
         $this->assertStringNotContainsString('id="hd-selection-chip-eliminar"', $hist);
         $this->assertStringNotContainsString('data-del-source=', $hist);

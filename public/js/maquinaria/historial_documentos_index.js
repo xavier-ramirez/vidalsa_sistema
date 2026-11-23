@@ -216,13 +216,17 @@ window.hdLimpiarFiltrosAvanzados = function (recargar) {
 // tecla. Enter, una sugerencia o la X buscan al momento y cancelan esta espera (lo hace
 // loadHistorialDocumentos), asi que nunca salen dos. Un solo escuchador delegado: el script
 // es global y la pantalla se monta y desmonta por la SPA.
+// Vaciar la caja a mano (borrar, cortar) tambien busca si ese filtro estaba puesto: si no, la
+// lista seguia filtrada por lo de antes con la caja ya vacia.
 if (!window._hdBusquedaRegistrada) {
     window._hdBusquedaRegistrada = true;
     document.addEventListener('input', function (e) {
         const id = e.target && e.target.id;
         if (id !== 'searchCorreo' && id !== 'searchEquipo') return;
         clearTimeout(window._hdEsperaBusqueda);
-        if (e.target.value.trim().length >= 4) window._hdEsperaBusqueda = setTimeout(window.loadHistorialDocumentos, 400);
+        const largo = e.target.value.trim().length;
+        const puesto = new URLSearchParams(location.search).has(id === 'searchCorreo' ? 'search_correo' : 'search_equipo');
+        if (largo >= 4 || (largo === 0 && puesto)) window._hdEsperaBusqueda = setTimeout(window.loadHistorialDocumentos, 400);
     });
 }
 

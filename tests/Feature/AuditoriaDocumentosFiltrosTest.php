@@ -125,6 +125,25 @@ class AuditoriaDocumentosFiltrosTest extends MySqlTestCase
     }
 
     /**
+     * "Por dónde va la revisión" sale con la pantalla SIN números (su consulta es la más cara) y
+     * el panel los pide aparte (?avance=1): los mismos de VerificacionDocumento::avances.
+     */
+    public function test_el_avance_llega_aparte_con_sus_numeros(): void
+    {
+        $pantalla = $this->actingAs($this->usuario())->get('/admin/historial-documentos?pestana=documentos')
+            ->assertOk()->getContent();
+        $this->assertStringContainsString('data-cpdf-avance-pendiente', $pantalla);
+
+        $html = $this->actingAs($this->usuario())
+            ->getJson('/admin/historial-documentos?pestana=documentos&avance=1')->assertOk()->json('html');
+        $this->assertStringNotContainsString('data-cpdf-avance-pendiente', $html);
+        foreach (VerificacionDocumento::avances() as $tipo => $a) {
+            $cifra = number_format($a['total'] - $a['faltan'], 0, ',', '.') . '/' . number_format($a['total'], 0, ',', '.');
+            $this->assertStringContainsString($cifra, $html, "falta la cifra de {$tipo}");
+        }
+    }
+
+    /**
      * Con un PDF de la carga masiva esperando o leyendose, la tabla trae la marca con que se
      * pone al dia sola (cpdfVigilarCarga); sin nada en marcha, no: no se pide cada 15 s de balde.
      */

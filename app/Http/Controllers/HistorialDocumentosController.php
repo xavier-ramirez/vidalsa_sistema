@@ -403,12 +403,18 @@ class HistorialDocumentosController extends Controller
         // pide con ?pestana=historial (sus filtros y su paginación lo llevan siempre).
         $pestana = (string) $request->input('pestana');
         if ($pestana !== 'historial') {
+            // "Por dónde va la revisión" no viene con la pantalla: el panel lo pide aparte al
+            // pintarla (partials/avance), para no esperar su consulta.
+            if ($request->wantsJson() && $request->boolean('avance')) {
+                return response()->json(['html' => view('admin.compresion_pdf.partials.avance',
+                    ['avanceDocs' => PanelDocumentos::avance()])->render()]);
+            }
             $panel = PanelDocumentos::esPestana($pestana) ? $pestana : PanelDocumentos::DOCUMENTOS;
             // Un filtro o una página (cpdfFiltrar) solo repinta lo que cambia: los @fragment del
             // panel (tabla, páginas, cuentas y opciones), no la pantalla entera con sus scripts.
             if ($request->wantsJson()) {
                 return response()->json(['html' => view('admin.compresion_pdf.panel',
-                    PanelDocumentos::datos($request, $panel, true))->fragments()]);
+                    PanelDocumentos::datos($request, $panel))->fragments()]);
             }
             return view('admin.historial_documentos.index', PanelDocumentos::datos($request, $panel));
         }

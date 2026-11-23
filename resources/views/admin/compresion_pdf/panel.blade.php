@@ -467,17 +467,7 @@
             {{-- Por donde va cada documento. Cuando los cuatro digan "listo", termino. --}}
             <div class="cpdf-caja cpdf-avance">
                 <small><i class="material-icons">fact_check</i> Por dónde va la revisión</small>
-                @foreach ($avanceDocs as $tipo => $a)
-                    <a class="cpdf-avance-fila" href="{{ route('historial-documentos.index', ['pestana' => 'documentos', 'tipo_doc' => $tipo]) }}"
-                       onclick="event.preventDefault(); window.cpdfPoner({ tipo_doc: @js($tipo), estado_doc: null })">
-                        <span class="cpdf-avance-nombre">{{ $a['nombre'] }}</span>
-                        <span class="cpdf-avance-barra"><i style="width: {{ $a['total'] ? round($a['leidos'] * 100 / $a['total']) : 100 }}%;"></i></span>
-                        <span class="cpdf-avance-cifra">
-                            {{ number_format($a['leidos'], 0, ',', '.') }}/{{ number_format($a['total'], 0, ',', '.') }}
-                            @if (!$a['faltan'] && $a['total']) <b class="cpdf-avance-listo">listo</b> @endif
-                        </span>
-                    </a>
-                @endforeach
+                @include('admin.compresion_pdf.partials.avance', ['avanceDocs' => null])
             </div>
         @else
         {{-- Las cuentas por estado llevan los demás filtros, no el de estado (PanelDocumentos::datosCompresion). --}}
@@ -777,6 +767,28 @@
     };
     window.cpdfVigilarCarga();
 
+    // "Por dónde va la revisión" llega después de pintar la pantalla (partials/avance): es la
+    // consulta más cara de la pestaña y no hace falta esperarla para ver la lista. Si para
+    // cuando responde ya se cambió de pestaña o de pantalla, no se toca nada.
+    (function () {
+        var caja = document.querySelector('[data-cpdf-avance-pendiente]');
+        if (!caja) return;
+        window.apiFetch(@json(route('historial-documentos.index', ['pestana' => 'documentos', 'avance' => 1])),
+            { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function (data) {
+                if (!caja.isConnected) return;
+                var t = document.createElement('template');
+                t.innerHTML = data.html || '';
+                var nueva = t.content.querySelector('[data-cpdf-avance]');
+                if (nueva) caja.replaceWith(nueva);
+            })
+            .catch(function () {
+                if (!caja.isConnected) return;
+                caja.querySelectorAll('.cpdf-avance-cifra').forEach(function (c) { c.textContent = 'sin datos'; });
+            });
+    })();
+
     // Tras una acción (enlazar, revisar, descartar, pedir la lectura) cambia también lo que no
     // depende de los filtros —"Por dónde va la revisión", la lectura pedida—: se pide la pantalla
     // entera, con los mismos filtros.
@@ -814,10 +826,15 @@
         }, true);
         // Buscar mientras se escribe, como en el Historial: con 4+ letras, 400 ms después de la
         // última tecla. Enter o la X buscan al momento y cancelan esta espera (cpdfFiltrar).
+        // Vaciar la caja a mano (borrar, cortar) también busca si había un texto puesto: si no,
+        // la lista seguía filtrada por lo de antes con la caja ya vacía.
         document.addEventListener('input', function (e) {
             if (!e.target || e.target.id !== 'cpdfBuscar') return;
             clearTimeout(window._cpdfEsperaBusqueda);
-            if (e.target.value.trim().length >= 4) window._cpdfEsperaBusqueda = setTimeout(window.cpdfFiltrar, 400);
+            var largo = e.target.value.trim().length;
+            if (largo >= 4 || (largo === 0 && new URLSearchParams(location.search).has('buscar'))) {
+                window._cpdfEsperaBusqueda = setTimeout(window.cpdfFiltrar, 400);
+            }
         });
     }
 
@@ -894,6 +911,9 @@
     // ── Carga masiva ──────────────────────────────────────────────────────────────
     // Lo que coincide se enlaza solo al leerlo (no hay botón de Aplicar). Aquí se enlaza a mano
     // lo que no se enlazó solo: un PDF sin enlazar, un VIN del BL o una unidad de un PDF de varias.
+    // El estado de la caja de enlazar. Va fuera del permiso: lo limpia también cpdfCerrarAtar,
+    // que cierra el visor de unidades (y ese lo ve todo el que ve la lista).
+    var cpdfAtarEstado = { o: null, turno: 0, espera: null, activo: -1 };
     @can('docs.carga.masiva')
     // ── Enlazar a un equipo (caja junto al PDF, partials/atar_modal) ────────────────
     // Lo usan atar un PDF sin enlazar, un VIN del BL y una unidad de un PDF de varias. `o` trae lo que se muestra (doc,
@@ -903,7 +923,6 @@
     // error o pedir reemplazo.
     // El script de la vista va suelto (global): nombres con prefijo para no chocar con nada.
     // Las fechas (aaaa-mm-dd) se muestran con window.formatearFecha (dom_helpers.js).
-    var cpdfAtarEstado = { o: null, turno: 0, espera: null, activo: -1 };
     var cpdfAtarEl = function (id) { return document.getElementById(id); };
     var cpdfAtarAviso = function (texto) {
         var lista = cpdfAtarEl('cpdfAtarLista');
@@ -1089,39 +1108,6 @@
         if (!window.matchMedia('(pointer: coarse)').matches) { campo.focus({ preventScroll: true }); campo.select(); }
         cpdfAtarBuscar();
     };
-    // La caja vuelve a su casa (o, si la vista ya no está, se va) y el visor queda como siempre.
-    window.cpdfCerrarAtar = function () {
-        // La lista de equipos (cpdfAbrirUnidades) no tiene casa: se arma en cada apertura.
-        document.querySelectorAll('.cpdf-uni-caja').forEach(function (c) { c.remove(); });
-        document.querySelectorAll('.cpdf-uni-visor, .cpdf-uni-abierto').forEach(function (n) {
-            n.classList.remove('cpdf-uni-visor', 'cpdf-uni-abierto');
-            delete n.dataset.pdfAjuste;
-        });
-        document.querySelectorAll('.cpdf-atar-visor').forEach(function (v) {
-            v.classList.remove('cpdf-atar-visor');
-            v.querySelectorAll('.cpdf-atar-caja').forEach(function (c) {
-                // A su casa; si la vista ya es otra (y su casa trae su propia caja), se va.
-                var casa = document.getElementById('cpdfAtarCasa');
-                if (casa && !casa.querySelector('.cpdf-atar-caja')) casa.appendChild(c); else c.remove();
-            });
-        });
-        cpdfAtarEstado.o = null; cpdfAtarEstado.turno++; clearTimeout(cpdfAtarEstado.espera);
-    };
-    // Una caja que se quedó en el visor de una visita anterior (se navegó con él abierto) se va:
-    // la de esta visita tiene los mismos id.
-    window.cpdfCerrarAtar();
-    // Cerrar el visor cierra la caja; Esc, con la caja montada, cierra el visor. En document y UNA
-    // vez: la vista se vuelve a ejecutar en cada visita.
-    if (!window.__cpdfAtarVisorBound) {
-        window.__cpdfAtarVisorBound = true;
-        document.addEventListener('vidalsa:pdf-cerrado', function () {
-            if (document.querySelector('.cpdf-atar-visor') && window.cpdfCerrarAtar) window.cpdfCerrarAtar();
-        });
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && document.querySelector('.cpdf-atar-visor')) window.closePdfPreview();
-        });
-    }
-
     var cpdfAtado = function (r) { window.closePdfPreview(); window.toast(r.message || 'Enlazado', 'success'); window.cpdfRecargar(); };
     // El atar() de lo que puede pisar un documento que la ficha ya tiene: si el servidor responde
     // requiere_pisar, se pregunta en la fila y, con un sí, se manda otra vez con reemplazar.
@@ -1179,6 +1165,65 @@
             })
             .catch(function (e) { window.toast((e && e.message) || 'No se pudo quitar.', 'error'); });
     };
+
+    // "Eliminar" del contador de selección: descarta los PDF elegidos que se pueden descartar (lo
+    // subido y no aplicado). Cada PDF se va a la PAPELERA de Drive (se recupera con un clic si fue
+    // un error) y su fila desaparece. Uno por uno, con una sola pregunta.
+    window.cpdfEliminarElegidas = function () {
+        var lista = cpdfDescartables();
+        if (!lista.length) return;
+        if (!window.confirm('¿Descartar ' + (lista.length === 1 ? 'este PDF' : 'estos ' + lista.length + ' PDF') + '?\n\nSe van a la papelera de Drive y sus filas desaparecen.')) return;
+        var ok = 0, fallos = [];
+        lista.reduce(function (cadena, par) {
+            return cadena.then(function () {
+                return window.apiPostForm(@json(route('historial-documentos.carga-masiva.descartar')), { link: par[1] }, 'No se pudo descartar.')
+                    .then(function () { ok++; window._cpdfSel.ids.delete(par[0]); window._cpdfSel.descartables.delete(par[0]); })
+                    .catch(function (e) { fallos.push((e && e.message) || 'No se pudo descartar.'); });
+            });
+        }, Promise.resolve()).then(function () {
+            if (ok) window.toast(ok === 1 ? 'Descartado' : ok + ' descartados', 'success');
+            if (fallos.length) window.toast(fallos[0], 'error');
+            window.cpdfFiltrar();
+        });
+    };
+    @endcan
+
+    // ── Visor de un PDF de varias unidades ────────────────────────────────────────────
+    // Fuera del permiso de la carga masiva: el botón "Ver equipos" y el PDF de esas filas salen a
+    // todo el que ve la lista, y dentro del permiso, sin él, no existían (error al pulsarlos).
+    // Solo mirar: lo de enlazar (faltan, vines) llega vacío sin el permiso (panel, $cpdfAtar).
+    // La caja vuelve a su casa (o, si la vista ya no está, se va) y el visor queda como siempre.
+    window.cpdfCerrarAtar = function () {
+        // La lista de equipos (cpdfAbrirUnidades) no tiene casa: se arma en cada apertura.
+        document.querySelectorAll('.cpdf-uni-caja').forEach(function (c) { c.remove(); });
+        document.querySelectorAll('.cpdf-uni-visor, .cpdf-uni-abierto').forEach(function (n) {
+            n.classList.remove('cpdf-uni-visor', 'cpdf-uni-abierto');
+            delete n.dataset.pdfAjuste;
+        });
+        document.querySelectorAll('.cpdf-atar-visor').forEach(function (v) {
+            v.classList.remove('cpdf-atar-visor');
+            v.querySelectorAll('.cpdf-atar-caja').forEach(function (c) {
+                // A su casa; si la vista ya es otra (y su casa trae su propia caja), se va.
+                var casa = document.getElementById('cpdfAtarCasa');
+                if (casa && !casa.querySelector('.cpdf-atar-caja')) casa.appendChild(c); else c.remove();
+            });
+        });
+        cpdfAtarEstado.o = null; cpdfAtarEstado.turno++; clearTimeout(cpdfAtarEstado.espera);
+    };
+    // Una caja que se quedó en el visor de una visita anterior (se navegó con él abierto) se va:
+    // la de esta visita tiene los mismos id.
+    window.cpdfCerrarAtar();
+    // Cerrar el visor cierra la caja; Esc, con la caja montada, cierra el visor. En document y UNA
+    // vez: la vista se vuelve a ejecutar en cada visita.
+    if (!window.__cpdfAtarVisorBound) {
+        window.__cpdfAtarVisorBound = true;
+        document.addEventListener('vidalsa:pdf-cerrado', function () {
+            if (document.querySelector('.cpdf-atar-visor') && window.cpdfCerrarAtar) window.cpdfCerrarAtar();
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && document.querySelector('.cpdf-atar-visor')) window.closePdfPreview();
+        });
+    }
 
     // Un PDF de varias unidades (BL, RACDA, ROTC o póliza de flota): el visor con TODOS sus equipos
     // a un lado, como la caja de enlazar y con su aspecto. Se abre con el documento completo; la
@@ -1282,28 +1327,6 @@
         };
         visor.insertBefore(caja, visor.firstChild);
     };
-
-    // "Eliminar" del contador de selección: descarta los PDF elegidos que se pueden descartar (lo
-    // subido y no aplicado). Cada PDF se va a la PAPELERA de Drive (se recupera con un clic si fue
-    // un error) y su fila desaparece. Uno por uno, con una sola pregunta.
-    window.cpdfEliminarElegidas = function () {
-        var lista = cpdfDescartables();
-        if (!lista.length) return;
-        if (!window.confirm('¿Descartar ' + (lista.length === 1 ? 'este PDF' : 'estos ' + lista.length + ' PDF') + '?\n\nSe van a la papelera de Drive y sus filas desaparecen.')) return;
-        var ok = 0, fallos = [];
-        lista.reduce(function (cadena, par) {
-            return cadena.then(function () {
-                return window.apiPostForm(@json(route('historial-documentos.carga-masiva.descartar')), { link: par[1] }, 'No se pudo descartar.')
-                    .then(function () { ok++; window._cpdfSel.ids.delete(par[0]); window._cpdfSel.descartables.delete(par[0]); })
-                    .catch(function (e) { fallos.push((e && e.message) || 'No se pudo descartar.'); });
-            });
-        }, Promise.resolve()).then(function () {
-            if (ok) window.toast(ok === 1 ? 'Descartado' : ok + ' descartados', 'success');
-            if (fallos.length) window.toast(fallos[0], 'error');
-            window.cpdfFiltrar();
-        });
-    };
-    @endcan
 
     // ── Revisar a mano desde el visor ─────────────────────────────────────────────────
     // Se abre el PDF con los campos de la ficha; bajo cada campo que no cuadra sale lo que

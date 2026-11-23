@@ -34,12 +34,10 @@ class PanelDocumentos
     /**
      * Todo lo que necesita panel.blade.php para la pestaña pedida. Las lecturas son las mismas
      * para todos los que entran; qué botones salen lo decide la vista con los permisos.
-     *
-     * $soloLista: lo pide un filtro (cpdfFiltrar), que solo repinta los @fragment del panel
-     * —la tabla, las páginas, las cuentas y las opciones—. "Por dónde va la revisión" no
-     * depende de los filtros y es la consulta cara de la pestaña: ahí no se hace.
+     * "Por dónde va la revisión" no va aquí: es la consulta cara de la pestaña y el panel la
+     * pide aparte después de pintarse (avance()).
      */
-    public static function datos(Request $request, string $pestana, bool $soloLista = false): array
+    public static function datos(Request $request, string $pestana): array
     {
         $buscar = trim((string) $request->input('buscar', ''));
 
@@ -50,7 +48,7 @@ class PanelDocumentos
         $zona = config('app.schedule_timezone', config('app.timezone'));
 
         $propias = $pestana === self::DOCUMENTOS
-            ? self::datosDocumentos($request, $buscar, $soloLista)
+            ? self::datosDocumentos($request, $buscar)
             : self::datosCompresion($request, $buscar);
 
         return $propias + [
@@ -149,7 +147,6 @@ class PanelDocumentos
             'vinesFaltan' => [],
             'unidadesFaltan' => [],
             'unidadesPdf' => [],
-            'avanceDocs'  => [],
             'docsParaRevisar' => VerificacionDocumento::paraRevisar()->count(),
             'estadoDoc'   => null,
             'tipoDoc'     => null,
@@ -161,7 +158,7 @@ class PanelDocumentos
      * Pestaña "Documentos" (titulos, polizas, ROTC y RACDA): filas paginadas, cuantas hay de cada estado, cuando fue la
      * ultima lectura y cuantos documentos faltan por leer.
      */
-    private static function datosDocumentos(Request $request, string $buscar, bool $soloLista): array
+    private static function datosDocumentos(Request $request, string $buscar): array
     {
         // Los cinco de la revision nocturna mas los de la carga masiva (DE_LA_CARGA_TODOS): las
         // dos procedencias comparten esta tabla, que es la unica del modulo donde se ve el
@@ -267,7 +264,6 @@ class PanelDocumentos
             'estadoDoc'      => $estadoDoc,
             'tipoDoc'        => $tipoDoc,
             'ultimaLectura'  => VerificacionDocumento::max('updated_at'),
-            'avanceDocs'     => $soloLista ? [] : self::avance(),
             // Las de la otra pestaña: no se consultan, pero la vista las recibe siempre.
             'resumen'     => collect(),
             'ultimaNoche' => null,
@@ -282,9 +278,10 @@ class PanelDocumentos
     /**
      * Por donde va la revision de CADA documento: cuantos hay cargados, cuantos se han leido y
      * cuantos faltan. Es lo que contesta "¿ya termino con todos?" sin entrar al servidor: el
-     * dia que las cuatro filas digan "listo", la revision acabo.
+     * dia que las cuatro filas digan "listo", la revision acabo. No va con la pantalla: es su
+     * consulta más cara y la pide el panel después de pintarla (partials/avance, ?avance=1).
      */
-    private static function avance(): array
+    public static function avance(): array
     {
         $avance = [];
         // Los cuatro tipos salen de UNA consulta (ver VerificacionDocumento::avances).
