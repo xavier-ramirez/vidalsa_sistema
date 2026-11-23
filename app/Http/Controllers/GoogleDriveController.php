@@ -31,6 +31,12 @@ class GoogleDriveController extends Controller
             $isThumb = $sz && preg_match('/^w?\d{2,4}(-h\d{2,4})?$/', $sz);
             $cachePath = \App\Services\GoogleDriveService::rutaCopiaLocal($fileId);
 
+            // Fotos de equipos y del catalogo: solo para un <img> del sistema. Abrirlas en una pestaña
+            // ("Abrir imagen en pestaña nueva", pegar el enlace) da "no disponible", como las fotos del login.
+            if (request()->header('Sec-Fetch-Dest') === 'document' && self::esFotoDeEquipo($fileId)) {
+                return self::noDisponible();
+            }
+
             // Cache-Control 1814400s = 21 dias (3 semanas) — pediste 1-3
             // semanas, escogemos el limite alto. must-revalidate permite a
             // un Ctrl+F5 forzar refetch contra el ETag. 'private' y no 'public': son
@@ -50,6 +56,7 @@ class GoogleDriveController extends Controller
                     $etag = md5($fileId . '-' . $sz . '-' . $version);
                     return response($bytes, 200, [
                         'Content-Type'  => $mimeMiniatura,
+                        'Vary'          => 'Sec-Fetch-Dest',
                         'X-Content-Type-Options' => 'nosniff',
                         'Cache-Control' => 'private, max-age=' . $maxAge . ', must-revalidate',
                         'ETag'          => '"' . $etag . '"',
@@ -80,13 +87,14 @@ class GoogleDriveController extends Controller
                 $version = request()->query('v', '0');
                 // Mismo ETag que la primera vez (la transmision desde Drive, mas abajo): es el mismo archivo.
                 $etag = md5($fileId . '-' . $version);
-                return response()->file($fullPath, [
+                return response()->file($fullPath, array_filter([
                     'Content-Type'  => $mime,
+                    'Vary'          => self::varyFoto($mime),
                     'X-Content-Type-Options' => 'nosniff',
                     'Cache-Control' => 'private, max-age=' . $maxAge . ', must-revalidate',
                     'ETag'          => '"' . $etag . '"',
                     'Expires'       => gmdate('D, d M Y H:i:s \G\M\T', time() + $maxAge),
-                ]);
+                ]));
             }
 
             // 3. FULL FILE: descargar via API (mantiene comportamiento legacy)
@@ -137,13 +145,14 @@ class GoogleDriveController extends Controller
             $rutaTmp   = $rutaFinal . '.' . bin2hex(random_bytes(4)) . '.parcial';
             @mkdir(dirname($rutaFinal), 0775, true);
 
-            $cabeceras = [
+            $cabeceras = array_filter([
                 'Content-Type'  => $metadata['mime'],
+                'Vary'          => self::varyFoto($metadata['mime']),
                 'X-Content-Type-Options' => 'nosniff',
                 'Cache-Control' => 'private, max-age=' . $maxAge . ', must-revalidate',
                 'ETag'          => '"' . $etag . '"',
                 'Expires'       => gmdate('D, d M Y H:i:s \G\M\T', time() + $maxAge),
-            ];
+            ]);
             // Content-Length solo si Drive lo dio: con el, el navegador sabe cuanto falta y
             // detecta un corte a mitad; sin el, mentir seria peor que callar.
             if (!empty($metadata['size'])) {
@@ -218,6 +227,25 @@ class GoogleDriveController extends Controller
     private static function permitido(?string $mime): bool
     {
         return in_array($mime, self::TIPOS_PERMITIDOS, true);
+    }
+
+    /**
+     * Una foto se guarda en la cache del navegador aparte segun quien la pidio: si no, abrirla en una
+     * pestaña saldria de la cache sin pasar por el bloqueo de arriba. Los PDF no: el visor los precarga
+     * y los muestra con peticiones distintas, y deben salir de la misma copia.
+     */
+    private static function varyFoto(?string $mime): ?string
+    {
+        return str_starts_with((string) $mime, 'image/') ? 'Sec-Fetch-Dest' : null;
+    }
+
+    /** ¿El archivo es la foto de un equipo o de una ficha del catalogo (modelo o color)? */
+    private static function esFotoDeEquipo(string $fileId): bool
+    {
+        $like = '%' . $fileId . '%';
+        return \DB::table('equipos')->where('FOTO_EQUIPO', 'like', $like)->exists()
+            || \DB::table('caracteristicas_modelo')->where('FOTO_REFERENCIAL', 'like', $like)->exists()
+            || \DB::table('catalogo_colores')->where('FOTO', 'like', $like)->exists();
     }
 
     private static function noDisponible()
