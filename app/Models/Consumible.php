@@ -24,6 +24,7 @@ class Consumible extends Model
         'ID_FRENTE',
         // Bloque 3 — resueltos después
         'ID_EQUIPO',
+        'ID_AUXILIAR',      // si el que surtió es un auxiliar (máquina de soldar, planta…)
         'ID_SUMINISTRO',
         'ESTADO_EQUIPO',
         'NOTAS',
@@ -39,6 +40,11 @@ class Consumible extends Model
     public function equipo()
     {
         return $this->belongsTo(Equipo::class, 'ID_EQUIPO', 'ID_EQUIPO');
+    }
+
+    public function auxiliar()
+    {
+        return $this->belongsTo(EquipoAuxiliar::class, 'ID_AUXILIAR', 'ID_AUXILIAR')->withTrashed();
     }
 
     public function frente()

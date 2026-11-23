@@ -183,8 +183,8 @@
                             <strong style="display:block; font-size:18px; font-weight:800; color:#ef4444; line-height: 1;"
                                 id="cnt-sinmatch">{{ $sinMatch }}</strong>
                             <span
-                                style="font-size:9px; color:#b91c1c; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Sin
-                                Match</span>
+                                style="font-size:9px; color:#b91c1c; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Por
+                                identificar</span>
                         </a>
                     </div>
                     <div style="flex: 1; min-width: 150px;">
@@ -331,7 +331,7 @@
                                     de Movimiento</span>
                                 @php
                                     $currentEstado = request('estado');
-                                    $estadosList = ['CONFIRMADO' => 'Confirmado', 'PENDIENTE' => 'Pendiente', 'SIN_MATCH' => 'Sin Match'];
+                                    $estadosList = ['CONFIRMADO' => 'Confirmado', 'PENDIENTE' => 'Pendiente', 'SIN_MATCH' => 'Por identificar'];
                                 @endphp
                                 <div class="custom-dropdown" id="estadoFilterSelect" data-filter-type="estado"
                                     data-default-label="Todos los estados" style="font-size: 12px;">
@@ -402,6 +402,16 @@
                                 </div>
                                 <span style="font-size:14px; font-weight:500;">Cargar Lote (Masivo)</span>
                             </a>
+                            @can('super.admin')
+                            <a href="{{ route('consumibles.importar') }}" class="dropdown-item-custom hide-on-mobile"
+                                style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #cbd5e1; background: transparent; transition: all 0.2s;"
+>
+                                <div style="background: #ecfdf5; padding: 6px; border-radius: 6px; display: flex;">
+                                    <i class="material-icons" style="font-size: 18px; color: #059669;">upload_file</i>
+                                </div>
+                                <span style="font-size:14px; font-weight:500;">Cargar desde Excel</span>
+                            </a>
+                            @endcan
                             {{-- Acciones Locales --}}
                             @can('equipos.edit')
                             <button type="button" id="btnMatch"
@@ -743,6 +753,18 @@
                                             </span>
                                         @endif
 
+                                    @elseif($c->auxiliar)
+                                        {{-- Auxiliar (máquina de soldar, planta, compresor…) --}}
+                                        <span
+                                            style="font-size:10px; font-weight:700; color:#0067b1; text-transform:uppercase; letter-spacing:.3px;">
+                                            {{ str_replace('_', ' ', $c->auxiliar->TIPO) }}
+                                        </span>
+                                        <span style="display:block; color:#1e293b; font-weight:700; font-size:13px;">
+                                            {{ trim($c->auxiliar->MARCA . ' ' . $c->auxiliar->MODELO) ?: '—' }}
+                                        </span>
+                                        <span style="display:block; font-family:monospace; font-size:11px; color:#64748b; margin-top:2px;">
+                                            {{ $c->auxiliar->CODIGO_INTERNO ?: $c->auxiliar->SERIAL }}
+                                        </span>
                                     @else
                                         <span style="color:#94a3b8; font-style:italic; font-size:12px;">Sin resolver</span>
                                         @if($c->IDENTIFICADOR)
@@ -765,7 +787,7 @@
                                     @elseif($c->ESTADO_EQUIPO === 'PENDIENTE')
                                         <span class="badge-pen">⏳ Pendiente</span>
                                     @else
-                                        <span class="badge-err">✖ Sin match</span>
+                                        <span class="badge-err">✖ Por identificar</span>
                                     @endif
                                 </td>
                                 <td>

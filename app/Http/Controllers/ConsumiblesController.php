@@ -40,7 +40,7 @@ class ConsumiblesController extends Controller
         // Sin 'suministro': la tabla suministros_origen esta VACIA y ningun consumible
         // tiene ID_SUMINISTRO (el registro de consumible lo escribe siempre null), asi que
         // era una consulta mas en cada carga para traer nada. Ninguna vista la lee.
-        $query = Consumible::with(['equipo.frenteActual', 'equipo.tipo', 'frente'])
+        $query = Consumible::with(['equipo.frenteActual', 'equipo.tipo', 'auxiliar', 'frente'])
             ->orderBy('FECHA', 'desc')
             ->orderBy('ID_CONSUMIBLE', 'desc');
 
@@ -889,9 +889,40 @@ class ConsumiblesController extends Controller
         $confirmados = 0;
         $sinMatch = 0;
         $detalle = [];
-        // Se acumulan para aplicarlos en DOS updates al final, no uno por fila.
+        // Se acumulan para aplicarlos en bloque al final, no un UPDATE por fila.
         $aConfirmar = [];   // [ID_EQUIPO => [ID_CONSUMIBLE, ...]]
+        $aConfirmarAux = [];// [ID_AUXILIAR => [ID_CONSUMIBLE, ...]]
+        $sinEquipo  = [];   // [ID_CONSUMIBLE, ...] enseñados como «no es un equipo»
         $aSinMatch  = [];   // [ID_CONSUMIBLE, ...]
+
+        // Los que vinieron de «Cargar desde Excel» se resuelven con las MISMAS reglas y alias de
+        // esa carga (IdentificadorConsumo): su IDENTIFICADOR es el texto del Excel, no una placa
+        // limpia, y la coincidencia parcial de abajo podría dar un equipo de otro tipo.
+        $deExcel = $pendientes->whereNotNull('ID_IMPORTACION');
+        $pendientes = $pendientes->whereNull('ID_IMPORTACION');
+        $ident = $deExcel->isNotEmpty() ? new \App\Services\Consumibles\IdentificadorConsumo() : null;
+        foreach ($deExcel as $c) {
+            $r = $ident->resolverEquipo(['desc' => $c->IDENTIFICADOR]);
+            if ($r['estado'] === 'SIN_MATCH') {
+                $aSinMatch[] = $c->ID_CONSUMIBLE;
+                $sinMatch++;
+            } else {
+                if ($r['id_equipo']) {
+                    $aConfirmar[$r['id_equipo']][] = $c->ID_CONSUMIBLE;
+                } elseif ($r['id_auxiliar']) {
+                    $aConfirmarAux[$r['id_auxiliar']][] = $c->ID_CONSUMIBLE;
+                } else {
+                    $sinEquipo[] = $c->ID_CONSUMIBLE;
+                }
+                $confirmados++;
+            }
+            $detalle[] = [
+                'identificador' => $c->IDENTIFICADOR,
+                'match' => $r['estado'] === 'SIN_MATCH' ? null : $r['etiqueta'],
+                'modo' => $r['modo'],
+                'estado' => $r['estado'] === 'SIN_MATCH' ? 'SIN_MATCH' : 'CONFIRMADO',
+            ];
+        }
 
         foreach ($pendientes as $c) {
             $id = $norm($c->IDENTIFICADOR);
@@ -960,12 +991,23 @@ class ConsumiblesController extends Controller
         // Los cambios, en bloque: un UPDATE por equipo confirmado y uno para todos los
         // SIN_MATCH, en vez de un UPDATE por fila. Consumible no tiene observer, asi que
         // el mass-update no se salta ningun efecto (comprobado).
-        DB::transaction(function () use ($aConfirmar, $aSinMatch) {
+        DB::transaction(function () use ($aConfirmar, $aConfirmarAux, $sinEquipo, $aSinMatch) {
             foreach ($aConfirmar as $idEquipo => $idsConsumible) {
                 Consumible::whereIn('ID_CONSUMIBLE', $idsConsumible)->update([
                     'ID_EQUIPO'     => $idEquipo,
+                    'ID_AUXILIAR'   => null,
                     'ESTADO_EQUIPO' => 'CONFIRMADO',
                 ]);
+            }
+            foreach ($aConfirmarAux as $idAux => $idsConsumible) {
+                Consumible::whereIn('ID_CONSUMIBLE', $idsConsumible)->update([
+                    'ID_EQUIPO'     => null,
+                    'ID_AUXILIAR'   => $idAux,
+                    'ESTADO_EQUIPO' => 'CONFIRMADO',
+                ]);
+            }
+            if ($sinEquipo) {
+                Consumible::whereIn('ID_CONSUMIBLE', $sinEquipo)->update(['ID_EQUIPO' => null, 'ID_AUXILIAR' => null, 'ESTADO_EQUIPO' => 'CONFIRMADO']);
             }
             if ($aSinMatch) {
                 Consumible::whereIn('ID_CONSUMIBLE', $aSinMatch)->update(['ESTADO_EQUIPO' => 'SIN_MATCH']);

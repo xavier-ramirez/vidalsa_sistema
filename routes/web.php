@@ -308,6 +308,17 @@ Route::middleware(['auth'])->group(function () {
             Route::get ('consumibles/exportar-csv',       [App\Http\Controllers\ConsumiblesController::class, 'exportarCsv'])    ->name('consumibles.exportarCsv');
             Route::post('consumibles/guardar-lote',       [App\Http\Controllers\ConsumiblesController::class, 'guardarLote'])    ->middleware('can:super.admin')->name('consumibles.guardarLote');
             Route::post('consumibles/match-automatico',   [App\Http\Controllers\ConsumiblesController::class, 'matchAutomatico'])->middleware('can:equipos.edit')->name('consumibles.matchAutomatico');
+            // Cargar desde Excel (reportes de gasoil de los proyectos): super.admin, como Cargar Lote.
+            Route::middleware('can:super.admin')->controller(App\Http\Controllers\ConsumiblesImportacionController::class)->group(function () {
+                Route::get   ('consumibles/importar',                          'index')       ->name('consumibles.importar');
+                Route::post  ('consumibles/importar',                          'subir')       ->name('consumibles.importar.subir');
+                Route::get   ('consumibles/importar/buscar-equipo',            'buscarEquipo')->name('consumibles.importar.buscarEquipo');
+                Route::get   ('consumibles/importar/{importacion}',            'revisar')     ->whereNumber('importacion')->name('consumibles.importar.revisar');
+                Route::post  ('consumibles/importar/{importacion}/ensenar',    'ensenar')     ->whereNumber('importacion')->name('consumibles.importar.ensenar');
+                Route::post  ('consumibles/importar/{importacion}/aplicar',    'aplicar')     ->whereNumber('importacion')->name('consumibles.importar.aplicar');
+                Route::post  ('consumibles/importar/{importacion}/deshacer',   'deshacer')    ->whereNumber('importacion')->name('consumibles.importar.deshacer');
+                Route::delete('consumibles/importar/{importacion}',            'descartar')   ->whereNumber('importacion')->name('consumibles.importar.descartar');
+            });
             // Rutas con wildcard {id} al final para no capturar segmentos estáticos.
             // Cambiar, emparejar y borrar registros pide equipos.edit (antes cualquier usuario
             // con sesión podía). Borrar NO pide user.delete: en mar-2026 se pidió quitarle la
