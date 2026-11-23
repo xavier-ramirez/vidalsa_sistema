@@ -13,7 +13,7 @@ use Tests\MySqlTestCase;
  * Los filtros de Revisión y Compresión (Control de Auditoría) y sus cuentas.
  *
  * Cada filtro pide por AJAX solo los fragmentos del panel (cpdfFiltrar →
- * HistorialDocumentosController::index → PanelDocumentos::datos con $soloLista). Lo que fijan:
+ * HistorialDocumentosController::index → PanelDocumentos::datos → los @fragment). Lo que fijan:
  * que cada filtro deja las filas que tiene que dejar, que "Documentos leídos" cuenta lo que
  * lista la tabla (y "de" cuántos hay), que las cuentas por estado siguen a los demás filtros
  * pero no al de estado, y que la respuesta no trae lo que no cambia con los filtros.
