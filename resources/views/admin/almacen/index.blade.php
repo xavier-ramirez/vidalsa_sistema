@@ -1035,8 +1035,9 @@
             {{-- Sin campo Código: lo pone SIEMPRE el sistema (AlmacenController::
                  generarCodigoProducto), al crear, y no se cambia al editar. --}}
             {{-- Foto opcional, en la MISMA fila que la descripción para no alargar el modal.
-                 Reusa la caja de "Detalles del producto" (.alm-det-foto-caja) y su recorte
-                 (partials/recorte_foto), asi que no trae estilo ni logica propios.
+                 Usa la caja .alm-det-foto-caja y el recorte (partials/recorte_foto), asi que
+                 no trae estilo ni logica propios. La ficha «Detalles del producto» ya no lleva
+                 foto: se ve y se cambia aquí y en la tabla.
 
                  Al CREAR todavia no hay id, asi que la foto elegida se queda en memoria y se
                  sube DESPUES de guardar, contra el mismo endpoint de siempre
@@ -1171,25 +1172,6 @@
             <i class="material-icons alm-x" onclick="almDetalleCerrar()">close</i>
         </div>
         <div class="alm-modal-body">
-
-            {{-- Foto del producto. Es la misma que se ve como miniatura en la tabla. Se
-                 cambia aquí mismo: la imagen se convierte a WebP y se sube a Drive
-                 (AlmacenController::subirFotoProducto); en la ficha solo vive el enlace.
-                 Con almacen.productos la caja entera abre el selector de archivo y lleva la cámara
-                 (antes de subir se encuadra en el recorte, partials.recorte_foto);
-                 sin el permiso, tocar la foto la abre en grande (almVerFoto). --}}
-            @php $almEditaFoto = auth()->user()?->can('almacen.productos'); @endphp
-            <div class="alm-det-foto-caja{{ $almEditaFoto ? ' editable' : '' }}" id="almDetFotoCaja"
-                 @if($almEditaFoto) title="Subir foto" onclick="document.getElementById('almDetFotoInput').click()" @endif>
-                <img id="almDetFotoImg" class="alm-det-foto" alt="Foto del producto" style="display:none;"
-                     @unless($almEditaFoto) title="Ver la foto en grande" onclick="window.almVerFoto(this.src)" @endunless>
-                <div id="almDetFotoSin" class="alm-det-foto alm-det-foto-sin"><i class="material-icons">inventory_2</i></div>
-                @if($almEditaFoto)
-                <div class="alm-det-foto-camara"><i class="material-icons">photo_camera</i></div>
-                <input type="file" id="almDetFotoInput" accept="image/jpeg,image/png,image/webp" hidden
-                       onclick="event.stopPropagation()" onchange="window.almDetFotoElegir(this)">
-                @endif
-            </div>
 
             {{-- Aviso de stock bajo en este almacén. En rojo, como las filas de stock bajo
                  de la tabla (.alm-row-bajo), para que el usuario asocie ambos avisos. En UNA
