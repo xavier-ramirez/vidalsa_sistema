@@ -133,49 +133,25 @@ class UsuariosModuloCompletoTest extends MySqlTestCase
             ->assertSee('value="' . $f1 . '"', false);
     }
 
-    public function test_mi_usuario_pide_la_clave_actual(): void
+    public function test_cambiar_la_clave_no_pide_la_actual(): void
     {
-        $this->actingAs($this->superAdminGlobal());
-        $datos = $this->datos();
-        $this->postJson(route('usuarios.store'), $datos)->assertOk();
-        $u = Usuario::where('CORREO_ELECTRONICO', $datos['CORREO_ELECTRONICO'])->firstOrFail();
-        $u->forceFill(['REQUIERE_CAMBIO_CLAVE' => 0])->save();
-        $this->actingAs($u);
-
-        $nueva = ['password' => 'nuevaclave9', 'password_confirmation' => 'nuevaclave9'];
-        $this->putJson(route('usuarios.actualizarMiClave'), $nueva)->assertStatus(422)->assertJsonValidationErrors('clave_actual');
-        $this->putJson(route('usuarios.actualizarMiClave'), $nueva + ['clave_actual' => 'equivocada'])
-            ->assertStatus(422)->assertJsonValidationErrors('clave_actual');
-        $this->assertTrue(Hash::check('clave123', $u->fresh()->PASSWORD_HASH), 'sin la actual no cambia');
-
-        $this->putJson(route('usuarios.actualizarMiClave'), $nueva + ['clave_actual' => 'clave123'])->assertOk();
-        $this->assertTrue(Hash::check('nuevaclave9', $u->fresh()->PASSWORD_HASH));
-    }
-
-    public function test_super_admin_cambia_la_clave_de_otro_sin_saberla_pero_la_suya_pide_la_actual(): void
-    {
+        // Si la cambia es porque quizá no la recuerda: ni en Mi Usuario ni en la ficha.
         $admin = $this->superAdminGlobal();
         $this->actingAs($admin);
         $datos = $this->datos();
         $this->postJson(route('usuarios.store'), $datos)->assertOk();
-        $otro = Usuario::where('CORREO_ELECTRONICO', $datos['CORREO_ELECTRONICO'])->firstOrFail();
+        $u = Usuario::where('CORREO_ELECTRONICO', $datos['CORREO_ELECTRONICO'])->firstOrFail();
 
-        // La de otro: sin clave actual.
-        $this->putJson(route('usuarios.update', $otro->ID_USUARIO), $this->datos(['CORREO_ELECTRONICO' => $datos['CORREO_ELECTRONICO'], 'password' => 'reiniciada1']))
+        $this->putJson(route('usuarios.update', $u->ID_USUARIO), $this->datos(['CORREO_ELECTRONICO' => $datos['CORREO_ELECTRONICO'], 'password' => 'reiniciada1']))
             ->assertOk();
-        $this->assertTrue(Hash::check('reiniciada1', $otro->fresh()->PASSWORD_HASH));
+        $this->assertTrue(Hash::check('reiniciada1', $u->fresh()->PASSWORD_HASH));
 
-        // La suya desde la ficha: sin la actual, no.
-        $propia = $this->datos([
-            'NOMBRE_COMPLETO' => $admin->NOMBRE_COMPLETO, 'CORREO_ELECTRONICO' => $admin->CORREO_ELECTRONICO,
-            'ID_ROL' => (string) $admin->ID_ROL, 'NIVEL_ACCESO_EQUIPOS' => 1, 'NIVEL_ACCESO_ALMACEN' => 1,
-            'PERMISOS' => $admin->PERMISOS, 'password' => 'mipropia99',
-        ]);
-        $hashAntes = $admin->fresh()->PASSWORD_HASH;
-        $this->putJson(route('usuarios.update', $admin->ID_USUARIO), $propia)->assertStatus(422)->assertJsonValidationErrors('clave_actual');
-        $this->assertSame($hashAntes, $admin->fresh()->PASSWORD_HASH);
-        $this->get(route('usuarios.edit', $admin->ID_USUARIO))->assertOk()->assertSee('name="clave_actual"', false);
-        $this->get(route('usuarios.edit', $otro->ID_USUARIO))->assertOk()->assertDontSee('name="clave_actual"', false);
+        // (Reiniciada por el admin, se le pediría cambiarla al entrar: aquí ya entró.)
+        $u->forceFill(['REQUIERE_CAMBIO_CLAVE' => 0])->save();
+        $this->actingAs($u->fresh());
+        $this->get(route('usuarios.miPerfil'))->assertOk()->assertDontSee('clave_actual');
+        $this->putJson(route('usuarios.actualizarMiClave'), ['password' => 'nuevaclave9', 'password_confirmation' => 'nuevaclave9'])->assertOk();
+        $this->assertTrue(Hash::check('nuevaclave9', $u->fresh()->PASSWORD_HASH));
     }
 
     public function test_quien_creo_un_traspaso_no_se_elimina_y_no_da_error_500(): void
@@ -196,7 +172,7 @@ class UsuariosModuloCompletoTest extends MySqlTestCase
         $this->assertNotNull($normal);
         $this->actingAs($normal);
 
-        $this->get(route('usuarios.miPerfil'))->assertOk()->assertSee('name="clave_actual"', false);
+        $this->get(route('usuarios.miPerfil'))->assertOk();
         $this->putJson(route('usuarios.actualizarMiClave'), ['password' => 'abc', 'password_confirmation' => 'abc'])
             ->assertStatus(422);
 

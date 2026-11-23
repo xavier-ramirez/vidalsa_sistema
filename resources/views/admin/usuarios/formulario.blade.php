@@ -69,18 +69,6 @@
                 @enderror
             </div>
 
-            {{-- Solo al editar TU PROPIA cuenta: cambiar tu clave pide la actual (como en Mi
-                 Usuario). La de otro usuario la reinicias sin saberla. --}}
-            @if(isset($user) && (int) $user->ID_USUARIO === (int) auth()->id())
-                <div>
-                    <label for="clave_actual" class="form-label">Clave Actual (solo si cambias la tuya)</label>
-                    <input type="password" id="clave_actual" name="clave_actual" class="form-input-custom @error('clave_actual') is-invalid @enderror" autocomplete="current-password" readonly data-sin-autollenado>
-                    @error('clave_actual')
-                        <span class="error-message-inline">{{ $message }}</span>
-                    @enderror
-                </div>
-            @endif
-
             <div>
                 <label for="ID_ROL" class="form-label">Rol Asignado</label>
                 <div class="custom-dropdown" id="roleSelect">

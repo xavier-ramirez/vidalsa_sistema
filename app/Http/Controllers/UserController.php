@@ -35,15 +35,10 @@ class UserController extends Controller
      */
     public function actualizarMiClave(Request $request)
     {
-        // La clave ACTUAL primero: con la sesión abierta en una PC ajena, cualquiera podía
-        // cambiarla y dejar al dueño fuera (cambiarla cierra sus otras sesiones).
         $request->validate([
-            'clave_actual'          => 'required|current_password',
             'password'              => 'required|string|min:6|confirmed',
             'password_confirmation' => 'required',
         ], [
-            'clave_actual.required'         => 'Escribe tu contraseña actual.',
-            'clave_actual.current_password' => 'La contraseña actual no es correcta.',
             'password.required'     => 'La nueva contraseña es obligatoria.',
             'password.min'          => 'La contraseña debe tener al menos 6 caracteres.',
             'password.confirmed'    => 'Las contraseñas no coinciden.',
@@ -331,11 +326,6 @@ class UserController extends Controller
         }
         if ($esElMismo && ! in_array('super.admin', (array) $request->PERMISOS, true)) {
             throw ValidationException::withMessages(['PERMISOS' => 'No puedes quitarte el Acceso Total (Super Admin).']);
-        }
-        // Tu propia clave, igual que en Mi Usuario: pide la actual. La de otro usuario, no
-        // (el administrador la reinicia y a esa persona se le pide cambiarla al entrar).
-        if ($esElMismo && $request->filled('password') && ! Hash::check((string) $request->input('clave_actual'), $user->PASSWORD_HASH)) {
-            throw ValidationException::withMessages(['clave_actual' => 'Para cambiar tu propia clave escribe la actual (y que sea correcta).']);
         }
 
         // Update user attributes

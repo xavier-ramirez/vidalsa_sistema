@@ -137,7 +137,7 @@ class UsuarioAccesosTest extends MySqlTestCase
     {
         $u = $this->usuarioNormal(['SESSION_TOKEN' => 'token-viejo']);
         $this->actingAs($u)->withSession(['current_session_token' => 'token-viejo'])
-            ->putJson('/admin/usuarios/mi-perfil', ['clave_actual' => '123456', 'password' => 'Nueva#2026', 'password_confirmation' => 'Nueva#2026'])
+            ->putJson('/admin/usuarios/mi-perfil', ['password' => 'Nueva#2026', 'password_confirmation' => 'Nueva#2026'])
             ->assertOk()->assertJson(['success' => true]);
 
         $nuevo = DB::table('usuarios')->where('ID_USUARIO', $u->ID_USUARIO)->value('SESSION_TOKEN');
