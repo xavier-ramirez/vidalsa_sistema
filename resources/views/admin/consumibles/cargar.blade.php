@@ -179,7 +179,35 @@
             margin-left: 8px;
         }
 
+        /* Los tres selectores con el mismo relleno: el CSS global de .custom-dropdown
+           dejaba el texto de Tipo/Unidad pegado al borde, distinto al de Frente. */
+        #tipoDropdownCargar .dropdown-trigger input,
+        #unidadDropdownCargar .dropdown-trigger input {
+            padding: 0 14px !important;
+        }
+
+        #tipoDropdownCargar .dropdown-trigger,
+        #unidadDropdownCargar .dropdown-trigger {
+            box-sizing: border-box;
+        }
+
+        .con-acciones {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            align-items: center;
+            margin-top: 18px;
+        }
+
+        .con-acciones .btn-primary-maquinaria {
+            margin-left: 0;
+        }
+
         @media (max-width: 900px) {
+            .con-acciones {
+                justify-content: center;
+            }
+
             .hide-on-mobile {
                 display: none !important;
             }
@@ -236,7 +264,7 @@
         <div class="admin-card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 25px; margin-bottom: 20px;">
 
             {{-- Tabla envuelta con Selectores --}}
-            <div class="tbl-wrap" style="padding: 15px 15px 0 15px; background: #fff;">
+            <div class="tbl-wrap" style="padding: 15px; background: #fff;">
 
                 {{-- SELECTORES INTEGRADAMENTE DENTRO DEL CONTENEDOR --}}
                 <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:end; margin-bottom: 20px;">
@@ -244,7 +272,7 @@
                     <div style="flex: 1; min-width: 200px;">
                         <div style="position:relative;">
                             <div
-                                style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; position:relative;">
+                                style="box-sizing:border-box; padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; position:relative;">
                                 <input type="text" id="frenteSearch" name="search_frente_cargar"
                                     placeholder="Frente de Trabajo *" autocomplete="off"
                                     style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; outline:none; height:100%; font-family:inherit;"
@@ -389,24 +417,25 @@
 
             {{-- El botón "Agregar Fila" se eliminó: ahora la fila se agrega sola al escribir
                  en la última (auto-row en initCargarConsumibles). --}}
-        </div>
 
-        {{-- ACCIONES. "Guardar Lote" solo visible con permiso super.admin
-             (coincide con el middleware del POST /consumibles/guardar-lote). --}}
-        <div style="margin-top: 30px; display: flex; gap: 12px; justify-content: center; padding-bottom:40px;">
-            <a href="{{ route('consumibles.index') }}" class="btn-primary-maquinaria btn-secondary">
-                Cancelar
-            </a>
-            @can('super.admin')
-                <button type="submit" class="btn-primary-maquinaria">
-                    <i class="material-icons">save</i>
-                    Guardar Lote
-                </button>
-            @else
-                <span style="font-size:12px; color:#94a3b8; padding:10px 14px; border:1px dashed #cbd5e1; border-radius:8px;">
-                    Solo un Super Admin puede guardar el lote.
-                </span>
-            @endcan
+            {{-- ACCIONES, al pie de la tarjeta y compactas (como en Usuarios/Frentes).
+                 "Guardar Lote" solo visible con permiso super.admin
+                 (coincide con el middleware del POST /consumibles/guardar-lote). --}}
+            <div class="con-acciones">
+                <a href="{{ route('consumibles.index') }}" class="btn-primary-maquinaria btn-secondary btn-compacto">
+                    Cancelar
+                </a>
+                @can('super.admin')
+                    <button type="submit" class="btn-primary-maquinaria btn-compacto">
+                        <i class="material-icons">save</i>
+                        Guardar Lote
+                    </button>
+                @else
+                    <span style="font-size:12px; color:#94a3b8; padding:8px 14px; border:1px dashed #cbd5e1; border-radius:8px;">
+                        Solo un Super Admin puede guardar el lote.
+                    </span>
+                @endcan
+            </div>
         </div>
 
     </form>
