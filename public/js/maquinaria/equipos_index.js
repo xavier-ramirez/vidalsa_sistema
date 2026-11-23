@@ -2491,6 +2491,8 @@ window.openBulkModal = function (event) {
     overlay.querySelector('#btnCloseDynamic').onclick = _closeModal;
 
     // ── Submit ──
+    // Texto ya avisado como frente nuevo (ver abajo): confirmar otra vez con él sí lo crea.
+    let avisadoNuevo = '';
     overlay.querySelector("#bm-submit-btn").onclick = async function () {
         const dest = (hiddenInput.value || searchInput.value).trim();
         const generarPdfBox = overlay.querySelector("#bm-generar-pdf");
@@ -2506,6 +2508,18 @@ window.openBulkModal = function (event) {
         const matchedFrente = frentesData.find(f => (f.nombre || '').toUpperCase() === destUpper);
         const isNewFrente = !matchedFrente;
         const needsUbicacion = isNewFrente || !matchedFrente.ubicacion;
+
+        // Escribir «tramo veladero» y confirmar sin elegirlo de la lista creaba un frente NUEVO
+        // con ese nombre y movía ahí los equipos. Si lo escrito se parece a frentes que ya
+        // existen, primero se avisa y se muestra la lista; confirmar otra vez con el mismo
+        // texto sí lo crea (frentes nuevos siguen siendo posibles).
+        if (isNewFrente && avisadoNuevo !== destUpper && window.FuzzySearch.filtrar(frentesData, dest, f => f.nombre).length) {
+            avisadoNuevo = destUpper;
+            searchInput.focus();   // su onfocus abre la lista con lo escrito
+            inputBox.style.borderColor = "#ef4444";
+            window.toast('«' + dest + '» no es un frente registrado. Elige uno de la lista, o pulsa Confirmar otra vez para crearlo como frente nuevo.', 'error');
+            return;
+        }
         // Lo que se pinta como movido: sin los que ya están en ese frente (el servidor los omite;
         // pintarlos les quitaba la confirmación en sitio hasta que llegaba la copia).
         const noEstanEn = (ids, idFrente) => ids.filter((id) => String((window.selectedEquipos[id] || {}).frenteId) !== String(idFrente));

@@ -2470,13 +2470,7 @@
             var OP_SUELTO = { id: SUELTO_ID, nombre: SUELTO_LABEL };
 
             function renderSug() {
-                var term = search.value || '', arr;
-                if (window.FuzzySearch && window.FuzzySearch.rank) {
-                    arr = window.FuzzySearch.rank(opciones, term, function (f) { return { label: f.nombre, haystack: f.nombre }; });
-                } else {
-                    var q = term.toLowerCase();
-                    arr = opciones.filter(function (f) { return !q || String(f.nombre).toLowerCase().indexOf(q) > -1; });
-                }
+                var arr = window.FuzzySearch.rank(opciones, search.value || '', function (f) { return { label: f.nombre, haystack: f.nombre }; });
                 var h = cfg.conSuelto
                     ? '<div class="oleo-save-op oleo-save-op-sin" data-fid="' + SUELTO_ID + '">' + esc(SUELTO_LABEL) + '</div>'
                     : '';
@@ -3245,13 +3239,7 @@
             var indice = (capaBloques.capa && capaBloques.capa.indice) || [];
             _busBloques.caja.classList.toggle('con-texto', !!term);
             if (!term.trim()) { cerrarListaBloques(); return; }
-            var arr;
-            if (window.FuzzySearch && window.FuzzySearch.rank) {
-                arr = window.FuzzySearch.rank(indice, term, function (b) { return { label: b.titulo, haystack: b.buscable }; });
-            } else {
-                var q = term.toLowerCase();
-                arr = indice.filter(function (b) { return b.buscable.toLowerCase().indexOf(q) > -1; });
-            }
+            var arr = window.FuzzySearch.rank(indice, term, function (b) { return { label: b.titulo, haystack: b.buscable }; });
             if (!arr.length) {
                 _busBloques.lista.innerHTML = '<div class="mapa-bloque-vacio">Sin bloques que coincidan</div>';
                 _busBloques.lista.classList.add('abierta');

@@ -531,8 +531,8 @@ window.filterDropdownOptions = function (input) {
     const dropdown = input.closest(".custom-dropdown");
     if (!dropdown) return;
 
-    // Filtro en el navegador de las listas (Frente, Tipo…). normalize: solo para el respaldo
-    // sin FuzzySearch y para saber si hay algo escrito.
+    // Filtro en el navegador de las listas (Frente, Tipo…). normalize: solo para saber si hay
+    // algo escrito (el filtrado lo hace FuzzySearch.filtrar, más abajo).
     const normalize = (str) => {
         return str
             .toLowerCase()
@@ -555,10 +555,8 @@ window.filterDropdownOptions = function (input) {
     // letra de margen (FuzzySearch.filtrar, la regla de todas las listas). Antes era el texto
     // tal cual y en el mismo orden: «tramo i veladero» no traía TUBERÍA DE 30'' VELADERO
     // TRAMO I. textContent y no innerText: innerText fuerza un reflow por item en cada tecla.
-    // Sin FuzzySearch (no debería pasar: va en el layout) queda el «contiene» de antes.
-    const visibles = new Set(window.FuzzySearch && window.FuzzySearch.filtrar
-        ? window.FuzzySearch.filtrar(elegibles, input.value, (i) => i.textContent)
-        : elegibles.filter((i) => normalize(i.textContent).includes(filter)));
+    // FuzzySearch va en el layout, como en los demás buscadores de frentes.
+    const visibles = new Set(window.FuzzySearch.filtrar(elegibles, input.value, (i) => i.textContent));
 
     items.forEach((item) => {
         const shouldShow = visibles.has(item);
@@ -577,8 +575,7 @@ window.filterDropdownOptions = function (input) {
     // mejor resultado quede arriba y se toleran erratas ("barcelna" -> BARCELONA), usando
     // el MISMO window.FuzzySearch que el resto del proyecto. Es opt-in a proposito: hay
     // ~30 dropdowns usando esta funcion y en listas cortas el orden del HTML es preferible.
-    if (filter.length > 0 && dropdown.dataset.fuzzy !== undefined &&
-        window.FuzzySearch && window.FuzzySearch.rank) {
+    if (filter.length > 0 && dropdown.dataset.fuzzy !== undefined) {
         const rank = window.FuzzySearch.rank(elegibles, input.value, (i) => {
             const t = i.textContent.trim();
             return { label: t, haystack: t };

@@ -351,17 +351,16 @@
         }).join('');
     }
     window.almSalidaContratoFilter = function (input) {
-        // Filtro local de items por lo que el usuario teclea — mismo comportamiento que
-        // filterDropdownOptions del sistema global, pero contenido al item-list de contrato.
-        // Reimplementamos en lugar de delegar para evitar acoplarse a data-filter-type/value
-        // (este dropdown no usa hidden + label, es input libre).
+        // Filtro local de items por lo que el usuario teclea, con la misma regla que
+        // filterDropdownOptions (FuzzySearch.filtrar: palabras en cualquier orden, sin acentos,
+        // margen si nada sale exacto), pero contenido al item-list de contrato: este dropdown
+        // no usa hidden + label, es input libre.
         var box = el('almSalidaContratoItems');
         if (!box) return;
-        var norm = function (s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); };
-        var term = norm(input.value);
-        box.querySelectorAll('.dropdown-item').forEach(function (item) {
-            var show = !term || norm(item.textContent).indexOf(term) !== -1;
-            item.style.setProperty('display', show ? 'block' : 'none', 'important');
+        var items = Array.prototype.slice.call(box.querySelectorAll('.dropdown-item'));
+        var quedan = new Set(window.FuzzySearch.filtrar(items, input.value, function (i) { return i.textContent; }));
+        items.forEach(function (item) {
+            item.style.setProperty('display', quedan.has(item) ? 'block' : 'none', 'important');
         });
         almSalidaContratoSync();
     };

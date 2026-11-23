@@ -273,6 +273,12 @@ window.dashboardToggleClearBtn = function () {
     clearBtn.style.display = input.value.trim() !== '' ? 'inline-flex' : 'none';
 };
 
+// Todas las opciones a la vista: al limpiar y al elegir. Sin esto, reabrir la lista tras
+// elegir mostraba solo lo que había dejado la búsqueda anterior («carabobo» → 4 frentes).
+function dashboardMostrarTodas(dropdown) {
+    Array.from(dropdown.getElementsByClassName('dashboard-frente-option')).forEach((o) => { o.style.display = ''; });
+}
+
 /**
  * Clear the frente search input — NO data reload (just clears the field)
  */
@@ -287,12 +293,8 @@ window.dashboardClearFrenteSearch = function () {
     }
     if (clearBtn) clearBtn.style.display = 'none';
 
-    // Restore all dropdown options visibility
     if (dropdown) {
-        const options = dropdown.getElementsByClassName('dashboard-frente-option');
-        for (let i = 0; i < options.length; i++) {
-            options[i].style.display = '';
-        }
+        dashboardMostrarTodas(dropdown);
         dropdown.style.display = 'block';
     }
     // NOTE: intentionally NOT calling loadFleetDashboardData here
@@ -327,13 +329,11 @@ window.dashboardFilterFrentes = function () {
     const dropdown = document.getElementById('dashboardFrenteList');
     if (!input || !dropdown) return;
 
-    const filter = input.value.toUpperCase();
-    const options = dropdown.getElementsByClassName('dashboard-frente-option');
-
-    for (let i = 0; i < options.length; i++) {
-        const txt = options[i].textContent || options[i].innerText;
-        options[i].style.display = txt.toUpperCase().includes(filter) ? '' : 'none';
-    }
+    // Las palabras en cualquier orden, sin acentos, con margen si nada sale exacto
+    // (fuzzy_search.js · filtrar, la misma regla que los filtros Frente de las pantallas).
+    const options = Array.from(dropdown.getElementsByClassName('dashboard-frente-option'));
+    const quedan = new Set(window.FuzzySearch.filtrar(options, input.value, (o) => o.textContent));
+    options.forEach((o) => { o.style.display = quedan.has(o) ? '' : 'none'; });
     dropdown.style.display = 'block';
 };
 
@@ -401,7 +401,7 @@ window.dashboardSelectFrente = async function (id, name, event) {
     }
 
     const list = document.getElementById('dashboardFrenteList');
-    if (list) list.style.display = 'none';
+    if (list) { list.style.display = 'none'; dashboardMostrarTodas(list); }
 
     window.currentFrenteId = id;
     await loadFleetDashboardData(id);
