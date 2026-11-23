@@ -132,25 +132,12 @@
         <datalist id="almSalidaDeptoLista"></datalist>
     </div>
 
-    {{-- TRANSPORTE — lo imprime el bloque "Datos del vehículo / Datos del chofer" de la
-         nota, que antes salía en blanco. Opcional: lo que quede vacío sale en blanco
+    {{-- TRANSPORTE (primero el chofer, luego el vehículo) — lo imprime el bloque "Datos del
+         vehículo / Datos del chofer" de la nota, que antes salía en blanco. Opcional: lo que quede vacío sale en blanco
          para llenarlo a mano. Sugiere la logística del almacén y la flota de sus frentes
          (almLogCargar): el vehículo se busca ESCRIBIENDO su placa o su serial de chasis
          y elegir uno llena los dos campos de su fila. Los dos comparten la lista, que
          sale debajo del campo que se está escribiendo (almLogSugerir). --}}
-    <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px;">
-        <div>
-            <label class="alm-nota-label" for="almSalidaVehiculo">Vehículo</label>
-            <input type="text" id="almSalidaVehiculo" class="alm-nota-input" maxlength="150" placeholder="Ej: Camioneta Toyota Hilux" autocomplete="off"
-                   data-log="vehiculos" oninput="window.almLogSugerir(this)" onfocus="window.almLogSugerir(this, true)">
-        </div>
-        <div>
-            <label class="alm-nota-label" for="almSalidaPlaca">Placa</label>
-            <input type="text" id="almSalidaPlaca" class="alm-nota-input" maxlength="30" placeholder="Placa o serial de chasis" autocomplete="off"
-                   data-log="vehiculos" oninput="window.almLogSugerir(this)" onfocus="window.almLogSugerir(this, true)">
-        </div>
-        <div class="alm-suggest-inline alm-suggest-float" id="almSalidaVehiculosSug"></div>
-    </div>
     <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px;">
         <div>
             <label class="alm-nota-label" for="almSalidaChofer">Chofer</label>
@@ -163,6 +150,19 @@
                    data-log="choferes" oninput="window.almLogSugerir(this)" onfocus="window.almLogSugerir(this, true)">
         </div>
         <div class="alm-suggest-inline alm-suggest-float" id="almSalidaChoferesSug"></div>
+    </div>
+    <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+            <label class="alm-nota-label" for="almSalidaVehiculo">Vehículo</label>
+            <input type="text" id="almSalidaVehiculo" class="alm-nota-input" maxlength="150" placeholder="Ej: Camioneta Toyota Hilux" autocomplete="off"
+                   data-log="vehiculos" oninput="window.almLogSugerir(this)" onfocus="window.almLogSugerir(this, true)">
+        </div>
+        <div>
+            <label class="alm-nota-label" for="almSalidaPlaca">Placa</label>
+            <input type="text" id="almSalidaPlaca" class="alm-nota-input" maxlength="30" placeholder="Placa o serial de chasis" autocomplete="off"
+                   data-log="vehiculos" oninput="window.almLogSugerir(this)" onfocus="window.almLogSugerir(this, true)">
+        </div>
+        <div class="alm-suggest-inline alm-suggest-float" id="almSalidaVehiculosSug"></div>
     </div>
 
     {{-- OBSERVACIONES (full width) — campo libre de la Nota de Entrega
