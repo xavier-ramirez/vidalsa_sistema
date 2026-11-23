@@ -5661,3 +5661,7 @@ body:has(.mapa-page) { --mapa-col: 380px; }
     #tipoFrenteTipo .tipo-frente-item { padding: 10px 12px; }
     .tipo-frente-pie > button { flex: 1 1 0; justify-content: center; }
 }
+
+/* Fotos protegidas (Equipos, Catálogo, menú): sin el menú de guardar al mantener pulsado en el iPhone
+   ni arrastre. La clase la pone navegacion.js según el módulo abierto. */
+html.fotos-protegidas img { -webkit-touch-callout: none; -webkit-user-drag: none; user-select: none; }

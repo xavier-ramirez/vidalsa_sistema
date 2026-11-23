@@ -5,18 +5,6 @@
 window.selectedEquipos = window.selectedEquipos || {};
 window.equiposData     = window.equiposData     || {};
 
-// Fotos de /admin/equipos: sin "Guardar imagen", "Copiar imagen" ni "Abrir en pestaña" (clic derecho o
-// mantener pulsado en el teléfono) y sin arrastrarlas al escritorio. Una vez por pestaña: este archivo es global.
-// El servidor además niega abrir el enlace de la foto directo (GoogleDriveController::esFotoDeEquipo).
-if (!window._eqFotosProtegidas) {
-    window._eqFotosProtegidas = true;
-    const bloquearFoto = (e) => {
-        if (e.target instanceof HTMLImageElement && location.pathname.startsWith('/admin/equipos')) e.preventDefault();
-    };
-    document.addEventListener('contextmenu', bloquearFoto, true);
-    document.addEventListener('dragstart', bloquearFoto, true);
-}
-
 // ── CONTROLLED IMAGE LOADER ───────────────────────────────────────────────
 // Usa IntersectionObserver para diferir la carga hasta que la imagen es visible,
 // más un semáforo que limita a MAX_CONCURRENT peticiones simultáneas.

@@ -1274,3 +1274,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // Al volver a la pestaña (el caso típico: se edita, se vuelve y se mira) no hay que esperar.
     document.addEventListener('visibilitychange', function () { if (!document.hidden) revisar(); });
 })();
+
+// Fotos protegidas en Equipos, Catálogo y el menú: sin "Guardar / Copiar / Abrir imagen" (clic derecho o
+// mantener pulsado en el teléfono) y sin arrastrarlas. Dos oyentes por pestaña, sin trabajo por foto: la
+// clase fotos-protegidas de <html> dice si el módulo abierto las protege (y el CSS quita el menú del iPhone).
+// El servidor además niega abrir el enlace de la foto directo (GoogleDriveController::esFotoDeEquipo).
+(function () {
+    if (window._fotosProtegidas) return;
+    window._fotosProtegidas = true;
+    const MODULOS = ['/admin/equipos', '/admin/catalogo', '/menu'];
+    const raiz = document.documentElement;
+    const marcar = () => {
+        const ruta = location.pathname;
+        raiz.classList.toggle('fotos-protegidas', MODULOS.some((m) => ruta === m || ruta.startsWith(m + '/')));
+    };
+    const bloquear = (e) => {
+        if (e.target instanceof HTMLImageElement && raiz.classList.contains('fotos-protegidas')) e.preventDefault();
+    };
+    marcar();
+    window.addEventListener('spa:contentLoaded', marcar);
+    window.addEventListener('popstate', marcar);
+    document.addEventListener('contextmenu', bloquear, true);
+    document.addEventListener('dragstart', bloquear, true);
+})();

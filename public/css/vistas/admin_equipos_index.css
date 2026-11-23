@@ -361,6 +361,3 @@
 .eq-flota-fila b { font-size: 13px; font-weight: 800; white-space: nowrap; }
 .eq-flota-si { background: rgba(34, 197, 94, 0.22); }
 .eq-flota-no { background: rgba(239, 68, 68, 0.32); }
-
-/* Fotos: sin el menu de guardar al mantener pulsado (iPhone) ni arrastre. Este CSS solo vive en /admin/equipos. */
-img { -webkit-touch-callout: none; -webkit-user-drag: none; user-select: none; }

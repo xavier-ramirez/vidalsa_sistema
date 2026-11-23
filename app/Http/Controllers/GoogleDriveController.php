@@ -242,10 +242,8 @@ class GoogleDriveController extends Controller
     /** ¿El archivo es la foto de un equipo o de una ficha del catalogo (modelo o color)? */
     private static function esFotoDeEquipo(string $fileId): bool
     {
-        $like = '%' . $fileId . '%';
-        return \DB::table('equipos')->where('FOTO_EQUIPO', 'like', $like)->exists()
-            || \DB::table('caracteristicas_modelo')->where('FOTO_REFERENCIAL', 'like', $like)->exists()
-            || \DB::table('catalogo_colores')->where('FOTO', 'like', $like)->exists();
+        return \DB::table('equipos')->where('FOTO_EQUIPO', 'like', '%/storage/google/' . $fileId . '%')->exists()
+            || \App\Models\CaracteristicaModelo::fotoSigueEnUso($fileId);
     }
 
     private static function noDisponible()
