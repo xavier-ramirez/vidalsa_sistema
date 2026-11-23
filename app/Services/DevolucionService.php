@@ -33,6 +33,9 @@ class DevolucionService
 {
     private const EPS = InventarioService::EPS;
 
+    /** Motivo común de la devolución y la corrección cuando el envío repite el producto. */
+    public const REPETIDO = 'Este envío lleva este producto en dos líneas: no se puede saber a cuál corresponde el cambio.';
+
     public function __construct(private InventarioService $inventario)
     {
     }
@@ -65,6 +68,9 @@ class DevolucionService
         if ($envio['traspaso']?->esCancelado()) {
             return 'Este envío se canceló: el material ya volvió al almacén.';
         }
+        if ($envio['repetido']) {
+            return self::REPETIDO;
+        }
         if (!$envio['linea'] || !$envio['linea']->estaConfirmada()) {
             return 'Este envío todavía no se recibe en ' . $envio['destino'] . '. Si salió de más, usa «Corrección».';
         }
@@ -93,6 +99,10 @@ class DevolucionService
         $traspaso = $linea?->traspaso;
 
         return [
+            // Dos líneas del mismo producto en el envío: no se sabe qué filas son de cuál
+            // (misma regla que el deshacer, TraspasoService::movimientosDelItem).
+            'repetido' => $linea && TraspasoLinea::where('ID_TRASPASO', $linea->ID_TRASPASO)
+                ->where('ID_PRODUCTO', $linea->ID_PRODUCTO)->count() > 1,
             'linea'    => $linea,
             'traspaso' => $traspaso,
             'destino'  => $traspaso?->almacenDestino?->NOMBRE ?? 'el almacén destino',

@@ -8,6 +8,8 @@ use App\Models\FrenteTrabajo;
 use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use App\Models\Usuario;
+use App\Services\CorreccionNotaService;
+use App\Services\DevolucionService;
 use App\Services\InventarioService;
 use App\Services\TraspasoService;
 use Illuminate\Support\Facades\DB;
@@ -397,6 +399,34 @@ class DevolucionMaterialTest extends MySqlTestCase
         $deRetorno = $avisos($retorno->ID_MOVIMIENTO);
         $this->assertContains("Es el retorno de una devolución: también se deshace la devolución en {$origen->NOMBRE}.", $deRetorno);
         $this->assertNotContains('También se deshace su devolución.', $deRetorno);
+    }
+
+    public function test_un_envio_con_el_producto_en_dos_lineas_no_se_devuelve_ni_se_corrige(): void
+    {
+        $origen  = $this->almacen();
+        $destino = $this->destino();
+        $p = $this->producto('45');
+        $this->inv->registrarEntrada($origen->ID_ALMACEN, $p->ID_PRODUCTO, 10);
+        $svc = app(TraspasoService::class);
+        $u   = $this->usuario();
+        [$nota, $envio] = DB::transaction(function () use ($svc, $u, $origen, $destino, $p) {
+            $numero = MovimientoInventario::generarNumeroNota();
+            $envio  = $svc->crearBorrador(['id_almacen_origen' => $origen->ID_ALMACEN, 'id_almacen_destino' => $destino->ID_ALMACEN, 'id_usuario' => $u->ID_USUARIO],
+                [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 2], ['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 3]]);
+            $svc->enviar($envio, ['id_usuario_envio' => $u->ID_USUARIO, 'numero_nota' => $numero]);
+            return [$numero, $envio->fresh('lineas')];
+        });
+        $svc->recibir($envio->fresh(), $envio->lineas->map(fn ($l) => ['id_linea' => $l->ID_LINEA, 'cantidad_recibida' => (float) $l->CANTIDAD_ENVIADA])->all(),
+            ['id_usuario_recepcion' => $u->ID_USUARIO]);
+
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]])->assertStatus(422)
+            ->assertJsonPath('message', '«' . $p->NOMBRE . '»: ' . DevolucionService::REPETIDO);
+        $this->assertSame(DevolucionService::REPETIDO,
+            app(CorreccionNotaService::class)->motivoNoCorregible(
+                MovimientoInventario::where('NUMERO_NOTA', $nota)->get(),
+                MovimientoInventario::where('NUMERO_NOTA', $nota)->get()));
+        $this->assertSame(5.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(5.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
     }
 
     public function test_desde_un_movimiento_se_devuelve_solo_ese_producto(): void

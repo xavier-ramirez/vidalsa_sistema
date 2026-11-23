@@ -50,6 +50,9 @@ class CorreccionNotaService
             if (!$envio['linea']) {
                 return 'No se encontró el envío de este producto.';
             }
+            if ($envio['repetido']) {
+                return DevolucionService::REPETIDO;
+            }
             if ($envio['linea']->estaConfirmada()) {
                 return $envio['destino'] . ' ya lo recibió: si regresó material, usa «Devolución».';
             }
