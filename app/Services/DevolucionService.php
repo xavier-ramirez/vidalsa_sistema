@@ -53,7 +53,12 @@ class DevolucionService
      */
     public function motivoNoDevolvible(Collection $filas): ?string
     {
-        $envio = $this->envio($filas);
+        return $this->motivoEnvio($this->envio($filas));
+    }
+
+    /** motivoNoDevolvible con el envío ya leído (null = salida directa). */
+    private function motivoEnvio(?array $envio): ?string
+    {
         if ($envio === null) {
             return null;
         }
@@ -110,11 +115,8 @@ class DevolucionService
         return $salidas->groupBy('ID_PRODUCTO')->map(function (Collection $filas) use ($porDevolver) {
             $producto  = $filas->first()->producto;
             $entregado = round($filas->sum(fn ($s) => (float) $s->CANTIDAD), 3);
-            $pendiente = round($filas->sum(fn ($s) => $porDevolver[$s->ID_MOVIMIENTO]), 3);
-            $devuelto  = round($entregado - $pendiente, 3);
-            if ($envio = $this->envio($filas)) {
-                $pendiente = max(0.0, round(min($pendiente, $envio['recibido'] - $devuelto), 3));
-            }
+            $pendiente = $this->pendiente($filas, $porDevolver, $this->envio($filas));
+            $devuelto  = round($entregado - round($filas->sum(fn ($s) => $porDevolver[$s->ID_MOVIMIENTO]), 3), 3);
 
             return [
                 'id_producto' => (int) $filas->first()->ID_PRODUCTO,
@@ -126,6 +128,20 @@ class DevolucionService
                 'pendiente'   => $pendiente,
             ];
         })->values()->all();
+    }
+
+    /**
+     * Lo que falta por devolver de estas filas (un producto). En un envío no pasa de lo que
+     * entró al destino menos lo ya devuelto: lo que no llegó no puede regresar.
+     */
+    private function pendiente(Collection $filas, array $porDevolver, ?array $envio): float
+    {
+        $pendiente = round($filas->sum(fn ($s) => $porDevolver[$s->ID_MOVIMIENTO]), 3);
+        if ($envio === null) {
+            return $pendiente;
+        }
+        $devuelto = round($filas->sum(fn ($s) => (float) $s->CANTIDAD) - $pendiente, 3);
+        return max(0.0, round(min($pendiente, $envio['recibido'] - $devuelto), 3));
     }
 
     /** Devoluciones anteriores de estas salidas, para el modal. */
@@ -170,7 +186,6 @@ class DevolucionService
             $fecha       = $this->fechaDevolucion($salidas);
             $porDevolver = MovimientoInventario::porDevolver($salidas);
             $porProducto = $salidas->groupBy('ID_PRODUCTO');
-            $cabecera    = $salidas->first();
 
             $motivoDevolucion = $this->texto($datos['motivo'] ?? null);
             $idUsuario        = $datos['id_usuario'] ?? null;
@@ -194,11 +209,11 @@ class DevolucionService
                     throw new InvalidArgumentException("La cantidad a devolver de «{$nombre}» debe ser mayor que cero.");
                 }
 
-                if ($motivo = $this->motivoNoDevolvible($filas)) {
+                $envio = $this->envio($filas);
+                if ($motivo = $this->motivoEnvio($envio)) {
                     throw new RuntimeException("«{$nombre}»: {$motivo}");
                 }
-                $envio     = $this->envio($filas);
-                $pendiente = $this->lineas($filas)[0]['pendiente'];
+                $pendiente = $this->pendiente($filas, $porDevolver, $envio);
                 if ($cantidad > $pendiente + self::EPS) {
                     if ($envio) {
                         throw new RuntimeException(sprintf(

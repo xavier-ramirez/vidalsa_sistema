@@ -723,14 +723,19 @@
         const devuelto = new Map();
         const notas = new Set();
         const devueltas = new Set();
+        const idsDevolucion = new Set();
         vista.filas('movimientos').forEach((m) => {
             if (m.nota) notas.add(m.nota);
             if (m.tipo === 'DEVOLUCION') {
+                idsDevolucion.add(m.id);
                 if (m.rel !== null) devuelto.set(m.rel, (devuelto.get(m.rel) || 0) + m.cant);
                 if (m.ref) devueltas.add(m.ref);
             }
         });
-        return { devuelto, notas, devueltas };
+        // Retorno de un envío devuelto (TRASPASO_SALIDA enlazada a su DEVOLUCION): el material
+        // regresó al origen, no se consumió en el destino.
+        const esRetorno = (m) => m.tipo === 'TRASPASO_SALIDA' && m.rel !== null && idsDevolucion.has(m.rel);
+        return { devuelto, notas, devueltas, esRetorno };
     }
     const porDevolver = (kd, m) => Math.max(0, r3(m.cant - (kd.devuelto.get(m.id) || 0)));
 
@@ -943,7 +948,7 @@
         const grupos = new Map();
         vista.filas('movimientos').forEach((m) => {
             const p = ctx.productos.get(m.prod);
-            if (!p || !conds.every((c) => c(m))) return;
+            if (!p || kd.esRetorno(m) || !conds.every((c) => c(m))) return;
             const g = grupos.get(m.prod) || { id: m.prod, nombre: p.nombre, um: p.um, total: 0, movimientos: 0 };
             g.total += m.cant - (kd.devuelto.get(m.id) || 0);
             g.movimientos++;

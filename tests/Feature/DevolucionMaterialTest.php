@@ -291,6 +291,14 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->assertSame((int) $origen->ID_ALMACEN, (int) $retorno->ID_ALMACEN_CONTRAPARTE);
         $this->assertNull($retorno->NUMERO_NOTA);
 
+        // En pantalla: la nota de envío ofrece Modificar, y el retorno no es consumo del destino.
+        $this->assertStringContainsString("almModificarNota('{$nota}', {$p->ID_PRODUCTO})",
+            $this->movimientosLocal($this->usuario(), ['id_almacen' => $origen->ID_ALMACEN])['html']);
+        $this->assertStringNotContainsString($p->NOMBRE,
+            $this->consumoLocal($this->usuario(), ['id_almacen' => $destino->ID_ALMACEN]));
+        $this->assertStringContainsString($p->NOMBRE,
+            $this->consumoLocal($this->usuario(), ['id_almacen' => $origen->ID_ALMACEN]));
+
         // No más de lo que queda en el destino por devolver.
         $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 4]])->assertStatus(422)
             ->assertJsonPath('message', "De «{$p->NOMBRE}» solo se pueden devolver 3 UND: es lo que recibió {$destino->NOMBRE} y no se ha devuelto.");
