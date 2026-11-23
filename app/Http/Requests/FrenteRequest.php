@@ -73,19 +73,29 @@ class FrenteRequest extends FormRequest
         $id = $this->route('frente') ?? $this->route('id');
 
         return [
-            // Al CREAR no cuentan los frentes eliminados (store revive el del mismo nombre);
-            // al EDITAR sí: renombrar a un nombre ocupado por uno eliminado chocaría con el
-            // índice UNIQUE de la tabla.
+            // Al CREAR no cuentan los frentes eliminados (store revive el del mismo nombre).
+            // Al EDITAR tampoco cuentan en la regla unique, pero los rechaza la función de abajo
+            // con su propio aviso: renombrar a ese nombre chocaría con el índice UNIQUE.
             'NOMBRE_FRENTE' => ['required', 'string', 'max:150', $id
-                ? Rule::unique('frentes_trabajo', 'NOMBRE_FRENTE')->ignore($id, 'ID_FRENTE')
-                : Rule::unique('frentes_trabajo', 'NOMBRE_FRENTE')->whereNull('deleted_at')],
+                ? Rule::unique('frentes_trabajo', 'NOMBRE_FRENTE')->ignore($id, 'ID_FRENTE')->whereNull('deleted_at')
+                : Rule::unique('frentes_trabajo', 'NOMBRE_FRENTE')->whereNull('deleted_at'),
+                // Al editar, el choque con un frente ELIMINADO se explica aparte: «Ya existe un
+                // frente con este nombre» mandaba a buscar uno que no sale en ninguna lista.
+                function ($attr, $valor, $fail) use ($id) {
+                    if ($id && \App\Models\FrenteTrabajo::onlyTrashed()->where('NOMBRE_FRENTE', $valor)
+                            ->where('ID_FRENTE', '!=', $id)->exists()) {
+                        $fail('Ese nombre es de un frente eliminado. Para usarlo, regístralo como frente nuevo: se recupera con su historial.');
+                    }
+                }],
             'UBICACION'     => 'required|string|max:100',
             'ZONA'          => 'nullable|string|max:100',
             'CONTRATOS'     => 'nullable|array',
             'CONTRATOS.*'   => 'string|max:60',
             'TIPO_FRENTE'   => ['required', Rule::in(array_keys(\App\Models\FrenteTrabajo::TIPOS))],
             'ESTATUS_FRENTE'=> 'required|in:ACTIVO,FINALIZADO',
-            'SUBDIVISIONES' => 'nullable|string',
+            // La columna es TEXT (65.535 bytes): sin tope, un texto enorme llegaba a la base y
+            // salía un error 500 en vez del aviso.
+            'SUBDIVISIONES' => 'nullable|string|max:20000',
             'RESP_1_NOM'    => 'nullable|string|max:60',
             'RESP_1_CAR'    => 'nullable|string|max:40',
             'RESP_1_CED'    => 'nullable|string|max:20',
@@ -107,6 +117,32 @@ class FrenteRequest extends FormRequest
             'RESP_5_CED'    => 'nullable|string|max:20',
             'RESP_5_EQU'    => 'nullable|string|max:40',
         ];
+    }
+
+    /**
+     * Nombre de cada campo en los avisos. Sin esto Laravel deletrea la clave en mayúsculas
+     * («n o m b r e  f r e n t e no puede tener más de 150 caracteres»).
+     */
+    public function attributes(): array
+    {
+        $nombres = [
+            'NOMBRE_FRENTE'  => 'el nombre del frente',
+            'UBICACION'      => 'la ubicación',
+            'ZONA'           => 'la zona',
+            'CONTRATOS'      => 'los contratos',
+            'CONTRATOS.*'    => 'cada contrato',
+            'TIPO_FRENTE'    => 'el tipo de frente',
+            'ESTATUS_FRENTE' => 'el estatus',
+            'SUBDIVISIONES'  => 'las subdivisiones',
+        ];
+        $partes = ['NOM' => 'el nombre', 'CAR' => 'el cargo', 'CED' => 'la cédula', 'EQU' => 'el filtro de firma'];
+        for ($i = 1; $i <= 5; $i++) {
+            foreach ($partes as $sufijo => $texto) {
+                $nombres["RESP_{$i}_{$sufijo}"] = "{$texto} del responsable {$i}";
+            }
+        }
+
+        return $nombres;
     }
 
     /**

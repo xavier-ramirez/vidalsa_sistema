@@ -180,12 +180,15 @@ window.selectFrenteSPA = function (id) {
     if (window.showPreloader) window.showPreloader();
 
     window.apiFetch(`/admin/frentes/${id}/edit?json=true`, { headers: { 'Accept': "application/json", 'X-Requested-With': 'XMLHttpRequest' } })
-        .then((response) => {
-            if (!response.ok) throw new Error("HTTP Status " + response.status);
-            return response.json();
-        })
-        .then((data) => {
+        .then((response) => response.json().catch(() => ({})).then((data) => ({ ok: response.ok, status: response.status, data })))
+        .then(({ ok, status, data }) => {
             if (window.hidePreloader) window.hidePreloader();
+            if (!ok) {
+                // 404: otra persona lo eliminó con esta pantalla abierta → se quita de la lista.
+                if (status === 404) window.removeFromSearchList(id);
+                showNotification("error", data.message || "Error al cargar los datos");
+                return;
+            }
             populateFrenteForm(data);
         })
         .catch((error) => {
@@ -196,6 +199,11 @@ window.selectFrenteSPA = function (id) {
 };
 // --- SUBMIT FORM ---
 function submitFrenteForm(form) {
+    // Doble clic (o Enter repetido) en Registrar: el segundo envío creaba el aviso
+    // «Ya existe un frente con este nombre» justo después del «creado correctamente».
+    if (form.dataset.enviando === "1") return;
+    form.dataset.enviando = "1";
+    const soltar = () => { delete form.dataset.enviando; };
     if (window.showPreloader) window.showPreloader();
 
     const formData = new FormData(form);
@@ -214,6 +222,7 @@ function submitFrenteForm(form) {
                 .then((data) => ({ status: response.status, body: data })),
         )
         .then(({ status, body }) => {
+            soltar();
             if (window.hidePreloader) window.hidePreloader();
 
             if (status === 200 || status === 201) {
@@ -235,10 +244,16 @@ function submitFrenteForm(form) {
                 else if (body.message) msg = body.message;
                 showNotification("error", msg);
             } else {
+                // 404: el frente que se editaba lo eliminó otra persona.
+                if (status === 404) {
+                    window.removeFromSearchList(document.getElementById("ID_FRENTE").value);
+                    window.resetFrentesForm();
+                }
                 showNotification("error", body.message || "Error desconocido");
             }
         })
         .catch((error) => {
+            soltar();
             if (window.hidePreloader) window.hidePreloader();
             console.error("Error:", error);
             showNotification("error", "Error de conexión");
@@ -378,7 +393,10 @@ window.eliminarFrenteSPA = function (id, nombre) {
     });
 };
 
+// Doble clic en «Sí, eliminar»: un solo DELETE (en window: el archivo puede volver a cargarse).
 function borrarFrente(id) {
+    if (window.__borrandoFrente) return;
+    window.__borrandoFrente = true;
     if (window.showPreloader) window.showPreloader();
     window.apiFetch("/admin/frentes/" + id, {
         headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
@@ -386,6 +404,7 @@ function borrarFrente(id) {
     })
         .then((r) => r.json().catch(() => ({})).then((body) => ({ ok: r.ok, body })))
         .then(({ ok, body }) => {
+            window.__borrandoFrente = false;
             if (window.hidePreloader) window.hidePreloader();
             if (!ok || !body.success) {
                 showNotification("error", body.message || "No se pudo eliminar el frente.");
@@ -398,6 +417,7 @@ function borrarFrente(id) {
             if (document.getElementById("sinEquiposList")) window.cargarFrentesSinEquipos();
         })
         .catch(() => {
+            window.__borrandoFrente = false;
             if (window.hidePreloader) window.hidePreloader();
             showNotification("error", "Error de red al eliminar el frente.");
         });

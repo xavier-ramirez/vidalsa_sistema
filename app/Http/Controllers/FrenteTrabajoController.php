@@ -81,8 +81,17 @@ class FrenteTrabajoController extends Controller
     {
         $validated = $request->validated();
         // Un frente eliminado con el mismo nombre se revive con estos datos (y su historial).
-        $frente = FrenteTrabajo::revivirPorNombre($validated['NOMBRE_FRENTE']);
-        $frente ? $frente->update($validated) : $frente = FrenteTrabajo::create($validated);
+        // Dos «Registrar» del mismo nombre a la vez (doble clic, dos personas) pasan los dos la
+        // validación y el segundo choca con el índice UNIQUE: se contesta el aviso, no un 500.
+        try {
+            $frente = \Illuminate\Support\Facades\DB::transaction(function () use ($validated) {
+                $frente = FrenteTrabajo::revivirPorNombre($validated['NOMBRE_FRENTE']);
+                $frente ? $frente->update($validated) : $frente = FrenteTrabajo::create($validated);
+                return $frente;
+            });
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            return $this->nombreOcupado($request);
+        }
 
         if ($request->wantsJson() || $request->has('json')) {
             return response()->json([
@@ -101,7 +110,7 @@ class FrenteTrabajoController extends Controller
      */
     public function edit(Request $request, string $id)
     {
-        $frente = FrenteTrabajo::findOrFail($id);
+        $frente = $this->buscar($request, $id);
 
         if ($request->wantsJson() || $request->has('json')) {
             return response()->json($frente);
@@ -115,7 +124,7 @@ class FrenteTrabajoController extends Controller
      */
     public function update(\App\Http\Requests\FrenteRequest $request, string $id)
     {
-        $frente = FrenteTrabajo::findOrFail($id);
+        $frente = $this->buscar($request, $id);
         $validated = $request->validated();
 
         // Guard: bloquea pasar a FINALIZADO si el frente tiene equipos o
@@ -146,7 +155,11 @@ class FrenteTrabajoController extends Controller
             }
         }
 
-        $frente->update($validated);
+        try {
+            $frente->update($validated);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            return $this->nombreOcupado($request);
+        }
 
         if ($request->wantsJson() || $request->has('json')) {
             return response()->json([
@@ -173,19 +186,28 @@ class FrenteTrabajoController extends Controller
      */
     public function destroy(Request $request, string $id)
     {
-        $frente = FrenteTrabajo::findOrFail($id);
+        $frente = $this->buscar($request, $id);
 
         $equiposAsignados    = \App\Models\Equipo::where('ID_FRENTE_ACTUAL', $id)->count();
         $auxiliaresAsignados = \App\Models\EquipoAuxiliar::where('ID_FRENTE_ACTUAL', $id)->count();
         // Stock de almacén repartido a este frente: eliminado, ya no se podría elegir el
         // frente para mover ese stock y quedaría colgado.
         $productosConStock   = \App\Models\AlmacenStock::where('ID_FRENTE', $id)->where('CANTIDAD', '>', 0)->count();
+        // Envíos de almacén hacia este frente que aún no se reciben: al recibirlos el material
+        // entraría a la bolsa de un frente eliminado, donde nada lo puede elegir.
+        $enviosPendientes    = \App\Models\Traspaso::where('ID_FRENTE_DESTINO', $id)
+            ->whereIn('ESTADO', [\App\Models\Traspaso::ESTADO_BORRADOR, \App\Models\Traspaso::ESTADO_ENVIADO])->count();
+        // Usuarios activos con este frente asignado: un usuario LOCAL se quedaría sin nada que ver.
+        $usuariosAsignados   = \App\Models\Usuario::where('ID_FRENTE_ASIGNADO', $id)->where('ESTATUS', 'ACTIVO')->count();
 
-        if ($equiposAsignados > 0 || $auxiliaresAsignados > 0 || $productosConStock > 0) {
+        if ($equiposAsignados > 0 || $auxiliaresAsignados > 0 || $productosConStock > 0
+            || $enviosPendientes > 0 || $usuariosAsignados > 0) {
             $partes = [];
             if ($equiposAsignados > 0)    $partes[] = "{$equiposAsignados} equipo(s)";
             if ($auxiliaresAsignados > 0) $partes[] = "{$auxiliaresAsignados} auxiliar(es)";
             if ($productosConStock > 0)   $partes[] = "{$productosConStock} producto(s) con stock en almacén";
+            if ($enviosPendientes > 0)    $partes[] = "{$enviosPendientes} envío(s) de almacén sin recibir";
+            if ($usuariosAsignados > 0)   $partes[] = "{$usuariosAsignados} usuario(s)";
             $msg = 'No se puede eliminar el frente: tiene ' . implode(' y ', $partes) .
                    ' asignados. Reasignelos primero a otro frente.';
 
@@ -196,6 +218,8 @@ class FrenteTrabajoController extends Controller
                     'equipos_asignados'    => $equiposAsignados,
                     'auxiliares_asignados' => $auxiliaresAsignados,
                     'productos_con_stock'  => $productosConStock,
+                    'envios_pendientes'    => $enviosPendientes,
+                    'usuarios_asignados'   => $usuariosAsignados,
                 ], 422);
             }
             return redirect()->route('frentes.create')->with('error', $msg);
@@ -255,8 +279,8 @@ class FrenteTrabajoController extends Controller
     }
 
     /**
-     * Lista TODOS los frentes que no tienen NINGÚN equipo ni auxiliar asignado ni
-     * stock de almacén (candidatos a eliminar: lo mismo que exige destroy()), SIN importar su estatus: incluye ACTIVOS y
+     * Lista TODOS los frentes que no tienen NINGÚN equipo ni auxiliar asignado, stock de
+     * almacén, envío sin recibir ni usuario activo (candidatos a eliminar: lo mismo que exige destroy()), SIN importar su estatus: incluye ACTIVOS y
      * FINALIZADOS. Lo consume el modal "Frentes sin equipos" del formulario, que
      * muestra el ESTATUS_FRENTE junto al nombre y ofrece Eliminar en cada fila.
      */
@@ -267,6 +291,13 @@ class FrenteTrabajoController extends Controller
             ->whereNotExists(fn ($q) => $q->from('almacen_stock')
                 ->whereColumn('almacen_stock.ID_FRENTE', 'frentes_trabajo.ID_FRENTE')
                 ->where('almacen_stock.CANTIDAD', '>', 0))
+            ->whereNotExists(fn ($q) => $q->from('traspasos')
+                ->whereColumn('traspasos.ID_FRENTE_DESTINO', 'frentes_trabajo.ID_FRENTE')
+                ->whereNull('traspasos.deleted_at')
+                ->whereIn('traspasos.ESTADO', [\App\Models\Traspaso::ESTADO_BORRADOR, \App\Models\Traspaso::ESTADO_ENVIADO]))
+            ->whereNotExists(fn ($q) => $q->from('usuarios')
+                ->whereColumn('usuarios.ID_FRENTE_ASIGNADO', 'frentes_trabajo.ID_FRENTE')
+                ->where('usuarios.ESTATUS', 'ACTIVO'))
             ->orderBy('NOMBRE_FRENTE')
             ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'UBICACION', 'TIPO_FRENTE', 'ESTATUS_FRENTE']);
 
@@ -281,5 +312,34 @@ class FrenteTrabajoController extends Controller
                 'estatus'   => $f->ESTATUS_FRENTE,
             ]),
         ]);
+    }
+
+    /**
+     * El frente pedido, o un aviso claro si ya no existe: otra persona lo eliminó mientras
+     * esta pantalla lo tenía abierto. Antes salía el texto técnico en inglés
+     * «No query results for model [App\Models\FrenteTrabajo] 123».
+     */
+    private function buscar(Request $request, string $id): FrenteTrabajo
+    {
+        $frente = FrenteTrabajo::find($id);
+        if ($frente) {
+            return $frente;
+        }
+        $msg = 'Ese frente ya no existe: lo eliminaron. Recarga la página.';
+        throw new \Illuminate\Http\Exceptions\HttpResponseException(
+            ($request->wantsJson() || $request->has('json'))
+                ? response()->json(['success' => false, 'message' => $msg], 404)
+                : redirect()->route('frentes.create')->with('error', $msg)
+        );
+    }
+
+    /** El nombre lo acaba de ocupar otro registro (doble clic o dos personas a la vez). */
+    private function nombreOcupado(Request $request)
+    {
+        $msg = 'Ya existe un frente de trabajo con este nombre.';
+        if ($request->wantsJson() || $request->has('json')) {
+            return response()->json(['success' => false, 'message' => $msg, 'errors' => ['NOMBRE_FRENTE' => [$msg]]], 422);
+        }
+        return redirect()->back()->withErrors(['NOMBRE_FRENTE' => $msg])->withInput();
     }
 }
