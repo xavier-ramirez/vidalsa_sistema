@@ -3,65 +3,28 @@
 
 @section('content')
     <style>
-        .con-select,
-        .con-input {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid #cbd5e0;
-            border-radius: 10px;
-            font-size: 13px;
-            color: #1e293b;
-            background: #fbfcfd;
-            outline: none;
-            transition: border .2s;
-        }
-
-        .con-select:focus,
-        .con-input:focus {
-            border-color: #0067b1;
-            background: #fff;
-        }
-
-        .btn-green {
-            background: linear-gradient(135deg, #059669, #047857);
-        }
-
-        /* ── ZONA DE PEGADO ── */
+        /* ── ZONA DE PEGADO ── (aviso: el pegado real es Ctrl+V sobre la tabla) */
         .paste-zone {
-            border: 3px dashed #bfdbfe;
-            border-radius: 12px;
-            background: #f0f9ff;
-            padding: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: all .2s;
-            margin-bottom: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
+            padding: 8px 15px;
+            margin-bottom: 12px;
+            border: 2px dashed #bfdbfe;
+            border-radius: 8px;
+            background: #f0f9ff;
+            color: #1d4ed8;
+            text-align: center;
         }
-
-
 
         .paste-zone i {
-            font-size: 28px;
-            color: #0067b1;
+            font-size: 20px;
         }
 
-        .paste-zone p {
-            margin: 0;
-            font-size: 14px;
-            font-weight: 700;
-            color: #1d4ed8;
-        }
-
-        .paste-zone small {
-            display: block;
-            font-size: 12px;
-            color: #64748b;
-            margin-top: 3px;
-            font-weight: 400;
+        .paste-zone span {
+            font-size: 13px;
+            font-weight: 600;
         }
 
         /* ── TABLA TIPO EXCEL ── */
@@ -168,27 +131,11 @@
             color: #ef4444;
         }
 
-        .badge-count {
-            display: inline-block;
-            background: #0067b1;
-            color: #fff;
-            border-radius: 20px;
-            padding: 1px 10px;
-            font-size: 12px;
-            font-weight: 700;
-            margin-left: 8px;
-        }
-
         /* Los tres selectores con el mismo relleno: el CSS global de .custom-dropdown
            dejaba el texto de Tipo/Unidad pegado al borde, distinto al de Frente. */
         #tipoDropdownCargar .dropdown-trigger input,
         #unidadDropdownCargar .dropdown-trigger input {
             padding: 0 14px !important;
-        }
-
-        #tipoDropdownCargar .dropdown-trigger,
-        #unidadDropdownCargar .dropdown-trigger {
-            box-sizing: border-box;
         }
 
         .con-acciones {
@@ -389,12 +336,9 @@
                 </div>
 
                 {{-- Instrucciones de Pegado Rápido --}}
-                <div class="paste-zone" onclick="document.execCommand('paste');"
-                    title="También puede presionar Ctrl+V en su teclado"
-                    style="padding: 8px 15px; margin-bottom: 12px; border-radius: 8px; flex-direction: row; gap: 8px; border-width: 2px;">
-                    <i class="material-icons" style="font-size: 20px; color:#1d4ed8;">content_paste</i>
-                    <span style="font-size: 13px; font-weight: 600; color: #1d4ed8;">Copie de Excel y pegue en esta tabla
-                        (presione Ctrl+V)</span>
+                <div class="paste-zone">
+                    <i class="material-icons">content_paste</i>
+                    <span>Copie de Excel y pegue en esta tabla (presione Ctrl+V)</span>
                 </div>
 
                 <table id="tablaFilas">
