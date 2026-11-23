@@ -223,5 +223,19 @@
         return false;
     }
 
-    w.FuzzySearch = { norm: norm, tokenize: tokenize, leven: leven, scoreToken: scoreToken, rank: rank, matchedPart: matchedPart, coincide: coincide };
+    /**
+     * Lo que queda de `items` al escribir `rawTerm` en el buscador de una lista. LA regla de
+     * todas las listas que se filtran al escribir (listas desplegables, Frente de destino de
+     * Movilización, buscador de Frentes, proyecto de un almacén nuevo): primero sin margen
+     * (coincide exacto) y solo si así no sale nada, con margen. Mantiene el orden de `items`.
+     *   texto(item) → el texto donde buscar.
+     */
+    function filtrar(items, rawTerm, texto) {
+        items = items || [];
+        if (!norm(rawTerm).trim()) return items.slice();
+        var exactos = items.filter(function (i) { return coincide(rawTerm, texto(i), true); });
+        return exactos.length ? exactos : items.filter(function (i) { return coincide(rawTerm, texto(i)); });
+    }
+
+    w.FuzzySearch = { norm: norm, tokenize: tokenize, leven: leven, scoreToken: scoreToken, rank: rank, matchedPart: matchedPart, coincide: coincide, filtrar: filtrar };
 })(window);

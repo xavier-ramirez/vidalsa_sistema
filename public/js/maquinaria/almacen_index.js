@@ -3246,11 +3246,15 @@
     // Filtra la lista de proyectos por lo que se va escribiendo. Mismo comportamiento que
     // "Contrato N°": la lista guía, pero lo que vale es el texto del input.
     window.almNvNombreFilter = function (inp) {
-        var t = (inp.value || '').trim().toLowerCase();
+        var t = (inp.value || '').trim();
         var items = document.querySelectorAll('#almNvNombreItems .dropdown-item');
+        // Las palabras en cualquier orden, sin acentos, con margen si nada sale exacto
+        // (fuzzy_search.js · filtrar, la misma regla que los filtros Frente de las pantallas).
+        var quedan = new Set(window.FuzzySearch.filtrar(Array.prototype.slice.call(items), t,
+            function (i) { return i.dataset.nombre || ''; }));
         var visibles = 0;
         items.forEach(function (i) {
-            var ok = !t || (i.dataset.nombre || '').toLowerCase().indexOf(t) !== -1;
+            var ok = quedan.has(i);
             i.style.display = ok ? '' : 'none';
             if (ok) visibles++;
         });
@@ -3333,10 +3337,15 @@
     function almNvFrenteChecks() { return Array.prototype.slice.call(document.querySelectorAll('#almNvFrentesSelect input[type="checkbox"]')); }
     // Filtra las opciones de frente al escribir en el input principal del trigger.
     window.almNvFrentesFilter = function (inp) {
-        var v = (inp && inp.value || '').toLowerCase().trim();
+        var v = (inp && inp.value || '').trim();
         var visibles = 0;
-        document.querySelectorAll('#almNvFrentesSelect .alm-frente-opt').forEach(function (i) {
-            var match = v === '' || i.textContent.toLowerCase().indexOf(v) > -1;
+        var opts = document.querySelectorAll('#almNvFrentesSelect .alm-frente-opt');
+        // Las palabras en cualquier orden, sin acentos, con margen si nada sale exacto
+        // (fuzzy_search.js · filtrar, la misma regla que los filtros Frente de las pantallas).
+        var quedan = new Set(window.FuzzySearch.filtrar(Array.prototype.slice.call(opts), v,
+            function (i) { return i.textContent; }));
+        opts.forEach(function (i) {
+            var match = quedan.has(i);
             i.style.display = match ? '' : 'none';
             if (match) visibles++;
         });

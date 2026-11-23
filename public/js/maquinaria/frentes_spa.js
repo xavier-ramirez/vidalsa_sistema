@@ -134,9 +134,12 @@ window.filterFrentesDropdown = function (input) {
     if (clearIcon)
         clearIcon.style.display = filter.length > 0 ? "block" : "none";
 
+    // Las palabras en cualquier orden, sin acentos, con margen si nada sale exacto
+    // (fuzzy_search.js · filtrar, la misma regla que los filtros Frente de las pantallas).
+    const visibles = new Set(window.FuzzySearch.filtrar(Array.from(items), input.value,
+        (it) => it.dataset.name || it.textContent || ""));
     for (let i = 0; i < items.length; i++) {
-        const txtValue = items[i].dataset.name || items[i].textContent || "";
-        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+        if (visibles.has(items[i])) {
             items[i].style.display = "";
             hasVisible = true;
         } else {

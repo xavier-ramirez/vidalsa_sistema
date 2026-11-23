@@ -35,8 +35,9 @@ assert.ok(sin.indexOf('BRAGA TALLA 142') < sin.indexOf('BRAGA TALLA 40'), 'sin l
 const L = ["TUBERÍA DE 30'' VELADERO TRAMO I", 'ESTACIÓN  DE VALVULAS', 'CORTAFUEGO CARABOBO FASE II',
     'CORTAFUEGO AYACUCHO FASE II', 'TRANSVERSALES CARABOBO', 'CAMION CON BRAZO 6 TON', 'CHUTO CON BRAZO 16 TON',
     'CAMION PLATAF/B HIDRAULICO', 'PLATAFORMA / BRAZO HIDRAULICO', 'CAMION ELEVADOR 12 TON'];
-// Como lo usa la lista (uicomponents.js · filterDropdownOptions): primero sin margen; si nada sale, con margen.
-const filtrarLista = (q, lista) => { const ex = lista.filter((t) => F.coincide(q, t, true)); return ex.length ? ex : lista.filter((t) => F.coincide(q, t)); };
+// FuzzySearch.filtrar: LA regla de las listas (desplegables, Frente de destino, Frentes, proyecto
+// de almacén): primero sin margen; si nada sale, con margen. Mantiene el orden de la lista.
+const filtrarLista = (q, lista) => F.filtrar(lista, q, (t) => t);
 const filtra = (q) => filtrarLista(q, L);
 const eq = (q, esperado) => assert.deepStrictEqual(filtra(q), esperado, q);
 eq('tramo i veladero', ["TUBERÍA DE 30'' VELADERO TRAMO I"]);                   // otro orden
@@ -66,5 +67,16 @@ const T = ['CAMION CON BRAZO 6 TON', 'CAMION CISTERNA', 'CAMION VOLTEO'];
 assert.deepStrictEqual(filtrarLista('camion con', T), ['CAMION CON BRAZO 6 TON']);
 assert.deepStrictEqual(filtrarLista('camion de volteo', T), ['CAMION VOLTEO']);
 assert.deepStrictEqual(filtrarLista('volteo camoin', T), ['CAMION VOLTEO']);
+
+// filtrar con objetos (Frente de destino: { nombre, id }), vacío = todos en su orden.
+const frentes = [{ nombre: 'LOGÍSTICA DIVISION CARABOBO', id: 1 }, { nombre: "TUBERÍA DE 30'' VELADERO TRAMO I", id: 2 }, { nombre: 'TRANSVERSALES CARABOBO', id: 3 }];
+const ids = (q) => F.filtrar(frentes, q, (f) => f.nombre).map((f) => f.id);
+assert.deepStrictEqual(ids(''), [1, 2, 3]);
+assert.deepStrictEqual(ids('  '), [1, 2, 3]);
+assert.deepStrictEqual(ids('logistica'), [1]);
+assert.deepStrictEqual(ids('tramo veladero'), [2]);
+assert.deepStrictEqual(ids('carabobo'), [1, 3]);
+assert.deepStrictEqual(ids('transversals carabobo'), [3]);
+assert.deepStrictEqual(ids('nada parecido'), []);
 
 console.log('ok');

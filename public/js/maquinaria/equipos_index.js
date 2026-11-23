@@ -2408,18 +2408,27 @@ window.openBulkModal = function (event) {
     listBox.style.cssText = 'display:none;position:fixed;background:white;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.15);z-index:100020;max-height:240px;overflow-y:auto;';
     document.body.appendChild(listBox);
 
-    // Reposiciona el portal justo debajo del input
+    // Reposiciona el portal justo debajo del input y, si está abierto, que quepa en la
+    // pantalla: con el teclado del teléfono sus 240 px se metían debajo de él y no se veían
+    // los últimos frentes (uicomponents.js · ajustarListaAbajo; al ser fixed, solo se acorta).
     function positionListBox() {
         const rect = inputBox.getBoundingClientRect();
         listBox.style.top = (rect.bottom + 4) + 'px';
         listBox.style.left = rect.left + 'px';
         listBox.style.width = rect.width + 'px';
+        if (listBox.style.display !== 'none') window.ajustarListaAbajo(listBox, inputBox);
     }
+    // El teclado aparece DESPUÉS del foco (ya con la lista pintada) y puede mover el campo:
+    // se vuelve a colocar. Se quita al cerrar el modal (removePortal).
+    const vv = window.visualViewport;
+    if (vv) vv.addEventListener('resize', positionListBox);
 
     function renderFrenteList(filter) {
         listBox.innerHTML = '';
-        const q = (filter || '').trim().toUpperCase();
-        const filtered = q ? frentesData.filter(f => f.nombre.toUpperCase().includes(q)) : frentesData;
+        // Las palabras en cualquier orden, sin acentos y con una letra de margen si nada sale
+        // exacto (fuzzy_search.js · filtrar, la misma regla que el filtro Frente de la
+        // pantalla). Antes era el texto tal cual: «tramo veladero» o «logistica» no salían.
+        const filtered = window.FuzzySearch.filtrar(frentesData, filter, f => f.nombre);
         if (filtered.length === 0) {
             // Sin resultados: contraer el dropdown en vez de mostrar mensaje.
             listBox.style.display = 'none';
@@ -2442,12 +2451,15 @@ window.openBulkModal = function (event) {
                 listBox.appendChild(item);
             });
         }
-        positionListBox();
         listBox.style.display = 'block';
+        positionListBox();
     }
 
     // Limpiar el portal cuando se cierre el modal
-    function removePortal() { listBox.remove(); }
+    function removePortal() {
+        if (vv) vv.removeEventListener('resize', positionListBox);
+        listBox.remove();
+    }
 
     const searchInput = overlay.querySelector('#bm-frente-search');
     const hiddenInput = overlay.querySelector('#bm-frente-value');

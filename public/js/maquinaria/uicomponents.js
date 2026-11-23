@@ -182,7 +182,11 @@ window.ajustarListaAbajo = function (lista, caja) {
     };
     let r = sitio();
     if (r.bottom === r.top || r.bottom <= alto - MARGEN) return;   // oculta, o cabe: como siempre
-    subirParaLista(caja, Math.min(r.bottom - (alto - MARGEN), r.caja - techo - MARGEN));
+    // Una lista position:fixed (la de Frente de destino de Movilización, colgada del body) no
+    // acompaña a la página si se sube: con esa solo se acorta.
+    if (getComputedStyle(lista).position !== "fixed") {
+        subirParaLista(caja, Math.min(r.bottom - (alto - MARGEN), r.caja - techo - MARGEN));
+    }
     // Lo que aún sobre se acorta. Se vuelve a medir tras cada recorte: la lista también
     // alargaba la página, y al acortarla el navegador baja el scroll lo que ya no existe, con
     // lo que la lista vuelve a bajar unos píxeles.
@@ -540,27 +544,24 @@ window.filterDropdownOptions = function (input) {
     const items = dropdown.querySelectorAll(
         ".dropdown-item, .filter-option-item",
     );
-    // Cada palabra escrita, en cualquier orden (FuzzySearch.coincide). Antes era el texto tal
-    // cual y en el mismo orden: «tramo i veladero» no traía TUBERÍA DE 30'' VELADERO TRAMO I,
-    // ni «estacion de valvulas» a ESTACIÓN  DE VALVULAS (dos espacios). Primero sin margen; si
-    // así no sale nada, con una letra de margen en las palabras largas («carabbo»). Sin
-    // FuzzySearch (no debería pasar: va en el layout) queda el «contiene» de antes.
-    const FS = window.FuzzySearch && window.FuzzySearch.coincide ? window.FuzzySearch : null;
-    const exacto = !FS || Array.prototype.some.call(items, (i) =>
-        !i.classList.contains("eq-tipo-oculto") && FS.coincide(input.value, i.textContent, true));
+    // Respeta el filtrado dependiente por frente del modulo Equipos: un item marcado como
+    // oculto por frente (clase 'eq-tipo-oculto', la pone eqSyncTiposFrente) NO se re-muestra
+    // aunque coincida con el texto buscado. Otros dropdowns no usan esa clase.
+    const elegibles = Array.prototype.filter.call(
+        items,
+        (i) => !i.classList.contains("eq-tipo-oculto"),
+    );
+    // Cada palabra escrita, en cualquier orden, primero sin margen y si nada sale con una
+    // letra de margen (FuzzySearch.filtrar, la regla de todas las listas). Antes era el texto
+    // tal cual y en el mismo orden: «tramo i veladero» no traía TUBERÍA DE 30'' VELADERO
+    // TRAMO I. textContent y no innerText: innerText fuerza un reflow por item en cada tecla.
+    // Sin FuzzySearch (no debería pasar: va en el layout) queda el «contiene» de antes.
+    const visibles = new Set(window.FuzzySearch && window.FuzzySearch.filtrar
+        ? window.FuzzySearch.filtrar(elegibles, input.value, (i) => i.textContent)
+        : elegibles.filter((i) => normalize(i.textContent).includes(filter)));
 
     items.forEach((item) => {
-        // textContent en vez de innerText: innerText es "layout-aware" y FUERZA un reflow
-        // por cada item en cada tecla — con muchos frentes/tipos eso daba tirones en PC.
-        // textContent no reflowa; para estos items (texto plano) el resultado es el mismo.
-        const coincide = FS
-            ? FS.coincide(input.value, item.textContent, exacto)
-            : normalize(item.textContent).includes(filter);
-        // Respeta el filtrado dependiente por frente del modulo Equipos: un item marcado
-        // como oculto por frente (clase 'eq-tipo-oculto', la pone eqSyncTiposFrente) NO se
-        // re-muestra aunque coincida con el texto buscado. Otros dropdowns no usan esa clase,
-        // asi que su comportamiento no cambia.
-        const shouldShow = coincide && !item.classList.contains("eq-tipo-oculto");
+        const shouldShow = visibles.has(item);
 
         // Use setProperty to override any potential CSS conflicts
         item.style.setProperty(
@@ -571,17 +572,13 @@ window.filterDropdownOptions = function (input) {
     });
 
     // ORDEN POR RELEVANCIA (opt-in con data-fuzzy en el .custom-dropdown).
-    // Sin ese atributo se filtra como arriba (coincide) y queda el orden del HTML. Con el
+    // Sin ese atributo se filtra como arriba (filtrar) y queda el orden del HTML. Con el
     // atributo, ademas se reordenan los visibles para que el
     // mejor resultado quede arriba y se toleran erratas ("barcelna" -> BARCELONA), usando
     // el MISMO window.FuzzySearch que el resto del proyecto. Es opt-in a proposito: hay
     // ~30 dropdowns usando esta funcion y en listas cortas el orden del HTML es preferible.
     if (filter.length > 0 && dropdown.dataset.fuzzy !== undefined &&
         window.FuzzySearch && window.FuzzySearch.rank) {
-        const elegibles = Array.prototype.filter.call(
-            items,
-            (i) => !i.classList.contains("eq-tipo-oculto"),
-        );
         const rank = window.FuzzySearch.rank(elegibles, input.value, (i) => {
             const t = i.textContent.trim();
             return { label: t, haystack: t };

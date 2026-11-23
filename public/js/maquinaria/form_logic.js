@@ -52,9 +52,12 @@ window.filtrarOpcionesMultiselect = function (input, event) {
     if (!caja.classList.contains('active') && window.toggleDropdown) {
         window.toggleDropdown(caja.id, event);
     }
-    const val = input.value.toLowerCase().trim();
-    caja.querySelectorAll('.multiselect-item').forEach(function (item) {
-        item.style.display = item.textContent.toLowerCase().includes(val) ? '' : 'none';
+    // Las palabras en cualquier orden, sin acentos, con margen si nada sale exacto
+    // (fuzzy_search.js · filtrar, la misma regla que los filtros Frente de las pantallas).
+    const items = Array.from(caja.querySelectorAll('.multiselect-item'));
+    const quedan = new Set(window.FuzzySearch.filtrar(items, input.value, function (i) { return i.textContent; }));
+    items.forEach(function (item) {
+        item.style.display = quedan.has(item) ? '' : 'none';
     });
 };
 

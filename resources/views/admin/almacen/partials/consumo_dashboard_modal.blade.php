@@ -972,11 +972,11 @@
 
     window._cdashFrenteRenderList = function (filter) {
         var list = document.getElementById('cdashFrenteList'); if (!list) return;
-        var q = (filter || '').toLowerCase();
         var html = '<div class="cdash-cat-item" onmousedown="event.preventDefault()" onclick="window._cdashFrenteSelect(\'\',CDASH_FRE_LBL);">Todos los frentes</div>';
-        window._cdashFrentesData.forEach(function (f) {
+        // Las palabras en cualquier orden, sin acentos, con margen si nada sale exacto
+        // (fuzzy_search.js · filtrar, la misma regla que los filtros Frente de las pantallas).
+        window.FuzzySearch.filtrar(window._cdashFrentesData, filter || '', function (f) { return String(f.nombre || ''); }).forEach(function (f) {
             var nombre = String(f.nombre || '');
-            if (q && nombre.toLowerCase().indexOf(q) === -1) return;
             html += '<div class="cdash-cat-item" onmousedown="event.preventDefault()" onclick="window._cdashFrenteSelect(\'' + escAttr(String(f.id)) + '\',\'' + escAttr(nombre) + '\');">' + escHtml(nombre) + '</div>';
         });
         list.innerHTML = html;

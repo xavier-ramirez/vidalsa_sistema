@@ -469,7 +469,9 @@
 
         function filtrarFrentes(q) {
             if (!q || q.length < 1) { renderDropdownFrente(FRENTES); return; }
-            renderDropdownFrente(FRENTES.filter(f => f.nombre.toLowerCase().includes(q.toLowerCase())));
+            // Las palabras en cualquier orden, sin acentos, con margen si nada sale exacto
+            // (fuzzy_search.js · filtrar, la misma regla que los filtros Frente de las pantallas).
+            renderDropdownFrente(window.FuzzySearch.filtrar(FRENTES, q, f => f.nombre));
         }
 
         // Agregado window. prefix preventivo
