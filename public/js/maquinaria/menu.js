@@ -280,14 +280,9 @@ window.iniciarGestionCustom = function (equipoId, docType, event) {
     overlay.innerHTML = `
         <div style="background:white;width:90%;max-width:320px;border-radius:14px;overflow:hidden;box-shadow:0 20px 40px -10px rgba(0,0,0,0.3);transform:scale(0.95);transition:transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);text-align:center;">
             <div style="padding:26px 16px 20px;">
-                <p style="margin:0 0 16px 0;font-size:14px;color:#1e293b;font-weight:800;line-height:1.4;">
-                    ¿Confirmas que comenzarás a<br>gestionar este documento?
+                <p style="margin:0;font-size:14px;color:#1e293b;font-weight:700;line-height:1.4;">
+                    ¿Gestionar este documento? Tu frente quedará a cargo de la renovación.
                 </p>
-                <div style="background:#f1f5f9;padding:12px;border-radius:8px;border:1px solid #e2e8f0;margin:0 auto;max-width:260px;">
-                    <p style="margin:0;font-size:12px;color:#64748b;line-height:1.5;">
-                        Se registrará tu frente como<br><b style="color:#1e293b;font-size:13px;">responsable de la renovación</b>.
-                    </p>
-                </div>
             </div>
             <div style="padding:0 16px 20px;display:flex;gap:8px;justify-content:center;">
                 <button id="btnCancelGestion"
