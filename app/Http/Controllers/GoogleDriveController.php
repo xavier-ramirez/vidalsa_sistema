@@ -56,7 +56,7 @@ class GoogleDriveController extends Controller
                     $etag = md5($fileId . '-' . $sz . '-' . $version);
                     return response($bytes, 200, [
                         'Content-Type'  => $mimeMiniatura,
-                        'Vary'          => 'Sec-Fetch-Dest',
+                        'Vary'          => self::varyFoto($mimeMiniatura),
                         'X-Content-Type-Options' => 'nosniff',
                         'Cache-Control' => 'private, max-age=' . $maxAge . ', must-revalidate',
                         'ETag'          => '"' . $etag . '"',
