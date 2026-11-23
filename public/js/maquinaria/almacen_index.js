@@ -2347,7 +2347,13 @@
     };
 
     function hoy() { var d = new Date(); var p = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
-    function showErr(id, msg) { var e = el(id); if (e) { e.textContent = msg; e.style.display = msg ? 'block' : 'none'; } }
+    // El aviso queda al pie del modal: en el teléfono caía debajo del borde y «Previsualizar»
+    // parecía no hacer nada. Se desplaza lo justo para que se vea (todos los avisos de aquí).
+    function showErr(id, msg) {
+        var e = el(id); if (!e) return;
+        e.textContent = msg; e.style.display = msg ? 'block' : 'none';
+        if (msg) { try { e.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (x) { e.scrollIntoView(false); } }
+    }
     // Resalta un campo input con borde rojo cuando hay error, lo quita cuando msg está vacío.
     function almProdFieldErr(fieldId, hasError) {
         var f = el(fieldId);

@@ -2509,11 +2509,12 @@ window.openBulkModal = function (event) {
         const isNewFrente = !matchedFrente;
         const needsUbicacion = isNewFrente || !matchedFrente.ubicacion;
 
-        // Escribir «tramo veladero» y confirmar sin elegirlo de la lista creaba un frente NUEVO
-        // con ese nombre y movía ahí los equipos. Si lo escrito se parece a frentes que ya
-        // existen, primero se avisa y se muestra la lista; confirmar otra vez con el mismo
-        // texto sí lo crea (frentes nuevos siguen siendo posibles).
-        if (isNewFrente && avisadoNuevo !== destUpper && window.FuzzySearch.filtrar(frentesData, dest, f => f.nombre).length) {
+        // SIN acta: escribir «tramo veladero» y confirmar sin elegirlo de la lista creaba en
+        // silencio un frente NUEVO con ese nombre y movía ahí los equipos. Si lo escrito se
+        // parece a frentes que ya existen, primero se avisa; confirmar otra vez con el mismo
+        // texto sí lo crea. CON acta no se avisa: el frente nuevo abre directo el formulario
+        // del acta (ubicación del destino, firmas), que ya es la confirmación.
+        if (!generarPdf && isNewFrente && avisadoNuevo !== destUpper && window.FuzzySearch.filtrar(frentesData, dest, f => f.nombre).length) {
             avisadoNuevo = destUpper;
             searchInput.focus();   // su onfocus abre la lista con lo escrito
             inputBox.style.borderColor = "#ef4444";
