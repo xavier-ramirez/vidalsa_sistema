@@ -145,22 +145,28 @@ window.prepararAperturaDropdown = function (dropdown) {
 };
 
 /**
- * Que la lista abierta quepa en la pantalla, y SIEMPRE hacia abajo de su caja. Si debajo no
- * cabe (el final de un panel, como Combustible en el filtro avanzado de Equipos en teléfono,
- * o el teclado del teléfono tapando la mitad de abajo), primero se sube lo que la contiene
- * (subirParaLista) hasta que quepa o la caja llegue arriba; si aun así no cabe, se acorta a lo
- * que queda y se desplaza por dentro. Antes se abría hacia ARRIBA cuando ahí había más sitio:
- * con el teclado abierto Tipo de Equipos se desplegaba sobre el encabezado.
- * Se recalcula al aparecer/ocultarse el teclado (visualViewport).
+ * Que una lista abierta quepa en la pantalla, y SIEMPRE hacia abajo de su caja: las de los
+ * dropdowns (ajustarListaDropdown) y las cajas de sugerencias de los buscadores de filtro
+ * (Almacén, Movimientos, Recepción, Usuarios). Si debajo no cabe (el final de un panel, como
+ * Combustible en el filtro avanzado de Equipos en teléfono, o el teclado del teléfono tapando
+ * la mitad de abajo), primero se sube lo que la contiene (subirParaLista) hasta que quepa o la
+ * caja llegue arriba; si aun así no cabe, se acorta a lo que queda y se desplaza por dentro.
+ * Antes los dropdowns se abrían hacia ARRIBA cuando ahí había más sitio (con el teclado
+ * abierto Tipo de Equipos se desplegaba sobre el encabezado) y las sugerencias seguían de
+ * largo bajo el teclado. Se recalcula al aparecer/ocultarse el teclado (visualViewport).
  * Solo usa su clase (dd-acotada) y la variable --dd-max: NO toca el style propio de la lista
  * (p.ej. el max-height:none del filtro de Frente).
+ *
+ * lista: el elemento que se despliega. caja: lo que la ancla (por defecto su padre, el
+ * contenedor posicionado del buscador). Llamarla cada vez que se muestre o se repinte; con la
+ * lista oculta solo limpia.
  */
-window.ajustarListaDropdown = function (dropdown) {
-    const lista = dropdown && (dropdown.querySelector(":scope > .dropdown-content") || dropdown.querySelector(".dropdown-content"));
+window.ajustarListaAbajo = function (lista, caja) {
     if (!lista) return;
+    caja = caja || lista.parentElement;
     lista.classList.remove("dd-acotada");
     lista.style.removeProperty("--dd-max");
-    if (!dropdown.classList.contains("active")) return;
+    listasAjustadas.set(lista, caja);
     const vv = window.visualViewport;
     const techo = vv ? vv.offsetTop : 0;
     const alto = vv ? vv.height + vv.offsetTop : window.innerHeight;
@@ -172,30 +178,46 @@ window.ajustarListaDropdown = function (dropdown) {
         const tf = getComputedStyle(lista).transform;
         const movida = tf && tf !== "none" ? new DOMMatrixReadOnly(tf).m42 : 0;
         const top = lista.getBoundingClientRect().top - movida;
-        return { caja: dropdown.getBoundingClientRect().top, top: top, bottom: top + lista.offsetHeight };
+        return { caja: caja.getBoundingClientRect().top, top: top, bottom: top + lista.offsetHeight };
     };
     let r = sitio();
-    if (r.bottom === r.top || r.bottom <= alto - MARGEN) return;   // cabe: como siempre
-    subirParaLista(dropdown, Math.min(r.bottom - (alto - MARGEN), r.caja - techo - MARGEN));
+    if (r.bottom === r.top || r.bottom <= alto - MARGEN) return;   // oculta, o cabe: como siempre
+    subirParaLista(caja, Math.min(r.bottom - (alto - MARGEN), r.caja - techo - MARGEN));
     // Lo que aún sobre se acorta. Se vuelve a medir tras cada recorte: la lista también
     // alargaba la página, y al acortarla el navegador baja el scroll lo que ya no existe, con
     // lo que la lista vuelve a bajar unos píxeles.
+    // Con box-sizing:content-box (las cajas de sugerencias) max-height no cuenta relleno ni
+    // borde: se descuentan, o la lista queda esos píxeles más larga de lo pedido.
+    const cs = getComputedStyle(lista);
+    const extra = cs.boxSizing === "border-box" ? 0
+        : parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
     for (let vuelta = 0; vuelta < 4; vuelta++) {
         r = sitio();
         const sobra = r.bottom - (alto - MARGEN);
         if (sobra <= 0.5) break;
-        const max = Math.max(120, Math.floor(r.bottom - r.top - sobra));
+        const max = Math.max(120, Math.floor(r.bottom - r.top - sobra - extra));
         lista.style.setProperty("--dd-max", max + "px");
         lista.classList.add("dd-acotada");
         if (max === 120) break;
     }
 };
-// Sube `px` lo que contiene al dropdown: primero los paneles con su propio scroll (una
+// La de un .custom-dropdown: su .dropdown-content, solo si está abierto (si no, solo limpia).
+window.ajustarListaDropdown = function (dropdown) {
+    const lista = dropdown && (dropdown.querySelector(":scope > .dropdown-content") || dropdown.querySelector(".dropdown-content"));
+    if (!lista) return;
+    if (dropdown.classList.contains("active")) { window.ajustarListaAbajo(lista, dropdown); return; }
+    lista.classList.remove("dd-acotada");
+    lista.style.removeProperty("--dd-max");
+};
+// Las listas ya ajustadas, con su caja, para recalcularlas cuando el teclado aparece o se va.
+// Las que la navegación SPA quitó del documento se olvidan al pasar.
+var listasAjustadas = new Map();   // var: este archivo no debe romper si se ejecuta dos veces
+// Sube `px` lo que contiene a la caja: primero los paneles con su propio scroll (una
 // ventana de filtros, un modal) y por último la página. Lo que no puede subir, no sube.
-function subirParaLista(dropdown, px) {
+function subirParaLista(caja, px) {
     let falta = Math.floor(px);
     const pagina = document.scrollingElement || document.documentElement;
-    for (let el = dropdown.parentElement; el && falta > 0; el = el.parentElement) {
+    for (let el = caja.parentElement; el && falta > 0; el = el.parentElement) {
         const esPagina = el === pagina || el === document.body;
         if (!esPagina) {
             if (el.scrollHeight <= el.clientHeight) continue;
@@ -211,7 +233,12 @@ function subirParaLista(dropdown, px) {
 }
 if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", function () {
-        document.querySelectorAll(".custom-dropdown.active").forEach(window.ajustarListaDropdown);
+        listasAjustadas.forEach(function (caja, lista) {
+            if (!lista.isConnected) { listasAjustadas.delete(lista); return; }
+            const dd = lista.closest(".custom-dropdown");
+            if (dd && dd === caja) window.ajustarListaDropdown(dd);
+            else window.ajustarListaAbajo(lista, caja);
+        });
     });
 }
 

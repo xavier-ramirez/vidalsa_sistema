@@ -75,7 +75,10 @@
         if (typeof CFG.antesDeSugerir === 'function') CFG.antesDeSugerir();
         box.innerHTML = html || (emptyHtml || '<div class="alm-suggest-empty">Sin coincidencias.</div>');
         box.classList.add('open');
-        almSuggestAnclar(box);
+        // Las flotantes (modales) se anclan a su campo; las de la barra de filtros van debajo
+        // de su buscador y solo hace falta que quepan (uicomponents.js).
+        if (box.classList.contains('alm-suggest-float')) almSuggestAnclar(box);
+        else window.ajustarListaAbajo(box);
     }
     // Al ser fixed, la lista no sigue sola a su campo: se reancla si la ventana cambia de
     // tamaño o si algo se desplaza (el cuerpo del modal, con scroll en captura porque el

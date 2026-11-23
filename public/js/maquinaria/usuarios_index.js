@@ -239,6 +239,7 @@ function renderSearchSuggest(term, browseIfEmpty) {
     if (!matches.length) {
         box.innerHTML = '<div style="padding:10px 15px; font-size:13px; color:#94a3b8;">Sin coincidencias</div>';
         box.style.display = 'block';
+        window.ajustarListaAbajo(box);
         return;
     }
 
@@ -251,6 +252,7 @@ function renderSearchSuggest(term, browseIfEmpty) {
             '</div>';
     }).join('');
     box.style.display = 'block';
+    window.ajustarListaAbajo(box);   // uicomponents.js: hacia abajo y entera, también con el teclado
 }
 
 // ── Menú Acciones (Nuevo usuario / Limpiar roles inactivos) ──────────────────

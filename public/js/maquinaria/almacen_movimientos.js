@@ -214,6 +214,7 @@ window.almMovArrancar = function (CFG) {
         }
         box.innerHTML = html;
         box.classList.add('open');
+        window.ajustarListaAbajo(box);   // uicomponents.js: hacia abajo y entera, también con el teclado
     };
 
     // ── Reglas del filtro de producto (las MISMAS que el filtro "Descripción" de
@@ -319,6 +320,7 @@ window.almMovArrancar = function (CFG) {
             }).join('');
         }
         box.classList.add('open');
+        window.ajustarListaAbajo(box);
     };
     // Delegación de clic en las sugerencias del filtro de Nota (mismo patrón que el buscador).
     docOn('click', function (e) {

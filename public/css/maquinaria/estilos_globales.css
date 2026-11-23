@@ -178,9 +178,10 @@ body {
     animation: fadeInDownSmall 0.2s ease;
 }
 
-/* Lista que no cabía debajo ni subiendo la página (uicomponents.js · ajustarListaDropdown):
-   sigue abriendo hacia abajo, acortada al sitio que hay (--dd-max) y con desplazamiento. */
-.custom-dropdown .dropdown-content.dd-acotada {
+/* Lista que no cabía debajo ni subiendo la página (uicomponents.js · ajustarListaAbajo): sigue
+   abriendo hacia abajo, acortada al sitio que hay (--dd-max) y con desplazamiento. Vale para
+   los dropdowns y para las cajas de sugerencias de los buscadores de filtro. */
+.dd-acotada {
     max-height: var(--dd-max) !important;
     overflow-y: auto !important;
 }

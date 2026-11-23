@@ -872,6 +872,7 @@
             box.innerHTML = html;
         }
         box.classList.add('open');
+        window.ajustarListaAbajo(box);   // uicomponents.js: hacia abajo y entera, también con el teclado
     };
     // Reglas del filtro "Descripción":
     //   (a) Escribir refresca solo la LISTA de sugerencias, NO la tabla. Si el usuario

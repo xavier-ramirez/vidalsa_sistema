@@ -120,6 +120,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
             }).join('');
         }
         box.classList.add('open');
+        window.ajustarListaAbajo(box);   // uicomponents.js: hacia abajo y entera, también con el teclado
     };
 
     // Sincroniza la X y el tinte azul (.active) del buscador según haya texto.
@@ -260,6 +261,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         }
         box.innerHTML = html;
         box.classList.add('open');
+        window.ajustarListaAbajo(box);
     };
     // Escribir en el buscador de producto: si había uno elegido, editarlo lo DESCARTA
     // (quita el filtro y recarga). Luego refresca las sugerencias.
