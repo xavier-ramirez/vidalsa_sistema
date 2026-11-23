@@ -544,7 +544,7 @@ class InventarioService
                 throw new RuntimeException(sprintf(
                     $esEntrada($m)
                         ? 'El almacén que lo recibió ya usó parte de ese material: faltan %s %s para bajar lo recibido.'
-                        : 'No hay stock suficiente para subir la cantidad: faltan %s %s.',
+                        : 'En el inventario no alcanza para subir la cantidad: faltan %s %s. Si de verdad salieron, registra primero su entrada.',
                     self::num($faltan),
                     $m->producto?->UM ?? ''
                 ));

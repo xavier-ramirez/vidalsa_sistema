@@ -150,7 +150,7 @@ class CorreccionNotaTest extends MySqlTestCase
 
         // Quedan 10: subir a 130 pide 20 que no hay.
         $this->corregir($nota, $p->ID_PRODUCTO, 130)->assertStatus(422)
-            ->assertJsonPath('message', 'No hay stock suficiente para subir la cantidad: faltan 10 UND.');
+            ->assertJsonPath('message', 'En el inventario no alcanza para subir la cantidad: faltan 10 UND. Si de verdad salieron, registra primero su entrada.');
         $this->assertSame(110.0, $this->enNota($nota, $p->ID_PRODUCTO));
         $this->assertSame(10.0, $this->saldo($alm->ID_ALMACEN, $p->ID_PRODUCTO));
         $this->assertSame(1, CorreccionNota::where('NUMERO_NOTA', $nota)->count(), 'La que falló no deja rastro.');
@@ -170,7 +170,7 @@ class CorreccionNotaTest extends MySqlTestCase
         // Subir la del día 1 a 130: al final quedarían 10, pero ese día no había 130 — el
         // kardex pasaría por -30. Se rechaza y nada cambia.
         $this->corregir($nota, $p->ID_PRODUCTO, 130)->assertStatus(422)
-            ->assertJsonPath('message', 'No hay stock suficiente para subir la cantidad: faltan 30 UND.');
+            ->assertJsonPath('message', 'En el inventario no alcanza para subir la cantidad: faltan 30 UND. Si de verdad salieron, registra primero su entrada.');
         $this->assertSame(100.0, $this->enNota($nota, $p->ID_PRODUCTO));
         $this->assertSame(40.0, $this->saldo($alm->ID_ALMACEN, $p->ID_PRODUCTO));
         $this->assertGreaterThanOrEqual(0.0, (float) MovimientoInventario::where('ID_ALMACEN', $alm->ID_ALMACEN)
