@@ -30,7 +30,7 @@
         },
         correccion: {
             cant: 'Cantidad que de verdad salió', motivo: 'Motivo (obligatorio)', motivoEj: 'Ej.: salieron 100, se cargó 180 por error',
-            boton: '<i class="material-icons">edit_note</i>Corregir', motivoObligatorio: true,
+            boton: 'Aceptar', motivoObligatorio: true,
         },
     };
     var estado = { nota: null, op: null, guardando: false };
@@ -87,6 +87,9 @@
         $('ajNotaContenido').hidden = true;
         $('ajNotaGuardar').disabled = true;
         $('ajNotaGuardar').innerHTML = OPS.devolucion.boton;
+        // Mientras carga, la cabecera ya dice qué nota es (la fecha llega con los datos).
+        $('ajNotaTitulo').title = '';
+        $('ajNotaTitulo').innerHTML = '<i class="material-icons">receipt_long</i><span class="ajn-nota-txt"><b class="ajn-nota-num">' + esc(numero) + '</b></span>';
         mensaje('Cargando la nota ' + esc(numero) + '…', 'info');
         m.classList.add('open');
         w.bloquearScrollFondo();
@@ -115,9 +118,9 @@
         var um = esc(l.um || '');
         var sep = ' <span class="ajn-sep">&middot;</span> ';
 
-        // De qué nota viene: número y fecha. El proyecto y quién recibió van en el title.
-        $('ajNotaNota').title = [nota.numero, nota.fecha, nota.proyecto, nota.solicitante].filter(Boolean).join(' · ');
-        $('ajNotaNota').innerHTML = '<i class="material-icons">receipt_long</i>'
+        // La cabecera del modal es la nota: número y fecha. El proyecto y quién recibió van en el title.
+        $('ajNotaTitulo').title = [nota.numero, nota.fecha, nota.proyecto, nota.solicitante].filter(Boolean).join(' · ');
+        $('ajNotaTitulo').innerHTML = '<i class="material-icons">receipt_long</i>'
             + '<span class="ajn-nota-txt"><b class="ajn-nota-num">' + esc(nota.numero) + '</b>'
             + (nota.fecha ? sep + esc(nota.fecha) : '') + '</span>';
 

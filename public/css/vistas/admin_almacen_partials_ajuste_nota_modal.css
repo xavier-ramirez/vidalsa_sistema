@@ -5,7 +5,7 @@
     #ajNotaModal.open { display:flex; }
     #ajNotaModal .ajn-box { background:#fff; border-radius:16px; width:100%; max-width:400px; max-height:90vh; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; color:#0f172a; }
     #ajNotaModal .ajn-head { padding:11px 44px; background:#1e293b; display:flex; align-items:center; justify-content:center; position:relative; flex-shrink:0; }
-    #ajNotaModal .ajn-head h3 { margin:0; font-size:15px; font-weight:700; color:#fff; display:flex; align-items:center; gap:10px; }
+    #ajNotaModal .ajn-head h3 { margin:0; font-size:15px; font-weight:700; color:#fff; display:flex; align-items:center; gap:10px; min-width:0; }
     #ajNotaModal .ajn-head h3 .material-icons { color:#fff; font-size:20px; }
     #ajNotaModal .ajn-x { position:absolute; right:15px; top:50%; transform:translateY(-50%); cursor:pointer; color:#fff; opacity:.75; background:none; border:none; padding:0; display:flex; }
     #ajNotaModal .ajn-x:hover { opacity:1; }
@@ -27,6 +27,8 @@
     #ajNotaModal .ajn-nota-txt { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #ajNotaModal .ajn-nota-num { font-weight:700; }
     #ajNotaModal .ajn-sep { color:#94a3b8; }
+    #ajNotaModal .ajn-head .ajn-nota { font-size:15px; }
+    #ajNotaModal .ajn-head .ajn-nota .material-icons { color:#fff; font-size:20px; }
 
     /* El producto en su tarjeta: qué es, cuánto se entregó y cuánto volvió ya. */
     #ajNotaModal .ajn-linea { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px; box-shadow:0 1px 2px rgba(15,23,42,.05); }
