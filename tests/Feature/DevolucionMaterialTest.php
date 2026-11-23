@@ -9,6 +9,7 @@ use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use App\Models\Usuario;
 use App\Services\InventarioService;
+use App\Services\TraspasoService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\AlmacenLocal;
@@ -235,18 +236,99 @@ class DevolucionMaterialTest extends MySqlTestCase
         }
     }
 
-    public function test_un_envio_a_otro_almacen_no_se_devuelve_desde_aqui(): void
+    /** Envío con Nota de Entrega a otro almacén, como lo registra la salida unificada. */
+    private function envioConNota(int $origen, int $destino, int $idProducto, float $cantidad): array
     {
-        $numero = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_TRASPASO_SALIDA)
-            ->whereNotNull('NUMERO_NOTA')->orderByDesc('ID_MOVIMIENTO')->value('NUMERO_NOTA');
-        if (!$numero) {
-            $this->markTestSkipped('No hay notas de envío entre almacenes para probar.');
-        }
+        $svc = app(TraspasoService::class);
+        $u   = $this->usuario();
+        return DB::transaction(function () use ($svc, $u, $origen, $destino, $idProducto, $cantidad) {
+            $numero = MovimientoInventario::generarNumeroNota();
+            $envio  = $svc->crearBorrador(['id_almacen_origen' => $origen, 'id_almacen_destino' => $destino, 'id_usuario' => $u->ID_USUARIO],
+                [['id_producto' => $idProducto, 'cantidad' => $cantidad]]);
+            $svc->enviar($envio, ['id_usuario_envio' => $u->ID_USUARIO, 'numero_nota' => $numero]);
+            return [$numero, $envio->fresh('lineas')];
+        });
+    }
 
-        $id = MovimientoInventario::where('NUMERO_NOTA', $numero)->value('ID_PRODUCTO');
-        $this->actingAs($this->usuario())->getJson(route('almacen.ajuste-nota.show', ['numero' => $numero, 'id_producto' => $id]))
-            ->assertOk()
-            ->assertJsonPath('devolucion.motivo_no', 'Esta nota es un envío a otro almacén: el material entró a su inventario. La devolución se registra en ese almacén, sobre la nota con la que lo entregó.');
+    private function recibir($envio, float $cantidad): void
+    {
+        app(TraspasoService::class)->recibir($envio->fresh(), [['id_linea' => $envio->lineas->first()->ID_LINEA, 'cantidad_recibida' => $cantidad]],
+            ['id_usuario_recepcion' => $this->usuario()->ID_USUARIO]);
+    }
+
+    private function destino(): Almacen
+    {
+        return Almacen::create(['NOMBRE' => 'DESTINO ' . $this->marca, 'TIPO' => Almacen::TIPO_GENERAL])->fresh();
+    }
+
+    public function test_un_envio_a_otro_almacen_se_devuelve_del_destino_al_origen(): void
+    {
+        $origen  = $this->almacen();
+        $destino = $this->destino();
+        $p = $this->producto('45');
+        $this->inv->registrarEntrada($origen->ID_ALMACEN, $p->ID_PRODUCTO, 10);
+        [$nota, $envio] = $this->envioConNota($origen->ID_ALMACEN, $destino->ID_ALMACEN, $p->ID_PRODUCTO, 5);
+        $ver = fn () => $this->actingAs($this->usuario())
+            ->getJson(route('almacen.ajuste-nota.show', ['numero' => $nota, 'id_producto' => $p->ID_PRODUCTO]))->assertOk();
+
+        // Sin recibir: no regresó nada todavía; lo que se ofrece es corregir.
+        $ver()->assertJsonPath('devolucion.motivo_no', "Este envío todavía no se recibe en {$destino->NOMBRE}. Si salió de más, usa «Corrección».")
+            ->assertJsonPath('correccion.motivo_no', null);
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]])->assertStatus(422);
+
+        $this->recibir($envio, 5);
+        $ver()->assertJsonPath('devolucion.motivo_no', null)->assertJsonPath('linea.pendiente', 5)
+            ->assertJsonPath('correccion.motivo_no', "{$destino->NOMBRE} ya lo recibió: si regresó material, usa «Devolución».");
+
+        // Regresan 2: salen del destino y vuelven al origen.
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 2]])->assertCreated();
+        $this->assertSame(7.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(3.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
+        $dev = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)->where('REFERENCIA', $nota)->firstOrFail();
+        $retorno = MovimientoInventario::where('ID_MOVIMIENTO_RELACIONADO', $dev->ID_MOVIMIENTO)->firstOrFail();
+        $this->assertSame(MovimientoInventario::TIPO_TRASPASO_SALIDA, $retorno->TIPO);
+        $this->assertSame((int) $destino->ID_ALMACEN, (int) $retorno->ID_ALMACEN);
+        $this->assertSame((int) $origen->ID_ALMACEN, (int) $retorno->ID_ALMACEN_CONTRAPARTE);
+        $this->assertNull($retorno->NUMERO_NOTA);
+
+        // No más de lo que queda en el destino por devolver.
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 4]])->assertStatus(422)
+            ->assertJsonPath('message', "De «{$p->NOMBRE}» solo se pueden devolver 3 UND: es lo que recibió {$destino->NOMBRE} y no se ha devuelto.");
+
+        // Si el destino ya lo gastó, no puede regresarlo.
+        $this->inv->registrarSalida($destino->ID_ALMACEN, $p->ID_PRODUCTO, 3);
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]])->assertStatus(422);
+        $this->assertSame(7.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+
+        // Deshacer la devolución se lleva las dos patas.
+        $this->assertSame(2, $this->inv->eliminarMovimientoConReverso($dev->ID_MOVIMIENTO)['eliminados']);
+        $this->assertSame(5.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(2.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
+    }
+
+    public function test_deshacer_el_envio_se_lleva_sus_devoluciones_y_el_retorno(): void
+    {
+        $origen  = $this->almacen();
+        $destino = $this->destino();
+        $p = $this->producto('45');
+        $this->inv->registrarEntrada($origen->ID_ALMACEN, $p->ID_PRODUCTO, 10);
+        [$nota, $envio] = $this->envioConNota($origen->ID_ALMACEN, $destino->ID_ALMACEN, $p->ID_PRODUCTO, 5);
+        $this->recibir($envio, 5);
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 2]])->assertCreated();
+
+        // El retorno solo: se va con su devolución, y el envío queda intacto.
+        $retorno = MovimientoInventario::where('ID_ALMACEN', $destino->ID_ALMACEN)
+            ->where('TIPO', MovimientoInventario::TIPO_TRASPASO_SALIDA)->firstOrFail();
+        $this->assertSame(2, $this->inv->eliminarMovimientoConReverso($retorno->ID_MOVIMIENTO)['eliminados']);
+        $this->assertSame(5.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(5.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
+
+        // El envío entero: salida, entrada, devolución y retorno.
+        $this->devolver($nota, [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 2]])->assertCreated();
+        $salida = MovimientoInventario::where('NUMERO_NOTA', $nota)->firstOrFail();
+        $this->assertSame(4, $this->inv->eliminarMovimientoConReverso($salida->ID_MOVIMIENTO)['eliminados']);
+        $this->assertSame(10.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(0.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
     }
 
     public function test_desde_un_movimiento_se_devuelve_solo_ese_producto(): void

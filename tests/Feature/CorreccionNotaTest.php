@@ -10,6 +10,7 @@ use App\Models\MovimientoInventario;
 use App\Models\ProductoInventario;
 use App\Models\Usuario;
 use App\Services\InventarioService;
+use App\Services\TraspasoService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\AlmacenLocal;
@@ -281,19 +282,33 @@ class CorreccionNotaTest extends MySqlTestCase
         $this->assertSame(5.0, $this->enNota($nota, $p->ID_PRODUCTO));
     }
 
-    public function test_un_envio_a_otro_almacen_no_se_corrige_desde_aqui(): void
+    public function test_un_envio_se_corrige_mientras_el_destino_no_lo_recibe(): void
     {
-        // Una nota de envío real (montar un traspaso entero aquí sería probar TraspasoService).
-        $envio = MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_TRASPASO_SALIDA)
-            ->whereNotNull('NUMERO_NOTA')->orderByDesc('ID_MOVIMIENTO')->first();
-        if (!$envio) {
-            $this->markTestSkipped('No hay notas de envío entre almacenes para probar.');
-        }
-        $antes = $this->enNota($envio->NUMERO_NOTA, $envio->ID_PRODUCTO);
+        $origen  = $this->almacen();
+        $destino = Almacen::create(['NOMBRE' => 'DESTINO ' . $this->marca, 'TIPO' => Almacen::TIPO_GENERAL])->fresh();
+        $p = $this->producto('ABRAZADERA');
+        $this->inv->registrarEntrada($origen->ID_ALMACEN, $p->ID_PRODUCTO, 10);
+        $svc = app(TraspasoService::class);
+        $u   = $this->usuario();
+        [$nota, $envio] = DB::transaction(function () use ($svc, $u, $origen, $destino, $p) {
+            $numero = MovimientoInventario::generarNumeroNota();
+            $envio  = $svc->crearBorrador(['id_almacen_origen' => $origen->ID_ALMACEN, 'id_almacen_destino' => $destino->ID_ALMACEN, 'id_usuario' => $u->ID_USUARIO],
+                [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 5]]);
+            $svc->enviar($envio, ['id_usuario_envio' => $u->ID_USUARIO, 'numero_nota' => $numero]);
+            return [$numero, $envio->fresh('lineas')];
+        });
 
-        $this->corregir($envio->NUMERO_NOTA, $envio->ID_PRODUCTO, $antes + 1)->assertStatus(422)
-            ->assertJsonPath('message', 'Esta nota es un envío a otro almacén: su cantidad se corrige desde Recepción, no aquí.');
-        $this->assertSame($antes, $this->enNota($envio->NUMERO_NOTA, $envio->ID_PRODUCTO));
+        // Salieron 3, no 5: baja la salida y lo que Recepción espera.
+        $this->corregir($nota, $p->ID_PRODUCTO, 3)->assertCreated();
+        $this->assertSame(3.0, $this->enNota($nota, $p->ID_PRODUCTO));
+        $this->assertSame(7.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(3.0, (float) $envio->lineas->first()->fresh()->CANTIDAD_ENVIADA);
+
+        // Recibido: ya no se corrige.
+        $svc->recibir($envio->fresh(), [['id_linea' => $envio->lineas->first()->ID_LINEA, 'cantidad_recibida' => 3]], ['id_usuario_recepcion' => $u->ID_USUARIO]);
+        $this->corregir($nota, $p->ID_PRODUCTO, 4)->assertStatus(422)
+            ->assertJsonPath('message', "{$destino->NOMBRE} ya lo recibió: si regresó material, usa «Devolución».");
+        $this->assertSame(3.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
     }
 
     public function test_el_historial_ofrece_corregir_y_marca_lo_corregido(): void

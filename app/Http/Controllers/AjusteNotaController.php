@@ -66,7 +66,7 @@ class AjusteNotaController extends Controller
 
         // Por qué NO se puede cada cosa (null = sí se puede). El orden importa: primero lo que
         // es de la nota, después la clave del usuario.
-        $noDevolver = $this->devoluciones->motivoNoDevolvible($salidas)
+        $noDevolver = $this->devoluciones->motivoNoDevolvible($filas)
             ?? ($linea['pendiente'] <= InventarioService::EPS ? 'Ya se devolvió todo lo que se entregó de este producto.' : null)
             ?? ($puedeDevolver ? null : 'Registrar una devolución pide la clave «almacen.movimiento».');
         $noCorregir = $this->correcciones->motivoNoCorregible($salidas, $filas)

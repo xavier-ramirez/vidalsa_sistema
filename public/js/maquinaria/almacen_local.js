@@ -806,7 +806,8 @@
             const sm = signoYMagnitud(m);
             const p = ctx.productos.get(m.prod) || null;
             const um = p ? p.um : '';
-            const conNota = m.tipo === 'SALIDA' && !!m.nota;
+            // Toda Nota de Entrega: salida directa o envío a otro almacén (su retorno no lleva nota).
+            const conNota = (m.tipo === 'SALIDA' || m.tipo === 'TRASPASO_SALIDA') && !!m.nota;
             const queda = conNota ? porDevolver(kd, m) : null;
             const devuelto = conNota ? r3(m.cant - queda) : 0;
             const registro = m.usuario ? m : null;

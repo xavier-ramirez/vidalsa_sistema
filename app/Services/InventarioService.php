@@ -159,7 +159,7 @@ class InventarioService
     public function registrarDevolucion(MovimientoInventario $salida, float $cantidad, array $opts = []): MovimientoInventario
     {
         $this->assertCantidadPositiva($cantidad);
-        if ($salida->TIPO !== MovimientoInventario::TIPO_SALIDA) {
+        if (!in_array($salida->TIPO, MovimientoInventario::TIPOS_SALIDA, true)) {
             throw new InvalidArgumentException('Solo se puede devolver material de una salida.');
         }
 
@@ -183,6 +183,38 @@ class InventarioService
                 $optsDevolucion
             );
         });
+    }
+
+    /**
+     * Lado del DESTINO de la devolución de un envío: el material sale del almacén que lo
+     * recibió (TRASPASO_SALIDA hacia el origen), de la MISMA bolsa a la que entró, por lo que
+     * vuelve al origen con $devolucion. Queda enlazada a esa DEVOLUCION, así que deshacer
+     * cualquiera de las dos se lleva la otra (idsMovimientoYContraparte). Sin cascada: si el
+     * destino ya no lo tiene, es "Stock insuficiente".
+     *
+     * SIN ID_TRASPASO a propósito: TraspasoService::movimientosDelItem junta por envío +
+     * producto, y deshacer esta fila se llevaría el envío entero.
+     */
+    public function registrarRetornoEnvio(MovimientoInventario $entrada, MovimientoInventario $devolucion, array $opts = []): MovimientoInventario
+    {
+        if ($entrada->TIPO !== MovimientoInventario::TIPO_TRASPASO_ENTRADA) {
+            throw new InvalidArgumentException('El retorno de un envío sale de lo que entró al destino.');
+        }
+        $bolsa = $entrada->ID_FRENTE_SALDO ?? $entrada->ID_FRENTE ?? self::FRENTE_BOLSA_COMUN;
+
+        return DB::transaction(fn () => $this->aplicarMovimiento(
+            (int) $entrada->ID_ALMACEN,
+            (int) $entrada->ID_PRODUCTO,
+            MovimientoInventario::TIPO_TRASPASO_SALIDA,
+            (float) $devolucion->CANTIDAD,
+            [
+                'id_frente'                 => $entrada->ID_FRENTE,
+                '_frente_saldo'             => (int) $bolsa,
+                'id_almacen_contraparte'    => (int) $devolucion->ID_ALMACEN,
+                'id_movimiento_relacionado' => (int) $devolucion->ID_MOVIMIENTO,
+                'referencia'                => $devolucion->REFERENCIA,
+            ] + $opts + ['motivo' => 'Devolución de la Nota ' . $devolucion->REFERENCIA],
+        ));
     }
 
     /**
@@ -430,7 +462,7 @@ class InventarioService
         if ($movs->count() !== count($nuevas)) {
             throw new RuntimeException('Una de las líneas de la nota ya no existe: vuelve a abrir la corrección.');
         }
-        if ($movs->contains(fn ($m) => $m->TIPO !== MovimientoInventario::TIPO_SALIDA)) {
+        if ($movs->contains(fn ($m) => !in_array($m->TIPO, MovimientoInventario::TIPOS_SALIDA, true))) {
             throw new InvalidArgumentException('Solo se puede corregir la cantidad de una salida.');
         }
 
@@ -692,9 +724,21 @@ class InventarioService
         if ($mov->ID_MOVIMIENTO_RELACIONADO && $mov->TIPO !== MovimientoInventario::TIPO_DEVOLUCION) {
             $ids->push((int) $mov->ID_MOVIMIENTO_RELACIONADO);
         }
-        return $ids->merge(
-            MovimientoInventario::where('ID_MOVIMIENTO_RELACIONADO', $mov->ID_MOVIMIENTO)->pluck('ID_MOVIMIENTO')
-        )->map(fn ($v) => (int) $v)->unique()->values();
+        // Las filas que cuelgan de esas: la entrada de un envío y las devoluciones. Se miran
+        // las de la contraparte también, para que deshacer la ENTRADA de un envío se lleve las
+        // devoluciones de su salida (la salida se va con ella).
+        $hijos = MovimientoInventario::whereIn('ID_MOVIMIENTO_RELACIONADO', $ids)->get(['ID_MOVIMIENTO', 'TIPO']);
+        $ids = $ids->merge($hijos->pluck('ID_MOVIMIENTO'));
+        // Y el retorno del destino de cada devolución de un envío (registrarRetornoEnvio).
+        $devoluciones = $hijos->where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)->pluck('ID_MOVIMIENTO');
+        if ($mov->TIPO === MovimientoInventario::TIPO_DEVOLUCION) {
+            $devoluciones->push($mov->ID_MOVIMIENTO);
+        }
+        if ($devoluciones->isNotEmpty()) {
+            $ids = $ids->merge(MovimientoInventario::whereIn('ID_MOVIMIENTO_RELACIONADO', $devoluciones)
+                ->where('TIPO', MovimientoInventario::TIPO_TRASPASO_SALIDA)->pluck('ID_MOVIMIENTO'));
+        }
+        return $ids->map(fn ($v) => (int) $v)->unique()->values();
     }
 
     /**

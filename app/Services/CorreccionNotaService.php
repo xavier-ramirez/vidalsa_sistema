@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AlmacenStock;
 use App\Models\CorreccionNota;
 use App\Models\MovimientoInventario;
+use App\Models\TraspasoLinea;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use RuntimeException;
@@ -33,15 +34,24 @@ class CorreccionNotaService
 
     /**
      * Por qué no se puede corregir este producto de la nota, o null si se puede.
-     * - Un envío a otro almacén (TRASPASO_SALIDA) tiene su recepción en el destino: su
-     *   cantidad se corrige desde Recepción, no aquí.
+     * - Un envío a otro almacén (TRASPASO_SALIDA) se corrige mientras el destino no lo haya
+     *   recibido: después, lo que entró allá es lo que se contó, y si regresó material es
+     *   una devolución.
      * - Si el producto va en VARIAS líneas impresas (distinto Nº de parte, proyecto o destino), la
      *   cantidad de "el producto" no dice cuál de ellas cambiar.
      */
     public function motivoNoCorregible(Collection $salidas, Collection $filasProducto): ?string
     {
-        if ($salidas->contains(fn ($m) => $m->TIPO !== MovimientoInventario::TIPO_SALIDA)) {
-            return 'Esta nota es un envío a otro almacén: su cantidad se corrige desde Recepción, no aquí.';
+        if ($envio = $this->devoluciones->envio($filasProducto)) {
+            if ($envio['traspaso']?->esCancelado()) {
+                return 'Este envío se canceló: el material ya volvió al almacén.';
+            }
+            if (!$envio['linea']) {
+                return 'No se encontró el envío de este producto.';
+            }
+            if ($envio['linea']->estaConfirmada()) {
+                return $envio['destino'] . ' ya lo recibió: si regresó material, usa «Devolución».';
+            }
         }
         // Misma clave de línea que la nota impresa (AlmacenController::renderNotaEntregaPdfBinary):
         // el destino de la nota horizontal también parte el producto en varias líneas.
@@ -115,6 +125,16 @@ class CorreccionNotaService
             // tiene cada bolsa y nadie lo cambia hasta terminar.
             $this->inventario->bloquearSaldos((int) $filas->first()->ID_ALMACEN, [$idProducto]);
             $this->inventario->corregirCantidadesSalida($this->repartir($filas, $nueva - $actual));
+            // En un envío, la línea del pedido también: es lo que Recepción espera recibir. Bajo
+            // candado y mirando otra vez: si el destino la confirmó mientras tanto, no se toca.
+            if ($envio = $this->devoluciones->envio($filas)) {
+                $lineaEnvio = TraspasoLinea::whereKey($envio['linea']->ID_LINEA)->lockForUpdate()->first();
+                if (!$lineaEnvio || $lineaEnvio->estaConfirmada()) {
+                    throw new RuntimeException($envio['destino'] . ' acaba de recibir este envío: si regresó material, usa «Devolución».');
+                }
+                $lineaEnvio->CANTIDAD_ENVIADA = $nueva;
+                $lineaEnvio->save();
+            }
 
             CorreccionNota::create([
                 'NUMERO_NOTA'      => $numero,

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\MovimientoInventario;
+use App\Models\TraspasoLinea;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -21,6 +22,10 @@ use RuntimeException;
  *
  * Si además hay que entregar otra cosa (la talla 42), eso es una salida normal con su propia
  * Nota: se registra desde el inventario, no desde aquí (decisión del cliente, 14-09-2026).
+ *
+ * Una nota de ENVÍO a otro almacén (TRASPASO_SALIDA) también se devuelve: el material sale
+ * del almacén que lo recibió (TRASPASO_SALIDA de retorno, enlazada a la DEVOLUCION) y vuelve
+ * al de origen, a la bolsa de la que salió. Solo lo que ya se recibió y sigue sin devolver.
  *
  * Todo en una transacción: o vuelve todo lo indicado, o no vuelve nada.
  */
@@ -43,17 +48,54 @@ class DevolucionService
     }
 
     /**
-     * Por qué no se puede devolver sobre estas filas, o null si se puede. Un envío a otro
-     * almacén (TRASPASO_SALIDA) no se consumió: entró al stock del otro almacén, y lo que
-     * sobre se regresa con otro envío o se devuelve sobre la nota con la que ESE almacén
-     * lo entregó.
+     * Por qué no se puede devolver este producto de la nota, o null si se puede. Solo los
+     * envíos a otro almacén tienen motivos propios: lo que no llegó no puede regresar.
      */
-    public function motivoNoDevolvible(Collection $salidas): ?string
+    public function motivoNoDevolvible(Collection $filas): ?string
     {
-        if ($salidas->contains(fn ($m) => $m->TIPO !== MovimientoInventario::TIPO_SALIDA)) {
-            return 'Esta nota es un envío a otro almacén: el material entró a su inventario. La devolución se registra en ese almacén, sobre la nota con la que lo entregó.';
+        $envio = $this->envio($filas);
+        if ($envio === null) {
+            return null;
+        }
+        if ($envio['traspaso']?->esCancelado()) {
+            return 'Este envío se canceló: el material ya volvió al almacén.';
+        }
+        if (!$envio['linea'] || !$envio['linea']->estaConfirmada()) {
+            return 'Este envío todavía no se recibe en ' . $envio['destino'] . '. Si salió de más, usa «Corrección».';
+        }
+        if ($envio['recibido'] <= self::EPS) {
+            return 'El destino no recibió este producto (llegó en 0 o dañado): no hay nada que devolver.';
         }
         return null;
+    }
+
+    /**
+     * Datos del envío de estas filas (todas del mismo producto), o null si son salidas
+     * directas: la línea del pedido, el pedido, el nombre del destino y lo que entró al
+     * destino (la TRASPASO_ENTRADA; lo dañado no entra).
+     */
+    public function envio(Collection $filas): ?array
+    {
+        $envios = $filas->where('TIPO', MovimientoInventario::TIPO_TRASPASO_SALIDA);
+        if ($envios->isEmpty()) {
+            return null;
+        }
+        $primera = $envios->first();
+        $linea = TraspasoLinea::with(['traspaso.almacenDestino:ID_ALMACEN,NOMBRE', 'movimientoEntrada'])
+            ->whereIn('ID_MOVIMIENTO_SALIDA', $envios->pluck('ID_MOVIMIENTO'))
+            ->first()
+            ?? TraspasoLinea::with(['traspaso.almacenDestino:ID_ALMACEN,NOMBRE', 'movimientoEntrada'])
+                ->where('ID_TRASPASO', $primera->ID_TRASPASO)->where('ID_PRODUCTO', $primera->ID_PRODUCTO)
+                ->first();
+        $traspaso = $linea?->traspaso;
+
+        return [
+            'linea'    => $linea,
+            'traspaso' => $traspaso,
+            'destino'  => $traspaso?->almacenDestino?->NOMBRE ?? 'el almacén destino',
+            'entrada'  => $linea?->movimientoEntrada,
+            'recibido' => round((float) ($linea?->movimientoEntrada?->CANTIDAD ?? 0), 3),
+        ];
     }
 
     /**
@@ -69,6 +111,10 @@ class DevolucionService
             $producto  = $filas->first()->producto;
             $entregado = round($filas->sum(fn ($s) => (float) $s->CANTIDAD), 3);
             $pendiente = round($filas->sum(fn ($s) => $porDevolver[$s->ID_MOVIMIENTO]), 3);
+            $devuelto  = round($entregado - $pendiente, 3);
+            if ($envio = $this->envio($filas)) {
+                $pendiente = max(0.0, round(min($pendiente, $envio['recibido'] - $devuelto), 3));
+            }
 
             return [
                 'id_producto' => (int) $filas->first()->ID_PRODUCTO,
@@ -76,7 +122,7 @@ class DevolucionService
                 'nombre'      => $producto?->NOMBRE ?? '—',
                 'um'          => $producto?->UM,
                 'entregado'   => $entregado,
-                'devuelto'    => round($entregado - $pendiente, 3),
+                'devuelto'    => $devuelto,
                 'pendiente'   => $pendiente,
             ];
         })->values()->all();
@@ -116,9 +162,6 @@ class DevolucionService
             if ($salidas->isEmpty()) {
                 throw new RuntimeException("La Nota {$numero} no existe o ya fue eliminada.");
             }
-            if ($motivo = $this->motivoNoDevolvible($salidas)) {
-                throw new RuntimeException($motivo);
-            }
             // Todas las bolsas de los productos de la nota, en el orden de cualquier salida
             // (bloquearSaldos): devolver tramo a tramo las tomaba al revés y se trababa con una
             // salida en cascada simultánea del mismo producto (InnoDB 1213).
@@ -151,8 +194,18 @@ class DevolucionService
                     throw new InvalidArgumentException("La cantidad a devolver de «{$nombre}» debe ser mayor que cero.");
                 }
 
-                $pendiente = round($filas->sum(fn ($s) => $porDevolver[$s->ID_MOVIMIENTO]), 3);
+                if ($motivo = $this->motivoNoDevolvible($filas)) {
+                    throw new RuntimeException("«{$nombre}»: {$motivo}");
+                }
+                $envio     = $this->envio($filas);
+                $pendiente = $this->lineas($filas)[0]['pendiente'];
                 if ($cantidad > $pendiente + self::EPS) {
+                    if ($envio) {
+                        throw new RuntimeException(sprintf(
+                            'De «%s» solo se pueden devolver %s %s: es lo que recibió %s y no se ha devuelto.',
+                            $nombre, InventarioService::num($pendiente), $producto?->UM ?? '', $envio['destino']
+                        ));
+                    }
                     throw new RuntimeException(sprintf(
                         'No puedes devolver más de lo entregado. De «%s» quedan %s %s por devolver en la Nota %s y se intentó devolver %s.',
                         $nombre, InventarioService::num($pendiente), $producto?->UM ?? '', $numero, InventarioService::num($cantidad)
@@ -169,7 +222,7 @@ class DevolucionService
                         continue;
                     }
                     $tramo = round(min($resto, $libre), 3);
-                    $pasos[] = ['producto' => $idProducto, 'salida' => $salida, 'cantidad' => $tramo];
+                    $pasos[] = ['producto' => $idProducto, 'salida' => $salida, 'cantidad' => $tramo, 'entrada' => $envio['entrada'] ?? null];
                     $porDevolver[$salida->ID_MOVIMIENTO] = round($libre - $tramo, 3);
                     $resto = round($resto - $tramo, 3);
                     if ($resto <= self::EPS) {
@@ -180,12 +233,24 @@ class DevolucionService
 
             usort($pasos, fn ($a, $b) => $a['producto'] <=> $b['producto']);
 
+            // Los saldos del destino de los envíos, también antes de mover nada y en orden.
+            foreach (collect($pasos)->pluck('entrada')->filter()->groupBy('ID_ALMACEN')->sortKeys() as $idAlmacen => $entradas) {
+                $this->inventario->bloquearSaldos((int) $idAlmacen, $entradas->pluck('ID_PRODUCTO')->all());
+            }
+
             foreach ($pasos as $paso) {
-                $this->inventario->registrarDevolucion($paso['salida'], $paso['cantidad'], [
+                $devolucion = $this->inventario->registrarDevolucion($paso['salida'], $paso['cantidad'], [
                     'fecha'      => $fecha,
                     'id_usuario' => $idUsuario,
                     'motivo'     => $motivoDevolucion,
                 ]);
+                if ($paso['entrada']) {
+                    $this->inventario->registrarRetornoEnvio($paso['entrada'], $devolucion, [
+                        'fecha'      => $fecha,
+                        'id_usuario' => $idUsuario,
+                        'motivo'     => $motivoDevolucion,
+                    ]);
+                }
             }
         });
     }
