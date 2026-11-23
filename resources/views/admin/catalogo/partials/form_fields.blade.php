@@ -12,6 +12,15 @@
         display: flex;
         flex-direction: column;
     }
+    /* Cajas compactas: las de .form-input-custom (12px arriba/abajo + letra de 15px ≈ 46px)
+       se veían muy altas para un formulario de 9 campos (pedido 23-11-2026). Alto FIJO: mide
+       lo mismo con cualquier tipo de letra. Lo comparten crear y editar. */
+    .catalog-form-grid .form-input-custom {
+        height: 38px;
+        padding-top: 0;
+        padding-bottom: 0;
+        font-size: 14px;
+    }
 
     .catalog-label {
         display: block;

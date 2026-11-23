@@ -530,6 +530,14 @@ class GoogleDriveService
         // La de antes de VERSION_MINIATURAS ya no se lee: se borra al pedir la nueva.
         $disco->delete(self::CARPETA_COPIAS . 'thumb_' . preg_replace('/[^A-Za-z0-9_-]/', '', $sz) . '_' . $fileId);
 
+        // Un archivo que Drive dijo que NO existe se recuerda una hora: una foto rota de una
+        // tarjeta del catálogo se pedía en cada visita y cada vez era una consulta a Google
+        // (0,3 s; 2,7 s la primera) que ocupaba una conexión del navegador. Si se cambia la
+        // foto, la nueva tiene otro ID; un archivo recién subido Drive ya lo tiene.
+        if (Cache::has('gdrive_no_existe_' . $fileId)) {
+            return [null, null];
+        }
+
         // "w300" o "w300-h200" van tal cual; un numero pelado ("300") es un lado maximo.
         $tamano = ctype_digit($sz[0]) ? 's' . $sz : $sz;
         $bytes = null;
@@ -572,6 +580,9 @@ class GoogleDriveService
             // contestado: no se pierde eso, o se caeria a la URL publica, que con un archivo
             // privado es justo la espera de hasta 27 s que se quiere evitar.
             $apiContesto = $apiContesto || $e->getCode() === 404;
+            if ($e->getCode() === 404) {
+                Cache::put('gdrive_no_existe_' . $fileId, true, 3600);
+            }
             Log::warning('Miniatura de Drive por API fallo para ' . $fileId . ': ' . $e->getMessage());
         }
 

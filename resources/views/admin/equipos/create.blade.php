@@ -64,16 +64,17 @@
     .dropdown-list[data-modo="equipo"] .dropdown-item[data-scope="aux"],
     .dropdown-list[data-modo="aux"]    .dropdown-item[data-scope="equipo"] { display: none !important; }
 
-    /* Desplegables (Combustible, Estatus, Frente) del MISMO alto que las cajas de texto:
-       .form-input-custom = 12px arriba/abajo + letra de 15px. El relleno vertical lo pone el
-       texto de dentro y no el trigger, asi mide igual con cualquier tipo de letra (el
-       chevron de 24px cabe holgado). Frente lleva un <input> al que la regla global
-       .dropdown-trigger:has(> input) le suma 4px a la izquierda: 11 + 4 = los 15px de las
-       demas cajas, para que el texto arranque en la misma linea. */
-    #createUnifiedForm .dropdown-trigger { padding-top: 0; padding-bottom: 0; }
+    /* TODAS las cajas del formulario (texto, fecha, número y los desplegables Combustible,
+       Estatus y Frente) con UN alto fijo: 42px, el del desplegable de Frente de Trabajo,
+       pedido como medida (23-11-2026). Fijo y no por relleno: así mide lo mismo con cualquier
+       tipo de letra y con el ícono de calendario de las fechas. El texto queda centrado.
+       Frente lleva un <input> al que la regla global .dropdown-trigger:has(> input) le suma
+       4px a la izquierda: 11 + 4 = los 15px de las demás cajas, el texto arranca en la misma línea. */
+    #createUnifiedForm .form-input-custom,
+    #createUnifiedForm .dropdown-trigger { height: 42px; padding-top: 0; padding-bottom: 0; }
     #createUnifiedForm .dropdown-trigger:has(> input) { padding-left: 11px; }
     #createUnifiedForm .dropdown-trigger > span:first-child,
-    #createUnifiedForm .dropdown-trigger > input { padding-top: 12px; padding-bottom: 12px; font-size: 15px; line-height: normal; }
+    #createUnifiedForm .dropdown-trigger > input { padding-top: 0; padding-bottom: 0; font-size: 15px; line-height: normal; }
 </style>
 
 @include('admin.partials.page_header', [
