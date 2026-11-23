@@ -17,8 +17,7 @@ use Illuminate\Support\Facades\DB;
 class DatosNotaSalida
 {
     /**
-     * Proyectos (frentes ACTIVOS) del campo "Proyecto", con sus CONTRATOS para las
-     * sugerencias del campo "Contrato N°" (se gestionan en /admin/frentes).
+     * Proyectos (frentes ACTIVOS) del campo "Proyecto", con sus CONTRATOS (ver contratosPorFrente).
      */
     public static function frentes(): Collection
     {
@@ -27,12 +26,38 @@ class DatosNotaSalida
             ->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'CONTRATOS']);
     }
 
-    /** { ID_FRENTE: ["CTR-2026-0042", ...] } para el campo "Contrato N°". */
+    /**
+     * { ID_FRENTE: ["CTR-2026-0042", ...] }. La pantalla lo usa para la Nota hecha sin internet:
+     * con red, el contrato lo pone el servidor (contratoDe).
+     */
     public static function contratosPorFrente(Collection $frentes): Collection
     {
         return $frentes->mapWithKeys(fn ($f) => [
-            $f->ID_FRENTE => array_values(array_filter((array) ($f->CONTRATOS ?? []))),
+            $f->ID_FRENTE => self::contratos($f->CONTRATOS),
         ]);
+    }
+
+    /**
+     * El Contrato N° de la Nota de Entrega: el del proyecto (el primero de sus CONTRATOS, que se
+     * registran por SQL o en /admin/frentes). No se escribe en el formulario.
+     */
+    public static function contratoDe(?int $idFrente): ?string
+    {
+        if (!$idFrente) {
+            return null;
+        }
+
+        return self::contratos(FrenteTrabajo::withTrashed()->whereKey($idFrente)->value('CONTRATOS'))[0] ?? null;
+    }
+
+    /** CONTRATOS de un frente (array por el cast, o el JSON crudo de value()) → lista limpia. */
+    private static function contratos(mixed $valor): array
+    {
+        if (is_string($valor)) {
+            $valor = json_decode($valor, true);
+        }
+
+        return array_values(array_filter(array_map(fn ($c) => trim((string) $c), (array) ($valor ?? []))));
     }
 
     /**

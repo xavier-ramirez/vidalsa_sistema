@@ -76,8 +76,11 @@ class RecepcionDespachoDirectoTest extends MySqlTestCase
 
     public function test_entra_y_sale_al_proyecto_con_su_nota_de_entrega(): void
     {
+        // El Contrato N° es el del proyecto (el primero de sus CONTRATOS); lo que mande el
+        // formulario no cuenta.
+        DB::table('frentes_trabajo')->where('ID_FRENTE', $this->frenteConsumo)->update(['CONTRATOS' => json_encode(['CTR-9', 'CTR-10'])]);
         $nota = $this->despachar($this->general, $this->frenteConsumo, [
-            'numero_contrato'     => 'CTR-9',
+            'numero_contrato'     => 'ESCRITO A MANO',
             'numero_rq'           => 'RQ-77',
             'solicitante'         => 'ING. PEREZ',
             'departamento'        => 'MANTENIMIENTO',

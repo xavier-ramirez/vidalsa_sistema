@@ -1,5 +1,5 @@
 {{-- ────────────────────────────────────────────────────────────────
-     Campos de la NOTA DE ENTREGA de una salida: Proyecto, Contrato N°, Almacén destino,
+     Campos de la NOTA DE ENTREGA de una salida: Proyecto, Almacén destino,
      Fecha, RQ N°, Solicitante, Departamento, Vehículo/Chofer y Observaciones.
      Un solo formulario para las dos pantallas que despachan con nota:
        · /admin/almacen → modal "Registrar salida" (index.blade.php)
@@ -12,16 +12,16 @@
 {{-- Cabecera tipo "Nota de Entrega de Materiales" ─────────────────────────────
      Layout inspirado en el Excel VID-FO-GEN-019, optimizado para ocupar menos
      alto vertical:
-       PROYECTO (2fr) | CONTRATO N° (1fr)                (misma fila)
+       PROYECTO                                          (full)
        FECHA DE ENTREGA | RQ N° | Solicitante            (3 columnas)
        DEPARTAMENTO                                      (full)
        OBSERVACIONES                                     (full)
      Entre la 1ª y la 2ª fila se intercala ALMACÉN DESTINO, que solo aparece cuando
      hace falta (ver su bloque): no es parte de la hoja del Excel, sino de la
      decisión de a dónde va el material.
-     CONTRATO N° y RQ N° se ocultan cuando el almacén de origen emite la nota en
-     formato HORIZONTAL (esa hoja no los imprime): las dos filas quedan en
-     PROYECTO (full) y FECHA | Solicitante. Lo hace almSalidaAplicarFormatoNota()
+     RQ N° se oculta cuando el almacén de origen emite la nota en formato
+     HORIZONTAL (esa hoja no lo imprime): la fila queda en FECHA | Solicitante.
+     Lo hace almSalidaAplicarFormatoNota()
      (almacen_salida_nota.js) al abrir el modal, que es el único sitio que conoce esa
      diferencia. --}}
 <div id="almSalidaNotaWrap" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
@@ -31,71 +31,42 @@
          La metadata del formulario (CÓDIGO, FECHA EMIS, REV) ya no sale en ningún
          lado: describía la plantilla, no la entrega. Ver NotaEntregaPDF::Header. --}}
 
-    {{-- PROYECTO (ancho) | CONTRATO N° (estrecho) — misma fila.
-         Contrato N° es input + caret (igual patron que "Categoria" del modal de
-         producto): al elegir proyecto destino, la lista del dropdown se rellena
-         con los contratos registrados de ese frente (NO se abre sola, ver
-         almSalidaOnProyectoChange) — el usuario elige uno, escribe
-         uno nuevo, o deja en blanco. --}}
-    <div id="almSalidaGridProyecto" class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;align-items:start;">
-        <div>
-            {{-- El for= apunta al input VISIBLE (data-filter-search) en vez de al
-                 hidden #almSalidaProyecto: Chrome marca como inválido un <label for=>
-                 que rotula un <input type="hidden"> (no es focuseable ni autofillable),
-                 y rompe la asociación a11y. El hidden mantiene su id porque el JS lo
-                 lee con el('almSalidaProyecto').value para enviar el ID del frente. --}}
-            <label class="alm-nota-label" for="almSalidaProyectoSearch">Proyecto *</label>
-            {{-- Custom-dropdown estándar de la app: hidden #almSalidaProyecto guarda el ID
-                 (lo que lee el JS de envío); el trigger tiene un input data-filter-search
-                 que filtra los items mientras el usuario escribe (autocomplete nativo del
-                 componente). Cuando se elige una opción, dispatchea el evento
-                 `dropdown-selection` que el listener de almSalida usa para refrescar las
-                 sugerencias de Contrato N°. --}}
-            <div class="custom-dropdown" id="almSalidaProyectoDropdown" data-default-label="Selecciona uno">
-                <input type="hidden" id="almSalidaProyecto" data-filter-value value="">
-                <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
-                    <input type="text" id="almSalidaProyectoSearch" data-filter-search autocomplete="off"
-                           placeholder="Selecciona uno"
-                           style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;"
-                           oninput="window.filterDropdownOptions(this)">
-                    {{-- Este trigger NO lleva caret: la ✕ es su único icono. La lista se abre
-                         igual, porque el handler global de uicomponents.js delega el clic en
-                         .dropdown-trigger, no en el icono. --}}
-                    <i class="material-icons" data-clear-btn style="padding:0 12px;color:#64748b;font-size:18px;display:none;cursor:pointer;"
-                       onclick="event.stopPropagation(); clearDropdownFilter('almSalidaProyectoDropdown');">close</i>
-                </div>
-                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                    <div class="dropdown-item-list" style="max-height:240px;overflow-y:auto;">
-                        @foreach(($frentesLista ?? collect()) as $f)
-                            <div class="dropdown-item" data-value="{{ $f->ID_FRENTE }}"
-                                 onclick="selectOption('almSalidaProyectoDropdown','{{ $f->ID_FRENTE }}','{{ addslashes($f->NOMBRE_FRENTE) }}');">
-                                {{ $f->NOMBRE_FRENTE }}
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
+    {{-- PROYECTO. El Contrato N° no se pide: la Nota lleva el del proyecto (CONTRATOS del
+         frente, ver DatosNotaSalida::contratoDe). --}}
+    <div style="margin-bottom:10px;">
+        {{-- El for= apunta al input VISIBLE (data-filter-search) en vez de al
+             hidden #almSalidaProyecto: Chrome marca como inválido un <label for=>
+             que rotula un <input type="hidden"> (no es focuseable ni autofillable),
+             y rompe la asociación a11y. El hidden mantiene su id porque el JS lo
+             lee con el('almSalidaProyecto').value para enviar el ID del frente. --}}
+        <label class="alm-nota-label" for="almSalidaProyectoSearch">Proyecto *</label>
+        {{-- Custom-dropdown estándar de la app: hidden #almSalidaProyecto guarda el ID
+             (lo que lee el JS de envío); el trigger tiene un input data-filter-search
+             que filtra los items mientras el usuario escribe (autocomplete nativo del
+             componente). Cuando se elige una opción, dispatchea el evento
+             `dropdown-selection` que el listener de almSalida usa para decidir el
+             almacén destino. --}}
+        <div class="custom-dropdown" id="almSalidaProyectoDropdown" data-default-label="Selecciona uno">
+            <input type="hidden" id="almSalidaProyecto" data-filter-value value="">
+            <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
+                <input type="text" id="almSalidaProyectoSearch" data-filter-search autocomplete="off"
+                       placeholder="Selecciona uno"
+                       style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;"
+                       oninput="window.filterDropdownOptions(this)">
+                {{-- Este trigger NO lleva caret: la ✕ es su único icono. La lista se abre
+                     igual, porque el handler global de uicomponents.js delega el clic en
+                     .dropdown-trigger, no en el icono. --}}
+                <i class="material-icons" data-clear-btn style="padding:0 12px;color:#64748b;font-size:18px;display:none;cursor:pointer;"
+                   onclick="event.stopPropagation(); clearDropdownFilter('almSalidaProyectoDropdown');">close</i>
             </div>
-        </div>
-        <div id="almSalidaContratoWrap">
-            <label class="alm-nota-label" for="almSalidaContrato">Contrato N°</label>
-            {{-- Custom-dropdown (mismo componente que Proyecto): el panel flota
-                 absolutamente (NO empuja el modal hacia abajo) y se abre con clic en
-                 el trigger / foco en el input. El input SI es libre — el usuario
-                 puede escribir un contrato que no este en la lista, dejarlo en blanco
-                 (es opcional), o elegir uno de los contratos registrados del proyecto.
-                 La lista de items se rellena al elegir proyecto destino. --}}
-            <div class="custom-dropdown" id="almSalidaContratoDropdown">
-                <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
-                    <input type="text" id="almSalidaContrato" autocomplete="off" maxlength="100"
-                           placeholder="Selecciona"
-                           style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;"
-                           oninput="window.almSalidaContratoFilter(this)">
-                    <i class="material-icons" id="almSalidaContratoClearBtn" style="padding:0 8px;color:#64748b;font-size:18px;display:none;cursor:pointer;"
-                       onclick="event.stopPropagation(); window.almSalidaContratoClear();">close</i>
-                    <i class="material-icons" style="padding:0 8px;color:#94a3b8;font-size:20px;">expand_more</i>
-                </div>
-                <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                    <div class="dropdown-item-list" id="almSalidaContratoItems" style="max-height:240px;overflow-y:auto;"></div>
+            <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
+                <div class="dropdown-item-list" style="max-height:240px;overflow-y:auto;">
+                    @foreach(($frentesLista ?? collect()) as $f)
+                        <div class="dropdown-item" data-value="{{ $f->ID_FRENTE }}"
+                             onclick="selectOption('almSalidaProyectoDropdown','{{ $f->ID_FRENTE }}','{{ addslashes($f->NOMBRE_FRENTE) }}');">
+                            {{ $f->NOMBRE_FRENTE }}
+                        </div>
+                    @endforeach
                 </div>
             </div>
         </div>

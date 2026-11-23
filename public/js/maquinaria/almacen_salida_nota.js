@@ -1,6 +1,6 @@
 /*
- * Formulario de la NOTA DE ENTREGA de una salida: Proyecto, Contrato N°, Almacén destino,
- * Fecha, RQ N°, Solicitante, Departamento, Vehículo/Chofer y Observaciones.
+ * Formulario de la NOTA DE ENTREGA de una salida: Proyecto, Almacén destino, Fecha, RQ N°,
+ * Solicitante, Departamento, Vehículo/Chofer y Observaciones.
  *
  * Lo comparten las dos pantallas que despachan con nota, para que pidan EXACTAMENTE lo mismo:
  *   · /admin/almacen → modal "Registrar salida" (almacen_index.js)
@@ -11,8 +11,8 @@
  *
  * Se carga UNA vez por sesión (la SPA no re-ejecuta un <script src> ya cargado); cada pantalla
  * llama a AlmSalidaNota.configurar() con los datos de su apertura y AlmSalidaNota.abrir() al
- * abrir su modal. Los manejadores que el HTML llama por onclick/oninput (almSalidaContrato*,
- * almLogSugerir, almSalidaSyncAlmacenDestino, almSalidaOnProyectoChange) siguen siendo globales
+ * abrir su modal. Los manejadores que el HTML llama por onclick/oninput (almLogSugerir,
+ * almSalidaSyncAlmacenDestino, almSalidaOnProyectoChange) siguen siendo globales
  * con su nombre de siempre.
  */
 (function () {
@@ -24,7 +24,7 @@
     function almNorm(s) { return window.FuzzySearch.norm(s); }
 
     // Datos de la apertura (los pasa cada pantalla en configurar):
-    //   frenteContratos     { ID_FRENTE: ["CTR-…", …] }      → sugerencias de "Contrato N°"
+    //   frenteContratos     { ID_FRENTE: ["CTR-…", …] }      → el Contrato N° de la Nota sin internet
     //   almacenesPorFrente  { ID_FRENTE: [{id, nombre}, …] } → "Almacén destino"
     //   frentesPorAlmacen   { ID_ALMACEN: [ID_FRENTE, …] }   → "Proyecto": los del almacén, primero
     //   formatoPorAlmacen   { ID_ALMACEN: "VERTICAL"|… }     → qué campos imprime la hoja
@@ -108,11 +108,9 @@
     }
     function almSalidaAplicarFormatoNota(idAlmacen) {
         var horizontal = almNotaEsHorizontal(idAlmacen);
-        var wrapC = el('almSalidaContratoWrap'); if (wrapC) wrapC.style.display = horizontal ? 'none' : '';
         var wrapR = el('almSalidaRqWrap');       if (wrapR) wrapR.style.display = horizontal ? 'none' : '';
-        // Reflow de las dos filas del grid. En mobile el CSS las fuerza a 1fr con
-        // !important, así que estos anchos solo mandan en escritorio.
-        var g1 = el('almSalidaGridProyecto'); if (g1) g1.style.gridTemplateColumns = horizontal ? '1fr' : '2fr 1fr';
+        // Reflow de la fila del grid. En mobile el CSS la fuerza a 1fr con !important, así
+        // que estos anchos solo mandan en escritorio.
         var g2 = el('almSalidaGridDatos');    if (g2) g2.style.gridTemplateColumns = horizontal ? '1fr 1.4fr' : '1fr 1fr 1.4fr';
     }
 
@@ -310,78 +308,6 @@
         almDeptoPintar();
     }
 
-    // ── Contrato N° ──
-    // Es un custom-dropdown (mismo componente que Proyecto) con UNA particularidad: el input es
-    // libre. El usuario puede (a) elegir un contrato de la lista, (b) escribir uno nuevo que no
-    // este en la lista, o (c) dejarlo en blanco (es opcional). La fuente de la verdad para el
-    // payload es SIEMPRE el .value del input visible #almSalidaContrato — no hay hidden.
-    //
-    // Lista de items: se rebuilds desde CFG.frenteContratos[idFrente] cada vez que cambia el
-    // Proyecto destino. La apertura/cierre del panel la maneja el sistema global de
-    // custom-dropdown (uicomponents.js) — no duplicamos esa logica aqui.
-    function almSalidaContratoSync() {
-        // Mostrar/ocultar el boton "x" de limpiar segun haya texto en el input.
-        var inp = el('almSalidaContrato');
-        var btn = el('almSalidaContratoClearBtn');
-        if (!inp || !btn) return;
-        btn.style.display = (inp.value || '').trim() ? 'block' : 'none';
-    }
-    function almSalidaContratoBuildList(idFrente) {
-        var box = el('almSalidaContratoItems');
-        if (!box) return;
-        var list = ((CFG.frenteContratos || {})[idFrente] || []);
-        if (!list.length) {
-            // Mensaje informativo dentro del propio panel del dropdown — no rompe layout
-            // (el panel flota absolutamente, no empuja el modal hacia abajo).
-            box.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:#94a3b8;font-style:italic;">Sin contratos previos — puedes escribirlo.</div>';
-            return;
-        }
-        // dropdown-item es la misma clase que usa Proyecto — hereda el hover/selected del
-        // sistema global. El click llama almSalidaContratoPick (no selectOption, porque NO
-        // queremos que el sistema toque hidden/placeholder/clear-btn — eso lo manejamos aqui).
-        box.innerHTML = list.map(function (c) {
-            var safe = escHtml(c);
-            // El argumento del onclick va por escapeAttrJs (helper central). Antes se
-            // escapaban las comillas simples SOBRE el texto ya pasado por escHtml, que las
-            // había convertido en &#39;: el replace no encontraba ninguna, el navegador las
-            // decodificaba a ' al evaluar el atributo, y un contrato con apóstrofo reventaba
-            // con SyntaxError — dejaba de ser clickeable.
-            var jsArg = window.escapeAttrJs(String(c));
-            return '<div class="dropdown-item" data-value="' + safe + '" onclick="window.almSalidaContratoPick(\'' + jsArg + '\')">' + safe + '</div>';
-        }).join('');
-    }
-    window.almSalidaContratoFilter = function (input) {
-        // Filtro local de items por lo que el usuario teclea, con la misma regla que
-        // filterDropdownOptions (FuzzySearch.filtrar: palabras en cualquier orden, sin acentos,
-        // margen si nada sale exacto), pero contenido al item-list de contrato: este dropdown
-        // no usa hidden + label, es input libre.
-        var box = el('almSalidaContratoItems');
-        if (!box) return;
-        var items = Array.prototype.slice.call(box.querySelectorAll('.dropdown-item'));
-        var quedan = new Set(window.FuzzySearch.filtrar(items, input.value, function (i) { return i.textContent; }));
-        items.forEach(function (item) {
-            item.style.setProperty('display', quedan.has(item) ? 'block' : 'none', 'important');
-        });
-        almSalidaContratoSync();
-    };
-    window.almSalidaContratoPick = function (c) {
-        var inp = el('almSalidaContrato');
-        if (inp) inp.value = c || '';
-        // Re-mostrar TODOS los items para la proxima apertura (el filtro previo pudo ocultar varios).
-        var box = el('almSalidaContratoItems');
-        if (box) box.querySelectorAll('.dropdown-item').forEach(function (item) { item.style.removeProperty('display'); });
-        var dd = el('almSalidaContratoDropdown');
-        if (dd) dd.classList.remove('active');
-        almSalidaContratoSync();
-    };
-    window.almSalidaContratoClear = function () {
-        var inp = el('almSalidaContrato'); if (inp) inp.value = '';
-        var box = el('almSalidaContratoItems');
-        if (box) box.querySelectorAll('.dropdown-item').forEach(function (item) { item.style.removeProperty('display'); });
-        almSalidaContratoSync();
-        if (inp) inp.focus();
-    };
-
     // ── Almacén destino ──
     // Almacenes a los que PUEDE ir el material del proyecto elegido: los del frente
     // menos el de origen (mandarse material a uno mismo no es un traspaso).
@@ -430,13 +356,9 @@
     window.almSalidaOnProyectoChange = function () {
         var sel  = el('almSalidaProyecto');
         if (!sel) return;
-        almSalidaContratoBuildList(sel.value);
         window.almSalidaSyncAlmacenDestino();
-        // NO auto-abrimos el panel: el campo Contrato N° es opcional y abrirlo
-        // automaticamente al elegir proyecto resultaba intrusivo. El usuario decide
-        // cuando ver la lista haciendo clic en el trigger o en el input.
     };
-    // Al elegir proyecto (componente custom-dropdown global): contratos y almacén destino.
+    // Al elegir proyecto (componente custom-dropdown global): almacén destino.
     window.addEventListener('dropdown-selection', function (e) {
         if (e.detail && e.detail.dropdownId === 'almSalidaProyectoDropdown') {
             // El nombre elegido, para la Nota sin internet si la lista se repinta sin él
@@ -471,7 +393,7 @@
             // sin recargar — el modal es el mismo nodo para todos.
             almSalidaAplicarFormatoNota(ID_ORIGEN);
             // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
-            ['almSalidaContrato', 'almSalidaRq', 'almSalidaSolicitante', 'almSalidaDepartamento', 'almSalidaMotivo'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+            ['almSalidaRq', 'almSalidaSolicitante', 'almSalidaDepartamento', 'almSalidaMotivo'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
             if (opts && opts.motivo) { var mo = el('almSalidaMotivo'); if (mo) mo.value = opts.motivo; }
             ALM_LOG_CAMPOS.forEach(function (c) { var e = el(c.id); if (e) e.value = ''; });
             almLogCargar(ID_ORIGEN);
@@ -484,11 +406,6 @@
             var hidP = el('almSalidaProyecto'); if (hidP) hidP.removeAttribute('data-nombre');
             almSalidaOrdenarProyectos(ID_ORIGEN);
             var fe = el('almSalidaFecha'); if (fe) fe.value = window.hoyISO();
-            // Reset del dropdown de contratos: vaciar items, cerrar el panel, ocultar el clear-btn.
-            // La lista se rellena cuando el usuario elige proyecto destino.
-            var citems = el('almSalidaContratoItems'); if (citems) citems.innerHTML = '';
-            var cdd    = el('almSalidaContratoDropdown'); if (cdd) cdd.classList.remove('active');
-            var cbtn   = el('almSalidaContratoClearBtn'); if (cbtn) cbtn.style.display = 'none';
             // Asegurar que el dropdown de Proyecto NO quede abierto si una sesion previa lo
             // dejo con .active (el helper global focusin auto-abre cuando el input del trigger
             // recibe foco — por eso evitamos hacer .focus() automatico al abrir el modal).
@@ -522,7 +439,10 @@
                 d.id_almacen_destino = parseInt(idDest, 10);
             }
             var fecha  = v('almSalidaFecha');         if (fecha)  d.fecha = fecha;
-            var contr  = v('almSalidaContrato');      if (contr)  d.numero_contrato = contr;
+            // El Contrato N° no se escribe: es el del proyecto. El servidor lo pone igual
+            // (DatosNotaSalida::contratoDe); aquí viaja para la Nota hecha sin internet.
+            var contr  = ((CFG.frenteContratos || {})[idFrenteDest] || [])[0];
+            if (contr) d.numero_contrato = contr;
             var rqN    = v('almSalidaRq');            if (rqN)    d.numero_rq = rqN;
             var solic  = v('almSalidaSolicitante');   if (solic)  d.solicitante = solic;
             var depto  = v('almSalidaDepartamento');  if (depto)  d.departamento = depto;

@@ -2722,7 +2722,6 @@ class AlmacenController extends Controller
     private function reglasNotaSalida(): array
     {
         return [
-            'numero_contrato' => 'nullable|string|max:100',
             'numero_rq'       => 'nullable|string|max:100',
             'solicitante'     => 'nullable|string|max:200',
             'departamento'    => 'nullable|string|max:150',
@@ -2737,11 +2736,14 @@ class AlmacenController extends Controller
         ] + $this->reglasTransporte();
     }
 
-    /** Los datos de la Nota que viajan en las opciones del movimiento (vacíos si no vienen). */
+    /**
+     * Los datos de la Nota que viajan en las opciones del movimiento (vacíos si no vienen). El
+     * Contrato N° no lo escribe nadie: es el del proyecto destino.
+     */
     private function datosNotaSalida(array $data): array
     {
         return [
-            'numero_contrato' => $data['numero_contrato'] ?? null,
+            'numero_contrato' => \App\Support\DatosNotaSalida::contratoDe($data['id_frente_destino'] ?? $data['id_frente'] ?? null),
             'numero_rq'       => $data['numero_rq']       ?? null,
             'solicitante'     => $data['solicitante']     ?? null,
             'departamento'    => $data['departamento']    ?? null,
@@ -3235,7 +3237,7 @@ class AlmacenController extends Controller
         // ── Armar $datos y $movs en MEMORIA (mismas claves que notaEntregaPdf) ──
         // Los atributos de modelos (frente, almacen, productos) pasan por el cast
         // App\Casts\MojibakeFix automaticamente. Para los campos que vienen del
-        // request directamente (numero_contrato, numero_rq, solicitante, etc.) NO
+        // request directamente (numero_rq, solicitante, etc.) NO
         // hay cast, asi que llamamos MojibakeFix::fix() de defensa por si el usuario
         // pega texto con mojibake en el formulario (caso raro pero posible).
         $frente  = !empty($data['id_frente_destino'])
@@ -3246,7 +3248,7 @@ class AlmacenController extends Controller
         $datos = [
             'numero_nota'   => 'NE-VISTA-PREVIA',
             'proyecto'      => $frente?->NOMBRE_FRENTE ?? '',
-            'contrato'      => $fixReq($data['numero_contrato'] ?? ''),
+            'contrato'      => $frente ? (\App\Support\DatosNotaSalida::contratoDe($frente->ID_FRENTE) ?? '') : '',
             'fecha'         => !empty($data['fecha'])
                 ? \Carbon\Carbon::parse($data['fecha'])->format('d/m/Y')
                 : now()->format('d/m/Y'),
