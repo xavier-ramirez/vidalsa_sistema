@@ -3688,6 +3688,8 @@ class AlmacenController extends Controller
                 if ($movs->isEmpty()) {
                     throw new RuntimeException('Esta Nota ya fue eliminada por otra operación.');
                 }
+                // Las bolsas de sus productos en el orden de cualquier salida, como la devolución.
+                $this->inventario->bloquearSaldos((int) $movs->first()->ID_ALMACEN, $movs->pluck('ID_PRODUCTO')->all());
 
                 $porDevolver = MovimientoInventario::porDevolver($movs);
                 foreach ($movs as $m) {
@@ -3758,7 +3760,8 @@ class AlmacenController extends Controller
             // Una sola transacción: el kardex y el envío en Recepción cambian juntos o no
             // cambia ninguno. Lo del envío se averigua ANTES de borrar (TraspasoService::
             // prepararDeshacer): después la línea ya no dice de qué movimiento era.
-            [$r, $envios] = DB::transaction(function () use ($id) {
+            // transaccionAlDia: el recálculo tiene que ver lo último confirmado (ver ahí).
+            [$r, $envios] = $this->inventario->transaccionAlDia(function () use ($id) {
                 // El candado va PRIMERO: con REPEATABLE READ la primera lectura normal fija la
                 // foto del kardex para toda la transacción. Si prepararDeshacer leyera antes del
                 // candado, una devolución de esta salida registrada mientras tanto quedaría fuera
@@ -3803,6 +3806,11 @@ class AlmacenController extends Controller
             return response()->json(['message' => 'El movimiento no existe o ya fue eliminado.'], 404);
         }
         $this->assertPuedeVerAlmacen($request, (int) $mov->ID_ALMACEN);
+
+        // Lo que el deshacer va a rechazar se dice antes de confirmar.
+        if ($motivo = $this->inventario->motivoNoDeshacer($mov)) {
+            return response()->json(['avisos' => [$motivo]]);
+        }
 
         // Frases cortas: el aviso se lee de un vistazo antes de un paso irreversible.
         $avisos = ['Se revierte el stock y se borra sin dejar rastro.'];

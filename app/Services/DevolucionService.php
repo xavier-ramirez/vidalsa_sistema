@@ -119,6 +119,10 @@ class DevolucionService
             if ($motivo = $this->motivoNoDevolvible($salidas)) {
                 throw new RuntimeException($motivo);
             }
+            // Todas las bolsas de los productos de la nota, en el orden de cualquier salida
+            // (bloquearSaldos): devolver tramo a tramo las tomaba al revés y se trababa con una
+            // salida en cascada simultánea del mismo producto (InnoDB 1213).
+            $this->inventario->bloquearSaldos((int) $salidas->first()->ID_ALMACEN, $salidas->pluck('ID_PRODUCTO')->all());
 
             $fecha       = $this->fechaDevolucion($salidas);
             $porDevolver = MovimientoInventario::porDevolver($salidas);

@@ -251,6 +251,9 @@ class InventarioService
             if (! $mov) {
                 throw new InvalidArgumentException("El movimiento #{$idMovimiento} no existe o ya fue eliminado.");
             }
+            if ($motivo = $this->motivoNoDeshacer($mov)) {
+                throw new InvalidArgumentException($motivo);
+            }
 
             // Reunir las filas a borrar: la propia + su contraparte de traspaso (helper
             // compartido con el borrado SIN reverso, para no duplicar la lógica del enlace)
@@ -260,6 +263,15 @@ class InventarioService
                 ->map(fn ($v) => (int) $v)
                 ->unique()
                 ->values();
+
+            // Los saldos de cada almacén tocado, en el orden de cualquier salida, ANTES de leer
+            // el kardex: una salida del mismo producto confirmada mientras tanto entra en el
+            // recálculo en vez de perderse (quien llama abre con transaccionAlDia).
+            $porAlmacen = MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->get(['ID_ALMACEN', 'ID_PRODUCTO'])
+                ->groupBy('ID_ALMACEN')->sortKeys();
+            foreach ($porAlmacen as $idAlmacen => $filas) {
+                $this->bloquearSaldos((int) $idAlmacen, $filas->pluck('ID_PRODUCTO')->all());
+            }
 
             $movs = MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->get();
 
@@ -273,6 +285,26 @@ class InventarioService
 
             return ['eliminados' => $movs->count(), 'afectados' => $afectados];
         });
+    }
+
+    /**
+     * Por qué NO se puede deshacer $mov, o null. Una DEVOLUCION de una nota ya ELIMINADA (su
+     * salida perdió el NUMERO_NOTA): eliminarNota devolvió solo lo que faltaba, así que quitar
+     * una de sus devoluciones —o la propia reversión— dejaba esa nota anulada contando como
+     * consumo, sin botón para arreglarlo. La que se deshace es la salida, que se las lleva.
+     * La usan el deshacer y su aviso previo.
+     */
+    public function motivoNoDeshacer(MovimientoInventario $mov): ?string
+    {
+        if ($mov->TIPO !== MovimientoInventario::TIPO_DEVOLUCION || !$mov->ID_MOVIMIENTO_RELACIONADO) {
+            return null;
+        }
+        $salida = MovimientoInventario::find($mov->ID_MOVIMIENTO_RELACIONADO);
+        if (!$salida || $salida->NUMERO_NOTA) {
+            return null;
+        }
+        $nota = $mov->REFERENCIA ? " {$mov->REFERENCIA}" : '';
+        return "La Nota{$nota} fue eliminada: esta devolución no se deshace sola. Deshaz la salida #{$salida->ID_MOVIMIENTO}, que se la lleva junto con la nota.";
     }
 
     /**
@@ -387,9 +419,9 @@ class InventarioService
         [$pares, $bolsasPorPar, $aperturas] = $this->aperturasDeBolsas($movs);
 
         // El kardex de las bolsas de las filas que SUBEN, ANTES de tocarlo, recalculado (y no
-        // leído de las columnas guardadas, que pueden traer saltos de un borrado "solo del
-        // historial"): con él se distingue un negativo que ya estaba de uno que crea la
-        // corrección.
+        // leído de las columnas guardadas, que pueden traer saltos de borrados "solo del
+        // historial" hechos antes de que esos pasaran al saldo de partida): con él se distingue
+        // un negativo que ya estaba de uno que crea la corrección.
         $antes = [];
         foreach ($movs as $m) {
             if (round((float) $nuevas[$m->ID_MOVIMIENTO], 3) > (float) $m->CANTIDAD + self::EPS) {
@@ -578,9 +610,12 @@ class InventarioService
      * fila (o el par de traspaso) del kardex. Se usa cuando el saldo físico ya es correcto
      * y la entrada/salida NO debe revertirse, solo borrarse del historial.
      *
-     * A diferencia del reverso: NO se recalcula CANTIDAD_ANTERIOR/RESULTANTE de los
-     * movimientos posteriores. Eso deja un "salto" en los saldos corridos del kardex —
-     * es el comportamiento PEDIDO a propósito (borrar el rastro sin alterar el stock).
+     * Lo que hizo la fila pasa al saldo de PARTIDA de su bolsa: las filas anteriores a ella
+     * suben (o bajan) en lo que movió y las posteriores quedan igual. Así el kardex sigue
+     * encadenado y el stock se mantiene también cuando algo recalcula después (una
+     * corrección, otro deshacer), que parte del «anterior» de la fila más vieja
+     * (aperturasDeBolsas). Antes la fila solo se borraba y dejaba un salto en los saldos, y
+     * el primer recálculo lo cerraba moviendo el stock en esa cantidad sin avisar.
      *
      * Irreversible: no deja registro en ninguna parte.
      *
@@ -597,6 +632,19 @@ class InventarioService
             // Mismo conjunto de filas que el reverso (la propia + su contraparte de
             // traspaso) para no dejar media pata colgando — pero aquí NO se toca el stock.
             $ids = $this->idsMovimientoYContraparte($mov);
+
+            foreach (MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->orderBy('ID_MOVIMIENTO')->get() as $fila) {
+                $efecto = round((float) $fila->CANTIDAD_RESULTANTE - (float) $fila->CANTIDAD_ANTERIOR, 3);
+                if (abs($efecto) > self::EPS) {
+                    $suma = sprintf('%.3F', $efecto);
+                    $this->kardexDeBolsa((int) $fila->ID_ALMACEN, (int) $fila->ID_PRODUCTO, $this->bolsaDeFila($fila)[1])
+                        ->where('ID_MOVIMIENTO', '<', $fila->ID_MOVIMIENTO)
+                        ->update([
+                            'CANTIDAD_ANTERIOR'   => DB::raw("CANTIDAD_ANTERIOR + ({$suma})"),
+                            'CANTIDAD_RESULTANTE' => DB::raw("CANTIDAD_RESULTANTE + ({$suma})"),
+                        ]);
+                }
+            }
 
             return ['eliminados' => MovimientoInventario::whereIn('ID_MOVIMIENTO', $ids)->delete()];
         });

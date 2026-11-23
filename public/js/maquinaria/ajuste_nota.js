@@ -42,8 +42,15 @@
     function num(n) {
         return (Math.round((Number(n) || 0) * 1000) / 1000).toLocaleString('es-VE', { maximumFractionDigits: 3 });
     }
+    // Se lee como la muestra num() (es-VE): "1.500" son mil quinientos, no 1,5 —antes
+    // parseFloat se quedaba en 1.5 y la nota se corregía mil veces más chica—. Con un solo
+    // separador que no sea de miles ("2.5", "2,5") es el decimal. Cualquier otra cosa: 0.
     function cantidad() {
-        var n = parseFloat(String($('ajNotaCant').value || '').trim().replace(',', '.'));
+        var t = String($('ajNotaCant').value || '').trim().replace(/\s/g, '');
+        if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');
+        else if (/^\d*[.,]?\d+$/.test(t)) t = t.replace(',', '.');
+        else return 0;
+        var n = parseFloat(t);
         return isFinite(n) ? n : 0;
     }
 
@@ -255,7 +262,9 @@
                     return;
                 }
                 w.toast(res.d.message || 'Listo.', 'success');
-                if (typeof w.loadMovimientos === 'function') w.loadMovimientos();   // la fila cambia de cantidad o de marca
+                // La tabla no se recarga aquí: el guardado pone al día la copia local y su aviso
+                // ('copia-local') repinta la MISMA página sin spinner. Recargar desde aquí la
+                // mandaba a la página 1.
                 if (!vigente()) {
                     // Se reabrió con la MISMA línea mientras se guardaba: lo que muestra es de
                     // antes de guardar. Se vuelve a pedir para que no se modifique sobre cifras viejas.
