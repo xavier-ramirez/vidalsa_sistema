@@ -1091,14 +1091,16 @@ class MovilizacionController extends Controller
     public function bulkDestroy(Request $request)
     {
         // Permiso super.admin gateado en el middleware del constructor.
+        // Un id que ya no existe (otro usuario lo borró o lo deshizo) no frena el resto: se
+        // borran los que quedan y el mensaje dice cuántos de verdad.
         $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'exists:movilizacion_historial,ID_MOVILIZACION',
+            'ids'   => 'required|array',
+            'ids.*' => 'integer',
         ]);
 
         try {
-            Movilizacion::whereIn('ID_MOVILIZACION', $request->ids)->delete();
-            return response()->json(['success' => true, 'message' => count($request->ids) . ' registros eliminados con exito.']);
+            $n = Movilizacion::whereIn('ID_MOVILIZACION', $request->ids)->delete();
+            return response()->json(['success' => true, 'message' => $n === 1 ? '1 registro eliminado.' : $n . ' registros eliminados.']);
         } catch (\Exception $e) {
             Log::error('bulkDestroy movilizacion error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'No se pudieron eliminar los registros.'], 500);

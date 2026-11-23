@@ -409,10 +409,9 @@
 <script>
 // Tras borrar o deshacer: la copia local pregunta ya por el cambio y la tabla se repinta.
 window._mvRefrescar = function () {
-    window.CopiaLocal.ahora('movilizaciones').then(function () {
-        _mvPreloader(false);
-        window.loadMovilizaciones(window._mvPagina);
-    });
+    window.CopiaLocal.ahora('movilizaciones')
+        .then(function () { window.loadMovilizaciones(window._mvPagina); })
+        .finally(function () { _mvPreloader(false); });
 };
 
 // ── Eliminar seleccionados y Deshacer ──
@@ -421,9 +420,10 @@ window._mvRefrescar = function () {
 function _mvAviso(titulo, mensaje) {
     window.showModal({ type: 'warning', title: titulo, message: mensaje, hideCancel: true });
 }
+// El spinner común (contado por referencias, preloader.js). Antes se tocaba su display a
+// mano: con la clase fade-out puesta no se veía, y saltaba la cuenta de los demás.
 function _mvPreloader(ver) {
-    const p = document.getElementById('preloader');
-    if (p) p.style.display = ver ? 'flex' : 'none';
+    if (ver) window.showPreloader(); else window.hidePreloader();
 }
 
 // Borrado en lote de las filas seleccionadas (azul).
@@ -485,6 +485,7 @@ window.movDeshacer = function (id) {
         .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b }; }); })
         .then(function (res) {
             if (res.ok && res.b.success) {
+                window._mvSelectedIds.delete(String(id));   // la fila ya no existe
                 window.toast(res.b.message || 'Movilización deshecha.', 'success');
                 window._mvRefrescar();
             } else {
