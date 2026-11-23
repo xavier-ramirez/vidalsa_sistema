@@ -63,6 +63,17 @@
        display:block inline al teclear y si no, reaparecerían las del otro mundo. */
     .dropdown-list[data-modo="equipo"] .dropdown-item[data-scope="aux"],
     .dropdown-list[data-modo="aux"]    .dropdown-item[data-scope="equipo"] { display: none !important; }
+
+    /* Desplegables (Combustible, Estatus, Frente) del MISMO alto que las cajas de texto:
+       .form-input-custom = 12px arriba/abajo + letra de 15px. El relleno vertical lo pone el
+       texto de dentro y no el trigger, asi mide igual con cualquier tipo de letra (el
+       chevron de 24px cabe holgado). Frente lleva un <input> al que la regla global
+       .dropdown-trigger:has(> input) le suma 4px a la izquierda: 11 + 4 = los 15px de las
+       demas cajas, para que el texto arranque en la misma linea. */
+    #createUnifiedForm .dropdown-trigger { padding-top: 0; padding-bottom: 0; }
+    #createUnifiedForm .dropdown-trigger:has(> input) { padding-left: 11px; }
+    #createUnifiedForm .dropdown-trigger > span:first-child,
+    #createUnifiedForm .dropdown-trigger > input { padding-top: 12px; padding-bottom: 12px; font-size: 15px; line-height: normal; }
 </style>
 
 @include('admin.partials.page_header', [
@@ -366,26 +377,20 @@
                              selectOption lo limpie al elegir y toggleDropdown lo enfoca al abrir.
                              El filtrado lo hace el helper CENTRAL window.filterDropdownOptions y
                              `data-fuzzy` le pide ordenar por relevancia (tolera erratas). --}}
-                        {{-- SIN padding:0 en el trigger: el .dropdown-trigger ya trae su relleno (8px 15px)
-                             y quitarlo dejaba la caja en 26px de alto frente a los 42 del Estatus de al lado.
-                             El input va sin relleno propio para no sumar altura sobre la del componente. --}}
                         {{-- SIN onclick inline: el manejador delegado de uicomponents.js ya atiende
                              todos los .dropdown-trigger y sabe distinguir un clic en la CAJA (abrir y
                              dejar teclear) de uno en el contenedor (alternar). Teniendo ademas el
                              onclick, cada clic ejecutaba la apertura DOS veces. Es el mismo montaje
                              que el filtro de Frente de /admin/equipos, que tampoco lleva onclick. --}}
-                        {{-- Mismo alto que las cajas de texto (.form-input-custom = 12px arriba/abajo
-                             + letra de 15px): el relleno vertical lo pone el INPUT, no el trigger, asi
-                             la caja mide exactamente lo mismo con cualquier tipo de letra. El 11px de la
-                             izquierda + los 4px que .dropdown-trigger:has(> input) le da al input = 15px,
-                             el texto arranca donde arranca en las demas cajas. --}}
+                        {{-- El alto (igual al de las cajas de texto) lo da la regla de
+                             #createUnifiedForm .dropdown-trigger del <style> de arriba. --}}
                         <div class="dropdown-trigger" tabindex="0" role="button"
-                             style="display: flex; align-items: center; gap: 6px; overflow: hidden; padding: 0 15px 0 11px;">
+                             style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
                             <input type="text" data-filter-search id="label_frente_trabajo"
                                    placeholder="{{ old('ID_FRENTE_ACTUAL') ? ($frentes[old('ID_FRENTE_ACTUAL')] ?? 'SELECCIONE') : 'SELECCIONE' }}"
                                    autocomplete="off" aria-label="Frente de Trabajo"
                                    oninput="window.filterDropdownOptions(this)"
-                                   style="flex:1; min-width:0; border:none; background:transparent; padding:12px 0; font-size:15px; line-height:normal; font-family:inherit; outline:none; color:#0f172a; cursor:text;">
+                                   style="flex:1; min-width:0; border:none; background:transparent; padding-right:0; font-family:inherit; outline:none; color:#0f172a; cursor:text;">
                             <i class="material-icons">expand_more</i>
                         </div>
                         <div class="dropdown-content">
@@ -581,7 +586,7 @@
             <a href="{{ route('equipos.index') }}" class="btn-primary-maquinaria btn-secondary">Cancelar</a>
             <button type="submit" class="btn-primary-maquinaria" id="btnSubmitUnified">
                 <i class="material-icons">save</i>
-                <span id="btnSubmitLabel">Guardar</span>
+                <span>Guardar</span>
             </button>
         </div>
     </form>
