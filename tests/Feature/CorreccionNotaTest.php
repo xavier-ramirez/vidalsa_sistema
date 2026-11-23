@@ -311,6 +311,69 @@ class CorreccionNotaTest extends MySqlTestCase
         $this->assertSame(3.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
     }
 
+    public function test_un_envio_cancelado_no_se_corrige(): void
+    {
+        $origen  = $this->almacen();
+        $destino = Almacen::create(['NOMBRE' => 'DESTINO ' . $this->marca, 'TIPO' => Almacen::TIPO_GENERAL])->fresh();
+        $p = $this->producto('ABRAZADERA');
+        $this->inv->registrarEntrada($origen->ID_ALMACEN, $p->ID_PRODUCTO, 10);
+        $svc = app(TraspasoService::class);
+        $u   = $this->usuario();
+        [$nota, $envio] = DB::transaction(function () use ($svc, $u, $origen, $destino, $p) {
+            $numero = MovimientoInventario::generarNumeroNota();
+            $envio  = $svc->crearBorrador(['id_almacen_origen' => $origen->ID_ALMACEN, 'id_almacen_destino' => $destino->ID_ALMACEN, 'id_usuario' => $u->ID_USUARIO],
+                [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 5]]);
+            $svc->enviar($envio, ['id_usuario_envio' => $u->ID_USUARIO, 'numero_nota' => $numero]);
+            return [$numero, $envio->fresh('lineas')];
+        });
+
+        // La cancelación ya devolvió los 5: corregir ahora los devolvería otra vez.
+        $svc->cancelar($envio->fresh(), ['id_usuario' => $u->ID_USUARIO]);
+        $this->assertSame(10.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->corregir($nota, $p->ID_PRODUCTO, 3)->assertStatus(422)
+            ->assertJsonPath('message', 'Este envío se canceló: el material ya volvió al almacén.');
+        $this->assertSame(10.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+    }
+
+    public function test_un_envio_en_dos_tramos_se_corrige_sin_perder_el_enlace_con_recepcion(): void
+    {
+        // Almacén por proyecto: 5 salen en dos tramos (3 de la bolsa A y 2 de la B).
+        [$fA, $fB] = $this->frentes(2);
+        $origen  = $this->almacen(Almacen::TIPO_PROYECTO, [$fA, $fB]);
+        $destino = Almacen::create(['NOMBRE' => 'DESTINO ' . $this->marca, 'TIPO' => Almacen::TIPO_GENERAL])->fresh();
+        $p = $this->producto('ABRAZADERA');
+        $this->inv->registrarEntrada($origen->ID_ALMACEN, $p->ID_PRODUCTO, 3, ['id_frente' => $fA]);
+        $this->inv->registrarEntrada($origen->ID_ALMACEN, $p->ID_PRODUCTO, 2, ['id_frente' => $fB]);
+        $svc = app(TraspasoService::class);
+        $u   = $this->usuario();
+        [$nota, $envio] = DB::transaction(function () use ($svc, $u, $origen, $destino, $p) {
+            $numero = MovimientoInventario::generarNumeroNota();
+            $envio  = $svc->crearBorrador(['id_almacen_origen' => $origen->ID_ALMACEN, 'id_almacen_destino' => $destino->ID_ALMACEN, 'id_usuario' => $u->ID_USUARIO],
+                [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 5]]);
+            $svc->enviar($envio, ['id_usuario_envio' => $u->ID_USUARIO, 'numero_nota' => $numero]);
+            return [$numero, $envio->fresh('lineas')];
+        });
+        $this->assertSame(2, MovimientoInventario::where('NUMERO_NOTA', $nota)->count());
+
+        // Eran 2: desaparece un tramo, pero la línea del envío sigue apuntando al que queda.
+        $this->corregir($nota, $p->ID_PRODUCTO, 2)->assertCreated();
+        $tramos = MovimientoInventario::where('NUMERO_NOTA', $nota)->get();
+        $this->assertCount(1, $tramos);
+        $linea = $envio->lineas->first()->fresh();
+        $this->assertSame((int) $tramos->first()->ID_MOVIMIENTO, (int) $linea->ID_MOVIMIENTO_SALIDA);
+        $this->assertSame(2.0, (float) $linea->CANTIDAD_ENVIADA);
+        $this->assertSame(3.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+
+        // Recepción recibe lo corregido, enlazado a la salida; y después se puede devolver.
+        $svc->recibir($envio->fresh(), [['id_linea' => $linea->ID_LINEA, 'cantidad_recibida' => 2]], ['id_usuario_recepcion' => $u->ID_USUARIO]);
+        $this->assertSame((int) $tramos->first()->ID_MOVIMIENTO, (int) $linea->fresh()->movimientoEntrada->ID_MOVIMIENTO_RELACIONADO);
+        $this->actingAs($u)->postJson(route('almacen.devolucion.store'), [
+            'numero' => $nota, 'lineas' => [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 1]],
+        ])->assertCreated();
+        $this->assertSame(4.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
+        $this->assertSame(1.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));
+    }
+
     public function test_el_historial_ofrece_corregir_y_marca_lo_corregido(): void
     {
         $alm = $this->almacen();

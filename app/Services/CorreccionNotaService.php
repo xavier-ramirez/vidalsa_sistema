@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AlmacenStock;
 use App\Models\CorreccionNota;
 use App\Models\MovimientoInventario;
+use App\Models\Traspaso;
 use App\Models\TraspasoLinea;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -92,6 +93,11 @@ class CorreccionNotaService
 
         // transaccionAlDia: el recálculo del kardex tiene que ver lo último confirmado (ver ahí).
         $this->inventario->transaccionAlDia(function () use ($numero, $idProducto, $nueva, $datos) {
+            // Si es un envío, su pedido va PRIMERO y en el orden de Recepción (envío → líneas):
+            // una recepción o cancelación a la vez queda en fila, y lo que se mira abajo
+            // (motivoNoCorregible) ya es lo que dejó. Sin esto, una cancelación devolvía al
+            // origen lo enviado original y la corrección, además, lo que bajó.
+            $this->bloquearEnvio($numero, $idProducto);
             // La nota entera bloqueada, con el MISMO candado que la devolución y el borrado de
             // la nota: una corrección y una devolución a la vez quedan en fila, y la segunda
             // ve lo que dejó la primera.
@@ -125,15 +131,11 @@ class CorreccionNotaService
             // tiene cada bolsa y nadie lo cambia hasta terminar.
             $this->inventario->bloquearSaldos((int) $filas->first()->ID_ALMACEN, [$idProducto]);
             $this->inventario->corregirCantidadesSalida($this->repartir($filas, $nueva - $actual));
-            // En un envío, la línea del pedido también: es lo que Recepción espera recibir. Bajo
-            // candado y mirando otra vez: si el destino la confirmó mientras tanto, no se toca.
+            // En un envío, la línea del pedido también: es lo que Recepción espera recibir (ya
+            // bloqueada por bloquearEnvio y sin confirmar, lo dijo motivoNoCorregible).
             if ($envio = $this->devoluciones->envio($filas)) {
-                $lineaEnvio = TraspasoLinea::whereKey($envio['linea']->ID_LINEA)->lockForUpdate()->first();
-                if (!$lineaEnvio || $lineaEnvio->estaConfirmada()) {
-                    throw new RuntimeException($envio['destino'] . ' acaba de recibir este envío: si regresó material, usa «Devolución».');
-                }
-                $lineaEnvio->CANTIDAD_ENVIADA = $nueva;
-                $lineaEnvio->save();
+                $envio['linea']->CANTIDAD_ENVIADA = $nueva;
+                $envio['linea']->save();
             }
 
             CorreccionNota::create([
@@ -145,6 +147,18 @@ class CorreccionNotaService
                 'ID_USUARIO'       => $datos['id_usuario'] ?? null,
             ]);
         });
+    }
+
+    /** Bloquea el envío de este producto de la nota y su línea, si la nota es un envío. */
+    private function bloquearEnvio(string $numero, int $idProducto): void
+    {
+        $idTraspaso = MovimientoInventario::where('NUMERO_NOTA', $numero)->where('ID_PRODUCTO', $idProducto)
+            ->where('TIPO', MovimientoInventario::TIPO_TRASPASO_SALIDA)->whereNotNull('ID_TRASPASO')
+            ->value('ID_TRASPASO');
+        if ($idTraspaso) {
+            Traspaso::whereKey($idTraspaso)->lockForUpdate()->first();
+            TraspasoLinea::where('ID_TRASPASO', $idTraspaso)->where('ID_PRODUCTO', $idProducto)->lockForUpdate()->get();
+        }
     }
 
     /**

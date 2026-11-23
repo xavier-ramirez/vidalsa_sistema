@@ -3773,6 +3773,12 @@ class AlmacenController extends Controller
                 if (! $mov) {
                     throw new RuntimeException('El movimiento no existe o ya fue eliminado.');
                 }
+                // Y la otra pata del envío: la devolución de un envío bloquea la SALIDA de su
+                // nota, no la entrada del destino. Sin esto, deshacer la ENTRADA no esperaba a
+                // una devolución en curso y la dejaba fuera del borrado, con su retorno.
+                if ($mov->TIPO === MovimientoInventario::TIPO_TRASPASO_ENTRADA && $mov->ID_MOVIMIENTO_RELACIONADO) {
+                    MovimientoInventario::whereKey($mov->ID_MOVIMIENTO_RELACIONADO)->lockForUpdate()->first();
+                }
                 $envio = $this->traspasos->prepararDeshacer($mov);
                 $r     = $this->inventario->eliminarMovimientoConReverso($id, $envio['arrastrados']);
 
