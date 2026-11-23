@@ -252,6 +252,8 @@ class ConsumiblesController extends Controller
         $consumible->update([
             'ESTADO_EQUIPO' => $request->estado_equipo,
             'ID_EQUIPO' => $request->id_equipo,
+            // Un consumo es de un equipo O de un auxiliar, nunca de los dos.
+            'ID_AUXILIAR' => $request->id_equipo ? null : $consumible->ID_AUXILIAR,
         ]);
 
         // Invalidar caché de gráficos
@@ -275,6 +277,7 @@ class ConsumiblesController extends Controller
             'IDENTIFICADOR' => strtoupper(trim($request->identificador)),
             'ESTADO_EQUIPO' => 'PENDIENTE',   // resetear para re-match
             'ID_EQUIPO' => null,
+            'ID_AUXILIAR' => null,
         ]);
 
         // Invalidar caché de gráficos

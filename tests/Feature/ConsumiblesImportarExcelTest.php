@@ -126,6 +126,8 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $ruta = $this->excel($digitos);
         $u = $this->superAdminGlobal();
 
+        $equipos = DB::table('equipos')->count();
+        $auxiliares = DB::table('equipos_auxiliares')->count();
         $subida = $this->subir($u, $ruta)->assertOk();
         $imp = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
         $this->assertSame(ConsumibleImportacion::BORRADOR, $imp->ESTADO);
@@ -144,6 +146,8 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertCount(3, $filas->where('ESTADO_EQUIPO', 'SIN_MATCH'), 'las del camión desconocido entran por identificar');
         $this->assertSame(1, $filas->pluck('ID_FRENTE')->unique()->count());
         $this->assertNotNull($filas->first()->ID_FRENTE);
+        $this->assertSame($equipos, DB::table('equipos')->count(), 'la carga nunca registra equipos');
+        $this->assertSame($auxiliares, DB::table('equipos_auxiliares')->count());
 
         // La misma carga otra vez: todo «ya estaba».
         $this->subir($u, $ruta)->assertOk();
@@ -193,6 +197,25 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertSame(0, (clone $porIdentificar)->count());
         $this->assertSame(5, DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)
             ->where('ID_EQUIPO', $equipo->ID_EQUIPO)->where('ESTADO_EQUIPO', 'CONFIRMADO')->count());
+    }
+
+    public function test_por_identificar_se_resuelve_escribiendo_el_serial_completo(): void
+    {
+        [$equipo, $digitos] = $this->motoniveladora();
+        $u = $this->superAdminGlobal();
+        $this->subir($u, $this->excel($digitos))->assertOk();
+        $imp = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
+        $this->postJson(route('consumibles.importar.aplicar', $imp), ['meses' => ['2026-08']])->assertOk();
+
+        // En Consumibles: al «camión desconocido» se le escribe el serial que faltaba en el Excel.
+        $id = DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->where('ESTADO_EQUIPO', 'SIN_MATCH')->value('ID_CONSUMIBLE');
+        $this->patchJson(route('consumibles.updateIdentificador', $id), ['identificador' => $equipo->SERIAL_CHASIS])->assertOk();
+        $this->postJson(route('consumibles.matchAutomatico'))->assertOk();
+
+        $c = DB::table('consumibles')->where('ID_CONSUMIBLE', $id)->first();
+        $this->assertSame('CONFIRMADO', $c->ESTADO_EQUIPO);
+        $this->assertSame($equipo->ID_EQUIPO, (int) $c->ID_EQUIPO);
+        $this->assertNull($c->ID_AUXILIAR);
     }
 
     public function test_solo_super_admin(): void

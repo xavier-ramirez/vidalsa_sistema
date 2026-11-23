@@ -294,9 +294,10 @@ class IdentificadorConsumo
             $c[] = (string) ($f['cat']['serial'] ?? '');
         }
         $desc = TextoConsumo::norm($f['desc'] ?? '');
-        // Un IDENTIFICADOR guardado por la carga es «descripción | placa | serial»: cada trozo
-        // después del primero es un valor de celda tal cual (así lo resuelve «Ejecutar Match»).
-        array_push($c, ...array_slice(explode(' | ', $desc), 1));
+        // Un IDENTIFICADOR guardado por la carga es «descripción | placa | serial»: cada trozo es
+        // un valor de celda tal cual. Y si en Consumibles alguien lo cambia a mano por la placa o
+        // el serial completo, el texto entero es ese valor (así lo resuelve «Ejecutar Match»).
+        array_push($c, ...explode(' | ', $desc));
         preg_match_all(self::PLACA_ROTULADA, $desc, $m);
         array_push($c, ...$m[1]);
         foreach (self::PLACAS as $re) {

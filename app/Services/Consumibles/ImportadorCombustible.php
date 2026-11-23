@@ -5,7 +5,9 @@ namespace App\Services\Consumibles;
 use App\Http\Controllers\ConsumiblesController;
 use App\Models\ConsumibleImportacion;
 use App\Support\CacheVersion;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -407,7 +409,7 @@ class ImportadorCombustible
      */
     public function aplicar(ConsumibleImportacion $imp, ?array $meses): array
     {
-        return DB::transaction(function () use ($imp, $meses) {
+        return $this->deUnoEnUno(fn () => DB::transaction(function () use ($imp, $meses) {
             $imp = ConsumibleImportacion::whereKey($imp->getKey())->lockForUpdate()->firstOrFail();
             if ($imp->ESTADO !== ConsumibleImportacion::BORRADOR) {
                 throw new RuntimeException('Esta carga ya fue aplicada o descartada.');
@@ -479,7 +481,7 @@ class ImportadorCombustible
             CacheVersion::bump(ConsumiblesController::DATA_VER_KEY);
 
             return ['insertados' => $insertados, 'litros' => round($litros, 2)];
-        });
+        }));
     }
 
     /** Proyecto/actividad y frente/zona tal como venían en el Excel. */
@@ -493,7 +495,7 @@ class ImportadorCombustible
     /** Borra los consumos de una carga aplicada. @return int filas borradas */
     public function deshacer(ConsumibleImportacion $imp): int
     {
-        return DB::transaction(function () use ($imp) {
+        return $this->deUnoEnUno(fn () => DB::transaction(function () use ($imp) {
             $imp = ConsumibleImportacion::whereKey($imp->getKey())->lockForUpdate()->firstOrFail();
             if ($imp->ESTADO !== ConsumibleImportacion::APLICADA) {
                 throw new RuntimeException('Solo se puede deshacer una carga aplicada.');
@@ -504,6 +506,20 @@ class ImportadorCombustible
             CacheVersion::bump(ConsumiblesController::DATA_VER_KEY);
 
             return $n;
-        });
+        }));
+    }
+
+    /**
+     * Aplicar y deshacer, de a uno en todo el sistema. Lo «nuevo» se decide comparando con lo
+     * que ya está en la base: dos cargas guardándose a la vez (dos usuarios con los mismos
+     * archivos) se verían vacías la una a la otra y meterían el mismo despacho dos veces.
+     */
+    private function deUnoEnUno(callable $trabajo): mixed
+    {
+        try {
+            return Cache::lock('consumibles:importar', 300)->block(60, $trabajo);
+        } catch (LockTimeoutException) {
+            throw new RuntimeException('Otra carga de Excel se está guardando en este momento. Intenta de nuevo en un minuto.');
+        }
     }
 }
