@@ -120,6 +120,19 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertNotNull($veladero['id_frente'], 'VELADERO va a su frente por la regla del nombre');
     }
 
+    /**
+     * La identidad entra en la huella guardada de cada consumo: si cambia, la próxima carga
+     * de los mismos Excel no reconoce lo ya cargado y lo duplica. Estos valores no se tocan.
+     */
+    public function test_la_identidad_de_la_huella_no_cambia(): void
+    {
+        $ident = new IdentificadorConsumo();
+        $this->assertSame('A04EA6G', $ident->identidad(['desc' => 'VOLTEO JAC #28', 'placa' => 'A04EA6G']));
+        $this->assertSame('V0LTE0JAC28', $ident->identidad(['desc' => 'VOLTEO JAC #28']));
+        $this->assertSame('A1893AG', $ident->identidad(['desc' => 'MINIBUS A1893AG 2015']));
+        $this->assertSame('C0MPRES0R750CFM', $ident->identidad(['desc' => 'COMPRESOR 750 CFM']));
+    }
+
     public function test_subir_revisar_aplicar_no_repetir_y_deshacer(): void
     {
         [$equipo, $digitos] = $this->motoniveladora();

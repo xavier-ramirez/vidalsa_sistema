@@ -74,6 +74,10 @@ class ImportadorCombustible
         $imp->guardarFilas($filas);
         $imp->save();
 
+        // Lecturas que nadie confirmó ni descartó: no cargaron nada y sus filas ocupan espacio.
+        ConsumibleImportacion::where('ESTADO', ConsumibleImportacion::BORRADOR)
+            ->where('created_at', '<', now()->subDays(7))->delete();
+
         return $imp;
     }
 
@@ -478,7 +482,7 @@ class ImportadorCombustible
             $imp->guardarFilas(null);
             $imp->save();
 
-            CacheVersion::bump(ConsumiblesController::DATA_VER_KEY);
+            DB::afterCommit(fn () => CacheVersion::bump(ConsumiblesController::DATA_VER_KEY));
 
             return ['insertados' => $insertados, 'litros' => round($litros, 2)];
         }));
@@ -503,7 +507,7 @@ class ImportadorCombustible
             $n = DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->delete();
             $imp->ESTADO = ConsumibleImportacion::DESHECHA;
             $imp->save();
-            CacheVersion::bump(ConsumiblesController::DATA_VER_KEY);
+            DB::afterCommit(fn () => CacheVersion::bump(ConsumiblesController::DATA_VER_KEY));
 
             return $n;
         }));

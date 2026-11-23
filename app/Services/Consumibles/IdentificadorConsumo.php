@@ -294,10 +294,6 @@ class IdentificadorConsumo
             $c[] = (string) ($f['cat']['serial'] ?? '');
         }
         $desc = TextoConsumo::norm($f['desc'] ?? '');
-        // Un IDENTIFICADOR guardado por la carga es «descripción | placa | serial»: cada trozo es
-        // un valor de celda tal cual. Y si en Consumibles alguien lo cambia a mano por la placa o
-        // el serial completo, el texto entero es ese valor (así lo resuelve «Ejecutar Match»).
-        array_push($c, ...explode(' | ', $desc));
         preg_match_all(self::PLACA_ROTULADA, $desc, $m);
         array_push($c, ...$m[1]);
         foreach (self::PLACAS as $re) {
@@ -306,6 +302,12 @@ class IdentificadorConsumo
         }
         preg_match_all('/#\s*0*(\d{1,5})\b/', $desc, $m);
         array_push($c, ...$m[1]);
+        // Al final, para no cambiar el primero (la identidad de la huella, ver identidad()): un
+        // IDENTIFICADOR guardado por la carga es «descripción | placa | serial», cada trozo un
+        // valor de celda tal cual; y si en Consumibles alguien lo cambia a mano por la placa o el
+        // serial completo, el texto entero es ese valor (así lo resuelve «Ejecutar Match»).
+        // Solo trozos con algún dígito: «BUS» o «PALA» solos no son una placa ni un código.
+        array_push($c, ...preg_grep('/\d/', explode(' | ', $desc)));
 
         $out = [];
         foreach ($c as $x) {

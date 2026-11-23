@@ -654,7 +654,9 @@ class ConsumiblesController extends Controller
         $query = DB::table('consumibles')
             ->leftJoin('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'consumibles.ID_FRENTE')
             ->leftJoin('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
-            ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo');
+            ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
+            // Los consumos de un auxiliar (máquina de soldar, planta…) llevan ID_AUXILIAR, no ID_EQUIPO.
+            ->leftJoin('equipos_auxiliares', 'equipos_auxiliares.ID_AUXILIAR', '=', 'consumibles.ID_AUXILIAR');
 
         if ($desde) {
             $query->where('consumibles.FECHA', '>=', $desde);
@@ -690,10 +692,10 @@ class ConsumiblesController extends Controller
             DB::raw("COALESCE(frentes_trabajo.NOMBRE_FRENTE, 'S/F') as FRENTE"),
             'consumibles.TIPO_CONSUMIBLE',
             'consumibles.ESPECIFICACION',
-            DB::raw('COALESCE(equipos.CODIGO_PATIO, consumibles.IDENTIFICADOR) as EQUIPO_PLACA'),
+            DB::raw('COALESCE(equipos.CODIGO_PATIO, equipos_auxiliares.CODIGO_INTERNO, consumibles.IDENTIFICADOR) as EQUIPO_PLACA'),
             DB::raw("COALESCE(equipos.MARCA, 'S/M') as MARCA"),
-            DB::raw("COALESCE(equipos.MODELO, 'S/M') as MODELO"),
-            DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as TIPO_EQUIPO"),
+            DB::raw("COALESCE(equipos.MODELO, equipos_auxiliares.MODELO, 'S/M') as MODELO"),
+            DB::raw("COALESCE(tipo_equipos.nombre, REPLACE(equipos_auxiliares.TIPO, '_', ' '), 'S/T') as TIPO_EQUIPO"),
             'consumibles.CANTIDAD',
             'consumibles.UNIDAD',
             'consumibles.RESP_NOMBRE',
@@ -817,7 +819,7 @@ class ConsumiblesController extends Controller
             $sheet->setCellValue('I' . $rowNum, $f->UNIDAD);
             $sheet->setCellValue('J' . $rowNum, $f->RESP_NOMBRE);
             $sheet->setCellValue('K' . $rowNum, $f->RESP_CI);
-            $sheet->setCellValue('L' . $rowNum, $f->ESTADO_EQUIPO);
+            $sheet->setCellValue('L' . $rowNum, $f->ESTADO_EQUIPO === 'SIN_MATCH' ? 'POR IDENTIFICAR' : $f->ESTADO_EQUIPO);
 
             $sheet->getStyle('H' . $rowNum)->getNumberFormat()->setFormatCode('#,##0.00');
 
