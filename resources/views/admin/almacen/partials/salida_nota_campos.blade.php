@@ -61,7 +61,7 @@
                    onclick="event.stopPropagation(); clearDropdownFilter('almSalidaProyectoDropdown');">close</i>
             </div>
             <div class="dropdown-content" style="padding:5px;max-height:none;overflow:visible;">
-                <div class="dropdown-item-list" style="max-height:240px;overflow-y:auto;">
+                <div class="dropdown-item-list" style="max-height:170px;overflow-y:auto;">
                     @foreach(($frentesLista ?? collect()) as $f)
                         <div class="dropdown-item" data-value="{{ $f->ID_FRENTE }}"
                              onclick="selectOption('almSalidaProyectoDropdown','{{ $f->ID_FRENTE }}','{{ addslashes($f->NOMBRE_FRENTE) }}');">
