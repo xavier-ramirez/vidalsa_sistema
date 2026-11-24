@@ -145,7 +145,7 @@ class PanelDocumentos
             'documentos'  => $documentos,
             'documento'   => $documento,
             'ghostscript' => app(CompresorPdf::class)->disponible(),
-            // De la otra pestaña solo hace falta el numero de su botón.
+            // De la otra pestaña solo hace falta el número que lleva su pestaña (docsParaRevisar).
             'docs'        => null,
             'vinesFaltan' => [],
             'unidadesFaltan' => [],

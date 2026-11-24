@@ -903,7 +903,6 @@
         .menu-about-left { text-align: center; }
         .menu-about-head { justify-content: center; margin-bottom: 10px; }
         .menu-about-desc { text-align: center; font-size: 12px; line-height: 1.55; margin-bottom: 16px; }
-        .menu-about-right .dev { font-size: 12px; line-height: 1.55; }
         .menu-about-right {
             border-left: none;
             border-top: 1px dashed #e2e8f0;
@@ -911,7 +910,7 @@
             padding-top: 16px;
             align-items: center;
         }
-        .menu-about-right .dev { align-items: center; }
+        .menu-about-right .dev { align-items: center; font-size: 12px; line-height: 1.55; }
     }
     @media (max-width: 480px) {
         .menu-about { padding: 12px 8px; margin-top: 14px; border-radius: 12px; }
