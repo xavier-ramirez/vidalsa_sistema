@@ -68,17 +68,13 @@ return [
         // ~20 s el peor. Tiene que caber en el tope de la peticion de la carga masiva
         // (set_time_limit(180) en CargaMasivaDocumentosController) junto con la subida y el OCR.
         'timeout' => env('GEMINI_TIMEOUT', 75),
-
-        // Foto del inventario tipo catálogo (App\Services\FotoProductoIA), RESPALDO de Cloudflare.
-        // En plan gratis los modelos de imagen tienen cupo 0 (429): la foto se guarda igual.
-        'modelo_imagen'  => env('GEMINI_MODELO_IMAGEN', 'gemini-2.5-flash-image'),
-        'timeout_imagen' => env('GEMINI_TIMEOUT_IMAGEN', 60),
     ],
 
     // Cloudflare Workers AI: rehace la foto del inventario como foto de catálogo
-    // (App\Services\FotoProductoIA, va ANTES que Gemini). Cupo gratis diario de 10.000 neuronas;
+    // (App\Services\FotoProductoIA). Cupo gratis diario de 10.000 neuronas;
     // una foto de 1024 px con FLUX.2 [klein] 4B gasta ~126 (≈ 75 fotos al día gratis).
     // Sin cuenta ni token no se usa. Token: dash.cloudflare.com → Workers AI → API token.
+    // (Gemini NO: la clave es de plan gratis y sus modelos de imagen tienen cupo 0.)
     'cloudflare_ai' => [
         'account_id'    => env('CLOUDFLARE_ACCOUNT_ID'),
         'token'         => env('CLOUDFLARE_AI_TOKEN'),

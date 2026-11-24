@@ -80,7 +80,7 @@ class AlmacenController extends Controller
     // 600 basta y pesa poco. La que llega más grande (la IA da ~1024) se achica.
     private const FOTO_PRODUCTO_ANCHO = 600;
     // Ancho con el que se le manda la foto a la IA (y se guarda la copia _original).
-    private const FOTO_GEMINI_ANCHO = 1024;
+    private const FOTO_IA_ANCHO = 1024;
 
     /**
      * Cuantos productos entran en el grafico "Top N productos consumidos" del Dashboard
@@ -277,10 +277,9 @@ class AlmacenController extends Controller
      * camino que las fotos de equipos y del catalogo: el archivo vive en Drive y la app lo
      * sirve por esa ruta, asi que la carpeta NO necesita ser publica.
      *
-     * Antes de guardarla, la IA la rehace con fondo blanco tipo catálogo (FotoProductoIA:
-     * Cloudflare y, de respaldo, Gemini),
-     * con el nombre y la categoría del producto para que sepa qué objeto dejar.
-     * Se le manda ya achicada a FOTO_GEMINI_ANCHO (no hace falta más y el envío es liviano).
+     * Antes de guardarla, la IA la rehace con fondo blanco tipo catálogo (FotoProductoIA,
+     * Cloudflare), con el nombre y la categoría del producto para que sepa qué objeto dejar.
+     * Se le manda ya achicada a FOTO_IA_ANCHO (no hace falta más y el envío es liviano).
      * Respuesta `fondo_blanco`: true = la rehizo; false = no pudo (sin cupo, sin red) y quedó
      * la foto tal como vino; null = no hay IA configurada. Cuando sí la rehace, la ORIGINAL
      * también se guarda en la carpeta (sufijo _original): la IA puede cambiar un detalle del
@@ -301,26 +300,26 @@ class AlmacenController extends Controller
         ]);
 
         $producto = ProductoInventario::findOrFail($id);
-        // La IA puede tardar hasta su timeout (60 s; con reintento, y Gemini de respaldo) más la subida a Drive:
+        // La IA puede tardar hasta su timeout (60 s, con un reintento) más la subida a Drive:
         // el tope de 30 s de PHP (XAMPP) cortaría la petición a la mitad.
         @set_time_limit(150);
 
         $temporales = [];
         try {
             // La original, achicada para la IA y para la copia _original.
-            $previa       = $this->convertToWebp($request->file('foto'), self::FOTO_GEMINI_ANCHO);
+            $previa       = $this->convertToWebp($request->file('foto'), self::FOTO_IA_ANCHO);
             $temporales[] = $previa['tempPath'];
 
             // Fondo blanco con la IA. Lo que devuelve se escribe a un temporal y sigue como si
             // el usuario hubiera subido esa imagen; sin respuesta, sigue la original.
             $foto   = $previa['file'];
-            $blanca = $ia->fondoBlanco($foto->getRealPath(), $foto->getMimeType(),
+            $blanca = $ia->fondoBlanco($foto->getRealPath(),
                 trim($producto->NOMBRE . ($producto->CATEGORIA ? ' (' . $producto->CATEGORIA . ')' : '')));
             if ($blanca) {
-                $tmp = tempnam(sys_get_temp_dir(), 'gem_');
+                $tmp = tempnam(sys_get_temp_dir(), 'ia_');
                 if ($tmp !== false && file_put_contents($tmp, $blanca['binario']) !== false) {
                     $temporales[] = $tmp;
-                    $foto = new \Illuminate\Http\UploadedFile($tmp, 'gemini', $blanca['mime'], null, true);
+                    $foto = new \Illuminate\Http\UploadedFile($tmp, 'ia', $blanca['mime'], null, true);
                 } else {
                     if ($tmp !== false) @unlink($tmp);
                     $blanca = null;   // sin disco para el temporal: se guarda la original

@@ -2532,8 +2532,8 @@
     };
 
     // Aviso tras subir una foto, según `fondo_blanco` (AlmacenController::subirFotoProducto):
-    // true = la IA la rehizo tipo catálogo; false = no pudo y quedó la original; null = la IA
-    // no está configurado.
+    // true = la IA la rehizo tipo catálogo; false = no pudo y quedó la original; null = no hay
+    // IA configurada.
     function almFotoAviso(b) {
         if (b.fondo_blanco === true) window.toast('Foto rehecha con IA tipo catálogo.', 'success');
         else if (b.fondo_blanco === false) window.toast('Foto guardada tal cual: la IA no pudo rehacerla.', 'warning');
