@@ -1097,9 +1097,9 @@
                     <div class="alm-suggest-inline alm-suggest-float" id="almProdCatSuggest"></div>
                 </div>
             </div>
-            {{-- Equivalencias (nº de parte) — SOLO al EDITAR un FILTRO. Lista editable
-                 (agregar/quitar como chips); se sincroniza al Guardar. Oculta para no-filtros
-                 y al crear (se agregan editando el filtro ya creado). --}}
+            {{-- Equivalencias (nº de parte) — SOLO al EDITAR un filtro o un repuesto (almLlevaCompat).
+                 Lista editable (agregar/quitar como chips); se sincroniza al Guardar. Oculta para
+                 el resto y al crear (se agregan editando el producto ya creado). --}}
             <div id="almProdEquivWrap" style="display:none;">
                 <label>Equivalencias (números de parte)</label>
                 <div id="almProdEquivList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>

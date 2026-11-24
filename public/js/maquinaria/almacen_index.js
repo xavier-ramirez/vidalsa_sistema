@@ -204,8 +204,7 @@
     // Llevan compatibilidad (nº de parte y equipos que lo usan) los FILTROS y los REPUESTOS; el
     // resto (señalización, papelería, EPP…) no la usa y ni su ficha ni "Editar producto" la piden.
     function almLlevaCompat(cat) {
-        var c = String(cat || '').toUpperCase();
-        return c.indexOf('FILTRO') !== -1 || c.indexOf('REPUESTO') !== -1;
+        return window.ProductoSuggest.esCategoriaFiltro(cat) || String(cat || '').toUpperCase().indexOf('REPUESTO') !== -1;
     }
     // Resuelve el valor "real" de un filtro con patron placeholder-background:
     //   - Si el usuario tipeo algo → ese texto GANA y se promueve a data-active
