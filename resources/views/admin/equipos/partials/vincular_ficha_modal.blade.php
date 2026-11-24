@@ -23,7 +23,9 @@
      data-url-elegir="{{ route('catalogo.elegir') }}"
      data-url-vincular="{{ route('equipos.vincularFicha', '__ID__') }}"
      data-url-asegurar="{{ route('catalogo.asegurarFicha') }}"
-     data-url-foto="{{ route('catalogo.uploadFoto', '__ID__') }}">
+     data-url-foto="{{ route('catalogo.uploadFoto', '__ID__') }}"
+     {{-- Sin catalogo.foto la ficha se vincula igual, pero su foto no se toca. --}}
+     data-puede-foto="{{ auth()->user()?->can('catalogo.foto') ? '1' : '0' }}">
     <div class="vf-box">
         <div class="vf-head">
             <h3 id="vfTitulo"><i class="material-icons">link</i>Vincular a una ficha</h3>

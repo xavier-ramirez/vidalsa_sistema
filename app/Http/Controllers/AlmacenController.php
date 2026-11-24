@@ -118,10 +118,10 @@ class AlmacenController extends Controller
             'updateProducto',
             // Botones + / × de la compatibilidad en "Detalles del producto".
             'agregarEquivalencia', 'quitarEquivalencia', 'opcionesEquipo', 'vincularEquipo', 'desvincularEquipo',
-            // Foto del producto: el @can de la vista solo esconde la capa de subida; la puerta
-            // de verdad es esta, o la ruta quedaria abierta a cualquiera con el modulo.
-            'subirFotoProducto',
         ]);
+        // Foto del producto: clave propia (almacen.foto). El @can de la vista solo esconde la
+        // cámara y los botones del visor; la puerta de verdad es esta.
+        $this->middleware('can:almacen.foto')->only(['subirFotoProducto', 'eliminarFotoProducto']);
         // destroyProducto: borrar un producto del catalogo exige almacen.nota.eliminar
         // (la misma clave que elimina Notas de Entrega) — decision del cliente: una
         // unica clave gobierna los borrados del modulo Almacen.
@@ -369,6 +369,21 @@ class AlmacenController extends Controller
                 @unlink($tmp);
             }
         }
+    }
+
+    /**
+     * Papelera del visor: el producto se queda sin foto y el archivo va a la papelera de Drive
+     * (borrarFotoAnterior: en local no se toca Drive).
+     */
+    public function eliminarFotoProducto($id)
+    {
+        $producto = ProductoInventario::findOrFail($id);
+        $anterior = $producto->FOTO;
+        if ($anterior) {
+            $producto->update(['FOTO' => null]);
+            $this->borrarFotoAnterior($anterior, '');
+        }
+        return response()->json(['success' => true, 'foto' => null]);
     }
 
     /**

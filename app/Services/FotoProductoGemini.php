@@ -29,7 +29,9 @@ class FotoProductoGemini
         . 'el mismo objeto, centrado, completo y nítido, sobre un fondo blanco puro (#FFFFFF), con luz '
         . 'uniforme y una sombra suave debajo. No cambies la forma, el color, las marcas, las etiquetas '
         . 'ni el texto del producto, no agregues objetos y no pongas textos ni marcas de agua. '
-        . 'Encuadre cuadrado.';
+        . 'Si es ropa o tela (bragas, camisas, pantalones, chalecos, guantes), preséntala '
+        . 'planchada, sin arrugas y bien acomodada, como en una tienda, conservando el mismo diseño, '
+        . 'costuras, cintas reflectivas, bolsillos y logos. Encuadre cuadrado.';
 
     /** La instrucción, con el producto que debe quedar en la foto si se conoce. */
     private static function instruccion(string $descripcion): string

@@ -33,6 +33,7 @@
     function $(id) { return document.getElementById(id); }
     function modal() { return $('vfModal'); }
     function abierto() { var m = modal(); return !!(m && m.classList.contains('open')); }
+    function puedeFoto() { var m = modal(); return !!(m && m.getAttribute('data-puede-foto') === '1'); }
     var esc = w.escapeHtml;   // helper central (dom_helpers.js)
     function aviso(texto) { return '<div class="vf-aviso">' + esc(texto) + '</div>'; }
 
@@ -182,9 +183,12 @@
     // tocarlo sube la foto a esa ficha (data-vf-foto, ver los eventos). «Cambiar» solo si la
     // FICHA ya tiene foto (la que se ve puede ser la del propio equipo).
     function cajaFoto(foto, iconoFicha, fichaConFoto) {
+        var img = foto ? '<img src="' + esc(foto) + '" alt="" loading="lazy">' : '<i class="material-icons">' + esc(iconoFicha) + '</i>';
+        // Sin el permiso catalogo.foto: solo la foto, sin cámara (data-puede-foto del modal).
+        if (!puedeFoto()) return '<span class="vf-foto">' + img + '</span>';
         var txt = fichaConFoto ? 'Cambiar foto' : 'Subir foto';
         return '<span class="vf-foto" data-vf-foto title="' + txt + '">' +
-            (foto ? '<img src="' + esc(foto) + '" alt="" loading="lazy">' : '<i class="material-icons">' + esc(iconoFicha) + '</i>') +
+            img +
             '<span class="vf-foto-overlay"><i class="material-icons">photo_camera</i>' + txt + '</span>' +
             '<i class="material-icons vf-foto-cam">photo_camera</i>' +
         '</span>';

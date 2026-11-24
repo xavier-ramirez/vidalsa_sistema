@@ -42,7 +42,7 @@
                     data-anio="{{ $item['anio'] ?? '' }}"
                 @endif
              @endif
-             @can('equipos.create')
+             @can('catalogo.foto')
                 @if($subeFoto)
                 style="cursor:pointer;"
                 title="Click para cambiar la foto"
@@ -99,7 +99,7 @@
             @endif
 
             @if($subeFoto)
-            @can('equipos.create')
+            @can('catalogo.foto')
                 <div class="cat-photo-overlay">
                     <i class="material-icons">photo_camera</i>
                     <span class="cat-photo-overlay-txt">Cambiar foto</span>

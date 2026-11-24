@@ -17,6 +17,7 @@
     //   $puedeProductos  → almacen.productos (CRUD del catalogo de productos).
     //   $puedeMover      → almacen.movimiento (entradas/salidas/ajustes/traspasos + confirmar recepciones).
     //   $puedeEliminar   → almacen.nota.eliminar (borrar un producto del catalogo).
+    //   $puedeFoto       → almacen.foto (subir, cambiar y eliminar la foto de un producto).
     //   $puedeManage     → flag combinado (almacenes O productos) que controla la
     //                      ENTRADA al bloque JS compartido — los routes individuales
     //                      adentro hacen el check fino segun la accion.
@@ -25,6 +26,7 @@
     $puedeManage    = $puedeAlmManage || $puedeProductos;
     $puedeMover     = auth()->user()?->can('almacen.movimiento') ?? false;
     $puedeEliminar  = auth()->user()?->can('almacen.nota.eliminar') ?? false;
+    $puedeFoto      = auth()->user()?->can('almacen.foto') ?? false;
     // Formatos de Nota de Entrega [valor => etiqueta]. Salen del modelo para que las opciones
     // del selector, sus textos y lo que valida el backend NO se puedan desincronizar: un
     // formato nuevo aparece aquí solo (ver Almacen::FORMATOS_NOTA).
@@ -1042,9 +1044,9 @@
                  Al CREAR todavia no hay id, asi que la foto elegida se queda en memoria y se
                  sube DESPUES de guardar, contra el mismo endpoint de siempre
                  (almacen.productos.foto.store). Al EDITAR se ve la que ya tiene y cambiarla
-                 hace lo mismo. Sin permiso de productos no se enseña: no podria guardarla. --}}
+                 hace lo mismo. Sin el permiso almacen.foto no se enseña: no podria guardarla. --}}
             <div style="display:flex;gap:12px;align-items:flex-start;">
-                @can('almacen.productos')
+                @can('almacen.foto')
                 <div style="flex:0 0 auto;">
                     <label>Foto <span class="alm-opc">(opcional)</span></label>
                     <div class="alm-det-foto-caja editable" title="Elegir una foto"
@@ -1283,12 +1285,24 @@
 </div>
 </div>
 
-{{-- Visor de la foto del producto (ver .alm-visor-foto y almVerFoto). --}}
+{{-- Visor de la foto del producto (ver .alm-visor-foto y almVerFoto). Con almacen.foto
+     lleva debajo «Cambiar» (elegir otra, recortarla y subirla) y la papelera (quitarla del
+     producto; el archivo va a la papelera de Drive). --}}
 <div id="almVisorFoto" class="alm-visor-foto" onclick="window.almCerrarFoto()">
     <i class="material-icons alm-visor-x" title="Cerrar">close</i>
     <img id="almVisorFotoImg" alt="Foto del producto" onclick="event.stopPropagation()">
+    @if($puedeFoto)
+    <div class="alm-visor-acciones" onclick="event.stopPropagation()">
+        <button type="button" class="alm-visor-btn" onclick="window.almVisorCambiar()">
+            <i class="material-icons">photo_camera</i> Cambiar
+        </button>
+        <button type="button" class="alm-visor-btn alm-visor-btn-borrar" onclick="window.almVisorEliminar()" title="Eliminar la foto">
+            <i class="material-icons">delete</i>
+        </button>
+    </div>
+    @endif
 </div>
-@can('almacen.productos')
+@can('almacen.foto')
 @include('partials.recorte_foto')
 @endcan
 
@@ -1416,6 +1430,7 @@
         'puedeProductos'        => $puedeProductos,
         'puedeMover'            => $puedeMover,
         'puedeEliminar'         => $puedeEliminar,
+        'puedeFoto'             => $puedeFoto,
         'categorias'            => ($categorias ?? collect())->filter()->values(),
         'unidadesMedida'        => $unidadesMedida ?? [],
         'frenteContratos'       => \App\Support\DatosNotaSalida::contratosPorFrente($frentesLista ?? collect()),

@@ -317,7 +317,9 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->assertStringContainsString('falso-propia-', (string) $elegir([])->json('foto_propia'));
     }
 
-    /** Decisión del usuario (18-11-2026): el modal "Vincular a una ficha" es para todos, sin permiso. */
+    /** Decisión del usuario (18-11-2026): el modal "Vincular a una ficha" es para todos, sin permiso.
+     *  Desde el 24-11-2026 cambiar la foto de la ficha desde ahí pide catalogo.foto (la misma
+     *  clave que en el Catálogo); vincular sigue sin permiso. */
     public function test_vincular_y_buscar_fichas_no_pide_permiso(): void
     {
         $f = $this->ficha();
@@ -333,14 +335,20 @@ class CatalogoColoresTest extends MySqlTestCase
         $u->REQUIERE_CAMBIO_CLAVE = 0;
         $u->save();
 
-        $this->actingAs($u)->get('/admin/equipos')->assertOk()->assertSee('id="vfModal"', false);
+        $this->actingAs($u)->get('/admin/equipos')->assertOk()->assertSee('id="vfModal"', false)
+            ->assertSee('data-puede-foto="0"', false);
         $this->actingAs($u)->getJson(route('catalogo.elegir'))->assertOk();
         $this->actingAs($u)->postJson(route('equipos.vincularFicha', $e->ID_EQUIPO), ['ID_ESPEC' => $f->ID_ESPEC])->assertOk();
         $this->assertSame((int) $f->ID_ESPEC, (int) $e->fresh()->ID_ESPEC);
-        // La cámara en la foto de la ficha (modal): la del modelo, también sin permiso. Ficha sin foto, como las
-        // recién creadas (el Drive falso no sabe mandar la vieja a la papelera).
+        // La cámara en la foto de la ficha (modal): sin catalogo.foto, 403; con ella, sube.
+        // Ficha sin foto, como las recién creadas (el Drive falso no sabe mandar la vieja a la papelera).
         $f->update(['FOTO_REFERENCIAL' => null]);
         $this->actingAs($u)->post(route('catalogo.uploadFoto', $f->ID_ESPEC), [
+            'foto' => UploadedFile::fake()->image('modal.png', 60, 40),
+        ], ['Accept' => 'application/json'])->assertForbidden();
+        $u->PERMISOS = 'catalogo.foto';
+        $u->save();
+        $this->actingAs($u->fresh())->post(route('catalogo.uploadFoto', $f->ID_ESPEC), [
             'foto' => UploadedFile::fake()->image('modal.png', 60, 40),
         ], ['Accept' => 'application/json'])->assertOk()->assertJson(['success' => true]);
         $this->assertStringStartsWith('/storage/google/falso-', $f->fresh()->FOTO_REFERENCIAL);

@@ -288,6 +288,7 @@
                             $gruposDef = [
                                 'user'    => 'Usuarios',
                                 'equipos' => 'Equipos',
+                                'catalogo' => 'Catálogo',
                                 'almacen' => 'Almacén / Inventario',
                                 'alertas' => 'Alertas de Documentos',
                                 'sistema' => 'Sistema',

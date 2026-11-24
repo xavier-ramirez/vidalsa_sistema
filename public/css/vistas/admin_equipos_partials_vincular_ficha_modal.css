@@ -64,3 +64,4 @@
         #vfModal .vf-body { padding:14px; }
         #vfModal .vf-foto { width:84px; height:56px; }
     }
+    #vfModal .vf-foto:not([data-vf-foto]) { cursor:default; }

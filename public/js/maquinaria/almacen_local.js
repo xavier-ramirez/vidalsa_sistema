@@ -662,14 +662,14 @@
 
     // Contenido de la celda de foto de una fila del Inventario. Un solo sitio: lo usan la fila
     // y almacen_index.js al terminar de subir una foto. Con foto: la miniatura, que abre el
-    // visor. Sin foto: la cámara para subirla SOLO a super.admin (ALM_CFG.puedeAlmManage, se lee
+    // visor. Sin foto: la cámara para subirla SOLO con almacen.foto (ALM_CFG.puedeFoto, se lee
     // al pintar porque la vista SPA lo reemplaza al volver a entrar); a los demás, el recuadro
     // vacío para que la columna no baile.
     function celdaFoto(id, url, nombre) {
         if (url) {
-            return '<img src="' + h(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'sz=w120') + '" alt="' + h(nombre || '') + '" class="alm-foto" loading="lazy" title="Ver la foto" onclick="event.stopPropagation(); window.almVerFoto(this.src)">';
+            return '<img src="' + h(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'sz=w120') + '" alt="' + h(nombre || '') + '" class="alm-foto" loading="lazy" title="Ver la foto" onclick="event.stopPropagation(); window.almVerFoto(this.src, ' + Number(id) + ')">';
         }
-        if (window.ALM_CFG && window.ALM_CFG.puedeAlmManage) {
+        if (window.ALM_CFG && window.ALM_CFG.puedeFoto) {
             return '<button type="button" class="alm-foto alm-foto-sin alm-foto-subir" title="Subir foto"'
                 + ' onclick="event.stopPropagation(); window.almFotoFilaElegir(' + Number(id) + ', this)">'
                 + '<i class="material-icons">add_a_photo</i>'

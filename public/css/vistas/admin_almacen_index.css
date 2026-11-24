@@ -257,6 +257,16 @@
                           object-fit: contain; cursor: default; }
     .alm-visor-foto .alm-visor-x { position: absolute; top: 14px; right: 18px; color: #fff;
                                    font-size: 30px; cursor: pointer; }
+    /* Cambiar + papelera, debajo de la foto (solo con almacen.foto). */
+    .alm-visor-foto { flex-direction: column; gap: 14px; }
+    .alm-visor-acciones { display: flex; gap: 10px; cursor: default; }
+    .alm-visor-btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px;
+                     border: none; border-radius: 10px; background: #fff; color: #0f172a;
+                     font-size: 14px; font-weight: 700; cursor: pointer; }
+    .alm-visor-btn .material-icons { font-size: 18px; }
+    .alm-visor-btn:hover { background: #e2e8f0; }
+    .alm-visor-btn-borrar { padding: 9px 12px; color: #dc2626; }
+    .alm-visor-btn-borrar:hover { background: #fee2e2; }
     /* CÓDIGO dentro de la celda de Descripción: renglón propio ENCIMA del nombre, pequeño
        y monoespaciado — misma jerarquía que la cabecera del modal de movimientos
        (.alm-kp-hero-cod), para que el producto se lea igual en los dos sitios. */

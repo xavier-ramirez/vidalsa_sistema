@@ -2509,10 +2509,9 @@
         window._openCropModal(archivo, function (recortada) { almFotoSubir(id, recortada, marcar); });
     }
 
-    // Cámara de la fila sin foto (solo super.admin, ver AlmacenLocal.celdaFoto). Un único
-    // <input file> oculto para todas las filas: se crea la primera vez.
-    window.almFotoFilaElegir = function (id, boton) {
-        if (!ensurePerm(CFG.puedeAlmManage, 'Solo un super administrador puede subir la foto desde la tabla.')) return;
+    // Un único <input file> oculto para la cámara de la fila y el «Cambiar» del visor: se
+    // crea la primera vez.
+    function almFotoInput() {
         var input = el('almFotoFilaInput');
         if (!input) {
             input = document.createElement('input');
@@ -2520,6 +2519,13 @@
             input.accept = 'image/jpeg,image/png,image/webp';
             document.body.appendChild(input);
         }
+        return input;
+    }
+
+    // Cámara de la fila sin foto (permiso almacen.foto, ver AlmacenLocal.celdaFoto).
+    window.almFotoFilaElegir = function (id, boton) {
+        if (!ensurePerm(CFG.puedeFoto, 'No tienes permiso para subir fotos de productos.')) return;
+        var input = almFotoInput();
         input.onchange = function () {
             almFotoRecortarYSubir(input, String(id), function (on) {
                 // La fila pudo repintarse mientras se recortaba: se busca su botón de nuevo.
@@ -2552,17 +2558,50 @@
             .finally(function () { marcar(false); });
     }
 
-    // Visor de la foto: lo abre la miniatura de la tabla.
-    window.almVerFoto = function (src) {
+    // Visor de la foto: lo abre la miniatura de la tabla (id = el producto, para Cambiar y
+    // la papelera).
+    window.almVerFoto = function (src, id) {
         if (!src) return;
         // Llega la miniatura (?sz=): en grande va la foto entera.
         el('almVisorFotoImg').src = src.replace(/[?&]sz=[^&]*$/, '');
+        el('almVisorFoto').dataset.id = id ? String(id) : '';
         el('almVisorFoto').classList.add('abierto');
     };
     window.almCerrarFoto = function () {
         var v = el('almVisorFoto'); if (!v) return;
         v.classList.remove('abierto');
         el('almVisorFotoImg').removeAttribute('src');
+    };
+
+    // Producto de la foto abierta en el visor ('' si no hay).
+    function almVisorId() {
+        var v = el('almVisorFoto');
+        return (v && v.dataset.id) || '';
+    }
+
+    // «Cambiar» del visor: el visor se cierra (el recorte y los avisos quedan debajo de él)
+    // y sigue el mismo camino que la cámara de la fila.
+    window.almVisorCambiar = function () {
+        var id = almVisorId();
+        if (!id || !ensurePerm(CFG.puedeFoto, 'No tienes permiso para cambiar fotos de productos.')) return;
+        window.almCerrarFoto();
+        var input = almFotoInput();
+        input.onchange = function () { almFotoRecortarYSubir(input, id, function () {}); };
+        input.click();
+    };
+
+    // Papelera del visor: quita la foto del producto (el archivo va a la papelera de Drive).
+    window.almVisorEliminar = function () {
+        var id = almVisorId();
+        if (!id || !ensurePerm(CFG.puedeFoto, 'No tienes permiso para eliminar fotos de productos.')) return;
+        window.almCerrarFoto();
+        almConfirm('¿Eliminar la foto de este producto?', function () {
+            window.apiFetch(CFG.rutas.productosBase + '/' + id + '/foto',
+                            { method: 'DELETE', headers: { 'Accept': 'application/json' } })
+                .then(function (r) { if (!r.ok) throw new Error('No se pudo eliminar la foto.'); return r.json(); })
+                .then(function () { almFotoEnLaTabla(id, null); window.toast('Foto eliminada.', 'success'); })
+                .catch(function (e) { window.toast(e.message, 'error'); });
+        });
     };
 
     // Trae equivalencias + equipos y el reparto por proyecto, y los pinta en el detalle. Las

@@ -51,8 +51,8 @@ class FotoProductoSubidaTest extends MySqlTestCase
 
     private function usuario(): Usuario
     {
-        $u = Usuario::all()->first(fn ($u) => $u->can('almacen.productos'));
-        $this->assertNotNull($u, 'No hay un usuario con almacen.productos para probar.');
+        $u = Usuario::all()->first(fn ($u) => $u->can('almacen.foto'));
+        $this->assertNotNull($u, 'No hay un usuario con almacen.foto para probar.');
         return $u;
     }
 

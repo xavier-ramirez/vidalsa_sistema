@@ -279,7 +279,7 @@ Route::middleware(['auth'])->group(function () {
             // Subida de foto desde la tarjeta del catálogo (sin abrir el form de edición).
             // ANTES del resource para que su wildcard {catalogo} no capture esta ruta.
             // Con `color` la foto es la de ese color del modelo (catalogo_colores); sin él, la del modelo.
-            Route::post('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'uploadFoto'])->name('catalogo.uploadFoto');
+            Route::post('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'uploadFoto'])->middleware('can:catalogo.foto')->name('catalogo.uploadFoto');
             Route::delete('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'deleteFoto'])->middleware('can:super.admin')->name('catalogo.deleteFoto');
             // Ficha de un modelo que solo tenía equipos sin ficha: la crea (o encuentra la que
             // ya hay) y le enlaza sus unidades. La usa la tarjeta "sin ficha" del catálogo.
@@ -348,7 +348,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('equipos-auxiliares/check-unique',   [App\Http\Controllers\EquipoAuxiliarController::class, 'checkUnique'])->name('equipos-auxiliares.checkUnique');
             // Catalogo agregado por TIPO+MARCA+MODELO+CAPACIDAD (vista de solo lectura)
             Route::get   ('equipos-auxiliares/catalogo',       [App\Http\Controllers\EquipoAuxiliarController::class, 'catalogo'])->name('equipos-auxiliares.catalogo');
-            Route::post  ('equipos-auxiliares/catalogo/photo', [App\Http\Controllers\EquipoAuxiliarController::class, 'uploadCatalogoPhoto'])->middleware('can:equipos.create')->name('equipos-auxiliares.catalogo.uploadPhoto');
+            Route::post  ('equipos-auxiliares/catalogo/photo', [App\Http\Controllers\EquipoAuxiliarController::class, 'uploadCatalogoPhoto'])->middleware('can:catalogo.foto')->name('equipos-auxiliares.catalogo.uploadPhoto');
             Route::delete('equipos-auxiliares/catalogo/photo', [App\Http\Controllers\EquipoAuxiliarController::class, 'deleteCatalogoPhoto'])->middleware('can:super.admin')->name('equipos-auxiliares.catalogo.deletePhoto');
             Route::post  ('equipos-auxiliares/bulk-delete',    [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkDelete'])->middleware('can:user.delete')->name('equipos-auxiliares.bulkDelete');
             Route::get   ('equipos-auxiliares/papelera',       [App\Http\Controllers\EquipoAuxiliarController::class, 'papelera'])->middleware('can:user.delete')->name('equipos-auxiliares.papelera');
@@ -446,6 +446,8 @@ Route::middleware(['auth'])->group(function () {
             // sube desde la tabla o desde Nuevo/Editar producto. El archivo va a Drive; aquí solo
             // viaja el enlace (ver AlmacenController::subirFotoProducto).
             Route::post  ('almacen/productos/{id}/foto', [App\Http\Controllers\AlmacenController::class, 'subirFotoProducto'])->whereNumber('id')->name('almacen.productos.foto.store');
+            // Papelera del visor de la foto: la quita del producto y la manda a la papelera de Drive.
+            Route::delete('almacen/productos/{id}/foto', [App\Http\Controllers\AlmacenController::class, 'eliminarFotoProducto'])->whereNumber('id')->name('almacen.productos.foto.destroy');
             // Botones + / × de "Detalles del producto": números de parte y equipos que lo usan
             // (permiso almacen.productos, en el constructor del controlador).
             Route::post  ('almacen/productos/{id}/equivalencias',   [App\Http\Controllers\AlmacenController::class, 'agregarEquivalencia'])->whereNumber('id')->name('almacen.productos.equivalencias.store');
