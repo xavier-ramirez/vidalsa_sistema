@@ -110,7 +110,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // Sin este handler, Laravel muestra la pagina Symfony fea (o pantalla en blanco
         // si la navegacion es via SPA fetch). Retornamos JSON estandar para AJAX y
         // redirect con flash toast para navegacion normal.
-        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
+        // Se engancha a AccessDeniedHttpException, no a AuthorizationException: Laravel
+        // convierte la segunda en la primera (Handler::prepareException) ANTES de llamar a
+        // estos callbacks, asi que tipado con AuthorizationException no corria nunca y el
+        // usuario veia "This action is unauthorized." en ingles (visto el 24-11-2026).
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, $request) {
+            if (!$e->getPrevious() instanceof \Illuminate\Auth\Access\AuthorizationException) {
+                return null;   // un 403 que no viene de un permiso: Laravel lo pinta como siempre
+            }
             $wantsJson = $request->expectsJson() || $request->is('api/*') || $request->ajax() || strtolower($request->header('X-Requested-With')) === 'xmlhttprequest';
             // Traducimos SIEMPRE a mensaje amigable. El default de Laravel es
             // "This action is unauthorized." (ingles, generico, confunde al
@@ -122,12 +129,10 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($wantsJson) {
                 return response()->json(['success' => false, 'message' => $msg, 'forbidden' => true], 403);
             }
-            // Navegacion normal: vuelve a la pagina anterior con flash toast que se
-            // mostrara via el hook de estructura_base.blade.php (vidalsa_flash_toast).
-            return redirect()->back()->with('flash_toast', [
-                'message' => $msg,
-                'type'    => 'error',
-            ]);
+            // Navegacion normal: la pagina 403 de siempre. (Antes de que este handler llegara a
+            // correr, eso era lo que se veia; se mantiene a proposito: un redirect()->back()
+            // cambiaria la respuesta de TODAS las paginas prohibidas.)
+            return null;
         });
 
     })->create();

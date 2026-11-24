@@ -49,6 +49,7 @@ use App\Support\IdsEnviados;
  *  - almacen.movimiento : registrar entradas, salidas, ajustes, traspasos, mínimo y
  *                         confirmar recepción de traspasos. Clave EXCLUSIVA: ni siquiera
  *                         super.admin pasa sin la clave literal en PERMISOS.
+ *  - almacen.foto       : subir, cambiar y eliminar la foto de un producto. EXCLUSIVA.
  */
 class AlmacenController extends Controller
 {
@@ -104,6 +105,7 @@ class AlmacenController extends Controller
         //   almacen.productos  → CRUD del catalogo de productos.
         //   almacen.movimiento → registrar lotes (entradas/salidas/ajustes/traspasos)
         //                        y confirmar recepciones.
+        //   almacen.foto       → foto del producto (subir, cambiar, eliminar).
         $this->middleware('can:super.admin')->only([
             'storeAlmacen', 'updateAlmacen', 'destroyAlmacen',
             // Borrado PERMANENTE de un producto desde la papelera (irreversible).
@@ -398,6 +400,13 @@ class AlmacenController extends Controller
     {
         $idAnterior = \App\Models\DocumentoAnexo::driveIdDeLink($anterior);
         if (!$idAnterior || $idAnterior === $nuevoId) return;
+
+        // Otro producto con la MISMA foto: se queda (el job de Drive solo mira documentos, no
+        // productos, y la mandaría a la papelera dejando a ese otro sin foto).
+        if (ProductoInventario::where('FOTO', 'like', '/storage/google/' . $idAnterior . '%')->exists()) {
+            Log::info('Foto de producto: la anterior la sigue usando otro producto; no se toca', ['drive_id' => $idAnterior]);
+            return;
+        }
 
         if (app()->environment('local')) {
             Log::info('Foto de producto en local: NO se borra de Drive la anterior', ['drive_id' => $idAnterior]);

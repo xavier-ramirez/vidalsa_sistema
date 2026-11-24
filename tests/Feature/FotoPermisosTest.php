@@ -68,6 +68,37 @@ class FotoPermisosTest extends MySqlTestCase
         Bus::assertDispatchedAfterResponse(\App\Jobs\DeleteGoogleDriveFile::class);
     }
 
+    public function test_la_papelera_no_tira_una_foto_que_usa_otro_producto(): void
+    {
+        Bus::fake();
+        $a = $this->productoConFoto();
+        $b = $this->productoConFoto();   // la misma foto que $a
+
+        $this->actingAs($this->usuario('almacen.foto'))
+            ->deleteJson(route('almacen.productos.foto.destroy', $a->ID_PRODUCTO))->assertOk();
+
+        $this->assertNull($a->fresh()->FOTO);
+        $this->assertSame('/storage/google/IDFOTOPRUEBA', $b->fresh()->FOTO, 'El otro producto conserva su foto.');
+        Bus::assertNotDispatched(\App\Jobs\DeleteGoogleDriveFile::class);
+    }
+
+    public function test_eliminar_un_producto_sin_foto_no_hace_nada(): void
+    {
+        Bus::fake();
+        $p = ProductoInventario::create(['CODIGO' => 'F' . strtoupper(Str::random(7)), 'NOMBRE' => 'SIN FOTO ' . Str::random(5), 'UM' => 'UND']);
+        $this->actingAs($this->usuario('almacen.foto'))
+            ->deleteJson(route('almacen.productos.foto.destroy', $p->ID_PRODUCTO))->assertOk();
+        Bus::assertNotDispatched(\App\Jobs\DeleteGoogleDriveFile::class);
+    }
+
+    public function test_el_rechazo_por_permiso_llega_en_espanol(): void
+    {
+        $this->actingAs($this->usuario('super.admin'))
+            ->post(route('catalogo.uploadFoto', 1), ['foto' => UploadedFile::fake()->image('a.jpg', 50, 50)], ['Accept' => 'application/json'])
+            ->assertForbidden()
+            ->assertExactJson(['success' => false, 'message' => 'No tienes permiso para realizar esta acción.', 'forbidden' => true]);
+    }
+
     public function test_las_dos_son_exclusivas(): void
     {
         $this->assertArrayHasKey('almacen.foto', Usuario::PERMISOS_EXPLICITOS);

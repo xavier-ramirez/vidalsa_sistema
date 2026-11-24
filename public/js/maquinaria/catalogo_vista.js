@@ -371,7 +371,7 @@ window.catalogoArrancar = function (CAT_CFG) {
             .catch(function (e) { btn.disabled = false; window.toast(e.message, 'error'); });
     };
 
-    // ── Borrar foto VEHÍCULO (solo super.admin): la del modelo o la del color que se ve ──
+    // ── Borrar foto VEHÍCULO (permiso catalogo.foto): la del modelo o la del color que se ve ──
     window.catDeletePhoto = function (photoEl) {
         var id = photoEl.dataset.id, color = photoEl.dataset.color || '';
         if (!confirm(color ? '¿Eliminar la foto del color ' + color + '?' : '¿Eliminar la foto de este modelo?')) return;
@@ -395,7 +395,7 @@ window.catalogoArrancar = function (CAT_CFG) {
         });
     };
 
-    // ── Borrar foto AUXILIAR (solo super.admin) ──
+    // ── Borrar foto AUXILIAR (permiso catalogo.foto) ──
     window.auxCatDeletePhoto = function (photoEl) {
         if (!confirm('¿Eliminar la foto de este modelo auxiliar?')) return;
         var tipo = photoEl.dataset.tipo || '', marca = photoEl.dataset.marca || '',

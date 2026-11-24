@@ -103,6 +103,35 @@ class FotoProductoSubidaTest extends MySqlTestCase
         $this->assertSame($antes, $this->temporalesGemini(), 'No quedan temporales de Gemini.');
     }
 
+    public function test_cambiar_la_foto_no_tira_la_que_sigue_usando_otro_producto(): void
+    {
+        \Illuminate\Support\Facades\Bus::fake();
+        Http::fake(['*' => Http::response([], 429)]);
+        $a = $this->producto();
+        $a->update(['FOTO' => '/storage/google/COMPARTIDA']);
+        $b = $this->producto();
+        $b->update(['FOTO' => '/storage/google/COMPARTIDA']);
+
+        $this->subir($a)->assertOk();
+
+        $this->assertSame('/storage/google/ID1', $a->fresh()->FOTO);
+        $this->assertSame('/storage/google/COMPARTIDA', $b->fresh()->FOTO);
+        \Illuminate\Support\Facades\Bus::assertNotDispatched(\App\Jobs\DeleteGoogleDriveFile::class);
+    }
+
+    public function test_cambiar_la_foto_manda_la_vieja_a_la_papelera_de_drive(): void
+    {
+        \Illuminate\Support\Facades\Bus::fake();
+        Http::fake(['*' => Http::response([], 429)]);
+        $a = $this->producto();
+        $a->update(['FOTO' => '/storage/google/VIEJA_SOLA']);
+
+        $this->subir($a)->assertOk();
+
+        $this->assertSame('/storage/google/ID1', $a->fresh()->FOTO);
+        \Illuminate\Support\Facades\Bus::assertDispatchedAfterResponse(\App\Jobs\DeleteGoogleDriveFile::class);
+    }
+
     public function test_sin_cupo_guarda_la_original_y_deja_de_preguntar_un_rato(): void
     {
         Http::fake(['*' => Http::response(['error' => ['message' => 'quota']], 429)]);
