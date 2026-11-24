@@ -459,6 +459,14 @@ class LectorDocumentoPdf
     private function vigenciaPoliza(string $plano): ?array
     {
         $f = self::RE_FECHA;
+        // El reconocimiento parte la tabla: el rotulo y sus fechas pueden quedar en lineas
+        // distintas, asi que se busca la PAREJA de fechas.
+        //   1. "Desde X Hasta Y" (Mampreca). Tras "Hasta" pueden venir otros rotulos antes de su
+        //      fecha ("Hasta \nFrecuencia de Pago: Sucursal: 1/12/2026"), pero ninguna cifra.
+        //   2. "Vigencia ... X al Y": entre las dos, "al", "hasta" o un guion.
+        //   3. Piramide con el cuadro desarmado: "VIGENCIA DEL SEGURO:", rotulos sin cifras y las
+        //      DOS fechas seguidas (renovaciones del 05-10-2026; sin ella el ANEXO la fechaba por
+        //      su firma: 05/10/2027 en vez de 09/06/2027).
         $conRotulo = [
             '/Desde\s*' . $f . '\s*Hasta[^\d]{0,60}' . $f . '/ui',
             '/Vigencia[^\r\n]{0,45}\R?[^\d\r\n]{0,15}' . $f . '\s*(?:al|a|hasta|-|–)\s*' . $f . '/ui',
@@ -485,7 +493,7 @@ class LectorDocumentoPdf
         }
         if (!$delRecibo) return null;
 
-        // Solo hay la del recibo: ¿otra pareja "X al Y" (que empiece donde termina) fuera de ella?
+        // Solo hay la del recibo: ¿otra pareja "X al Y" que no sea ella (ni empiece en su rotulo)?
         if (preg_match_all('/' . $f . '\s*(?:al|hasta)\s*' . $f . '/ui', $plano, $sueltas, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
             foreach ($sueltas as $m) {
                 $ini = $m[0][1];
@@ -500,21 +508,10 @@ class LectorDocumentoPdf
     {
         $datos = ['aseguradora' => null, 'nro' => null, 'desde' => null, 'vence' => null, 'emision' => null, 'placa' => null, 'serial' => null];
 
-        // La vigencia viene de dos maneras segun la aseguradora: "Desde X Hasta Y" (Mampreca)
-        // o "Vigencia del Seguro: X al Y" (Piramide). El reconocimiento parte la tabla, asi que
-        // el rotulo y sus fechas pueden quedar en lineas distintas: se busca la PAREJA de fechas.
         $f = self::RE_FECHA;
         // ¿La vigencia encontrada es la de la POLIZA? La del recibo ("VIGENCIA DEL RECIBO") es un
         // periodo de pago: no sirve de fecha de origen (ver el respaldo de la emision, abajo).
         $vigenciaDePoliza = false;
-        // Tras "Hasta" pueden venir otros rotulos antes de su fecha ("Hasta \nFrecuencia de
-        // Pago: Sucursal: 1/12/2026"), pero ninguna otra cifra: [^\d] no se salta una fecha.
-        // Entre las dos de la vigencia puede ir "al", "hasta" o un guion ("16/01/2026 - 16/01/2027").
-        // La de Piramide a veces sale con el cuadro desarmado: "VIGENCIA DEL SEGURO:", otros
-        // rotulos sin cifras y las DOS fechas seguidas, con el "al" despues (renovaciones del
-        // 05-10-2026). Sin esa tercera forma no se leia la vigencia y el ANEXO de la misma poliza
-        // la fechaba por su firma (+1 año: 05/10/2027 en vez de 09/06/2027).
-        //
         // La del RECIBO no vale si hay otra: en las de Piramide con pago semestral el recibo va del
         // 21/10/2026 al 09/12/2026 y la poliza del 21/10/2026 al 09/06/2027. El OCR deja el rotulo
         // "VIGENCIA DEL SEGURO:" lejos de sus fechas ("SEMESTRAL 21/10/2026 al\n09/06/2027", sin
