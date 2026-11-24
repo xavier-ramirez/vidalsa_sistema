@@ -1,6 +1,6 @@
 {{-- ────────────────────────────────────────────────────────────────
      Campos de la NOTA DE ENTREGA de una salida: Proyecto, Almacén destino,
-     Fecha, RQ N°, Solicitante, Departamento, Vehículo/Chofer y Observaciones.
+     Fecha, RQ N°, Solicitante, Departamento, Observaciones y Chofer/Vehículo.
      Un solo formulario para las dos pantallas que despachan con nota:
        · /admin/almacen → modal "Registrar salida" (index.blade.php)
        · Recepción de materiales → modal "Registrar y despachar" (recepcion/partials/despacho_modales,
@@ -16,6 +16,7 @@
        FECHA DE ENTREGA | RQ N° | Solicitante            (3 columnas)
        DEPARTAMENTO                                      (full)
        OBSERVACIONES                                     (full)
+       CHOFER | CÉDULA  y  VEHÍCULO | PLACA              (2 columnas)
      Entre la 1ª y la 2ª fila se intercala ALMACÉN DESTINO, que solo aparece cuando
      hace falta (ver su bloque): no es parte de la hoja del Excel, sino de la
      decisión de a dónde va el material.
@@ -132,6 +133,15 @@
         <datalist id="almSalidaDeptoLista"></datalist>
     </div>
 
+    {{-- OBSERVACIONES (full width), debajo de Departamento (pedido del cliente, 23-11-2026) —
+         campo libre de la Nota de Entrega (mapea a MOTIVO en BD). Se envía siempre en el
+         flujo unificado: tanto en SALIDA pura (consumo) como en SALIDA vía traspaso a otro
+         proyecto. --}}
+    <div style="margin-bottom:10px;">
+        <label class="alm-nota-label" for="almSalidaMotivo">Observaciones</label>
+        <input type="text" id="almSalidaMotivo" class="alm-nota-input" maxlength="200" placeholder="Ej: entrega parcial, urgente, etc." autocomplete="off">
+    </div>
+
     {{-- TRANSPORTE (primero el chofer, luego el vehículo) — lo imprime el bloque "Datos del
          vehículo / Datos del chofer" de la nota, que antes salía en blanco. Opcional: lo que quede vacío sale en blanco
          para llenarlo a mano. Sugiere la logística del almacén y la flota de sus frentes
@@ -151,7 +161,7 @@
         </div>
         <div class="alm-suggest-inline alm-suggest-float" id="almSalidaChoferesSug"></div>
     </div>
-    <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px;">
+    <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;">
         <div>
             <label class="alm-nota-label" for="almSalidaVehiculo">Vehículo</label>
             <input type="text" id="almSalidaVehiculo" class="alm-nota-input" maxlength="150" placeholder="Ej: Camioneta Toyota Hilux" autocomplete="off"
@@ -165,11 +175,4 @@
         <div class="alm-suggest-inline alm-suggest-float" id="almSalidaVehiculosSug"></div>
     </div>
 
-    {{-- OBSERVACIONES (full width) — campo libre de la Nota de Entrega
-         (mapea a MOTIVO en BD). Se envía siempre en el flujo unificado: tanto
-         en SALIDA pura (consumo) como en SALIDA vía traspaso a otro proyecto. --}}
-    <div>
-        <label class="alm-nota-label" for="almSalidaMotivo">Observaciones</label>
-        <input type="text" id="almSalidaMotivo" class="alm-nota-input" maxlength="200" placeholder="Ej: entrega parcial, urgente, etc." autocomplete="off">
-    </div>
 </div>

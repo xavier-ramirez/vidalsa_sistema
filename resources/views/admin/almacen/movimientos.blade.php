@@ -205,7 +205,7 @@
              rápidas de la bitácora en un único menú:
                · Dashboard de consumo
                · Despachos (abre la Reposición del general)
-               · Historial de Notas de Entrega
+               · Notas de Entrega (historial)
                · Exportar a Excel
                · Eliminar Nota de Entrega por código  (requiere almacen.nota.eliminar)
          --}}
@@ -252,12 +252,12 @@
                     </a>
                 {{-- Historial de Notas de Entrega: vista alterna agrupada por NUMERO_NOTA — una
                      fila por Nota de Entrega; clic abre el PDF oficial. Conserva los filtros
-                     activos. Icono como el del PDF de cada fila (filasKardex en almacen_local.js). --}}
+                     activos. Mismo icono que el PDF de cada fila, en el azul de Despachos. --}}
                     <a id="lnkBitNotas" href="{{ route('almacen.notas') }}"
                         class="alm-mov-accion"
                         onclick="event.preventDefault(); document.getElementById('splitDropdownMenuMovInv').style.display='none'; if(window.navigateTo) window.navigateTo(this.href); else window.location.href=this.href;">
-                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0f172a;">description</i></div>
-                        <span>Historial de Notas de Entrega</span>
+                        <div style="background:#e0f2fe;padding:6px;border-radius:6px;display:flex;"><i class="material-icons" style="font-size:18px;line-height:1;color:#0067b1;">description</i></div>
+                        <span>Notas de Entrega</span>
                     </a>
                 {{-- Exportar a Excel: baja la bitácora tal y como se está viendo. Los filtros
                      salen de filtrosMov(), el mismo que arma la tabla. --}}

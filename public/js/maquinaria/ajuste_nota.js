@@ -152,7 +152,7 @@
             if (!no && !primera) primera = b.dataset.op;
         });
 
-        pintarHistorial(nota, um);
+        pintarHistorial(nota, l.um || '');   // sin escapar: pintarHistorial escapa la línea entera
         $('ajNotaContenido').hidden = false;
         if (primera) {
             elegir(primera);
@@ -162,18 +162,23 @@
         }
     }
 
+    // um llega SIN escapar (cada línea se escapa entera una sola vez).
     function pintarHistorial(nota, um) {
         var bloques = [];
+        // Una operación = una línea: si no cabe se corta con «…» y el texto entero queda en
+        // el title (al pasar el mouse). El CSS lo hace con .ajn-historial li.
+        var linea = function (cuanto, motivo, usuario, fecha) {
+            var txt = fecha + ' · ' + cuanto + (motivo ? ' — ' + motivo : '') + (usuario ? ' (' + usuario + ')' : '');
+            return '<li title="' + esc(txt) + '">' + esc(txt) + '</li>';
+        };
         if (nota.devolucion.historial.length) {
             bloques.push('<b>Devoluciones anteriores</b><ul>' + nota.devolucion.historial.map(function (d) {
-                return '<li>' + esc(d.fecha) + ' · ' + num(d.cantidad) + ' ' + um
-                    + (d.motivo ? ' — ' + esc(d.motivo) : '') + (d.usuario ? ' (' + esc(d.usuario) + ')' : '') + '</li>';
+                return linea(num(d.cantidad) + ' ' + um, d.motivo, d.usuario, d.fecha);
             }).join('') + '</ul>');
         }
         if (nota.correccion.historial.length) {
             bloques.push('<b>Correcciones anteriores</b><ul>' + nota.correccion.historial.map(function (c) {
-                return '<li>' + esc(c.fecha) + ' · de ' + num(c.antes) + ' a ' + num(c.despues) + ' ' + um
-                    + (c.motivo ? ' — ' + esc(c.motivo) : '') + (c.usuario ? ' (' + esc(c.usuario) + ')' : '') + '</li>';
+                return linea('de ' + num(c.antes) + ' a ' + num(c.despues) + ' ' + um, c.motivo, c.usuario, c.fecha);
             }).join('') + '</ul>');
         }
         var h = $('ajNotaHistorial');

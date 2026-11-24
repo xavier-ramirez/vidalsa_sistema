@@ -91,7 +91,7 @@ class AlmacenController extends Controller
      * No afecta al Excel: consumoDashboardExport() llama a consumoPorProducto() SIN
      * limite, porque ahi se descarga el consumo completo, no un top.
      */
-    public const TOP_PRODUCTOS_GRAFICO = 40;   // 40 desde el 08-10-2026 (antes 25 y luego 60), pedido del usuario
+    public const TOP_PRODUCTOS_GRAFICO = 30;   // 30 desde el 23-11-2026 (antes 25, 60 y 40), pedido del usuario
 
     public function __construct(
         private InventarioService $inventario,
@@ -2907,15 +2907,22 @@ class AlmacenController extends Controller
         // ?version=original → la nota COMO SALIÓ antes de corregirla, con la corrección en rojo
         // (CorreccionNotaService). Sin correcciones no hay "original" distinto: sale la de siempre.
         $correcciones = collect();
-        if ($request->query('version') === 'original' && $hd->NUMERO_NOTA) {
+        // Las devoluciones se marcan en el papel firmado: en una nota corregida ese es la
+        // ORIGINAL, así que la versión corregida sale sin ellas (pedido del cliente).
+        $conDevoluciones = true;
+        if ($hd->NUMERO_NOTA) {
             // Solo de los productos que SIGUEN en la nota: si una línea corregida se deshizo
             // después («Deshacer» de super.admin), su corrección queda en el rastro pero no se
             // imprime al pie de una nota en la que ese producto ya no está.
-            $correcciones = \App\Models\CorreccionNota::with(['producto:ID_PRODUCTO,NOMBRE,UM', 'usuario:ID_USUARIO,NOMBRE_COMPLETO'])
-                ->where('NUMERO_NOTA', $hd->NUMERO_NOTA)
-                ->whereIn('ID_PRODUCTO', $movs->pluck('ID_PRODUCTO')->unique()->values())
-                ->orderBy('ID_CORRECCION')
-                ->get();
+            $deLaNota = \App\Models\CorreccionNota::where('NUMERO_NOTA', $hd->NUMERO_NOTA)
+                ->whereIn('ID_PRODUCTO', $movs->pluck('ID_PRODUCTO')->unique()->values());
+            if ($request->query('version') === 'original') {
+                $correcciones = $deLaNota->with(['producto:ID_PRODUCTO,NOMBRE,UM', 'usuario:ID_USUARIO,NOMBRE_COMPLETO'])
+                    ->orderBy('ID_CORRECCION')
+                    ->get();
+            } else {
+                $conDevoluciones = !$deLaNota->exists();
+            }
         }
 
         $slug   = $hd->NUMERO_NOTA ?: ($hd->NUMERO_RQ ?: ('LOTE-' . $hd->ID_MOVIMIENTO));
@@ -2931,7 +2938,7 @@ class AlmacenController extends Controller
         // El ALMACEN se sigue pasando porque de el salen los FIRMANTES del horizontal, y ya
         // viene cargado con los movimientos (buscarMovimientosDeNota -> with([...,'almacen'])):
         // no agrega ni una consulta. Los dos valores van CRUDOS: normalizar es cosa del render.
-        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, false, $hd->almacen, $hd->FORMATO_NOTA, $correcciones);
+        $binary = $this->renderNotaEntregaPdfBinary($datos, $movs, false, $hd->almacen, $hd->FORMATO_NOTA, $correcciones, $conDevoluciones);
         // ?descargar=1 → como archivo (botones de descarga de la comparación de la corrección);
         // sin él, en línea para el visor.
         return response($binary, 200, [
@@ -3357,7 +3364,8 @@ class AlmacenController extends Controller
         bool $esPreview = false,
         ?Almacen $almacen = null,
         ?string $formato = null,
-        ?\Illuminate\Support\Collection $correcciones = null
+        ?\Illuminate\Support\Collection $correcciones = null,
+        bool $conDevoluciones = true
     ): string {
         $correcciones ??= collect();
         // El papel lista PRODUCTOS, no tramos de saldo. Cuando una salida tuvo que tomar de
@@ -3425,7 +3433,9 @@ class AlmacenController extends Controller
         // Lo que VOLVIÓ de esta nota (DevolucionService las liga a su salida con
         // ID_MOVIMIENTO_RELACIONADO). El papel firmado no se toca: si hay devoluciones se
         // añade un bloque al pie que las lista; si no hay, la nota sale igual que siempre.
-        $devoluciones = MovimientoInventario::with('producto:ID_PRODUCTO,CODIGO,NOMBRE,UM')
+        // Sin $conDevoluciones (la versión CORREGIDA de una nota corregida) no se marcan:
+        // van en la original, que es el papel que se firmó (ver notaEntregaPdf).
+        $devoluciones = !$conDevoluciones ? collect() : MovimientoInventario::with('producto:ID_PRODUCTO,CODIGO,NOMBRE,UM')
             ->where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
             ->whereIn('ID_MOVIMIENTO_RELACIONADO', $movs->pluck('IDS_TRAMOS')->flatten())
             ->orderBy('FECHA')->orderBy('ID_MOVIMIENTO')

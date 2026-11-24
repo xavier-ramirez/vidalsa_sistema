@@ -137,9 +137,9 @@
                     ? ($devoluciones ?? collect())->whereIn('ID_MOVIMIENTO_RELACIONADO', $m->IDS_TRAMOS ?? [$m->ID_MOVIMIENTO])->sum('CANTIDAD')
                     : 0;
             @endphp
-            <tr>
+            <tr{!! $devuelto > 0 ? ' bgcolor="#FCA5A5"' : '' !!}>
                 <td width="4%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $i + 1 }}</font></td>
-                <td width="40%"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font>@if($devuelto > 0)<font face="helvetica" size="7" color="#b91c1c"> &nbsp;(DEVUELTO: {{ $fmt($devuelto) }} {{ $m->producto?->UM ?? '' }})</font>@endif</td>
+                <td width="40%"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font>@if($devuelto > 0)<font face="helvetica" size="7"> &nbsp;<b>(DEVUELTO: {{ $fmt($devuelto) }} {{ $m->producto?->UM ?? '' }})</b></font>@endif</td>
                 <td width="13%" align="center"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->CODIGO ?? '' }}</font></td>
                 <td width="8%"  align="center">@include('admin.almacen.partials.nota_cantidad')</td>
                 <td width="6%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->UM ?? '' }}</font></td>

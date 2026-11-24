@@ -199,13 +199,11 @@
     #almAccionesMenu .alm-acc-despacho:hover { background: #f8fafc; }
     #almAccionesMenu .alm-acc-pill { margin-left: -2px; font-size: 11px; font-weight: 800; padding: 2px 8px;
                                      border-radius: 999px; white-space: nowrap; }
-    /* Foto dentro de "Detalles del producto": un CÍRCULO centrado (lo pidió el cliente). Sin
-       foto, el mismo círculo con su ícono en gris.
-       Pequeña a propósito: la ficha es para consultar datos, no para mirar la foto. Quien
-       tiene almacen.productos la cambia tocándola: la cámara va SIEMPRE a la vista, en el
-       CENTRO de la foto (como en las tarjetas del catálogo), sola —sin círculo detrás, lo pidió
-       el cliente— con una sombra para que se lea sobre una foto clara, y gira mientras sube. Sin
-       permiso, tocarla la abre en grande.
+    /* Foto de Nuevo/Editar producto: un CÍRCULO pequeño (lo pidió el cliente; antes iba en
+       «Detalles del producto», que ya no la lleva). Sin foto, el mismo círculo con su ícono
+       en gris. La cámara va SIEMPRE a la vista, en el CENTRO (como en las tarjetas del
+       catálogo), sola —sin círculo detrás, lo pidió el cliente— con una sombra para que se
+       lea sobre una foto clara.
        flex: 0 0 auto: el cuerpo del modal es una columna flex con alto limitado y, sin esto,
        encogía la caja a lo alto y el círculo salía como un óvalo. */
     .alm-det-foto-caja { position: relative; width: 64px; height: 64px; flex: 0 0 auto; margin: 0 auto; }
@@ -220,9 +218,8 @@
                            filter: drop-shadow(0 1px 2px rgba(15, 23, 42, .85)); transition: transform .18s ease; }
     .alm-det-foto-camara .material-icons { font-size: 18px; }
     .alm-det-foto-caja.editable:hover .alm-det-foto-camara { transform: translate(-50%, -50%) scale(1.15); }
-    .alm-det-foto-caja.subiendo .alm-det-foto-camara .material-icons { animation: alm-det-foto-gira 1s linear infinite; }
+    /* Giro de la cámara mientras sube la foto (lo usa .alm-foto-subir de la tabla). */
     @keyframes alm-det-foto-gira { to { transform: rotate(360deg); } }
-    .alm-det-foto-caja.subiendo { pointer-events: none; }
     /* Miniatura del producto. Medida fija para que la columna no baile de ancho de una fila
        a otra, y el mismo recuadro cuando no hay foto (con su ícono en gris). */
     .alm-table td.alm-td-foto { padding: 6px 4px 6px 8px; width: 72px; }
@@ -231,8 +228,24 @@
     img.alm-foto { cursor: zoom-in; }
     .alm-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; }
     .alm-foto-sin .material-icons { font-size: 26px; }
-    /* Visor de la foto del producto: al tocar la miniatura (tabla) o la foto de la ficha sin
-       permiso de cambiarla. Centrado sobre todo; se cierra tocando fuera, la X o Esc. */
+    /* Sin foto y con super.admin: la cámara para subirla (AlmacenLocal.celdaFoto). Al pasar el
+       mouse, el mismo velo oscuro del Catálogo (.cat-photo-overlay): cámara blanca + texto. */
+    button.alm-foto-subir { position: relative; overflow: hidden; padding: 0; cursor: pointer;
+                            color: #94a3b8; font: inherit; outline: none; }
+    .alm-foto-velo { position: absolute; inset: 0; display: flex; flex-direction: column;
+                     align-items: center; justify-content: center; gap: 2px;
+                     background: rgba(15, 23, 42, 0.55); color: #fff; opacity: 0;
+                     transition: opacity .18s ease; pointer-events: none;
+                     font-size: 8px; font-weight: 700; line-height: 1.1;
+                     text-transform: uppercase; letter-spacing: .4px; text-align: center; }
+    .alm-foto-velo .material-icons { font-size: 20px; }
+    button.alm-foto-subir:hover .alm-foto-velo,
+    button.alm-foto-subir:focus-visible .alm-foto-velo,
+    button.alm-foto-subir.subiendo .alm-foto-velo { opacity: 1; }
+    button.alm-foto-subir.subiendo { pointer-events: none; }
+    button.alm-foto-subir.subiendo .alm-foto-velo .material-icons { animation: alm-det-foto-gira 1s linear infinite; }
+    /* Visor de la foto del producto: al tocar la miniatura de la tabla (almVerFoto).
+       Centrado sobre todo; se cierra tocando fuera, la X o Esc. */
     .alm-visor-foto { display: none; position: fixed; inset: 0; z-index: 100000; padding: 24px;
                       background: rgba(15, 23, 42, 0.8); align-items: center; justify-content: center;
                       cursor: zoom-out; }

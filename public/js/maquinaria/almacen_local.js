@@ -13,6 +13,7 @@
  *       `f` = los filtros de la tabla (id_almacen, search, id_producto, id_producto_in,
  *       categoria, um, solo_bajo, solo_con_saldo, ver_todo, aprox, solo_filas).
  *   idsInventario(vista, f, porDefecto) → ids de producto que trae el Excel del inventario.
+ *   celdaFoto(id, url, nombre) → html de la celda de foto de una fila del inventario.
  *   panelOtros(vista, idProducto, idAlmacen) → html del panel «En otros almacenes».
  *   movimientos(vista, f, pagina, opciones) → { html, pagination, total, ids }. opciones:
  *       { mini, porDefecto, puede: { superAdmin, devolver, corregir } }; `ids` = todas las
@@ -623,9 +624,7 @@
             const rep = reparto(ctx, a.filas);
             if (rep.length) bolsas = JSON.stringify(rep.map((b) => ({ f: b.frente, n: rotuloBolsa(b.frente, b.nombre), q: b.cant, c: esComun(b.frente, b.nombre) })));
         }
-        const foto = p.foto
-            ? '<img src="' + h(p.foto + (p.foto.indexOf('?') >= 0 ? '&' : '?') + 'sz=w120') + '" alt="' + h(p.nombre) + '" class="alm-foto" loading="lazy" title="Ver la foto" onclick="event.stopPropagation(); window.almVerFoto(this.src)">'
-            : '<span class="alm-foto alm-foto-sin" title="Sin foto"><i class="material-icons">inventory_2</i></span>';
+        const foto = celdaFoto(p.id, p.foto, p.nombre);
         let nombre;
         if (equivs.length > 1) {
             nombre = '<span class="alm-nombre-txt">' + h(p.nombre) + '</span><div class="alm-parte-list">'
@@ -657,8 +656,26 @@
             + '<button type="button" class="alm-cant-btn" data-step="-1" disabled onclick="event.stopPropagation(); window.almRowCantStep && window.almRowCantStep(this,-1);">▼</button>'
             + '</div></div></td>'
             + '<td class="alm-td-det" data-no-toggle><button type="button" class="btn-details-mini" title="Ver detalles del producto"'
-            + ' onclick="window.almAbrirDetalle(' + p.id + ',\'' + hj(p.codigo) + '\',\'' + hj(p.nombre) + '\',\'' + hj(p.um) + '\',\'' + hj(p.cat || '') + '\',' + saldo + ',' + (minimo !== null ? minimo : 'null') + ',\'' + hj(p.ubi || '') + '\',\'' + hj(p.foto || '') + '\')">'
+            + ' onclick="window.almAbrirDetalle(' + p.id + ',\'' + hj(p.codigo) + '\',\'' + hj(p.nombre) + '\',\'' + hj(p.um) + '\',\'' + hj(p.cat || '') + '\',' + saldo + ',' + (minimo !== null ? minimo : 'null') + ',\'' + hj(p.ubi || '') + '\')">'
             + '<i class="material-icons alm-ico-detalle">visibility</i></button></td></tr>';
+    }
+
+    // Contenido de la celda de foto de una fila del Inventario. Un solo sitio: lo usan la fila
+    // y almacen_index.js al terminar de subir una foto. Con foto: la miniatura, que abre el
+    // visor. Sin foto: la cámara para subirla SOLO a super.admin (ALM_CFG.puedeAlmManage, se lee
+    // al pintar porque la vista SPA lo reemplaza al volver a entrar); a los demás, el recuadro
+    // vacío para que la columna no baile.
+    function celdaFoto(id, url, nombre) {
+        if (url) {
+            return '<img src="' + h(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'sz=w120') + '" alt="' + h(nombre || '') + '" class="alm-foto" loading="lazy" title="Ver la foto" onclick="event.stopPropagation(); window.almVerFoto(this.src)">';
+        }
+        if (window.ALM_CFG && window.ALM_CFG.puedeAlmManage) {
+            return '<button type="button" class="alm-foto alm-foto-sin alm-foto-subir" title="Subir foto"'
+                + ' onclick="event.stopPropagation(); window.almFotoFilaElegir(' + Number(id) + ', this)">'
+                + '<i class="material-icons">add_a_photo</i>'
+                + '<span class="alm-foto-velo"><i class="material-icons">photo_camera</i>Subir foto</span></button>';
+        }
+        return '<span class="alm-foto alm-foto-sin"></span>';
     }
 
     // Burbuja de la fila: ubicación y, sin repetidos, los primeros 6 equipos que lo usan.
@@ -801,10 +818,32 @@
     }
     const esStockInicial = (m) => m.tipo === 'ENTRADA' && m.ref === STOCK_INICIAL;
 
+    // «nota|producto» de cada línea que sigue en una Nota de Entrega del kardex.
+    function lineasDeNotas(ctx) {
+        const out = new Set();
+        ctx.vista.filas('movimientos').forEach((m) => { if (lleno(m.nota)) out.add(m.nota + '|' + m.prod); });
+        return out;
+    }
+
+    // Atributos que abren la Nota de Entrega en el visor de documentos. Los usan el enlace del
+    // número de la nota y la marca «Devuelto» (lo devuelto va al pie de la nota,
+    // partials/nota_devoluciones). Sin visor: el enlace sigue su href y el botón abre la pestaña.
+    function attrsVerNota(numero) {
+        return ' data-pdf-url="' + h(urlNota(numero)) + '" data-pdf-title="Nota ' + h(numero) + '"'
+            + ' onclick="event.stopPropagation(); if (typeof window.openPdfPreview === \'function\') { event.preventDefault(); window.openPdfPreview(this.dataset.pdfUrl, \'nota_entrega\', this.dataset.pdfTitle, 0, \'\', true, \'almacen\'); } else if (!this.href) { window.open(this.dataset.pdfUrl, \'_blank\', \'noopener\'); }"';
+    }
+
     // Filas de la bitácora (antes partials/kardex_rows).
     function filasKardex(ctx, kd, filas, puede) {
         if (!filas.length) return '<tr><td colspan="6" class="mv-vacio"><i class="material-icons">receipt_long</i>No hay movimientos que coincidan con los filtros.</td></tr>';
         const corregidos = new Set(ctx.vista.filas('correcciones').map((c) => c.nota + '|' + c.prod));
+        // Notas con alguna corrección de un producto que SIGUE en ella: el mismo criterio que
+        // AlmacenController::notaEntregaPdf. Su versión corregida sale sin devoluciones (van en
+        // la original), así que su «Devuelto» abre la comparación original | corregida.
+        const notasCorregidas = new Set();
+        if (corregidos.size) {
+            lineasDeNotas(ctx).forEach((k) => { if (corregidos.has(k)) notasCorregidas.add(k.slice(0, k.lastIndexOf('|'))); });
+        }
         const visibles = new Set(ctx.visibles.map((a) => a.id));
         return filas.map((m) => {
             const meta = TIPO_META[m.tipo] || TIPO_META_DEFAULT;
@@ -836,8 +875,7 @@
 
             let ref = '';
             if (numNota) {
-                ref += '<a href="' + h(urlNota(numNota)) + '" class="mv-nota-link" data-pdf-url="' + h(urlNota(numNota)) + '" data-pdf-title="Nota ' + h(numNota) + '"'
-                    + ' onclick="if (typeof window.openPdfPreview === \'function\') { event.preventDefault(); window.openPdfPreview(this.dataset.pdfUrl, \'nota_entrega\', this.dataset.pdfTitle, 0, \'\', true, \'almacen\'); }"'
+                ref += '<a href="' + h(urlNota(numNota)) + '" class="mv-nota-link"' + attrsVerNota(numNota)
                     + ' target="_blank" rel="noopener" title="Ver Nota de Entrega (PDF)"><i class="material-icons mv-nota-ico">description</i><span class="mv-nota-num">' + h(numNota) + '</span></a>';
             }
             if (queda !== null && (puede.corregir || (puede.devolver && queda > EPS))) {
@@ -871,7 +909,10 @@
                 + (registro ? 'Registrado por: <span class="mv-tip-nombre">' + h(m.usuario) + '</span><span class="mv-tip-correo">' + h(m.correo || m.usuario) + '</span>' : ' Usuario no registrado ')
                 + (m.notas ? '<div class="mv-tip-notas">📝 ' + h(m.notas) + '</div>' : '') + '<div class="mv-tip-flecha"></div></div></td>'
                 + '<td class="mv-td-cantidad ' + (sm.suma ? 'mv-suma' : 'mv-resta') + '" data-label="Cantidad">' + sm.signo + fmt(sm.mag) + ' <span class="mv-um">' + h(um) + '</span>'
-                + (devuelto > EPS ? '<span class="mv-devuelto" title="De lo entregado en esta línea ya volvieron ' + fmt(devuelto) + ' ' + h(um) + '"><i class="material-icons">assignment_return</i>Devuelto ' + fmt(devuelto) + '</span>' : '')
+                + (devuelto > EPS ? '<button type="button" class="mv-devuelto"' + (notasCorregidas.has(m.nota)
+                    ? ' onclick="event.stopPropagation(); window.almVerCorreccion(\'' + hj(m.nota) + '\');"'
+                    : attrsVerNota(m.nota))
+                    + ' title="De lo entregado en esta línea ya volvieron ' + fmt(devuelto) + ' ' + h(um) + (notasCorregidas.has(m.nota) ? '. Abre la nota original y la corregida' : '. Abre la Nota con las devoluciones marcadas') + '"><i class="material-icons">difference</i>Devuelto</button>' : '')
                 + (m.nota && corregidos.has(m.nota + '|' + m.prod)
                     ? '<button type="button" class="mv-corregida" onclick="event.stopPropagation(); window.almVerCorreccion(\'' + hj(m.nota) + '\');" title="Cantidad corregida: ver la nota original y la corregida"><i class="material-icons">difference</i>Corregida</button>' : '')
                 + '</td>'
@@ -1083,5 +1124,5 @@
             + ' junto a lo demás escrito: mostrando sin ese número.</div>';
     }
 
-    window.AlmacenLocal = { inventario, idsInventario, panelOtros, movimientos, consumo, notas, notasFiltro, listaProductos, stockConPendientes, bolsasAuditoria, fmt, avisoSinNumeros };
+    window.AlmacenLocal = { inventario, idsInventario, panelOtros, movimientos, consumo, notas, notasFiltro, listaProductos, stockConPendientes, bolsasAuditoria, fmt, avisoSinNumeros, celdaFoto };
 })();

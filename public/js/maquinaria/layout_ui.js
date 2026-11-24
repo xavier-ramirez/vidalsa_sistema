@@ -1578,10 +1578,25 @@ const _pdfComparaMarcarChips = function (linkDerecha) {
     });
 };
 
+/**
+ * Estrena el <iframe> del panel derecho, como _pdfRenovarVisorIzq con el izquierdo: cambiarle
+ * el src dejaba un paso en el historial, el history.back() con que navegacion.js quita el
+ * paso del visor se gastaba en ese marco, y el siguiente Atrás de verdad cambiaba la URL sin
+ * cambiar de módulo. Devuelve el elemento nuevo (o null si no está en la página).
+ */
+const _pdfRenovarFrameCompara = function () {
+    const viejo = document.getElementById('pdfComparaFrame');
+    if (!viejo || !viejo.parentNode) return null;
+    const nuevo = viejo.cloneNode(false);
+    nuevo.removeAttribute('src');
+    viejo.parentNode.replaceChild(nuevo, viejo);
+    return nuevo;
+};
+
 /** Carga una corrección en el panel derecho. */
 window._pdfComparaMostrar = function (anexo) {
     const panel = document.getElementById('pdfComparaPanel');
-    const frame = document.getElementById('pdfComparaFrame');
+    const frame = _pdfRenovarFrameCompara();
     // El TEXTO, no la barra: la barra lleva ademas la lupa, y escribirle textContent
     // se la llevaria por delante.
     const rotDer = document.getElementById('pdfComparaTituloDer');
@@ -1928,14 +1943,14 @@ window._pdfComparaApagar = function () {
     const izqPanel = document.getElementById('pdfVisorIzq');
     if (izqPanel) izqPanel.style.display = 'flex';
     const panel = document.getElementById('pdfComparaPanel');
-    const frame = document.getElementById('pdfComparaFrame');
     const rotIzq = document.getElementById('pdfComparaEtiquetaIzq');
     if (panel) panel.style.display = 'none';
-    // El cargador del panel derecho se apaga con el: si se estaba yendo a about:blank
-    // con el documento aun en camino, su load ya no va a apagarlo.
+    // El cargador del panel derecho se apaga con el: con el documento aun en camino, su
+    // load ya no va a apagarlo.
     const cargDer = document.getElementById('pdfComparaLoader');
     if (cargDer) cargDer.style.display = 'none';
-    if (frame) frame.src = 'about:blank';
+    // Un marco nuevo y vacío, no src = 'about:blank' (ver _pdfRenovarFrameCompara).
+    _pdfRenovarFrameCompara();
     if (rotIzq) rotIzq.style.display = 'none';
 
     // Vuelve la barra con sus pestañas: fuera de la comparacion son la unica forma de

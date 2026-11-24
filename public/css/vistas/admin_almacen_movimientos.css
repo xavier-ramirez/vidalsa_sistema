@@ -84,17 +84,20 @@
     /* "Devuelto N" y "Corregida" bajo la cantidad, en su propio renglón y con el MISMO estilo que
        el N° de Nota (icono + texto en negro y negrita, ver .mv-nota-link): pedido del cliente,
        07-10-2026; antes eran pastillas de color.
-       · Devuelto: una salida que ya regresó, entera o en parte.
-       · Corregida: la nota se corrigió en este producto. Es un botón: abre la original y la
-         corregida lado a lado. */
+       Los dos son botones con el mismo icono (difference):
+       · Devuelto: una salida que ya regresó, entera o en parte. Abre la Nota con lo devuelto
+         marcado; si la nota se corrigió, la original y la corregida lado a lado.
+       · Corregida: la nota se corrigió en este producto. Abre la original y la corregida
+         lado a lado. */
     .alm-mov-table .mv-devuelto,
     .alm-mov-table .mv-corregida {
         display:flex; align-items:center; justify-content:center; gap:4px; margin:3px auto 0; padding:0;
         font:inherit; font-size:12.5px; font-weight:800; color:#0f172a; white-space:nowrap;
+        background:none; border:none; cursor:pointer;
     }
     .alm-mov-table .mv-devuelto .material-icons,
     .alm-mov-table .mv-corregida .material-icons { font-size:16px; line-height:1; }
-    .alm-mov-table .mv-corregida { background:none; border:none; cursor:pointer; }
+    .alm-mov-table .mv-devuelto:hover,
     .alm-mov-table .mv-corregida:hover { text-decoration:underline; }
     .alm-mov-undo {
         position:absolute; top:3px; right:3px;
@@ -437,8 +440,8 @@
         /* "Devuelto" y "Corregida": en su propio renglón DEBAJO
            de la cantidad (flex-wrap + flex-basis 100 %), a la derecha y al tamaño de la fecha, para que la tarjeta no se
            ensanche (pedido del cliente, 07-10-2026: al lado de la cantidad descuadraban la
-           tarjeta). Los dos del mismo tamaño: la regla de arriba alcanzaba al span de Devuelto
-           pero no al botón de Corregida. */
+           tarjeta). Los dos del mismo tamaño: la regla de arriba es de los span de la
+           cantidad y no alcanza a los botones. */
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-devuelto,
         .alm-mov-table tr.alm-mov-row td.mv-td-cantidad .mv-corregida {
             flex-basis: 100%; justify-content: flex-end; gap: 3px; margin: 1px 0 0;

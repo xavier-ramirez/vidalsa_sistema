@@ -374,8 +374,9 @@ window.almMovArrancar = function (CFG) {
             if (other !== tr) other.classList.remove('mv-row-selected');
         });
         tr.classList.toggle('mv-row-selected');
-        // El PDF lo abre SOLO el N° de Nota (.mv-nota-link), nunca el toque en la tarjeta: antes
-        // tocarla lanzaba el visor encima, sin aviso y sin poder verla sin abrirlo.
+        // El PDF lo abren SOLO el N° de Nota (.mv-nota-link) y la marca «Devuelto», nunca el
+        // toque en la tarjeta: antes tocarla lanzaba el visor encima, sin aviso y sin poder
+        // verla sin abrirlo.
     });
 
     // Panel de fechas

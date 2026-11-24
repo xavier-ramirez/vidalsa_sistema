@@ -117,26 +117,26 @@
     </thead>
     <tbody>
         @foreach($movs as $i => $m)
-            <tr>
+            {{-- Filtros: si se eligió un nº de parte al entregar, sale el TIPO + el nº de
+                 parte específico en la DESCRIPCIÓN. La columna N° COLADA/SERIAL muestra
+                 SIEMPRE el CÓDIGO del producto (no el nº de parte). --}}
+            @php
+                $np = $m->NUMERO_PARTE ?? null;
+                // Lo que VOLVIÓ de esta línea. Se marca aquí para no tener que bajar al
+                // bloque del pie a buscar cuál fue: el detalle (fecha y motivo) sigue
+                // estando ahí. La línea NO se tacha ni se cambia la cantidad entregada:
+                // eso es lo que se firmó.
+                // En la VISTA PREVIA los renglones todavía no son movimientos guardados (llegan
+                // como stdClass sin ID_MOVIMIENTO): ahí no hay nada devuelto que marcar.
+                $devuelto = ($m->ID_MOVIMIENTO ?? null)
+                    ? ($devoluciones ?? collect())->whereIn('ID_MOVIMIENTO_RELACIONADO', $m->IDS_TRAMOS ?? [$m->ID_MOVIMIENTO])->sum('CANTIDAD')
+                    : 0;
+            @endphp
+            <tr{!! $devuelto > 0 ? ' bgcolor="#FCA5A5"' : '' !!}>
                 <td width="6%"  align="center"><font face="helvetica" size="{{ $fi }}">{{ $i + 1 }}</font></td>
                 <td width="10%" align="center">@include('admin.almacen.partials.nota_cantidad')</td>
                 <td width="10%" align="center"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->UM ?? '' }}</font></td>
-                {{-- Filtros: si se eligió un nº de parte al entregar, sale el TIPO + el nº de
-                     parte específico en la DESCRIPCIÓN. La columna N° COLADA/SERIAL muestra
-                     SIEMPRE el CÓDIGO del producto (no el nº de parte). --}}
-                @php
-                    $np = $m->NUMERO_PARTE ?? null;
-                    // Lo que VOLVIÓ de esta línea. Se marca aquí para no tener que bajar al
-                    // bloque del pie a buscar cuál fue: el detalle (fecha y motivo) sigue
-                    // estando ahí. La línea NO se tacha ni se cambia la cantidad entregada:
-                    // eso es lo que se firmó.
-                    // En la VISTA PREVIA los renglones todavía no son movimientos guardados (llegan
-                    // como stdClass sin ID_MOVIMIENTO): ahí no hay nada devuelto que marcar.
-                    $devuelto = ($m->ID_MOVIMIENTO ?? null)
-                        ? ($devoluciones ?? collect())->whereIn('ID_MOVIMIENTO_RELACIONADO', $m->IDS_TRAMOS ?? [$m->ID_MOVIMIENTO])->sum('CANTIDAD')
-                        : 0;
-                @endphp
-                <td width="62%"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font>@if($devuelto > 0)<font face="helvetica" size="7" color="#b91c1c"> &nbsp;(DEVUELTO: {{ $fmt($devuelto) }} {{ $m->producto?->UM ?? '' }})</font>@endif</td>
+                <td width="62%"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->NOMBRE ?? '' }}@if($np) &nbsp;—&nbsp; {{ $np }}@endif</font>@if($devuelto > 0)<font face="helvetica" size="7"> &nbsp;<b>(DEVUELTO: {{ $fmt($devuelto) }} {{ $m->producto?->UM ?? '' }})</b></font>@endif</td>
                 <td width="12%" align="center"><font face="helvetica" size="{{ $fi }}">{{ $m->producto?->CODIGO ?? '' }}</font></td>
             </tr>
         @endforeach

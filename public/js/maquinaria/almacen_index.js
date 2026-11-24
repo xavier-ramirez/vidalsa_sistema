@@ -2469,9 +2469,8 @@
     }
     // Tope de espera de la compatibilidad antes de abrir la ficha igual (ver almAbrirDetalle).
     var ALM_DET_ESPERA_MS = 2500;
-    window.almAbrirDetalle = function (id, cod, nom, um, cat, saldo, minimo, ubicacion, foto) {
+    window.almAbrirDetalle = function (id, cod, nom, um, cat, saldo, minimo, ubicacion) {
         var m = el('almDetalleModal'); if (!m) return;
-        almDetFotoPintar(foto || '');
         almMarcarVista(id);
         var hasMin = (minimo !== null && minimo !== undefined && minimo !== '');
         m.dataset.id = id;
@@ -2505,41 +2504,46 @@
     };
 
     // ── Foto del producto ─────────────────────────────────────────────────────
-    // La tabla y la ficha piden la MINIATURA (?sz=): el proxy la guarda en disco y pesa unos
-    // KB, en vez de la foto de 945 px para un cuadrito de 58. El visor pide la foto entera.
-    // Mismo sufijo en la fila que pinta el servidor (partials/table_rows).
-    function almFotoMini(url, sz) { return url + (url.indexOf('?') < 0 ? '?' : '&') + 'sz=' + sz; }
-
-    // Un solo sitio que decide qué se ve: la imagen o el círculo vacío, y lo que dice la
-    // cámara al pasar el mouse. Lo llaman la apertura de la ficha y la subida.
-    function almDetFotoPintar(url) {
-        var img = el('almDetFotoImg'), sin = el('almDetFotoSin');
-        if (!img || !sin) return;
-        if (url) { img.src = almFotoMini(url, 'w160'); img.style.display = ''; sin.style.display = 'none'; }
-        else     { img.removeAttribute('src'); img.style.display = 'none'; sin.style.display = 'flex'; }
-        var caja = el('almDetFotoCaja');
-        if (caja && caja.classList.contains('editable')) caja.title = url ? 'Cambiar foto' : 'Subir foto';
-        // El dataset manda: la tabla se repinta con él al cerrar la ficha.
-        var m = el('almDetalleModal'); if (m) m.dataset.foto = url || '';
-    }
+    // Se ve y se cambia en la tabla (AlmacenLocal.celdaFoto) y en Nuevo/Editar producto; la
+    // ficha «Detalles del producto» ya no la lleva.
 
     // Deja la fila de la tabla al día sin recargar el módulo entero.
-    function almDetFotoEnLaTabla(id, url) {
+    function almFotoEnLaTabla(id, url) {
         var fila = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"]');
         var celda = fila && fila.querySelector('.alm-td-foto');
         if (!celda) return;
-        celda.innerHTML = url
-            ? '<img src="' + almFotoMini(url, 'w120') + '" alt="" class="alm-foto" loading="lazy" onclick="event.stopPropagation(); window.almVerFoto(this.src)">'
-            : '<span class="alm-foto alm-foto-sin" title="Sin foto"><i class="material-icons">inventory_2</i></span>';
+        celda.innerHTML = window.AlmacenLocal.celdaFoto(id, url, fila.getAttribute('data-nombre'));
     }
 
-    // Elegir archivo -> encuadrarlo en el recorte (el mismo del Catálogo) -> subir el recorte.
-    window.almDetFotoElegir = function (input) {
+    // Archivo elegido -> encuadrarlo en el recorte (el mismo del Catálogo) -> subirlo al
+    // producto `id`. Lo usa la cámara de la fila de la tabla.
+    function almFotoRecortarYSubir(input, id, marcar) {
         var archivo = input && input.files && input.files[0];
         input.value = '';                      // permite volver a elegir el mismo archivo
         if (!archivo) return;
         if (archivo.size > 10 * 1024 * 1024) { window.toast('La foto supera los 10 MB.', 'error'); return; }
-        window._openCropModal(archivo, almDetFotoSubir);
+        window._openCropModal(archivo, function (recortada) { almFotoSubir(id, recortada, marcar); });
+    }
+
+    // Cámara de la fila sin foto (solo super.admin, ver AlmacenLocal.celdaFoto). Un único
+    // <input file> oculto para todas las filas: se crea la primera vez.
+    window.almFotoFilaElegir = function (id, boton) {
+        if (!ensurePerm(CFG.puedeAlmManage, 'Solo un super administrador puede subir la foto desde la tabla.')) return;
+        var input = el('almFotoFilaInput');
+        if (!input) {
+            input = document.createElement('input');
+            input.type = 'file'; input.id = 'almFotoFilaInput'; input.hidden = true;
+            input.accept = 'image/jpeg,image/png,image/webp';
+            document.body.appendChild(input);
+        }
+        input.onchange = function () {
+            almFotoRecortarYSubir(input, String(id), function (on) {
+                // La fila pudo repintarse mientras se recortaba: se busca su botón de nuevo.
+                var b = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + id + '"] .alm-foto-subir') || boton;
+                if (b) b.classList.toggle('subiendo', on);
+            });
+        };
+        input.click();
     };
 
     // Aviso tras subir una foto, según `fondo_blanco` (AlmacenController::subirFotoProducto):
@@ -2551,28 +2555,23 @@
         else window.toast('Foto actualizada.', 'success');
     }
 
-    function almDetFotoSubir(archivo) {
-        var id = el('almDetalleModal').dataset.id;
-        var caja = el('almDetFotoCaja');
-        if (caja) caja.classList.add('subiendo');   // la cámara gira y no se admite otro clic
-
+    // marcar(true|false): enciende/apaga el "subiendo" de la cámara de la fila.
+    function almFotoSubir(id, archivo, marcar) {
+        marcar(true);
         window.apiPostForm(CFG.rutas.productosBase + '/' + id + '/foto',
                            { foto: archivo }, 'No se pudo subir la foto.')
             .then(function (b) {
-                // Gemini puede tardar: si mientras tanto se abrió OTRO producto, su ficha no se
-                // toca (solo la fila de la tabla del que se subió).
-                if (el('almDetalleModal').dataset.id === id) almDetFotoPintar(b.foto);
-                almDetFotoEnLaTabla(id, b.foto);
+                almFotoEnLaTabla(id, b.foto);
                 almFotoAviso(b);
             })
             .catch(function (e) { window.toast(e.message, 'error'); })
-            .finally(function () { if (caja) caja.classList.remove('subiendo'); });
+            .finally(function () { marcar(false); });
     }
 
-    // Visor de la foto: lo abren la miniatura de la tabla y la foto de la ficha (sin permiso).
+    // Visor de la foto: lo abre la miniatura de la tabla.
     window.almVerFoto = function (src) {
         if (!src) return;
-        // Llega la miniatura de la tabla o de la ficha: en grande va la foto entera.
+        // Llega la miniatura (?sz=): en grande va la foto entera.
         el('almVisorFotoImg').src = src.replace(/[?&]sz=[^&]*$/, '');
         el('almVisorFoto').classList.add('abierto');
     };
@@ -3698,9 +3697,9 @@
     // se podría subir al instante, pero se hace igual al guardar para que Cancelar no deje una
     // foto cambiada en un producto que no se llegó a guardar.
     //
-    // El recorte y la subida son los MISMOS de "Detalles del producto": window._openCropModal
+    // El recorte y la subida son los MISMOS de la cámara de la tabla: window._openCropModal
     // (partials/recorte_foto) y el endpoint productosBase/<id>/foto, que ya convierte a WebP,
-    // sube a Drive y borra la anterior. Lo único que se repite de almDetFotoElegir es el guard
+    // sube a Drive y borra la anterior. Lo único que se repite de almFotoRecortarYSubir es el guard
     // de entrada (que haya archivo y no pase de 10 MB): son cuatro líneas y sacarlas a una
     // función común costaría más leerlo de lo que ahorra.
     //

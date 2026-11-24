@@ -74,3 +74,4 @@ scratch_*.csv
 # en la maquina y NO viaja al repositorio NUNCA. El mapa publico del proyecto es MAPA.md.
 /MAPA_LOCAL.md
 *.local.md
+.aider*

@@ -58,6 +58,8 @@
     #ajNotaModal .ajn-historial { font-size:12.5px; font-weight:500; }
     #ajNotaModal .ajn-historial b { font-weight:700; }
     #ajNotaModal .ajn-historial ul { margin:6px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:3px; }
+    /* Una operación por línea: lo que no cabe se corta con «…» (el texto entero va en el title). */
+    #ajNotaModal .ajn-historial li { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
     /* Pie: dos botones del mismo ancho. Clases propias (no .btn-primary-maquinaria) para que
        los estilos globales de botón no les cambien el tamaño. */

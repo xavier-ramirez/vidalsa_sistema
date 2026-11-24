@@ -7,5 +7,7 @@
     sale el número viejo tachado y el nuevo al lado, los dos en rojo.
 
       - $m, $fmt, $fi: los de la fila de la tabla de ítems que la incluye.
+      - $devuelto: lo devuelto de esa línea. Con algo devuelto la fila va en rojo y todo su
+        texto en negro (si no, el rojo de la corrección no se leería sobre la fila).
 --}}
-@if(isset($m->CANTIDAD_CORREGIDA))<font face="helvetica" size="{{ $fi }}" color="#b91c1c"><del>{{ $fmt($m->CANTIDAD) }}</del> <b>{{ $fmt($m->CANTIDAD_CORREGIDA) }}</b></font>@else<font face="helvetica" size="{{ $fi }}">{{ $fmt($m->CANTIDAD) }}</font>@endif
+@if(isset($m->CANTIDAD_CORREGIDA))<font face="helvetica" size="{{ $fi }}" color="{{ ($devuelto ?? 0) > 0 ? '#000000' : '#b91c1c' }}"><del>{{ $fmt($m->CANTIDAD) }}</del> <b>{{ $fmt($m->CANTIDAD_CORREGIDA) }}</b></font>@else<font face="helvetica" size="{{ $fi }}">{{ $fmt($m->CANTIDAD) }}</font>@endif
