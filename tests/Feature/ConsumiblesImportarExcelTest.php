@@ -289,5 +289,6 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $html = $this->actingAs($u)->get(route('consumibles.cargar'))->getContent();
         $this->assertStringNotContainsString('id="impArchivos"', $html);
         $this->subir($u, $this->excel('1234567'))->assertForbidden();
+        $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => "FECHA\tSALIDA\n01/08/2026\t10"])->assertForbidden();
     }
 }

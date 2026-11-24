@@ -64,10 +64,10 @@ class ConsumiblesImportacionController extends Controller
         $ruta = $base . '.xlsx';
         try {
             (new Xlsx($libro))->save($ruta);
-            $libro->disconnectWorksheets();
 
             return $this->borrador([new UploadedFile($ruta, 'Tabla pegada.xlsx', null, null, true)], $importador);
         } finally {
+            $libro->disconnectWorksheets();
             @unlink($ruta);
             @unlink($base);
         }

@@ -708,7 +708,7 @@
                             } else if (window.showModal) {
                                 window.showModal({
                                     type: 'success',
-                                    title: '¡Lote guardado!',
+                                    title: '¡Guardado!',
                                     message: body.message || `${n} registros guardados.`,
                                     confirmText: 'Listo',
                                     hideCancel: true,

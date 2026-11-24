@@ -109,7 +109,7 @@ class ConsumiblesController extends Controller
     }
 
     // ══════════════════════════════════════════════════════════════
-    // CARGA DE LOTE — Formulario
+    // CARGAR CONSUMIBLES — la pantalla (Excel de gasoil arriba, tabla a mano debajo)
     // ══════════════════════════════════════════════════════════════
     public function cargar()
     {

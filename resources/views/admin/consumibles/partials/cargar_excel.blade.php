@@ -1,7 +1,7 @@
 {{-- Cargar consumibles → Excel de gasoil (solo super.admin, como sus rutas). Dos entradas al
      MISMO lector (ConsumiblesImportacionController): los archivos de esta zona (se leen al
      elegirlos) y la tabla copiada del Excel con sus encabezados y pegada con Ctrl+V (el paste
-     de cargar.blade la manda aquí). Columnas por encabezado, repetidos fuera, revisión y
+     de cargar.blade la manda a consumibles.importar.pegar). Columnas por encabezado, repetidos fuera, revisión y
      deshacer. Debajo, la tabla para escribir a mano o pegar filas sin encabezado. --}}
 @include('admin.consumibles.partials.importar_estilos')
 
