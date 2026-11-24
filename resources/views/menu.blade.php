@@ -296,9 +296,9 @@
                     </div>
                 </div>
                 <p class="menu-about-desc">
-                    Empresa venezolana de construcción con más de 15 años de experiencia
-                    en el sector petrolero y de vivienda, ejecutando oleoductos, líneas de flujo
-                    y obras civiles de impacto nacional.
+                    <b>CONSTRUCTORA VIDALSA 27 C.A.</b> es una empresa venezolana fundada en el año 2007,
+                    desde entonces sumamos años de trayectoria en la construcción de infraestructura civil
+                    y petrolera, con enfoque en la Faja Petrolífera del Orinoco.
                 </p>
             </div>
             <div class="menu-about-right">
