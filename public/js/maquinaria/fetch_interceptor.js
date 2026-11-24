@@ -211,6 +211,10 @@ window.fetch = async function (...args) {
         // Algo se GUARDÓ (cualquier método que no sea GET/HEAD, con 2xx): las copias locales
         // en uso (copia-local.js) preguntan ya, y la pantalla muestra el cambio sin esperar
         // al siguiente sondeo de 15 s.
+        // 403: puede ser un permiso que un administrador le acaba de quitar y la pestaña todavía
+        // muestra el botón. Se mira si cambió su acceso (navegacion.js) para ofrecer actualizar.
+        if (response.status === 403 && window.revisarAcceso) window.revisarAcceso();
+
         const _metodo = String((args[1] && args[1].method) || (args[0] && args[0].method) || 'GET').toUpperCase();
         if (response.ok && _metodo !== 'GET' && _metodo !== 'HEAD' && window.CopiaLocal) window.CopiaLocal.alGuardar();
         return response;

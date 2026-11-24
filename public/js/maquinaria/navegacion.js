@@ -1227,10 +1227,16 @@ document.addEventListener('DOMContentLoaded', () => {
     var meta = document.querySelector('meta[name="version-vistas"]');
     var versionInicial = meta ? meta.content : '';
     if (!versionInicial) return;                // sin huella no hay nada que comparar
+    // Permisos y frentes con que se pintó esta pestaña (Usuario::huellaAcceso). Si un
+    // administrador se los cambia, el <head> no se entera solo (la SPA no lo recarga): los
+    // botones, los permisos que lee el JS y la clave de las pantallas guardadas seguirían
+    // siendo los viejos. Se trata igual que un despliegue.
+    var metaAcceso = document.querySelector('meta[name="usuario-acceso"]');
+    var accesoInicial = metaAcceso ? metaAcceso.content : '';
 
     var avisando = false, pidiendo = false;
 
-    function mostrarAviso() {
+    function mostrarAviso(texto) {
         if (avisando || document.getElementById('avisoVersionNueva')) return;
         avisando = true;
         var caja = document.createElement('div');
@@ -1244,7 +1250,8 @@ document.addEventListener('DOMContentLoaded', () => {
             '<span style="display:flex;align-items:center;gap:8px;">' +
                 '<i class="material-icons" style="font-size:19px;color:#60a5fa;">system_update_alt</i>' +
                 // En el teléfono, corto: el largo empujaba el botón fuera ("Actuali…").
-                (window.matchMedia('(max-width: 768px)').matches ? 'Hay cambios nuevos' : 'Hay cambios nuevos en el sistema') +
+                (typeof texto === 'string' ? texto
+                    : window.matchMedia('(max-width: 768px)').matches ? 'Hay cambios nuevos' : 'Hay cambios nuevos en el sistema') +
             '</span>' +
             '<button type="button" id="avisoVersionRecargar" style="font:inherit;font-weight:700;cursor:pointer;' +
                 'background:#0067b1;color:#fff;border:none;border-radius:8px;padding:6px 12px;">Actualizar</button>';
@@ -1284,14 +1291,20 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(function () { return null; })      // sin red o sesión vencida: se reintenta luego
             .then(function (j) {
                 pidiendo = false;
-                if (!(j && j.v && j.v !== versionInicial)) return;
+                if (!j) return;
+                var otraVersion = !!(j.v && j.v !== versionInicial);
+                var otroAcceso = !!(j.a && accesoInicial && j.a !== accesoInicial);
+                if (!otraVersion && !otroAcceso) return;
+                // Con esto loadPage tampoco abre las pantallas guardadas (llevan la huella vieja).
                 window.__versionNueva = true;
                 if (trasNavegar === true && !(window.__hdCargaMasiva && window.__hdCargaMasiva.corriendo)) window.location.reload();
-                else mostrarAviso();
+                else mostrarAviso(otraVersion ? undefined : 'Se actualizaron tus permisos');
             });
     }
 
     window.mostrarAvisoVersion = mostrarAviso;   // también lo usa ponerAlDia
+    // Un 403 (fetch_interceptor) puede ser un permiso que le quitaron: se mira ya, sin esperar el minuto.
+    window.revisarAcceso = function () { revisar(); };
     setInterval(revisar, CADA_MS);
     window.addEventListener('spa:contentLoaded', function () { revisar(true); });
     // Al volver a la pestaña (el caso típico: se edita, se vuelve y se mira) no hay que esperar.

@@ -52,6 +52,29 @@ class VersionVistasTest extends MySqlTestCase
             ->assertJson(['v' => $m[1]]);
     }
 
+    /**
+     * Cambiarle los permisos a alguien con la pestaña abierta: el endpoint que esa pestaña
+     * pregunta cada minuto devuelve OTRA huella de acceso que la del <meta usuario-acceso> con
+     * que se pintó, y navegacion.js recarga (botones, permisos del JS y pantallas guardadas).
+     */
+    public function test_cambiar_permisos_cambia_la_huella_que_ve_la_pestana_abierta(): void
+    {
+        $u = Usuario::all()->first(fn ($u) => $u->can('almacen.movimiento'));
+        $this->assertNotNull($u, 'Hace falta un usuario con acceso a Almacén.');
+
+        $html = $this->actingAs($u)->get(route('almacen.index'))->assertOk()->getContent();
+        $this->assertSame(1, preg_match('/<meta name="usuario-acceso" content="([0-9a-f]{12})">/', $html, $m));
+        $this->actingAs($u)->getJson(route('version.vistas'))->assertOk()->assertJson(['a' => $m[1]]);
+
+        // Un administrador le da un permiso (en la BD, como el formulario de Usuarios).
+        $nuevo = $u->PERMISOS ? $u->getRawOriginal('PERMISOS') . ',almacen.foto' : 'almacen.foto';
+        \Illuminate\Support\Facades\DB::table('usuarios')->where('ID_USUARIO', $u->ID_USUARIO)->update(['PERMISOS' => $nuevo]);
+
+        $a = $this->actingAs($u->fresh())->getJson(route('version.vistas'))->assertOk()->json('a');
+        $this->assertNotSame($m[1], $a, 'La pestaña abierta tiene que enterarse del permiso nuevo.');
+        $this->assertSame($u->fresh()->huellaAcceso(), $a);
+    }
+
     public function test_el_endpoint_de_version_pide_sesion(): void
     {
         $this->getJson(route('version.vistas'))->assertUnauthorized();

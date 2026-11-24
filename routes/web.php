@@ -112,7 +112,12 @@ Route::middleware(['auth'])->group(function () {
         // Version de las vistas del servidor (la misma que el <meta version-vistas> del layout).
         // La pregunta cada tanto la pestaña abierta para avisar "hay cambios nuevos" sin tener
         // que navegar a otro módulo ni recargar a ciegas. Es una lectura de caché: no toca BD.
-        Route::get('/version-vistas', fn () => response()->json(['v' => \App\Support\VersionVistas::actual()]))
+        // 'a' = huella del ACCESO del usuario (Usuario::huellaAcceso, el <meta usuario-acceso>):
+        // si un administrador le cambió permisos o frentes, la pestaña lo ve y se recarga.
+        Route::get('/version-vistas', fn () => response()->json([
+            'v' => \App\Support\VersionVistas::actual(),
+            'a' => auth()->user()?->huellaAcceso(),
+        ]))
             ->name('version.vistas');
         // Capa "Equipos" del mapa: los equipos con GPS (GPS51, vía el enlace compartido de cada
         // equipo) de los frentes del usuario, sus posiciones por tandas y la dirección de uno al
