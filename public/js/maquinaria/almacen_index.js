@@ -1587,6 +1587,10 @@
         almFaltantes = {};
         almExceden = {};
         almKitMotivo = '';
+        // La tabla filtrada la trajo el servidor (id_producto_in): con solo mostrar las filas
+        // quedaría con los que estaban seleccionados. El botón Limpiar la recarga entera; los
+        // demás llamados (cambio de almacén, salida registrada) ya recargan por su cuenta.
+        var recargar = !!e && almSoloSel;
         almSoloSel = false; // sin selección, el filtro local no tiene sentido
         document.querySelectorAll('#almTableBody tr.alm-row').forEach(function (tr) {
             almSelMarkRow(tr, false);
@@ -1596,6 +1600,7 @@
         });
         var btn = el('almBulkCounter'); if (btn) btn.classList.remove('is-filtering');
         almSelRefreshBar();
+        if (recargar) almCargar();
     };
     // Carga en la salida los materiales de un kit (Acciones → Kits, js/maquinaria/almacen_kits.js):
     // lineas = [{id_producto, cantidad}], con la cantidad YA multiplicada por los kits. Es lo
@@ -1775,6 +1780,8 @@
             almMostrarProblemasSalida(problemas[0]);
             return;
         }
+        // Detrás del modal, la tabla con SOLO lo que sale (como cuando hay algo por corregir).
+        if (!almSoloSel) almAplicarSoloSel(true);
         window.almAbrirSalidaModal(idAlm);
     };
 
