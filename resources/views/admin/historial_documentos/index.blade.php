@@ -13,22 +13,17 @@
          La revisión va primero y es la que se abre (HistorialDocumentosController::index). --}}
     {{-- "Revisión automática" (pedido del cliente, 21-10-2026). En el teléfono, cada nombre sin
          su .hd-pest-mas: "Revisión", "Historial", "Compresión". --}}
-    <button type="button" class="{{ $pestana === 'documentos' ? 'on' : '' }}" onclick="window.hdPestana('documentos')">
+    {{-- Enlaces, no botones: cambiar de pestaña es pedir la misma pantalla con ?pestana=...
+         por la SPA, y siendo <a> la SPA ya la empieza a traer al pasar el mouse (o al tocar en
+         el teléfono, navegacion.js → precargar), así al hacer clic suele estar lista. --}}
+    <a href="{{ route('historial-documentos.index', ['pestana' => 'documentos']) }}" class="{{ $pestana === 'documentos' ? 'on' : '' }}">
         Revisión<span class="hd-pest-mas"> automática</span>
         @if ($docsParaRevisar) <span class="hd-pend" title="Documentos que hay que revisar a mano">{{ $docsParaRevisar }}</span> @endif
-    </button>
-    <button type="button" class="{{ $pestana === 'historial' ? 'on' : '' }}" onclick="window.hdPestana('historial')">Historial<span class="hd-pest-mas"> de cambios</span></button>
-    <button type="button" class="{{ $pestana === 'compresion' ? 'on' : '' }}" onclick="window.hdPestana('compresion')">Compresión<span class="hd-pest-mas"> de PDF</span></button>
+    </a>
+    <a href="{{ route('historial-documentos.index', ['pestana' => 'historial']) }}" class="{{ $pestana === 'historial' ? 'on' : '' }}">Historial<span class="hd-pest-mas"> de cambios</span></a>
+    <a href="{{ route('historial-documentos.index', ['pestana' => 'compresion']) }}" class="{{ $pestana === 'compresion' ? 'on' : '' }}">Compresión<span class="hd-pest-mas"> de PDF</span></a>
     </div>
 </div>
-<script>
-    // Cambiar de pestaña = pedir la misma pantalla con ?pestana=..., por la SPA.
-    window.hdPestana = function (cual) {
-        var url = @json(route('historial-documentos.index')) + '?pestana=' + cual;
-        if (typeof window.navigateTo === 'function') window.navigateTo(url);
-        else window.location.href = url;
-    };
-</script>
 
 @include('admin.historial_documentos.partials.desplegables')
 @include('admin.historial_documentos.partials.papelera')

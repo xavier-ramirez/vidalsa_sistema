@@ -240,9 +240,10 @@ class HistorialDocumentosTest extends MySqlTestCase
 
         $this->assertStringContainsString('cpdf-docs', $html, 'Abre la revisión.');
         $this->assertStringNotContainsString('historialDocumentosTable', $html);
-        preg_match_all("/window\.hdPestana\('(\w+)'\)/", $html, $m);
+        // Las pestañas son enlaces (la SPA las precarga al pasar el mouse), en este orden.
+        preg_match_all('/<a href="[^"]*\?pestana=(\w+)" class="(on)?"/', $html, $m);
         $this->assertSame(['documentos', 'historial', 'compresion'], $m[1]);
-        $this->assertStringContainsString("class=\"on\" onclick=\"window.hdPestana('documentos')\"", $html, 'Y sale marcada.');
+        $this->assertSame(['on', '', ''], $m[2], 'Y sale marcada.');
     }
 
     /**
