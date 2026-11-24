@@ -59,7 +59,7 @@
             }
 
             #splitDropdownMenu {
-                width: 100%;
+                width: 100% !important;
                 min-width: 100%;
             }
 
