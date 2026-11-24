@@ -6,6 +6,7 @@ use App\Models\CompresionPdf;
 use App\Models\Usuario;
 use App\Models\VerificacionDocumento;
 use App\Support\ColaCargaMasiva;
+use App\Support\PanelDocumentos;
 use Illuminate\Support\Facades\Storage;
 use Tests\MySqlTestCase;
 
@@ -60,7 +61,7 @@ class AuditoriaDocumentosFiltrosTest extends MySqlTestCase
     {
         $html = $this->filtrar(['pestana' => 'documentos'] + $filtro);
         $this->assertSame($esperado, $this->cifra($html, 'hero'), 'la cuenta no sigue al filtro ' . json_encode($filtro));
-        $this->assertSame(min($esperado, 50), $this->filas($html), 'la tabla no trae lo que dice la cuenta');
+        $this->assertSame(min($esperado, PanelDocumentos::POR_PAGINA), $this->filas($html), 'la tabla no trae lo que dice la cuenta');
         if ($esperado !== VerificacionDocumento::count()) {
             $this->assertStringContainsString('de ' . number_format(VerificacionDocumento::count(), 0, ',', '.'), $html);
         }
@@ -178,7 +179,7 @@ class AuditoriaDocumentosFiltrosTest extends MySqlTestCase
         ];
         foreach ($casos as [$filtro, $n]) {
             $html = $this->filtrar(['pestana' => 'compresion'] + $filtro);
-            $this->assertSame(min($n, 50), $this->filas($html), 'mal filtrado: ' . json_encode($filtro));
+            $this->assertSame(min($n, PanelDocumentos::POR_PAGINA), $this->filas($html), 'mal filtrado: ' . json_encode($filtro));
         }
 
         // Las tarjetas cuentan con el documento elegido; el estado no las cambia.

@@ -25,6 +25,9 @@ class PanelDocumentos
     public const COMPRESION = 'compresion';
     public const DOCUMENTOS = 'documentos';
 
+    /** Filas por página de Revisión y de Compresión. */
+    public const POR_PAGINA = 20;
+
     /** ¿Es una de las dos pestañas de este panel? */
     public static function esPestana(?string $v): bool
     {
@@ -132,7 +135,7 @@ class PanelDocumentos
         $filas = CompresionPdf::query()->tap($filtrar)
             ->when($estado, fn ($q) => $q->where('ESTADO', $estado))
             ->orderByDesc('created_at')->orderByDesc('ID_REGISTRO')
-            ->paginate(50)->withQueryString();
+            ->paginate(self::POR_PAGINA)->withQueryString();
 
         return [
             'resumen'     => $resumen,
@@ -234,7 +237,7 @@ class PanelDocumentos
             // El serial de motor no se guarda en la fila: sale de la ficha, de toda la pagina en
             // una consulta (ver VerificacionDocumento::identificador). Tambien de un equipo borrado.
             ->with(['equipo' => fn ($q) => $q->withTrashed()->select('ID_EQUIPO', 'SERIAL_DE_MOTOR')])
-            ->paginate(50)->withQueryString();
+            ->paginate(self::POR_PAGINA)->withQueryString();
 
         // Las filas de la carga masiva de la pagina (las demas, null), por su ID.
         $deLaCarga = $filas->getCollection()->mapWithKeys(fn ($d) => [$d->ID_REGISTRO =>
