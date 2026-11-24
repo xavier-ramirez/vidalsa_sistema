@@ -681,6 +681,23 @@
             // (consumibles_importar.js): columnas por nombre, repetidos fuera y deshacer.
             if (tipoPegado === 'GASOIL' && mapa && mapa.reporte && window.consImpPegar && window.consImpPegar(text)) return;
 
+            // Las reglas no reconocieron los encabezados: si lo pegado no encaja en el orden fijo
+            // (más columnas de las que tiene la tabla, o una 1ª fila de títulos), se le pregunta a la
+            // IA qué columna es cada dato. Sin respuesta útil, se pega por posición como siempre.
+            const espec0 = necesitaEspec();
+            const enOrden = espec0 ? 7 : 6;
+            const raro = filas.length >= 2 && (filas.some(c => c.filter(x => x !== '').length > enOrden)
+                || (filas[0][0] && !fechaISO(filas[0][0]) && isNaN(parseFloat(filas[0][0]))));
+            if (!mapa && raro && window.consImpColumnas) {
+                window.consImpColumnas(filas, espec0).then(r => {
+                    if (r) pegarFilas(filas, r.mapa, r.fila === null ? 0 : r.fila + 1);
+                    else pegarFilas(filas, null, 0);
+                });
+                return;
+            }
+            pegarFilas(filas, mapa, desde);
+        };
+        function pegarFilas(filas, mapa, desde) {
             // Limpiar tabla antes de pegar (solo si todas sus filas están vacías)
             const filasSinDatos = [...document.getElementById('cuerpoTabla').querySelectorAll('tr')]
                 .every(tr => [...tr.querySelectorAll('input')].every(i => !i.value.trim()));
@@ -725,7 +742,7 @@
                     setTimeout(() => { pz.style.borderColor = ''; }, 1000);
                 }
             }
-        };
+        }
         document.removeEventListener('paste', window.pasteLoteCargarHandler);
         document.addEventListener('paste', window.pasteLoteCargarHandler);
 

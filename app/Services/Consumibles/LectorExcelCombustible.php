@@ -58,6 +58,28 @@ class LectorExcelCombustible
     /** Una fecha a más de esto de la mediana de su hoja no sirve de referencia para las vecinas. */
     private const DIAS_CONFIABLE = 150;
 
+    /** Hojas por archivo que se le pueden preguntar a la IA (cada una gasta cupo; ver ColumnasConIA). */
+    private const HOJAS_CON_IA = 3;
+
+    /** Lo que la IA sabe buscar en una hoja de despachos: los mismos campos que campoDe(). */
+    private const CAMPOS_IA = [
+        'fecha'    => 'fecha del despacho',
+        'salida'   => 'litros despachados (salida del tanque)',
+        'entrada'  => 'litros que ENTRAN al tanque (recarga), no los despachados',
+        'placa'    => 'placa del vehículo',
+        'serial'   => 'serial del equipo o del chasis',
+        'ident'    => 'placa o serial juntos en una misma columna',
+        'equipo'   => 'descripción o tipo del vehículo o equipo',
+        'resp'     => 'nombre de quien recibe (responsable, operador, chofer)',
+        'ci'       => 'cédula de quien recibe',
+        'frente'   => 'frente de trabajo',
+        'proyecto' => 'proyecto o actividad',
+    ];
+
+    private int $hojasConIa = 0;
+
+    public function __construct(private ?ColumnasConIA $ia = null) {}
+
     /**
      * @return array{archivo:string, hojas:array<int,array>, filas:array<int,array>}
      */
@@ -66,6 +88,7 @@ class LectorExcelCombustible
         $lector = IOFactory::createReaderForFile($ruta);
         $lector->setReadDataOnly(true);
         $libro = $lector->load($ruta);
+        $this->hojasConIa = 0;
 
         try {
             $catalogo = $this->catalogoCodigos($libro);
@@ -149,7 +172,38 @@ class LectorExcelCombustible
             }
         }
 
-        return [null, []];
+        return $this->encabezadoConIa($hoja, $maxCol);
+    }
+
+    /**
+     * Las reglas no hallaron el encabezado: se le pregunta a la IA con las primeras filas
+     * (ColumnasConIA, que comprueba la respuesta contra los datos). Como las reglas, pide fecha,
+     * litros y algo que diga QUÉ equipo: una hoja de tanque «FECHA | LITROS» no son despachos.
+     * Sin encabezado (fila null), los datos empiezan en la fila 1.
+     *
+     * @return array{0:?int,1:array<string,int>}
+     */
+    private function encabezadoConIa(Worksheet $hoja, int $maxCol): array
+    {
+        $ia = $this->ia ?? app(ColumnasConIA::class);
+        if ($this->hojasConIa >= self::HOJAS_CON_IA || !$ia->disponible() || $hoja->getHighestDataRow() < 3) {
+            return [null, []];
+        }
+        $filas = [];
+        for ($r = 1; $r <= 20; $r++) {
+            $fila = [];
+            for ($c = 1; $c <= min($maxCol, 30); $c++) {
+                $fila[] = $this->valor($hoja, $c, $r);
+            }
+            $filas[] = $fila;
+        }
+        $this->hojasConIa++;
+        $res = $ia->reconocer($filas, self::CAMPOS_IA, 'fecha', 'salida');
+        if ($res === null || array_intersect_key($res['mapa'], array_flip(['ident', 'placa', 'serial', 'equipo'])) === []) {
+            return [null, []];
+        }
+
+        return [$res['fila'] === null ? 0 : $res['fila'] + 1, array_map(fn ($c) => $c + 1, $res['mapa'])];
     }
 
     /**
@@ -569,7 +623,8 @@ class LectorExcelCombustible
     /** Valor visible de la celda: el resultado guardado si es fórmula; null si está vacía. */
     private function valor(Worksheet $hoja, int $c, int $r): mixed
     {
-        if (!$hoja->cellExists([$c, $r])) {
+        // Fila 0 = encima de una tabla sin encabezado (la IA lo dijo así): no hay celda.
+        if ($r < 1 || $c < 1 || !$hoja->cellExists([$c, $r])) {
             return null;
         }
         $celda = $hoja->getCell([$c, $r]);

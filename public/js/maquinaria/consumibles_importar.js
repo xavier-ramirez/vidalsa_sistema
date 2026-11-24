@@ -98,6 +98,23 @@
         return true;
     };
 
+    /**
+     * Columnas de unas filas pegadas que las reglas no reconocieron, preguntadas a la IA
+     * (ConsumiblesImportacionController::columnas). Resuelve {fila, mapa} (índices desde 0) o
+     * null si no se pudo: quien llama pega entonces por posición, como siempre.
+     */
+    window.consImpColumnas = function (filas, espec) {
+        if (!CFG.columnas) return Promise.resolve(null);
+        if (window.showToast) window.showToast('Reconociendo las columnas con IA…', 'info');
+        return conEspera(pedir(CFG.columnas, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filas: filas.slice(0, 20).map(function (f) { return f.slice(0, 30); }), espec: !!espec }),
+        })).then(function (r) {
+            return r.ok && r.body && r.body.mapa ? r.body : null;
+        }).catch(function () { return null; });
+    };
+
     function prepararZona() {
         var zona = document.getElementById('impZona');
         var input = document.getElementById('impArchivos');

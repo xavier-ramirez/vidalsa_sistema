@@ -118,7 +118,10 @@ TXT;
                 return null;
             }
 
-            $json = $this->consultar($modelo, $pdf, max(1, $intentos), $esperado);
+            $json = $this->consultar($modelo, [
+                ['text' => self::INSTRUCCION . $this->loQueSeBusca($esperado)],
+                ['inline_data' => ['mime_type' => 'application/pdf', 'data' => base64_encode($pdf)]],
+            ], max(1, $intentos));
             if ($json === null) {
                 return null;
             }
@@ -134,17 +137,46 @@ TXT;
     }
 
     /**
+     * Una pregunta de TEXTO que se contesta con un JSON (p. ej. qué columna de un Excel es cada
+     * dato: Consumibles\ColumnasConIA). Mismo cupo, ritmo y candado que la lectura de PDF, y la
+     * misma regla: null ante cualquier problema, nunca una excepción.
+     */
+    public function preguntarJson(string $instruccion, int $intentos = 2): ?array
+    {
+        try {
+            $modelo = $this->modelo();
+            if (!$this->disponible() || $modelo === '' || !$this->hayCupo()) {
+                return null;
+            }
+            $json = $this->consultar($modelo, [['text' => $instruccion]], max(1, $intentos));
+            if ($json === null) {
+                return null;
+            }
+            $texto = '';
+            foreach (data_get($json, 'candidates.0.content.parts', []) as $p) {
+                $texto .= $p['text'] ?? '';
+            }
+            $d = json_decode($texto, true);
+            if (!is_array($d)) {
+                Log::warning('Gemini: la respuesta no era JSON', ['texto' => mb_substr($texto, 0, 200)]);
+                return null;
+            }
+            return $d;
+        } catch (\Throwable $e) {
+            Log::warning('Gemini: no se pudo preguntar', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
      * La consulta, con el ritmo del plan gratis: un documento a la vez en TODO el servidor
      * (candado) y una espera entre uno y otro. Si Gemini contesta "demasiadas consultas" o
      * "saturado", se reintenta; cualquier otro fallo se anota y se devuelve null.
      */
-    private function consultar(string $modelo, string $pdf, int $intentos, ?string $esperado = null): ?array
+    private function consultar(string $modelo, array $partes, int $intentos): ?array
     {
         $cuerpo = [
-            'contents' => [['parts' => [
-                ['text' => self::INSTRUCCION . $this->loQueSeBusca($esperado)],
-                ['inline_data' => ['mime_type' => 'application/pdf', 'data' => base64_encode($pdf)]],
-            ]]],
+            'contents' => [['parts' => $partes]],
             // temperatura 0 = la lectura más literal posible; el JSON viene ya formado.
             'generationConfig' => ['temperature' => 0, 'response_mime_type' => 'application/json'],
         ];

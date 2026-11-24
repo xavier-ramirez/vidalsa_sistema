@@ -87,6 +87,36 @@ class ConsumiblesImportacionController extends Controller
         }
     }
 
+    /**
+     * Columnas de unas filas pegadas en la tabla de Cargar consumibles que las reglas no
+     * reconocieron (encabezados raros o sin encabezado): se le pregunta a la IA (ColumnasConIA).
+     * Responde {fila, mapa} con índices desde 0, o {fila:null, mapa:null} si no se pudo: entonces
+     * la página pega por posición, como siempre.
+     */
+    public function columnas(Request $request, \App\Services\Consumibles\ColumnasConIA $ia): JsonResponse
+    {
+        $request->validate([
+            'filas'   => 'required|array|min:2|max:20',
+            'filas.*' => 'array|max:30',
+            'espec'   => 'boolean',
+        ]);
+        $campos = [
+            'fecha'    => 'fecha del despacho',
+            'id'       => 'placa, serial o identificador del equipo (si no hay, la descripción del vehículo o equipo)',
+            'nombre'   => 'nombre de quien recibe (responsable, operador, chofer)',
+            'ci'       => 'cédula de quien recibe',
+            'cantidad' => 'cantidad despachada (litros o unidades; la salida, no la entrada al tanque)',
+            'origen'   => 'origen del suministro (cisterna, guía, proveedor)',
+        ];
+        if ($request->boolean('espec')) {
+            $campos['espec'] = 'viscosidad del aceite o medida/modelo del caucho';
+        }
+        $filas = array_map(fn ($f) => array_map(fn ($v) => mb_substr((string) $v, 0, 100), array_values((array) $f)), $request->input('filas'));
+        $r = $ia->reconocer($filas, $campos, 'fecha', 'cantidad');
+
+        return response()->json($r ?? ['fila' => null, 'mapa' => null]);
+    }
+
     /** Lee los archivos y deja la carga en borrador; responde con la URL de su revisión. */
     private function borrador(array $archivos, ImportadorCombustible $importador): JsonResponse
     {
