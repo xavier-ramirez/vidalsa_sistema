@@ -1354,7 +1354,7 @@
             'productosStore'        => route('almacen.productos.store'),
             // Las que llevan __PID__ las completa el JavaScript con el id del producto.
             'productosBase'         => url('admin/almacen/productos'),
-            'compatibilidad'        => route('almacen.productos.compatibilidad', ['id' => '__PID__']),
+            'reparto'               => route('almacen.productos.reparto', ['id' => '__PID__']),
             'export'                => route('almacen.export'),
             'etiquetas'             => route('almacen.etiquetas'),
             // Librería del código de barras de las etiquetas (local; se baja al generarlas).

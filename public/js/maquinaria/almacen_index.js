@@ -2572,7 +2572,7 @@
         // El almacén abierto viaja en la URL: sin él el backend no sabe de qué inventario
         // sacar el reparto por proyecto.
         var idAlm = (el('almSelAlmacen') || {}).value || '';
-        var url = CFG.rutas.compatibilidad.replace('__PID__', id)
+        var url = CFG.rutas.reparto.replace('__PID__', id)
                 + (idAlm ? '?id_almacen=' + encodeURIComponent(idAlm) : '');
         window.apiFetch(url, { headers: { 'Accept': 'application/json' } })
             .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })

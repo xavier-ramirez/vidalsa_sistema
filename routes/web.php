@@ -439,20 +439,12 @@ Route::middleware(['auth'])->group(function () {
             Route::get   ('almacen/consumo-dashboard',            [App\Http\Controllers\AlmacenController::class, 'consumoDashboard'])  ->name('almacen.consumoDashboard');
             // Mismo filtro que el dashboard, pero devuelve los DATOS en XLSX en vez de los graficos.
             Route::get   ('almacen/consumo-dashboard/export',     [App\Http\Controllers\AlmacenController::class, 'consumoDashboardExport'])->name('almacen.consumoDashboardExport');
-            // Compatibilidad de un producto: equivalencias (nº de parte) + equipos que lo usan.
-            // Se carga al abrir "Detalles del producto".
-            Route::get   ('almacen/productos/{id}/compatibilidad', [App\Http\Controllers\AlmacenController::class, 'productoCompatibilidad'])->whereNumber('id')->name('almacen.productos.compatibilidad');
+            // Reparto del saldo por proyecto en el almacén abierto: lo pide "Detalles del producto".
+            Route::get   ('almacen/productos/{id}/reparto', [App\Http\Controllers\AlmacenController::class, 'productoReparto'])->whereNumber('id')->name('almacen.productos.reparto');
             // Foto del producto: se ve como miniatura a la izquierda de la descripción y se
-            // sube desde "Detalles del producto". El archivo va a Drive; aquí solo viaja el
-            // enlace (ver AlmacenController::subirFotoProducto).
+            // sube desde la tabla o desde Nuevo/Editar producto. El archivo va a Drive; aquí solo
+            // viaja el enlace (ver AlmacenController::subirFotoProducto).
             Route::post  ('almacen/productos/{id}/foto', [App\Http\Controllers\AlmacenController::class, 'subirFotoProducto'])->whereNumber('id')->name('almacen.productos.foto.store');
-            // Botones + / × de "Detalles del producto": números de parte y equipos que lo usan
-            // (permiso almacen.productos, en el constructor del controlador).
-            Route::post  ('almacen/productos/{id}/equivalencias',   [App\Http\Controllers\AlmacenController::class, 'agregarEquivalencia'])->whereNumber('id')->name('almacen.productos.equivalencias.store');
-            Route::delete('almacen/productos/{id}/equivalencias',   [App\Http\Controllers\AlmacenController::class, 'quitarEquivalencia'])->whereNumber('id')->name('almacen.productos.equivalencias.destroy');
-            Route::get   ('almacen/productos/{id}/equipos/opciones', [App\Http\Controllers\AlmacenController::class, 'opcionesEquipo'])->whereNumber('id')->name('almacen.productos.equipos.opciones');
-            Route::post  ('almacen/productos/{id}/equipos',         [App\Http\Controllers\AlmacenController::class, 'vincularEquipo'])->whereNumber('id')->name('almacen.productos.equipos.store');
-            Route::delete('almacen/productos/{id}/equipos',         [App\Http\Controllers\AlmacenController::class, 'desvincularEquipo'])->whereNumber('id')->name('almacen.productos.equipos.destroy');
             // Kits (Acciones → Kits): recetas de materiales por modelo de equipo que cargan la
             // salida de un golpe. Se ven desde la copia local del almacén; armarlos exige
             // almacen.productos (en el constructor de AlmacenKitController). Ver App\Services\KitAlmacenService.

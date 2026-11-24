@@ -141,12 +141,14 @@
     #almTableBody tr.alm-row.alm-row-missing-cant[data-saldo="0"] .alm-td-cant::after { content: 'Sin stock'; }
     #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-td-cant::after { content: 'Supera el stock'; }
     /* Aviso fijo de la salida por corregir (almPintarAvisoSalida), encima de la tabla. */
-    /* Una sola línea: si no cabe se corta con «…» (el texto entero va en el title). */
+    /* Una sola línea: si no cabe se corta con «…» (el texto entero va en el title). En el
+       teléfono baja de línea: el title no sale al tocar y el «…» dejaría el aviso a medias. */
     #almSalidaAviso { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px 14px;
                       background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; color: #991b1b; }
     #almSalidaAviso[hidden] { display: none; }
     #almSalidaAviso > .material-icons { font-size: 20px; color: #dc2626; flex-shrink: 0; }
     #almSalidaAviso > div { flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 768px) { #almSalidaAviso > div { white-space: normal; } }
     /* Aviso de búsqueda aproximada (almPintarAvisoBusqueda): mismo molde que el de arriba,
        pero informativo —azul, no rojo— porque no hay nada que corregir. */
     #almBuscarAviso { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; padding: 10px 14px;
