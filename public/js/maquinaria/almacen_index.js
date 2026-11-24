@@ -199,10 +199,14 @@
 
     // Criterio ÚNICO "es filtro" (categoría que CONTIENE 'FILTRO'): vive en el módulo compartido
     // window.ProductoSuggest, que es donde lo consultan también los autocompletes de Movimientos.
-    // Los alias quedan en el scope del IIFE (no dentro de una función) para que los compartan el
-    // buscador, la sección de equivalencias del modal y el guardado.
-    var esCatFiltro = window.ProductoSuggest.esCategoriaFiltro;   // recibe la CATEGORIA
+    // Lo usa el buscador para no agrupar filtros del mismo nombre.
     var esFiltroCat = window.ProductoSuggest.esFiltro;            // recibe el PRODUCTO
+    // Llevan compatibilidad (nº de parte y equipos que lo usan) los FILTROS y los REPUESTOS; el
+    // resto (señalización, papelería, EPP…) no la usa y ni su ficha ni "Editar producto" la piden.
+    function almLlevaCompat(cat) {
+        var c = String(cat || '').toUpperCase();
+        return c.indexOf('FILTRO') !== -1 || c.indexOf('REPUESTO') !== -1;
+    }
     // Resuelve el valor "real" de un filtro con patron placeholder-background:
     //   - Si el usuario tipeo algo → ese texto GANA y se promueve a data-active
     //     (clear el value y poner el typed como placeholder, asi sigue visible
@@ -2478,9 +2482,10 @@
         el('almDetBajoBadge').style.display = bajo ? 'flex' : 'none';
         if (el('almDetUbicacion')) { el('almDetUbicacion').value = ubicacion || ''; showErr('almDetUbicacionError', ''); }
 
-        // Abre al instante, sin spinner; el reparto por proyecto llega después.
+        // Abre al instante, sin spinner. La compatibilidad (solo filtros y repuestos) y el
+        // reparto por proyecto llegan después en una sola consulta.
         almOpen('almDetalleModal');
-        almCargarProyectos(id);
+        window.almCargarCompat(id, almLlevaCompat(cat));
     };
 
     // ── Foto del producto ─────────────────────────────────────────────────────
@@ -2561,46 +2566,227 @@
         el('almVisorFotoImg').removeAttribute('src');
     };
 
-    // Reparto del saldo por proyecto en el almacén abierto (#almDetProyectosWrap). Llega
-    // después de abrir la ficha; si el usuario abrió otro producto mientras tanto, se descarta.
-    function almCargarProyectos(id) {
+    // Trae equivalencias + equipos y el reparto por proyecto, y los pinta en el detalle. Las
+    // secciones de compatibilidad solo se muestran si `conCompat` (filtros y repuestos). Si el
+    // usuario abre otro producto mientras carga, se ignora la respuesta vieja (compara el id).
+    window.almCargarCompat = function (id, conCompat) {
         var esc = window.escapeHtml;   // helper central (dom_helpers.js)
+        var wrap = el('almDetCompat'); if (!wrap) return;
         var proyWrap = el('almDetProyectosWrap'), proyBox = el('almDetProyectos');
-        if (!proyWrap || !proyBox) return;
-        proyWrap.style.display = 'none';
-        proyBox.innerHTML = '';
+        if (proyWrap) proyWrap.style.display = 'none';
+        if (proyBox) proyBox.innerHTML = '';
+        almDetFormCerrar();
+        // Cada ficha abre con las dos secciones cerradas, aunque en la anterior se hubieran abierto.
+        almDetSeccion('almDetPartesWrap', false);
+        almDetSeccion('almDetEquiposWrap', false);
+        almDetCompatPintar({ equivalencias: [], equipos: [] }, true);
+
         // El almacén abierto viaja en la URL: sin él el backend no sabe de qué inventario
-        // sacar el reparto por proyecto.
+        // sacar el reparto por proyecto (la compatibilidad no depende del almacén).
         var idAlm = (el('almSelAlmacen') || {}).value || '';
-        var url = CFG.rutas.reparto.replace('__PID__', id)
+        var url = CFG.rutas.compatibilidad.replace('__PID__', id)
                 + (idAlm ? '?id_almacen=' + encodeURIComponent(idAlm) : '');
         window.apiFetch(url, { headers: { 'Accept': 'application/json' } })
+            // Un error del servidor NO es "sin datos": pintarlo mostraría "(0)" como si el
+            // producto no tuviera equipos. Se descarta y la sección queda oculta.
             .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
             .then(function (d) {
                 var m = el('almDetalleModal');
                 if (!m || String(m.dataset.id) !== String(id)) return; // cambió de producto mientras cargaba
-                // Viene vacío en los almacenes que no separan por proyecto.
+                // Reparto por proyecto: viene vacío en los almacenes que no separan.
                 var proyectos = d.proyectos || [];
-                if (!proyectos.length) return;
                 // Mismo formato de cantidad que el panel lateral, que pinta ESTE MISMO dato
                 // (almacen_local.js): toLocaleString no agrupa los miles de 4 dígitos y "1663"
                 // desentonaría con el "1.663" del panel.
                 var fmtQty = window.AlmacenLocal.fmt;
-                proyBox.innerHTML = proyectos.map(function (p) {
-                    // La bolsa común va en cursiva y gris: es saldo real, pero de nadie
-                    // en particular — el mismo criterio del panel lateral.
-                    var nombre = p.comun
-                        ? '<span style="font-style:italic;color:#64748b;">' + esc(p.proyecto) + '</span>'
-                        : '<span style="font-weight:600;color:#334155;">' + esc(p.proyecto) + '</span>';
-                    return '<div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #eef2f7;border-radius:7px;padding:6px 9px;">' +
-                           '<span style="font-size:12.5px;flex:1;min-width:0;">' + nombre + '</span>' +
-                           '<span style="font-size:13px;font-weight:800;color:#0f172a;">' + fmtQty(p.cantidad) + '</span></div>';
-                }).join('');
-                proyWrap.style.display = 'block';
+                if (proyectos.length && proyBox && proyWrap) {
+                    proyBox.innerHTML = proyectos.map(function (p) {
+                        // La bolsa común va en cursiva y gris: es saldo real, pero de nadie
+                        // en particular — el mismo criterio del panel lateral.
+                        var nombre = p.comun
+                            ? '<span style="font-style:italic;color:#64748b;">' + esc(p.proyecto) + '</span>'
+                            : '<span style="font-weight:600;color:#334155;">' + esc(p.proyecto) + '</span>';
+                        return '<div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #eef2f7;border-radius:7px;padding:6px 9px;">' +
+                               '<span style="font-size:12.5px;flex:1;min-width:0;">' + nombre + '</span>' +
+                               '<span style="font-size:13px;font-weight:800;color:#0f172a;">' + fmtQty(p.cantidad) + '</span></div>';
+                    }).join('');
+                    proyWrap.style.display = 'block';
+                }
+                if (conCompat) almDetCompatPintar(d);
             })
-            .catch(function () { /* silencioso: la ficha sigue usable sin el reparto */ });
+            .catch(function () { /* silencioso: el detalle sigue usable sin la compatibilidad */ });
+    };
+
+    // Pinta números de parte y equipos. `oculta` = estado de carga (todo escondido). Sin
+    // permiso de edición solo se ven las secciones con datos, y nada si no hay ninguno (sin
+    // mensaje de "vacío": el cliente lo pidió fuera); con permiso, las dos con su +.
+    var almDetEquiposPintados = [], almDetEquipoOpciones = [];
+    function almDetCompatPintar(d, oculta) {
+        var esc = window.escapeHtml;
+        var partes = d.equivalencias || [], equipos = d.equipos || [];
+        var edita = HAS_PRODUCTOS;
+        var quitar = function (attrs, titulo) {
+            return edita ? '<button type="button" class="alm-det-quitar" title="' + titulo + '" ' + attrs + '><i class="material-icons">close</i></button>' : '';
+        };
+        el('almDetPartes').innerHTML = partes.map(function (p) {
+            return '<span class="alm-det-chip">' + esc(p) + quitar('data-parte="' + esc(p) + '" onclick="window.almDetParteQuitar(this.dataset.parte)"', 'Quitar este número de parte') + '</span>';
+        }).join('');
+        el('almDetPartesCount').textContent = '(' + partes.length + ')';
+        el('almDetEquiposCount').textContent = '(' + equipos.length + ')';
+        // La × manda los `ids` de la fila (un modelo con varias fichas del catálogo son varios).
+        almDetEquiposPintados = equipos;
+        // La ETAPA (primario/secundario) va por EQUIPO, no por producto: el mismo filtro puede
+        // ser primario en una máquina y secundario en otra. Sin confirmar no se muestra.
+        el('almDetEquipos').innerHTML = equipos.map(function (e, i) {
+            return '<div class="alm-det-eq">'
+                + '<span class="alm-det-eq-tipo" title="' + esc(e.tipo) + '">' + esc(e.tipo) + '</span>'
+                + '<span class="alm-det-eq-mod">' + esc(e.modelo) + '</span>'
+                + (e.cant > 1 ? '<span class="alm-det-eq-dato">x' + e.cant + '</span>' : '')
+                + (e.etapa ? '<span class="alm-det-eq-etapa">' + esc(e.etapa) + '</span>' : '')
+                + quitar('onclick="window.almDetEquipoQuitar(' + i + ')"', 'Desvincular este equipo')
+                + '</div>';
+        }).join('');
+        // Sin elementos no hay nada que desplegar: la flecha se apaga y la sección se cierra
+        // (salvo que su formulario esté abierto: con permiso, el "+" sigue funcionando).
+        [['almDetPartesWrap', partes.length, 'almDetParteForm'], ['almDetEquiposWrap', equipos.length, 'almDetEquipoForm']].forEach(function (s) {
+            el(s[0]).querySelector('.alm-det-sec-tog').disabled = !s[1];
+            if (!s[1] && el(s[2]).hidden) almDetSeccion(s[0], false);
+        });
+        document.querySelectorAll('#almDetCompat .alm-det-solo-edita').forEach(function (b) { b.hidden = !edita; });
+        el('almDetPartesWrap').hidden = !(edita || partes.length);
+        el('almDetEquiposWrap').hidden = !(edita || equipos.length);
+        el('almDetCompat').hidden = !!oculta || !(edita || partes.length || equipos.length);
+    }
+    // Abre (true), cierra (false) o alterna (sin segundo argumento) un desplegable de la ficha.
+    function almDetSeccion(idWrap, abrir) {
+        var wrap = el(idWrap); if (!wrap) return;
+        var cuerpo = wrap.querySelector('.alm-det-sec-cuerpo'), tog = wrap.querySelector('.alm-det-sec-tog');
+        var abierto = abrir === undefined ? cuerpo.hidden : !!abrir;
+        cuerpo.hidden = !abierto;
+        tog.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+    }
+    window.almDetSeccion = almDetSeccion;
+
+    function almDetCompatMsg(texto) {
+        var m = el('almDetCompatMsg'); if (!m) return;
+        m.textContent = texto || ''; m.hidden = !texto;
+    }
+    function almDetFormCerrar() {
+        ['almDetParteForm', 'almDetEquipoForm'].forEach(function (f) { var x = el(f); if (x) x.hidden = true; });
+        var s = el('almDetEquipoSug'); if (s) s.innerHTML = '';
+        almDetCompatMsg('');
+    }
+    window.almDetFormCerrar = almDetFormCerrar;
+
+    // Guarda un cambio de compatibilidad (+ / ×) del producto abierto. El servidor responde con
+    // la compatibilidad ya al día y se repinta; la fila de la tabla se recarga (lleva los
+    // números de parte y de ahí los toma "Editar producto" y la salida).
+    var ROUTE_COMPAT = {
+        equivalencias: CFG.rutas.equivalenciasStore,
+        equipos:       CFG.rutas.equiposStore,
+        opciones:      CFG.rutas.equiposOpciones,
+    };
+    // Uno a la vez: un doble clic mandaba dos veces lo mismo y el segundo volvía con "ya está".
+    var almDetCompatOcupado = false;
+    function almDetCompatCambiar(que, metodo, cuerpo) {
+        var m = el('almDetalleModal'); var id = m ? m.dataset.id : '';
+        if (almDetCompatOcupado || !id || !ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para editar productos.')) return;
+        almDetCompatOcupado = true;
+        almDetCompatMsg('');
+        window.apiFetch(ROUTE_COMPAT[que].replace('__PID__', id), {
+            method: metodo,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+            body: JSON.stringify(cuerpo)
+        })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, b: b }; }); })
+            .then(function (res) {
+                if (String(el('almDetalleModal').dataset.id) !== String(id)) return;
+                if (!res.ok) {
+                    var errs = res.b.errors ? Object.values(res.b.errors).map(function (e) { return e[0]; }) : [];
+                    almDetCompatMsg(errs[0] || res.b.message || 'No se pudo guardar.');
+                    return;
+                }
+                almDetFormCerrar();
+                almDetCompatPintar(res.b);
+                almDetCompatAplicarASeleccion(id, res.b.equivalencias || []);
+                almRecargarMostrando(id);
+            })
+            .catch(function () { almDetCompatMsg('No se pudo contactar al servidor.'); })
+            .finally(function () { almDetCompatOcupado = false; });
+    }
+    // Si el producto está en la salida en curso, su entrada sigue a las equivalencias nuevas:
+    // con una sola, es esa; si se quitó la que estaba elegida, se vuelve a pedir.
+    function almDetCompatAplicarASeleccion(id, partes) {
+        var s = almSeleccion[id]; if (!s) return;
+        s.partes = partes.length;
+        if (s.parte && partes.indexOf(s.parte) === -1) s.parte = '';
+        if (!s.parte && partes.length === 1) s.parte = partes[0];
     }
 
+    window.almDetParteAbrir = function () {
+        almDetFormCerrar();
+        almDetSeccion('almDetPartesWrap', true);
+        el('almDetParteForm').hidden = false;
+        var i = el('almDetParteInput'); i.value = ''; i.focus();
+    };
+    window.almDetParteGuardar = function () {
+        var np = (el('almDetParteInput').value || '').trim();
+        if (!np) { almDetCompatMsg('Escribe el número de parte.'); return; }
+        almDetCompatCambiar('equivalencias', 'POST', { numero_parte: np });
+    };
+    window.almDetParteQuitar = function (np) { almDetCompatCambiar('equivalencias', 'DELETE', { numero_parte: np }); };
+
+    var _almDetEquipoEspera = null, _almDetEquipoPedido = 0;
+    window.almDetEquipoAbrir = function () {
+        almDetFormCerrar();
+        almDetSeccion('almDetEquiposWrap', true);
+        el('almDetEquipoForm').hidden = false;
+        var i = el('almDetEquipoInput'); i.value = ''; i.focus();
+        window.almDetEquipoBuscar();
+    };
+    // "placa X" bajo el modelo de la sugerencia. Con la placa a medio escribir un mismo modelo
+    // puede traer muchas (medido: 9 con "A46BN"): se muestran 2 y "+N", y la lista entera va en el title.
+    function almDetPlacasEtiqueta(placas) {
+        if (!placas || !placas.length) return '';
+        var esc = window.escapeHtml;
+        // \u00a0 (espacio que no parte): el "+N" nunca queda solo en otra línea.
+        var txt = placas.slice(0, 2).join(', ') + (placas.length > 2 ? '\u00a0+' + (placas.length - 2) : '');
+        return '<span class="alm-det-sug-placa" title="' + esc(placas.join(', ')) + '">placa ' + esc(txt) + '</span>';
+    }
+    // Sugerencias del servidor (modelos del catálogo y auxiliares que el producto aún no tiene;
+    // escribiendo una placa, el modelo de ese equipo, marcado con la placa).
+    // Solo pinta la respuesta de la ÚLTIMA búsqueda: si una anterior llega tarde, se descarta.
+    window.almDetEquipoBuscar = function () {
+        clearTimeout(_almDetEquipoEspera);
+        _almDetEquipoEspera = setTimeout(function () {
+            var m = el('almDetalleModal'); var id = m ? m.dataset.id : ''; if (!id) return;
+            var q = (el('almDetEquipoInput').value || '').trim(), pedido = ++_almDetEquipoPedido;
+            window.apiFetch(ROUTE_COMPAT.opciones.replace('__PID__', id) + '?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    var box = el('almDetEquipoSug'); if (!box || el('almDetEquipoForm').hidden || pedido !== _almDetEquipoPedido) return;
+                    var esc = window.escapeHtml, ops = d.opciones || [];
+                    almDetEquipoOpciones = ops;
+                    box.innerHTML = ops.length
+                        ? ops.map(function (o, i) {
+                            return '<div class="alm-det-sug-item" onclick="window.almDetEquipoVincular(' + i + ')">'
+                                + '<span class="alm-det-eq-tipo" title="' + esc(o.tipo) + '">' + esc(o.tipo) + '</span>'
+                                + '<span class="alm-det-eq-mod">' + esc(o.modelo) + almDetPlacasEtiqueta(o.placas) + '</span>'
+                                + '</div>';
+                          }).join('')
+                        : '<div class="alm-det-sug-vacio">Ningún equipo coincide' + (q ? ' con «' + esc(q) + '»' : '') + '.</div>';
+                })
+                .catch(function () {});
+        }, 180);
+    };
+    window.almDetEquipoVincular = function (i) {
+        var o = almDetEquipoOpciones[i]; if (!o) return;
+        almDetCompatCambiar('equipos', 'POST', { origen: o.origen, refs: o.refs });
+    };
+    window.almDetEquipoQuitar = function (i) {
+        var e = almDetEquiposPintados[i]; if (!e) return;
+        almDetCompatCambiar('equipos', 'DELETE', { origen: e.origen, ids: e.ids });
+    };
     // Cierra "Detalles del producto" y, si la fila de ese producto SIGUE seleccionada,
     // devuelve el foco a su input de cantidad — así el usuario escribe la salida de una
     // (como al recién seleccionar). Sin esto el registro quedaba seleccionado pero el input
@@ -3603,12 +3789,11 @@
         window._almProdEquivs.splice(i, 1);
         almProdEquivRender();
     };
-    // Muestra la sección SOLO si se EDITA (idProducto) un producto de categoría FILTROS.
+    // Muestra la sección SOLO si se EDITA (idProducto) un filtro o un repuesto (almLlevaCompat).
     window.almProdEquivSyncVisible = function () {
         var wrap = el('almProdEquivWrap'); if (!wrap) return;
         var editing = !!el('almProductoModal').dataset.idProducto;
-        var esFiltro = esCatFiltro(val('almProdCategoria'));
-        wrap.style.display = (editing && esFiltro) ? '' : 'none';
+        wrap.style.display = (editing && almLlevaCompat(val('almProdCategoria'))) ? '' : 'none';
     };
     window.almAbrirProducto = function () {
         if (!ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para crear productos.')) return;
@@ -3814,11 +3999,11 @@
             method: id ? 'PATCH' : 'POST',
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',  'Content-Type': 'application/json'},
             body: JSON.stringify(id
-                // Al editar: sin CODIGO (no se cambia). En FILTROS se manda la lista COMPLETA
-                // de equivalencias para sincronizarla en el backend.
+                // Al editar: sin CODIGO (no se cambia). En filtros y repuestos se manda la lista
+                // COMPLETA de equivalencias para sincronizarla en el backend.
                 ? Object.assign(
                     { NOMBRE: nombre, UM: um, CATEGORIA: cat || null, UBICACION: ubicacion || null },
-                    esCatFiltro(cat) ? { equivalencias: window._almProdEquivs } : {}
+                    almLlevaCompat(cat) ? { equivalencias: window._almProdEquivs } : {}
                   )
                 // Al crear: opcionalmente id_almacen + cantidad_inicial para asegurar/abrir la fila en el almacén actual.
                 : bodyCreate
@@ -3831,10 +4016,10 @@
                 almCerrar('almProductoModal');
                 toast(res.b.message || (id ? 'Producto actualizado.' : 'Producto creado.'));
 
-                // FILTROS editados: refleja las equivalencias en la fila (data-equiv) para que el
+                // Filtro o repuesto editado: refleja las equivalencias en la fila (data-equiv) para que el
                 // modal de Detalles y el tooltip queden consistentes sin recargar. La descripción
                 // visible de la tabla se rehace al recargar/filtrar.
-                if (id && esCatFiltro(cat)) {
+                if (id && almLlevaCompat(cat)) {
                     var trU = document.querySelector('tr.alm-row[data-id-producto="' + id + '"]');
                     if (trU) trU.dataset.equiv = window._almProdEquivs.join('|');
                 }

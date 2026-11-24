@@ -116,6 +116,8 @@ class AlmacenController extends Controller
         // de los dos permisos. updateProducto requiere almacen.productos.
         $this->middleware('can:almacen.productos')->only([
             'updateProducto',
+            // Botones + / × de la compatibilidad en "Detalles del producto".
+            'agregarEquivalencia', 'quitarEquivalencia', 'opcionesEquipo', 'vincularEquipo', 'desvincularEquipo',
             // Foto del producto: el @can de la vista solo esconde la capa de subida; la puerta
             // de verdad es esta, o la ruta quedaria abierta a cualquiera con el modulo.
             'subirFotoProducto',
@@ -995,18 +997,24 @@ class AlmacenController extends Controller
      * el cast del modelo.
      */
     /**
-     * GET almacen/productos/{id}/reparto?id_almacen= → reparto del saldo del producto por
-     * proyecto DENTRO del almacén abierto, para "Detalles del producto" (almCargarProyectos).
+     * Compatibilidad de un producto para el modal "Detalles del producto": sus
+     * números de parte (equivalencias, el principal primero) y los EQUIPOS (tipo +
+     * modelo + ETAPA + cantidad) que lo usan, tomados de modelo_filtro, más su reparto
+     * por proyecto en el almacén abierto. Ligero: se llama al abrir el detalle (la ficha
+     * solo muestra la compatibilidad en filtros y repuestos, ver almLlevaCompat).
      *
-     * Responde la pregunta que la tabla no puede: su columna STOCK suma todas las bolsas
-     * (95) sin decir de quién es cada parte. Cualquier proyecto puede consumirlas —la
-     * salida empieza por la suya y sigue con las demás, ver aplicarSalidaConCascada— pero
-     * quien despacha necesita saber a quién le está tocando el material. Solo en almacenes
-     * que separan por proyecto — en el resto todo vive en la bolsa común y la lista
-     * repetiría el total en una línea: entonces `proyectos` va vacío.
+     * La ETAPA viaja por equipo, no por producto: el mismo filtro es PRIMARIO en
+     * una máquina y SECUNDARIO en otra. Vacía = sin confirmar.
      */
-    public function productoReparto(Request $request, $id)
+    public function productoCompatibilidad(Request $request, $id)
     {
+        // ── Reparto por proyecto DENTRO del almacén abierto ────────────────────────────
+        // Responde la pregunta que la tabla no puede: su columna STOCK suma todas las bolsas
+        // (95) sin decir de quién es cada parte. Cualquier proyecto puede consumirlas —la
+        // salida empieza por la suya y sigue con las demás, ver aplicarSalidaConCascada— pero
+        // quien despacha necesita saber a quién le está tocando el material. Solo en almacenes
+        // que separan por proyecto — en el resto todo vive en la bolsa común y la lista
+        // repetiría el total en una línea.
         $idAlmacen = (int) $request->integer('id_almacen');
         $proyectos = collect();
         if ($idAlmacen > 0) {
@@ -1025,7 +1033,78 @@ class AlmacenController extends Controller
             }
         }
 
-        return response()->json(['proyectos' => $proyectos]);
+        $equivalencias = $this->compatibilidad->equivalencias((int) $id);
+        $equipos       = $this->compatibilidad->equipos((int) $id);
+
+        return response()->json([
+            'equivalencias' => $equivalencias,
+            'equipos'       => $equipos,
+            'proyectos'     => $proyectos,
+        ]);
+    }
+
+    /** POST almacen/productos/{id}/equivalencias  {numero_parte} → la compatibilidad al día. */
+    public function agregarEquivalencia(Request $request, int $id)
+    {
+        $data = $request->validate(['numero_parte' => 'required|string|max:100']);
+        return $this->cambiarCompatibilidad($id, fn ($p) => $this->compatibilidad->agregarEquivalencia($p, $data['numero_parte']));
+    }
+
+    /** DELETE almacen/productos/{id}/equivalencias  {numero_parte}. */
+    public function quitarEquivalencia(Request $request, int $id)
+    {
+        $data = $request->validate(['numero_parte' => 'required|string|max:100']);
+        return $this->cambiarCompatibilidad($id, fn ($p) => $this->compatibilidad->quitarEquivalencia($p, $data['numero_parte']));
+    }
+
+    /** GET almacen/productos/{id}/equipos/opciones?q= → equipos que se le pueden vincular. */
+    public function opcionesEquipo(Request $request, int $id)
+    {
+        ProductoInventario::findOrFail($id);
+        return response()->json(['opciones' => $this->compatibilidad->opcionesEquipo($id, (string) $request->query('q', ''))]);
+    }
+
+    /** POST almacen/productos/{id}/equipos  {origen: modelo|aux, refs: [...]} (los `refs` de una opción). */
+    public function vincularEquipo(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'origen' => 'required|in:modelo,aux',
+            'refs'   => 'required|array|min:1|max:20',
+            'refs.*' => 'required|string|max:200',
+        ]);
+        return $this->cambiarCompatibilidad($id, fn ($p) => $this->compatibilidad->vincularEquipo($p, $data['origen'], $data['refs']));
+    }
+
+    /** DELETE almacen/productos/{id}/equipos  {origen: modelo|aux, ids: [...]} (los `ids` de una fila). */
+    public function desvincularEquipo(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'origen' => 'required|in:modelo,aux',
+            'ids'    => 'required|array|min:1|max:50',
+            'ids.*'  => 'required|integer',
+        ]);
+        return $this->cambiarCompatibilidad($id, fn ($p) => $this->compatibilidad->desvincularEquipo($p, $data['origen'], array_map('intval', $data['ids'])));
+    }
+
+    /**
+     * Aplica un cambio de compatibilidad al producto y responde con sus equivalencias y
+     * equipos ya actualizados, para que la ficha se repinte sin volver a pedirlos.
+     */
+    private function cambiarCompatibilidad(int $id, callable $cambio)
+    {
+        $producto = ProductoInventario::findOrFail($id);
+        try {
+            DB::transaction(fn () => $cambio($producto));
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // Dos pestañas agregando lo mismo a la vez: el índice único de la base lo frena.
+            return response()->json(['message' => 'Eso ya está en este producto.'], 422);
+        }
+        return response()->json([
+            'equivalencias' => $this->compatibilidad->equivalencias($id),
+            'equipos'       => $this->compatibilidad->equipos($id),
+        ]);
     }
 
     /**

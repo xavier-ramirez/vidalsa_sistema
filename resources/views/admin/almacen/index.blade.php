@@ -1207,14 +1207,60 @@
             {{-- Reparto del saldo por proyecto DENTRO de este almacén. Solo aparece en
                  almacenes que separan por proyecto (los que sirven a varios frentes): en el
                  resto todo el saldo es de la bolsa común y esta lista repetiría el total.
-                 Se pide al abrir la ficha (almCargarProyectos), sin hacerla esperar.
-                 Responde "¿de quién es este material?": el saldo tiene dueño aunque
-                 cualquier proyecto pueda consumirlo. --}}
+                 Llega en la MISMA respuesta que la compatibilidad (un solo fetch al abrir la
+                 ficha, ver almCargarCompat). Responde "¿de quién es este material?": el saldo
+                 tiene dueño aunque cualquier proyecto pueda consumirlo. --}}
             <div id="almDetProyectosWrap" style="display:none;border-top:1px solid #f1f5f9;padding-top:12px;margin-bottom:12px;">
                 <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
                     <i class="material-icons" style="font-size:16px;color:#0067b1;">account_tree</i> En este almacén, por proyecto
                 </div>
                 <div id="almDetProyectos" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;"></div>
+            </div>
+
+            {{-- Compatibilidad: nº de parte (equivalencias) + equipos que lo usan. SOLO en filtros y
+                 repuestos (almLlevaCompat). Llega después de abrir el detalle (almAbrirDetalle →
+                 almCargarCompat) y la pinta almDetCompatPintar.
+                 Con almacen.productos cada sección lleva su + (agregar) y cada dato su ×
+                 (quitar); sin ese permiso solo se ve lo que hay, y nada si no hay nada. --}}
+            <div id="almDetCompat" hidden>
+                {{-- Cada sección es un desplegable (arranca cerrado): la cabecera abre y cierra y
+                     dice cuántos hay; el "+" queda a su lado y abre la sección con su formulario. --}}
+                <div id="almDetPartesWrap" class="alm-det-sec" hidden>
+                    <div class="alm-det-sec-cab">
+                        <button type="button" class="alm-det-sec-tog" aria-expanded="false" aria-controls="almDetPartesCuerpo" onclick="window.almDetSeccion('almDetPartesWrap')">
+                            <span class="alm-det-sec-tit">Nº de parte / equivalencias <span id="almDetPartesCount"></span></span>
+                            <i class="material-icons alm-det-sec-flecha">expand_more</i>
+                        </button>
+                        <button type="button" class="alm-det-mas alm-det-solo-edita" onclick="window.almDetParteAbrir()"><i class="material-icons">add</i>Agregar</button>
+                    </div>
+                    <div id="almDetPartesCuerpo" class="alm-det-sec-cuerpo" hidden>
+                        <div id="almDetPartes" class="alm-det-chips"></div>
+                        <form id="almDetParteForm" class="alm-det-form" hidden onsubmit="event.preventDefault(); window.almDetParteGuardar();">
+                            <input type="text" id="almDetParteInput" maxlength="100" autocomplete="off" placeholder="Número de parte" aria-label="Número de parte"
+                                   onkeydown="if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); window.almDetFormCerrar(); }">
+                            <button type="submit" class="btn-primary-maquinaria">Agregar</button>
+                        </form>
+                    </div>
+                </div>
+                <div id="almDetEquiposWrap" class="alm-det-sec" hidden>
+                    <div class="alm-det-sec-cab">
+                        <button type="button" class="alm-det-sec-tog" aria-expanded="false" aria-controls="almDetEquiposCuerpo" onclick="window.almDetSeccion('almDetEquiposWrap')">
+                            <span class="alm-det-sec-tit"><i class="material-icons">precision_manufacturing</i> Equipos que lo usan <span id="almDetEquiposCount"></span></span>
+                            <i class="material-icons alm-det-sec-flecha">expand_more</i>
+                        </button>
+                        <button type="button" class="alm-det-mas alm-det-solo-edita" onclick="window.almDetEquipoAbrir()"><i class="material-icons">add</i>Vincular</button>
+                    </div>
+                    <div id="almDetEquiposCuerpo" class="alm-det-sec-cuerpo" hidden>
+                        <div id="almDetEquipos" class="alm-det-lista"></div>
+                        <div id="almDetEquipoForm" class="alm-det-form" hidden>
+                            <input type="text" id="almDetEquipoInput" autocomplete="off" placeholder="Buscar tipo, marca, modelo o placa…" aria-label="Buscar equipo"
+                                   oninput="window.almDetEquipoBuscar()"
+                                   onkeydown="if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); window.almDetFormCerrar(); }">
+                            <div id="almDetEquipoSug" class="alm-det-sug"></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="almDetCompatMsg" class="alm-det-msg" hidden></div>
             </div>
 
             <div style="border-top:1px solid #f1f5f9;padding-top:12px;display:flex;flex-direction:column;gap:7px;">
@@ -1354,7 +1400,10 @@
             'productosStore'        => route('almacen.productos.store'),
             // Las que llevan __PID__ las completa el JavaScript con el id del producto.
             'productosBase'         => url('admin/almacen/productos'),
-            'reparto'               => route('almacen.productos.reparto', ['id' => '__PID__']),
+            'compatibilidad'        => route('almacen.productos.compatibilidad', ['id' => '__PID__']),
+            'equivalenciasStore'    => route('almacen.productos.equivalencias.store', ['id' => '__PID__']),
+            'equiposStore'          => route('almacen.productos.equipos.store', ['id' => '__PID__']),
+            'equiposOpciones'       => route('almacen.productos.equipos.opciones', ['id' => '__PID__']),
             'export'                => route('almacen.export'),
             'etiquetas'             => route('almacen.etiquetas'),
             // Librería del código de barras de las etiquetas (local; se baja al generarlas).
