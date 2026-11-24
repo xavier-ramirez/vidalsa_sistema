@@ -40,18 +40,18 @@
              que rotula un <input type="hidden"> (no es focuseable ni autofillable),
              y rompe la asociación a11y. El hidden mantiene su id porque el JS lo
              lee con el('almSalidaProyecto').value para enviar el ID del frente. --}}
-        <label class="alm-nota-label" for="almSalidaProyectoSearch">Proyecto *</label>
+        <label class="alm-nota-label" for="almSalidaProyectoSearch">Proyecto</label>
         {{-- Custom-dropdown estándar de la app: hidden #almSalidaProyecto guarda el ID
              (lo que lee el JS de envío); el trigger tiene un input data-filter-search
              que filtra los items mientras el usuario escribe (autocomplete nativo del
              componente). Cuando se elige una opción, dispatchea el evento
              `dropdown-selection` que el listener de almSalida usa para decidir el
              almacén destino. --}}
-        <div class="custom-dropdown" id="almSalidaProyectoDropdown" data-default-label="Selecciona uno">
+        <div class="custom-dropdown" id="almSalidaProyectoDropdown" data-default-label="Selecciona un frente de trabajo">
             <input type="hidden" id="almSalidaProyecto" data-filter-value value="">
             <div class="dropdown-trigger" style="padding:0;display:flex;align-items:center;background:#fff;overflow:hidden;border:1px solid #cbd5e0;border-radius:7px;height:38px;">
                 <input type="text" id="almSalidaProyectoSearch" data-filter-search autocomplete="off"
-                       placeholder="Selecciona uno"
+                       placeholder="Selecciona un frente de trabajo"
                        style="flex:1;border:none;background:transparent;padding:0 10px;font-size:13.5px;color:#0f172a;outline:none;min-width:0;"
                        oninput="window.filterDropdownOptions(this)">
                 {{-- Este trigger NO lleva caret: la ✕ es su único icono. La lista se abre
