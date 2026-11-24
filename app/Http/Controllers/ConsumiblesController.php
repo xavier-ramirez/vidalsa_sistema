@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Consumible;
+use App\Models\ConsumibleImportacion;
 use App\Models\FrenteTrabajo;
 use Illuminate\Http\Request;
 use App\Support\CacheVersion;
@@ -117,8 +118,13 @@ class ConsumiblesController extends Controller
 
         $tipos = Consumible::tiposLabel();
         $unidades = ['LITROS' => 'Litros', 'GALONES' => 'Galones', 'UNIDADES' => 'Unidades', 'KG' => 'Kg'];
+        // Las cargas de Excel de gasoil: solo las ve (y las usa) super.admin.
+        $cargas = auth()->user()->can('super.admin')
+            ? ConsumibleImportacion::with('usuario:ID_USUARIO,NOMBRE_COMPLETO')
+                ->orderByDesc('ID_IMPORTACION')->limit(30)->get()
+            : collect();
 
-        return view('admin.consumibles.cargar', compact('frentes', 'tipos', 'unidades'));
+        return view('admin.consumibles.cargar', compact('frentes', 'tipos', 'unidades', 'cargas'));
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -896,7 +902,7 @@ class ConsumiblesController extends Controller
         $sinEquipo  = [];   // [ID_CONSUMIBLE, ...] enseñados como «no es un equipo»
         $aSinMatch  = [];   // [ID_CONSUMIBLE, ...]
 
-        // Los que vinieron de «Cargar desde Excel» se resuelven con las MISMAS reglas y alias de
+        // Los que vinieron de un Excel de gasoil (Cargar → subir Excel) se resuelven con las MISMAS reglas y alias de
         // esa carga (IdentificadorConsumo): su IDENTIFICADOR es el texto del Excel, no una placa
         // limpia, y la coincidencia parcial de abajo podría dar un equipo de otro tipo.
         $deExcel = $pendientes->whereNotNull('ID_IMPORTACION');

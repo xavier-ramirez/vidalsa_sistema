@@ -1,5 +1,5 @@
 /*
- * Consumibles → Cargar desde Excel: la subida (importar.blade.php) y la revisión
+ * Cargar consumibles → Excel de gasoil: la subida (partials/cargar_excel.blade.php) y la revisión
  * (importar_revision.blade.php). La SPA no vuelve a ejecutar un <script src> ya cargado, así
  * que cada vista llama a window.consImpArrancar(CFG) en CADA apertura; lo de la petición
  * (rutas) viaja en CFG.

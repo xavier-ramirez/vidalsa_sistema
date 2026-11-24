@@ -19,8 +19,8 @@
         <h1 class="page-title" style="margin-bottom:4px;">
             <span class="page-title-line2" style="color:#000;">Revisar carga de Excel</span>
         </h1>
-        <a href="{{ route('consumibles.importar') }}" class="btn-primary-maquinaria btn-secondary btn-compacto">
-            <i class="material-icons">arrow_back</i> Cargas
+        <a href="{{ route('consumibles.cargar') }}" class="btn-primary-maquinaria btn-secondary btn-compacto">
+            <i class="material-icons">arrow_back</i> Cargar
         </a>
     </div>
 
@@ -249,7 +249,7 @@
             ensenar: @json(route('consumibles.importar.ensenar', $imp)),
             aplicar: @json(route('consumibles.importar.aplicar', $imp)),
             descartar: @json(route('consumibles.importar.descartar', $imp)),
-            cargas: @json(route('consumibles.importar')),
+            cargas: @json(route('consumibles.cargar')),
         };
     </script>
     <script src="{{ asset('js/maquinaria/consumibles_importar.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_importar.js')) }}"></script>

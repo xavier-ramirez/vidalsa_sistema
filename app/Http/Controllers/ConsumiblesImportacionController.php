@@ -11,21 +11,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Consumibles → Cargar desde Excel. Sube los reportes de gasoil de los proyectos tal como
- * llegan (cualquiera de los formatos), muestra la vista previa y guarda solo lo nuevo.
- * La lógica vive en App\Services\Consumibles; aquí solo HTTP. Todo pide super.admin (las
- * rutas), igual que «Cargar Lote».
+ * Cargar consumibles → Excel de gasoil. Sube los reportes de los proyectos tal como llegan
+ * (cualquiera de los formatos), muestra la vista previa y guarda solo lo nuevo. La subida y
+ * las cargas anteriores están en la pantalla de Cargar (ConsumiblesController::cargar);
+ * aquí, lo demás. La lógica vive en App\Services\Consumibles; aquí solo HTTP. Todo pide
+ * super.admin (las rutas), igual que guardar lo pegado a mano.
  */
 class ConsumiblesImportacionController extends Controller
 {
-    public function index()
-    {
-        $cargas = ConsumibleImportacion::with('usuario:ID_USUARIO,NOMBRE_COMPLETO')
-            ->orderByDesc('ID_IMPORTACION')->limit(30)->get();
-
-        return view('admin.consumibles.importar', compact('cargas'));
-    }
-
     public function subir(Request $request, ImportadorCombustible $importador): JsonResponse
     {
         $request->validate([
@@ -54,7 +47,7 @@ class ConsumiblesImportacionController extends Controller
     public function revisar(ConsumibleImportacion $importacion, ImportadorCombustible $importador)
     {
         if ($importacion->ESTADO !== ConsumibleImportacion::BORRADOR) {
-            return redirect()->route('consumibles.importar')
+            return redirect()->route('consumibles.cargar')
                 ->with('success', 'Esa carga ya fue ' . ($importacion->ESTADO === ConsumibleImportacion::APLICADA ? 'aplicada.' : 'deshecha.'));
         }
         @set_time_limit(120);

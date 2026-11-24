@@ -171,6 +171,10 @@
         </div>
     </div>
 
+    @can('super.admin')
+        @include('admin.consumibles.partials.cargar_excel')
+    @endcan
+
     <form method="POST" action="{{ route('consumibles.guardarLote') }}" id="formLote">
         @csrf
 

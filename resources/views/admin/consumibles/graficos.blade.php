@@ -140,7 +140,7 @@
                         <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;">
                             <i class="material-icons" style="font-size: 18px; color: #ea580c;">note_add</i>
                         </div>
-                        <span style="font-size:14px; font-weight:500;">Cargar Lote (Masivo)</span>
+                        <span style="font-size:14px; font-weight:500;">Cargar consumibles</span>
                     </a>
                     {{-- Acciones Locales --}}
                     <a href="#"

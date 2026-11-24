@@ -401,18 +401,8 @@
                                 <div style="background: #fff7ed; padding: 6px; border-radius: 6px; display: flex;">
                                     <i class="material-icons" style="font-size: 18px; color: #ea580c;">note_add</i>
                                 </div>
-                                <span style="font-size:14px; font-weight:500;">Cargar Lote (Masivo)</span>
+                                <span style="font-size:14px; font-weight:500;">Cargar consumibles</span>
                             </a>
-                            @can('super.admin')
-                            <a href="{{ route('consumibles.importar') }}" class="dropdown-item-custom hide-on-mobile"
-                                style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; border-bottom: 1px solid #cbd5e1; background: transparent; transition: all 0.2s;"
->
-                                <div style="background: #ecfdf5; padding: 6px; border-radius: 6px; display: flex;">
-                                    <i class="material-icons" style="font-size: 18px; color: #059669;">upload_file</i>
-                                </div>
-                                <span style="font-size:14px; font-weight:500;">Cargar desde Excel</span>
-                            </a>
-                            @endcan
                             {{-- Acciones Locales --}}
                             @can('equipos.edit')
                             <button type="button" id="btnMatch"

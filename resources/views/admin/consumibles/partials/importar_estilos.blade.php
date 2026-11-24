@@ -1,4 +1,4 @@
-{{-- Estilos de «Cargar desde Excel» (subida y revisión). Prefijo imp- para no chocar con nada. --}}
+{{-- Estilos de la carga de Excel de gasoil (subida en Cargar consumibles y revisión). Prefijo imp- para no chocar con nada. --}}
 <style>
     .imp-cabecera { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
     .imp-card { padding:25px; margin-bottom:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,.05); }

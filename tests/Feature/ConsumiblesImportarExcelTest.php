@@ -15,7 +15,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\MySqlTestCase;
 
 /**
- * Consumibles → Cargar desde Excel, con un reporte de gasoil armado aquí mismo en el formato
+ * Cargar consumibles → Excel de gasoil, con un reporte de gasoil armado aquí mismo en el formato
  * «control de combustible» de los proyectos: lectura (recargas fuera, año imposible reparado,
  * total que solo suma parte de las filas), identificación (PATROL = motoniveladora, por el
  * final del serial), y el flujo completo por HTTP: subir → revisar → aplicar → la misma carga
@@ -231,13 +231,24 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertNull($c->ID_AUXILIAR);
     }
 
+    /** Una sola pantalla de carga: la subida de Excel y sus cargas anteriores están en Cargar consumibles. */
+    public function test_la_subida_de_excel_esta_en_cargar_consumibles(): void
+    {
+        $html = $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cargar'))->assertOk()->getContent();
+        $this->assertStringContainsString('id="impArchivos"', $html);
+        $this->assertStringContainsString('Cargas anteriores', $html);
+        $this->assertStringContainsString('id="formLote"', $html, 'Y la tabla para pegar, debajo.');
+    }
+
     public function test_solo_super_admin(): void
     {
         $u = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->whereNotNull('PERMISOS')->get()
             ->first(fn ($u) => !$u->can('super.admin'));
         $this->assertNotNull($u, 'Hace falta un usuario sin super.admin.');
 
-        $this->actingAs($u)->get(route('consumibles.importar'))->assertForbidden();
+        // La subida vive en Cargar consumibles y no se le muestra.
+        $html = $this->actingAs($u)->get(route('consumibles.cargar'))->getContent();
+        $this->assertStringNotContainsString('id="impArchivos"', $html);
         $this->subir($u, $this->excel('1234567'))->assertForbidden();
     }
 }
