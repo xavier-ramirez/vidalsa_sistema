@@ -360,8 +360,8 @@
                     almSelApplyToVisible();
                     if (opts.mostrar) almMostrarProducto(opts.mostrar);
                 }
-                // El aviso se repinta SOLO en la primera página. El término sale de los filtros
-                // CONGELADOS, que son los que se consultaron de verdad.
+                // El aviso se repinta SOLO en la primera página: los lotes del scroll son de la
+                // misma búsqueda.
                 if (!append) {
                     almPintarAvisoNumeros(data.sinNumeros);
                     // Si esta búsqueda salió aproximada, los lotes siguientes van DIRECTOS al
