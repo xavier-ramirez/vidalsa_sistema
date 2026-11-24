@@ -203,6 +203,16 @@
         if (m) m.classList.remove('open');
         window.restaurarScrollFondo();
     };
+    // Escape lo cierra, como a los demás modales del almacén. Una sola escucha aunque la SPA
+    // vuelva a correr este script en cada navegación.
+    if (!window.__cdashEscapeBound) {
+        window.__cdashEscapeBound = true;
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            var m = document.getElementById('consumoDashModal');
+            if (m && m.classList.contains('open')) window.cerrarConsumoDashboard();
+        });
+    }
 
 
     // Carga html2canvas bajo demanda y ejecuta el callback. Lo usan tanto la descarga

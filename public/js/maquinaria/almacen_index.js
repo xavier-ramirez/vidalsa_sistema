@@ -2681,6 +2681,11 @@
             return;
         }
         var id = parseInt(m.dataset.id, 10);
+        // Se da por guardada YA: Enter y cerrar enseguida (los dos la guardan) mandaban el mismo
+        // PATCH dos veces. Si falla, se devuelve la anterior para que el próximo intento salga.
+        var anterior = m.dataset.ubicacion || '';
+        m.dataset.ubicacion = ubicacion;
+        var revertir = function () { if (String(m.dataset.id) === String(id)) m.dataset.ubicacion = anterior; };
         showErr('almDetUbicacionError', '');
         pre();
         window.apiFetch(ROUTE_PROD_ITEM(id), {
@@ -2695,19 +2700,20 @@
         .then(function (res) {
             unpre();
             if (res.ok) {
-                m.dataset.ubicacion = ubicacion;
                 toast('Ubicación actualizada.');
                 almRecargarMostrando(id);
             } else {
                 // El error va TAMBIÉN por toast: si el guardado se disparó al cerrar el modal,
                 // el mensaje inline queda dentro de un modal ya oculto y nadie lo vería.
                 var msg = (res.b && res.b.message) || 'No se pudo guardar la ubicación.';
+                revertir();
                 showErr('almDetUbicacionError', msg);
                 toast(msg, 'error');
             }
         })
         .catch(function () {
             unpre();
+            revertir();
             showErr('almDetUbicacionError', 'Error de red.');
             toast('Error de red al guardar la ubicación.', 'error');
         });
@@ -2886,7 +2892,11 @@
         if (almSeleccion[idProducto]) almSeleccion[idProducto].saldo = saldo;
     }
 
+    // Candados anti doble envío de Auditoría y Stock mínimo: el spinner tapa el ratón pero no
+    // el teclado, y Enter repetido (atajo Enter de los modales) mandaba el guardado dos veces.
+    var almGuardandoAjuste = false, almGuardandoMinimo = false;
     window.almGuardarAjuste = function () {
+        if (almGuardandoAjuste) return;
         // Guard de permiso: la Auditoría registra un AJUSTE de inventario, que exige la
         // clave almacen.movimiento. (El stock mínimo se movió a su propio modal/flujo.)
         if (!ensurePerm(HAS_MOVER, 'No tienes permiso para registrar movimientos de inventario.')) return;
@@ -2910,6 +2920,7 @@
             titulo = 'Auditoría · ' + (m.dataset.nombre || ('Producto #' + idProducto)) + ' → ' + ns;
         }
 
+        almGuardandoAjuste = true;
         pre();
         // Endpoint unificado de lote: la Auditoría se registra como un lote tipo=AJUSTE (una
         // línea, o una por proyecto). El backend ignora los campos de Nota de Entrega para
@@ -2935,7 +2946,8 @@
               // (sigue seleccionada) — sin tener que deseleccionar/reseleccionar para escribir.
               _almPendingFocusId = m.dataset.idProducto;
               almCerrar('almAjusteModal'); toast('Auditoría registrada.'); almRecargarMostrando(m.dataset.idProducto);
-          }).catch(function () { unpre(); showErr('almAjError', 'Error de red.'); });
+          }).catch(function () { unpre(); showErr('almAjError', 'Error de red.'); })
+          .finally(function () { almGuardandoAjuste = false; });
     };
 
     // ── Modal "Stock mínimo (alerta)" — setea SOLO el mínimo de alerta del producto en el
@@ -2951,6 +2963,7 @@
     };
 
     window.almGuardarMinimo = function () {
+        if (almGuardandoMinimo) return;
         if (!ensurePerm(HAS_MOVER, 'No tienes permiso para configurar el stock mínimo.')) return;
         var m = el('almMinimoModal');
         var idAlm = val('almSelAlmacen'); if (!idAlm) { showErr('almMinError', 'No hay almacén seleccionado.'); return; }
@@ -2964,6 +2977,7 @@
             nuevoMinimo = parseFloat(minimoRaw);
             if (isNaN(nuevoMinimo) || nuevoMinimo <= 0) { showErr('almMinError', 'El mínimo debe ser un número mayor que 0 (o dejarlo vacío para quitar la alerta).'); return; }
         }
+        almGuardandoMinimo = true;
         pre();
         window.apiFetch(ROUTE_MIN(idAlm), {
             method: 'PATCH',
@@ -2974,7 +2988,8 @@
               unpre();
               if (!res.ok) { showErr('almMinError', (res.b && res.b.message) || 'No se pudo actualizar el stock mínimo.'); return; }
               almCerrar('almMinimoModal'); toast('Stock mínimo actualizado.'); almRecargarMostrando(m.dataset.idProducto);
-          }).catch(function () { unpre(); showErr('almMinError', 'Error de red.'); });
+          }).catch(function () { unpre(); showErr('almMinError', 'Error de red.'); })
+          .finally(function () { almGuardandoMinimo = false; });
     };
 
     // confirmación reutilizable (usa el modal estándar de la app si existe; si no, confirm()).
