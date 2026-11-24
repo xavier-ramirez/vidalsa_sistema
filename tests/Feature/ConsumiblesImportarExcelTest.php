@@ -220,6 +220,28 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
     }
 
     /**
+     * Encabezados con otros nombres (LITROS, OPERADOR, CI, EQUIPO…) se reconocen igual, y
+     * «PLACA DEL VEHICULO» es la placa, no la descripción.
+     */
+    public function test_reconoce_encabezados_con_otros_nombres(): void
+    {
+        $u = $this->superAdminGlobal();
+        $texto = "Fecha\tEquipo\tPlaca del vehiculo\tEntrada\tLitros\tOperador\tCI\tFrente\n"
+            . "05/08/2026\tCAMION OTRO NOMBRE\tZZ96TST\t\t70\tCHOFER TRES\t33333333\tVELADERO\n"
+            . "06/08/2026\tCISTERNA\t\t3000\t\t\t\tVELADERO";
+
+        $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto])->assertOk();
+        $filas = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail()->filas();
+
+        $this->assertCount(1, $filas, 'la recarga (ENTRADA) no es un despacho');
+        $this->assertSame('2026-08-05', $filas[0]['fecha']);
+        $this->assertEquals(70, $filas[0]['litros']);
+        $this->assertSame('33333333', $filas[0]['ci']);
+        $this->assertSame('CAMION OTRO NOMBRE', $filas[0]['desc']);
+        $this->assertSame('ZZ96TST', $filas[0]['placa']);
+    }
+
+    /**
      * Lo que Excel pone en el portapapeles: una celda con salto de línea (Alt+Enter) va entre
      * comillas y sigue siendo UNA celda; y la fecha llega como se ve (con hora, con el mes
      * escrito o año primero), no como número de serie.

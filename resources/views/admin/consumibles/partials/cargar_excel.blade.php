@@ -66,7 +66,7 @@
 </div>
 @endif
 
-<h3 class="imp-titulo" style="margin:4px 0 12px;">O escribe a mano (cualquier consumible)</h3>
+<h3 class="imp-titulo" style="margin:4px 0 12px;">O llena la tabla: escribe o pega filas (cualquier consumible)</h3>
 
 <script>
     window.CONS_IMP_CFG = { subir: @json(route('consumibles.importar.subir')), pegar: @json(route('consumibles.importar.pegar')) };

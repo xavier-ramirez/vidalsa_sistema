@@ -75,28 +75,38 @@
         leer(CFG.subir, { method: 'POST', body: fd }, 'No se pudieron leer los archivos.');
     }
 
-    /** ¿Es la tabla de un reporte de gasoil? En las primeras 15 filas, un encabezado con una
-     *  columna de FECHA y OTRA de SALIDA/VOLUMEN, la regla del lector (LectorExcelCombustible::
-     *  encabezado/campoDe): «FECHA DE SALIDA» sola es la salida, no la fecha. */
-    function traeEncabezado(texto) {
-        var litros = function (c) { return c.indexOf('SALIDA') !== -1 || c.indexOf('VOLUMEN') !== -1; };
+    /**
+     * ¿Es la tabla de un reporte de gasoil? En las primeras 15 filas, un encabezado con una
+     * columna de FECHA y OTRA de litros despachados, con los nombres que acepta el lector
+     * (LectorExcelCombustible::campoDe): «FECHA DE SALIDA» sola es la salida, no la fecha.
+     * estricto (sin tipo elegido): solo SALIDA/VOLUMEN, las palabras de un reporte de gasoil;
+     * una hoja de aceite con FECHA y CANTIDAD no se toma por gasoil.
+     */
+    function traeEncabezado(texto, estricto) {
+        var EXACTO = ['LITROS', 'LTS', 'LTS.', 'LT'];
+        var litros = function (c) {
+            if (c.indexOf('ENTRADA') !== -1) return false;
+            if (c.indexOf('SALIDA') !== -1 || c.indexOf('VOLUMEN') !== -1) return true;
+            return !estricto && (c.indexOf('CANTIDAD') !== -1 || c.indexOf('DESPACHAD') !== -1
+                || c.indexOf('LITROS SURTIDOS') !== -1 || EXACTO.indexOf(c) !== -1);
+        };
         return texto.split(/\r\n|\n|\r/).slice(0, 15).some(function (linea) {
             var celdas = linea.split('\t').map(function (c) {
-                return c.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/"/g, '').trim().toUpperCase();
+                return c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/"/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
             });
-            return celdas.some(function (c) { return c.indexOf('FECHA') === 0 && !litros(c) && c.indexOf('ENTRADA') === -1; })
+            return celdas.some(function (c) { return c.indexOf('FECHA') !== -1 && !litros(c) && c.indexOf('ENTRADA') === -1; })
                 && celdas.some(litros);
         });
     }
 
     /**
-     * La llama el Ctrl+V de Cargar consumibles (solo con tipo Gasoil o sin tipo elegido).
-     * Devuelve true si se encargó: la tabla completa del Excel (con encabezados) va al lector y
-     * sus columnas se reconocen por nombre; sin ese encabezado (o sin permiso para esta carga)
-     * la tabla de abajo la toma por posición.
+     * La llama el Ctrl+V de Cargar consumibles (con tipo Gasoil o sin tipo elegido; sin tipo,
+     * estricto). Devuelve true si se encargó: la tabla completa del Excel (con encabezados) va
+     * al lector y sus columnas se reconocen por nombre; si no (o sin permiso para esta carga),
+     * la tabla de abajo.
      */
-    window.consImpPegar = function (texto) {
-        if (!CFG.pegar || !document.getElementById('impZona') || !traeEncabezado(texto)) return false;
+    window.consImpPegar = function (texto, estricto) {
+        if (!CFG.pegar || !document.getElementById('impZona') || !traeEncabezado(texto, estricto)) return false;
         var fd = new FormData();
         fd.append('texto', texto);
         leer(CFG.pegar, { method: 'POST', body: fd }, 'No se pudo leer la tabla pegada.');

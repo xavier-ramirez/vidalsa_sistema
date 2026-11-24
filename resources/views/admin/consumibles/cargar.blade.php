@@ -342,7 +342,7 @@
                 {{-- Instrucciones de Pegado Rápido --}}
                 <div class="paste-zone" id="pasteZone">
                     <i class="material-icons">content_paste</i>
-                    <span>Pegue filas de Excel con Ctrl+V en este orden: <span id="pasteOrden">fecha, placa/serial, nombre, C.I., cantidad, origen</span></span>
+                    <span>Pegue filas de Excel con Ctrl+V: con encabezados, cada columna va a su lugar; sin ellos, en este orden: <span id="pasteOrden">fecha, placa/serial, nombre, C.I., cantidad, origen</span></span>
                 </div>
 
                 <table id="tablaFilas">
@@ -426,7 +426,7 @@
             const espec = necesitaEspec();
             const th = document.getElementById('thEspec');
 
-            // El orden que lee el pegado (pasteLoteCargarHandler): con aceite o caucho, la
+            // El orden del pegado sin encabezados (pasteLoteCargarHandler): con aceite o caucho, la
             // viscosidad o el modelo va antes del origen.
             const orden = document.getElementById('pasteOrden');
             if (orden) orden.textContent = 'fecha, placa/serial, nombre, C.I., cantidad, '
@@ -563,6 +563,53 @@
             }
         };
 
+        // ── Pegado: encabezados, fechas y números como vienen del Excel ──────
+        function normEncabezado(c) {
+            return String(c || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+        }
+        /**
+         * Columna de cada campo de la tabla según la fila de encabezados pegada, con las
+         * variantes de nombre de los reportes (como LectorExcelCombustible::campoDe para el
+         * gasoil). null si la fila no trae al menos FECHA y la cantidad: entonces no es encabezado.
+         */
+        function mapaEncabezado(cols) {
+            const m = {};
+            let desc;
+            const pon = (k, i) => { if (m[k] === undefined) m[k] = i; };
+            cols.map(normEncabezado).forEach((h, i) => {
+                if (!h) return;
+                if (h.indexOf('FECHA') === 0) pon('fecha', i);
+                else if (h === 'CI' || h === 'C I' || /C\. ?I|CEDULA/.test(h)) pon('ci', i);
+                else if (h.indexOf('ENTRADA') !== -1) return;   // recargas del tanque: no es lo despachado
+                else if (/SALIDA|VOLUMEN|CANTIDAD|DESPACHAD|LITROS SURTIDOS/.test(h) || ['LITROS', 'LTS', 'LTS.', 'LT'].indexOf(h) !== -1) pon('cantidad', i);
+                else if (/ORIGEN|SUMINISTRO|CISTERNA|GUIA/.test(h)) pon('origen', i);
+                else if (/VISCOSIDAD|MEDIDA|ESPECIFICACION|MODELO (DEL )?CAUCHO/.test(h)) pon('espec', i);
+                else if (/PLACA|SERIAL|IDENTIFICADOR/.test(h)) pon('id', i);
+                else if (/RESPONSABLE|CHOFER|OPERADOR|CONDUCTOR/.test(h)) pon('nombre', i);
+                else if (/DESCRIPCION|EQUIPO|VEHICULO|CARACTERISTICAS/.test(h)) { if (desc === undefined) desc = i; }
+                else if (h.indexOf('NOMBRE') !== -1) pon('nombre', i);
+            });
+            if (m.id === undefined && desc !== undefined) m.id = desc;   // sin placa/serial, la descripción
+            return (m.fecha !== undefined && m.cantidad !== undefined) ? m : null;
+        }
+        /** Fecha del Excel → aaaa-mm-dd (d/m/a, d-m-aa, con la hora detrás o ya aaaa-mm-dd). */
+        function fechaISO(s) {
+            const t = String(s || '').trim().replace(/\s+\d{1,2}:\d{2}.*$/, '');
+            let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+            if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+            m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4}|\d{2})$/);
+            if (!m) return t;
+            let a = parseInt(m[3], 10);
+            if (m[3].length === 2) a = a <= 50 ? 2000 + a : 1900 + a;   // 26 → 2026, 99 → 1999
+            return a + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');   // siempre día/mes (Venezuela)
+        }
+        /** Cantidad en formato español («1.234,5») o con coma decimal → «1234.5». */
+        function numeroPegado(s) {
+            let t = String(s || '').replace(/\s/g, '');
+            if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '');
+            return t.replace(',', '.');
+        }
+
         // ── PEGAR DESDE EXCEL ─────────────────────────────────────────────
         // Funciona en TODA la página (no solo dentro de la tabla)
         window.pasteLoteCargarHandler = window.pasteLoteCargarHandler || function (e) {
@@ -575,13 +622,13 @@
 
             e.preventDefault();
 
-            // La tabla completa de un reporte de gasoil (con su encabezado FECHA … SALIDA) no se
-            // pone por posición: va al mismo lector que un Excel subido (consumibles_importar.js).
-            // Ese lector es solo de gasoil: con otro tipo elegido, la tabla de abajo.
+            // La tabla completa de un reporte de gasoil (con su encabezado FECHA … SALIDA) va al
+            // mismo lector que un Excel subido (consumibles_importar.js). Ese lector es solo de
+            // gasoil: con otro tipo elegido, la tabla de abajo; sin tipo, solo si dice SALIDA/VOLUMEN.
             const tipoPegado = document.getElementById('tipoSelect').value;
-            if ((tipoPegado === '' || tipoPegado === 'GASOIL') && window.consImpPegar && window.consImpPegar(text)) return;
+            if ((tipoPegado === '' || tipoPegado === 'GASOIL') && window.consImpPegar && window.consImpPegar(text, tipoPegado === '')) return;
 
-            // Limpiar tabla antes de pegar (opcional: solo si hay filas vacías)
+            // Limpiar tabla antes de pegar (solo si todas sus filas están vacías)
             const filasSinDatos = [...document.getElementById('cuerpoTabla').querySelectorAll('tr')]
                 .every(tr => [...tr.querySelectorAll('input')].every(i => !i.value.trim()));
             if (filasSinDatos) {
@@ -589,51 +636,32 @@
                 filaCount = 0;
             }
 
-            // Parsear líneas
-            const lineas = text.trim().split('\n');
+            // Con fila de encabezados, cada columna va a la suya por su nombre (mapaEncabezado);
+            // sin ella, por posición: el orden que dice #pasteOrden.
+            let mapa = null;
             let insertadas = 0;
-
-            lineas.forEach(linea => {
-                const cols = linea.split('\t').map(c => c.trim().replace(/\r/g, ''));
-                // Saltar si la línea está completamente vacía
+            text.split(/\r\n|\n|\r/).forEach(linea => {
+            const cols = linea.split('\t').map(c => c.trim().replace(/^"|"$/g, ''));
                 if (cols.every(c => !c)) return;
-
-                // Autodetectar si la primera línea es encabezado (texto, no fecha ni número)
-                if (insertadas === 0 && isNaN(Date.parse(cols[0])) && isNaN(parseFloat(cols[0])) && cols[0] && !/^\d{1,2}\/\d{1,2}/.test(cols[0])) {
-                    return; // saltar encabezado
+                if (insertadas === 0 && !mapa) {
+                    const m = mapaEncabezado(cols);
+                    if (m) { mapa = m; return; }
+                    // Otra fila de títulos antes de los datos (texto, no fecha ni número): se salta.
+                    if (!/^\d{4}-/.test(fechaISO(cols[0])) && isNaN(parseFloat(cols[0]))) return;
                 }
-
-                // ── Parsear fecha ─────────────────────────────────────────
-                let fecha = cols[0] || '';
-
-                // Formato Excel venezolano: DD-MM-YY  →  19-02-26 = 19 feb 2026
-                if (/^\d{1,2}-\d{1,2}-\d{2}$/.test(fecha)) {
-                    const p = fecha.split('-');
-                    const yy = parseInt(p[2]);
-                    const yyyy = yy <= 50 ? 2000 + yy : 1900 + yy;  // 26→2026, 99→1999
-                    fecha = `${yyyy}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-                }
-                // Formato DD-MM-YYYY con 4 dígitos de año
-                else if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(fecha)) {
-                    const p = fecha.split('-');
-                    fecha = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-                }
-                // Formato DD/MM/YYYY o MM/DD/YYYY con barras
-                else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(fecha)) {
-                    const p = fecha.split('/');
-                    // Siempre asumiremos DD/MM/YYYY (Formato de Venezuela)
-                    fecha = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-                }
-                // YYYY-MM-DD ya está en formato correcto → no tocar
-
+                const col = (campo, pos) => mapa
+                    ? (mapa[campo] !== undefined ? (cols[mapa[campo]] || '') : '')
+                    : (cols[pos] || '');
+                if (mapa && !col('fecha') && !col('cantidad')) return;   // fila de total o vacía
+                const espec = necesitaEspec();
                 agregarFila({
-                    fecha: fecha,
-                    id: cols[1] || '',
-                    nombre: cols[2] || '',
-                    ci: cols[3] || '',
-                    cantidad: (cols[4] || '').replace(',', '.'),
-                    espec: necesitaEspec() ? (cols[5] || '') : '',
-                    origen: necesitaEspec() ? (cols[6] || '') : (cols[5] || ''),
+                    fecha: fechaISO(col('fecha', 0)),
+                    id: col('id', 1),
+                    nombre: col('nombre', 2),
+                    ci: col('ci', 3),
+                    cantidad: numeroPegado(col('cantidad', 4)),
+                    espec: espec ? col('espec', 5) : '',
+                    origen: col('origen', espec ? 6 : 5),
                 });
                 insertadas++;
             });

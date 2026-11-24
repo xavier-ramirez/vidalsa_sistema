@@ -34,10 +34,10 @@ class LectorExcelCombustible
         'codreq'   => ['CODIGO REQUIRIENTE'],
         'nota'     => ['NRO DE NOTA', 'NOTA DE DESPACHO'],
         'entrada'  => ['ENTRADA'],
-        'salida'   => ['SALIDA', 'VOLUMEN'],
+        'salida'   => ['SALIDA', 'VOLUMEN', 'CANTIDAD', 'DESPACHAD', 'LITROS SURTIDOS'],
         'ci'       => ['C. I.', 'C.I.', 'CEDULA'],
-        'resp'     => ['NOMBRE DEL RESPONSABLE', 'NOMBRE Y APELLIDO', 'RESPONSABLE'],
-        'ident'    => ['PLACA/SERIAL', 'PLACA / SERIAL'],
+        'resp'     => ['NOMBRE DEL RESPONSABLE', 'NOMBRE Y APELLIDO', 'RESPONSABLE', 'OPERADOR', 'CONDUCTOR'],
+        'ident'    => ['PLACA/SERIAL', 'PLACA / SERIAL', 'IDENTIFICADOR'],
         'equipo'   => ['CARACTERISTICAS DEL VE', 'VEHICULO / EQUIPO', 'VEHICULO/EQUIPO', 'DESCRIPCION'],
         'fecha'    => ['FECHA'],
         'frente'   => ['FRENTE'],
@@ -105,6 +105,13 @@ class LectorExcelCombustible
         if (str_starts_with($h, 'NUMERO DE VEHICULO')) {
             return 'numveh';   // nº correlativo del Patio: no identifica al equipo
         }
+        // Encabezados cortos que solo valen como celda entera («LITROS» sí; «LITROS EN TANQUE»
+        // o «DESCRIPCION», que contiene «CI», no; ni «PLACA DEL VEHICULO», que es la placa).
+        $exacto = ['LITROS' => 'salida', 'LTS' => 'salida', 'LTS.' => 'salida', 'LT' => 'salida', 'CI' => 'ci', 'C I' => 'ci',
+            'EQUIPO' => 'equipo', 'VEHICULO' => 'equipo', 'UNIDAD' => 'equipo'];
+        if (isset($exacto[$h])) {
+            return $exacto[$h];
+        }
         foreach (self::SINONIMOS as $campo => $claves) {
             foreach ($claves as $k) {
                 if (str_contains($h, $k)) {
@@ -122,20 +129,18 @@ class LectorExcelCombustible
         $maxCol = $this->ultimaColumna($hoja);
         for ($r = 1; $r <= 15; $r++) {
             $mapa = [];
-            $hayFecha = $hayLitros = false;
             for ($c = 1; $c <= $maxCol; $c++) {
                 $h = TextoConsumo::norm($this->valor($hoja, $c, $r));
                 if ($h === '') {
                     continue;
                 }
-                $hayFecha = $hayFecha || str_starts_with($h, 'FECHA');
-                $hayLitros = $hayLitros || str_contains($h, 'SALIDA') || str_contains($h, 'VOLUMEN');
                 $campo = $this->campoDe($h);
                 if ($campo !== null && !isset($mapa[$campo])) {
                     $mapa[$campo] = $c;
                 }
             }
-            if ($hayFecha && $hayLitros && isset($mapa['fecha'], $mapa['salida'])) {
+            // Una columna de fecha y OTRA de litros (despachados): «FECHA DE SALIDA» sola es la salida.
+            if (isset($mapa['fecha'], $mapa['salida'])) {
                 return [$r, $mapa];
             }
         }
