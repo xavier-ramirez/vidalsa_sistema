@@ -8,7 +8,6 @@
     .imp-sub { font-size:13px; color:#64748b; margin:0 0 14px; }
 
     .imp-aviso { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px; }
-    .imp-aviso-ok { background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; }
     .imp-aviso-error { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
 
     .imp-zona { display:flex; align-items:center; gap:12px; padding:12px 16px; border:2px dashed #bfdbfe;

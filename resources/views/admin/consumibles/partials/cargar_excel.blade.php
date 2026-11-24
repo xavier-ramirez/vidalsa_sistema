@@ -5,10 +5,6 @@
      fuera, revisión y deshacer. Debajo, la tabla para escribir a mano o pegar filas sin encabezado. --}}
 @include('admin.consumibles.partials.importar_estilos')
 
-@if (session('success'))
-    <div class="imp-aviso imp-aviso-ok">{{ session('success') }}</div>
-@endif
-
 <div class="admin-card imp-card">
     <label class="imp-zona" for="impArchivos" id="impZona">
         <i class="material-icons">upload_file</i>

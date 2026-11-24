@@ -50,6 +50,11 @@ class LectorExcelCombustible
     private const MAX_COLUMNAS = 60;
     private const MAX_FILAS = 20000;
 
+    /** Mes escrito (es/en) → número, para fechas de texto como «01-ago-26» (una tabla pegada). */
+    private const MESES = ['ENE' => 1, 'JAN' => 1, 'FEB' => 2, 'MAR' => 3, 'ABR' => 4, 'APR' => 4, 'MAY' => 5,
+        'JUN' => 6, 'JUL' => 7, 'AGO' => 8, 'AUG' => 8, 'SEP' => 9, 'SET' => 9, 'OCT' => 10, 'NOV' => 11,
+        'DIC' => 12, 'DEC' => 12];
+
     /** Una fecha a más de esto de la mediana de su hoja no sirve de referencia para las vecinas. */
     private const DIAS_CONFIABLE = 150;
 
@@ -363,6 +368,12 @@ class LectorExcelCombustible
         if (count($p) === 2 && strlen($p[1]) === 6) {          // «29/042026»
             $p = [$p[0], substr($p[1], 0, 2), substr($p[1], 2)];
         }
+        if (count($p) !== 3) {
+            $p = $this->partesDeTexto($s, $p);
+        }
+        if (count($p) === 3 && strlen($p[0]) === 4 && strlen($p[1]) <= 2 && strlen($p[2]) <= 2) {   // «2026-08-01»
+            return $this->fechaDePartes((int) $p[2], (int) $p[1], (int) $p[0], $s);
+        }
         if (count($p) === 3 && strlen($p[0]) <= 2 && strlen($p[1]) <= 2) {
             $a = (int) $p[2];
             if (strlen($p[2]) <= 2) {
@@ -373,6 +384,23 @@ class LectorExcelCombustible
         }
 
         return ['fecha' => null, 'partes' => null, 'raw' => $s];
+    }
+
+    /**
+     * Día, mes y año de una fecha de texto que no vino como «d/m/a»: con la hora detrás
+     * («01/08/2026 08:30») o con el mes escrito («01-ago-26», «1 de agosto de 2026»). Solo
+     * se intenta cuando lo numérico no dio tres partes, para no tocar lo que ya se leía.
+     */
+    private function partesDeTexto(string $s, array $p): array
+    {
+        if (count($p) >= 5 && preg_match('/\d{1,2}:\d{2}/', $s)) {
+            return array_slice($p, 0, 3);
+        }
+        $conMes = preg_replace_callback('/(?<![A-Z])(' . implode('|', array_keys(self::MESES)) . ')[A-Z]*\.?/', function ($m) {
+            return ' ' . self::MESES[$m[1]] . ' ';
+        }, TextoConsumo::norm($s));
+
+        return preg_split('/\D+/', (string) $conMes, -1, PREG_SPLIT_NO_EMPTY);
     }
 
     /** Día/mes/año sueltos. Un año fuera de rango deja la fecha en null pero guarda las partes para repararla. */

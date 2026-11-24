@@ -67,8 +67,7 @@
             (EXTENSIONES.test(f.name) ? archivos : rechazados).push(f);
         });
         if (rechazados.length) {
-            aviso('warning', 'Solo Excel', 'No son archivos de Excel: ' + esc(rechazados.map(function (f) { return f.name; }).join(', ')));
-            return;
+            aviso('warning', 'Solo Excel', 'No son archivos de Excel y se dejan fuera: ' + esc(rechazados.map(function (f) { return f.name; }).join(', ')));
         }
         if (!archivos.length) return;
         var fd = new FormData();
@@ -76,22 +75,25 @@
         leer(CFG.subir, { method: 'POST', body: fd }, 'No se pudieron leer los archivos.');
     }
 
-    /** ¿Es la tabla de un reporte de gasoil? Encabezado con FECHA y SALIDA/VOLUMEN en las
-     *  primeras 15 filas, la misma regla del lector (LectorExcelCombustible::encabezado). */
+    /** ¿Es la tabla de un reporte de gasoil? En las primeras 15 filas, un encabezado con una
+     *  columna de FECHA y OTRA de SALIDA/VOLUMEN, la regla del lector (LectorExcelCombustible::
+     *  encabezado/campoDe): «FECHA DE SALIDA» sola es la salida, no la fecha. */
     function traeEncabezado(texto) {
+        var litros = function (c) { return c.indexOf('SALIDA') !== -1 || c.indexOf('VOLUMEN') !== -1; };
         return texto.split(/\r\n|\n|\r/).slice(0, 15).some(function (linea) {
             var celdas = linea.split('\t').map(function (c) {
-                return c.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toUpperCase();
+                return c.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/"/g, '').trim().toUpperCase();
             });
-            return celdas.some(function (c) { return c.indexOf('FECHA') === 0; })
-                && celdas.some(function (c) { return c.indexOf('SALIDA') !== -1 || c.indexOf('VOLUMEN') !== -1; });
+            return celdas.some(function (c) { return c.indexOf('FECHA') === 0 && !litros(c) && c.indexOf('ENTRADA') === -1; })
+                && celdas.some(litros);
         });
     }
 
     /**
-     * La llama el Ctrl+V de Cargar consumibles. Devuelve true si se encargó: la tabla completa
-     * del Excel (con encabezados) va al lector y sus columnas se reconocen por nombre; sin
-     * encabezado (o sin permiso para esta carga) la tabla de abajo la toma por posición.
+     * La llama el Ctrl+V de Cargar consumibles (solo con tipo Gasoil o sin tipo elegido).
+     * Devuelve true si se encargó: la tabla completa del Excel (con encabezados) va al lector y
+     * sus columnas se reconocen por nombre; sin ese encabezado (o sin permiso para esta carga)
+     * la tabla de abajo la toma por posición.
      */
     window.consImpPegar = function (texto) {
         if (!CFG.pegar || !document.getElementById('impZona') || !traeEncabezado(texto)) return false;

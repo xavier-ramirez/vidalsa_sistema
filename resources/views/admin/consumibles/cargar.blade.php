@@ -342,7 +342,7 @@
                 {{-- Instrucciones de Pegado Rápido --}}
                 <div class="paste-zone" id="pasteZone">
                     <i class="material-icons">content_paste</i>
-                    <span>Pegue filas de Excel con Ctrl+V en este orden: fecha, placa/serial, nombre, C.I., cantidad, origen</span>
+                    <span>Pegue filas de Excel con Ctrl+V en este orden: <span id="pasteOrden">fecha, placa/serial, nombre, C.I., cantidad, origen</span></span>
                 </div>
 
                 <table id="tablaFilas">
@@ -425,6 +425,12 @@
 
             const espec = necesitaEspec();
             const th = document.getElementById('thEspec');
+
+            // El orden que lee el pegado (pasteLoteCargarHandler): con aceite o caucho, la
+            // viscosidad o el modelo va antes del origen.
+            const orden = document.getElementById('pasteOrden');
+            if (orden) orden.textContent = 'fecha, placa/serial, nombre, C.I., cantidad, '
+                + (espec ? (TIPOS_ACEITE.includes(tipo) ? 'viscosidad, ' : 'modelo del caucho, ') : '') + 'origen';
 
             // Cabecera de columna
             if (espec) {
@@ -571,7 +577,9 @@
 
             // La tabla completa de un reporte de gasoil (con su encabezado FECHA … SALIDA) no se
             // pone por posición: va al mismo lector que un Excel subido (consumibles_importar.js).
-            if (window.consImpPegar && window.consImpPegar(text)) return;
+            // Ese lector es solo de gasoil: con otro tipo elegido, la tabla de abajo.
+            const tipoPegado = document.getElementById('tipoSelect').value;
+            if ((tipoPegado === '' || tipoPegado === 'GASOIL') && window.consImpPegar && window.consImpPegar(text)) return;
 
             // Limpiar tabla antes de pegar (opcional: solo si hay filas vacías)
             const filasSinDatos = [...document.getElementById('cuerpoTabla').querySelectorAll('tr')]

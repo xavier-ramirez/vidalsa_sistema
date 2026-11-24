@@ -211,8 +211,35 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $otra = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
         $this->assertSame(0, app(\App\Services\Consumibles\ImportadorCombustible::class)->revisar($otra)['resumen']['totales']['nuevo'][0]);
 
-        // Sin encabezado reconocible, lo dice (y la pantalla lo deja a la tabla de abajo).
+        // Sin encabezado reconocible, lo dice (la pantalla ni lo manda: lo toma la tabla de abajo).
         $this->postJson(route('consumibles.importar.pegar'), ['texto' => "01/08/2026\tABC123\t40"])->assertStatus(422);
+
+        // Más filas de las que se leen pegadas: se avisa, no se corta en silencio.
+        $this->postJson(route('consumibles.importar.pegar'), ['texto' => str_repeat("x\n", 20001)])
+            ->assertStatus(422)->assertJsonFragment(['message' => 'Se pueden pegar hasta 20.000 filas. Para más, sube el archivo de Excel.']);
+    }
+
+    /**
+     * Lo que Excel pone en el portapapeles: una celda con salto de línea (Alt+Enter) va entre
+     * comillas y sigue siendo UNA celda; y la fecha llega como se ve (con hora, con el mes
+     * escrito o año primero), no como número de serie.
+     */
+    public function test_pegar_celdas_con_salto_de_linea_y_fechas_como_se_ven(): void
+    {
+        $u = $this->superAdminGlobal();
+        $texto = "FECHA\tDESCRIPCION\tSALIDA\tPROYECTO\n"
+            . "01/08/2026 08:30\t\"CAMION PEGADO\nCON SALTO\"\t11\tVELADERO\n"
+            . "02-ago-26\tCAMION PEGADO\t12\tVELADERO\n"
+            . "3 de agosto de 2026\tCAMION PEGADO\t13\tVELADERO\n"
+            . "2026-08-04\tCAMION PEGADO\t14\tVELADERO";
+
+        $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto])->assertOk();
+        $filas = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail()->filas();
+
+        $this->assertSame(['2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04'], array_column($filas, 'fecha'));
+        $this->assertEquals([11, 12, 13, 14], array_column($filas, 'litros'), 'cuatro despachos: la celda con salto no partió la fila');
+        $this->assertStringContainsString('CON SALTO', $filas[0]['desc']);
+        $this->assertStringNotContainsString('"', $filas[0]['desc']);
     }
 
     public function test_lo_ensenado_identifica_en_la_misma_carga(): void
@@ -287,7 +314,7 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertNotNull($u, 'Hace falta un usuario sin super.admin.');
 
         // La subida vive en Cargar consumibles y no se le muestra.
-        $html = $this->actingAs($u)->get(route('consumibles.cargar'))->getContent();
+        $html = $this->actingAs($u)->get(route('consumibles.cargar'))->assertOk()->getContent();
         $this->assertStringNotContainsString('id="impArchivos"', $html);
         $this->subir($u, $this->excel('1234567'))->assertForbidden();
         $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => "FECHA\tSALIDA\n01/08/2026\t10"])->assertForbidden();

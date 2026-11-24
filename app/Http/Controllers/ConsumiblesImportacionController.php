@@ -24,6 +24,9 @@ use Illuminate\Support\Facades\DB;
  */
 class ConsumiblesImportacionController extends Controller
 {
+    /** Filas que se leen de una tabla pegada; más que eso, mejor subir el archivo. */
+    private const MAX_FILAS_PEGADAS = 20000;
+
     public function subir(Request $request, ImportadorCombustible $importador): JsonResponse
     {
         $request->validate([
@@ -43,30 +46,41 @@ class ConsumiblesImportacionController extends Controller
      * tabuladores, encabezado incluido. Se arma un libro con ella y entra por el MISMO lector
      * que un archivo subido: columnas por su encabezado (las demás se ignoran), repetidos
      * fuera, equipo y frente identificados, revisión y deshacer. Todo como texto: un «=» del
-     * Excel no se vuelve fórmula.
+     * Excel no se vuelve fórmula. Se lee como TSV de verdad: una celda con salto de línea
+     * (Alt+Enter) llega entre comillas y sigue siendo UNA celda. Ojo: lo pegado es lo que el
+     * Excel MUESTRA (una columna redondeada llega redondeada); el archivo trae el valor exacto.
      */
     public function pegar(Request $request, ImportadorCombustible $importador): JsonResponse
     {
         $request->validate(['texto' => 'required|string|max:5000000'], ['texto.required' => 'No hay nada pegado.']);
 
         $libro = new Spreadsheet();
-        $hoja = $libro->getActiveSheet();
-        $lineas = array_slice(preg_split('/\r\n|\n|\r/', (string) $request->input('texto')), 0, 20000);
-        foreach ($lineas as $i => $linea) {
-            foreach (array_slice(explode("\t", $linea), 0, 60) as $c => $v) {
-                $v = trim($v);
-                if ($v !== '') {
-                    $hoja->setCellValueExplicit(Coordinate::stringFromColumnIndex($c + 1) . ($i + 1), $v, DataType::TYPE_STRING);
-                }
-            }
-        }
         $base = tempnam(sys_get_temp_dir(), 'pegado');
         $ruta = $base . '.xlsx';
+        $tsv = fopen('php://temp', 'r+');
         try {
+            fwrite($tsv, (string) $request->input('texto'));
+            rewind($tsv);
+            $hoja = $libro->getActiveSheet();
+            $fila = 0;
+            while (($celdas = fgetcsv($tsv, 0, "\t", '"', '')) !== false) {
+                if (++$fila > self::MAX_FILAS_PEGADAS) {
+                    return response()->json(['message' => 'Se pueden pegar hasta '
+                        . number_format(self::MAX_FILAS_PEGADAS, 0, ',', '.') . ' filas. Para más, sube el archivo de Excel.'], 422);
+                }
+                // Hasta 60 columnas, como el lector con un archivo (LectorExcelCombustible::MAX_COLUMNAS).
+                foreach (array_slice($celdas, 0, 60) as $c => $v) {
+                    $v = trim((string) $v);
+                    if ($v !== '') {
+                        $hoja->setCellValueExplicit(Coordinate::stringFromColumnIndex($c + 1) . $fila, $v, DataType::TYPE_STRING);
+                    }
+                }
+            }
             (new Xlsx($libro))->save($ruta);
 
             return $this->borrador([new UploadedFile($ruta, 'Tabla pegada.xlsx', null, null, true)], $importador);
         } finally {
+            fclose($tsv);
             $libro->disconnectWorksheets();
             @unlink($ruta);
             @unlink($base);
