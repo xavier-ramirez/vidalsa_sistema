@@ -38,7 +38,9 @@
     #ajNotaModal .ajn-codigo { display:block; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:10px; font-weight:700; letter-spacing:.9px; color:#64748b; line-height:1.2; }
     #ajNotaModal .ajn-titulo { font-size:12px; font-weight:600; color:#1e293b; line-height:1.35; overflow-wrap:anywhere; }
     #ajNotaModal .ajn-datos { font-size:12px; font-weight:500; }
-    #ajNotaModal .ajn-datos b { font-weight:700; color:#0067b1; }   /* cantidad + unidad en el azul global */
+    /* Cantidad + unidad en el azul global, más grande que el texto que la rodea para que se
+       lea de un vistazo (pedido del cliente, 23-11-2026). */
+    #ajNotaModal .ajn-datos b { font-size:15px; font-weight:800; color:#0067b1; }
 
     /* Campos: la misma caja para la cantidad y el motivo. */
     #ajNotaModal label.ajn-label { display:block; font-size:12.5px; font-weight:600; }
