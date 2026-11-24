@@ -1284,6 +1284,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // acaba de llegar, no hay nada a medio escribir), igual que loadPage con las pantallas
     // que pide al servidor; así también las guardadas (Equipos, Almacén…) toman lo nuevo.
     function revisar(trasNavegar) {
+        // Ya avisado (el aviso sigue en pantalla) y se cambió de módulo: se recarga aquí, sin
+        // preguntar otra vez. loadPage solo recarga por una versión nueva, no por un cambio de
+        // permisos: sin esto seguía con los botones y permisos viejos hasta pulsar Actualizar.
+        if (trasNavegar === true && avisando && !(window.__hdCargaMasiva && window.__hdCargaMasiva.corriendo)) {
+            window.location.reload();
+            return;
+        }
         if (pidiendo || avisando || document.hidden || navigator.onLine === false || !window.usuarioActivo()) return;
         pidiendo = true;
         fetch('/version-vistas', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })

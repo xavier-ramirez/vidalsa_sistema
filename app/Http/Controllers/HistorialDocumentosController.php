@@ -329,6 +329,8 @@ class HistorialDocumentosController extends Controller
     {
         $almacen = \Illuminate\Support\Facades\Cache::store('file');
         $clave   = self::claveDe($frentesVisibles, $frentesBloqueados, []);
+        // Al dia (lo normal en cada visita al panel): se sale sin tocar el candado.
+        if (self::leerFicha($almacen, $clave, \App\Support\CacheVersion::current(self::DATA_VER_KEY))) return;
         try {
             $almacen->lock($clave . '_armando', 30)->block(30, function () use ($almacen, $clave, $frentesVisibles, $frentesBloqueados) {
                 $ver = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
