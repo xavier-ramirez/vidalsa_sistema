@@ -163,22 +163,23 @@
                     <div
                         style="display:flex; gap:8px; align-items: center; border-right: 1px solid #e2e8f0; padding-right: 12px; flex-shrink: 0;">
                         <a href="{{ route('consumibles.index', array_merge(request()->except('estado'), ['estado' => 'PENDIENTE'])) }}"
-                            style="text-decoration:none; background:#fffbeb; border: 1px solid #fde68a; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: default;"
+                            style="text-decoration:none; background:#fffbeb; border: 1px solid #fde68a; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
                             onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">
                             <strong style="display:block; font-size:18px; font-weight:800; color:#d97706; line-height: 1;"
                                 id="cnt-pendientes">{{ $pendientes }}</strong>
                             <span
                                 style="font-size:9px; color:#b45309; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Pendientes</span>
                         </a>
-                        <div
-                            style="background:#f8fafc; border: 1px solid #e2e8f0; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; cursor: default;">
+                        <a href="{{ route('consumibles.index', array_merge(request()->except('estado'), ['estado' => 'CONFIRMADO'])) }}"
+                            style="text-decoration:none; background:#f8fafc; border: 1px solid #e2e8f0; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
+                            onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
                             <strong style="display:block; font-size:18px; font-weight:800; color:#10b981; line-height: 1;"
                                 id="cnt-confirmados">{{ $confirmados }}</strong>
                             <span
                                 style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Confirmados</span>
-                        </div>
+                        </a>
                         <a href="{{ route('consumibles.index', array_merge(request()->except('estado'), ['estado' => 'SIN_MATCH'])) }}"
-                            style="text-decoration:none; background:#fef2f2; border: 1px solid #fecaca; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: default;"
+                            style="text-decoration:none; background:#fef2f2; border: 1px solid #fecaca; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
                             onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
                             <strong style="display:block; font-size:18px; font-weight:800; color:#ef4444; line-height: 1;"
                                 id="cnt-sinmatch">{{ $sinMatch }}</strong>
@@ -651,7 +652,8 @@
                                     @endif
                                 </td>
                                 <td style="font-weight:700; text-align:right; white-space:nowrap;">
-                                    {{ number_format($c->CANTIDAD, 1) }}
+                                    {{-- Formato español (1.250 / 12,5), sin decimales de relleno. --}}
+                                    {{ rtrim(rtrim(number_format($c->CANTIDAD, 2, ',', '.'), '0'), ',') }}
                                     @php
                                         $unidadAbrev = match (strtoupper(trim($c->UNIDAD ?? ''))) {
                                             'LITROS', 'LITRO' => 'L',
@@ -684,7 +686,7 @@
                                     @endphp
                                     @if($discrepancia)
                                         <span
-                                            title="El equipo estí registrado en otro frente: {{ $c->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A' }}"
+                                            title="El equipo está registrado en otro frente: {{ $c->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A' }}"
                                             style="display:inline-flex; align-items:center; gap:3px; background:#fef3c7; color:#92400e;
                                                  border-radius:6px; padding:1px 6px; font-size:10px; font-weight:700;
                                                  cursor:help; margin-left:4px; white-space:nowrap;">
@@ -738,12 +740,6 @@
                                             {{ $c->equipo->frenteActual?->NOMBRE_FRENTE ?? 'Sin frente asignado' }}
                                         </span>
 
-                                        {{-- Identificador buscado --}}
-                                        <span
-                                            style="display:block; font-family:monospace; font-size:11px; color:#64748b; margin-top:2px;">
-                                            {{ $c->IDENTIFICADOR ?? '—' }}
-                                        </span>
-
                                         {{-- Coincidencia completa (si el buscado era parcial) --}}
                                         @if($coincidencia)
                                             <span style="display:block; font-family:monospace; font-size:10px;
@@ -765,14 +761,11 @@
                                         <span style="display:block; font-family:monospace; font-size:11px; color:#64748b; margin-top:2px;">
                                             {{ $c->auxiliar->CODIGO_INTERNO ?: $c->auxiliar->SERIAL }}
                                         </span>
+                                    @elseif($c->ESTADO_EQUIPO === 'CONFIRMADO')
+                                        {{-- Confirmado sin equipo: se enseñó que no es de ningún equipo. --}}
+                                        <span style="color:#64748b; font-style:italic; font-size:12px;">Sin equipo</span>
                                     @else
                                         <span style="color:#94a3b8; font-style:italic; font-size:12px;">Sin resolver</span>
-                                        @if($c->IDENTIFICADOR)
-                                            <span
-                                                style="display:block; font-family:monospace; font-size:11px; color:#f87171; margin-top:2px;">
-                                                {{ $c->IDENTIFICADOR }}
-                                            </span>
-                                        @endif
                                     @endif
                                 </td>
                                 <td style="font-size:12px;">
@@ -806,9 +799,14 @@
                                 <td colspan="10" style="text-align:center; padding:40px; color:#94a3b8;">
                                     <i class="material-icons"
                                         style="font-size:40px; display:block; margin-bottom:8px;">inbox</i>
-                                    No hay registros de consumibles todavía.
-                                    <a href="{{ route('consumibles.cargar') }}" style="color:#0067b1; font-weight:600;">Cargar
-                                        el primer lote →</a>
+                                    @if(request()->hasAny(['id_frente', 'tipo', 'estado', 'fecha_desde', 'fecha_hasta', 'identificador']))
+                                        Ningún consumible cumple con los filtros.
+                                        <a href="{{ route('consumibles.index') }}" style="color:#0067b1; font-weight:600;">Quitar filtros</a>
+                                    @else
+                                        No hay registros de consumibles todavía.
+                                        <a href="{{ route('consumibles.cargar') }}" style="color:#0067b1; font-weight:600;">Cargar
+                                            el primer lote →</a>
+                                    @endif
                                 </td>
                             </tr>
                         @endforelse

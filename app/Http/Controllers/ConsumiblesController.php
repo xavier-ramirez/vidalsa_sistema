@@ -35,8 +35,6 @@ class ConsumiblesController extends Controller
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
             ->orderBy('NOMBRE_FRENTE')->get();
 
-        $tipos_equipo = \App\Models\TipoEquipo::orderBy('nombre')->get();
-
         // Sin 'suministro': la tabla suministros_origen esta VACIA y ningun consumible
         // tiene ID_SUMINISTRO (el registro de consumible lo escribe siempre null), asi que
         // era una consulta mas en cada carga para traer nada. Ninguna vista la lee.
@@ -53,12 +51,6 @@ class ConsumiblesController extends Controller
 
         if ($request->filled('estado'))
             $query->where('ESTADO_EQUIPO', $request->estado);
-
-        if ($request->filled('id_tipo_equipo')) {
-            $query->whereHas('equipo', function ($q) use ($request) {
-                $q->where('id_tipo_equipo', $request->id_tipo_equipo);
-            });
-        }
 
         if ($request->filled('fecha_desde'))
             $query->where('FECHA', '>=', $request->fecha_desde);
@@ -91,12 +83,6 @@ class ConsumiblesController extends Controller
             ->when($request->filled('fecha_desde'), fn($q) => $q->where('consumibles.FECHA', '>=', $request->fecha_desde))
             ->when($request->filled('fecha_hasta'), fn($q) => $q->where('consumibles.FECHA', '<=', $request->fecha_hasta))
             ->when($request->filled('identificador'), fn($q) => $q->where('consumibles.IDENTIFICADOR', 'LIKE', '%' . trim($request->identificador) . '%'))
-            ->when($request->filled('id_tipo_equipo'), fn($q) => $q->whereExists(function ($sub) use ($request) {
-                $sub->select(DB::raw(1))
-                    ->from('equipos')
-                    ->whereColumn('equipos.ID_EQUIPO', 'consumibles.ID_EQUIPO')
-                    ->where('equipos.id_tipo_equipo', $request->id_tipo_equipo);
-            }))
             ->select(
                 'frentes_trabajo.NOMBRE_FRENTE',
                 DB::raw('SUM(consumibles.CANTIDAD) as total'),
@@ -113,7 +99,6 @@ class ConsumiblesController extends Controller
             'pendientes',
             'sinMatch',
             'confirmados',
-            'tipos_equipo',
             'resumenFrente'
         ));
     }
@@ -858,6 +843,13 @@ class ConsumiblesController extends Controller
     // ══════════════════════════════════════════════════════════════
     public function matchAutomatico()
     {
+        // Un PENDIENTE sin identificador no tiene con qué buscarse: queda «Por identificar»
+        // (se le escribe el identificador a mano y vuelve a PENDIENTE). Antes se quedaba
+        // pendiente para siempre y el contador del Match nunca bajaba.
+        $sinIdentificador = Consumible::where('ESTADO_EQUIPO', 'PENDIENTE')
+            ->where(fn ($q) => $q->whereNull('IDENTIFICADOR')->orWhere('IDENTIFICADOR', ''))
+            ->update(['ESTADO_EQUIPO' => 'SIN_MATCH']);
+
         // Procesa PENDIENTE y SIN_MATCH — permite reintentar los no encontrados
         $pendientes = Consumible::whereIn('ESTADO_EQUIPO', ['PENDIENTE', 'SIN_MATCH'])
             ->whereNotNull('IDENTIFICADOR')
@@ -1025,7 +1017,7 @@ class ConsumiblesController extends Controller
         return response()->json([
             'total' => $pendientes->count(),
             'confirmados' => $confirmados,
-            'sin_match' => $sinMatch,
+            'sin_match' => $sinMatch + $sinIdentificador,
             'detalle' => $detalle,
         ]);
     }

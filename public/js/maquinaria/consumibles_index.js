@@ -1,6 +1,6 @@
 /**
- * consumibles_index.js – JS Logic for Consumibles (SPA Compatible)
- * v3.2
+ * consumibles_index.js — pantalla Gestión de Consumibles (admin/consumibles/index.blade.php):
+ * borrar, Match automático y edición en la fila del identificador y del frente.
  */
 
 // ═══════════════════════════════════════════════════════════════════
@@ -12,8 +12,6 @@ window.borrarDirecto = function(id, url, btn) {
         btn.innerHTML = '<i class="material-icons" style="font-size:17px; animation:spin 1s linear infinite;">refresh</i>';
         btn.style.opacity = '0.5';
     }
-
-    var csrfToken = window.getCsrf();
 
     window.apiFetch(url, { headers: { 'Accept': 'application/json' },
         method: 'DELETE'})
@@ -29,18 +27,24 @@ window.borrarDirecto = function(id, url, btn) {
                 setTimeout(function() { row.remove(); }, 200);
             }
             window.toast('Registro eliminado al instante.', 'success');
+            // Los contadores de arriba (y el botón del Match) cuentan este registro.
+            consumiblesRefrescar();
         } else {
-            console.error('Error al borrar', data);
             window.toast(data.message || 'No se pudo eliminar', 'error');
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="material-icons" style="font-size:17px;">delete</i>'; btn.style.opacity = '1'; }
         }
     })
-    .catch(function(e) {
-        console.error(e);
+    .catch(function() {
         window.toast('Error de red', 'error');
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="material-icons" style="font-size:17px;">delete</i>'; btn.style.opacity = '1'; }
     });
 };
+
+// Vuelve a pedir los resultados con los filtros puestos: la fila, el estado y los
+// contadores quedan como los dejó el servidor.
+function consumiblesRefrescar() {
+    if (window.submitConsumiblesFilters) window.submitConsumiblesFilters();
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // MÓDULO CONSUMIBLES — lógica de la página (Match, edición inline)
@@ -73,16 +77,12 @@ if (typeof window.ModuleManager !== 'undefined') {
                         window.toast(data.message || 'No se pudo ejecutar el match', 'error');
                         return;
                     }
+                    // Cuenta consumos (filas), no equipos: varios consumos son del mismo equipo.
+                    // Los contadores de arriba los trae la recarga de abajo.
                     var confirmados = data.confirmados || 0;
                     var sinMatch    = data.sin_match   || 0;
-
-                    var p  = document.getElementById('cnt-pendientes');  if (p)  p.textContent = 0;
-                    var c  = document.getElementById('cnt-confirmados'); if (c)  c.textContent = confirmados;
-                    var sm = document.getElementById('cnt-sinmatch');    if (sm) sm.textContent = sinMatch;
-
-                    var msg = confirmados + ' equipos confirmados';
-                    if (sinMatch > 0) msg += ' · ' + sinMatch + ' sin match';
-                    // Show toast which will persist across SPA navigation
+                    var msg = confirmados + ' consumo' + (confirmados === 1 ? '' : 's') + ' identificado' + (confirmados === 1 ? '' : 's');
+                    if (sinMatch > 0) msg += ' · ' + sinMatch + ' por identificar';
                     window.toast(msg, 'success');
 
                     // Recargar los resultados. cargarConsumibles toma su PROPIA referencia del
@@ -97,10 +97,9 @@ if (typeof window.ModuleManager !== 'undefined') {
                         location.reload();
                     }
                 })
-                .catch(function(err) {
+                .catch(function() {
                     if (window.hidePreloader) window.hidePreloader();
                     if (btn) btn.disabled = false;
-                    console.error('Error match:', err);
                     window.toast('Error al ejecutar match', 'error');
                 });
             };
@@ -109,11 +108,11 @@ if (typeof window.ModuleManager !== 'undefined') {
             // El identificador lo escribe cualquiera con permiso: se pinta SIEMPRE escapado y
             // el valor de antes vive en la celda (data-original), no dentro de un onclick.
             var esc = window.escapeHtml;
-            function pintarId(celda, id, valor, recien) {
+            function pintarId(celda, id, valor) {
                 celda.dataset.original = valor || '';
                 celda.innerHTML =
                     '<div style="display:flex;align-items:center;gap:5px;">' +
-                        '<span id="id-txt-' + id + '" style="flex:1;' + (recien ? 'color:#059669;font-weight:700;' : '') + '">' + (esc(valor) || '—') + '</span>' +
+                        '<span id="id-txt-' + id + '" style="flex:1;">' + (esc(valor) || '—') + '</span>' +
                         '<button onclick="editarId(' + id + ')" style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;" title="Editar">' +
                             '<i class="material-icons" style="font-size:14px;">edit</i>' +
                         '</button>' +
@@ -157,13 +156,10 @@ if (typeof window.ModuleManager !== 'undefined') {
                         window.toast(data.message || 'No se pudo guardar el identificador', 'error');
                         return;
                     }
-                    var celda = document.getElementById('id-cell-' + id);
-                    if (!celda) return;
-                    pintarId(celda, id, data.identificador || nuevo, true);
-                    setTimeout(function() {
-                        var txt = document.getElementById('id-txt-' + id);
-                        if (txt) txt.style.color = '#1e293b';
-                    }, 2000);
+                    // El servidor lo deja PENDIENTE y sin equipo (hasta el próximo Match): se
+                    // recargan los resultados para que el estado, el equipo y los contadores lo digan.
+                    window.toast('Identificador guardado. Queda pendiente hasta el próximo Match.', 'success');
+                    consumiblesRefrescar();
                 })
                 .catch(function() {
                     var inp2 = document.getElementById('inp-id-' + id);
@@ -173,7 +169,7 @@ if (typeof window.ModuleManager !== 'undefined') {
 
             window.cancelarId = function(id) {
                 var celda = document.getElementById('id-cell-' + id);
-                if (celda) pintarId(celda, id, celda.dataset.original, false);
+                if (celda) pintarId(celda, id, celda.dataset.original);
             };
 
             // ── Edición inline — Frente ───────────────────────────────
@@ -224,19 +220,10 @@ if (typeof window.ModuleManager !== 'undefined') {
                         return;
                     }
                     delete celdaOriginal[id];
-                    var celda = document.getElementById('frente-cell-' + id);
-                    if (!celda) return;
-                    celda.innerHTML =
-                        '<div style="display:flex;align-items:center;gap:4px;">' +
-                            '<span id="frente-txt-' + id + '" style="flex:1;color:#059669;font-weight:700;">' + esc(data.nombre_frente) + '</span>' +
-                            '<button onclick="editarFrente(' + id + ',' + Number(idFrente) + ')" style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;" title="Cambiar frente">' +
-                                '<i class="material-icons" style="font-size:14px;">edit</i>' +
-                            '</button>' +
-                        '</div>';
-                    setTimeout(function() {
-                        var txt = document.getElementById('frente-txt-' + id);
-                        if (txt) txt.style.color = '#1e293b';
-                    }, 2000);
+                    // Se recarga: el aviso «el equipo está en otro frente» y el resumen por
+                    // frente dependen del frente nuevo.
+                    window.toast('Frente cambiado a ' + (data.nombre_frente || '—') + '.', 'success');
+                    consumiblesRefrescar();
                 })
                 .catch(function() { if (sel) { sel.disabled = false; sel.style.border = '1px solid #ef4444'; } });
             };
@@ -248,11 +235,7 @@ if (typeof window.ModuleManager !== 'undefined') {
                     delete celdaOriginal[id];
                     return;
                 }
-                if (window.submitConsumiblesFilters) {
-                    window.submitConsumiblesFilters();
-                } else {
-                    location.reload();
-                }
+                consumiblesRefrescar();
             };
         }
     );
