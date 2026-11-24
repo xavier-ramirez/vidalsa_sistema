@@ -26,6 +26,15 @@ assert.ok(!F.scoreToken(['cable', '2,5'], 'cable 2,5 mm', '2', true).hit, 'el 2 
 assert.ok(rank('0004').indexOf('BRAGA TALLA 42') >= 0);
 assert.ok(F.scoreToken(['000142'], '000142 braga', '42', false).hit, 'sin otras palabras, trozo');
 
+// Plural: «bragas» (los nombres dicen BRAGA) trae las bragas antes que GRAPAS o ABRAZADERA,
+// que solo se parecen; «motores» trae el MOTOR y no COLORES.
+const pl = [p('1', 'GRAPAS LISAS'), p('2', 'ABRAZADERA 1"'), p('3', 'BRAGA TYVEX'), p('4', 'BRAGA DE ALGODON TALLA 36'),
+    p('5', 'CHINCHE DE COLORES'), p('6', 'FILTRO DE ACEITE DE MOTOR')];
+const rankPl = (q) => F.rank(pl, q, (i) => ({ haystack: i.c + ' ' + i.n, label: i.n }), { enteros: true }).map((i) => i.n);
+assert.deepStrictEqual(rankPl('bragas').slice(0, 2).sort(), ['BRAGA DE ALGODON TALLA 36', 'BRAGA TYVEX']);
+assert.strictEqual(rankPl('motores')[0], 'FILTRO DE ACEITE DE MOTOR');
+assert.strictEqual(rankPl('grapas')[0], 'GRAPAS LISAS', 'la palabra tal cual sigue primero');
+
 // Sin { enteros: true } (mapa, frentes…) nada cambia: el 42 de 142 sigue sumando.
 const sin = rank('braga 42', null);
 assert.ok(sin.indexOf('BRAGA TALLA 142') < sin.indexOf('BRAGA TALLA 40'), 'sin la opción, 142 suma por el 42');

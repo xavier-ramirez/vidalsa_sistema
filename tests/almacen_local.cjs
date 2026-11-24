@@ -13,6 +13,7 @@ const js = path.join(__dirname, '..', 'public', 'js', 'maquinaria');
 global.window = { addEventListener() {} };
 global.document = { querySelector: () => null, getElementById: () => null };
 eval(fs.readFileSync(path.join(js, 'dom_helpers.js'), 'utf8'));
+eval(fs.readFileSync(path.join(js, 'fuzzy_search.js'), 'utf8'));   // FuzzySearch.singular (plural)
 eval(fs.readFileSync(path.join(js, 'almacen_local.js'), 'utf8'));
 
 const e = JSON.parse(fs.readFileSync(0, 'utf8'));

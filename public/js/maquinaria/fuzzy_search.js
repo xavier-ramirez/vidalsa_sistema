@@ -74,9 +74,25 @@
         }
         return -1;
     }
+    // Plural → singular: LA regla de todo el sistema (también la copia local: almacen_local.js ·
+    // formas, que busca la tabla de Almacén, el Historial y las Notas). «bragas» → «braga»,
+    // «motores» → «motore» y «motor». Sin esto «bragas» no salía en ningún nombre (dicen BRAGA)
+    // y caía al parecido, donde GRAPAS y ABRAZADERA puntuaban casi igual que BRAGA (24-11-2026).
+    // Solo palabras de 4+ letras sin cifras; null si no es plural.
+    function singular(token) {
+        if (token.length < 4 || token.charAt(token.length - 1) !== 's' || /\d/.test(token)) return null;
+        return [token.slice(0, -1)].concat(/[^aeiou]es$/.test(token) ? [token.slice(0, -2)] : []);
+    }
     function scoreToken(palabras, hayFull, token, entero) {
         var esNum = /^\d+$/.test(token);
         var idx = entero && /^\d{1,2}$/.test(token) ? posEntera(hayFull, token) : hayFull.indexOf(token);
+        if (idx < 0 && !esNum) {
+            var sing = singular(token);
+            for (var si = 0; sing && si < sing.length && idx < 0; si++) {
+                idx = hayFull.indexOf(sing[si]);
+                if (idx > -1) token = sing[si];
+            }
+        }
         if (idx > -1) {
             var s = 12;
             if (idx === 0) s += 12;
@@ -237,5 +253,5 @@
         return exactos.length ? exactos : items.filter(function (i) { return coincide(rawTerm, texto(i)); });
     }
 
-    w.FuzzySearch = { norm: norm, tokenize: tokenize, leven: leven, scoreToken: scoreToken, rank: rank, matchedPart: matchedPart, coincide: coincide, filtrar: filtrar };
+    w.FuzzySearch = { norm: norm, tokenize: tokenize, leven: leven, singular: singular, scoreToken: scoreToken, rank: rank, matchedPart: matchedPart, coincide: coincide, filtrar: filtrar };
 })(window);

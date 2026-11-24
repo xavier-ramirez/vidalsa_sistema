@@ -183,16 +183,12 @@
         return Array.from(new Set(v));
     }
 
-    // La palabra, su singular si venía en plural y, perdonando el tipeo, las variantes de las dos.
+    // La palabra, su singular si venía en plural (la misma regla que las sugerencias:
+    // FuzzySearch.singular) y, perdonando el tipeo, las variantes de todas.
     function formas(token, tolerante) {
         const f = [comoTexto(token)];
         const raices = [token];
-        const l = Array.from(token);
-        if (l.length > 3 && l[l.length - 1] === 's') {
-            const singular = l.slice(0, -1).join('');
-            f.push(comoTexto(singular));
-            raices.push(singular);
-        }
+        (window.FuzzySearch.singular(token) || []).forEach((s) => { f.push(comoTexto(s)); raices.push(s); });
         if (tolerante) raices.forEach((r) => f.push.apply(f, variantes(r)));
         return Array.from(new Set(f));
     }
