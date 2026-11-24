@@ -19,9 +19,15 @@
         box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);
     }
     .crop-modal-header {
-        background: #1e293b; padding: 12px 16px; color: #fff;
-        display: flex; justify-content: space-between; align-items: center;
+        background: #fff; padding: 12px 16px; color: #1e293b;
+        display: flex; justify-content: center; align-items: center;
+        position: relative; border-bottom: 1px solid #e2e8f0;
         flex-shrink: 0;
+    }
+    .crop-modal-close {
+        position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+        background: transparent; border: none; color: #64748b; cursor: pointer; padding: 4px;
+        display: flex;
     }
     .crop-modal-body {
         flex: 1; overflow: hidden; background: #0f172a;
@@ -44,9 +50,6 @@
     .crop-btn-confirm {
         border: none; background: #0067b1; color: #fff;
     }
-    .crop-btn-zoom {
-        border: 1px solid #cbd5e0; background: #fff; color: #0067b1; padding: 10px 12px;
-    }
     @media (max-width: 768px) {
         .crop-modal-overlay { padding: 0; align-items: flex-end; }
         .crop-modal-box {
@@ -56,7 +59,6 @@
         .crop-modal-body { min-height: 0; max-height: none; flex: 1; }
         .crop-modal-footer { padding: 10px 12px; }
         .crop-btn { flex: 1; justify-content: center; padding: 12px 10px; }
-        .crop-btn-zoom { flex: 0 0 auto; }
     }
     .cropper-line { background-color: #fff !important; opacity: 1 !important; }
     .cropper-line.line-n, .cropper-line.line-s { height: 3px !important; }
@@ -67,28 +69,15 @@
 <div id="cropModal" class="crop-modal-overlay">
     <div class="crop-modal-box">
         <div class="crop-modal-header">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <i class="material-icons" style="font-size:18px; color:#38bdf8;">crop</i>
-                <span style="font-size:14px; font-weight:700;">Recortar Foto</span>
-            </div>
-            <button type="button" onclick="window._closeCropModal()" style="background:transparent; border:none; color:#fff; cursor:pointer; padding:4px;">
+            <span style="font-size:14px; font-weight:700;">Recortar Foto</span>
+            <button type="button" onclick="window._closeCropModal()" class="crop-modal-close" title="Cerrar">
                 <i class="material-icons" style="font-size:20px;">close</i>
             </button>
         </div>
         <div class="crop-modal-body"></div>
         <div class="crop-modal-footer">
-            <button type="button" onclick="window._zoomCrop(-0.1)" class="crop-btn crop-btn-zoom" title="Alejar">
-                <i class="material-icons" style="font-size:18px;">zoom_out</i>
-            </button>
-            <button type="button" onclick="window._zoomCrop(0.1)" class="crop-btn crop-btn-zoom" title="Acercar">
-                <i class="material-icons" style="font-size:18px;">zoom_in</i>
-            </button>
-            <button type="button" onclick="window._closeCropModal()" class="crop-btn crop-btn-cancel">
-                <i class="material-icons" style="font-size:16px;">close</i> Cancelar
-            </button>
-            <button type="button" onclick="window._confirmCrop()" class="crop-btn crop-btn-confirm">
-                <i class="material-icons" style="font-size:16px;">check</i> Confirmar
-            </button>
+            <button type="button" onclick="window._closeCropModal()" class="crop-btn crop-btn-cancel">Cancelar</button>
+            <button type="button" onclick="window._confirmCrop()" class="crop-btn crop-btn-confirm">Aceptar</button>
         </div>
     </div>
 </div>
@@ -169,10 +158,6 @@ window._confirmCrop = function () {
         window._cropPending(croppedFile);
         window._closeCropModal();
     }, 'image/webp', 0.88);
-};
-
-window._zoomCrop = function (paso) {
-    if (window._cropperInstance) window._cropperInstance.zoom(paso);
 };
 
 window._closeCropModal = function () {
