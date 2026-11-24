@@ -8,6 +8,11 @@ use App\Services\Consumibles\TextoConsumo;
 use App\Support\MensajeError;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -30,9 +35,50 @@ class ConsumiblesImportacionController extends Controller
             'archivos.*.max'    => 'Cada archivo puede pesar hasta 20 MB.',
         ]);
 
+        return $this->borrador($request->file('archivos'), $importador);
+    }
+
+    /**
+     * La tabla copiada del Excel y pegada (Ctrl+V) en Cargar consumibles: texto con
+     * tabuladores, encabezado incluido. Se arma un libro con ella y entra por el MISMO lector
+     * que un archivo subido: columnas por su encabezado (las demás se ignoran), repetidos
+     * fuera, equipo y frente identificados, revisión y deshacer. Todo como texto: un «=» del
+     * Excel no se vuelve fórmula.
+     */
+    public function pegar(Request $request, ImportadorCombustible $importador): JsonResponse
+    {
+        $request->validate(['texto' => 'required|string|max:5000000'], ['texto.required' => 'No hay nada pegado.']);
+
+        $libro = new Spreadsheet();
+        $hoja = $libro->getActiveSheet();
+        $lineas = array_slice(preg_split('/\r\n|\n|\r/', (string) $request->input('texto')), 0, 20000);
+        foreach ($lineas as $i => $linea) {
+            foreach (array_slice(explode("\t", $linea), 0, 60) as $c => $v) {
+                $v = trim($v);
+                if ($v !== '') {
+                    $hoja->setCellValueExplicit(Coordinate::stringFromColumnIndex($c + 1) . ($i + 1), $v, DataType::TYPE_STRING);
+                }
+            }
+        }
+        $base = tempnam(sys_get_temp_dir(), 'pegado');
+        $ruta = $base . '.xlsx';
+        try {
+            (new Xlsx($libro))->save($ruta);
+            $libro->disconnectWorksheets();
+
+            return $this->borrador([new UploadedFile($ruta, 'Tabla pegada.xlsx', null, null, true)], $importador);
+        } finally {
+            @unlink($ruta);
+            @unlink($base);
+        }
+    }
+
+    /** Lee los archivos y deja la carga en borrador; responde con la URL de su revisión. */
+    private function borrador(array $archivos, ImportadorCombustible $importador): JsonResponse
+    {
         @set_time_limit(180);
         try {
-            $imp = $importador->crearBorrador($request->file('archivos'), auth()->id());
+            $imp = $importador->crearBorrador($archivos, auth()->id());
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {

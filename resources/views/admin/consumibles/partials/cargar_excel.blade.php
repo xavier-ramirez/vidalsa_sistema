@@ -1,6 +1,8 @@
-{{-- Cargar consumibles → Excel de gasoil (solo super.admin, como sus rutas): subir los archivos
-     tal como llegan, revisar y guardar solo lo nuevo (ConsumiblesImportacionController).
-     Debajo, en la misma pantalla, la tabla para pegar o escribir a mano. --}}
+{{-- Cargar consumibles → Excel de gasoil (solo super.admin, como sus rutas). Dos entradas al
+     MISMO lector (ConsumiblesImportacionController): los archivos de esta zona (se leen al
+     elegirlos) y la tabla copiada del Excel con sus encabezados y pegada con Ctrl+V (el paste
+     de cargar.blade la manda aquí). Columnas por encabezado, repetidos fuera, revisión y
+     deshacer. Debajo, la tabla para escribir a mano o pegar filas sin encabezado. --}}
 @include('admin.consumibles.partials.importar_estilos')
 
 @if (session('success'))
@@ -10,17 +12,13 @@
 <div class="admin-card imp-card">
     <label class="imp-zona" for="impArchivos" id="impZona">
         <i class="material-icons">upload_file</i>
-        <span class="imp-zona-titulo">Arrastra aquí los Excel de gasoil o haz clic para elegirlos</span>
-        <small>Puedes subir varios a la vez y en cualquiera de los formatos (control de combustible,
-            Gerencia Ambiente, Ventas Patio). Nada se guarda hasta que revises y confirmes.</small>
+        <span>
+            <span class="imp-zona-titulo">Arrastra los Excel de gasoil o haz clic para elegirlos</span>
+            <small>Se leen solos, uno o varios, en cualquier formato. También puedes copiar la tabla
+                completa del Excel (con sus encabezados) y pegarla con Ctrl+V. Nada se guarda hasta que revises.</small>
+        </span>
         <input type="file" id="impArchivos" multiple accept=".xlsx,.xlsm,.xls" hidden>
     </label>
-    <ul class="imp-lista-archivos" id="impLista"></ul>
-    <div class="imp-acciones">
-        <button type="button" class="btn-primary-maquinaria btn-compacto" id="impLeer" disabled onclick="window.consImpLeer()">
-            <i class="material-icons">fact_check</i> Leer archivos
-        </button>
-    </div>
 </div>
 
 <div class="admin-card imp-card">
@@ -73,10 +71,10 @@
     @endif
 </div>
 
-<h3 class="imp-titulo" style="margin:4px 0 12px;">O pega desde Excel o escribe a mano (cualquier consumible)</h3>
+<h3 class="imp-titulo" style="margin:4px 0 12px;">O escribe a mano (cualquier consumible)</h3>
 
 <script>
-    window.CONS_IMP_CFG = { subir: @json(route('consumibles.importar.subir')) };
+    window.CONS_IMP_CFG = { subir: @json(route('consumibles.importar.subir')), pegar: @json(route('consumibles.importar.pegar')) };
 </script>
 <script src="{{ asset('js/maquinaria/consumibles_importar.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_importar.js')) }}"></script>
 <script>window.consImpArrancar(window.CONS_IMP_CFG);</script>

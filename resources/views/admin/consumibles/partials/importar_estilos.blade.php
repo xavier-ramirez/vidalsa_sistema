@@ -12,15 +12,12 @@
     .imp-aviso-ok { background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; }
     .imp-aviso-error { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
 
-    .imp-zona { display:flex; flex-direction:column; align-items:center; gap:6px; padding:28px 16px; border:2px dashed #bfdbfe;
+    .imp-zona { display:flex; align-items:center; gap:12px; padding:12px 16px; border:2px dashed #bfdbfe;
         border-radius:10px; background:#f0f9ff; color:#1d4ed8; text-align:center; cursor:pointer; }
     .imp-zona.arrastrando { background:#dbeafe; border-color:#3b82f6; }
-    .imp-zona i { font-size:36px; }
-    .imp-zona-titulo { font-size:14px; font-weight:700; }
-    .imp-zona small { font-size:12px; color:#475569; max-width:560px; }
-    .imp-lista-archivos { list-style:none; margin:12px 0 0; padding:0; }
-    .imp-lista-archivos li { display:flex; align-items:center; gap:8px; font-size:13px; color:#334155; padding:6px 4px; border-bottom:1px solid #f1f5f9; }
-    .imp-lista-archivos li i { font-size:18px; color:#16a34a; }
+    .imp-zona i { font-size:30px; flex-shrink:0; }
+    .imp-zona-titulo { display:block; font-size:14px; font-weight:700; }
+    .imp-zona small { display:block; font-size:12px; color:#475569; }
 
     .imp-tabla-wrap { overflow-x:auto; border:1px solid #e2e8f0; border-radius:10px; }
     .imp-tabla { width:100%; border-collapse:collapse; font-size:13px; }

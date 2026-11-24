@@ -340,9 +340,9 @@
                 </div>
 
                 {{-- Instrucciones de Pegado Rápido --}}
-                <div class="paste-zone">
+                <div class="paste-zone" id="pasteZone">
                     <i class="material-icons">content_paste</i>
-                    <span>Copie de Excel y pegue en esta tabla (presione Ctrl+V)</span>
+                    <span>Pegue filas de Excel con Ctrl+V en este orden: fecha, placa/serial, nombre, C.I., cantidad, origen</span>
                 </div>
 
                 <table id="tablaFilas">
@@ -367,7 +367,7 @@
                  en la última (auto-row en initCargarConsumibles). --}}
 
             {{-- ACCIONES, al pie de la tarjeta y compactas (como en Usuarios/Frentes).
-                 "Guardar Lote" solo visible con permiso super.admin
+                 "Guardar" solo visible con permiso super.admin
                  (coincide con el middleware del POST /consumibles/guardar-lote). --}}
             <div class="con-acciones">
                 <a href="{{ route('consumibles.index') }}" class="btn-primary-maquinaria btn-secondary btn-compacto">
@@ -376,11 +376,11 @@
                 @can('super.admin')
                     <button type="submit" class="btn-primary-maquinaria btn-compacto">
                         <i class="material-icons">save</i>
-                        Guardar Lote
+                        Guardar
                     </button>
                 @else
                     <span style="font-size:12px; color:#94a3b8; padding:8px 14px; border:1px dashed #cbd5e1; border-radius:8px;">
-                        Solo un Super Admin puede guardar el lote.
+                        Solo un Super Admin puede guardar.
                     </span>
                 @endcan
             </div>
@@ -568,6 +568,10 @@
             if (!text || (!text.includes('\t') && !text.includes('\n'))) return;
 
             e.preventDefault();
+
+            // La tabla completa de un reporte de gasoil (con su encabezado FECHA … SALIDA) no se
+            // pone por posición: va al mismo lector que un Excel subido (consumibles_importar.js).
+            if (window.consImpPegar && window.consImpPegar(text)) return;
 
             // Limpiar tabla antes de pegar (opcional: solo si hay filas vacías)
             const filasSinDatos = [...document.getElementById('cuerpoTabla').querySelectorAll('tr')]

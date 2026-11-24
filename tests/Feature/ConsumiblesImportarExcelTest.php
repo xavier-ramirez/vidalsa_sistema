@@ -176,6 +176,45 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertSame(ConsumibleImportacion::DESHECHA, $imp->refresh()->ESTADO);
     }
 
+    /**
+     * Copiar la tabla completa del Excel y pegarla (Ctrl+V) es lo mismo que subir el archivo:
+     * columnas por su encabezado, aunque vengan en otro orden y con otras de más; la que no
+     * es despacho (la recarga) fuera, y la misma tabla otra vez no repite lo ya cargado.
+     */
+    public function test_pegar_la_tabla_completa_es_como_subir_el_archivo(): void
+    {
+        [$equipo, $digitos] = $this->motoniveladora();
+        $u = $this->superAdminGlobal();
+        $texto = implode("\n", [
+            "CONTROL DE COMBUSTIBLE",
+            "",
+            "N°\tOBSERVACION\tFECHA\tSALIDA\tDESCRIPCION\tC.I.\tNOMBRE DEL RESPONSABLE\tENTRADA\tPROYECTO\tKILOMETRAJE",
+            "1\tok\t01/08/2026\t80\tPATROL {$digitos}\tV-11.111.111\tCHOFER UNO\t\tVELADERO\t1200",
+            "2\t\t02/08/2026\t60,5\tPATROL {$digitos}\t11111111\tCHOFER UNO\t\tVELADERO\t1250",
+            "3\trecarga\t03/08/2026\t\tCISTERNA (RECARGA)\t\t\t5000\tVELADERO\t",
+            "4\t=SUM(A1)\t06/08/2026\t40\tCAMION DESCONOCIDO ZZ99TST\t22222222\tCHOFER DOS\t\tVELADERO\t",
+        ]);
+
+        $r = $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto])->assertOk();
+        $imp = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
+        $this->get($r->json('url'))->assertOk()->assertSee('Revisar carga de Excel');
+
+        $this->postJson(route('consumibles.importar.aplicar', $imp), ['meses' => ['2026-08']])->assertOk();
+        $filas = DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->orderBy('FECHA')->get();
+        $this->assertCount(3, $filas, 'la recarga del tanque no es un consumo');
+        $this->assertEquals([80, 60.5, 40], $filas->pluck('CANTIDAD')->map(fn ($c) => (float) $c)->all(), 'litros de SALIDA, con coma decimal');
+        $this->assertCount(2, $filas->where('ID_EQUIPO', $equipo->ID_EQUIPO));
+        $this->assertSame('11111111', $filas->first()->RESP_CI);
+
+        // Pegar lo mismo otra vez: nada nuevo.
+        $this->postJson(route('consumibles.importar.pegar'), ['texto' => $texto])->assertOk();
+        $otra = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
+        $this->assertSame(0, app(\App\Services\Consumibles\ImportadorCombustible::class)->revisar($otra)['resumen']['totales']['nuevo'][0]);
+
+        // Sin encabezado reconocible, lo dice (y la pantalla lo deja a la tabla de abajo).
+        $this->postJson(route('consumibles.importar.pegar'), ['texto' => "01/08/2026\tABC123\t40"])->assertStatus(422);
+    }
+
     public function test_lo_ensenado_identifica_en_la_misma_carga(): void
     {
         [$equipo, $digitos] = $this->motoniveladora();

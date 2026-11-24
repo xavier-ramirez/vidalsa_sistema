@@ -1,5 +1,6 @@
 /*
- * Cargar consumibles → Excel de gasoil: la subida (partials/cargar_excel.blade.php) y la revisión
+ * Cargar consumibles → Excel de gasoil: la subida y el Ctrl+V de la tabla completa
+ * (partials/cargar_excel.blade.php + cargar.blade.php) y la revisión
  * (importar_revision.blade.php). La SPA no vuelve a ejecutar un <script src> ya cargado, así
  * que cada vista llama a window.consImpArrancar(CFG) en CADA apertura; lo de la petición
  * (rutas) viaja en CFG.
@@ -8,7 +9,6 @@
     'use strict';
 
     var CFG = {};
-    var archivos = [];      // File[] elegidos en la subida
     var cambios = false;    // hay asignaciones sin guardar en la revisión
     var temporizador = null;
     var EXTENSIONES = /\.(xlsx|xlsm|xls)$/i;
@@ -47,47 +47,58 @@
         return promesa.finally(function () { if (window.hidePreloader) window.hidePreloader(); });
     }
 
-    // ── Subida ──────────────────────────────────────────────────────────────
+    // ── Subida (archivos o tabla pegada): las dos entran por el mismo lector ─────
 
-    function pintarLista() {
-        var ul = document.getElementById('impLista');
-        var btn = document.getElementById('impLeer');
-        if (!ul || !btn) return;
-        ul.innerHTML = archivos.map(function (f, i) {
-            return '<li><i class="material-icons">description</i>' + esc(f.name) +
-                ' <small>(' + Math.max(1, Math.round(f.size / 1024)) + ' KB)</small>' +
-                ' <button type="button" class="imp-link imp-link-rojo" onclick="window.consImpQuitar(' + i + ')">Quitar</button></li>';
-        }).join('');
-        btn.disabled = archivos.length === 0;
-    }
-
-    function agregar(lista) {
-        var rechazados = [];
-        Array.prototype.forEach.call(lista || [], function (f) {
-            if (!EXTENSIONES.test(f.name)) { rechazados.push(f.name); return; }
-            var ya = archivos.some(function (a) { return a.name === f.name && a.size === f.size; });
-            if (!ya) archivos.push(f);
+    /** Manda a leer y, si salen despachos, abre su revisión. */
+    function leer(url, opts, siFalla) {
+        conEspera(pedir(url, opts)).then(function (r) {
+            if (r.ok && r.body.url) { ir(r.body.url); return; }
+            aviso('warning', 'No se pudo leer', mensajeDe(r.body, siFalla));
+        }).catch(function (e) {
+            if (e && e.message === 'Sesión expirada.') return;
+            aviso('error', 'Error', 'No se pudo enviar. Revisa la conexión e intenta de nuevo.');
         });
-        pintarLista();
-        if (rechazados.length) aviso('warning', 'Solo Excel', 'No son archivos de Excel: ' + esc(rechazados.join(', ')));
     }
 
-    window.consImpQuitar = function (i) {
-        archivos.splice(i, 1);
-        pintarLista();
-    };
-
-    window.consImpLeer = function () {
+    /** Los Excel elegidos o soltados en la zona se leen enseguida (sin botón de por medio). */
+    function subirArchivos(lista) {
+        var archivos = [], rechazados = [];
+        Array.prototype.forEach.call(lista || [], function (f) {
+            (EXTENSIONES.test(f.name) ? archivos : rechazados).push(f);
+        });
+        if (rechazados.length) {
+            aviso('warning', 'Solo Excel', 'No son archivos de Excel: ' + esc(rechazados.map(function (f) { return f.name; }).join(', ')));
+            return;
+        }
         if (!archivos.length) return;
         var fd = new FormData();
         archivos.forEach(function (f) { fd.append('archivos[]', f); });
-        conEspera(pedir(CFG.subir, { method: 'POST', body: fd })).then(function (r) {
-            if (r.ok && r.body.url) { ir(r.body.url); return; }
-            aviso('warning', 'No se pudo leer', mensajeDe(r.body, 'No se pudieron leer los archivos.'));
-        }).catch(function (e) {
-            if (e && e.message === 'Sesión expirada.') return;
-            aviso('error', 'Error', 'No se pudieron subir los archivos. Revisa la conexión e intenta de nuevo.');
+        leer(CFG.subir, { method: 'POST', body: fd }, 'No se pudieron leer los archivos.');
+    }
+
+    /** ¿Es la tabla de un reporte de gasoil? Encabezado con FECHA y SALIDA/VOLUMEN en las
+     *  primeras 15 filas, la misma regla del lector (LectorExcelCombustible::encabezado). */
+    function traeEncabezado(texto) {
+        return texto.split(/\r\n|\n|\r/).slice(0, 15).some(function (linea) {
+            var celdas = linea.split('\t').map(function (c) {
+                return c.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toUpperCase();
+            });
+            return celdas.some(function (c) { return c.indexOf('FECHA') === 0; })
+                && celdas.some(function (c) { return c.indexOf('SALIDA') !== -1 || c.indexOf('VOLUMEN') !== -1; });
         });
+    }
+
+    /**
+     * La llama el Ctrl+V de Cargar consumibles. Devuelve true si se encargó: la tabla completa
+     * del Excel (con encabezados) va al lector y sus columnas se reconocen por nombre; sin
+     * encabezado (o sin permiso para esta carga) la tabla de abajo la toma por posición.
+     */
+    window.consImpPegar = function (texto) {
+        if (!CFG.pegar || !document.getElementById('impZona') || !traeEncabezado(texto)) return false;
+        var fd = new FormData();
+        fd.append('texto', texto);
+        leer(CFG.pegar, { method: 'POST', body: fd }, 'No se pudo leer la tabla pegada.');
+        return true;
     };
 
     function prepararZona() {
@@ -95,14 +106,14 @@
         var input = document.getElementById('impArchivos');
         if (!zona || !input || zona.dataset.listo) return;
         zona.dataset.listo = '1';
-        input.addEventListener('change', function () { agregar(input.files); input.value = ''; });
+        input.addEventListener('change', function () { var l = Array.prototype.slice.call(input.files); input.value = ''; subirArchivos(l); });
         ['dragenter', 'dragover'].forEach(function (ev) {
             zona.addEventListener(ev, function (e) { e.preventDefault(); zona.classList.add('arrastrando'); });
         });
         ['dragleave', 'drop'].forEach(function (ev) {
             zona.addEventListener(ev, function (e) { e.preventDefault(); zona.classList.remove('arrastrando'); });
         });
-        zona.addEventListener('drop', function (e) { agregar(e.dataTransfer && e.dataTransfer.files); });
+        zona.addEventListener('drop', function (e) { subirArchivos(e.dataTransfer && e.dataTransfer.files); });
     }
 
     // ── Revisión: enseñar equipos y proyectos ───────────────────────────────
@@ -262,7 +273,6 @@
 
     window.consImpArrancar = function (cfg) {
         CFG = cfg || {};
-        archivos = [];
         cambios = false;
         prepararZona();
         if (!window.__consImpClicsListos) {
