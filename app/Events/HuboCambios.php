@@ -9,7 +9,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 /**
  * «Hubo cambios»: lo manda AvisarCambios en cuanto el registro de cambios crece, y cada
  * navegador conectado pone al día su copia local en ese momento (tiempo-real.js). No lleva
- * datos: cada uno los pide con su sesión y sus permisos por /sync.
+ * datos (a lo sumo la marca `acceso`): cada uno los pide con su sesión y sus permisos por /sync.
  *
  * Con `latido` es solo «el vigía sigue vivo»: no hace preguntar nada. Con `acceso`, a alguien
  * le cambiaron permisos, rol, nivel o frentes: cada pestaña mira ya si fue a ella
