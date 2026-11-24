@@ -3511,3 +3511,17 @@ function _subirDesdeVisor(file, type, equipoId, label, module, vencimiento) {
 // les monta encima el watchdog anti-spinner-congelado.
 
 
+
+// Calendario al hacer clic en CUALQUIER parte de un campo de fecha (no solo en el icono):
+// el visor de PDF, las fichas de equipos y cualquier otro <input type="date"> del sistema.
+// Uno solo, delegado en document: sirve también para los campos que se pintan después
+// (el panel del visor se arma con JS). Los que ya lo hacían con onclick quedan igual
+// (showPicker con el calendario ya abierto no hace nada).
+if (!window.__fechaAbreCalendario) {
+    window.__fechaAbreCalendario = true;
+    document.addEventListener('click', function (e) {
+        var campo = e.target && e.target.closest ? e.target.closest('input[type="date"]') : null;
+        if (!campo || campo.disabled || campo.readOnly) return;
+        if (typeof campo.showPicker === 'function') { try { campo.showPicker(); } catch (err) {} }
+    });
+}
