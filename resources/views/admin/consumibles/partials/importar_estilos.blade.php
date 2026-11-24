@@ -16,14 +16,13 @@
     .imp-zona i { font-size:30px; flex-shrink:0; }
     .imp-zona-titulo { display:block; font-size:14px; font-weight:700; }
     .imp-zona small { display:block; font-size:12px; color:#475569; }
-    /* Más baja (pedido 24-11-2026): la zona de carga y el título de la tabla de abajo ocupaban
-       mucho alto para lo que dicen. */
+    /* Más baja (pedido 24-11-2026): la zona de carga ocupaba
+       mucho alto para lo que dice. */
     .imp-card.imp-card-zona { padding:10px 12px; margin-bottom:12px; }
     .imp-card-zona .imp-zona { padding:6px 12px; gap:10px; }
     .imp-card-zona .imp-zona i { font-size:22px; }
     .imp-card-zona .imp-zona-titulo { font-size:13px; line-height:1.3; }
     .imp-card-zona .imp-zona small { font-size:11.5px; line-height:1.3; }
-    .imp-titulo.imp-titulo-tabla { font-size:14px; margin:0 0 8px; }
 
     .imp-tabla-wrap { overflow-x:auto; border:1px solid #e2e8f0; border-radius:10px; }
     .imp-tabla { width:100%; border-collapse:collapse; font-size:13px; }

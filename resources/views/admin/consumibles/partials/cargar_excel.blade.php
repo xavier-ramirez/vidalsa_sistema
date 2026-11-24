@@ -2,7 +2,7 @@
      MISMO lector (ConsumiblesImportacionController): los archivos de esta zona (se leen al
      elegirlos) y la tabla copiada del Excel con sus encabezados y pegada con Ctrl+V (el paste
      de cargar.blade la manda a consumibles.importar.pegar). Columnas por encabezado, repetidos
-     fuera, revisión y deshacer. Debajo, la tabla para escribir a mano o pegar filas sin encabezado. --}}
+     fuera, revisión y deshacer. Debajo, la tabla para escribir a mano o pegar filas sin encabezado (sin título). --}}
 @include('admin.consumibles.partials.importar_estilos')
 
 <div class="admin-card imp-card imp-card-zona">
@@ -65,8 +65,6 @@
     </div>
 </div>
 @endif
-
-<h3 class="imp-titulo imp-titulo-tabla">O llena la tabla: escribe o pega filas (cualquier consumible)</h3>
 
 <script>
     window.CONS_IMP_CFG = { subir: @json(route('consumibles.importar.subir')), pegar: @json(route('consumibles.importar.pegar')) };
