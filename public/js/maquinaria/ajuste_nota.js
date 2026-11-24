@@ -136,9 +136,10 @@
             +   '<div class="ajn-info">'
             +     (l.codigo ? '<span class="ajn-codigo">' + esc(l.codigo) + '</span>' : '')
             +     '<span class="ajn-titulo">' + esc(l.nombre) + '</span>'
-            // Lo entregado ya no se repite aquí (pedido del cliente, 23-11-2026): en Corrección la
-            // casilla de la cantidad ya lo muestra. Solo se avisa lo que ya volvió.
-            +     (l.devuelto > EPS ? '<span class="ajn-datos">Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b></span>' : '')
+            // Lo que salió con su unidad, siempre: en Devolución la casilla arranca en 0 y sin
+            // esto no se sabe cuánto se llevaron (pedido del cliente, 24-11-2026).
+            +     '<span class="ajn-datos">Salió <b>' + num(l.entregado) + ' ' + um + '</b>'
+            +       (l.devuelto > EPS ? SEP + 'Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b>' : '') + '</span>'
             +   '</div>'
             + '</div>';
         $('ajNotaUm').textContent = l.um || '';
