@@ -136,8 +136,9 @@
             +   '<div class="ajn-info">'
             +     (l.codigo ? '<span class="ajn-codigo">' + esc(l.codigo) + '</span>' : '')
             +     '<span class="ajn-titulo">' + esc(l.nombre) + '</span>'
-            +     '<span class="ajn-datos">Entregado <b>' + num(l.entregado) + ' ' + um + '</b>'
-            +       (l.devuelto > EPS ? SEP + 'Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b>' : '') + '</span>'
+            // Lo entregado ya no se repite aquí (pedido del cliente, 23-11-2026): en Corrección la
+            // casilla de la cantidad ya lo muestra. Solo se avisa lo que ya volvió.
+            +     (l.devuelto > EPS ? '<span class="ajn-datos">Ya devuelto <b>' + num(l.devuelto) + ' ' + um + '</b></span>' : '')
             +   '</div>'
             + '</div>';
         $('ajNotaUm').textContent = l.um || '';
