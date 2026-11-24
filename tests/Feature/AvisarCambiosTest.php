@@ -42,6 +42,7 @@ class AvisarCambiosTest extends MySqlTestCase
         $this->assertTrue($this->vigia->vuelta(), 'varios cambios entre dos miradas: un solo aviso');
 
         Event::assertDispatchedTimes(HuboCambios::class, 2);
+        Event::assertNotDispatched(HuboCambios::class, fn (HuboCambios $e) => $e->acceso);
     }
 
     public function test_avisa_la_fila_con_numero_menor_que_se_confirma_despues(): void
@@ -82,6 +83,8 @@ class AvisarCambiosTest extends MySqlTestCase
             ->increment('NIVEL_ACCESO_EQUIPOS');
         $this->assertTrue($this->vigia->vuelta(), 'otro nivel cambia lo que su copia debe tener');
         $this->assertFalse($this->vigia->vuelta());
+        // El aviso lo dice: cada pestaña mira ya si le cambiaron el acceso a ella.
+        Event::assertDispatched(HuboCambios::class, fn (HuboCambios $e) => $e->acceso && $e->broadcastWith() === ['acceso' => true]);
     }
 
     public function test_pasar_un_frente_de_asignado_a_bloqueado_avisa(): void

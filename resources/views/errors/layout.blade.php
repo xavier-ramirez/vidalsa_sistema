@@ -1,7 +1,7 @@
 {{-- Base BRANDED para las páginas de error (404/405/419/500/503/403).
      Autocontenida a propósito: NO extiende el layout principal (que requiere sesión,
      JS y assets que durante un error podrían fallar). Solo HTML + CSS inline + el logo.
-     Las páginas concretas definen @section('code'/'title'/'message'/'cta'). --}}
+     Las páginas concretas definen @section('code'/'title'/'message'/'cta'/'href'/'script'). --}}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -77,7 +77,8 @@
         @endif
         <div class="err-title">@yield('title')</div>
         <div class="err-msg">@yield('message')</div>
-        <a class="err-btn" href="{{ url('/') }}">@yield('cta', 'Ir al inicio de sesión')</a>
+        <a class="err-btn" href="@yield('href', url('/'))">@yield('cta', 'Ir al inicio de sesión')</a>
     </div>
+    @yield('script')
 </body>
 </html>

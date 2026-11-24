@@ -49,6 +49,9 @@ class AvisarCambios extends Command
 
     private ?string $huella = null;
 
+    /** El acceso de la última vuelta que avisó bien: si cambia, el aviso lo dice (HuboCambios::$acceso). */
+    private ?string $acceso = null;
+
     private int $ultimoLatido = 0;
 
     /**
@@ -95,13 +98,14 @@ class AvisarCambios extends Command
 
             $aviso = $this->huella !== null && "{$maximo}:{$total}:{$acceso}" !== $this->huella;
             if ($aviso) {
-                broadcast(new HuboCambios());
+                broadcast(new HuboCambios(acceso: $this->acceso !== null && $acceso !== $this->acceso));
                 unset($this->fallas['aviso']);
                 $this->ultimoLatido = time();   // un aviso también dice «sigo vivo»
             }
             // La ventana avanza con la misma foto de la tabla: la huella sigue valiendo.
             $this->base   = $nuevaBase;
             $this->huella = "{$maximo}:{$desdeNueva}:{$acceso}";
+            $this->acceso = $acceso;
 
             return $aviso;
         } catch (Throwable $e) {

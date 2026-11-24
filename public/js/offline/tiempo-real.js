@@ -56,7 +56,13 @@
             const canal = conexion.subscribe(cfg.canal);
             canal.bind('pusher:subscription_succeeded', () => window.CopiaLocal.hayCambios());
             canal.bind('latido', vivo);
-            canal.bind('cambios', () => { vivo(); window.CopiaLocal.hayCambios(); });
+            canal.bind('cambios', (d) => {
+                vivo();
+                window.CopiaLocal.hayCambios();
+                // Le cambiaron el acceso a alguien: cada pestaña pregunta si fue a ella (una
+                // lectura de caché). Repartido en 1 s para no llegar todas a la vez.
+                if (d && d.acceso && window.revisarAcceso) setTimeout(window.revisarAcceso, Math.random() * 1000);
+            });
             conexion.connection.bind('state_change', (s) => { if (s.current !== 'connected') caido(); });
         }).catch(() => window.addEventListener('online', iniciar, { once: true }));
     }
