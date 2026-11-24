@@ -3852,11 +3852,12 @@ class AlmacenController extends Controller
 
         try {
             // Las filas que el deshacer va a borrar, con la MISMA lista que usa él.
+            $preparado = $this->traspasos->prepararDeshacer($mov);
             $filas = MovimientoInventario::with('almacen:ID_ALMACEN,NOMBRE')
-                ->whereIn('ID_MOVIMIENTO', $this->traspasos->prepararDeshacer($mov)['ids'])
+                ->whereIn('ID_MOVIMIENTO', $preparado['ids'])
                 ->where('ID_MOVIMIENTO', '!=', $mov->ID_MOVIMIENTO)
                 ->get(['ID_MOVIMIENTO', 'ID_ALMACEN', 'TIPO', 'ID_MOVIMIENTO_RELACIONADO']);
-            $envio = $this->traspasos->resumenDeshacer($mov);
+            $envio = $this->traspasos->resumenDeshacer($mov, $preparado);
         } catch (Throwable $e) {
             return response()->json(['avisos' => array_merge($avisos, [MensajeError::para($e)])]);
         }

@@ -512,7 +512,10 @@ class TraspasoService
      *  - lineas: líneas de envío cuya salida o entrada va a desaparecer →
      *    quitarLineasDeshechas(), después del borrado y en la misma transacción.
      *
-     * @return array{arrastrados:int[], ids:int[], lineas:int[]}
+     *  - reponer: [ID_LINEA => cantidad] que vuelve a quedar por recibir en el envío
+     *    (reponerAlDeshacer) → reponerLineas().
+     *
+     * @return array{arrastrados:int[], ids:int[], lineas:int[], reponer:array<int,float>}
      */
     public function prepararDeshacer(MovimientoInventario $mov): array
     {
@@ -687,7 +690,7 @@ class TraspasoService
      *
      * @return array{numero:string, destino:?string, cancelado:bool, recibida:bool, con_entrada:bool, efecto:?string}|null
      */
-    public function resumenDeshacer(MovimientoInventario $mov): ?array
+    public function resumenDeshacer(MovimientoInventario $mov, ?array $preparado = null): ?array
     {
         $envio = $mov->ID_TRASPASO
             ? Traspaso::withTrashed()->with('almacenDestino:ID_ALMACEN,NOMBRE')->find($mov->ID_TRASPASO)
@@ -696,7 +699,8 @@ class TraspasoService
             return null;
         }
 
-        $quitadas  = $this->prepararDeshacer($mov)['lineas'];
+        // $preparado: el prepararDeshacer($mov) que ya tenga quien llama (no se repite).
+        $quitadas  = ($preparado ?? $this->prepararDeshacer($mov))['lineas'];
         $lineas    = $envio->lineas()->get();
         $esQuitada = fn ($l) => in_array((int) $l->ID_LINEA, $quitadas, true);
         $linea     = $lineas->first($esQuitada);

@@ -106,6 +106,26 @@ class FrentesBordesTest extends MySqlTestCase
         $this->deleteJson("/admin/frentes/{$f}")->assertOk();
     }
 
+    /** ID_FRENTE_ASIGNADO lleva varios frentes ("3,5"): el que no va primero también bloquea. */
+    public function test_bloquea_tambien_el_segundo_frente_de_un_usuario_con_varios(): void
+    {
+        $otro = $this->nuevo();
+        $f = $this->nuevo();
+        $u = new Usuario();
+        $u->NOMBRE_COMPLETO = 'PRUEBA BORDE VARIOS FRENTES';
+        $u->CORREO_ELECTRONICO = 'borde.varios.' . uniqid() . '@local.test';
+        $u->PASSWORD_HASH = 'x';
+        $u->ID_ROL = DB::table('roles')->value('ID_ROL');
+        $u->NIVEL_ACCESO_EQUIPOS = 2; $u->NIVEL_ACCESO_ALMACEN = 2;
+        $u->ID_FRENTE_ASIGNADO = $otro . ',' . $f;
+        $u->ESTATUS = 'ACTIVO';
+        $u->save();
+
+        $this->deleteJson("/admin/frentes/{$f}")->assertStatus(422)->assertJson(['usuarios_asignados' => 1]);
+        $this->assertNotContains($f, collect($this->getJson('/admin/frentes/sin-equipos')->json('frentes'))->pluck('id')->all());
+        $this->deleteJson("/admin/frentes/{$otro}")->assertStatus(422)->assertJson(['usuarios_asignados' => 1]);
+    }
+
     /** Otra persona lo eliminó con la pantalla abierta: aviso claro, no el texto técnico en inglés. */
     public function test_frente_ya_eliminado_contesta_un_aviso_claro(): void
     {

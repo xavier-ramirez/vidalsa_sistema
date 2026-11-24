@@ -166,7 +166,6 @@ window.ajustarListaAbajo = function (lista, caja) {
     caja = caja || lista.parentElement;
     lista.classList.remove("dd-acotada");
     lista.style.removeProperty("--dd-max");
-    listasAjustadas.set(lista, caja);
     const vv = window.visualViewport;
     const techo = vv ? vv.offsetTop : 0;
     const alto = vv ? vv.height + vv.offsetTop : window.innerHeight;
@@ -181,10 +180,15 @@ window.ajustarListaAbajo = function (lista, caja) {
         return { caja: caja.getBoundingClientRect().top, top: top, bottom: top + lista.offsetHeight };
     };
     let r = sitio();
-    if (r.bottom === r.top || r.bottom <= alto - MARGEN) return;   // oculta, o cabe: como siempre
+    // Oculta: no se recuerda (guardarla retenía la pantalla que la SPA ya quitó).
+    if (r.bottom === r.top) { listasAjustadas.delete(lista); return; }
     // Una lista position:fixed (la de Frente de destino de Movilización, colgada del body) no
-    // acompaña a la página si se sube: con esa solo se acorta.
-    if (getComputedStyle(lista).position !== "fixed") {
+    // acompaña a la página si se sube: con esa solo se acorta. Tampoco se recuerda: con el
+    // teclado la recoloca su propio oyente (positionListBox) antes de medirla.
+    const fija = getComputedStyle(lista).position === "fixed";
+    if (!fija) listasAjustadas.set(lista, caja);
+    if (r.bottom <= alto - MARGEN) return;   // cabe: como siempre
+    if (!fija) {
         subirParaLista(caja, Math.min(r.bottom - (alto - MARGEN), r.caja - techo - MARGEN));
     }
     // Lo que aún sobre se acorta. Se vuelve a medir tras cada recorte: la lista también
@@ -234,6 +238,14 @@ function subirParaLista(caja, px) {
         falta -= objetivo.scrollTop - antes;
         if (esPagina) break;
     }
+}
+// Al cambiar de módulo se olvidan las listas que ya no están en el documento (en la PC el
+// resize de abajo casi nunca salta, y el Map retenía las pantallas viejas). Una vez por pestaña.
+if (!window.__listasAjustadasSpa) {
+    window.__listasAjustadasSpa = true;
+    window.addEventListener("spa:contentLoaded", function () {
+        listasAjustadas.forEach(function (caja, lista) { if (!lista.isConnected) listasAjustadas.delete(lista); });
+    });
 }
 if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", function () {

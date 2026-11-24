@@ -28,35 +28,39 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('consumibles', function (Blueprint $table) {
-            if (!Schema::hasColumn('consumibles', 'ID_AUXILIAR')) {
-                $table->unsignedBigInteger('ID_AUXILIAR')->nullable()->after('ID_EQUIPO');
-                $table->foreign('ID_AUXILIAR', 'consumibles_id_auxiliar_foreign')
-                    ->references('ID_AUXILIAR')->on('equipos_auxiliares')->nullOnDelete();
+        // Cada paso se comprueba POR SEPARADO (columna, índice, llave): en MySQL un cambio de
+        // estructura no se deshace si la migración se corta a medias, y al repetirla no debe
+        // saltarse un UNIQUE o una llave que quedó sin crear (los UNIQUE de las huellas son los
+        // que impiden cargar dos veces el mismo despacho).
+        $columnas = [
+            'ID_AUXILIAR'    => fn (Blueprint $t) => $t->unsignedBigInteger('ID_AUXILIAR')->nullable()->after('ID_EQUIPO'),
+            'ID_IMPORTACION' => fn (Blueprint $t) => $t->unsignedBigInteger('ID_IMPORTACION')->nullable()->after('ID_AUXILIAR'),
+            'HUELLA_CI'      => fn (Blueprint $t) => $t->string('HUELLA_CI', 120)->nullable()->after('ID_IMPORTACION'),
+            'HUELLA_EQ'      => fn (Blueprint $t) => $t->string('HUELLA_EQ', 160)->nullable()->after('HUELLA_CI'),
+            'HUELLA_DESC'    => fn (Blueprint $t) => $t->string('HUELLA_DESC', 160)->nullable()->after('HUELLA_EQ'),
+            'ORIGEN'         => fn (Blueprint $t) => $t->string('ORIGEN', 255)->nullable()->after('RAW_ORIGEN'),
+            'ACTIVIDAD'      => fn (Blueprint $t) => $t->string('ACTIVIDAD', 255)->nullable()->after('ORIGEN'),
+        ];
+        foreach ($columnas as $col => $crear) {
+            if (!Schema::hasColumn('consumibles', $col)) {
+                Schema::table('consumibles', fn (Blueprint $t) => $crear($t));
             }
-            if (!Schema::hasColumn('consumibles', 'ID_IMPORTACION')) {
-                $table->unsignedBigInteger('ID_IMPORTACION')->nullable()->after('ID_AUXILIAR');
-                $table->index('ID_IMPORTACION', 'idx_con_importacion');
+        }
+
+        $indices = [
+            'idx_con_importacion' => fn (Blueprint $t) => $t->index('ID_IMPORTACION', 'idx_con_importacion'),
+            'uk_con_huella_ci'    => fn (Blueprint $t) => $t->unique('HUELLA_CI', 'uk_con_huella_ci'),
+            'uk_con_huella_eq'    => fn (Blueprint $t) => $t->unique('HUELLA_EQ', 'uk_con_huella_eq'),
+            'idx_con_huella_desc' => fn (Blueprint $t) => $t->index('HUELLA_DESC', 'idx_con_huella_desc'),
+        ];
+        foreach ($indices as $nombre => $crear) {
+            if (!Schema::hasIndex('consumibles', $nombre)) {
+                Schema::table('consumibles', fn (Blueprint $t) => $crear($t));
             }
-            if (!Schema::hasColumn('consumibles', 'HUELLA_CI')) {
-                $table->string('HUELLA_CI', 120)->nullable()->after('ID_IMPORTACION');
-                $table->unique('HUELLA_CI', 'uk_con_huella_ci');
-            }
-            if (!Schema::hasColumn('consumibles', 'HUELLA_EQ')) {
-                $table->string('HUELLA_EQ', 160)->nullable()->after('HUELLA_CI');
-                $table->unique('HUELLA_EQ', 'uk_con_huella_eq');
-            }
-            if (!Schema::hasColumn('consumibles', 'HUELLA_DESC')) {
-                $table->string('HUELLA_DESC', 160)->nullable()->after('HUELLA_EQ');
-                $table->index('HUELLA_DESC', 'idx_con_huella_desc');
-            }
-            if (!Schema::hasColumn('consumibles', 'ORIGEN')) {
-                $table->string('ORIGEN', 255)->nullable()->after('RAW_ORIGEN');
-            }
-            if (!Schema::hasColumn('consumibles', 'ACTIVIDAD')) {
-                $table->string('ACTIVIDAD', 255)->nullable()->after('ORIGEN');
-            }
-        });
+        }
+
+        $this->llave('consumibles', 'consumibles_id_auxiliar_foreign', fn (Blueprint $t) => $t->foreign('ID_AUXILIAR', 'consumibles_id_auxiliar_foreign')
+            ->references('ID_AUXILIAR')->on('equipos_auxiliares')->nullOnDelete());
 
         if (!Schema::hasTable('consumibles_alias')) {
             Schema::create('consumibles_alias', function (Blueprint $table) {
@@ -71,11 +75,13 @@ return new class extends Migration
                 $table->timestamps();
 
                 $table->unique(['TIPO', 'TEXTO'], 'uk_con_alias_tipo_texto');
-                $table->foreign('ID_EQUIPO')->references('ID_EQUIPO')->on('equipos')->cascadeOnDelete();
-                $table->foreign('ID_AUXILIAR')->references('ID_AUXILIAR')->on('equipos_auxiliares')->cascadeOnDelete();
-                $table->foreign('ID_FRENTE')->references('ID_FRENTE')->on('frentes_trabajo')->cascadeOnDelete();
             });
         }
+        // Las llaves aparte: Laravel las crea con ALTER después del CREATE, y si una falla la
+        // tabla ya existe; así la siguiente vez se crean las que falten.
+        $this->llave('consumibles_alias', 'consumibles_alias_id_equipo_foreign', fn (Blueprint $t) => $t->foreign('ID_EQUIPO')->references('ID_EQUIPO')->on('equipos')->cascadeOnDelete());
+        $this->llave('consumibles_alias', 'consumibles_alias_id_auxiliar_foreign', fn (Blueprint $t) => $t->foreign('ID_AUXILIAR')->references('ID_AUXILIAR')->on('equipos_auxiliares')->cascadeOnDelete());
+        $this->llave('consumibles_alias', 'consumibles_alias_id_frente_foreign', fn (Blueprint $t) => $t->foreign('ID_FRENTE')->references('ID_FRENTE')->on('frentes_trabajo')->cascadeOnDelete());
 
         if (!Schema::hasTable('consumibles_importaciones')) {
             Schema::create('consumibles_importaciones', function (Blueprint $table) {
@@ -90,6 +96,15 @@ return new class extends Migration
                 $table->timestamps();
                 $table->index('ESTADO', 'idx_con_imp_estado');
             });
+        }
+    }
+
+    /** Crea la llave foránea $nombre de $tabla si todavía no existe. */
+    private function llave(string $tabla, string $nombre, \Closure $crear): void
+    {
+        $existe = collect(Schema::getForeignKeys($tabla))->contains(fn ($fk) => strcasecmp($fk['name'] ?? '', $nombre) === 0);
+        if (!$existe) {
+            Schema::table($tabla, fn (Blueprint $t) => $crear($t));
         }
     }
 

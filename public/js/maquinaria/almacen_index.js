@@ -3248,8 +3248,8 @@
         }
     };
 
-    // Filtra la lista de proyectos por lo que se va escribiendo. Mismo comportamiento que
-    // "Contrato N°": la lista guía, pero lo que vale es el texto del input.
+    // Filtra la lista de proyectos por lo que se va escribiendo: la lista guía, pero lo que
+    // vale es el texto del input.
     window.almNvNombreFilter = function (inp) {
         var t = (inp.value || '').trim();
         var items = document.querySelectorAll('#almNvNombreItems .dropdown-item');

@@ -812,7 +812,7 @@
         <div class="alm-modal-body">
             {{-- NOMBRE — combo, no campo libre: en un almacén de PROYECTO el nombre es el del
                  proyecto, y escribirlo a mano dejaba almacenes que no casaban con ningún frente.
-                 Mismo componente que "Contrato N°" del modal de salida: la lista manda, pero el
+                 La lista manda, pero el
                  input acepta texto porque (a) un almacén GENERAL no es un proyecto —BARCELONA,
                  ALMACÉN CENTRAL CARACAS— y (b) los almacenes que ya existen pueden llamarse
                  distinto que sus frentes (PATIO EL TIGRE sirve a PATIO I EL TIGRE y a otros 5),

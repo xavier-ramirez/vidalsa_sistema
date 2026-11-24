@@ -335,8 +335,9 @@ class ImportadorCombustible
 
     /**
      * Guarda lo que el usuario asignó en la revisión. Vale para esta carga y las siguientes.
-     * @param array<string,int|string> $frentes clave → ID_FRENTE ('' = quitar lo enseñado)
-     * @param array<string,string>     $equipos clave → 'E:12' | 'A:3' | 'NO' ('' = quitar)
+     * @param array<string,int>    $frentes clave → ID_FRENTE (un frente eliminado se ignora)
+     * @param array<string,string> $equipos clave → 'E:12' | 'A:3' | 'NO' (si el equipo ya no
+     *                                       existe, se borra lo enseñado para esa clave)
      */
     public function ensenar(array $frentes, array $equipos, ?int $idUsuario): int
     {
@@ -346,10 +347,6 @@ class ImportadorCombustible
             foreach ($frentes as $clave => $id) {
                 $clave = TextoConsumo::norm($clave);
                 if ($clave === '') {
-                    continue;
-                }
-                if ($id === '' || $id === null) {
-                    DB::table('consumibles_alias')->where(['TIPO' => 'FRENTE', 'TEXTO' => $clave])->delete();
                     continue;
                 }
                 if (!DB::table('frentes_trabajo')->where('ID_FRENTE', $id)->whereNull('deleted_at')->exists()) {

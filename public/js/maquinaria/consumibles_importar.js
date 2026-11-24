@@ -115,20 +115,25 @@
         });
     }
 
+    // turnoBusqueda: solo pinta la ÚLTIMA búsqueda; una anterior que llegue tarde no pisa
+    // los resultados de lo que se escribió después.
+    var turnoBusqueda = 0;
     window.consImpBuscar = function (input) {
         var caja = input.parentNode.querySelector('.imp-sugerencias');
         var q = input.value.trim();
+        var turno = ++turnoBusqueda;
         clearTimeout(temporizador);
         if (q.length < 2) { caja.style.display = 'none'; return; }
         temporizador = setTimeout(function () {
             pedir(CFG.buscar + '?q=' + encodeURIComponent(q)).then(function (r) {
+                if (turno !== turnoBusqueda) return;
                 var lista = Array.isArray(r.body) ? r.body : [];
                 caja.innerHTML = lista.length
                     ? lista.map(function (o) { return '<div data-ref="' + esc(o.ref) + '">' + esc(o.texto) + '</div>'; }).join('')
                     : '<div style="cursor:default;color:#94a3b8;">Sin resultados</div>';
                 cerrarSugerencias(caja);
                 caja.style.display = 'block';
-            }).catch(function () { caja.style.display = 'none'; });
+            }).catch(function () { if (turno === turnoBusqueda) caja.style.display = 'none'; });
         }, 250);
     };
 
@@ -228,6 +233,9 @@
             conEspera(pedir(url, { method: 'DELETE' })).then(function (r) {
                 if (!r.ok) { aviso('warning', 'No se descartó', mensajeDe(r.body, 'Intenta de nuevo.')); return; }
                 ir(volver ? CFG.cargas : window.location.href);
+            }).catch(function (e) {
+                if (e && e.message === 'Sesión expirada.') return;   // apiFetch ya llevó al login
+                aviso('error', 'No se descartó', (e && e.message) || 'Revisa la conexión e intenta de nuevo.');
             });
         });
     };
@@ -243,6 +251,9 @@
                 if (!r.ok) { aviso('warning', 'No se deshizo', mensajeDe(r.body, 'Intenta de nuevo.')); return; }
                 if (window.showToast) window.showToast(r.body.message, 'success');
                 ir(window.location.href);
+            }).catch(function (e) {
+                if (e && e.message === 'Sesión expirada.') return;   // apiFetch ya llevó al login
+                aviso('error', 'No se deshizo', (e && e.message) || 'Revisa la conexión e intenta de nuevo. No se borró nada.');
             });
         });
     };

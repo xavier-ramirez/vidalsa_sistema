@@ -241,13 +241,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // esos scripts se vuelven a correr con window.__pantallaAlDia puesto (no cambian lo
     // elegido). Evento 'pantalla-al-dia' { ruta, doc } para lo que el módulo ponga por su
     // cuenta (Alertas del Menú, los datos de Almacén).
-    function ponerAlDia(url) {
+    //
+    // Si el servidor ya sirve OTRA versión (hubo un despliegue) no se mezcla nada: se anota
+    // (window.__versionNueva, ver el aviso de versión al final) y, si la pantalla se acaba de
+    // abrir desde la guardada (alAbrir), se recarga entera como hace loadPage con las que no
+    // se guardan. Si no, el aviso «Hay cambios nuevos»: puede haber algo a medio escribir.
+    function ponerAlDia(url, alAbrir) {
         const ruta = rutaDe(url);
         const base = vistaBase;
         const nav = _navSeq;   // si arranca otra navegación, esta pantalla ya se va
         if (!aLaVista(ruta) || _navHecha !== nav) return;
         refrescarPantalla(ruta).then((html) => {
-            if (!html || vistaBase !== base || nav !== _navSeq || !aLaVista(ruta) || versionDe(html) !== leerMeta('version-vistas')) return;
+            if (!html || vistaBase !== base || nav !== _navSeq || !aLaVista(ruta)) return;
+            const v = versionDe(html);
+            if (v && v !== leerMeta('version-vistas')) {
+                window.__versionNueva = true;
+                if (alAbrir && !(window.__hdCargaMasiva && window.__hdCargaMasiva.corriendo)) window.location.reload();
+                else if (window.mostrarAvisoVersion) window.mostrarAvisoVersion();
+                return;
+            }
+            if (v !== leerMeta('version-vistas')) return;
             const doc = new DOMParser().parseFromString(html, 'text/html');
             const nueva = doc.querySelector('.main-viewport');
             if (!nueva) return;
@@ -289,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
         delete cambioEn[ruta];
         respuestaGuardada(ruta).then((g) => {
             const guardada = g ? Number(g.headers.get('X-Guardada')) : 0;
-            if (!g || Date.now() - guardada > 30000 || (desde && guardada < desde)) ponerAlDia(ruta);
+            if (!g || Date.now() - guardada > 30000 || (desde && guardada < desde)) ponerAlDia(ruta, true);
         });
     }
 
@@ -799,9 +812,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // versión de cuando se guardó, y compararla con la de esta pestaña no dice nada.
             let desdeCache = !!opciones.desdeCache;
 
-            // Las de PANTALLAS_LOCALES: la pantalla guardada, sin preguntar al servidor.
+            // Las de PANTALLAS_LOCALES: la pantalla guardada, sin preguntar al servidor. Salvo
+            // que ya se sepa de un despliegue (window.__versionNueva): la guardada es de la
+            // versión vieja; la del servidor trae la nueva y abajo provoca la recarga completa.
             let deGuardada = false;
-            if (html === null) {
+            if (html === null && !window.__versionNueva) {
                 html = await pantallaGuardada(url);
                 deGuardada = html !== null;
                 if (_yaNoEsLaActual()) { handledCleanup = true; return; }
@@ -1258,7 +1273,10 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(recargar);
     }
 
-    function revisar() {
+    // trasNavegar: recién se cambió de módulo. Si hubo despliegue se recarga ya (el usuario
+    // acaba de llegar, no hay nada a medio escribir), igual que loadPage con las pantallas
+    // que pide al servidor; así también las guardadas (Equipos, Almacén…) toman lo nuevo.
+    function revisar(trasNavegar) {
         if (pidiendo || avisando || document.hidden || navigator.onLine === false || !window.usuarioActivo()) return;
         pidiendo = true;
         fetch('/version-vistas', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
@@ -1266,11 +1284,16 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(function () { return null; })      // sin red o sesión vencida: se reintenta luego
             .then(function (j) {
                 pidiendo = false;
-                if (j && j.v && j.v !== versionInicial) mostrarAviso();
+                if (!(j && j.v && j.v !== versionInicial)) return;
+                window.__versionNueva = true;
+                if (trasNavegar === true && !(window.__hdCargaMasiva && window.__hdCargaMasiva.corriendo)) window.location.reload();
+                else mostrarAviso();
             });
     }
 
+    window.mostrarAvisoVersion = mostrarAviso;   // también lo usa ponerAlDia
     setInterval(revisar, CADA_MS);
+    window.addEventListener('spa:contentLoaded', function () { revisar(true); });
     // Al volver a la pestaña (el caso típico: se edita, se vuelve y se mira) no hay que esperar.
     document.addEventListener('visibilitychange', function () { if (!document.hidden) revisar(); });
 })();

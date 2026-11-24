@@ -548,9 +548,11 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->assertStringContainsString('SOBRO EN LA OBRA', $texto);
         $this->assertMatchesRegularExpression('/>\s*2\s*</', $texto, 'Y con la cantidad devuelta.');
 
-        // Y en la bitácora la salida dice cuánto de ella volvió (kardex_rows: "Devuelto N").
+        // Y en la bitácora la salida lleva la marca «Devuelto» (sin número: la cantidad va en
+        // su title, pedido del cliente 23-11-2026).
         $bitacora = $this->movimientosLocal($this->usuario(), ['id_almacen' => $alm->ID_ALMACEN, 'tipo' => 'SALIDA'])['html'];
-        $this->assertStringContainsString('Devuelto 2', $bitacora);
+        $this->assertStringContainsString('</i>Devuelto</button>', $bitacora);
+        $this->assertStringContainsString('ya volvieron 2 UND', $bitacora);
     }
 
     /** El HTML de la nota (lo que se manda a TCPDF), para mirar su contenido sin leer el PDF. */

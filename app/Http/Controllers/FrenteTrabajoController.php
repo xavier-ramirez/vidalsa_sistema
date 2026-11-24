@@ -317,7 +317,6 @@ class FrenteTrabajoController extends Controller
             'productos_con_stock'  => [\App\Models\AlmacenStock::where('CANTIDAD', '>', 0), 'ID_FRENTE'],
             'envios_pendientes'    => [\App\Models\Traspaso::whereIn('ESTADO', array_merge(
                 [\App\Models\Traspaso::ESTADO_BORRADOR], \App\Models\Traspaso::ESTADOS_RECIBIBLES)), 'ID_FRENTE_DESTINO'],
-            'usuarios_asignados'   => [\App\Models\Usuario::where('ESTATUS', 'ACTIVO'), 'ID_FRENTE_ASIGNADO'],
         ];
         $bloqueos = [];
         foreach ($consultas as $clave => [$q, $col]) {
@@ -330,6 +329,20 @@ class FrenteTrabajoController extends Controller
                 $bloqueos[(int) $frente][$clave] = (int) $n;
             }
         }
+
+        // Usuarios: ID_FRENTE_ASIGNADO guarda VARIOS frentes separados por coma ("3,5"), así
+        // que no se puede agrupar ni comparar en SQL (MySQL leería "3,5" como 3 y el frente 5
+        // quedaría libre para eliminar). Se cuentan con Usuario::getFrentesIds().
+        $filtro = $ids !== null ? array_flip(array_map('intval', $ids)) : null;
+        \App\Models\Usuario::where('ESTATUS', 'ACTIVO')->whereNotNull('ID_FRENTE_ASIGNADO')
+            ->where('ID_FRENTE_ASIGNADO', '<>', '')
+            ->get(['ID_USUARIO', 'ID_FRENTE_ASIGNADO'])
+            ->each(function ($u) use (&$bloqueos, $filtro) {
+                foreach (array_unique(array_map('intval', $u->getFrentesIds())) as $frente) {
+                    if ($frente <= 0 || ($filtro !== null && !isset($filtro[$frente]))) continue;
+                    $bloqueos[$frente]['usuarios_asignados'] = ($bloqueos[$frente]['usuarios_asignados'] ?? 0) + 1;
+                }
+            });
 
         return $bloqueos;
     }
