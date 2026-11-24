@@ -305,7 +305,7 @@
                             @if(!empty($permisosAgrupados[$grupoKey]))
                                 <div style="padding:9px 14px 3px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">{{ $grupoLabel }}</div>
                                 @foreach($permisosAgrupados[$grupoKey] as $key => $label)
-                                    <label class="multiselect-item" for="perm_{{ $permIdx }}">
+                                    <label class="multiselect-item" for="perm_{{ $permIdx }}" title="{{ $label }}">
                                         {{-- La CLAVE va en el value (es lo que se guarda en
                                              usuarios.PERMISOS); en pantalla solo se lee la
                                              descripcion, que es lo que entiende quien

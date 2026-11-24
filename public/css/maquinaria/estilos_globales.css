@@ -2010,10 +2010,21 @@ input[type="password"]::-ms-clear {
     background: #f1f5f9;
 }
 
+/* flex-shrink: 0 — sin esto, un texto largo encogia la casilla y salia mas pequena que las otras. */
 .multiselect-item input[type="checkbox"] {
     margin-right: 10px;
     width: 16px;
     height: 16px;
+    flex-shrink: 0;
+}
+
+/* Permisos del usuario: cada opcion en UNA linea; lo que no cabe se corta con "…" y el
+   texto completo sale al pasar el raton (title del <label>). */
+#permissionsSelect .multiselect-item > span {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Utility for vertical lines in tables */
