@@ -1285,20 +1285,24 @@
 </div>
 </div>
 
-{{-- Visor de la foto del producto (ver .alm-visor-foto y almVerFoto). Con almacen.foto
-     lleva debajo «Cambiar» (elegir otra, recortarla y subirla) y la papelera (quitarla del
-     producto; el archivo va a la papelera de Drive). --}}
+{{-- Visor de la foto del producto (ver .alm-visor-foto y almVerFoto). Con almacen.foto, el
+     mismo diseño que la foto de las tarjetas del Catálogo: al pasar el mouse, velo oscuro con
+     la cámara y «Cambiar foto» (tocar la foto = elegir otra, recortarla y subirla), y en la
+     esquina el botón redondo de eliminar (el archivo va a la papelera de Drive). --}}
 <div id="almVisorFoto" class="alm-visor-foto" onclick="window.almCerrarFoto()">
     <i class="material-icons alm-visor-x" title="Cerrar">close</i>
-    <img id="almVisorFotoImg" alt="Foto del producto" onclick="event.stopPropagation()">
     @if($puedeFoto)
-    <div class="alm-visor-acciones" onclick="event.stopPropagation()">
-        <button type="button" class="alm-visor-btn" onclick="window.almVisorCambiar()">
-            <i class="material-icons">photo_camera</i> Cambiar
+    <div class="alm-visor-caja editable" title="Cambiar foto" onclick="event.stopPropagation(); window.almVisorCambiar()">
+        <img id="almVisorFotoImg" alt="Foto del producto">
+        <div class="alm-visor-velo"><i class="material-icons">photo_camera</i><span>Cambiar foto</span></div>
+        <button type="button" class="alm-visor-borrar" title="Eliminar foto"
+                onclick="event.stopPropagation(); window.almVisorEliminar()">
+            <i class="material-icons">no_photography</i>
         </button>
-        <button type="button" class="alm-visor-btn alm-visor-btn-borrar" onclick="window.almVisorEliminar()" title="Eliminar la foto">
-            <i class="material-icons">delete</i>
-        </button>
+    </div>
+    @else
+    <div class="alm-visor-caja" onclick="event.stopPropagation()">
+        <img id="almVisorFotoImg" alt="Foto del producto">
     </div>
     @endif
 </div>

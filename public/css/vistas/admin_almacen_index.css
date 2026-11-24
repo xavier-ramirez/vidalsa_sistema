@@ -252,21 +252,28 @@
                       background: rgba(15, 23, 42, 0.8); align-items: center; justify-content: center;
                       cursor: zoom-out; }
     .alm-visor-foto.abierto { display: flex; }
-    .alm-visor-foto img { max-width: min(92vw, 900px); max-height: 86vh; border-radius: 12px;
-                          background: #fff; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-                          object-fit: contain; cursor: default; }
+    .alm-visor-caja { position: relative; display: inline-flex; border-radius: 12px; overflow: hidden;
+                      background: #fff; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); cursor: default; }
+    .alm-visor-caja.editable { cursor: pointer; }
+    .alm-visor-foto img { display: block; max-width: min(92vw, 900px); max-height: 86vh;
+                          background: #fff; object-fit: contain; }
     .alm-visor-foto .alm-visor-x { position: absolute; top: 14px; right: 18px; color: #fff;
                                    font-size: 30px; cursor: pointer; }
-    /* Cambiar + papelera, debajo de la foto (solo con almacen.foto). */
-    .alm-visor-foto { flex-direction: column; gap: 14px; }
-    .alm-visor-acciones { display: flex; gap: 10px; cursor: default; }
-    .alm-visor-btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px;
-                     border: none; border-radius: 10px; background: #fff; color: #0f172a;
-                     font-size: 14px; font-weight: 700; cursor: pointer; }
-    .alm-visor-btn .material-icons { font-size: 18px; }
-    .alm-visor-btn:hover { background: #e2e8f0; }
-    .alm-visor-btn-borrar { padding: 9px 12px; color: #dc2626; }
-    .alm-visor-btn-borrar:hover { background: #fee2e2; }
+    /* Con almacen.foto: el mismo diseño de la foto del Catálogo (.cat-photo-overlay y
+       .cat-del-photo de admin_catalogo_index.css), a la escala del visor. El velo deja pasar
+       el clic a la caja (cambiar); el botón de eliminar va por encima. */
+    .alm-visor-velo { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.55); color: #fff;
+                      display: flex; flex-direction: column; align-items: center; justify-content: center;
+                      gap: 8px; opacity: 0; transition: opacity 0.18s ease; font-size: 14px; font-weight: 700;
+                      text-transform: uppercase; letter-spacing: 0.5px; pointer-events: none; z-index: 1; }
+    .alm-visor-velo .material-icons { font-size: 44px; }
+    .alm-visor-caja.editable:hover .alm-visor-velo { opacity: 1; }
+    .alm-visor-borrar { position: absolute; left: 12px; bottom: 12px; z-index: 3; width: 38px; height: 38px;
+                        border-radius: 50%; background: rgba(255, 255, 255, 0.95); border: 1px solid #e2e8f0;
+                        color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center;
+                        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18); transition: background 0.15s, transform 0.15s; }
+    .alm-visor-borrar .material-icons { font-size: 20px; }
+    .alm-visor-borrar:hover { background: #ef4444; color: #fff; transform: scale(1.05); }
     /* CÓDIGO dentro de la celda de Descripción: renglón propio ENCIMA del nombre, pequeño
        y monoespaciado — misma jerarquía que la cabecera del modal de movimientos
        (.alm-kp-hero-cod), para que el producto se lea igual en los dos sitios. */

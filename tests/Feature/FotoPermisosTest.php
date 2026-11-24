@@ -139,10 +139,10 @@ class FotoPermisosTest extends MySqlTestCase
         $this->actingAs($sin)->get('/admin/catalogo')->assertOk()->assertDontSee('cat-photo-overlay', false);
         $this->actingAs($con)->get('/admin/catalogo')->assertOk()->assertSee('cat-photo-overlay', false);
         // Inventario: Cambiar + papelera del visor y el permiso que lee la cámara de la tabla.
-        $this->actingAs($sin)->get('/admin/almacen')->assertOk()->assertDontSee('alm-visor-acciones', false)
-            ->assertSee('"puedeFoto":false', false);
-        $this->actingAs($con)->get('/admin/almacen')->assertOk()->assertSee('alm-visor-acciones', false)
-            ->assertSee('"puedeFoto":true', false);
+        $this->actingAs($sin)->get('/admin/almacen')->assertOk()->assertDontSee('alm-visor-borrar', false)
+            ->assertDontSee('alm-visor-velo', false)->assertSee('"puedeFoto":false', false);
+        $this->actingAs($con)->get('/admin/almacen')->assertOk()->assertSee('alm-visor-borrar', false)
+            ->assertSee('alm-visor-velo', false)->assertSee('"puedeFoto":true', false);
         // Equipos: la cámara del modal «Vincular a una ficha».
         $this->actingAs($sin)->get('/admin/equipos')->assertOk()->assertSee('data-puede-foto="0"', false);
         $this->actingAs($con)->get('/admin/equipos')->assertOk()->assertSee('data-puede-foto="1"', false);
