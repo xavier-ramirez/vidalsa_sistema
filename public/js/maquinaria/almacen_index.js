@@ -1184,27 +1184,23 @@
             // Sin saldo no hay cantidad que valga: se pide quitarlo, no escribirla.
             if ((parseFloat(s.saldo) || 0) <= 0) sinStock++; else falta++;
         });
+        var plural = function (n, uno, varios) { return n === 1 ? uno : n + varios; };
         var partes = [];
-        if (sinParte) partes.push('falta elegir la equivalencia en ' + sinParte + (sinParte === 1 ? ' producto' : ' productos'));
-        if (falta) partes.push('falta la cantidad en ' + falta + (falta === 1 ? ' producto' : ' productos'));
-        if (supera) partes.push(supera === 1 ? '1 producto pide más de lo que hay en stock' : supera + ' productos piden más de lo que hay en stock');
-        if (sinStock) partes.push(sinStock === 1 ? '1 producto no tiene stock en este almacén (quítalo de la salida)' : sinStock + ' productos no tienen stock en este almacén (quítalos de la salida)');
+        if (sinParte) partes.push('falta la equivalencia en ' + plural(sinParte, '1 producto', ' productos'));
+        if (falta) partes.push('falta la cantidad en ' + plural(falta, '1 producto', ' productos'));
+        if (supera) partes.push(plural(supera, '1 producto supera', ' productos superan') + ' el stock');
+        if (sinStock) partes.push(plural(sinStock, '1 producto sin stock en este almacén (quítalo)', ' productos sin stock en este almacén (quítalos)'));
         if (!partes.length) almAvisoSalidaActivo = false;
         box.hidden = !almAvisoSalidaActivo;
-        if (box.hidden) { box.innerHTML = ''; return; }
-        var unir = function (l, y) { return l.length === 1 ? l[0] : l.slice(0, -1).join(', ') + y + l[l.length - 1]; };
-        // Dónde mirar: las filas por corregir van en rojo y su caja de Salida lleva el motivo
-        // (los mismos textos del ::after de .alm-td-cant).
-        var rotulos = [];
-        if (falta) rotulos.push('«Falta la cantidad»');
-        if (supera) rotulos.push('«Supera el stock»');
-        if (sinStock) rotulos.push('«Sin stock»');
-        var enRojo = falta + supera + sinStock, pista = '';
-        if (enRojo) pista += (enRojo === 1 ? 'Está resaltado en rojo y su caja de Salida dice ' : 'Están resaltados en rojo y su caja de Salida dice ') + unir(rotulos, ' o ') + '. ';
-        if (sinParte) pista += 'Toca el número de parte que entregas y luego pon la cantidad.';
+        if (box.hidden) { box.innerHTML = ''; box.removeAttribute('title'); return; }
+        var unir = function (l) { return l.length === 1 ? l[0] : l.slice(0, -1).join(', ') + ' y ' + l[l.length - 1]; };
+        // UNA sola línea: cuáles son ya lo dice la tabla (filas en rojo con el motivo en su caja
+        // de Salida, los mismos textos del ::after de .alm-td-cant). Si no cabe, el texto
+        // completo queda en el title.
+        var texto = 'No se puede registrar la salida: ' + unir(partes) + '.';
+        box.title = texto;
         box.innerHTML = '<i class="material-icons">error_outline</i><div>'
-            + '<strong>No se puede registrar la salida:</strong> ' + unir(partes, ' y ') + '.'
-            + '<div class="alm-aviso-pista">' + pista + '</div></div>';
+            + '<strong>No se puede registrar la salida:</strong> ' + unir(partes) + '.</div>';
     }
     // Lleva a la fila de un producto por corregir y deja el cursor en su cantidad.
     function almIrAProblema(id) {
@@ -2467,8 +2463,6 @@
         var tr = document.querySelector('#almTableBody tr.alm-row[data-id-producto="' + almUltimaVista + '"]');
         if (tr) tr.classList.add('alm-row-vista');
     }
-    // Tope de espera de la compatibilidad antes de abrir la ficha igual (ver almAbrirDetalle).
-    var ALM_DET_ESPERA_MS = 2500;
     window.almAbrirDetalle = function (id, cod, nom, um, cat, saldo, minimo, ubicacion) {
         var m = el('almDetalleModal'); if (!m) return;
         almMarcarVista(id);
@@ -2484,23 +2478,9 @@
         el('almDetBajoBadge').style.display = bajo ? 'flex' : 'none';
         if (el('almDetUbicacion')) { el('almDetUbicacion').value = ubicacion || ''; showErr('almDetUbicacionError', ''); }
 
-        // La ficha abre DE UNA SOLA VEZ: primero llega la compatibilidad (nº de parte, equipos
-        // y reparto por proyecto) y recién entonces se muestra, para que esas secciones no
-        // aparezcan un instante después empujando los botones hacia abajo. Si el servidor
-        // falla, abre igual sin ellas. Si mientras tanto se pidió otro producto, abre solo ese.
-        // Con la red muy lenta no se espera más de ALM_DET_ESPERA_MS: abre y las secciones
-        // llegan después, antes que dejar al usuario mirando el spinner.
-        var abierto = false, espera = null;
-        var abrir = function () {
-            if (abierto) return;
-            abierto = true;
-            clearTimeout(espera);
-            unpre();
-            if (String(m.dataset.id) === String(id)) almOpen('almDetalleModal');
-        };
-        pre();
-        espera = setTimeout(abrir, ALM_DET_ESPERA_MS);
-        window.almCargarCompat(id).finally(abrir);
+        // Abre al instante, sin spinner; el reparto por proyecto llega después.
+        almOpen('almDetalleModal');
+        almCargarProyectos(id);
     };
 
     // ── Foto del producto ─────────────────────────────────────────────────────
@@ -2581,227 +2561,46 @@
         el('almVisorFotoImg').removeAttribute('src');
     };
 
-    // Trae equivalencias + equipos del filtro y los pinta en el detalle; devuelve la promesa
-    // (almAbrirDetalle espera a que termine para abrir). Si el usuario abre otro producto
-    // mientras carga, se ignora la respuesta vieja (compara el id del modal).
-    window.almCargarCompat = function (id) {
+    // Reparto del saldo por proyecto en el almacén abierto (#almDetProyectosWrap). Llega
+    // después de abrir la ficha; si el usuario abrió otro producto mientras tanto, se descarta.
+    function almCargarProyectos(id) {
         var esc = window.escapeHtml;   // helper central (dom_helpers.js)
-        var wrap = el('almDetCompat'); if (!wrap) return Promise.resolve();
         var proyWrap = el('almDetProyectosWrap'), proyBox = el('almDetProyectos');
-        if (proyWrap) proyWrap.style.display = 'none';
-        if (proyBox) proyBox.innerHTML = '';
-        almDetFormCerrar();
-        // Cada ficha abre con las dos secciones cerradas, aunque en la anterior se hubieran abierto.
-        almDetSeccion('almDetPartesWrap', false);
-        almDetSeccion('almDetEquiposWrap', false);
-        almDetCompatPintar({ equivalencias: [], equipos: [] }, true);
-
+        if (!proyWrap || !proyBox) return;
+        proyWrap.style.display = 'none';
+        proyBox.innerHTML = '';
         // El almacén abierto viaja en la URL: sin él el backend no sabe de qué inventario
-        // sacar el reparto por proyecto (la compatibilidad no depende del almacén).
+        // sacar el reparto por proyecto.
         var idAlm = (el('almSelAlmacen') || {}).value || '';
         var url = CFG.rutas.compatibilidad.replace('__PID__', id)
                 + (idAlm ? '?id_almacen=' + encodeURIComponent(idAlm) : '');
-        return window.apiFetch(url, { headers: { 'Accept': 'application/json' } })
-            // Un error del servidor NO es "sin datos": pintarlo mostraría "(0)" como si el
-            // producto no tuviera equipos. Se descarta y la sección queda oculta.
+        window.apiFetch(url, { headers: { 'Accept': 'application/json' } })
             .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
             .then(function (d) {
                 var m = el('almDetalleModal');
                 if (!m || String(m.dataset.id) !== String(id)) return; // cambió de producto mientras cargaba
-                // Reparto por proyecto: viene vacío en los almacenes que no separan.
+                // Viene vacío en los almacenes que no separan por proyecto.
                 var proyectos = d.proyectos || [];
+                if (!proyectos.length) return;
                 // Mismo formato de cantidad que el panel lateral, que pinta ESTE MISMO dato
                 // (almacen_local.js): toLocaleString no agrupa los miles de 4 dígitos y "1663"
                 // desentonaría con el "1.663" del panel.
                 var fmtQty = window.AlmacenLocal.fmt;
-                if (proyectos.length && proyBox && proyWrap) {
-                    proyBox.innerHTML = proyectos.map(function (p) {
-                        // La bolsa común va en cursiva y gris: es saldo real, pero de nadie
-                        // en particular — el mismo criterio del panel lateral.
-                        var nombre = p.comun
-                            ? '<span style="font-style:italic;color:#64748b;">' + esc(p.proyecto) + '</span>'
-                            : '<span style="font-weight:600;color:#334155;">' + esc(p.proyecto) + '</span>';
-                        return '<div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #eef2f7;border-radius:7px;padding:6px 9px;">' +
-                               '<span style="font-size:12.5px;flex:1;min-width:0;">' + nombre + '</span>' +
-                               '<span style="font-size:13px;font-weight:800;color:#0f172a;">' + fmtQty(p.cantidad) + '</span></div>';
-                    }).join('');
-                    proyWrap.style.display = 'block';
-                }
-                almDetCompatPintar(d);
+                proyBox.innerHTML = proyectos.map(function (p) {
+                    // La bolsa común va en cursiva y gris: es saldo real, pero de nadie
+                    // en particular — el mismo criterio del panel lateral.
+                    var nombre = p.comun
+                        ? '<span style="font-style:italic;color:#64748b;">' + esc(p.proyecto) + '</span>'
+                        : '<span style="font-weight:600;color:#334155;">' + esc(p.proyecto) + '</span>';
+                    return '<div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #eef2f7;border-radius:7px;padding:6px 9px;">' +
+                           '<span style="font-size:12.5px;flex:1;min-width:0;">' + nombre + '</span>' +
+                           '<span style="font-size:13px;font-weight:800;color:#0f172a;">' + fmtQty(p.cantidad) + '</span></div>';
+                }).join('');
+                proyWrap.style.display = 'block';
             })
-            .catch(function () { /* silencioso: el detalle sigue usable sin la compatibilidad */ });
-    };
-
-    // Pinta números de parte y equipos. `oculta` = estado de carga (todo escondido). Sin
-    // permiso de edición solo se ven las secciones con datos, y nada si no hay ninguno (sin
-    // mensaje de "vacío": el cliente lo pidió fuera); con permiso, las dos con su +.
-    var almDetEquiposPintados = [], almDetEquipoOpciones = [];
-    function almDetCompatPintar(d, oculta) {
-        var esc = window.escapeHtml;
-        var partes = d.equivalencias || [], equipos = d.equipos || [];
-        var edita = HAS_PRODUCTOS;
-        var quitar = function (attrs, titulo) {
-            return edita ? '<button type="button" class="alm-det-quitar" title="' + titulo + '" ' + attrs + '><i class="material-icons">close</i></button>' : '';
-        };
-        el('almDetPartes').innerHTML = partes.map(function (p) {
-            return '<span class="alm-det-chip">' + esc(p) + quitar('data-parte="' + esc(p) + '" onclick="window.almDetParteQuitar(this.dataset.parte)"', 'Quitar este número de parte') + '</span>';
-        }).join('');
-        el('almDetPartesCount').textContent = '(' + partes.length + ')';
-        el('almDetEquiposCount').textContent = '(' + equipos.length + ')';
-        // La × manda los `ids` de la fila (un modelo con varias fichas del catálogo son varios).
-        almDetEquiposPintados = equipos;
-        // La ETAPA (primario/secundario) va por EQUIPO, no por producto: el mismo filtro puede
-        // ser primario en una máquina y secundario en otra. Sin confirmar no se muestra.
-        el('almDetEquipos').innerHTML = equipos.map(function (e, i) {
-            return '<div class="alm-det-eq">'
-                + '<span class="alm-det-eq-tipo" title="' + esc(e.tipo) + '">' + esc(e.tipo) + '</span>'
-                + '<span class="alm-det-eq-mod">' + esc(e.modelo) + '</span>'
-                + (e.cant > 1 ? '<span class="alm-det-eq-dato">x' + e.cant + '</span>' : '')
-                + (e.etapa ? '<span class="alm-det-eq-etapa">' + esc(e.etapa) + '</span>' : '')
-                + quitar('onclick="window.almDetEquipoQuitar(' + i + ')"', 'Desvincular este equipo')
-                + '</div>';
-        }).join('');
-        // Sin elementos no hay nada que desplegar: la flecha se apaga y la sección se cierra
-        // (salvo que su formulario esté abierto: con permiso, el "+" sigue funcionando).
-        [['almDetPartesWrap', partes.length, 'almDetParteForm'], ['almDetEquiposWrap', equipos.length, 'almDetEquipoForm']].forEach(function (s) {
-            el(s[0]).querySelector('.alm-det-sec-tog').disabled = !s[1];
-            if (!s[1] && el(s[2]).hidden) almDetSeccion(s[0], false);
-        });
-        document.querySelectorAll('#almDetCompat .alm-det-solo-edita').forEach(function (b) { b.hidden = !edita; });
-        el('almDetPartesWrap').hidden = !(edita || partes.length);
-        el('almDetEquiposWrap').hidden = !(edita || equipos.length);
-        el('almDetCompat').hidden = !!oculta || !(edita || partes.length || equipos.length);
-    }
-    // Abre (true), cierra (false) o alterna (sin segundo argumento) un desplegable de la ficha.
-    function almDetSeccion(idWrap, abrir) {
-        var wrap = el(idWrap); if (!wrap) return;
-        var cuerpo = wrap.querySelector('.alm-det-sec-cuerpo'), tog = wrap.querySelector('.alm-det-sec-tog');
-        var abierto = abrir === undefined ? cuerpo.hidden : !!abrir;
-        cuerpo.hidden = !abierto;
-        tog.setAttribute('aria-expanded', abierto ? 'true' : 'false');
-    }
-    window.almDetSeccion = almDetSeccion;
-
-    function almDetCompatMsg(texto) {
-        var m = el('almDetCompatMsg'); if (!m) return;
-        m.textContent = texto || ''; m.hidden = !texto;
-    }
-    function almDetFormCerrar() {
-        ['almDetParteForm', 'almDetEquipoForm'].forEach(function (f) { var x = el(f); if (x) x.hidden = true; });
-        var s = el('almDetEquipoSug'); if (s) s.innerHTML = '';
-        almDetCompatMsg('');
-    }
-    window.almDetFormCerrar = almDetFormCerrar;
-
-    // Guarda un cambio de compatibilidad (+ / ×) del producto abierto. El servidor responde con
-    // la compatibilidad ya al día y se repinta; la fila de la tabla se recarga (lleva los
-    // números de parte y de ahí los toma "Editar producto" y la salida).
-    var ROUTE_COMPAT = {
-        equivalencias: CFG.rutas.equivalenciasStore,
-        equipos:       CFG.rutas.equiposStore,
-        opciones:      CFG.rutas.equiposOpciones,
-    };
-    // Uno a la vez: un doble clic mandaba dos veces lo mismo y el segundo volvía con "ya está".
-    var almDetCompatOcupado = false;
-    function almDetCompatCambiar(que, metodo, cuerpo) {
-        var m = el('almDetalleModal'); var id = m ? m.dataset.id : '';
-        if (almDetCompatOcupado || !id || !ensurePerm(HAS_PRODUCTOS, 'No tienes permiso para editar productos.')) return;
-        almDetCompatOcupado = true;
-        almDetCompatMsg('');
-        window.apiFetch(ROUTE_COMPAT[que].replace('__PID__', id), {
-            method: metodo,
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
-            body: JSON.stringify(cuerpo)
-        })
-            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, b: b }; }); })
-            .then(function (res) {
-                if (String(el('almDetalleModal').dataset.id) !== String(id)) return;
-                if (!res.ok) {
-                    var errs = res.b.errors ? Object.values(res.b.errors).map(function (e) { return e[0]; }) : [];
-                    almDetCompatMsg(errs[0] || res.b.message || 'No se pudo guardar.');
-                    return;
-                }
-                almDetFormCerrar();
-                almDetCompatPintar(res.b);
-                almDetCompatAplicarASeleccion(id, res.b.equivalencias || []);
-                almRecargarMostrando(id);
-            })
-            .catch(function () { almDetCompatMsg('No se pudo contactar al servidor.'); })
-            .finally(function () { almDetCompatOcupado = false; });
-    }
-    // Si el producto está en la salida en curso, su entrada sigue a las equivalencias nuevas:
-    // con una sola, es esa; si se quitó la que estaba elegida, se vuelve a pedir.
-    function almDetCompatAplicarASeleccion(id, partes) {
-        var s = almSeleccion[id]; if (!s) return;
-        s.partes = partes.length;
-        if (s.parte && partes.indexOf(s.parte) === -1) s.parte = '';
-        if (!s.parte && partes.length === 1) s.parte = partes[0];
+            .catch(function () { /* silencioso: la ficha sigue usable sin el reparto */ });
     }
 
-    window.almDetParteAbrir = function () {
-        almDetFormCerrar();
-        almDetSeccion('almDetPartesWrap', true);
-        el('almDetParteForm').hidden = false;
-        var i = el('almDetParteInput'); i.value = ''; i.focus();
-    };
-    window.almDetParteGuardar = function () {
-        var np = (el('almDetParteInput').value || '').trim();
-        if (!np) { almDetCompatMsg('Escribe el número de parte.'); return; }
-        almDetCompatCambiar('equivalencias', 'POST', { numero_parte: np });
-    };
-    window.almDetParteQuitar = function (np) { almDetCompatCambiar('equivalencias', 'DELETE', { numero_parte: np }); };
-
-    var _almDetEquipoEspera = null, _almDetEquipoPedido = 0;
-    window.almDetEquipoAbrir = function () {
-        almDetFormCerrar();
-        almDetSeccion('almDetEquiposWrap', true);
-        el('almDetEquipoForm').hidden = false;
-        var i = el('almDetEquipoInput'); i.value = ''; i.focus();
-        window.almDetEquipoBuscar();
-    };
-    // "placa X" bajo el modelo de la sugerencia. Con la placa a medio escribir un mismo modelo
-    // puede traer muchas (medido: 9 con "A46BN"): se muestran 2 y "+N", y la lista entera va en el title.
-    function almDetPlacasEtiqueta(placas) {
-        if (!placas || !placas.length) return '';
-        var esc = window.escapeHtml;
-        // \u00a0 (espacio que no parte): el "+N" nunca queda solo en otra línea.
-        var txt = placas.slice(0, 2).join(', ') + (placas.length > 2 ? '\u00a0+' + (placas.length - 2) : '');
-        return '<span class="alm-det-sug-placa" title="' + esc(placas.join(', ')) + '">placa ' + esc(txt) + '</span>';
-    }
-    // Sugerencias del servidor (modelos del catálogo y auxiliares que el producto aún no tiene;
-    // escribiendo una placa, el modelo de ese equipo, marcado con la placa).
-    // Solo pinta la respuesta de la ÚLTIMA búsqueda: si una anterior llega tarde, se descarta.
-    window.almDetEquipoBuscar = function () {
-        clearTimeout(_almDetEquipoEspera);
-        _almDetEquipoEspera = setTimeout(function () {
-            var m = el('almDetalleModal'); var id = m ? m.dataset.id : ''; if (!id) return;
-            var q = (el('almDetEquipoInput').value || '').trim(), pedido = ++_almDetEquipoPedido;
-            window.apiFetch(ROUTE_COMPAT.opciones.replace('__PID__', id) + '?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    var box = el('almDetEquipoSug'); if (!box || el('almDetEquipoForm').hidden || pedido !== _almDetEquipoPedido) return;
-                    var esc = window.escapeHtml, ops = d.opciones || [];
-                    almDetEquipoOpciones = ops;
-                    box.innerHTML = ops.length
-                        ? ops.map(function (o, i) {
-                            return '<div class="alm-det-sug-item" onclick="window.almDetEquipoVincular(' + i + ')">'
-                                + '<span class="alm-det-eq-tipo" title="' + esc(o.tipo) + '">' + esc(o.tipo) + '</span>'
-                                + '<span class="alm-det-eq-mod">' + esc(o.modelo) + almDetPlacasEtiqueta(o.placas) + '</span>'
-                                + '</div>';
-                          }).join('')
-                        : '<div class="alm-det-sug-vacio">Ningún equipo coincide' + (q ? ' con «' + esc(q) + '»' : '') + '.</div>';
-                })
-                .catch(function () {});
-        }, 180);
-    };
-    window.almDetEquipoVincular = function (i) {
-        var o = almDetEquipoOpciones[i]; if (!o) return;
-        almDetCompatCambiar('equipos', 'POST', { origen: o.origen, refs: o.refs });
-    };
-    window.almDetEquipoQuitar = function (i) {
-        var e = almDetEquiposPintados[i]; if (!e) return;
-        almDetCompatCambiar('equipos', 'DELETE', { origen: e.origen, ids: e.ids });
-    };
     // Cierra "Detalles del producto" y, si la fila de ese producto SIGUE seleccionada,
     // devuelve el foco a su input de cantidad — así el usuario escribe la salida de una
     // (como al recién seleccionar). Sin esto el registro quedaba seleccionado pero el input

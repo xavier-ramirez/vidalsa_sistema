@@ -141,12 +141,12 @@
     #almTableBody tr.alm-row.alm-row-missing-cant[data-saldo="0"] .alm-td-cant::after { content: 'Sin stock'; }
     #almTableBody tr.alm-row.alm-row-exceeds-stock .alm-td-cant::after { content: 'Supera el stock'; }
     /* Aviso fijo de la salida por corregir (almPintarAvisoSalida), encima de la tabla. */
-    #almSalidaAviso { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; padding: 10px 14px;
+    /* Una sola línea: si no cabe se corta con «…» (el texto entero va en el title). */
+    #almSalidaAviso { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px 14px;
                       background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; color: #991b1b; }
     #almSalidaAviso[hidden] { display: none; }
-    #almSalidaAviso > .material-icons { font-size: 20px; color: #dc2626; flex-shrink: 0; margin-top: 1px; }
-    #almSalidaAviso > div { font-size: 13px; line-height: 1.4; }
-    #almSalidaAviso .alm-aviso-pista { font-size: 12px; color: #b91c1c; margin-top: 2px; }
+    #almSalidaAviso > .material-icons { font-size: 20px; color: #dc2626; flex-shrink: 0; }
+    #almSalidaAviso > div { flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* Aviso de búsqueda aproximada (almPintarAvisoBusqueda): mismo molde que el de arriba,
        pero informativo —azul, no rojo— porque no hay nada que corregir. */
     #almBuscarAviso { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; padding: 10px 14px;
@@ -835,73 +835,17 @@
     /* "Detalles del producto": un poco menos de hueco que los demás (16px) antes de "Ubicación
        en estante..." — con 6px quedaba pegado al encabezado. Su ícono, en blanco. */
     #almDetalleModal .alm-modal-body { padding-top: 14px; }
-    /* Compatibilidad en "Detalles del producto": números de parte y equipos que lo usan, con
-       + para agregar y × para quitar (solo con almacen.productos). Todo en texto oscuro sobre
-       gris claro: el azul queda para los botones. */
-    #almDetCompat { border-top: 1px solid #f1f5f9; padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
-    /* Nºs de parte y equipos, cada uno en un DESPLEGABLE que arranca cerrado: la cabecera dice
-       cuántos hay y se abre con un toque. Abiertos a la vez ocupaban medio modal. */
-    .alm-det-sec { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
-    .alm-det-sec-cab { display: flex; align-items: center; gap: 4px; padding: 3px 6px 3px 3px; }
-    .alm-det-sec-tog { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px; border: none; background: none;
-                       padding: 6px 8px; border-radius: 8px; font: inherit; color: #0f172a; text-align: left; cursor: pointer; }
-    .alm-det-sec-tog:hover:not(:disabled) { background: #f8fafc; }
-    .alm-det-sec-tog:disabled { cursor: default; }
-    .alm-det-sec-flecha { font-size: 20px; color: #0f172a; transition: transform .15s; }
-    .alm-det-sec-tog:disabled .alm-det-sec-flecha { visibility: hidden; }
-    .alm-det-sec-tog[aria-expanded="true"] .alm-det-sec-flecha { transform: rotate(180deg); }
-    .alm-det-sec-cuerpo { padding: 8px 10px 10px; border-top: 1px solid #f1f5f9; }
-    .alm-det-sec-tog .alm-det-sec-tit { display: block; min-width: 0; line-height: 1.35; }
-    .alm-det-sec-tog .alm-det-sec-tit .material-icons { vertical-align: -3px; margin-right: 4px; }
-    .alm-det-sec-tit { font-size: 13px; font-weight: 600; color: #0f172a; display: flex; align-items: center; gap: 6px; }
     /* Toda la ficha con la letra de la app: los <input> traen la del sistema si no se les dice. */
     #almDetalleModal, #almDetalleModal input, #almDetalleModal button { font-family: inherit; }
     #almDetalleModal label[for="almDetUbicacion"] { font-size: 13px; font-weight: 600; color: #0f172a; text-transform: none; letter-spacing: 0; }
     #almDetUbicacion { font-size: 12.5px; font-weight: 500; color: #0f172a; }
-    .alm-det-sec-tit .material-icons { font-size: 16px; color: #0f172a; }
     .alm-det-mas { display: inline-flex; align-items: center; gap: 2px; border: none; background: none; padding: 2px 4px; border-radius: 6px;
                    font: inherit; font-size: 12.5px; font-weight: 500; color: #0067b1; cursor: pointer; }
     .alm-det-mas:hover { background: #e0f2fe; }
     .alm-det-mas .material-icons { font-size: 16px; }
-    .alm-det-chips { display: flex; flex-wrap: wrap; gap: 5px; }
-    .alm-det-chip { display: inline-flex; align-items: center; gap: 2px; background: #f1f5f9; color: #0f172a; border: 1px solid #cbd5e1;
-                    border-radius: 6px; padding: 2px 8px; font-size: 12.5px; font-weight: 500; }
-    /* Abierto, un producto con muchos equipos no estira el modal: la lista tiene su propio scroll. */
-    .alm-det-lista { display: flex; flex-direction: column; gap: 4px; max-height: 190px; overflow-y: auto; }
-    .alm-det-eq { display: flex; align-items: center; gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px; padding: 6px 9px; }
-    /* Ancho fijo para que los modelos queden en columna aunque el tipo sea largo (el nombre
-       completo va en el title). */
-    .alm-det-eq-tipo { flex: 0 0 120px; font-size: 12.5px; font-weight: 500; color: #0f172a; text-transform: uppercase;
-                       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .alm-det-eq-mod { font-size: 12.5px; font-weight: 500; color: #0f172a; flex: 1; min-width: 0; }
-    .alm-det-eq-dato { font-size: 12.5px; font-weight: 500; color: #0f172a; }
-    .alm-det-eq-etapa { font-size: 12.5px; font-weight: 500; color: #0f172a; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 1px 7px; }
     .alm-det-quitar { display: inline-flex; border: none; background: none; padding: 0; margin-left: 2px; color: #64748b; cursor: pointer; }
     .alm-det-quitar:hover { color: #dc2626; }
     .alm-det-quitar .material-icons { font-size: 15px; }
-    /* Formularios en línea del + : caja y botón, sin salir del modal. */
-    .alm-det-form { position: relative; display: flex; gap: 6px; margin-top: 6px; }
-    .alm-det-form input { flex: 1; min-width: 0; height: 32px; padding: 0 9px; font: inherit; font-size: 12.5px; }
-    .alm-det-form .btn-primary-maquinaria { padding: 0 14px; height: 32px; border-radius: 8px; font-size: 13px; }
-    .alm-det-sug { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
-                   box-shadow: 0 10px 22px rgba(15,23,42,.14); max-height: 220px; overflow-y: auto; padding: 4px; }
-    /* Cada sugerencia se ve IGUAL que un equipo ya vinculado (misma rejilla tipo + modelo,
-       mismos tamanos y pesos): antes el tipo y el modelo iban pegados en una sola linea con
-       otra letra y la lista parecia de otra pantalla. */
-    .alm-det-sug-item { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 6px; cursor: pointer; }
-    .alm-det-sug-item:hover { background: #e0f2fe; }
-    .alm-det-sug-item .alm-det-eq-tipo { flex: 0 0 110px; }
-    /* La placa va en una segunda línea DENTRO de la celda del modelo, para que quepa también en
-       el celular. Los códigos de modelo largos (ZZ4257V344JB1) pueden partirse para no salirse
-       de la sugerencia. */
-    .alm-det-sug-item .alm-det-eq-mod { overflow-wrap: anywhere; }
-    .alm-det-sug-placa { display: block; font-size: 11.5px; color: #64748b; }
-    .alm-det-sug-vacio { padding: 8px 9px; font-size: 12px; color: #64748b; font-style: italic; }
-    /* `hidden` tiene que ganarle al display:flex / inline-flex de arriba: el "+ Agregar" /
-       "+ Vincular" se esconde así a quien no tiene almacen.productos (y la lista sin
-       sugerencias no se ve). */
-    #almDetCompat[hidden], .alm-det-form[hidden], .alm-det-mas[hidden], .alm-det-sug:empty { display: none; }
-    .alm-det-msg { font-size: 12px; font-weight: 600; color: #b91c1c; }
     /* El detalle aparece SIN deslizamiento (como los detalles del módulo Equipos):
        se quita la animación de entrada almIn solo para este modal. */
     #almDetalleModal .alm-modal { animation: none; }
