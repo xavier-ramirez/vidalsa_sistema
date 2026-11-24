@@ -871,12 +871,15 @@
         gap: 12px;
     }
     .menu-about-collab { margin-top: 4px; }
-    /* Titulo de cada bloque de creditos ("Sistema desarrollado", "Levantamiento..."): el mismo para los dos. */
-    .menu-about-right .collab-title { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; }
+    /* Creditos con la MISMA letra que la descripcion de la empresa (.menu-about-desc):
+       13px, color #475569, sin mayusculas forzadas. El titulo de cada bloque
+       ("Sistema desarrollado", "Levantamiento...") solo va en negrita. */
+    .menu-about-right .collab-title { font-weight: 700; color: #475569; }
     .menu-about-right .dev {
-        font-weight: 700;
-        color: #64748b;
-        font-size: 12.5px;
+        font-weight: 400;
+        color: #475569;
+        font-size: 13px;
+        line-height: 1.65;
         display: flex;
         flex-direction: column;
         align-items: flex-start;
@@ -888,7 +891,6 @@
         gap: 6px;
         color: #475569;
         text-decoration: none;
-        font-weight: 600;
         transition: color 0.15s;
     }
     .menu-about-right .dev-link:hover { color: #0067b1; }
@@ -901,6 +903,7 @@
         .menu-about-left { text-align: center; }
         .menu-about-head { justify-content: center; margin-bottom: 10px; }
         .menu-about-desc { text-align: center; font-size: 12px; line-height: 1.55; margin-bottom: 16px; }
+        .menu-about-right .dev { font-size: 12px; line-height: 1.55; }
         .menu-about-right {
             border-left: none;
             border-top: 1px dashed #e2e8f0;
