@@ -56,4 +56,27 @@ class ConsumiblesMatchTest extends MySqlTestCase
             ->get(route('consumibles.index', ['identificador' => 'ZZ-NADA-' . random_int(100000, 999999)]))
             ->assertOk()->assertSee('Ningún consumible cumple con los filtros.');
     }
+
+    public function test_pasada_la_ultima_pagina_muestra_la_ultima(): void
+    {
+        $marca = 'ZZ-PAG-' . random_int(100000, 999999);
+        $this->consumo($marca);
+
+        $this->actingAs($this->superAdminGlobal())
+            ->get(route('consumibles.index', ['identificador' => $marca, 'page' => 5]))
+            ->assertOk()->assertSee($marca)->assertDontSee('Ningún consumible cumple con los filtros.');
+    }
+
+    public function test_los_contadores_no_arrastran_la_pagina(): void
+    {
+        $html = $this->actingAs($this->superAdminGlobal())
+            ->get(route('consumibles.index', ['tipo' => 'GASOIL', 'page' => 2]))->assertOk()->getContent();
+
+        preg_match('/id="consCntPend"[^>]*href="([^"]+)"/', $html, $m);
+        $this->assertNotEmpty($m, 'El contador de pendientes es un enlace.');
+        $url = html_entity_decode($m[1]);
+        $this->assertStringContainsString('tipo=GASOIL', $url);
+        $this->assertStringContainsString('estado=PENDIENTE', $url);
+        $this->assertStringNotContainsString('page=', $url);
+    }
 }

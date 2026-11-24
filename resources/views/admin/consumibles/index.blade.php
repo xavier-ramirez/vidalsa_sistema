@@ -162,7 +162,8 @@
                     {{-- Contadores Comprimidos --}}
                     <div
                         style="display:flex; gap:8px; align-items: center; border-right: 1px solid #e2e8f0; padding-right: 12px; flex-shrink: 0;">
-                        <a href="{{ route('consumibles.index', array_merge(request()->except('estado'), ['estado' => 'PENDIENTE'])) }}"
+                        <a id="consCntPend" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'PENDIENTE'])) }}"
+                            onclick="return window.consumiblesFiltrarEstado('PENDIENTE', 'Pendiente');"
                             style="text-decoration:none; background:#fffbeb; border: 1px solid #fde68a; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
                             onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">
                             <strong style="display:block; font-size:18px; font-weight:800; color:#d97706; line-height: 1;"
@@ -170,7 +171,8 @@
                             <span
                                 style="font-size:9px; color:#b45309; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Pendientes</span>
                         </a>
-                        <a href="{{ route('consumibles.index', array_merge(request()->except('estado'), ['estado' => 'CONFIRMADO'])) }}"
+                        <a id="consCntConf" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'CONFIRMADO'])) }}"
+                            onclick="return window.consumiblesFiltrarEstado('CONFIRMADO', 'Confirmado');"
                             style="text-decoration:none; background:#f8fafc; border: 1px solid #e2e8f0; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
                             onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
                             <strong style="display:block; font-size:18px; font-weight:800; color:#10b981; line-height: 1;"
@@ -178,7 +180,8 @@
                             <span
                                 style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Confirmados</span>
                         </a>
-                        <a href="{{ route('consumibles.index', array_merge(request()->except('estado'), ['estado' => 'SIN_MATCH'])) }}"
+                        <a id="consCntSin" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'SIN_MATCH'])) }}"
+                            onclick="return window.consumiblesFiltrarEstado('SIN_MATCH', 'Por identificar');"
                             style="text-decoration:none; background:#fef2f2; border: 1px solid #fecaca; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
                             onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
                             <strong style="display:block; font-size:18px; font-weight:800; color:#ef4444; line-height: 1;"
@@ -272,7 +275,7 @@
                         </div>
                     </div>
 
-                    <div
+                    <div id="consIdentWrap" data-cons-sync
                         style="flex: 1; min-width: 150px; height: 42px; border-radius: 10px; display: flex; align-items: center; border: 1px solid {{ request('identificador') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('identificador') ? '#e1effa' : '#fbfcfd' }}; overflow: hidden;">
                         <i class="material-icons"
                             style="padding: 0 8px; color: #94a3b8; font-size: 18px; flex-shrink: 0;">search</i>
@@ -281,17 +284,14 @@
                             style="flex: 1; border: none; background: transparent; padding: 0; outline: none; font-size: 13px; color:#1e293b; min-width: 0; font-family:inherit;"
                             onkeydown="if(event.key==='Enter'){event.preventDefault(); window.submitConsumiblesFilters();}"
                             oninput="clearTimeout(window._idTimer); window._idTimer=setTimeout(()=>window.submitConsumiblesFilters(),600)">
-                        @if(request('identificador'))
-                            <a href="{{ route('consumibles.index', array_merge(request()->except('identificador'))) }}"
-                                style="padding: 0 8px; color: #94a3b8; display: flex; align-items: center; flex-shrink: 0;"
-                                onclick="if(window.showPreloader) window.showPreloader();"><i class="material-icons"
-                                    style="font-size: 18px;">close</i></a>
-                        @endif
+                        <i class="material-icons" id="consIdentLimpiar" data-cons-sync title="Quitar"
+                            style="padding: 0 8px; color: #94a3b8; font-size: 18px; flex-shrink: 0; cursor: pointer; display: {{ request('identificador') ? 'block' : 'none' }};"
+                            onclick="var i=document.querySelector('#filtrosForm [name=identificador]'); i.value=''; window.submitConsumiblesFilters();">close</i>
                     </div>
 
                     <!-- Advanced Filter Trigger -->
                     <div style="position: relative;">
-                        <button type="button" id="btnAdvancedFilter" class="btn-primary-maquinaria"
+                        <button type="button" id="btnAdvancedFilter" data-cons-sync class="btn-primary-maquinaria"
                             style="height: 42px; width: 42px; padding: 0; display: flex; align-items: center; justify-content: center; background: {{ request('estado') || request('fecha_desde') || request('fecha_hasta') ? '#e1effa' : 'white' }}; border: 1px solid {{ request('estado') || request('fecha_desde') || request('fecha_hasta') ? '#0067b1' : '#cbd5e0' }}; color: {{ request('estado') || request('fecha_desde') || request('fecha_hasta') ? '#0067b1' : '#64748b' }}; box-shadow: none;"
                             onclick="window.toggleAdvancedFilterConsumibles(event)">
                             <i class="material-icons">filter_list</i>
@@ -303,7 +303,7 @@
                             <h4
                                 style="margin: 0 0 15px 0; font-size: 14px; font-weight: 700; color: #334155; display: flex; justify-content: space-between; align-items: center;">
                                 Filtros Avanzados
-                                <a href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'fecha_desde', 'fecha_hasta']))) }}" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo"></a>
+                                <a id="consLimpiarAvanzado" data-cons-sync href="{{ route('consumibles.index', request()->except(['estado', 'fecha_desde', 'fecha_hasta', 'page'])) }}" onclick="return window.consumiblesLimpiarAvanzado();" class="panel-filtro-avanzado-limpiar" title="Limpiar todo" aria-label="Limpiar todo"></a>
                             </h4>
 
                             <!-- Fecha -->
@@ -470,7 +470,24 @@
                     menu.style.display = (menu.style.display === 'none' || menu.style.display === '') ? 'block' : 'none';
                 };
 
-                window.submitConsumiblesFilters = function () {
+                // Contadores de arriba: filtran por estado SIN perder los demás filtros puestos.
+                window.consumiblesFiltrarEstado = function (estado, etiqueta) {
+                    window.selectOption('estadoFilterSelect', estado, etiqueta);
+                    window.submitConsumiblesFilters();
+                    return false;
+                };
+                // «Limpiar todo» del panel: quita estado y fechas, deja frente, tipo y placa.
+                window.consumiblesLimpiarAvanzado = function () {
+                    window.clearDropdownFilter('estadoFilterSelect');
+                    document.querySelectorAll('#filtrosForm [name=fecha_desde], #filtrosForm [name=fecha_hasta]').forEach(function (i) { i.value = ''; });
+                    window.submitConsumiblesFilters();
+                    return false;
+                };
+
+                // conservarPagina: recargar tras editar o borrar. Se queda en la página en que
+                // estaba SOLO si los filtros siguen siendo los de la URL; si mientras tanto se
+                // cambió un filtro, gana el filtro nuevo (desde la página 1).
+                window.submitConsumiblesFilters = function (conservarPagina) {
                     var form = document.getElementById('filtrosForm');
                     var url = new URL(form.action);
                     var formData = new FormData(form);
@@ -480,6 +497,12 @@
                             params.append(pair[0], pair[1]);
                         }
                     }
+                    var actual = new URLSearchParams(window.location.search);
+                    var pagina = actual.get('page');
+                    actual.delete('page');
+                    actual.sort();
+                    var mismos = new URLSearchParams(params); mismos.sort();
+                    if (conservarPagina && pagina && actual.toString() === mismos.toString()) params.append('page', pagina);
                     url.search = params.toString();
                     window.cargarConsumibles(url.pathname + url.search);
                 };
@@ -525,6 +548,13 @@
                         if (btnM && nBtnM) btnM.disabled = nBtnM.disabled;
                         var exp = document.getElementById('consumiblesExportar'), nExp = doc.getElementById('consumiblesExportar');
                         if (exp && nExp) exp.href = nExp.getAttribute('href');
+                        // Lo que se marca según los filtros (botón de filtros, caja de placa y su X,
+                        // enlaces de los contadores y de «Limpiar todo»): como lo pinta el servidor.
+                        doc.querySelectorAll('[data-cons-sync]').forEach(function (n) {
+                            var a = document.getElementById(n.id); if (!a) return;
+                            a.setAttribute('style', n.getAttribute('style') || '');
+                            if (n.hasAttribute('href')) a.setAttribute('href', n.getAttribute('href'));
+                        });
                         if (window.location.pathname + window.location.search !== url.pathname + url.search) {
                             history.pushState({}, '', url.pathname + url.search);
                         }

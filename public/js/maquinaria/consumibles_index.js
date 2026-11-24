@@ -40,10 +40,10 @@ window.borrarDirecto = function(id, url, btn) {
     });
 };
 
-// Vuelve a pedir los resultados con los filtros puestos: la fila, el estado y los
-// contadores quedan como los dejó el servidor.
+// Vuelve a pedir los resultados con los filtros de la pantalla y en la misma página: la
+// fila, el estado y los contadores quedan como los dejó el servidor.
 function consumiblesRefrescar() {
-    if (window.submitConsumiblesFilters) window.submitConsumiblesFilters();
+    if (window.submitConsumiblesFilters) window.submitConsumiblesFilters(true);
 }
 
 // ═══════════════════════════════════════════════════════════════════
