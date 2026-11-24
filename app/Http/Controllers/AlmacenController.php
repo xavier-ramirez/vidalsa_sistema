@@ -77,9 +77,9 @@ class AlmacenController extends Controller
     ];
 
     // Ancho tope (px) de la foto del inventario: se ve en un círculo y en el visor, así que
-    // 600 basta y pesa poco. La que llega más grande (Gemini da ~1024) se achica.
+    // 600 basta y pesa poco. La que llega más grande (la IA da ~1024) se achica.
     private const FOTO_PRODUCTO_ANCHO = 600;
-    // Ancho con el que se le manda la foto a Gemini (y se guarda la copia _original).
+    // Ancho con el que se le manda la foto a la IA (y se guarda la copia _original).
     private const FOTO_GEMINI_ANCHO = 1024;
 
     /**
@@ -277,18 +277,19 @@ class AlmacenController extends Controller
      * camino que las fotos de equipos y del catalogo: el archivo vive en Drive y la app lo
      * sirve por esa ruta, asi que la carpeta NO necesita ser publica.
      *
-     * Antes de guardarla, Gemini la rehace con fondo blanco tipo catálogo (FotoProductoGemini),
+     * Antes de guardarla, la IA la rehace con fondo blanco tipo catálogo (FotoProductoIA:
+     * Cloudflare y, de respaldo, Gemini),
      * con el nombre y la categoría del producto para que sepa qué objeto dejar.
      * Se le manda ya achicada a FOTO_GEMINI_ANCHO (no hace falta más y el envío es liviano).
      * Respuesta `fondo_blanco`: true = la rehizo; false = no pudo (sin cupo, sin red) y quedó
-     * la foto tal como vino; null = Gemini no está configurado. Cuando sí la rehace, la ORIGINAL
+     * la foto tal como vino; null = no hay IA configurada. Cuando sí la rehace, la ORIGINAL
      * también se guarda en la carpeta (sufijo _original): la IA puede cambiar un detalle del
      * producto y así no se pierde la foto real.
      *
      * Lo que se guarda va en WebP a FOTO_PRODUCTO_ANCHO (ConvertsImageToWebp): una foto de
      * telefono de 4 MB queda en unas decenas de KB y la tabla no se vuelve lenta.
      */
-    public function subirFotoProducto(Request $request, $id, \App\Services\FotoProductoGemini $gemini)
+    public function subirFotoProducto(Request $request, $id, \App\Services\FotoProductoIA $ia)
     {
         $request->validate([
             'foto' => 'required|image|mimes:jpeg,jpg,png,webp|max:8192',
@@ -300,20 +301,20 @@ class AlmacenController extends Controller
         ]);
 
         $producto = ProductoInventario::findOrFail($id);
-        // Gemini puede tardar hasta services.gemini.timeout_imagen (60 s) más la subida a Drive:
+        // La IA puede tardar hasta su timeout (60 s; con reintento, y Gemini de respaldo) más la subida a Drive:
         // el tope de 30 s de PHP (XAMPP) cortaría la petición a la mitad.
         @set_time_limit(150);
 
         $temporales = [];
         try {
-            // La original, achicada para Gemini y para la copia _original.
+            // La original, achicada para la IA y para la copia _original.
             $previa       = $this->convertToWebp($request->file('foto'), self::FOTO_GEMINI_ANCHO);
             $temporales[] = $previa['tempPath'];
 
-            // Fondo blanco con Gemini. Lo que devuelve se escribe a un temporal y sigue como si
+            // Fondo blanco con la IA. Lo que devuelve se escribe a un temporal y sigue como si
             // el usuario hubiera subido esa imagen; sin respuesta, sigue la original.
             $foto   = $previa['file'];
-            $blanca = $gemini->fondoBlanco($foto->getRealPath(), $foto->getMimeType(),
+            $blanca = $ia->fondoBlanco($foto->getRealPath(), $foto->getMimeType(),
                 trim($producto->NOMBRE . ($producto->CATEGORIA ? ' (' . $producto->CATEGORIA . ')' : '')));
             if ($blanca) {
                 $tmp = tempnam(sys_get_temp_dir(), 'gem_');
@@ -350,7 +351,7 @@ class AlmacenController extends Controller
 
             $this->borrarFotoAnterior($anterior, $subido->id);
 
-            // La foto real, de respaldo, solo cuando la que se muestra la hizo Gemini. Si esta
+            // La foto real, de respaldo, solo cuando la que se muestra la hizo la IA. Si esta
             // copia falla, la foto ya quedó guardada: solo se anota.
             if ($blanca) {
                 try {
@@ -364,7 +365,7 @@ class AlmacenController extends Controller
             return response()->json([
                 'success'      => true,
                 'foto'         => $producto->FOTO,
-                'fondo_blanco' => $gemini->activo() ? (bool) $blanca : null,
+                'fondo_blanco' => $ia->activo() ? (bool) $blanca : null,
             ]);
         } finally {
             foreach (array_filter($temporales) as $tmp) {

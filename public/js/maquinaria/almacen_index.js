@@ -2532,11 +2532,11 @@
     };
 
     // Aviso tras subir una foto, según `fondo_blanco` (AlmacenController::subirFotoProducto):
-    // true = Gemini le puso fondo blanco; false = no pudo y quedó la original; null = Gemini
+    // true = la IA la rehizo tipo catálogo; false = no pudo y quedó la original; null = la IA
     // no está configurado.
     function almFotoAviso(b) {
-        if (b.fondo_blanco === true) window.toast('Foto actualizada con fondo blanco.', 'success');
-        else if (b.fondo_blanco === false) window.toast('Foto guardada tal cual: Gemini no pudo ponerle el fondo blanco.', 'warning');
+        if (b.fondo_blanco === true) window.toast('Foto rehecha con IA tipo catálogo.', 'success');
+        else if (b.fondo_blanco === false) window.toast('Foto guardada tal cual: la IA no pudo rehacerla.', 'warning');
         else window.toast('Foto actualizada.', 'success');
     }
 
@@ -3777,7 +3777,7 @@
     function almProdSubirFotoPendiente(idProducto) {
         if (!_almProdFotoPend || !idProducto) return Promise.resolve(null);
         var archivo = _almProdFotoPend;
-        // Con Gemini la subida puede tardar: que se sepa que la foto viene en camino.
+        // Con la IA la subida puede tardar: que se sepa que la foto viene en camino.
         toast('Subiendo la foto del producto…');
         return window.apiPostForm(CFG.rutas.productosBase + '/' + idProducto + '/foto',
                                   { foto: archivo }, 'No se pudo subir la foto.')
