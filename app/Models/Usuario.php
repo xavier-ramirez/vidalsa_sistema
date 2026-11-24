@@ -47,6 +47,11 @@ class Usuario extends Authenticatable
      * en PERMISOS. La accion es destructiva (soft-delete masivo) y se queja
      * registrada en equipo_audit_log con deleted_by.
      *
+     * almacen.foto / catalogo.foto (24-11-2026): subir, cambiar o eliminar fotos de
+     * productos del Inventario / de las fichas del Catálogo (y de los equipos, que toman la
+     * foto de su ficha). EXCLUSIVAS a pedido del cliente: quien no tenga la casilla marcada
+     * no sube fotos, aunque tenga Acceso Total.
+     *
      * Consecuencia: un super.admin que deba eliminar equipos o tocar el almacen
      * necesita la clave literal correspondiente agregada en su columna PERMISOS.
      */
@@ -57,6 +62,8 @@ class Usuario extends Authenticatable
         'almacen.nota.corregir' => true,
         'user.delete'           => true,
         'docs.carga.masiva'     => true,
+        'almacen.foto'          => true,
+        'catalogo.foto'         => true,
     ];
 
     /**

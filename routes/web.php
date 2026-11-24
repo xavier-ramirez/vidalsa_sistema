@@ -280,7 +280,7 @@ Route::middleware(['auth'])->group(function () {
             // ANTES del resource para que su wildcard {catalogo} no capture esta ruta.
             // Con `color` la foto es la de ese color del modelo (catalogo_colores); sin él, la del modelo.
             Route::post('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'uploadFoto'])->middleware('can:catalogo.foto')->name('catalogo.uploadFoto');
-            Route::delete('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'deleteFoto'])->middleware('can:super.admin')->name('catalogo.deleteFoto');
+            Route::delete('catalogo/{id}/photo', [App\Http\Controllers\CaracteristicaModeloController::class, 'deleteFoto'])->middleware('can:catalogo.foto')->name('catalogo.deleteFoto');
             // Ficha de un modelo que solo tenía equipos sin ficha: la crea (o encuentra la que
             // ya hay) y le enlaza sus unidades. La usa la tarjeta "sin ficha" del catálogo.
             Route::post('catalogo/asegurar-ficha', [App\Http\Controllers\CaracteristicaModeloController::class, 'asegurarFicha'])->name('catalogo.asegurarFicha');
@@ -349,7 +349,7 @@ Route::middleware(['auth'])->group(function () {
             // Catalogo agregado por TIPO+MARCA+MODELO+CAPACIDAD (vista de solo lectura)
             Route::get   ('equipos-auxiliares/catalogo',       [App\Http\Controllers\EquipoAuxiliarController::class, 'catalogo'])->name('equipos-auxiliares.catalogo');
             Route::post  ('equipos-auxiliares/catalogo/photo', [App\Http\Controllers\EquipoAuxiliarController::class, 'uploadCatalogoPhoto'])->middleware('can:catalogo.foto')->name('equipos-auxiliares.catalogo.uploadPhoto');
-            Route::delete('equipos-auxiliares/catalogo/photo', [App\Http\Controllers\EquipoAuxiliarController::class, 'deleteCatalogoPhoto'])->middleware('can:super.admin')->name('equipos-auxiliares.catalogo.deletePhoto');
+            Route::delete('equipos-auxiliares/catalogo/photo', [App\Http\Controllers\EquipoAuxiliarController::class, 'deleteCatalogoPhoto'])->middleware('can:catalogo.foto')->name('equipos-auxiliares.catalogo.deletePhoto');
             Route::post  ('equipos-auxiliares/bulk-delete',    [App\Http\Controllers\EquipoAuxiliarController::class, 'bulkDelete'])->middleware('can:user.delete')->name('equipos-auxiliares.bulkDelete');
             Route::get   ('equipos-auxiliares/papelera',       [App\Http\Controllers\EquipoAuxiliarController::class, 'papelera'])->middleware('can:user.delete')->name('equipos-auxiliares.papelera');
             Route::patch ('equipos-auxiliares/{id}/restore',    [App\Http\Controllers\EquipoAuxiliarController::class, 'restoreAuxiliar'])->middleware('can:user.delete')->name('equipos-auxiliares.restore');

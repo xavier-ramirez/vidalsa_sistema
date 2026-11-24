@@ -314,7 +314,10 @@ Deshacer un movimiento es un borrado **duro** a propósito.
   descripción; se sube desde "Detalles del producto" (foto en círculo con el icono de la cámara
   encima, sin fondo; antes de subir se encuadra en el recorte compartido con el Catálogo,
   `partials/recorte_foto`) y exige
-  `almacen.productos`. Tocar la miniatura la abre en grande (`almVerFoto`). Va a una carpeta
+  `almacen.foto` (exclusiva: ni super.admin la hereda). Tocar la miniatura la abre en grande
+  (`almVerFoto`), con «Cambiar» y papelera (DELETE `almacen/productos/{id}/foto`: el archivo va a
+  la papelera de Drive). Las fotos del Catálogo (y la cámara de «Vincular a una ficha» y las de
+  alta/edición de equipos) exigen `catalogo.foto`, también exclusiva. Va a una carpeta
   **privada** de Drive (`google.product_folder`): la cuenta del sistema tiene que ser editora, o
   Drive da 403. El navegador la recibe por `/storage/google/{id}` con sesión, nunca el enlace de
   Drive. El código del producto **no tiene columna**: va dentro de la descripción, pequeño y

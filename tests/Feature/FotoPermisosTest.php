@@ -15,7 +15,8 @@ use Tests\MySqlTestCase;
 /**
  * Permisos de foto, uno por módulo (24-11-2026): almacen.foto (subir, cambiar y eliminar la
  * foto de un producto) y catalogo.foto (subir/cambiar la foto de las fichas del Catálogo).
- * Sin la clave el servidor responde 403 aunque el usuario tenga el resto del módulo.
+ * Sin la clave el servidor responde 403 aunque el usuario tenga el resto del módulo, y
+ * aunque tenga Acceso Total: las dos son EXCLUSIVAS (Usuario::PERMISOS_EXPLICITOS).
  */
 class FotoPermisosTest extends MySqlTestCase
 {
@@ -65,6 +66,55 @@ class FotoPermisosTest extends MySqlTestCase
 
         $this->assertNull($p->fresh()->FOTO);
         Bus::assertDispatchedAfterResponse(\App\Jobs\DeleteGoogleDriveFile::class);
+    }
+
+    public function test_las_dos_son_exclusivas(): void
+    {
+        $this->assertArrayHasKey('almacen.foto', Usuario::PERMISOS_EXPLICITOS);
+        $this->assertArrayHasKey('catalogo.foto', Usuario::PERMISOS_EXPLICITOS);
+    }
+
+    public function test_acceso_total_sin_la_casilla_no_toca_ninguna_foto(): void
+    {
+        $u = $this->usuario('super.admin');
+        $p = $this->productoConFoto();
+        $foto = ['foto' => UploadedFile::fake()->image('foto.jpg', 300, 300)];
+        $json = ['Accept' => 'application/json'];
+
+        $this->actingAs($u)->post(route('almacen.productos.foto.store', $p->ID_PRODUCTO), $foto, $json)->assertForbidden();
+        $this->actingAs($u)->deleteJson(route('almacen.productos.foto.destroy', $p->ID_PRODUCTO))->assertForbidden();
+        $this->actingAs($u)->post(route('catalogo.uploadFoto', 1), $foto, $json)->assertForbidden();
+        $this->actingAs($u)->deleteJson(route('catalogo.deleteFoto', 1))->assertForbidden();
+        $this->actingAs($u)->post(route('equipos-auxiliares.catalogo.uploadPhoto'), $foto, $json)->assertForbidden();
+        $this->actingAs($u)->deleteJson(route('equipos-auxiliares.catalogo.deletePhoto'))->assertForbidden();
+        $this->assertSame('/storage/google/IDFOTOPRUEBA', $p->fresh()->FOTO);
+    }
+
+    public function test_editar_un_equipo_mandando_foto_sin_catalogo_foto_da_403(): void
+    {
+        $equipo = DB::table('equipos')->whereNull('deleted_at')->value('ID_EQUIPO');
+        $this->actingAs($this->usuario('super.admin,equipos.edit'))
+            ->put(route('equipos.update', $equipo), ['foto_equipo' => UploadedFile::fake()->image('eq.jpg', 200, 200)],
+                  ['Accept' => 'application/json'])
+            ->assertForbidden();
+    }
+
+    public function test_las_pantallas_solo_ensenan_la_camara_con_la_casilla(): void
+    {
+        $sin = $this->usuario('super.admin');
+        $con = $this->usuario('super.admin,catalogo.foto,almacen.foto');
+
+        // Catálogo: la capa «Cambiar foto» de las tarjetas.
+        $this->actingAs($sin)->get('/admin/catalogo')->assertOk()->assertDontSee('cat-photo-overlay', false);
+        $this->actingAs($con)->get('/admin/catalogo')->assertOk()->assertSee('cat-photo-overlay', false);
+        // Inventario: Cambiar + papelera del visor y el permiso que lee la cámara de la tabla.
+        $this->actingAs($sin)->get('/admin/almacen')->assertOk()->assertDontSee('alm-visor-acciones', false)
+            ->assertSee('"puedeFoto":false', false);
+        $this->actingAs($con)->get('/admin/almacen')->assertOk()->assertSee('alm-visor-acciones', false)
+            ->assertSee('"puedeFoto":true', false);
+        // Equipos: la cámara del modal «Vincular a una ficha».
+        $this->actingAs($sin)->get('/admin/equipos')->assertOk()->assertSee('data-puede-foto="0"', false);
+        $this->actingAs($con)->get('/admin/equipos')->assertOk()->assertSee('data-puede-foto="1"', false);
     }
 
     public function test_sin_catalogo_foto_no_cambia_la_foto_del_catalogo(): void

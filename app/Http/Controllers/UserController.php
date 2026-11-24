@@ -219,12 +219,13 @@ class UserController extends Controller
             'equipos.create'      => 'Registrar Equipos',
             'equipos.edit'        => 'Actualizar Equipos',
             'equipos.assign'      => 'Asignar Equipos',
-            // Fotos, una clave por módulo (24-11-2026). Ninguna es exclusiva: super.admin las
-            // hereda; a los demás se las da el administrador a dedo.
-            //   catalogo.foto → subir/cambiar la foto de las fichas del Catálogo (vehículos y
-            //                   auxiliares) y la de la ficha desde «Vincular a una ficha».
+            // Fotos, una clave por módulo (24-11-2026). EXCLUSIVAS (PERMISOS_EXPLICITOS): ni
+            // super.admin las hereda; se dan a dedo.
+            //   catalogo.foto → subir/cambiar/eliminar la foto de las fichas del Catálogo (vehículos y
+            //                   auxiliares), la de la ficha desde «Vincular a una ficha» y la
+            //                   foto que llegue en el alta/edición de un equipo.
             //   almacen.foto  → subir, cambiar y eliminar la foto de los productos del Inventario.
-            'catalogo.foto'       => 'Subir y cambiar fotos del catálogo',
+            'catalogo.foto'       => 'Subir, cambiar y eliminar fotos del catálogo',
             // La visibilidad de almacenes depende solo de usuarios.NIVEL_ACCESO_ALMACEN
             // (1=GLOBAL ve todo, 2=LOCAL solo sus frentes), no de permisos. Es un nivel
             // independiente del de equipos (NIVEL_ACCESO_EQUIPOS).

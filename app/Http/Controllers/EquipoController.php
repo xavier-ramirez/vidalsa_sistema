@@ -930,6 +930,8 @@ class EquipoController extends Controller
             throw $e;
         }
 
+        $this->exigirPermisoFoto($request);
+
         // PERFORMANCE & ROBUSTNESS: Process files BEFORE opening DB transaction
         // This prevents DB locks while waiting for slow disk I/O operations
         $filesToProcess = [];
@@ -1305,6 +1307,7 @@ class EquipoController extends Controller
     {
         set_time_limit(300);
         $equipo = $this->buscarEquipoOFallar($id);
+        $this->exigirPermisoFoto($request);
 
         // Normalize inputs to uppercase before validation to avoid case-sensitivity issues with unique constraints
         $request->merge([
@@ -2416,6 +2419,19 @@ class EquipoController extends Controller
                             && (!$anexo->PRINCIPAL_DRIVE_ID || !$idPpalActual
                                 || $anexo->PRINCIPAL_DRIVE_ID === $idPpalActual),
         ];
+    }
+
+    /**
+     * La foto de la unidad (foto_equipo) y la de su ficha del Catálogo (foto_referencial) piden
+     * catalogo.foto, la misma clave que el Catálogo: el equipo muestra la foto de su ficha.
+     * Los formularios ya no traen esos campos; esto cierra la puerta a quien los mande a mano.
+     */
+    private function exigirPermisoFoto(Request $request): void
+    {
+        if (($request->hasFile('foto_equipo') || $request->hasFile('foto_referencial'))
+            && !auth()->user()?->can('catalogo.foto')) {
+            abort(403, 'No tienes permiso para subir fotos.');
+        }
     }
 
     private function validationMessages()

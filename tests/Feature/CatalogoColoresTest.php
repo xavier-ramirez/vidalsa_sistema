@@ -81,7 +81,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $f = $this->ficha();
         $e = $this->equipo($f->ID_ESPEC, 'AZUL');
 
-        $this->actingAs($this->superAdminGlobal())
+        $this->actingAs($this->conFotoCatalogo())
             ->put(route('equipos.update', $e->ID_EQUIPO), [
                 'MARCA' => 'PRUEBA', 'MODELO' => $this->modelo, 'ANIO' => 2026,
                 'SERIAL_CHASIS' => $e->SERIAL_CHASIS, 'ESTADO_OPERATIVO' => 'OPERATIVO',
@@ -97,7 +97,7 @@ class CatalogoColoresTest extends MySqlTestCase
     public function test_subir_foto_de_un_color_no_toca_la_del_modelo_y_borrarla_si_la_quita(): void
     {
         $f = $this->ficha();
-        $admin = $this->superAdminGlobal();
+        $admin = $this->conFotoCatalogo();
 
         $this->actingAs($admin)->post(route('catalogo.uploadFoto', $f->ID_ESPEC), [
             'foto' => UploadedFile::fake()->image('amarilla.png', 60, 40), 'color' => 'amarilla',
@@ -120,7 +120,7 @@ class CatalogoColoresTest extends MySqlTestCase
         $f->colores()->create(['COLOR' => 'GRIS', 'FOTO' => '/storage/google/compartida']);
 
         $this->assertTrue(CaracteristicaModelo::fotoSigueEnUso('compartida'));
-        $this->actingAs($this->superAdminGlobal())->deleteJson(route('catalogo.deleteFoto', $f->ID_ESPEC) . '?color=GRIS')->assertOk();
+        $this->actingAs($this->conFotoCatalogo())->deleteJson(route('catalogo.deleteFoto', $f->ID_ESPEC) . '?color=GRIS')->assertOk();
         $this->assertTrue(CaracteristicaModelo::fotoSigueEnUso('compartida'), 'La del modelo sigue usándola: no se puede borrar de Drive.');
         $this->assertSame('/storage/google/compartida', $f->fresh()->FOTO_REFERENCIAL);
     }
@@ -315,6 +315,15 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->assertNull($elegir([])->json('foto_propia'));
         $e->update(['FOTO_EQUIPO' => '/storage/google/falso-propia-' . uniqid()]);
         $this->assertStringContainsString('falso-propia-', (string) $elegir([])->json('foto_propia'));
+    }
+
+    /** super.admin global con la casilla catalogo.foto (exclusiva: Acceso Total no la trae). */
+    private function conFotoCatalogo(): Usuario
+    {
+        $u = $this->superAdminGlobal();
+        $u->PERMISOS = array_values(array_unique(array_merge((array) $u->PERMISOS, ['catalogo.foto'])));
+        $u->save();
+        return $u->fresh();
     }
 
     /** Decisión del usuario (18-11-2026): el modal "Vincular a una ficha" es para todos, sin permiso.

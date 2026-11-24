@@ -549,33 +549,6 @@ window.addEventListener('spa:contentLoaded', function () {
 
     window.updateFileName = window.updatePdfBtn; // Alias for backwards compatibility
 
-    // Image preview function with loading animation
-    window.previewImage = function (input, previewId) {
-        const preview = document.getElementById(previewId);
-        if (!preview) return;
-
-        if (input.files && input.files[0]) {
-            preview.innerHTML = `<i class="material-icons" style="font-size: 16px; color: var(--maquinaria-blue); animation: spin 1s linear infinite;">sync</i>`;
-            preview.style.borderColor = 'var(--maquinaria-blue)';
-
-            const startTime = Date.now();
-            const minTime = 1200;
-
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                const elapsed = Date.now() - startTime;
-                const remaining = Math.max(0, minTime - elapsed);
-
-                setTimeout(() => {
-                    preview.innerHTML = `<img src="${e.target.result}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px;">`;
-                    preview.style.transform = 'scale(1.1)';
-                    setTimeout(() => preview.style.transform = 'scale(1)', 200);
-                }, remaining);
-            }
-            reader.readAsDataURL(input.files[0]);
-        }
-    };
-
     // Validation for document pairs (meta field + file input)
     window.validateDocPair = function () {
         try {
@@ -644,24 +617,6 @@ window.addEventListener('spa:contentLoaded', function () {
                 input.dataset.listenerAttached = 'true';
             }
         });
-
-        // Photo input listener
-        const fotoInput = document.getElementById('foto_equipo');
-        if (fotoInput && !fotoInput.dataset.listenerAttached) {
-            fotoInput.addEventListener('change', function () {
-                window.previewImage(this, 'preview_equipo');
-            });
-            fotoInput.dataset.listenerAttached = 'true';
-        }
-
-        // Catalog Model Photo input listener
-        const catalogFotoInput = document.getElementById('foto_referencial');
-        if (catalogFotoInput && !catalogFotoInput.dataset.listenerAttached) {
-            catalogFotoInput.addEventListener('change', function () {
-                window.previewImage(this, 'preview_referencial');
-            });
-            catalogFotoInput.dataset.listenerAttached = 'true';
-        }
     }
 
     // --- Dynamic Autocomplete Logic ---

@@ -49,11 +49,13 @@ class FotoProductoSubidaTest extends MySqlTestCase
         $p->setValue(null, $instancia);
     }
 
+    /** Un usuario cualquiera con la clave almacen.foto puesta (exclusiva: nadie la trae de base). */
     private function usuario(): Usuario
     {
-        $u = Usuario::all()->first(fn ($u) => $u->can('almacen.foto'));
-        $this->assertNotNull($u, 'No hay un usuario con almacen.foto para probar.');
-        return $u;
+        $u = Usuario::where('ESTATUS', 'ACTIVO')->where('REQUIERE_CAMBIO_CLAVE', 0)->firstOrFail();
+        $u->PERMISOS = array_values(array_unique(array_merge((array) $u->PERMISOS, ['almacen.foto'])));
+        $u->save();
+        return $u->fresh();
     }
 
     private function producto(): ProductoInventario

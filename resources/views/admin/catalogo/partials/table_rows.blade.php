@@ -122,7 +122,7 @@
             @endcan
             @endif
 
-            @can('super.admin')
+            @can('catalogo.foto')
                 {{-- En un vehículo con ficha el botón existe siempre y se esconde cuando la foto
                      elegida (modelo o color) no hay: la mini-tarjeta de color puede cambiar eso. --}}
                 @if($esVeh && !$sinFicha)

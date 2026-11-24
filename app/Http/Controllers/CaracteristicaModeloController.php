@@ -26,11 +26,12 @@ class CaracteristicaModeloController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        // elegir, asegurarFicha y uploadFoto: el modal "Vincular a una ficha" de /admin/equipos
-        // (la cámara en la foto de cada ficha), que usa cualquiera con sesión, sin permiso
-        // (decisión del usuario, 18-11-2026). uploadFoto es también "Cambiar foto" del Catálogo.
+        // elegir y asegurarFicha: el modal "Vincular a una ficha" de /admin/equipos, que usa
+        // cualquiera con sesión, sin permiso (decisión del usuario, 18-11-2026).
+        // uploadFoto ("Cambiar foto" del Catálogo y la cámara de ese modal) y deleteFoto piden
+        // catalogo.foto, exclusiva (24-11-2026); van en las rutas (routes/web.php).
         $this->middleware('can:equipos.create')->only(['store', 'update']);
-        $this->middleware('can:super.admin')->only(['destroy', 'deleteFoto']);
+        $this->middleware('can:super.admin')->only(['destroy']);
     }
 
     /** Reglas de validación compartidas por store y update. */

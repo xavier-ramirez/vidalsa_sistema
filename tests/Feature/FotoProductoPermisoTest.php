@@ -11,7 +11,7 @@ use Tests\MySqlTestCase;
  * La foto del producto la gobierna el permiso almacen.foto (desde el 24-11-2026; antes
  * almacen.productos). El @can de la vista solo ESCONDE la cámara; si la ruta no estuviera
  * protegida, cualquiera con acceso al módulo podría cambiar la foto llamándola a mano.
- * No es exclusiva: super.admin la hereda (ver también FotoPermisosTest).
+ * Es EXCLUSIVA (Usuario::PERMISOS_EXPLICITOS): ni super.admin la hereda (ver FotoPermisosTest).
  */
 class FotoProductoPermisoTest extends MySqlTestCase
 {
@@ -22,16 +22,15 @@ class FotoProductoPermisoTest extends MySqlTestCase
         ]);
     }
 
-    /** Usuario que edita productos pero NO tiene almacen.foto (ni super.admin). */
+    /** super.admin con almacen.productos pero SIN la clave literal almacen.foto. */
     private function sinPermiso(): Usuario
     {
         $u = Usuario::where('REQUIERE_CAMBIO_CLAVE', 0)->whereNotNull('PERMISOS')->get()
             ->first(function ($usr) {
                 $p = array_map('strtolower', $usr->PERMISOS);
-                return in_array('almacen.productos', $p, true)
-                    && !in_array('almacen.foto', $p, true) && !in_array('super.admin', $p, true);
+                return in_array('super.admin', $p, true) && !in_array('almacen.foto', $p, true);
             });
-        $this->assertNotNull($u, 'hace falta un usuario con almacen.productos y SIN almacen.foto');
+        $this->assertNotNull($u, 'hace falta un super.admin SIN almacen.foto');
 
         return $u;
     }
