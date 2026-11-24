@@ -450,6 +450,52 @@ class LectorDocumentoPdf
      * aseguradoraEnTexto con el catalogo), y las fechas por sus rotulos. "Vigencia ... 19/02/2026
      * al 19/02/2027" da la de vencimiento (la segunda); "Fecha de Emision" da la de emision.
      */
+    /**
+     * La pareja de fechas de la vigencia de la poliza: ['desde', 'vence', 'recibo' => bool].
+     * Primero las de rotulo ("Desde X Hasta Y", "Vigencia ... X al Y", "Vigencia del Seguro: X Y");
+     * si todas las que hay son del RECIBO, una pareja "X al Y" suelta en otra parte del texto (el
+     * cuadro desarmado por el OCR); y si tampoco hay, la del recibo. null si no hay ninguna.
+     */
+    private function vigenciaPoliza(string $plano): ?array
+    {
+        $f = self::RE_FECHA;
+        $conRotulo = [
+            '/Desde\s*' . $f . '\s*Hasta[^\d]{0,60}' . $f . '/ui',
+            '/Vigencia[^\r\n]{0,45}\R?[^\d\r\n]{0,15}' . $f . '\s*(?:al|a|hasta|-|–)\s*' . $f . '/ui',
+            '/Vigencia\s+del\s+Seguro\s*:?[^\d]{0,60}?' . $f . '\s*(?:(?:al|a|hasta|-|–)\s*)?' . $f . '/ui',
+        ];
+        // "RECIBO" en la vigencia o en el rotulo de justo antes ("Vigencia del Recibo: Desde ...
+        // Hasta ..."): es el periodo de pago, no la poliza.
+        // Lo de antes se mira solo desde la ULTIMA fecha: si el recibo va en la linea de arriba
+        // ("VIGENCIA DEL RECIBO: X al Y\nVIGENCIA DEL SEGURO: ..."), su rotulo no es el de esta.
+        $esRecibo = function (array $m) use ($plano, $f) {
+            $antes = preg_split('/' . $f . '/', substr($plano, max(0, $m[0][1] - 40), min(40, $m[0][1]))) ?: [''];
+            return (bool) preg_match('/RECIBO/ui', end($antes) . $m[0][0]);
+        };
+        $pareja = fn (array $m, bool $recibo) => ['desde' => $m[1][0], 'vence' => $m[2][0], 'recibo' => $recibo,
+            'ini' => $m[0][1], 'fin' => $m[0][1] + strlen($m[0][0])];
+
+        $delRecibo = [];
+        foreach ($conRotulo as $re) {
+            if (!preg_match_all($re, $plano, $todas, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) continue;
+            foreach ($todas as $m) {
+                if (!$esRecibo($m)) return $pareja($m, false);
+                $delRecibo[] = $pareja($m, true);
+            }
+        }
+        if (!$delRecibo) return null;
+
+        // Solo hay la del recibo: ¿otra pareja "X al Y" (que empiece donde termina) fuera de ella?
+        if (preg_match_all('/' . $f . '\s*(?:al|hasta)\s*' . $f . '/ui', $plano, $sueltas, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($sueltas as $m) {
+                $ini = $m[0][1];
+                $dentro = array_filter($delRecibo, fn ($r) => $ini >= $r['ini'] - 40 && $ini < $r['fin']);
+                if (!$dentro && !$esRecibo($m)) return $pareja($m, false);
+            }
+        }
+        return $delRecibo[0];
+    }
+
     private function extraerPoliza(string $plano): array
     {
         $datos = ['aseguradora' => null, 'nro' => null, 'desde' => null, 'vence' => null, 'emision' => null, 'placa' => null, 'serial' => null];
@@ -468,14 +514,18 @@ class LectorDocumentoPdf
         // rotulos sin cifras y las DOS fechas seguidas, con el "al" despues (renovaciones del
         // 05-10-2026). Sin esa tercera forma no se leia la vigencia y el ANEXO de la misma poliza
         // la fechaba por su firma (+1 año: 05/10/2027 en vez de 09/06/2027).
-        if (preg_match('/Desde\s*' . $f . '\s*Hasta[^\d]{0,60}' . $f . '/ui', $plano, $m, PREG_OFFSET_CAPTURE)
-            || preg_match('/Vigencia[^\r\n]{0,45}\R?[^\d\r\n]{0,15}' . $f . '\s*(?:al|a|hasta|-|–)\s*' . $f . '/ui', $plano, $m, PREG_OFFSET_CAPTURE)
-            || preg_match('/Vigencia\s+del\s+Seguro\s*:?[^\d]{0,60}?' . $f . '\s*(?:(?:al|a|hasta|-|–)\s*)?' . $f . '/ui', $plano, $m, PREG_OFFSET_CAPTURE)) {
-            $datos['desde'] = $this->fecha($m[1][0]);
-            $datos['vence'] = $this->fecha($m[2][0]);
-            // "RECIBO" en la vigencia o en el rotulo de justo antes ("Vigencia del Recibo:
-            // Desde ... Hasta ..."): es el periodo de pago, no la poliza.
-            $vigenciaDePoliza = !preg_match('/RECIBO/ui', substr($plano, max(0, $m[0][1] - 40), 40) . $m[0][0]);
+        //
+        // La del RECIBO no vale si hay otra: en las de Piramide con pago semestral el recibo va del
+        // 21/10/2026 al 09/12/2026 y la poliza del 21/10/2026 al 09/06/2027. El OCR deja el rotulo
+        // "VIGENCIA DEL SEGURO:" lejos de sus fechas ("SEMESTRAL 21/10/2026 al\n09/06/2027", sin
+        // rotulo) y solo la del recibo queda pegada al suyo: se tomaba esa y vencian 70 polizas
+        // en diciembre (24-11-2026). Ahora se busca primero una pareja que NO sea del recibo; la
+        // del recibo queda de ultimo recurso.
+        $vigencia = $this->vigenciaPoliza($plano);
+        if ($vigencia) {
+            $datos['desde'] = $this->fecha($vigencia['desde']);
+            $datos['vence'] = $this->fecha($vigencia['vence']);
+            $vigenciaDePoliza = !$vigencia['recibo'];
         } else {
             // Respaldo para las que separan los rotulos de sus valores ("Desde : Desde:" en una
             // linea y las fechas mas abajo) pero dejan el vencimiento pegado a su rotulo:
