@@ -6,7 +6,6 @@
     .imp-acciones .btn-primary-maquinaria { margin-left:0; }
     .imp-titulo { font-size:16px; font-weight:700; color:#1e293b; margin:0 0 6px; }
     .imp-sub { font-size:13px; color:#64748b; margin:0 0 14px; }
-    .imp-vacio { color:#94a3b8; font-size:13px; margin:0; }
 
     .imp-aviso { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px; }
     .imp-aviso-ok { background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; }

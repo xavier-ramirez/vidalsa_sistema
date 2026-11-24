@@ -275,7 +275,8 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
     {
         $html = $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cargar'))->assertOk()->getContent();
         $this->assertStringContainsString('id="impArchivos"', $html);
-        $this->assertStringContainsString('Cargas anteriores', $html);
+        // La tarjeta de cargas solo sale si hay alguna (retomar o deshacer).
+        $this->assertSame(ConsumibleImportacion::exists(), str_contains($html, 'Cargas de Excel'));
         $this->assertStringContainsString('id="formLote"', $html, 'Y la tabla para pegar, debajo.');
     }
 
