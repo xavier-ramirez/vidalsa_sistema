@@ -36,7 +36,10 @@ class FotoProductoIA
         . 'studio lighting and a subtle shadow below. Keep the same shape, colors, brand marks, labels, logos and '
         . 'printed text. Do not add objects, text or watermarks. If it is clothing or fabric (coveralls, shirts, '
         . 'pants, vests, gloves), show it neatly ironed, wrinkle-free and nicely laid out like in a store, keeping '
-        . 'the same design, seams, reflective tapes, pockets and logos. Square framing.';
+        . 'the same design, seams, reflective tapes, pockets and logos. Show the WHOLE item, fully inside the '
+        . 'frame with white margin on every side: if the photo is cropped and part of the item is cut off at the '
+        . 'edges (sleeves, legs, ends, corners), redraw the missing parts so the item looks complete, matching its '
+        . 'design, colors and proportions. Square framing.';
 
     /** La instrucción, con el producto que debe quedar en la foto si se conoce. */
     private static function instruccion(string $descripcion): string

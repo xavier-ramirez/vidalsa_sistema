@@ -60,6 +60,7 @@ class FotoProductoIATest extends TestCase
             return $w === 512 && $h === 341
                 && str_contains($partes['prompt']['contents'], '"BRAGA IGNÍFUGA TALLA 32"')
                 && str_contains($partes['prompt']['contents'], 'wrinkle-free')
+                && str_contains($partes['prompt']['contents'], 'redraw the missing parts')
                 && $partes['width']['contents'] === '1024' && $partes['height']['contents'] === '1024';
         });
     }
