@@ -116,11 +116,12 @@ class AppServiceProvider extends ServiceProvider
                     // Cacheado por usuario: estas 2 consultas (whereHas + count) corrían
                     // en CADA página. La clave lleva la versión que Traspaso::booted()
                     // incrementa en cada escritura → el badge se refresca al instante
-                    // para TODOS. Nota: cambios en la asignación usuario↔frente↔almacén
-                    // no bumpean la versión; los acota el TTL de 120s.
+                    // para TODOS. La huella de acceso (frentes, niveles, permisos) también:
+                    // si un administrador le cambia los frentes, cuenta los de su almacén nuevo
+                    // al instante y no 120 s después.
                     $ver = \App\Support\CacheVersion::current('traspasos_badge_ver');
                     $count = \Illuminate\Support\Facades\Cache::remember(
-                        "traspasos_badge_u{$user->ID_USUARIO}_v{$ver}",
+                        "traspasos_badge_u{$user->ID_USUARIO}_{$user->huellaAcceso()}_v{$ver}",
                         120,
                         function () use ($user) {
                             // La recepción es PERSONAL: el badge cuenta SOLO las notas
