@@ -239,6 +239,14 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertSame('33333333', $filas[0]['ci']);
         $this->assertSame('CAMION OTRO NOMBRE', $filas[0]['desc']);
         $this->assertSame('ZZ96TST', $filas[0]['placa']);
+
+        // El despachador y la hora de salida no son los litros.
+        $this->postJson(route('consumibles.importar.pegar'), ['texto' => "FECHA\tDESPACHADOR\tHORA DE SALIDA\tPLACA\tLITROS\n07/08/2026\tLUIS\t07:30\tZZ96TST\t55"])->assertOk();
+        $filas = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail()->filas();
+        $this->assertEquals([55], array_column($filas, 'litros'));
+
+        // Una hoja de resumen «FECHA | LITROS» (sin equipo ni SALIDA) no es de despachos.
+        $this->postJson(route('consumibles.importar.pegar'), ['texto' => "FECHA\tLITROS\n07/08/2026\t5000"])->assertStatus(422);
     }
 
     /**

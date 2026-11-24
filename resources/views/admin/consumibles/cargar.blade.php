@@ -342,7 +342,7 @@
                 {{-- Instrucciones de Pegado Rápido --}}
                 <div class="paste-zone" id="pasteZone">
                     <i class="material-icons">content_paste</i>
-                    <span>Pegue filas de Excel con Ctrl+V: con encabezados, cada columna va a su lugar; sin ellos, en este orden: <span id="pasteOrden">fecha, placa/serial, nombre, C.I., cantidad, origen</span></span>
+                    <span>Elija el tipo y pegue filas de Excel con Ctrl+V: con encabezados, cada columna va a su lugar; sin ellos, en este orden: <span id="pasteOrden">fecha, placa/serial, nombre, C.I., cantidad, origen</span></span>
                 </div>
 
                 <table id="tablaFilas">
@@ -452,8 +452,7 @@
                 td.style.display = espec ? '' : 'none';
                 const inp = td.querySelector('input');
                 if (inp) {
-                    inp.setAttribute('list', dlId);
-                    if (!espec) inp.value = '';
+                    inp.setAttribute('list', dlId);   // el valor se queda: el servidor lo ignora si el tipo no lo usa
                 }
             });
         }
@@ -563,50 +562,109 @@
             }
         };
 
-        // ── Pegado: encabezados, fechas y números como vienen del Excel ──────
-        function normEncabezado(c) {
-            return String(c || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
-        }
+        // ── Pegado: filas, encabezados, fechas y números como vienen del Excel ──
         /**
-         * Columna de cada campo de la tabla según la fila de encabezados pegada, con las
-         * variantes de nombre de los reportes (como LectorExcelCombustible::campoDe para el
-         * gasoil). null si la fila no trae al menos FECHA y la cantidad: entonces no es encabezado.
+         * Filas del texto que Excel pone en el portapapeles (TSV), como lo lee fgetcsv en
+         * ConsumiblesImportacionController::pegar: una celda entre comillas puede traer saltos de
+         * línea (Alt+Enter) y comillas dobladas (""). Espacios de cada celda colapsados.
+         */
+        function filasTSV(text) {
+            const filas = [];
+            let fila = [], celda = '', comillas = false, inicio = true;
+            const cerrarCelda = () => { fila.push(celda.replace(/\s+/g, ' ').trim()); celda = ''; inicio = true; };
+            for (let i = 0; i < text.length; i++) {
+                const c = text[i];
+                if (comillas) {
+                    if (c === '"' && text[i + 1] === '"') { celda += '"'; i++; }
+                    else if (c === '"') comillas = false;
+                    else celda += c;
+                } else if (c === '"' && inicio) {
+                    comillas = true; inicio = false;
+                } else if (c === '\t') {
+                    cerrarCelda();
+                } else if (c === '\r' || c === '\n') {
+                    if (c === '\r' && text[i + 1] === '\n') i++;
+                    cerrarCelda(); filas.push(fila); fila = [];
+                } else {
+                    celda += c; inicio = false;
+                }
+            }
+            if (celda !== '' || fila.length) { cerrarCelda(); filas.push(fila); }
+            return filas;
+        }
+        function normEncabezado(c) {
+            return String(c || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+        }
+        var EXACTO_LITROS = ['LITROS', 'LTS', 'LTS.', 'LT'];
+        /**
+         * Columna de cada campo de la tabla según la fila de encabezados pegada, con las variantes
+         * de nombre de los reportes (las de LectorExcelCombustible::campoDe). null si la fila no
+         * trae FECHA y la cantidad: entonces no es encabezado. La cantidad es la SALIDA/VOLUMEN si
+         * la hay (no la hora ni el km de salida, ni la ENTRADA del tanque). reporte: lo que
+         * LectorExcelCombustible::esEncabezadoDeDespachos toma por la tabla de un reporte de gasoil.
          */
         function mapaEncabezado(cols) {
             const m = {};
-            let desc;
+            let desc, salida, otraCantidad, fechaPura = false, equipo = false;
             const pon = (k, i) => { if (m[k] === undefined) m[k] = i; };
             cols.map(normEncabezado).forEach((h, i) => {
-                if (!h) return;
-                if (h.indexOf('FECHA') === 0) pon('fecha', i);
-                else if (h === 'CI' || h === 'C I' || /C\. ?I|CEDULA/.test(h)) pon('ci', i);
-                else if (h.indexOf('ENTRADA') !== -1) return;   // recargas del tanque: no es lo despachado
-                else if (/SALIDA|VOLUMEN|CANTIDAD|DESPACHAD|LITROS SURTIDOS/.test(h) || ['LITROS', 'LTS', 'LTS.', 'LT'].indexOf(h) !== -1) pon('cantidad', i);
+                if (!h || h.indexOf('ENTRADA') !== -1 || /^(HORA|KM|KILOMETRAJE|ODOMETRO)\b/.test(h)) return;
+                if (h.indexOf('FECHA') === 0) {
+                    pon('fecha', i);
+                    if (!/SALIDA|VOLUMEN/.test(h)) fechaPura = true;
+                } else if (/SALIDA|VOLUMEN/.test(h)) {
+                    if (salida === undefined) salida = i;
+                } else if (/CANTIDAD|LITROS (DESPACHADOS|SURTIDOS)/.test(h) || EXACTO_LITROS.indexOf(h) !== -1) {
+                    if (otraCantidad === undefined) otraCantidad = i;
+                } else if (h === 'CI' || h === 'C I' || /C\. ?I|CEDULA/.test(h)) pon('ci', i);
                 else if (/ORIGEN|SUMINISTRO|CISTERNA|GUIA/.test(h)) pon('origen', i);
                 else if (/VISCOSIDAD|MEDIDA|ESPECIFICACION|MODELO (DEL )?CAUCHO/.test(h)) pon('espec', i);
-                else if (/PLACA|SERIAL|IDENTIFICADOR/.test(h)) pon('id', i);
+                else if (/PLACA|SERIAL|IDENTIFICADOR/.test(h)) { pon('id', i); equipo = true; }
                 else if (/RESPONSABLE|CHOFER|OPERADOR|CONDUCTOR/.test(h)) pon('nombre', i);
-                else if (/DESCRIPCION|EQUIPO|VEHICULO|CARACTERISTICAS/.test(h)) { if (desc === undefined) desc = i; }
-                else if (h.indexOf('NOMBRE') !== -1) pon('nombre', i);
+                else if (/DESCRIPCION|CARACTERISTICAS|VEHICULO ?\/ ?EQUIPO/.test(h) || h === 'EQUIPO' || h === 'VEHICULO') {
+                    if (desc === undefined) desc = i;
+                    equipo = true;
+                } else if (h.indexOf('NOMBRE') !== -1) pon('nombre', i);
             });
+            m.cantidad = salida !== undefined ? salida : otraCantidad;
             if (m.id === undefined && desc !== undefined) m.id = desc;   // sin placa/serial, la descripción
-            return (m.fecha !== undefined && m.cantidad !== undefined) ? m : null;
+            if (m.fecha === undefined || m.cantidad === undefined) return null;
+            m.reporte = fechaPura && (salida !== undefined || equipo);
+            return m;
         }
-        /** Fecha del Excel → aaaa-mm-dd (d/m/a, d-m-aa, con la hora detrás o ya aaaa-mm-dd). */
+        var MESES = { ENE: 1, JAN: 1, FEB: 2, MAR: 3, ABR: 4, APR: 4, MAY: 5, JUN: 6, JUL: 7, AGO: 8, AUG: 8, SEP: 9, SET: 9, OCT: 10, NOV: 11, DIC: 12, DEC: 12 };
+        /**
+         * Fecha del Excel → aaaa-mm-dd, como LectorExcelCombustible::fecha: día/mes/año (siempre
+         * así, Venezuela) con / - . o espacio, año de 2 o 4 cifras, el mes en número o escrito
+         * («01-ago-26», «1 de agosto de 2026»), año primero («2026/08/01») y con la hora detrás.
+         * '' si no es una fecha que exista.
+         */
         function fechaISO(s) {
-            const t = String(s || '').trim().replace(/\s+\d{1,2}:\d{2}.*$/, '');
-            let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-            if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
-            m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4}|\d{2})$/);
-            if (!m) return t;
-            let a = parseInt(m[3], 10);
-            if (m[3].length === 2) a = a <= 50 ? 2000 + a : 1900 + a;   // 26 → 2026, 99 → 1999
-            return a + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');   // siempre día/mes (Venezuela)
+            const t = normEncabezado(s).replace(/\s+\d{1,2}:\d{2}.*$/, '').replace(/\bDEL?\b/g, ' ')
+                .replace(/[A-Z]+/g, w => ' ' + (MESES[w.slice(0, 3)] !== undefined ? MESES[w.slice(0, 3)] : w) + ' ');
+            const p = t.split(/[\s\/.\-]+/).filter(Boolean);
+            if (p.length !== 3 || p.some(x => !/^\d+$/.test(x))) return '';
+            let [d, m, a] = p.map(Number);
+            if (p[0].length === 4) [a, m, d] = [d, m, a];
+            else if (p[2].length === 2) a = a <= 50 ? 2000 + a : 1900 + a;   // 26 → 2026, 99 → 1999
+            else if (p[2].length !== 4) return '';
+            const f = new Date(Date.UTC(a, m - 1, d));
+            if (f.getUTCFullYear() !== a || f.getUTCMonth() !== m - 1 || f.getUTCDate() !== d) return '';
+            return a + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
         }
-        /** Cantidad en formato español («1.234,5») o con coma decimal → «1234.5». */
+        /**
+         * Cantidad del Excel → «1234.5». Con punto y coma, el último es el decimal («1.234,5»,
+         * «1,234.5»). Con uno solo de los dos, una vez es el decimal («3.785», «40,5») y repetido,
+         * de miles («1.234.567»).
+         */
         function numeroPegado(s) {
-            let t = String(s || '').replace(/\s/g, '');
-            if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '');
+            const t = String(s || '').replace(/\s/g, '');
+            const coma = t.lastIndexOf(','), punto = t.lastIndexOf('.');
+            if (coma !== -1 && punto !== -1) {
+                return coma > punto ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
+            }
+            const sep = coma !== -1 ? ',' : '.';
+            if (t.split(sep).length > 2) return t.split(sep).join('');
             return t.replace(',', '.');
         }
 
@@ -622,11 +680,25 @@
 
             e.preventDefault();
 
-            // La tabla completa de un reporte de gasoil (con su encabezado FECHA … SALIDA) va al
-            // mismo lector que un Excel subido (consumibles_importar.js). Ese lector es solo de
-            // gasoil: con otro tipo elegido, la tabla de abajo; sin tipo, solo si dice SALIDA/VOLUMEN.
-            const tipoPegado = document.getElementById('tipoSelect').value;
-            if ((tipoPegado === '' || tipoPegado === 'GASOIL') && window.consImpPegar && window.consImpPegar(text, tipoPegado === '')) return;
+            // Sin tipo no se sabe qué columnas trae (viscosidad, modelo del caucho) ni si va al
+            // lector de gasoil: primero el tipo, y el resultado no depende del orden.
+            const tipoPegado = tipoActual();
+            if (!tipoPegado) {
+                window.showModal({ type: 'warning', title: 'Primero el tipo', message: 'Elige el tipo de consumible y vuelve a pegar (Ctrl+V).', confirmText: 'Entendido', hideCancel: true });
+                return;
+            }
+
+            const filas = filasTSV(text).filter(cols => cols.some(c => c));
+            // El encabezado, en las primeras 15 filas (antes puede haber títulos), como el lector.
+            let mapa = null, desde = 0;
+            for (let i = 0; i < Math.min(15, filas.length) && !mapa; i++) {
+                mapa = mapaEncabezado(filas[i]);
+                if (mapa) desde = i + 1;
+            }
+
+            // La tabla completa de un reporte de gasoil va al mismo lector que un Excel subido
+            // (consumibles_importar.js): columnas por nombre, repetidos fuera y deshacer.
+            if (tipoPegado === 'GASOIL' && mapa && mapa.reporte && window.consImpPegar && window.consImpPegar(text)) return;
 
             // Limpiar tabla antes de pegar (solo si todas sus filas están vacías)
             const filasSinDatos = [...document.getElementById('cuerpoTabla').querySelectorAll('tr')]
@@ -636,35 +708,34 @@
                 filaCount = 0;
             }
 
-            // Con fila de encabezados, cada columna va a la suya por su nombre (mapaEncabezado);
-            // sin ella, por posición: el orden que dice #pasteOrden.
-            let mapa = null;
-            let insertadas = 0;
-            text.split(/\r\n|\n|\r/).forEach(linea => {
-            const cols = linea.split('\t').map(c => c.trim().replace(/^"|"$/g, ''));
-                if (cols.every(c => !c)) return;
-                if (insertadas === 0 && !mapa) {
-                    const m = mapaEncabezado(cols);
-                    if (m) { mapa = m; return; }
-                    // Otra fila de títulos antes de los datos (texto, no fecha ni número): se salta.
-                    if (!/^\d{4}-/.test(fechaISO(cols[0])) && isNaN(parseFloat(cols[0]))) return;
-                }
+            // Con encabezados, cada columna va a la suya por su nombre; sin ellos, por posición:
+            // el orden que dice #pasteOrden (con aceite o caucho, la viscosidad o el modelo).
+            const espec = necesitaEspec();
+            let insertadas = 0, sinFecha = 0;
+            filas.slice(desde).forEach(cols => {
+                if (cols.some(c => /^(SUB ?)?TOTAL(ES)?\b/i.test(c))) return;   // fila de total
+                // Sin encabezado, las filas de títulos antes de los datos (texto, no fecha ni número).
+                if (!mapa && insertadas === 0 && cols[0] && !fechaISO(cols[0]) && isNaN(parseFloat(cols[0]))) return;
                 const col = (campo, pos) => mapa
                     ? (mapa[campo] !== undefined ? (cols[mapa[campo]] || '') : '')
                     : (cols[pos] || '');
-                if (mapa && !col('fecha') && !col('cantidad')) return;   // fila de total o vacía
-                const espec = necesitaEspec();
+                if (mapa && !col('fecha') && !col('cantidad')) return;   // fila sin despacho
+                const fecha = fechaISO(col('fecha', 0));
+                if (!fecha && col('fecha', 0)) sinFecha++;
                 agregarFila({
-                    fecha: fechaISO(col('fecha', 0)),
+                    fecha: fecha,
                     id: col('id', 1),
                     nombre: col('nombre', 2),
                     ci: col('ci', 3),
                     cantidad: numeroPegado(col('cantidad', 4)),
-                    espec: espec ? col('espec', 5) : '',
+                    espec: (mapa || espec) ? col('espec', 5) : '',
                     origen: col('origen', espec ? 6 : 5),
                 });
                 insertadas++;
             });
+            if (sinFecha && window.showToast) {
+                window.showToast(sinFecha + (sinFecha === 1 ? ' fila trae una fecha que no se reconoce' : ' filas traen una fecha que no se reconoce') + ': complétala a mano.', 'warning');
+            }
 
             if (insertadas > 0) {
                 const pz = document.getElementById('pasteZone');

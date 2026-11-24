@@ -34,7 +34,7 @@ class LectorExcelCombustible
         'codreq'   => ['CODIGO REQUIRIENTE'],
         'nota'     => ['NRO DE NOTA', 'NOTA DE DESPACHO'],
         'entrada'  => ['ENTRADA'],
-        'salida'   => ['SALIDA', 'VOLUMEN', 'CANTIDAD', 'DESPACHAD', 'LITROS SURTIDOS'],
+        'salida'   => ['SALIDA', 'VOLUMEN', 'CANTIDAD', 'LITROS DESPACHADOS', 'LITROS SURTIDOS'],
         'ci'       => ['C. I.', 'C.I.', 'CEDULA'],
         'resp'     => ['NOMBRE DEL RESPONSABLE', 'NOMBRE Y APELLIDO', 'RESPONSABLE', 'OPERADOR', 'CONDUCTOR'],
         'ident'    => ['PLACA/SERIAL', 'PLACA / SERIAL', 'IDENTIFICADOR'],
@@ -102,13 +102,17 @@ class LectorExcelCombustible
         if ($h === 'COD') {
             return 'cod';
         }
+        // La hora o el kilometraje de la salida no son los litros («HORA DE SALIDA», «KM SALIDA»).
+        if (preg_match('/^(HORA|KM|KILOMETRAJE|ODOMETRO)\b/', $h)) {
+            return null;
+        }
         if (str_starts_with($h, 'NUMERO DE VEHICULO')) {
             return 'numveh';   // nº correlativo del Patio: no identifica al equipo
         }
         // Encabezados cortos que solo valen como celda entera («LITROS» sí; «LITROS EN TANQUE»
         // o «DESCRIPCION», que contiene «CI», no; ni «PLACA DEL VEHICULO», que es la placa).
         $exacto = ['LITROS' => 'salida', 'LTS' => 'salida', 'LTS.' => 'salida', 'LT' => 'salida', 'CI' => 'ci', 'C I' => 'ci',
-            'EQUIPO' => 'equipo', 'VEHICULO' => 'equipo', 'UNIDAD' => 'equipo'];
+            'EQUIPO' => 'equipo', 'VEHICULO' => 'equipo'];
         if (isset($exacto[$h])) {
             return $exacto[$h];
         }
@@ -128,7 +132,7 @@ class LectorExcelCombustible
     {
         $maxCol = $this->ultimaColumna($hoja);
         for ($r = 1; $r <= 15; $r++) {
-            $mapa = [];
+            $mapa = $titulo = [];
             for ($c = 1; $c <= $maxCol; $c++) {
                 $h = TextoConsumo::norm($this->valor($hoja, $c, $r));
                 if ($h === '') {
@@ -137,15 +141,33 @@ class LectorExcelCombustible
                 $campo = $this->campoDe($h);
                 if ($campo !== null && !isset($mapa[$campo])) {
                     $mapa[$campo] = $c;
+                    $titulo[$campo] = $h;
                 }
             }
-            // Una columna de fecha y OTRA de litros (despachados): «FECHA DE SALIDA» sola es la salida.
-            if (isset($mapa['fecha'], $mapa['salida'])) {
+            if ($this->esEncabezadoDeDespachos($mapa, $titulo)) {
                 return [$r, $mapa];
             }
         }
 
         return [null, []];
+    }
+
+    /**
+     * Una columna que EMPIEZA por FECHA y OTRA de litros («FECHA DE SALIDA» sola es la salida).
+     * Si los litros no se llaman SALIDA/VOLUMEN (CANTIDAD, LITROS…), además una columna que
+     * identifique al equipo: una hoja de resumen o de tanque «FECHA | LITROS» no son despachos.
+     *
+     * @param array<string,int>    $mapa
+     * @param array<string,string> $titulo
+     */
+    private function esEncabezadoDeDespachos(array $mapa, array $titulo): bool
+    {
+        if (!isset($mapa['fecha'], $mapa['salida']) || !str_starts_with($titulo['fecha'], 'FECHA')) {
+            return false;
+        }
+
+        return str_contains($titulo['salida'], 'SALIDA') || str_contains($titulo['salida'], 'VOLUMEN')
+            || array_intersect_key($mapa, array_flip(['ident', 'placa', 'serial', 'equipo'])) !== [];
     }
 
     /**

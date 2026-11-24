@@ -49,15 +49,22 @@
 
     // ── Subida (archivos o tabla pegada): las dos entran por el mismo lector ─────
 
+    var leyendo = false;    // una lectura a la vez: dos a la par dejarían un borrador huérfano
+
     /** Manda a leer y, si salen despachos, abre su revisión. */
     function leer(url, opts, siFalla) {
+        if (leyendo) {
+            if (window.showToast) window.showToast('Espera: ya se está leyendo una carga.', 'warning');
+            return;
+        }
+        leyendo = true;
         conEspera(pedir(url, opts)).then(function (r) {
             if (r.ok && r.body.url) { ir(r.body.url); return; }
             aviso('warning', 'No se pudo leer', mensajeDe(r.body, siFalla));
         }).catch(function (e) {
             if (e && e.message === 'Sesión expirada.') return;
             aviso('error', 'Error', 'No se pudo enviar. Revisa la conexión e intenta de nuevo.');
-        });
+        }).finally(function () { leyendo = false; });
     }
 
     /** Los Excel elegidos o soltados en la zona se leen enseguida (sin botón de por medio). */
@@ -67,7 +74,10 @@
             (EXTENSIONES.test(f.name) ? archivos : rechazados).push(f);
         });
         if (rechazados.length) {
-            aviso('warning', 'Solo Excel', 'No son archivos de Excel y se dejan fuera: ' + esc(rechazados.map(function (f) { return f.name; }).join(', ')));
+            // Con Excel que leer, aviso que no tapa la lectura ni se pierde al abrir la revisión.
+            var msj = 'No son archivos de Excel y se dejan fuera: ' + rechazados.map(function (f) { return f.name; }).join(', ');
+            if (archivos.length && window.showToast) window.showToast(msj, 'warning');
+            else aviso('warning', 'Solo Excel', esc(msj));
         }
         if (!archivos.length) return;
         var fd = new FormData();
@@ -76,37 +86,12 @@
     }
 
     /**
-     * ¿Es la tabla de un reporte de gasoil? En las primeras 15 filas, un encabezado con una
-     * columna de FECHA y OTRA de litros despachados, con los nombres que acepta el lector
-     * (LectorExcelCombustible::campoDe): «FECHA DE SALIDA» sola es la salida, no la fecha.
-     * estricto (sin tipo elegido): solo SALIDA/VOLUMEN, las palabras de un reporte de gasoil;
-     * una hoja de aceite con FECHA y CANTIDAD no se toma por gasoil.
+     * La llama el Ctrl+V de Cargar consumibles cuando ya vio que es la tabla completa de un
+     * reporte de gasoil (cargar.blade: tipo Gasoil + mapaEncabezado). Devuelve true si se
+     * encargó (la manda al mismo lector que un Excel subido); false sin permiso para esta carga.
      */
-    function traeEncabezado(texto, estricto) {
-        var EXACTO = ['LITROS', 'LTS', 'LTS.', 'LT'];
-        var litros = function (c) {
-            if (c.indexOf('ENTRADA') !== -1) return false;
-            if (c.indexOf('SALIDA') !== -1 || c.indexOf('VOLUMEN') !== -1) return true;
-            return !estricto && (c.indexOf('CANTIDAD') !== -1 || c.indexOf('DESPACHAD') !== -1
-                || c.indexOf('LITROS SURTIDOS') !== -1 || EXACTO.indexOf(c) !== -1);
-        };
-        return texto.split(/\r\n|\n|\r/).slice(0, 15).some(function (linea) {
-            var celdas = linea.split('\t').map(function (c) {
-                return c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/"/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
-            });
-            return celdas.some(function (c) { return c.indexOf('FECHA') !== -1 && !litros(c) && c.indexOf('ENTRADA') === -1; })
-                && celdas.some(litros);
-        });
-    }
-
-    /**
-     * La llama el Ctrl+V de Cargar consumibles (con tipo Gasoil o sin tipo elegido; sin tipo,
-     * estricto). Devuelve true si se encargó: la tabla completa del Excel (con encabezados) va
-     * al lector y sus columnas se reconocen por nombre; si no (o sin permiso para esta carga),
-     * la tabla de abajo.
-     */
-    window.consImpPegar = function (texto, estricto) {
-        if (!CFG.pegar || !document.getElementById('impZona') || !traeEncabezado(texto, estricto)) return false;
+    window.consImpPegar = function (texto) {
+        if (!CFG.pegar || !document.getElementById('impZona')) return false;
         var fd = new FormData();
         fd.append('texto', texto);
         leer(CFG.pegar, { method: 'POST', body: fd }, 'No se pudo leer la tabla pegada.');
