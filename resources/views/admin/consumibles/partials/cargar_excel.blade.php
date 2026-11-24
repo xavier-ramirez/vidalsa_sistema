@@ -11,7 +11,7 @@
         <span>
             <span class="imp-zona-titulo">Arrastra los Excel de gasoil o haz clic para elegirlos</span>
             <small>Se leen solos, uno o varios, en cualquier formato. También puedes copiar la tabla
-                completa del Excel (con sus encabezados) y pegarla con Ctrl+V con el tipo Gasoil elegido. Nada se guarda hasta que revises.</small>
+                completa del Excel (con sus encabezados) y pegarla con Ctrl+V. Nada se guarda hasta que revises.</small>
         </span>
         <input type="file" id="impArchivos" multiple accept=".xlsx,.xlsm,.xls" hidden>
     </label>
