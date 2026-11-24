@@ -2027,6 +2027,15 @@ input[type="password"]::-ms-clear {
     text-overflow: ellipsis;
 }
 
+/* En el telefono no hay raton para ver el title y cortado no se distingue "...fotos del
+   catalogo" de "...la foto de los productos": ahi el texto baja de linea (la casilla sigue
+   del mismo tamano por el flex-shrink de arriba). */
+@media (max-width: 768px) {
+    #permissionsSelect .multiselect-item > span {
+        white-space: normal;
+    }
+}
+
 /* Utility for vertical lines in tables */
 .table-cell-bordered {
     border-right: 1px solid #cbd5e0 !important;
