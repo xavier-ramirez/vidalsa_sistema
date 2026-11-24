@@ -410,6 +410,8 @@
         };
 
         function _cargarDatosLocal() {
+            // Se salió del módulo (SPA) antes de que corriera el temporizador: no hay nada que pintar.
+            if (!document.getElementById('resumenGrid')) return;
             // Preloader global SIEMPRE durante la carga (inicial y subsecuente).
             // Antes confiabamos en el spinner del SPA solo para la primera carga,
             // pero el SPA spinner se apaga al recibir el HTML inicial — los
@@ -445,6 +447,9 @@
             window.apiFetch(`{{ route('consumibles.graficosData') }}?${params}`)
                 .then(r => r.json())
                 .then(data => {
+                    // La respuesta llegó cuando ya se había ido a otro módulo: sus elementos no
+                    // existen y pintarlos rompía («Cannot read properties of null»).
+                    if (!document.getElementById('fFrente') || !document.getElementById('resumenGrid')) return;
                     const frenteSeleccionado = document.getElementById('fFrente').value;
                     const tipoFiltro = document.getElementById('fTipo').value;
 
