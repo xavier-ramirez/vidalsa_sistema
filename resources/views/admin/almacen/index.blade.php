@@ -318,8 +318,7 @@
     {{-- Aviso de la salida por corregir: lo pinta almPintarAvisoSalida. --}}
     <div id="almSalidaAviso" role="alert" hidden></div>
 
-    {{-- "Sin coincidencias exactas, mostrando parecidos": lo pinta almPintarAvisoBusqueda
-         cuando el servidor responde aproximada=true (ver AlmacenController::index). --}}
+    {{-- Número buscado que ningún producto tiene («guante 10»): lo pinta almPintarAvisoNumeros. --}}
     <div id="almBuscarAviso" role="status" hidden></div>
 
     {{-- ── Tabla ── --}}

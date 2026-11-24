@@ -363,7 +363,7 @@
                 // El aviso se repinta SOLO en la primera página. El término sale de los filtros
                 // CONGELADOS, que son los que se consultaron de verdad.
                 if (!append) {
-                    almPintarAvisoBusqueda(data.aproximada, f.get('search') || '', data.sinNumeros);
+                    almPintarAvisoNumeros(data.sinNumeros);
                     // Si esta búsqueda salió aproximada, los lotes siguientes van DIRECTOS al
                     // modo tolerante en vez de repetir la búsqueda exacta que ya se sabe vacía.
                     if (data.aproximada) {
@@ -1155,18 +1155,13 @@
         almPintarAvisoSalida();
     }
 
-    // ── Aviso de busqueda aproximada (#almBuscarAviso) ──
-    // Lo enciende AlmacenLocal.inventario (aproximada=true) cuando lo escrito no coincidio con NADA y
-    // hubo que buscar parecidos perdonando un error de tipeo. Sin este aviso la tabla
-    // mostraria filas que no contienen lo escrito y pareceria que el filtro esta roto.
-    // También cuando un número escrito no lo tiene ningún producto («guante 10»): se buscó sin
-    // él (AlmacenLocal · buscador) y hay que decirlo, o parecería que todas son talla 10.
-    function almPintarAvisoBusqueda(aproximada, termino, sinNumeros) {
+    // ── Aviso del número que no tiene ningún producto (#almBuscarAviso) ──
+    // «guante 10» sin ningún guante talla 10: se buscó sin el número (AlmacenLocal · buscador) y
+    // hay que decirlo, o parecería que todos son talla 10. La búsqueda por parecidos (un error
+    // de tipeo) NO se anuncia: el cliente pidió quitar ese aviso (24-11-2026).
+    function almPintarAvisoNumeros(sinNumeros) {
         var box = el('almBuscarAviso'); if (!box) return;
-        box.innerHTML = aproximada
-            ? '<i class="material-icons">info_outline</i><div>Sin coincidencias exactas de <b>'
-              + escHtml(termino || '') + '</b>. Mostrando resultados parecidos.</div>'
-            : (window.AlmacenLocal ? window.AlmacenLocal.avisoSinNumeros(sinNumeros) : '');
+        box.innerHTML = window.AlmacenLocal ? window.AlmacenLocal.avisoSinNumeros(sinNumeros) : '';
         box.hidden = !box.innerHTML;
     }
 

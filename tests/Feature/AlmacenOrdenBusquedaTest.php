@@ -278,8 +278,8 @@ class AlmacenOrdenBusquedaTest extends MySqlTestCase
         );
 
         // Pero en la PRIMERA página no se cree el parámetro: se mide. Si no, bastaría un
-        // enlace con &aprox=1 para que una búsqueda con coincidencias exactas se anunciara
-        // como "sin coincidencias exactas, mostrando parecidos".
+        // enlace con &aprox=1 para que una búsqueda con coincidencias exactas trajera
+        // también los parecidos en el scroll.
         $exacta = $this->tabla([
             'id_almacen' => $idAlmacen,
             'search'     => $palabra,       // escrita BIEN

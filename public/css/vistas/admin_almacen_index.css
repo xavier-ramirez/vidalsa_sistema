@@ -149,8 +149,8 @@
     #almSalidaAviso > .material-icons { font-size: 20px; color: #dc2626; flex-shrink: 0; }
     #almSalidaAviso > div { flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     @media (max-width: 768px) { #almSalidaAviso > div { white-space: normal; } }
-    /* Aviso de búsqueda aproximada (almPintarAvisoBusqueda): mismo molde que el de arriba,
-       pero informativo —azul, no rojo— porque no hay nada que corregir. */
+    /* Aviso del número buscado que no tiene ningún producto (almPintarAvisoNumeros): mismo
+       molde que el de arriba, pero informativo —azul, no rojo— porque no hay nada que corregir. */
     #almBuscarAviso { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; padding: 10px 14px;
                       background: #eff6ff; border: 1px solid #93c5fd; border-radius: 10px; color: #1e40af; }
     #almBuscarAviso[hidden] { display: none; }
