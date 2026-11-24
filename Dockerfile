@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     libpng-dev \
+    libjpeg62-turbo-dev \
+    libwebp-dev \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
@@ -29,7 +31,11 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 # COMPILADO pero APAGADO, y docker-php-ext-install no lo cubre. Sin el, PHP
 # reparsea en CADA peticion los ~700 archivos que carga el framework (medido en
 # el entorno de desarrollo: ~3,5x mas lento por peticion). Ajustes en docker/php.ini.
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip intl \
+# gd CON JPEG y WebP (24-11-2026): sin el configure, gd sale solo con PNG y las fotos
+# (Catálogo, auxiliares, Inventario) no se podían achicar ni pasar a WebP en el servidor —
+# ConvertsImageToWebp subía el archivo original tal cual, un JPEG podía quedar de 5 MB.
+RUN docker-php-ext-configure gd --with-jpeg --with-webp \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip intl \
     && docker-php-ext-enable opcache
 
 # Configuración personalizada de PHP.

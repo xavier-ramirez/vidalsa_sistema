@@ -46,6 +46,10 @@ trait ConvertsImageToWebp
             if ($image) {
                 // Normaliza a truecolor y preserva transparencia (PNG con alpha).
                 imagepalettetotruecolor($image);
+                // Foto de teléfono: el JPEG viene "acostado" con una marca EXIF que dice cómo
+                // girarlo. GD no la lee, y la foto quedaba de lado. Se endereza aquí (el
+                // recorte del navegador ya la manda derecha; esto cubre las que no pasan por él).
+                $girada = in_array($mime, ['image/jpeg', 'image/jpg'], true) ? $this->enderezarJpeg($image, $imagePath) : false;
                 imagealphablending($image, false);
                 imagesavealpha($image, true);
 
@@ -54,7 +58,7 @@ trait ConvertsImageToWebp
 
                 // Fast-path: ya es WebP y no hay que reescalar → se sube el original
                 // sin re-encodear (evita una pérdida de calidad innecesaria).
-                if ($mime === 'image/webp' && !$needsScale) {
+                if ($mime === 'image/webp' && !$needsScale && !$girada) {
                     imagedestroy($image);
                     return ['file' => $file, 'tempPath' => null];
                 }
@@ -87,5 +91,22 @@ trait ConvertsImageToWebp
 
         // Fallback: si GD falla o el mime no es soportado, subir el original.
         return ['file' => $file, 'tempPath' => null];
+    }
+
+    /**
+     * Gira $image (por referencia) según la orientación EXIF del JPEG. true si la giró.
+     * Orientación 3 = cabeza abajo, 6 = girar 90° a la derecha, 8 = 90° a la izquierda.
+     */
+    private function enderezarJpeg(\GdImage &$image, string $ruta): bool
+    {
+        if (!function_exists('exif_read_data')) return false;
+        $exif   = @exif_read_data($ruta);
+        $grados = [3 => 180, 6 => -90, 8 => 90][(int) ($exif['Orientation'] ?? 1)] ?? 0;
+        if ($grados === 0) return false;
+        $girada = imagerotate($image, $grados, 0);
+        if (!$girada) return false;
+        imagedestroy($image);
+        $image = $girada;
+        return true;
     }
 }
