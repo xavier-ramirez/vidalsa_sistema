@@ -1278,7 +1278,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Fotos protegidas en Equipos, Catálogo y el menú: sin "Guardar / Copiar / Abrir imagen" (clic derecho o
 // mantener pulsado en el teléfono) y sin arrastrarlas. Dos oyentes por pestaña, sin trabajo por foto: la
 // clase fotos-protegidas de <html> dice si el módulo abierto las protege (y el CSS quita el menú del iPhone).
-// El servidor además niega abrir el enlace de la foto directo (GoogleDriveController::esFotoDeEquipo).
+// El servidor además niega abrir el enlace de la foto directo (GoogleDriveController::esFotoProtegida).
 (function () {
     if (window._fotosProtegidas) return;
     window._fotosProtegidas = true;

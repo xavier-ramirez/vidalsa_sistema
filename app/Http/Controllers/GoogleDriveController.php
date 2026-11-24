@@ -33,7 +33,7 @@ class GoogleDriveController extends Controller
 
             // Fotos de equipos y del catalogo: solo para un <img> del sistema. Abrirlas en una pestaña
             // ("Abrir imagen en pestaña nueva", pegar el enlace) da "no disponible", como las fotos del login.
-            if (request()->header('Sec-Fetch-Dest') === 'document' && self::esFotoDeEquipo($fileId)) {
+            if (request()->header('Sec-Fetch-Dest') === 'document' && self::esFotoProtegida($fileId)) {
                 return self::noDisponible();
             }
 
@@ -240,7 +240,7 @@ class GoogleDriveController extends Controller
     }
 
     /** ¿El archivo es la foto de un equipo o de una ficha del catalogo (modelo o color)? */
-    private static function esFotoDeEquipo(string $fileId): bool
+    private static function esFotoProtegida(string $fileId): bool
     {
         return \DB::table('equipos')->where('FOTO_EQUIPO', 'like', '%/storage/google/' . $fileId . '%')->exists()
             || \App\Models\CaracteristicaModelo::fotoSigueEnUso($fileId);
