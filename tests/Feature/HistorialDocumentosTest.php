@@ -247,6 +247,30 @@ class HistorialDocumentosTest extends MySqlTestCase
     }
 
     /**
+     * Tras un cambio la lista del historial hay que rehacerla (~2,5 s): el panel la pide con
+     * ?calentar=1 al abrirse en Revisión, y el clic en "Historial de cambios" la encuentra hecha.
+     */
+    public function test_calentar_deja_hecha_la_lista_del_historial(): void
+    {
+        $yo = Usuario::all()->first(fn ($u) => $u->can('super.admin'));
+        $this->actingAs($yo)->get(route('historial-documentos.index'))
+            ->assertSee('historial-documentos?calentar=1', false);
+
+        HistorialDocumentosController::bumpDataVersion();
+        $clave = (new \ReflectionMethod(HistorialDocumentosController::class, 'claveDe'))
+            ->invoke(null, $yo->frentesVisiblesEquiposIds(), $yo->getFrentesBloqueadosIds(), []);
+        $ficha = fn () => \Illuminate\Support\Facades\Cache::store('file')->get($clave);
+        $this->assertNotSame(CacheVersion::current(HistorialDocumentosController::DATA_VER_KEY), $ficha()['ver'] ?? null);
+
+        $this->actingAs($yo)->getJson(route('historial-documentos.index', ['calentar' => 1]))->assertNoContent();
+        $this->assertSame(CacheVersion::current(HistorialDocumentosController::DATA_VER_KEY), $ficha()['ver'] ?? null, 'Quedó hecha.');
+
+        DB::enableQueryLog();
+        $this->actingAs($yo)->get(route('historial-documentos.index', ['pestana' => 'historial']))->assertOk();
+        $this->assertLessThan(15, count(DB::getQueryLog()), 'La pestaña no la vuelve a armar.');
+    }
+
+    /**
      * Revisión automática: tipo, estado y el buscador al final; Compresión también con el
      * documento primero y el buscador después de sus desplegables (29-10-2026) y UN "Certificado" para equipos y auxiliares.
      */

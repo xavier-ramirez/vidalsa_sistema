@@ -789,6 +789,13 @@
             });
     })();
 
+    // Deja hecha la lista de "Historial de cambios" mientras se mira esta pestaña: tras
+    // cualquier cambio rehacerla tarda ~2,5 s y, sin esto, los esperaba el clic en la pestaña
+    // (HistorialDocumentosController::index, ?calentar=1). Si ya está al día responde enseguida.
+    window.apiFetch(@json(route('historial-documentos.index', ['calentar' => 1])),
+        { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+        .catch(function () {});
+
     // Tras una acción (enlazar, revisar, descartar, pedir la lectura) cambia también lo que no
     // depende de los filtros —"Por dónde va la revisión", la lectura pedida—: se pide la pantalla
     // entera, con los mismos filtros.

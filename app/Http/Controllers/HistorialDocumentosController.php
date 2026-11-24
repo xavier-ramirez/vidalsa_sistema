@@ -310,20 +310,35 @@ class HistorialDocumentosController extends Controller
      */
     public function calentar(): void
     {
-        $ver     = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
-        $almacen = \Illuminate\Support\Facades\Cache::store('file');
-
         $alcances = \App\Models\Usuario::all()
             ->filter(fn ($u) => $u->veAuditoriaDocumentos())
             ->map(fn ($u) => [$u->frentesVisiblesEquiposIds(), $u->getFrentesBloqueadosIds()])
             ->unique(fn ($alcance) => json_encode($alcance));
 
         foreach ($alcances as [$frentesVisibles, $frentesBloqueados]) {
-            $clave    = self::claveDe($frentesVisibles, $frentesBloqueados, []);
-            if (self::leerFicha($almacen, $clave, $ver)) continue;   // ya estaba al dia
+            $this->calentarAlcance($frentesVisibles, $frentesBloqueados);
+        }
+    }
 
-            $events = collect($this->construirEventos($frentesVisibles, $frentesBloqueados, null, null, ''));
-            self::guardarLista($almacen, $clave, $ver, $events);
+    /**
+     * Arma y guarda la vista SIN filtros de ese alcance, si no estaba al dia. Con candado: si
+     * otra peticion ya la esta armando (el panel que la calienta y el clic en la pestaña), se
+     * espera a que termine y se usa la suya, en vez de armarla dos veces.
+     */
+    private function calentarAlcance($frentesVisibles, $frentesBloqueados): void
+    {
+        $almacen = \Illuminate\Support\Facades\Cache::store('file');
+        $clave   = self::claveDe($frentesVisibles, $frentesBloqueados, []);
+        try {
+            $almacen->lock($clave . '_armando', 30)->block(30, function () use ($almacen, $clave, $frentesVisibles, $frentesBloqueados) {
+                $ver = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
+                if (self::leerFicha($almacen, $clave, $ver)) return;   // ya estaba al dia
+
+                $events = collect($this->construirEventos($frentesVisibles, $frentesBloqueados, null, null, ''));
+                self::guardarLista($almacen, $clave, $ver, $events);
+            });
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            // 30 s sin soltarse: quien la pidio la arma por su cuenta (index) o se deja.
         }
     }
 
@@ -402,6 +417,13 @@ class HistorialDocumentosController extends Controller
         // Se abre en la revisión de documentos (pedido del cliente, 19-10-2026); el historial se
         // pide con ?pestana=historial (sus filtros y su paginación lo llevan siempre).
         $pestana = (string) $request->input('pestana');
+        // La lista del historial se rehace en CADA cambio (~2,5 s) y en XAMPP no se calienta
+        // sola (programarCalentado): la pide el panel al abrirse en Revisión o Compresión, en
+        // segundo plano, para que el clic en "Historial de cambios" la encuentre hecha.
+        if ($request->wantsJson() && $request->boolean('calentar')) {
+            $this->calentarAlcance($user->frentesVisiblesEquiposIds(), $user->getFrentesBloqueadosIds());
+            return response()->noContent();
+        }
         if ($pestana !== 'historial') {
             // "Por dónde va la revisión" no viene con la pantalla: el panel lo pide aparte al
             // pintarla (partials/avance), para no esperar su consulta.
@@ -472,6 +494,13 @@ class HistorialDocumentosController extends Controller
         // dia va en la ficha: "Hoy" y "Ultimos 7 dias" no pueden servirse de ayer; si cambio, se
         // recuenta sobre la lista guardada, sin rehacerla.
         $ficha = self::leerFicha($almacen, $cacheKey, $ver);
+        if (!$ficha && $cacheKey === self::claveDe($frentesVisibles, $frentesBloqueados, [])) {
+            // La vista sin filtros (como se abre la pestaña): por calentarAlcance, para esperar
+            // a la que el panel ya esté armando en vez de armar otra.
+            $this->calentarAlcance($frentesVisibles, $frentesBloqueados);
+            $ver   = \App\Support\CacheVersion::current(self::DATA_VER_KEY);
+            $ficha = self::leerFicha($almacen, $cacheKey, $ver);
+        }
         if ($ficha && $ficha['dia'] !== now()->toDateString()) {
             // Los trozos no cambian con el dia: solo se reescribe la ficha (~3,5 MB menos de escritura).
             $todo  = self::leerTodo($almacen, $cacheKey, $ficha);
