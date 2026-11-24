@@ -5,7 +5,7 @@
      fuera, revisión y deshacer. Debajo, la tabla para escribir a mano o pegar filas sin encabezado. --}}
 @include('admin.consumibles.partials.importar_estilos')
 
-<div class="admin-card imp-card">
+<div class="admin-card imp-card imp-card-zona">
     <label class="imp-zona" for="impArchivos" id="impZona">
         <i class="material-icons">upload_file</i>
         <span>
@@ -66,7 +66,7 @@
 </div>
 @endif
 
-<h3 class="imp-titulo" style="margin:4px 0 12px;">O llena la tabla: escribe o pega filas (cualquier consumible)</h3>
+<h3 class="imp-titulo imp-titulo-tabla">O llena la tabla: escribe o pega filas (cualquier consumible)</h3>
 
 <script>
     window.CONS_IMP_CFG = { subir: @json(route('consumibles.importar.subir')), pegar: @json(route('consumibles.importar.pegar')) };
