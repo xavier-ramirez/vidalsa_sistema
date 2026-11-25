@@ -88,11 +88,11 @@
     .ent-search-input:disabled { background-color:#f1f5f9; cursor:not-allowed; }
     /* Producto ya elegido: el chip tapa el buscador (y su lupa). Mismo aspecto que el del
        modal: azul claro con el código en negrita. */
-    .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 10px 0 4px; background:#e1effa; border:1px solid #0067b1; border-radius:10px; color:#0f172a; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
+    .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 10px 0 1px; background:#e1effa; border:1px solid #0067b1; border-radius:10px; color:#0f172a; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
     .ent-selected-badge.show { display:flex; }
     /* Foto del producto elegido, a la izquierda del código (tocarla la abre en grande). */
-    .ent-selected-foto .alm-foto { width:30px; height:30px; border-radius:6px; }
-    .ent-selected-foto span.alm-foto-sin:empty::before { font-size:16px; }
+    .ent-selected-foto .alm-foto { width:34px; height:34px; border-radius:6px; }
+    .ent-selected-foto span.alm-foto-sin:empty::before { font-size:18px; }
     .ent-selected-badge .cod { font-weight:800; }
     .ent-selected-badge .clear { cursor:default; color:#64748b; margin-left:auto; font-size:17px; }
     .ent-selected-badge .clear:hover { color:#dc2626; }
@@ -101,7 +101,7 @@
         position:absolute; top:calc(100% + 5px); left:0; right:0;
         background:#fff; border:1px solid #e2e8f0; border-radius:12px;
         box-shadow:0 10px 25px rgba(0,0,0,0.1);
-        max-height:300px; overflow-y:auto; padding:5px;
+        max-height:380px; overflow-y:auto; padding:5px;
         z-index:9000; display:none;
     }
     .ent-suggest.open { display:block; }
@@ -111,8 +111,8 @@
     .ent-suggest-item { display:flex; flex-direction:row; align-items:center; gap:8px; padding:5px 10px 5px 5px; border-radius:8px; cursor:default; transition:background .12s; }
     /* Miniatura de cada sugerencia, como en un sistema de facturación: se ve qué producto es
        antes de elegirlo. Tocarla elige la fila (no abre el visor). */
-    .ent-suggest-item .alm-foto { flex:0 0 auto; width:36px; height:36px; border-radius:7px; }
-    .ent-suggest-item span.alm-foto-sin:empty::before { font-size:18px; }
+    .ent-suggest-item .alm-foto { flex:0 0 auto; width:50px; height:50px; border-radius:8px; }
+    .ent-suggest-item span.alm-foto-sin:empty::before { font-size:22px; }
     .ent-suggest-item:hover, .ent-suggest-item.active { background:#e1effa; }
     /* Nº de parte del filtro que coincidió con lo buscado — gris, delante del nombre (como /admin/almacen). */
     .ent-suggest-item .parte { flex:0 0 auto; font-size:12.5px; font-weight:600; color:#475569; white-space:nowrap; }
