@@ -5685,3 +5685,27 @@ body:has(.mapa-page) { --mapa-col: 380px; }
 /* Fotos protegidas (Equipos, Catálogo, menú): sin el menú de guardar al mantener pulsado en el iPhone
    ni arrastre. La clase la pone navegacion.js según el módulo abierto. */
 html.fotos-protegidas img { -webkit-touch-callout: none; -webkit-user-drag: none; user-select: none; }
+
+/* Hoja «Tomar foto / Elegir de la galería» del teléfono al tocar un campo de imagen. La arma
+   layout_ui.js (__fotoCamaraOGaleria); va por encima de los modales del sistema. */
+.foto-origen-fondo {
+    position: fixed; inset: 0; z-index: 1000010;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex; align-items: flex-end; justify-content: center;
+    padding: 12px;
+}
+.foto-origen-hoja {
+    width: 100%; max-width: 420px;
+    display: flex; flex-direction: column; gap: 8px;
+    padding-bottom: env(safe-area-inset-bottom);
+}
+.foto-origen-hoja button {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 15px;
+    border: none; border-radius: 12px;
+    background: #fff; color: #0f172a;
+    font: inherit; font-size: 15px; font-weight: 600;
+    cursor: pointer;
+}
+.foto-origen-hoja button .material-icons { color: var(--maquinaria-blue); }
+.foto-origen-hoja .foto-origen-cancelar { color: var(--maquinaria-gray-text); margin-top: 4px; }
