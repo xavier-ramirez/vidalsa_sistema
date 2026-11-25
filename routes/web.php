@@ -325,7 +325,7 @@ Route::middleware(['auth'])->group(function () {
                 Route::post  ('consumibles/importar/{importacion}/deshacer',   'deshacer')    ->whereNumber('importacion')->name('consumibles.importar.deshacer');
                 Route::delete('consumibles/importar/{importacion}',            'descartar')   ->whereNumber('importacion')->name('consumibles.importar.descartar');
             });
-            // Cupos de gasoil de los patios (El Tigre, Maturín) y las cisternas pedidas de cada cupo.
+            // Cupos de gasoil de los patios (El Tigre, Maturín) y las cisternas surtidas que los consumen (modal de Cargar).
             Route::get('consumibles/cupos', [App\Http\Controllers\CuposCombustibleController::class, 'index'])->name('consumibles.cupos');
             Route::middleware('can:super.admin')->controller(App\Http\Controllers\CuposCombustibleController::class)->group(function () {
                 Route::post  ('consumibles/cupos',                 'guardarCupo')    ->name('consumibles.cupos.guardar');
