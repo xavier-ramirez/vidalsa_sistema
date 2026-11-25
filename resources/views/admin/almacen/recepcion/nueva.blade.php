@@ -76,11 +76,11 @@
             <input type="text" id="entSearch" class="ent-search-input" autocomplete="off"
                    placeholder="Buscar producto por código o descripción…"
                    oninput="window.entSuggest()" onfocus="window.entSuggest()" onkeydown="window.entSearchKey(event)">
-            <div id="entSelectedBadge" class="ent-selected-badge">
+            <div id="entSelectedBadge" class="ent-selected-badge" onclick="window.entEditarElegido(event)" title="Tocar para cambiar el producto">
                 <span id="entSelectedFoto" class="ent-selected-foto"></span>
                 <span class="cod" id="entSelectedCod"></span>
                 <span id="entSelectedNom"></span>
-                <i class="material-icons clear" onclick="window.entClearSelected()" title="Cambiar producto">close</i>
+                <i class="material-icons clear" onclick="event.stopPropagation(); window.entClearSelected()" title="Quitar el producto">close</i>
             </div>
             <div id="entSuggest" class="ent-suggest"></div>
         </div>

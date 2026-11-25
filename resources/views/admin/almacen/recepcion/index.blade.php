@@ -485,10 +485,11 @@
                     <input type="text" id="cdirSearch" class="cdir-input" autocomplete="off"
                            placeholder="Buscar por código o descripción…"
                            oninput="window.cdirSuggest()" onfocus="window.cdirSuggest()" onkeydown="window.cdirSearchKey(event)">
-                    <div class="cdir-badge" id="cdirBadge">
+                    <div class="cdir-badge" id="cdirBadge" onclick="window.cdirEditarElegido(event)" title="Tocar para cambiar el producto">
+                        <span class="cdir-badge-foto" id="cdirBadgeFoto"></span>
                         <span class="cod" id="cdirBadgeCod"></span>
                         <span class="nom" id="cdirBadgeNom"></span>
-                        <i class="material-icons" onclick="window.cdirQuitarSeleccion()" title="Cambiar producto">close</i>
+                        <i class="material-icons" onclick="event.stopPropagation(); window.cdirQuitarSeleccion()" title="Quitar el producto">close</i>
                     </div>
                     <div class="cdir-suggest" id="cdirSuggest"></div>
                 </div>
@@ -531,7 +532,7 @@
                     <thead>
                         <tr>
                             <th class="c-num">Nº</th>
-                            <th class="c-cod">Código</th>
+                            <th class="c-foto"></th>
                             <th class="c-desc">Descripción</th>
                             <th class="c-dest" id="cdirThDestino" style="display:none;">Destino</th>
                             <th class="c-cant">Cantidad</th>
@@ -819,11 +820,8 @@
         if (skipSuggest) { skipSuggest = false; box.classList.remove('open'); return; }
         if (elegido) { box.classList.remove('open'); return; }   // ya hay uno elegido
         var term = inp.value.trim();
-        // Mismo ranking y mismo haystack (código + nombre + nºs de parte equivalentes) que el
-        // resto de buscadores del módulo — window.FuzzySearch es la fuente única.
-        var matches = window.FuzzySearch.rank(catalogo(), term, function (p) {
-            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''), label: p.NOMBRE || '' };
-        }).slice(0, 12);
+        // El MISMO ranking que el Inventario y Recepción nueva (ProductoSuggest.rankear).
+        var matches = window.ProductoSuggest.rankear(catalogo(), term).slice(0, 12);
         if (!matches.length) {
             box.innerHTML = term
                 ? '<div class="cdir-suggest-empty">Sin coincidencias. Escribe la cantidad y presiona Enter para registrar <strong>"' + esc(term) + '"</strong> como producto nuevo.</div>'
@@ -831,7 +829,9 @@
         } else {
             box.innerHTML = matches.map(function (p) {
                 var parte = window.FuzzySearch.matchedPart(term, p.PARTES, p.PARTE);
+                // Con su foto, como en Recepción nueva (tocarla elige la fila, no abre el visor).
                 return '<div class="cdir-suggest-item" data-id="' + p.ID_PRODUCTO + '" data-cod="' + esc(p.CODIGO) + '" data-nom="' + esc(p.NOMBRE) + '" data-um="' + esc(p.UM) + '" data-cat="' + esc(p.CATEGORIA || '') + '">'
+                    + window.AlmFoto.mini(p.FOTO, p.NOMBRE, true)
                     + (parte ? '<span class="parte">' + esc(parte) + '</span>' : '')
                     + '<span class="nom">' + esc(p.NOMBRE) + '</span>'
                     + (p.UM ? '<span class="um">' + esc(p.UM) + '</span>' : '')
@@ -849,6 +849,7 @@
             um:          item.getAttribute('data-um')  || '',
             categoria:   item.getAttribute('data-cat') || '',
         };
+        el('cdirBadgeFoto').innerHTML = window.AlmFoto.mini(window.AlmFoto.de(catalogo(), elegido.id_producto), elegido.nombre);
         el('cdirBadgeCod').textContent = elegido.codigo;
         el('cdirBadgeNom').textContent = elegido.nombre;
         el('cdirBadge').classList.add('show');
@@ -879,6 +880,18 @@
         inp.focus();
     }
     window.cdirQuitarSeleccion = function () { resetCaptura('buscar'); };
+    // Tocar el producto elegido (fuera de su foto y de la X): vuelve al buscador con su
+    // nombre escrito y seleccionado, para corregirlo o borrarlo escribiendo encima.
+    // La UM y la cantidad se quedan como estaban.
+    window.cdirEditarElegido = function (ev) {
+        if (!elegido || (ev && ev.target.closest('.alm-foto, .material-icons'))) return;
+        var nombre = elegido.nombre;
+        elegido = null;
+        el('cdirBadge').classList.remove('show');
+        var inp = el('cdirSearch'); inp.style.visibility = ''; inp.value = nombre;
+        inp.focus(); inp.select();
+        window.cdirSuggest();
+    };
     window.cdirSearchKey = function (ev) {
         if (ev.key === 'Escape') { escapeDeLista(ev, 'cdirSuggest', suggestHide); return; }
         if (ev.key === 'Enter')  {
@@ -959,9 +972,11 @@
         var dest = conDestino();
         tb.innerHTML = lineas.map(function (l, i) {
             return '<tr>'
+                // Como la tabla de Recepción nueva y del Inventario: foto, y el código chico
+                // encima del nombre.
                 + '<td class="c-num">' + (i + 1) + '</td>'
-                + '<td class="c-cod">' + esc(l.codigo) + '</td>'
-                + '<td class="c-desc">' + esc(l.nombre) + '</td>'
+                + '<td class="c-foto">' + window.AlmFoto.mini(window.AlmFoto.de(catalogo(), l.id_producto), l.nombre) + '</td>'
+                + '<td class="c-desc"><span class="alm-cod-mini">' + esc(l.codigo) + '</span><span class="c-nom">' + esc(l.nombre) + '</span></td>'
                 + (dest ? '<td class="c-dest">' + (l.destino ? esc(l.destino) : '<span class="sin">Sin destino</span>') + '</td>' : '')
                 + '<td class="c-cant">' + esc(fmt(l.cantidad)) + '<span class="um">' + esc(l.um) + '</span></td>'
                 + '<td class="c-del"><button type="button" class="cdir-del-btn" onclick="window.cdirQuitarLinea(' + i + ')" title="Quitar"><i class="material-icons" style="font-size:19px;">delete</i></button></td>'

@@ -103,9 +103,12 @@
     .cdir-add-btn:hover { background:#15803d; }
 
     /* Producto ya elegido: el input se oculta y en su lugar va este chip. */
-    .cdir-badge { display:none; position:absolute; inset:0; align-items:center; gap:6px; padding:0 8px 0 10px;
-        border:1px solid #0067b1; border-radius:10px; background:#e1effa; overflow:hidden; }
+    .cdir-badge { display:none; position:absolute; inset:0; align-items:center; gap:6px; padding:0 8px 0 1px;
+        border:1px solid #0067b1; border-radius:10px; background:#e1effa; overflow:hidden; cursor:text; }
     .cdir-badge.show { display:flex; }
+    /* Foto del producto elegido, como en Recepción nueva (.ent-selected-foto). */
+    .cdir-badge-foto .alm-foto { width:34px; height:34px; border-radius:6px; }
+    .cdir-badge-foto span.alm-foto-sin:empty::before { font-size:18px; }
     /* Una sola tipografía y un solo color de texto en TODO el modal (pedido del cliente):
        el código ya no va en monospace azul — se distingue por el peso, no por ser otra
        letra de otro color, que hacía ver la línea como dos textos pegados. */
@@ -116,7 +119,7 @@
     /* Desplegables (producto y UM): mismas medidas que .tr-suggest del toolbar. */
     .cdir-suggest, .cdir-um-suggest { display:none; position:absolute; top:calc(100% + 5px); left:0; right:0; z-index:20;
         background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.1);
-        max-height:230px; overflow-y:auto; padding:5px; }
+        max-height:320px; overflow-y:auto; padding:5px; }
     .cdir-suggest.open, .cdir-um-suggest.open { display:block; }
     /* El de UM se ancla a la DERECHA y se ensancha hacia la izquierda: el campo mide 78px y
        a ese ancho el aviso de "sin coincidencias" quedaba en una columna de una palabra por
@@ -124,6 +127,10 @@
     .cdir-um-suggest { left:auto; right:0; min-width:210px; }
     .cdir-suggest-item, .cdir-um-item { padding:8px 10px; border-radius:8px; font-size:13px; color:#0f172a; cursor:default;
         display:flex; align-items:baseline; gap:6px; }
+    /* Con foto (la de Recepción nueva): centrada con el texto. */
+    .cdir-suggest-item:has(.alm-foto) { align-items:center; gap:8px; padding:5px 10px 5px 5px; }
+    .cdir-suggest-item .alm-foto { flex:0 0 auto; width:50px; height:50px; border-radius:8px; }
+    .cdir-suggest-item span.alm-foto-sin:empty::before { font-size:22px; }
     .cdir-suggest-item:hover, .cdir-um-item:hover { background:#e1effa; }
     .cdir-suggest-item .parte { font-weight:800; font-size:12.5px; color:#0f172a; flex:0 0 auto; }
     .cdir-suggest-item .nom { flex:1 1 auto; min-width:0; }
@@ -142,18 +149,26 @@
     /* En el paso 1 (cabecera del documento) no hay nada capturado todavia. */
     .cdir-en-paso1 .cdir-list-wrap { display:none; }
     .cdir-list { flex:1 1 auto; min-height:120px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:10px; }
-    .cdir-table { width:100%; border-collapse:collapse; font-size:13px; }
-    .cdir-table thead th { position:sticky; top:0; z-index:1; background:#1e293b; color:#fff; font-size:10.5px; font-weight:800;
-        text-transform:uppercase; letter-spacing:.5px; padding:8px 10px; text-align:center; white-space:nowrap; }
+    /* Como la tabla de Recepción nueva y del Inventario (.ent-list-table / .alm-table):
+       encabezado oscuro de 13px, filas blancas con el celeste al pasar, la foto y el código
+       chico (.alm-cod-mini) encima del nombre de 12px. */
+    .cdir-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; }
+    .cdir-table thead th { position:sticky; top:0; z-index:1; background:#1e293b; color:#fff; font-size:13px; font-weight:700;
+        text-transform:uppercase; letter-spacing:1px; padding:10px 15px; text-align:center; white-space:nowrap; border-right:1px solid #334155; }
+    .cdir-table thead th:last-child { border-right:none; }
     .cdir-table thead th.c-desc { text-align:left; }
-    .cdir-table tbody td { padding:8px 10px; border-bottom:1px solid #f1f5f9; text-align:center; color:#0f172a; }
+    .cdir-table tbody td { padding:12px 15px; background:#fff; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0;
+        text-align:center; vertical-align:middle; color:#0f172a; }
+    .cdir-table tbody td:last-child { border-right:none; }
     .cdir-table tbody tr:last-child td { border-bottom:none; }
-    .cdir-table tbody tr:hover td { background:#f8fafc; }
-    .cdir-table .c-num  { width:1%; white-space:nowrap; font-weight:800; color:#94a3b8; }
-    .cdir-table .c-cod  { width:1%; white-space:nowrap; font-weight:700; }
-    .cdir-table .c-desc { text-align:left; font-weight:600; }
-    .cdir-table .c-cant { width:1%; white-space:nowrap; font-weight:800; }
-    .cdir-table .c-cant .um { font-size:10px; font-weight:700; color:#0f172a; margin-left:3px; }
+    .cdir-table tbody tr:hover td { background:#e0f2fe; }
+    .cdir-table .c-num  { width:1%; white-space:nowrap; font-weight:800; color:#94a3b8; font-size:13px; }
+    .cdir-table .c-foto { width:1%; }
+    .cdir-table tbody .c-foto { padding:6px 4px 6px 8px; }
+    .cdir-table .c-desc { text-align:left; font-weight:600; color:#1e293b; }
+    .cdir-table .c-nom  { display:block; font-size:12px; }
+    .cdir-table .c-cant { width:1%; white-space:nowrap; }
+    .cdir-table .c-cant .um { font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-left:5px; }
     .cdir-table .c-dest { text-align:left; font-size:12px; font-weight:600; white-space:nowrap; }
     .cdir-table thead th.c-dest { text-align:left; }
     .cdir-table .c-dest .sin { color:#94a3b8; font-weight:500; font-style:italic; }
@@ -214,4 +229,9 @@
              del mismo tamaño. min-width:0 anula los 130px de escritorio para que quepan
              holgados en un teléfono angosto. */
         .cdir-btn { flex:1 1 0; min-width:0; justify-content:center; }
+        /* Tabla de líneas: más compacta, como el modal de la nota en el teléfono. */
+        .cdir-table thead th { font-size:11px; letter-spacing:.5px; padding:8px 6px; }
+        .cdir-table tbody td { padding:8px 6px; }
+        .cdir-table tbody .c-foto { padding:6px 2px 6px 4px; }
+        .cdir-table .c-foto .alm-foto { width:44px; height:44px; }
     }

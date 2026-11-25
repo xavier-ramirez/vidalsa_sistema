@@ -184,7 +184,7 @@
     .ent-list-table tbody .col-desc     { font-weight:600; color:#1e293b; }
     .ent-list-table tbody .col-cant     { text-align:center; color:#0f172a; white-space:nowrap; }
     .ent-list-table tbody .col-del      { text-align:center; }
-    .ent-list-nom { display:block; }
+    .ent-list-nom { display:block; font-size:12px; }   /* como el nombre del Inventario */
     /* La unidad junto a la cantidad, como el stock del Inventario (.alm-stock-um). */
     .ent-list-meta { margin-left:5px; font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; }
     .ent-row-del-btn { background:none; border:none; cursor:default; color:#cbd5e0; padding:2px; display:inline-flex; }

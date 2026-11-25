@@ -225,13 +225,10 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         var box = input.closest('.tr-search-box'); if (box) box.classList.toggle('active', has);
         window.LectorBarras.iconToggle();   // escanear visible solo mientras no haya producto elegido
     }
-    // Productos del catálogo que coinciden con lo escrito (con equivalencias, como el
-    // inventario). Una sola fuente para la lista de sugerencias y para el Enter.
-    function trProdTexto(p) { return (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''); }
+    // Productos del catálogo que coinciden con lo escrito: el MISMO ranking que el Inventario
+    // (ProductoSuggest.rankear). Una sola fuente para la lista de sugerencias y para el Enter.
     function trProdCoincidencias(termino) {
-        return window.FuzzySearch.rank(window.trProductosLista || [], termino, function (p) {
-            return { haystack: trProdTexto(p), label: p.NOMBRE || '' };
-        }, { enteros: true });
+        return window.ProductoSuggest.rankear(window.trProductosLista || [], termino);
     }
     // Para el Enter: de esos, solo los que traen CADA palabra escrita (plural o singular:
     // «guantes» → GUANTE…). La lista de sugerencias, que ordena, deja entrar también los
@@ -241,10 +238,10 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         var FS = window.FuzzySearch, tokens = FS.tokenize(termino), enteros = tokens.length > 1;
         var lista = trProdCoincidencias(termino);
         var enteras = lista.filter(function (p) {
-            var hay = FS.norm(trProdTexto(p)), palabras = hay.split(/\s+/).filter(Boolean);
+            var hay = FS.norm(window.ProductoSuggest.texto(p)), palabras = hay.split(/\s+/).filter(Boolean);
             return tokens.every(function (t) { return FS.scoreToken(palabras, hay, t, enteros).score >= 12; });
         });
-        return enteras.length ? enteras : lista.filter(function (p) { return FS.coincide(termino, trProdTexto(p)); });
+        return enteras.length ? enteras : lista.filter(function (p) { return FS.coincide(termino, window.ProductoSuggest.texto(p)); });
     }
     window.trProdSuggest = function () {
         var inp = el('trProdSearch'), box = el('trProdSuggest');

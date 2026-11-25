@@ -64,12 +64,17 @@
     // sugiere la talla 142 ni el 2 de 1/2". Solo con rank(…, { enteros: true }) (productos);
     // la cola de un nº de parte («filtro 31» → MIS0531) aquí no cuenta: el haystack mezcla
     // código y partes, y el 42 del código 000142 no debe sumar.
-    function posEntera(hay, token) {
+    // prefijo: UNA cifra que es lo último que se está escribiendo, así que puede seguir: cuenta
+    // como COMIENZO de un número («braga 4» ya trae la TALLA 42, no la 142 ni la 24). Sin
+    // esto, a mitad de escribir «bragas 42» las bragas desaparecían y salían ABRAZADERA 4",
+    // TERMO 4 LT… hasta poner el 2. Con dos cifras no: «bragas 42» traía el GALLOP 4250.
+    function posEntera(hay, token, prefijo) {
         for (var i = hay.indexOf(token); i > -1; i = hay.indexOf(token, i + 1)) {
             var a = hay.charAt(i - 1), a2 = hay.charAt(i - 2), d = hay.charAt(i + token.length), d2 = hay.charAt(i + token.length + 1);
             var dig = function (c) { return c >= '0' && c <= '9'; };
             var sep = function (c) { return c === '.' || c === ',' || c === '/'; };
-            if (dig(a) || (sep(a) && dig(a2)) || dig(d) || (sep(d) && dig(d2))) continue;
+            if (dig(a) || (sep(a) && dig(a2))) continue;
+            if (!prefijo && (dig(d) || (sep(d) && dig(d2)))) continue;
             return i;
         }
         return -1;
@@ -83,9 +88,10 @@
         if (token.length < 4 || token.charAt(token.length - 1) !== 's' || /\d/.test(token)) return null;
         return [token.slice(0, -1)].concat(/[^aeiou]es$/.test(token) ? [token.slice(0, -2)] : []);
     }
+    // entero: true, o 'prefijo' si el token es el último y se sigue escribiendo (posEntera).
     function scoreToken(palabras, hayFull, token, entero) {
         var esNum = /^\d+$/.test(token);
-        var idx = entero && /^\d{1,2}$/.test(token) ? posEntera(hayFull, token) : hayFull.indexOf(token);
+        var idx = entero && /^\d{1,2}$/.test(token) ? posEntera(hayFull, token, entero === 'prefijo' && token.length === 1) : hayFull.indexOf(token);
         if (idx < 0 && !esNum) {
             var sing = singular(token);
             for (var si = 0; sing && si < sing.length && idx < 0; si++) {
@@ -140,6 +146,8 @@
         var rawNorm = norm(rawTerm).replace(/\s+/g, ' ');
         var minTokens = Math.ceil(tokens.length / 2);
         var enteros = !!(opts && opts.enteros) && tokens.length > 1;
+        // El último token, si no se cerró con un espacio, se está escribiendo todavía.
+        var ultimo = tokens.length - 1, enteroUltimo = /\s$/.test(rawTerm) ? true : 'prefijo';
         var scored = [];
 
         for (var j = 0; j < items.length; j++) {
@@ -151,7 +159,7 @@
 
             var total = 0, matched = 0;
             for (var k = 0; k < tokens.length; k++) {
-                var r = scoreToken(palabras, hayFull, tokens[k], enteros);
+                var r = scoreToken(palabras, hayFull, tokens[k], enteros && k === ultimo ? enteroUltimo : enteros);
                 if (r.hit) { matched++; total += r.score; }
             }
             if (matched < minTokens) continue;

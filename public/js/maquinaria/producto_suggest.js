@@ -61,12 +61,11 @@
     // alterno ("MIS0531" / "1000FG" / "LF-3977") encuentra el producto aunque su
     // código/nombre no lo contenga— pero la etiqueta visible sigue siendo solo el NOMBRE.
     // Término vacío → catálogo en su orden natural.
+    // Donde se busca un producto: código + nombre + nºs de parte equivalentes.
+    function texto(p) { return (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''); }
     function rankear(lista, term) {
         return w.FuzzySearch.rank(lista || [], term, function (p) {
-            return {
-                haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''),
-                label: p.NOMBRE || '',
-            };
+            return { haystack: texto(p), label: p.NOMBRE || '' };
         }, { enteros: true });
     }
 
@@ -108,6 +107,7 @@
         esFiltro: esFiltro,
         claveGrupo: claveGrupo,
         agrupar: agrupar,
+        texto: texto,
         rankear: rankear,
         dedupe: dedupe,
         badgePresentaciones: badgePresentaciones,

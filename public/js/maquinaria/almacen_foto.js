@@ -5,6 +5,7 @@
  *   AlmFoto.mini(url, nombre[, fija]) → html de la miniatura (o el recuadro gris sin foto);
  *                               fija = sin abrir el visor al tocarla (la lista de sugerencias
  *                               del buscador: ahí tocar la fila elige el producto).
+ *   AlmFoto.de(lista, id)     → la foto (FOTO) del producto `id` en el catálogo `lista`.
  *   AlmFoto.pintar(raiz)      → cambia los <span data-alm-foto> del HTML del servidor por
  *                               su miniatura.
  *   AlmFoto.ver(src)          → abre la foto en grande. Solo para VER: subir, cambiar y
@@ -31,6 +32,18 @@
         var src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'sz=w120';
         return '<img src="' + h(src) + '" alt="' + h(nombre || '') + '" class="alm-foto' + (fija ? ' alm-foto-fija' : '') + '" loading="lazy"'
             + (fija ? '>' : ' title="Ver la foto" onclick="event.stopPropagation(); window.AlmFoto.ver(this.src)">');
+    }
+
+    // id → foto del catálogo. El mapa se rehace solo cuando cambia la lista (llega del
+    // servidor o se le suma un producto creado ahí mismo), no en cada repintado.
+    var fotos = { lista: null, largo: -1, mapa: null };
+    function de(lista, id) {
+        lista = lista || [];
+        if (fotos.lista !== lista || fotos.largo !== lista.length) {
+            fotos = { lista: lista, largo: lista.length, mapa: new Map() };
+            lista.forEach(function (p) { if (p.FOTO) fotos.mapa.set(Number(p.ID_PRODUCTO), p.FOTO); });
+        }
+        return fotos.mapa.get(Number(id)) || null;
     }
 
     // HTML que pinta el SERVIDOR (el modal de la nota): deja un <span data-alm-foto="url"
@@ -100,5 +113,5 @@
         if (e.key === 'Escape' && cerrar()) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
 
-    window.AlmFoto = { mini: mini, pintar: pintar, ver: ver };
+    window.AlmFoto = { mini: mini, de: de, pintar: pintar, ver: ver };
 })();

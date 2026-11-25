@@ -259,9 +259,9 @@
     /* Foto (.alm-foto, admin_almacen_producto.css) con el relleno de .alm-td-foto. */
     .dtm-td-foto { width:1%; padding:6px 4px 6px 8px !important; }
     /* Producto: el código chico arriba (.alm-cod-mini) y el nombre debajo, en la letra del
-       nombre del Inventario (.alm-td-nombre). */
+       nombre del Inventario (.alm-td-nombre / .alm-nombre-txt: 12px). */
     .dtm-td-prod { text-align:left !important; min-width:0; }
-    .dtm-linea-nom { display:block; font-size:14px; font-weight:600; color:#1e293b; }
+    .dtm-linea-nom { display:block; font-size:12px; font-weight:600; color:#1e293b; }
     /* La UM vive junto a la CANTIDAD enviada, como el stock del Inventario (.alm-stock-um):
        más pequeña que el número para que se lea "10 UNIDAD" como una magnitud. */
     .dtm-linea-um { font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; margin-left:5px; }
@@ -274,10 +274,12 @@
     .dtm-linea-rec { cursor:default; }
     .dtm-linea-rec.recibida td { background:#e1effa; }
     .dtm-linea-rec.recibida:hover td { background:#d6e9fb; }
-    .dtm-rec-cant { width:1%; white-space:nowrap; padding-left:4px !important; padding-right:4px !important; }
-    /* Check verde de "tildado": aparece al marcar la fila (.recibida). Reserva su hueco
-       siempre (visibility, no display) para que el input no se corra al marcar/desmarcar. */
-    .dtm-rec-ico { font-size:18px; color:#16a34a; vertical-align:middle; margin-right:5px; visibility:hidden; }
+    /* El campo va CENTRADO en la columna: el mismo margen a los dos lados, y el check se
+       pinta encima del margen izquierdo, sin ocupar lugar. */
+    .dtm-rec-cant { position:relative; width:1%; white-space:nowrap; padding-left:26px !important; padding-right:26px !important; }
+    /* Check verde de "tildado": aparece al marcar la fila (.recibida). Absoluto: aparecer o
+       no, el campo no se corre. */
+    .dtm-rec-ico { position:absolute; left:5px; top:50%; transform:translateY(-50%); font-size:18px; color:#16a34a; visibility:hidden; }
     .dtm-linea-rec.recibida .dtm-rec-ico { visibility:visible; }
     /* El campo es type=text (ver el modal), así que no hay flechitas de spinner que ocultar.
        52px basta para las cantidades reales (1-4 dígitos); a 64px el recuadro se veía
@@ -341,7 +343,7 @@
         .dtm-rec-input { font-size:12px; }
         /* Misma letra (12px) para TODO el texto de la tabla también en móvil. La UM queda
            fuera: acompaña a la cantidad y debe seguir siendo más pequeña que la cifra. */
-        .dtm-col-num, .dtm-diff-value, .dtm-linea-nom, .dtm-col-idx { font-size:12px; }
+        .dtm-col-num, .dtm-diff-value, .dtm-col-idx { font-size:12px; }
         .dtm-linea-um { font-size:9.5px; }
         /* Foto un poco más chica: el ancho del teléfono lo necesita el nombre. */
         .dtm-td-foto { padding:6px 2px 6px 4px !important; }

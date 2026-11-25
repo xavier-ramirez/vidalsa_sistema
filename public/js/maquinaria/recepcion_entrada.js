@@ -133,14 +133,11 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         // primero debe quitar la seleccion (X del badge) para volver a buscar.
         if (entSelected) { box.classList.remove('open'); return; }
         var rawTerm = inp.value.trim();
-        // Ranking robusto compartido (window.FuzzySearch, layout base). NO se deduplica
-        // por nombre: cada presentación (misma descripción, distinta UM) es un producto
-        // válido aparte que el usuario debe poder elegir. Límite 12.
-        // haystack incluye EQUIV (números de parte equivalentes) para que teclear un nº de
-        // parte alterno de un FILTRO lo encuentre, igual que el buscador de /admin/almacen.
-        var matches = window.FuzzySearch.rank(PRODUCTOS, rawTerm, function (p) {
-            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''), label: p.NOMBRE || '' };
-        }, { enteros: true }).slice(0, 12);
+        // El MISMO ranking que el buscador del Inventario (ProductoSuggest.rankear: código,
+        // nombre y nºs de parte equivalentes). NO se deduplica por nombre: cada presentación
+        // (misma descripción, distinta UM) es un producto válido aparte que el usuario debe
+        // poder elegir. Límite 12.
+        var matches = window.ProductoSuggest.rankear(PRODUCTOS, rawTerm).slice(0, 12);
         if (matches.length === 0) {
             // Sin coincidencias → invitar a registrar el producto nuevo. El usuario
             // puede igual presionar Enter en Cantidad y se crea al vuelo (ver
@@ -204,7 +201,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         // en el input `#entUm` que tenemos al lado — duplicarla aqui era ruido visual.
         el('entSelectedNom').textContent = ' · ' + entSelected.nombre;
         // Su foto delante del código (la del catálogo, por el id; uno recién creado no tiene).
-        el('entSelectedFoto').innerHTML = window.AlmFoto.mini(fotosPorId().get(entSelected.id_producto), entSelected.nombre);
+        el('entSelectedFoto').innerHTML = window.AlmFoto.mini(window.AlmFoto.de(PRODUCTOS, entSelected.id_producto), entSelected.nombre);
         var inp = el('entSearch');
         // Ocultamos el input y mostramos el badge encima — UX clara de "ya elegiste".
         inp.value = '';
@@ -238,6 +235,18 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         if (umInp) umInp.value = 'UND';
         if (suppressSuggest) entSkipNextSuggest = true;
         inp.focus();
+    };
+    // Tocar el producto elegido (fuera de su foto y de la X): vuelve al buscador con su
+    // nombre escrito y seleccionado, para corregirlo o borrarlo escribiendo encima, sin
+    // tener que pasar por la X.
+    window.entEditarElegido = function (ev) {
+        if (!entSelected || (ev && ev.target.closest('.alm-foto, .clear'))) return;
+        var nombre = entSelected.nombre;
+        window.entClearSelected(true);
+        var inp = el('entSearch');
+        inp.value = nombre;
+        inp.select();
+        window.entSuggest();
     };
 
     // ── Autocomplete del campo UM (Unidad de Medida) ──────────────────────
@@ -646,16 +655,6 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             ? orden.map(function (u) { return '<span class="ent-res-chip">' + escHtml(fmtCant(porUm[u])) + ' <small>' + escHtml(u) + '</small></span>'; }).join('')
             : '—';
     }
-    // id → foto, del catálogo. Se rehace solo cuando cambia la lista (llega del servidor o
-    // se le suma un producto creado aquí), no en cada repintado de la tabla.
-    var fotosCache = { lista: null, largo: -1, mapa: null };
-    function fotosPorId() {
-        if (fotosCache.lista !== PRODUCTOS || fotosCache.largo !== PRODUCTOS.length) {
-            fotosCache = { lista: PRODUCTOS, largo: PRODUCTOS.length, mapa: new Map() };
-            PRODUCTOS.forEach(function (p) { if (p.FOTO) fotosCache.mapa.set(p.ID_PRODUCTO, p.FOTO); });
-        }
-        return fotosCache.mapa;
-    }
     function entRender() {
         var tb = el('entLineasTbody');
         if (!tb) return;
@@ -669,7 +668,6 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         // encima del nombre] [Cantidad + UM] [quitar]. La foto sale del catálogo (FOTO de
         // listaAutocomplete) por el id: las líneas se arman en varios sitios y así ninguno
         // tiene que acordarse de copiarla. Un producto creado aquí mismo no tiene foto.
-        var fotos = fotosPorId();
         tb.innerHTML = entLineas.map(function (l, idx) {
             var num = (idx + 1);
             var numPad = (num < 10 ? '0' : '') + num;
@@ -677,7 +675,7 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             // misma banda gris que el nombre, como la tarjeta del Inventario.
             return '<tr data-idx="' + idx + '">'
                 +   '<td class="col-num">' + num + '</td>'
-                +   '<td class="col-foto">' + window.AlmFoto.mini(fotos.get(l.id_producto), l.nombre) + '</td>'
+                +   '<td class="col-foto">' + window.AlmFoto.mini(window.AlmFoto.de(PRODUCTOS, l.id_producto), l.nombre) + '</td>'
                 +   '<td class="col-desc"><span class="alm-cod-mini" data-num="' + numPad + '">' + escHtml(l.codigo) + '</span><span class="ent-list-nom">' + escHtml(l.nombre) + '</span></td>'
                 +   '<td class="col-cant">' + escHtml(fmtCant(l.cantidad)) + '<span class="ent-list-meta">' + escHtml(l.um) + '</span></td>'
                 +   '<td class="col-del"><button type="button" class="ent-row-del-btn" onclick="window.entRemoverLinea(' + idx + ')" title="Quitar"><i class="material-icons" style="font-size:20px;">delete</i></button></td>'
