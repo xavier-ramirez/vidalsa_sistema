@@ -380,15 +380,22 @@
         .page-title-card > div { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
 
-        /* Filtros en mobile: producto a fila completa arriba y, debajo, la nota junto a los
-           dos botones cuadrados —"Filtros avanzados" (que ya contiene Estado/Desde/Hasta) y
-           "Compra directa", que a este ancho se queda solo con su icono. */
+        /* Filtros en mobile: producto a fila completa arriba; debajo, la nota junto al botón
+           cuadrado "Filtros avanzados" (que ya contiene Estado/Desde/Hasta); y al final
+           "Acciones" a todo el ancho, como en Inventario (#almBtnAcciones). */
         #trFilters { gap: 8px !important; }
         /* Producto ocupa su propia fila (es el que más texto muestra); la nota comparte
-           renglón con los botones 45x45 — de ahí `flex:1 1 0` en vez de 100%, que la dejaría
-           sola en su fila y a los botones huérfanos en la siguiente. */
+           renglón con el botón 45x45 — de ahí `flex:1 1 0` en vez de 100%, que la dejaría
+           sola en su fila y al botón huérfano en la siguiente. */
         #trFilters > .tr-search-prod { flex: 1 1 100% !important; max-width: none !important; min-width: 0 !important; }
         #trFilters > .tr-search-num  { flex: 1 1 0 !important;    max-width: none !important; min-width: 0 !important; }
+        /* Acciones: su propia fila, con el texto y la sombra del de Inventario; el menú se
+           abre del ancho del botón para no salirse de la pantalla. */
+        .tr-acc-wrap { flex: 1 1 100%; }
+        .tr-acc-btn { width: 100%; justify-content: center; padding: 0 16px; gap: 8px; font-size: 14px;
+                      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .tr-acc-txt { display: inline; }
+        .tr-acc-menu { left: 0; right: 0; min-width: 0; }
 
         /* ══════════════════════════════════════════════
            MOBILE CARD LAYOUT — Recepción (bandeja)
