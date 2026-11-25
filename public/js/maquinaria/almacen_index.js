@@ -2568,22 +2568,36 @@
     // servidor ya marca por 21 días (GoogleDriveController::proxy). Una vez por foto. La
     // llaman: la miniatura al cargarse (onload en celdaFoto; como es loading="lazy", eso solo
     // pasa con las filas que están a la vista) y el dedo o el mouse al apoyarse en ella.
+    // Las de la vista van en FILA, de una en una y con el navegador libre: veinte tarjetas
+    // no lanzan veinte peticiones a la vez contra el servidor. La del dedo se adelanta.
     // Con «Ahorro de datos» del teléfono solo se baja al tocar.
     var almFotosPrecargadas = {};
+    var almFotosEnFila = [];
+    var almFotoBajando = false;
+    function almBajarFoto(entera, urgente, despues) {
+        var im = new Image();
+        if (!urgente) im.fetchPriority = 'low';
+        im.decoding = 'async';
+        if (despues) im.onload = im.onerror = despues;
+        im.src = entera;
+    }
+    function almSiguienteFoto() {
+        almFotoBajando = false;
+        var entera = almFotosEnFila.shift();
+        if (!entera) return;
+        almFotoBajando = true;
+        var ir = function () { almBajarFoto(entera, false, almSiguienteFoto); };
+        if (window.requestIdleCallback) window.requestIdleCallback(ir, { timeout: 2000 }); else ir();
+    }
     window.almPrecargarFoto = function (src, yaPedida) {
         var entera = almFotoEntera(src);
         if (!entera || almFotosPrecargadas[entera]) return;
         var con = navigator.connection;
         if (!yaPedida && con && con.saveData) return;
         almFotosPrecargadas[entera] = true;
-        var bajar = function () {
-            var im = new Image();
-            if (!yaPedida) im.fetchPriority = 'low';
-            im.decoding = 'async';
-            im.src = entera;
-        };
-        if (yaPedida || !window.requestIdleCallback) bajar();
-        else window.requestIdleCallback(bajar, { timeout: 2000 });
+        if (yaPedida) { almBajarFoto(entera, true); return; }
+        almFotosEnFila.push(entera);
+        if (!almFotoBajando) almSiguienteFoto();
     };
     // El dedo (o el mouse) sobre una miniatura: la foto entera empieza a bajar ya, unos
     // cientos de ms antes del clic.
@@ -2595,27 +2609,39 @@
     });
 
     // Visor de la foto: lo abre la miniatura de la tabla (id = el producto, para Cambiar y
-    // la papelera). Abre AL INSTANTE con la miniatura (ya está en caché), en grande, y la
-    // cambia por la foto entera en cuanto llega; si la entera ya estaba bajada, va directo.
+    // la papelera). Abre con la foto entera si ya está bajada; si no llega en 80 ms (la del
+    // disco del navegador tarda unos pocos), muestra la miniatura en grande —ya está en
+    // caché— y la cambia por la entera en cuanto llega. Si la entera falla, la miniatura
+    // vuelve a su tamaño (no se queda estirada y borrosa) y se avisa.
     window.almVerFoto = function (src, id) {
         if (!src) return;
         var img = el('almVisorFotoImg');
         var entera = almFotoEntera(src);
+        var vigente = function () { return img.dataset.entera === entera; };   // no se cerró ni se abrió otra
         img.dataset.entera = entera;
+        img.classList.remove('alm-visor-previa');
+        img.removeAttribute('src');
         var pre = new Image();
-        pre.src = entera;
-        if (pre.complete && pre.naturalWidth) {
-            img.classList.remove('alm-visor-previa');
+        var llego = false;
+        pre.onload = function () {
+            llego = true;
+            if (!vigente()) return;
             img.src = entera;
-        } else {
+            img.classList.remove('alm-visor-previa');
+        };
+        pre.onerror = function () {
+            llego = true;
+            if (!vigente()) return;
+            img.classList.remove('alm-visor-previa');
+            img.src = src;
+            window.toast('No se pudo abrir la foto en grande.', 'warning');
+        };
+        pre.src = entera;
+        setTimeout(function () {
+            if (llego || !vigente()) return;
             img.classList.add('alm-visor-previa');
             img.src = src;
-            pre.onload = function () {
-                if (img.dataset.entera !== entera) return;   // ya se cerró o se abrió otra
-                img.src = entera;
-                img.classList.remove('alm-visor-previa');
-            };
-        }
+        }, 80);
         el('almVisorFoto').dataset.id = id ? String(id) : '';
         el('almVisorFoto').classList.add('abierto');
     };

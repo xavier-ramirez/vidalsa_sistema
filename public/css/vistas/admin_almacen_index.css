@@ -1183,7 +1183,7 @@
             background: #fee2e2 !important;
             box-shadow: 0 1px 3px rgba(239,68,68,0.08), 0 4px 12px rgba(239,68,68,0.10) !important;
         }
-        .alm-table tr.alm-row.alm-row-bajo td.alm-td-nombre { background: #fee2e2 !important; }
+        .alm-table tr.alm-row.alm-row-bajo:not(.alm-row-vista) td.alm-td-nombre { background: #fee2e2 !important; }
         /* Última vista (almMarcarVista): la tarjeta en celeste. */
         .alm-table tr.alm-row.alm-row-vista { background: #e0f2fe !important; border-color: #93c5fd !important; }
         /* Tarjeta SELECCIONADA, como en Equipos (estilos_globales: .table-equipos-mobile

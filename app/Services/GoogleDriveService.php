@@ -452,8 +452,11 @@ class GoogleDriveService
      *
      * Con $contenido (la foto recien subida) la copia se escribe tal cual, sin bajar nada.
      * Sin el, se baja de Drive solo si falta: a un temporal y se asciende al nombre bueno
-     * cuando llego entera, como en el proxy, para no dejar nunca una copia a medias. Las
-     * miniaturas las deja miniatura(), que ya las guarda. No resucita lo olvidado.
+     * solo si llego ENTERA (los bytes que Drive dice que tiene), como en el proxy, para no
+     * dejar nunca una copia a medias que se serviria 21 dias. Un trozo vacio corta la
+     * descarga (Drive colgado), y un archivo que Drive dice que no existe se recuerda un
+     * dia para no preguntar cada noche. Las miniaturas las deja miniatura(), que ya las
+     * guarda. No resucita lo olvidado.
      *
      * Devuelve true si la copia completa quedo en el disco.
      */
@@ -469,26 +472,47 @@ class GoogleDriveService
             if ($contenido !== null) {
                 $disco->put($ruta, $contenido);
             } elseif (!$disco->exists($ruta)) {
+                $servicio = self::getInstance();
+                // Mismos datos (y misma clave) que el proxy: el tamaño dice si llego entera.
+                $meta = Cache::remember('gdrive_meta_' . $fileId, 86400, function () use ($servicio, $fileId) {
+                    $f = $servicio->getDrive()->files->get($fileId, ['fields' => 'mimeType,size,modifiedTime', 'supportsAllDrives' => true]);
+                    return ['mime' => $f->getMimeType(), 'size' => $f->getSize() ?: 0];
+                });
                 $final = $disco->path($ruta);
                 $tmp   = $final . '.' . bin2hex(random_bytes(4)) . '.parcial';
                 @mkdir(dirname($final), 0775, true);
-                $origen = self::getInstance()->getStreamById($fileId);
+                $origen = $servicio->getStreamById($fileId);
                 $copia  = fopen($tmp, 'wb');
                 try {
                     while (!$origen->eof()) {
-                        fwrite($copia, $origen->read(262144));
+                        $trozo = $origen->read(262144);
+                        if ($trozo === '' || $trozo === false) {
+                            break;
+                        }
+                        fwrite($copia, $trozo);
                     }
                 } finally {
                     fclose($copia);
+                    $origen->close();
                 }
-                if (filesize($tmp) > 0 && !self::fueOlvidado($fileId)) {
-                    rename($tmp, $final);
+                $bytes    = filesize($tmp);
+                $esperado = (int) ($meta['size'] ?? 0);
+                if ($bytes > 0 && ($esperado === 0 || $bytes === $esperado) && !self::fueOlvidado($fileId)) {
+                    // En Windows rename() no pisa: si el proxy la guardo mientras tanto, ya esta.
+                    if (is_file($final)) {
+                        @unlink($tmp);
+                    } else {
+                        rename($tmp, $final);
+                    }
                 } else {
                     @unlink($tmp);
                     $lista = false;
                 }
             }
         } catch (\Throwable $e) {
+            if ($e->getCode() === 404) {
+                Cache::put('gdrive_no_existe_' . $fileId, true, 86400);
+            }
             Log::warning('No se preparo la copia local de ' . $fileId . ': ' . $e->getMessage());
             if (isset($tmp)) {
                 @unlink($tmp);
