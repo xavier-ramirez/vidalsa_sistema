@@ -10,7 +10,7 @@
 <div id="impZona" class="admin-card imp-carga">
     <div>
         <h3 class="imp-carga-titulo"><i class="material-icons">upload_file</i> Carga Masiva desde Excel</h3>
-        <p class="imp-carga-sub">Sube los Excel de gasoil (uno o varios, en cualquier formato) o suéltalos aquí; también puedes pegar el reporte completo con Ctrl+V. Nada se guarda hasta que revises.</p>
+        <p class="imp-carga-sub">Sube los Excel de gasoil (uno o varios, en cualquier formato) o suéltalos aquí. También puedes elegir el tipo Gasoil abajo y pegar el reporte completo con Ctrl+V. Nada se guarda hasta que revises.</p>
     </div>
     <label for="impArchivos" class="btn-primary-maquinaria imp-carga-btn">
         <i class="material-icons">upload</i> Cargar Excel
