@@ -158,8 +158,8 @@
                         <div class="cdash-canvas-wrap conleyenda"><canvas id="cdashChartMes"></canvas></div></div>
                     {{-- Ranking del MES ACTUAL: qué proyecto consume más este mes, de mayor a
                          menor. Sale de los mismos datos de la gráfica de arriba (por_mes_frente)
-                         y cada barra lleva el color de su proyecto allí. Si el "Hasta" del filtro
-                         termina antes de este mes, se muestra el mes de ese "Hasta". --}}
+                         y cada barra lleva el color de su proyecto allí. Con un rango de fechas
+                         que no llega a este mes, se muestra el mes del extremo del rango. --}}
                     <div class="cdash-card full"><h4><span>Proyecto que más consume · <span id="cdashMesActualLbl"></span></span><button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'proyecto-que-mas-consume-del-mes')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
                         <div class="cdash-canvas-wrap" id="cdashMesActualWrap"><canvas id="cdashChartMesActual"></canvas></div>
                         <div id="cdashMesActualVacio" class="cdash-mesact-vacio" style="display:none;">Ningún proyecto ha consumido en este mes.</div></div>
@@ -677,15 +677,19 @@
         });
 
         // ── 1b) Proyecto que más consume en el MES ACTUAL (barras horizontales) ──
-        // Mes de hoy; si el "Hasta" del filtro termina antes, el mes de ese "Hasta" (si no,
-        // la gráfica saldría siempre vacía con un rango pasado). "POR DEFINIR" no entra: no es
-        // un proyecto y no tiene sentido en un ranking (tampoco va en la leyenda de arriba).
-        var cdHoy = new Date();
-        var cdMesObj = cdHoy.getFullYear() + '-' + String(cdHoy.getMonth() + 1).padStart(2, '0');
+        // Mes en curso según el servidor, acotado al rango del filtro: con un "Hasta" anterior,
+        // el mes de ese "Hasta"; con un "Desde" posterior, el de ese "Desde". Si ese mes no sale
+        // en la gráfica de arriba (sin consumo, o antes del corte de junio), aviso de vacío: así
+        // nunca contradice a la de arriba y cada barra tiene el color de su proyecto allí.
+        // "POR DEFINIR" no entra: no es un proyecto y no tiene sentido en un ranking (tampoco
+        // va en la leyenda de arriba).
+        var cdMesObj = String(data.mes_actual || '');
+        var cdDesde = ((document.getElementById('cdashDesde') || {}).value || '').slice(0, 7);
         var cdHasta = ((document.getElementById('cdashHasta') || {}).value || '').slice(0, 7);
         if (cdHasta && cdHasta < cdMesObj) cdMesObj = cdHasta;
+        if (cdDesde && cdDesde > cdMesObj) cdMesObj = cdDesde;
         var cdMesTot = {};
-        (data.por_mes_frente || []).forEach(function (x) {
+        (enGrafico[cdMesObj] ? porProy : []).forEach(function (x) {
             if (x.mes !== cdMesObj || String(x.proyecto || '').trim().toUpperCase() === 'POR DEFINIR') return;
             cdMesTot[x.proyecto] = (cdMesTot[x.proyecto] || 0) + x.total;
         });
@@ -697,12 +701,9 @@
         if (cdMesProy.length) {
             // Alto según la cantidad de proyectos (30 px por barra), con 240 de piso.
             cdMesWrap.style.height = Math.max(240, cdMesProy.length * 30 + 40) + 'px';
-            // Mismo color que el proyecto tiene en la gráfica de arriba; si allí no sale
-            // (un "Desde" propio que deja el mes fuera), el marino de la paleta.
-            var cdMesColores = cdMesProy.map(function (p) {
-                var i = series.indexOf(p);
-                return i >= 0 ? cdColorProyecto(i) : CD_PALETA[3];
-            });
+            // Mismo color que el proyecto tiene en la gráfica de arriba (está en series: el
+            // mes es uno de los dibujados).
+            var cdMesColores = cdMesProy.map(function (p) { return cdColorProyecto(series.indexOf(p)); });
             window._cdashCharts.mesActual = new Chart(document.getElementById('cdashChartMesActual'), {
                 type: 'bar',
                 plugins: [cdValLabels],

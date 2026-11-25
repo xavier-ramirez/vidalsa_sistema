@@ -43,10 +43,13 @@
     // su contenedor. data-ancho-min: ancho mínimo en px, si el modal tiene sitio. Solo actúa sobre
     // esas: las sugerencias de la barra de filtros son absolute normales y no necesitan anclaje.
     // Siempre se abre hacia ABAJO (ver almAnclarFlotante).
-    function almSuggestAnclar(box) {
+    // abriendo: true solo al pintar la lista (mostrarSugerencias). Solo entonces se puede
+    // desplazar el modal para hacerle sitio; al reanclar por scroll o resize NO, o el modal
+    // devolvería cada scroll del usuario y no podría subir a ver los campos de arriba.
+    function almSuggestAnclar(box, abriendo) {
         if (!box || !box.classList.contains('alm-suggest-float') || !box.classList.contains('open')) return;
         var campo = (box.dataset.ancla && el(box.dataset.ancla)) || box.parentElement; if (!campo) return;
-        almAnclarFlotante(box, campo, parseInt(box.dataset.anchoMin, 10) || 0);
+        almAnclarFlotante(box, campo, parseInt(box.dataset.anchoMin, 10) || 0, !!abriendo);
     }
     // La matemática del anclaje, en UN solo sitio: la usan las sugerencias flotantes
     // (.alm-suggest-float). La lista de frentes del modal de almacén tiene la suya
@@ -54,7 +57,7 @@
     // anchoMin: la caja puede ser más ancha que su campo (cédula, placa o vehículo en PC) si el
     // modal tiene sitio; si así se sale por la derecha, se alinea con el borde derecho del campo.
     // En el teléfono el campo ya ocupa casi todo el modal: ahí manda su ancho, o quedaría descuadrada.
-    function almAnclarFlotante(caja, ancla, anchoMin) {
+    function almAnclarFlotante(caja, ancla, anchoMin, abriendo) {
         var r = ancla.getBoundingClientRect(), ancho = r.width, izq = r.left;
         if (anchoMin > r.width) {
             var cont = (ancla.closest('.alm-modal') || document.documentElement).getBoundingClientRect();
@@ -67,30 +70,31 @@
         caja.style.width = ancho + 'px';   // el ancho se fija ANTES de medir el alto
         // SIEMPRE hacia ABAJO, como el resto de listas de la app (uicomponents.js ·
         // ajustarListaAbajo): antes, al fondo del modal (Chofer, Vehículo, Placa) se volteaba
-        // hacia arriba. Si no cabe, se desplaza el cuerpo del modal lo que falte (sin que el
-        // campo se salga por arriba) y lo que siga sobrando se acorta (.dd-acotada, mín. 120 px).
+        // hacia arriba. Si no cabe y se está abriendo, se desplazan sus contenedores con scroll
+        // lo que falte (cada uno sin que el campo pase por encima de su borde de arriba) y lo
+        // que siga sobrando se acorta (.dd-acotada, mín. 120 px). La caja es border-box
+        // (.alm-suggest-float), así que --dd-max ya incluye relleno y borde.
+        // Se mide sin el recorte, pero conservando por dónde iba el scroll de la lista: al
+        // quitarle .dd-acotada el navegador lo recortaría al nuevo máximo y la lista saltaría.
+        var scrollLista = caja.scrollTop;
         caja.classList.remove('dd-acotada');
         caja.style.removeProperty('--dd-max');
         var vv = window.visualViewport;
         var techo = vv ? vv.offsetTop : 0, suelo = (vv ? vv.height + vv.offsetTop : window.innerHeight) - 8;
         var alto = caja.offsetHeight, falta = r.bottom + 4 + alto - suelo;
-        if (falta > 0) {
-            for (var p = ancla.parentElement; p && p !== document.body; p = p.parentElement) {
-                var oy = getComputedStyle(p).overflowY;
-                if (p.scrollHeight <= p.clientHeight || (oy !== 'auto' && oy !== 'scroll')) continue;
-                var antes = p.scrollTop;
-                p.scrollTop = antes + Math.min(falta, Math.max(0, r.top - techo - 8));
-                r = ancla.getBoundingClientRect();
-                break;
-            }
+        for (var p = ancla.parentElement; abriendo && falta > 0 && p && p !== document.body; p = p.parentElement) {
+            var oy = getComputedStyle(p).overflowY;
+            if (p.scrollHeight <= p.clientHeight || (oy !== 'auto' && oy !== 'scroll')) continue;
+            var arriba = Math.max(techo, p.getBoundingClientRect().top);
+            p.scrollTop += Math.min(falta, Math.max(0, Math.floor(r.top - arriba - 8)));
+            r = ancla.getBoundingClientRect();
             falta = r.bottom + 4 + alto - suelo;
-            if (falta > 0) {   // con content-box, max-height no cuenta relleno ni borde
-                var cs = getComputedStyle(caja);
-                var extra = cs.boxSizing === 'border-box' ? 0 : parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
-                caja.style.setProperty('--dd-max', Math.max(120, Math.floor(alto - falta - extra)) + 'px');
-                caja.classList.add('dd-acotada');
-            }
         }
+        if (falta > 0) {
+            caja.style.setProperty('--dd-max', Math.max(120, Math.floor(alto - falta)) + 'px');
+            caja.classList.add('dd-acotada');
+        }
+        caja.scrollTop = scrollLista;
         caja.style.top = (r.bottom + 4) + 'px';
     }
     // Pinta la lista (o su aviso de vacía), la abre y la ancla.
@@ -101,17 +105,21 @@
         box.classList.add('open');
         // Las flotantes (modales) se anclan a su campo; las de la barra de filtros van debajo
         // de su buscador y solo hace falta que quepan (uicomponents.js).
-        if (box.classList.contains('alm-suggest-float')) almSuggestAnclar(box);
+        if (box.classList.contains('alm-suggest-float')) almSuggestAnclar(box, true);
         else window.ajustarListaAbajo(box);
     }
     // Al ser fixed, la lista no sigue sola a su campo: se reancla si la ventana cambia de
     // tamaño o si algo se desplaza (el cuerpo del modal, con scroll en captura porque el
     // evento scroll de un elemento no burbujea).
-    function reanclarSugerencias() {
-        document.querySelectorAll('.alm-suggest-float.open').forEach(almSuggestAnclar);
+    // El scroll DENTRO de la propia lista no la mueve: se ignora.
+    // visualViewport: el teclado del teléfono cambia el alto útil sin disparar window.resize.
+    function reanclarSugerencias(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.alm-suggest-float')) return;
+        document.querySelectorAll('.alm-suggest-float.open').forEach(function (box) { almSuggestAnclar(box); });
     }
     window.addEventListener('resize', reanclarSugerencias);
     document.addEventListener('scroll', reanclarSugerencias, true);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', reanclarSugerencias);
 
     // El formulario pide SOLO lo que imprime la hoja del almacén de origen. La nota
     // HORIZONTAL (admin.almacen.nota_entrega_horizontal_pdf) no imprime CONTRATO N° ni

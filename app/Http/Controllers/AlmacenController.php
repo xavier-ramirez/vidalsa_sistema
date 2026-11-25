@@ -1634,6 +1634,9 @@ class AlmacenController extends Controller
                 : null,
             'por_mes'       => $porMes,
             'por_mes_frente' => $porMesFrente,
+            // Mes en curso con el reloj del SERVIDOR (el mismo que agrupa por_mes_frente),
+            // no el del navegador: lo usa el ranking "Proyecto que más consume".
+            'mes_actual'    => now()->format('Y-m'),
             'top_productos' => $topProductos,
             'por_almacen'   => $porAlmacen,
         ]);
