@@ -474,10 +474,7 @@ class GoogleDriveService
             } elseif (!$disco->exists($ruta)) {
                 $servicio = self::getInstance();
                 // Mismos datos (y misma clave) que el proxy: el tamaño dice si llego entera.
-                $meta = Cache::remember('gdrive_meta_' . $fileId, 86400, function () use ($servicio, $fileId) {
-                    $f = $servicio->getDrive()->files->get($fileId, ['fields' => 'mimeType,size,modifiedTime', 'supportsAllDrives' => true]);
-                    return ['mime' => $f->getMimeType(), 'size' => $f->getSize() ?: 0];
-                });
+                $meta = self::metadatos($fileId);
                 $final = $disco->path($ruta);
                 $tmp   = $final . '.' . bin2hex(random_bytes(4)) . '.parcial';
                 @mkdir(dirname($final), 0775, true);
@@ -523,6 +520,22 @@ class GoogleDriveService
             self::miniatura($fileId, $sz);
         }
         return $lista;
+    }
+
+    /**
+     * Tipo y tamaño de un archivo de Drive (['mime' => ..., 'size' => bytes o 0]), recordados
+     * un dia. Los usan el proxy (que tipos salen, cuanto mide) y prepararCopiaLocal (si la
+     * copia llego entera). olvidarCopiaLocal los olvida.
+     */
+    public static function metadatos(string $fileId): array
+    {
+        return Cache::remember('gdrive_meta_' . $fileId, 86400, function () use ($fileId) {
+            $f = self::getInstance()->getDrive()->files->get($fileId, [
+                'fields' => 'mimeType,size,modifiedTime',
+                'supportsAllDrives' => true,
+            ]);
+            return ['mime' => $f->getMimeType(), 'size' => $f->getSize() ?: 0];
+        });
     }
 
     /** Ruta (en el disco 'local') de la copia de un archivo, o de su miniatura si se da $sz. */

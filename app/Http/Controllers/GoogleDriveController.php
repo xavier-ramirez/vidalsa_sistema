@@ -99,17 +99,7 @@ class GoogleDriveController extends Controller
 
             // 3. FULL FILE: descargar via API (mantiene comportamiento legacy)
             $driveService = \App\Services\GoogleDriveService::getInstance();
-            $metadata = Cache::remember('gdrive_meta_' . $fileId, 86400, function() use ($driveService, $fileId) {
-                $drive = $driveService->getDrive();
-                $file = $drive->files->get($fileId, [
-                    'fields' => 'mimeType,size,modifiedTime',
-                    'supportsAllDrives' => true
-                ]);
-                return [
-                    'mime' => $file->getMimeType(),
-                    'size' => $file->getSize() ?: 0,
-                ];
-            });
+            $metadata = \App\Services\GoogleDriveService::metadatos($fileId);
             // Antes de bajar nada: lo que no es PDF ni foto no sale (ni se copia al disco).
             if (!self::permitido($metadata['mime'])) {
                 return self::noDisponible();
