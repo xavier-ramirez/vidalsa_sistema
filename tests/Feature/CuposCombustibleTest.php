@@ -11,52 +11,56 @@ class CuposCombustibleTest extends MySqlTestCase
 {
     private const MES = '2031-03';
 
-    public function test_cargar_cupo_y_cisternas_muestra_lo_disponible(): void
+    public function test_el_cupo_sigue_rigiendo_hasta_que_se_cambie(): void
     {
         $u = $this->superAdminGlobal();
+        $this->actingAs($u)->postJson(route('consumibles.cupos.guardar'), ['mes' => self::MES, 'cupos' => ['TIGRE' => 100000, 'MATURIN' => 60000]])->assertOk();
 
-        $this->actingAs($u)->postJson(route('consumibles.cupos.guardar'), ['patio' => 'TIGRE', 'mes' => self::MES, 'litros' => 100000])->assertOk();
-        // Volver a guardar el mismo mes lo cambia (no repite el cupo).
-        $this->actingAs($u)->postJson(route('consumibles.cupos.guardar'), ['patio' => 'TIGRE', 'mes' => self::MES, 'litros' => 120000])->assertOk();
-        $this->assertSame(1, CupoCombustible::where('PATIO', 'TIGRE')->whereDate('MES', '2031-03-01')->count());
+        // Meses después, sin volver a cargarlo, sigue el mismo.
+        $this->actingAs($u)->get(route('consumibles.cupos', ['mes' => '2031-07', 'parcial' => 1]))->assertOk()
+            ->assertSee('100.000 L')->assertSee('60.000 L')->assertSee('vigente desde Marzo 2031');
 
-        foreach ([['2031-03-02', 'A12BC3D', 38000], ['2031-03-15', null, 38000]] as [$fecha, $cisterna, $litros]) {
+        // Guardar lo mismo no crea otro; cambiarlo en junio rige desde junio, y marzo queda igual.
+        $this->actingAs($u)->postJson(route('consumibles.cupos.guardar'), ['mes' => '2031-05', 'cupos' => ['TIGRE' => 100000, 'MATURIN' => null]])->assertOk();
+        $this->actingAs($u)->postJson(route('consumibles.cupos.guardar'), ['mes' => '2031-06', 'cupos' => ['TIGRE' => 120000]])->assertOk();
+        $this->assertSame(2, CupoCombustible::where('PATIO', 'TIGRE')->where('MES', '>=', '2031-01-01')->count());
+        $this->actingAs($u)->get(route('consumibles.cupos', ['mes' => '2031-07', 'parcial' => 1]))->assertSee('120.000 L');
+        $this->actingAs($u)->get(route('consumibles.cupos', ['mes' => self::MES, 'parcial' => 1]))->assertSee('100.000 L')->assertDontSee('120.000 L');
+    }
+
+    public function test_cisternas_del_mes_y_lo_disponible(): void
+    {
+        $u = $this->superAdminGlobal();
+        $this->actingAs($u)->postJson(route('consumibles.cupos.guardar'), ['mes' => self::MES, 'cupos' => ['TIGRE' => 100000, 'MATURIN' => 500]])->assertOk();
+
+        foreach ([['TIGRE', '2031-03-02', 'a12bc3d', 38000], ['TIGRE', '2031-03-15', null, 38000], ['MATURIN', '2031-03-05', null, 1000]] as [$patio, $fecha, $cisterna, $litros]) {
             $this->actingAs($u)->postJson(route('consumibles.cupos.cisterna'), [
-                'patio' => 'TIGRE', 'mes' => self::MES, 'fecha' => $fecha, 'cisterna' => $cisterna, 'litros' => $litros,
+                'patio' => $patio, 'mes' => self::MES, 'fecha' => $fecha, 'cisterna' => $cisterna, 'litros' => $litros,
             ])->assertOk();
         }
 
         $this->actingAs($u)->get(route('consumibles.cargar', ['mes' => self::MES]))->assertOk()
-            ->assertSee('Patio El Tigre')->assertSee('Patio Maturín')
-            ->assertSee('120.000 L')->assertSee('76.000 L')->assertSee('44.000 L')
-            ->assertSee('A12BC3D')->assertSee('02/03/2031')->assertSee('2 cisternas');
+            ->assertSee('Cupos de Gasoil')->assertSee('76.000 L')->assertSee('24.000 L')
+            ->assertSee('A12BC3D')->assertSee('02/03/2031')->assertSee('-500 L');   // Maturín se pasó
     }
 
-    public function test_la_cisterna_pide_el_cupo_y_una_fecha_del_mes(): void
+    public function test_la_cisterna_pide_patio_y_una_fecha_del_mes(): void
     {
         $u = $this->superAdminGlobal();
         $fila = ['patio' => 'MATURIN', 'mes' => self::MES, 'fecha' => '2031-03-05', 'litros' => 1000];
 
-        $this->actingAs($u)->postJson(route('consumibles.cupos.cisterna'), $fila)->assertStatus(422)->assertJsonValidationErrors('litros');
-
-        $this->actingAs($u)->postJson(route('consumibles.cupos.guardar'), ['patio' => 'MATURIN', 'mes' => self::MES, 'litros' => 500])->assertOk();
         $this->actingAs($u)->postJson(route('consumibles.cupos.cisterna'), ['fecha' => '2031-04-01'] + $fila)
             ->assertStatus(422)->assertJsonValidationErrors('fecha');
-        $this->actingAs($u)->postJson(route('consumibles.cupos.cisterna'), ['patio' => 'OTRO'] + $fila)->assertStatus(422);
-
-        // Pasarse del cupo se permite, pero se avisa en rojo.
+        $this->actingAs($u)->postJson(route('consumibles.cupos.cisterna'), ['patio' => 'OTRO'] + $fila)
+            ->assertStatus(422)->assertJsonValidationErrors('patio');
         $this->actingAs($u)->postJson(route('consumibles.cupos.cisterna'), $fila)->assertOk();
-        $this->actingAs($u)->get(route('consumibles.cupos', ['mes' => self::MES, 'parcial' => 1]))->assertOk()
-            ->assertSee('Se pidió 500 L más que el cupo.');
     }
 
     public function test_quitar_una_cisterna(): void
     {
-        $u = $this->superAdminGlobal();
-        $cupo = CupoCombustible::create(['PATIO' => 'TIGRE', 'MES' => '2031-03-01', 'LITROS' => 1000]);
-        $k = $cupo->cisternas()->create(['FECHA' => '2031-03-03', 'LITROS' => 200]);
+        $k = CisternaCupo::create(['PATIO' => 'TIGRE', 'FECHA' => '2031-03-03', 'LITROS' => 200]);
 
-        $this->actingAs($u)->deleteJson(route('consumibles.cupos.borrarCisterna', $k->ID_CISTERNA))->assertOk();
+        $this->actingAs($this->superAdminGlobal())->deleteJson(route('consumibles.cupos.borrarCisterna', $k->ID_CISTERNA))->assertOk();
         $this->assertNull(CisternaCupo::find($k->ID_CISTERNA));
     }
 
