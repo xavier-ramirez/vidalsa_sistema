@@ -1123,7 +1123,7 @@
 @if($puedeAlmManage)
 {{-- Gestionar almacenes (editar / eliminar) — solo super.admin. --}}
 <div id="almAdminAlmacenesModal" class="alm-modal-overlay">
-    <div class="alm-modal" style="max-width:440px;">
+    <div class="alm-modal" style="max-width:520px;">
         <div class="alm-modal-head">
             <h3><i class="material-icons" style="font-size:20px;">warehouse</i> Gestionar almacenes</h3>
             <i class="material-icons alm-x" onclick="almCerrar('almAdminAlmacenesModal')">close</i>
@@ -1133,9 +1133,9 @@
                 @forelse($almacenes as $a)
                     <div class="alm-admin-row" data-id="{{ $a->ID_ALMACEN }}">
                         <i class="material-icons" style="font-size:18px;color:{{ $a->TIPO === 'GENERAL' ? '#0067b1' : '#64748b' }};">{{ $a->TIPO === 'GENERAL' ? 'business' : 'store' }}</i>
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-weight:700;color:#1e293b;font-size:13.5px;">{{ $a->NOMBRE }}</div>
-                            <div style="font-size:11.5px;color:#94a3b8;">{{ $a->TIPO === 'GENERAL' ? 'Principal' : 'Proyecto' }}{{ $a->CODIGO ? ' · '.$a->CODIGO : '' }}{{ $a->TIPO === 'PROYECTO' ? ' · '.$a->frentes_count.' frente(s)' : '' }}{{ $a->UBICACION ? ' · '.$a->UBICACION : '' }} · Nota {{ mb_strtolower(\App\Models\Almacen::etiquetaFormatoNota($a->FORMATO_NOTA)) }}</div>
+                        <div class="alm-admin-txt">
+                            <div class="alm-admin-nom" title="{{ $a->NOMBRE }}">{{ $a->NOMBRE }}</div>
+                            <div class="alm-admin-sub">{{ $a->TIPO === 'GENERAL' ? 'Principal' : 'Proyecto' }}{{ $a->CODIGO ? ' · '.$a->CODIGO : '' }}{{ $a->TIPO === 'PROYECTO' ? ' · '.$a->frentes_count.' frente(s)' : '' }}{{ $a->UBICACION ? ' · '.$a->UBICACION : '' }} · Nota {{ mb_strtolower(\App\Models\Almacen::etiquetaFormatoNota($a->FORMATO_NOTA)) }}</div>
                         </div>
                         <button type="button" class="alm-btn alm-btn-edit" title="Editar"
                                 onclick="window.almEditarAlmacen({{ $a->ID_ALMACEN }})"><i class="material-icons" style="font-size:16px;">edit</i></button>

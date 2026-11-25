@@ -831,6 +831,25 @@
        Con id + clase le ganan en especificidad a las dos reglas de arriba. */
     #almPapeleraLista .alm-admin-row { background: #fff; }
     #almPapeleraLista .alm-admin-row:hover { background: #f1f5f9; }
+    /* Gestionar almacenes: el nombre en UNA línea (pedido del cliente, 25-11-2026; antes
+       "DIVISIÓN CARABOBO - PROYECTOS MIXTOS" se partía en dos). Si aun así no cabe, termina
+       en "…" y el nombre completo queda en el title. */
+    #almAdminLista .alm-admin-txt { flex: 1; min-width: 0; }
+    #almAdminLista .alm-admin-nom { font-weight: 700; color: #1e293b; font-size: 13.5px;
+                                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #almAdminLista .alm-admin-sub { font-size: 11.5px; color: #94a3b8; }
+    /* En el teléfono los botones le quitaban medio ancho al nombre: el nombre va arriba a
+       todo el ancho (13 px) y el ícono y los botones bajan a la línea del detalle. */
+    @media (max-width: 600px) {
+        #almAdminLista .alm-admin-row { display: grid; grid-template-columns: auto 1fr auto auto;
+            grid-template-areas: "nom nom nom nom" "ico sub edit del"; column-gap: 8px; row-gap: 4px; }
+        #almAdminLista .alm-admin-row > .material-icons { grid-area: ico; }
+        #almAdminLista .alm-admin-txt { display: contents; }
+        #almAdminLista .alm-admin-nom { grid-area: nom; font-size: 13px; }
+        #almAdminLista .alm-admin-sub { grid-area: sub; align-self: center; }
+        #almAdminLista .alm-btn-edit { grid-area: edit; }
+        #almAdminLista .alm-btn-del { grid-area: del; }
+    }
     /* "Nuevo almacén", dentro del modal de Gestionar almacenes: va DEBAJO de la lista y a todo
        el ancho, para que se lea como "añadir otro" y no como una acción sobre los de arriba.
        El color, la letra, la sombra y el hover los pone .btn-primary-maquinaria, que es el
@@ -1009,6 +1028,12 @@
         /* El bloque del selector de almacen (mini-label + dropdown) tomaba flex:0 1 auto. */
         .page-title-card > div > div { width: 100% !important; flex: 1 1 100% !important; }
         .page-title-card .alm-sel-alm-box { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+    }
+    /* Teléfono: menos aire arriba y abajo del selector de almacén (pedido del cliente,
+       25-11-2026): de ~30 px a ~14 px bajo la cabecera y de 28 px a 10 px hasta los filtros. */
+    @media (max-width: 768px) {
+        .page-title-card:has(.alm-sel-alm-box) { margin-top: 2px !important; margin-bottom: 10px !important;
+                                                  padding-top: 0 !important; padding-bottom: 0 !important; }
     }
 
     /* ── Responsive mobile (≤768px) — patron calcado de /admin/equipos ──
