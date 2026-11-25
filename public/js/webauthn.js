@@ -133,11 +133,17 @@ const VidalsaWebAuthn = (() => {
     // opts.sinGesto: se llama al cargar la página, sin que la persona haya tocado nada. Android
     // muestra igual el lector de huella; Safari (iPhone) no lo deja sin un toque y lo rechaza al
     // instante: entonces devuelve 'sin-gesto' para que quien llama ofrezca un botón. Cancelar
-    // el lector de verdad tarda más y sigue devolviendo false.
+    // el lector de verdad tarda más y sigue devolviendo false. Sin gesto, un fallo de red o del
+    // servidor no saca alert (nadie lo pidió) y devuelve 'error': no es un «Ahora no».
     async function registrar(opts) {
-        if (!(await plataformaDisponible())) {
-            alert('Este dispositivo no soporta autenticación biométrica.');
+        const sinGesto = !!(opts && opts.sinGesto);
+        const fallo = (msg) => {
+            if (sinGesto) { console.warn('Huella: ' + msg); return 'error'; }
+            alert(msg);
             return false;
+        };
+        if (!(await plataformaDisponible())) {
+            return fallo('Este dispositivo no soporta autenticación biométrica.');
         }
 
         // Sal de la llave PRF de esta huella (la credencial aún no tiene id: se le asigna al nacer).
@@ -152,8 +158,7 @@ const VidalsaWebAuthn = (() => {
             options = await res.json();
             if (!res.ok) throw new Error(textoError(options, 'Error obteniendo opciones'));
         } catch (e) {
-            alert('Error al preparar el registro biométrico: ' + e.message);
-            return false;
+            return fallo('Error al preparar el registro biométrico: ' + e.message);
         }
 
         const publicKey = {
@@ -180,14 +185,13 @@ const VidalsaWebAuthn = (() => {
         try {
             credential = await navigator.credentials.create({ publicKey });
         } catch (e) {
-            if (opts && opts.sinGesto && e && e.name === 'NotAllowedError' && Date.now() - t0 < 1000) return 'sin-gesto';
+            if (sinGesto && e && e.name === 'NotAllowedError' && Date.now() - t0 < 1000) return 'sin-gesto';
             return false;
         }
 
         const spkiKey = credential.response.getPublicKey();
         if (!spkiKey) {
-            alert('El navegador no soporta getPublicKey(). Actualice el navegador.');
-            return false;
+            return fallo('El navegador no soporta getPublicKey(). Actualice el navegador.');
         }
 
         const body = {
@@ -213,8 +217,7 @@ const VidalsaWebAuthn = (() => {
             await prepararSinServidor(credential, body.credential_id, options.rp && options.rp.id, salRegistro);
             return true;
         } catch (e) {
-            alert('Error al guardar la huella: ' + e.message);
-            return false;
+            return fallo('Error al guardar la huella: ' + e.message);
         }
     }
 

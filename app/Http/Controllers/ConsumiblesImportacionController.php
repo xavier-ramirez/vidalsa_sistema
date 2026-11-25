@@ -99,6 +99,7 @@ class ConsumiblesImportacionController extends Controller
         $request->validate([
             'filas'   => 'required|array|min:2|max:20',
             'filas.*' => 'array|max:30',
+            'filas.*.*' => 'nullable|string|max:500',
             'espec'   => 'boolean',
         ]);
         $campos = [

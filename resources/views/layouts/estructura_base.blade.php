@@ -1361,7 +1361,7 @@
                 // (Safari del iPhone): registrar devuelve 'sin-gesto' (24-11-2026, pedido).
                 VidalsaWebAuthn.registrar({ sinGesto: true }).then(function(r) {
                     if (r === 'sin-gesto') mostrarModal();
-                    else terminar(r === true);
+                    else if (r !== 'error') terminar(r === true);   // falló la red: se ofrece la próxima vez
                 }).catch(function() { /* sin huella: entra igual */ });
             });
 

@@ -108,6 +108,51 @@ class ColumnasConIATest extends MySqlTestCase
         $this->assertSame(1, $preguntas);
     }
 
+    public function test_un_kilometraje_no_pasa_por_fecha(): void
+    {
+        // La IA dice que la «fecha» es el km (números de 5 cifras, como una fecha de Excel).
+        $ia = new ColumnasConIA($this->ia(['fila_encabezado' => null, 'columnas' => ['fecha' => 1, 'cantidad' => 2]]));
+        $filas = [[15230, 120], [88000, 200], [15410, 95]];
+
+        $this->assertNull($ia->reconocer($filas, ['fecha' => 'f', 'cantidad' => 'c'], 'fecha', 'cantidad'));
+    }
+
+    public function test_una_respuesta_rechazada_no_se_recuerda(): void
+    {
+        $preguntas = 0;
+        $ia = new ColumnasConIA($this->ia(['fila_encabezado' => null, 'columnas' => ['fecha' => 2, 'cantidad' => 1]], $preguntas));
+        $filas = [['01/11/2026', 'A45AF4Y', '120'], ['02/11/2026', 'A12BC3D', '80']];
+
+        $this->assertNull($ia->reconocer($filas, ['fecha' => 'f', 'cantidad' => 'c'], 'fecha', 'cantidad'));
+        $ia->reconocer($filas, ['fecha' => 'f', 'cantidad' => 'c'], 'fecha', 'cantidad');
+        $this->assertSame(2, $preguntas, 'una respuesta que no cuadró se vuelve a preguntar');
+    }
+
+    public function test_una_hoja_sin_fechas_no_gasta_cupo(): void
+    {
+        $preguntas = 0;
+        $ia = new ColumnasConIA($this->ia(null, $preguntas));
+        $libro = new Spreadsheet();
+        $libro->getActiveSheet()->fromArray([['ITEM', 'EQUIPO', 'SERIAL', 'PLACA'], [1, 'VOLQUETA', 'X1', 'A45AF4Y'], [2, 'CAMION', 'X2', 'A12BC3D']]);
+        $ruta = tempnam(sys_get_temp_dir(), 'colia') . '.xlsx';
+        (new Xlsx($libro))->save($ruta);
+        try {
+            (new LectorExcelCombustible($ia))->leer($ruta, 'catalogo.xlsx');
+        } finally {
+            @unlink($ruta);
+        }
+
+        $this->assertSame(0, $preguntas);
+    }
+
+    public function test_una_celda_que_no_es_texto_da_422(): void
+    {
+        $u = Usuario::query()->whereRaw("FIND_IN_SET('super.admin', PERMISOS)")->firstOrFail();
+
+        $this->actingAs($u)->postJson(route('consumibles.importar.columnas'), ['filas' => [[['x'], '1'], ['a', 'b']]])
+            ->assertStatus(422);
+    }
+
     public function test_la_tabla_de_cargar_consumibles_pide_las_columnas_por_http(): void
     {
         $this->app->instance(LectorGemini::class, $this->ia(['fila_encabezado' => null, 'columnas' => [

@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\Cache;
  * cual y contesta qué fila es el encabezado y en qué columna está cada dato. Su respuesta NO se
  * cree a ciegas: se comprueba con las filas de datos (la columna de fecha tiene fechas, la de
  * cantidad tiene números). Si no cuadra, o no hay clave o cupo, devuelve null y todo sigue como
- * sin IA. La respuesta se guarda por el contenido enseñado: el mismo formato no gasta cupo dos veces.
+ * sin IA. La respuesta que cuadra se guarda por el contenido enseñado: volver a leer las mismas
+ * filas (subir otra vez el archivo) no gasta cupo; una que no cuadró se puede volver a preguntar.
  */
 class ColumnasConIA
 {
@@ -74,10 +75,28 @@ class ColumnasConIA
             if ($r === null) {
                 return null;   // sin clave, sin cupo o sin red: no se recuerda, se puede volver a intentar
             }
+        }
+        $ok = $this->validar($r, $filas, array_keys($campos), $fecha, $cantidad);
+        if ($ok !== null) {
             Cache::put($clave, $r, now()->addDays(self::DIAS_RECUERDO));
         }
 
-        return $this->validar($r, $filas, array_keys($campos), $fecha, $cantidad);
+        return $ok;
+    }
+
+    /** ¿Hay fechas en estas filas (al menos dos celdas)? Sin ellas no es una tabla de despachos. */
+    public function hayFechas(array $filas): bool
+    {
+        $n = 0;
+        foreach ($filas as $celdas) {
+            foreach ((array) $celdas as $v) {
+                if ($this->pareceFecha($v) && ++$n >= 2) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /** La respuesta de la IA, comprobada contra las filas de datos. */
@@ -131,7 +150,10 @@ class ColumnasConIA
             return true;
         }
         if (is_numeric($v)) {
-            return $v > 20000 && $v < 80000;   // número de serie de Excel
+            // Número de serie de Excel, entre hace 5 años y dentro de 1: un kilometraje, un
+            // horómetro o un número de guía (también de 5 cifras) casi nunca cae ahí.
+            $hoy = (int) floor(time() / 86400) + 25569;
+            return $v >= $hoy - 5 * 366 && $v <= $hoy + 366;   // con decimales = fecha con hora
         }
         $s = TextoConsumo::norm($this->texto($v));
         // 01/08/2026, 2026-08-01, 1-ago-26, 1 de agosto de 2026 (con o sin hora detrás)

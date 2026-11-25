@@ -699,7 +699,14 @@
             // Modo «Subir Excel de gasoil»: lo pegado es una tabla de gasoil y va a su lector (con
             // revisión), no a la tabla de abajo, que ni se ve.
             if (window.consModoActual === 'excel') {
-                if (window.consImpPegar) window.consImpPegar(text);
+                if (!window.consImpPegar || !window.consImpPegar(text)) {
+                    window.showModal({ type: 'warning', title: 'No se pudo leer', message: 'Recarga la página e intenta de nuevo, o usa «Llenar tabla».', confirmText: 'Entendido', hideCancel: true });
+                }
+                return;
+            }
+            // Una tabla se está reconociendo con IA: otro Ctrl+V ahora la pegaría dos veces.
+            if (window.__consPegandoIA) {
+                if (window.showToast) window.showToast('Espera: se están reconociendo las columnas de lo que pegaste.', 'warning');
                 return;
             }
 
@@ -727,10 +734,12 @@
             const raro = filas.length >= 2 && (filas.some(c => c.filter(x => x !== '').length > enOrden)
                 || (filas[0][0] && !fechaISO(filas[0][0]) && isNaN(parseFloat(filas[0][0]))));
             if (!mapa && raro && window.consImpColumnas) {
+                window.__consPegandoIA = true;
                 window.consImpColumnas(filas, espec0).then(r => {
+                    if (!document.getElementById('cuerpoTabla')) return;   // se fue a otra pantalla
                     if (r) pegarFilas(filas, r.mapa, r.fila === null ? 0 : r.fila + 1);
                     else pegarFilas(filas, null, 0);
-                });
+                }).finally(() => { window.__consPegandoIA = false; });
                 return;
             }
             pegarFilas(filas, mapa, desde);
@@ -797,7 +806,9 @@
                 const aMedias = [];
                 [...document.getElementById('cuerpoTabla').children].forEach(tr => {
                     const v = n => (tr.querySelector(`[name$="[${n}]"]`) || {}).value || '';
-                    const algo = [...tr.querySelectorAll('input')].some(inp => inp.value.trim() !== '');
+                    // Solo lo que se ve: la viscosidad o el modelo de otro tipo quedan ocultos y el
+                    // servidor los ignora.
+                    const algo = [...tr.querySelectorAll('input')].some(inp => inp.value.trim() !== '' && !inp.closest('[data-espec-cell][style*="none"]'));
                     // El número es el de la columna «#» (tras borrar filas no coincide con la posición).
                     if (algo && (!v('fecha') || !(parseFloat(v('cantidad')) > 0))) aMedias.push(tr.firstElementChild.textContent.trim());
                 });

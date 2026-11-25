@@ -58,7 +58,10 @@ class LectorExcelCombustible
     /** Una fecha a más de esto de la mediana de su hoja no sirve de referencia para las vecinas. */
     private const DIAS_CONFIABLE = 150;
 
-    /** Hojas por archivo que se le pueden preguntar a la IA (cada una gasta cupo; ver ColumnasConIA). */
+    /**
+     * Hojas que se le pueden preguntar a la IA en UNA subida (todos sus archivos: el importador
+     * usa un solo lector por petición). Cada pregunta gasta cupo y espera su turno con Gemini.
+     */
     private const HOJAS_CON_IA = 3;
 
     /** Lo que la IA sabe buscar en una hoja de despachos: los mismos campos que campoDe(). */
@@ -88,7 +91,6 @@ class LectorExcelCombustible
         $lector = IOFactory::createReaderForFile($ruta);
         $lector->setReadDataOnly(true);
         $libro = $lector->load($ruta);
-        $this->hojasConIa = 0;
 
         try {
             $catalogo = $this->catalogoCodigos($libro);
@@ -196,6 +198,10 @@ class LectorExcelCombustible
                 $fila[] = $this->valor($hoja, $c, $r);
             }
             $filas[] = $fila;
+        }
+        // Una hoja sin fechas (catálogo de equipos, resumen) no son despachos: no gasta cupo.
+        if (!$ia->hayFechas($filas)) {
+            return [null, []];
         }
         $this->hojasConIa++;
         $res = $ia->reconocer($filas, self::CAMPOS_IA, 'fecha', 'salida');
