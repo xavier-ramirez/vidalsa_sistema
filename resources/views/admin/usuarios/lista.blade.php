@@ -337,7 +337,7 @@
                 <span class="badge" style="background: {{ $bipsCount ? '#fee2e2' : '#dcfce7' }}; color: {{ $bipsCount ? '#ef4444' : '#15803d' }}; font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 700;" id="blocked-ip-count">{{ $bipsCount }}</span>
             </div>
             @if($bipsCount === 0)
-            <p style="margin: 8px 0 0; font-size: 11px; color: #94a3b8; text-align: center; padding: 8px 0 0;">Nada bloqueado. Un equipo se bloquea con {{ \App\Models\BloqueoIp::FALLOS_EQUIPO }} claves incorrectas; una IP, con {{ \App\Models\BloqueoIp::FALLOS_IP }} de {{ \App\Models\BloqueoIp::CUENTAS_IP }} cuentas o más.</p>
+            <p style="margin: 8px 0 0; font-size: 11px; color: #94a3b8; text-align: center; padding: 8px 0 0;">Nada bloqueado.</p>
             @else
             <div style="position: relative; margin-bottom: 10px;">
                 <i class="material-icons" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #94a3b8; pointer-events: none;">search</i>
