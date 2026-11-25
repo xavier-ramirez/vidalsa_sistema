@@ -3559,6 +3559,9 @@ if (!window.__fotoCamaraOGaleria) {
             }
             campo.__fotoOrigenListo = true;
             campo.click();
+            // El click() pasa en el acto: si no llegó al manejador (input deshabilitado entretanto),
+            // la marca no debe saltarse la hoja del próximo toque.
+            campo.__fotoOrigenListo = false;
             // El selector ya leyó los atributos: el input vuelve a quedar como estaba.
             setTimeout(function () {
                 if (capture === null) campo.removeAttribute('capture'); else campo.setAttribute('capture', capture);
@@ -3572,7 +3575,7 @@ if (!window.__fotoCamaraOGaleria) {
             if (!/image/i.test(campo.getAttribute('accept') || '')) return;
             if (!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) return;
             // Segunda pasada: el click() que hace abrirSelector sigue de largo al selector.
-            if (campo.__fotoOrigenListo) { campo.__fotoOrigenListo = false; return; }
+            if (campo.__fotoOrigenListo) return;
             e.preventDefault();
             cerrarHoja();
             var hoja = document.createElement('div');
@@ -3595,5 +3598,9 @@ if (!window.__fotoCamaraOGaleria) {
             });
             document.body.appendChild(hoja);
         }, true);
+
+        // El botón Atrás del teléfono cierra la hoja: si no, quedaba encima de la otra pantalla
+        // atada a la foto del módulo que se dejó.
+        window.addEventListener('popstate', cerrarHoja);
     })();
 }

@@ -54,6 +54,9 @@
         .crop-modal-overlay { padding: 0; align-items: flex-end; }
         .crop-modal-box {
             max-width: 100%; max-height: 100vh; height: 100vh;
+            /* Lo que se ve de verdad: con la barra del navegador a la vista, 100vh se pasa
+               y quedaban cortados el título o los botones. */
+            max-height: 100dvh; height: 100dvh;
             border-radius: 0;
         }
         .crop-modal-body { min-height: 0; max-height: none; flex: 1; }
@@ -117,21 +120,32 @@ window._openCropModal = function (file, onConfirm, opts) {
 
     modal.style.display = 'flex';
 
+    // La foto no se pudo leer o el navegador no sabe mostrarla (p. ej. HEIC): aviso y cierre,
+    // en vez de dejar el recorte en negro.
+    var noSeAbre = function () {
+        if (window._cropPending !== onConfirm) return;
+        window.toast('No se pudo abrir la foto. Usa una foto JPG o PNG.', 'error');
+        window._closeCropModal();
+    };
     var reader = new FileReader();
+    reader.onerror = noSeAbre;
     reader.onload = function (e) {
         var img = document.createElement('img');
         img.style.cssText = 'display:block; max-width:100%;';
         body.appendChild(img);
 
+        img.onerror = noSeAbre;
         img.onload = function () {
             var tries = 0;
             var tryInit = function () {
+                // Se canceló (o se abrió otra foto) antes de montar: nada que montar.
+                if (!img.isConnected || window._cropPending !== onConfirm) return;
                 if (typeof Cropper !== 'undefined') {
                     window._cropperInstance = new Cropper(img, {
                         aspectRatio: NaN,
                         viewMode: libre ? 0 : 1,
                         autoCropArea: libre ? 1 : 0.9,
-                        responsive: true,
+                        responsive: false,     // el cambio de tamaño lo atiende el resize de abajo
                         background: false,
                         dragMode: 'move',
                         toggleDragModeOnDblclick: false,
@@ -149,9 +163,12 @@ window._openCropModal = function (file, onConfirm, opts) {
 };
 
 window._confirmCrop = function () {
-    if (!window._cropperInstance || !window._cropPending) return;
+    // Sin listo (todavía cargando, o volviéndose a montar tras un cambio de tamaño) no hay
+    // recorte que entregar: el toque no hace nada.
+    if (!window._cropperInstance || !window._cropperInstance.ready || !window._cropPending) return;
     var canvas = window._cropperInstance.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200, imageSmoothingQuality: 'high',
         fillColor: window._cropLibre ? '#fff' : 'transparent' });
+    if (!canvas) return;
     canvas.toBlob(function (blob) {
         if (!blob) { window.toast('Error al recortar la imagen.', 'error'); return; }
         var croppedFile = new File([blob], 'foto_recortada.webp', { type: 'image/webp' });
@@ -159,6 +176,28 @@ window._confirmCrop = function () {
         window._closeCropModal();
     }, 'image/webp', 0.88);
 };
+
+// Si el área del recorte cambia de tamaño con la foto abierta (al volver de la cámara reaparece
+// la barra del navegador, o se gira el teléfono), el recorte se vuelve a montar y la foto sale
+// entera, con el mismo pedazo que el usuario ya había marcado. El responsive de Cropper escalaba
+// el encuadre viejo y no dejaba la foto más chica que el recuadro anterior: quedaba ampliada y
+// cortada. Un solo listener aunque el módulo se monte varias veces (SPA).
+if (!window._cropReencuadrarListo) {
+    window._cropReencuadrarListo = true;
+    window.addEventListener('resize', function () {
+        clearTimeout(window._cropReencuadrarT);
+        window._cropReencuadrarT = setTimeout(function () {
+            var k = window._cropperInstance;
+            if (!k || !k.ready) return;
+            var area = k.element.parentNode, antes = k.getContainerData();
+            if (area.offsetWidth === antes.width && area.offsetHeight === antes.height) return;
+            var marcado = k.getData(), img = k.element;
+            var opciones = Object.assign({}, k.options, { ready: function () { this.cropper.setData(marcado); } });
+            k.destroy();
+            window._cropperInstance = new Cropper(img, opciones);
+        }, 150);
+    });
+}
 
 window._closeCropModal = function () {
     var modal = document.getElementById('cropModal');
