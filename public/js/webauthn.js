@@ -130,7 +130,11 @@ const VidalsaWebAuthn = (() => {
 
     // ─── REGISTRO ────────────────────────────────────────────────────
 
-    async function registrar() {
+    // opts.sinGesto: se llama al cargar la página, sin que la persona haya tocado nada. Android
+    // muestra igual el lector de huella; Safari (iPhone) no lo deja sin un toque y lo rechaza al
+    // instante: entonces devuelve 'sin-gesto' para que quien llama ofrezca un botón. Cancelar
+    // el lector de verdad tarda más y sigue devolviendo false.
+    async function registrar(opts) {
         if (!(await plataformaDisponible())) {
             alert('Este dispositivo no soporta autenticación biométrica.');
             return false;
@@ -172,9 +176,11 @@ const VidalsaWebAuthn = (() => {
         };
 
         let credential;
+        const t0 = Date.now();
         try {
             credential = await navigator.credentials.create({ publicKey });
-        } catch {
+        } catch (e) {
+            if (opts && opts.sinGesto && e && e.name === 'NotAllowedError' && Date.now() - t0 < 1000) return 'sin-gesto';
             return false;
         }
 

@@ -1356,6 +1356,27 @@
                 return ok ? VidalsaWebAuthn.debeOfrecerRegistro(idUsuario) : false;
             }).then(function(ofrecer) {
                 if (!ofrecer) return;
+                // Sin modal: el lector de huella del teléfono sale solo («Pon tu huella»). El
+                // modal de un toque queda SOLO para el teléfono que no lo deja sin un toque
+                // (Safari del iPhone): registrar devuelve 'sin-gesto' (24-11-2026, pedido).
+                VidalsaWebAuthn.registrar({ sinGesto: true }).then(function(r) {
+                    if (r === 'sin-gesto') mostrarModal();
+                    else terminar(r === true);
+                }).catch(function() { /* sin huella: entra igual */ });
+            });
+
+            // Canceló el lector (o falló): cuenta como "Ahora no", para no volver a preguntar en
+            // la siguiente entrada. Con huella: aviso verde.
+            function terminar(ok) {
+                if (!ok) { VidalsaWebAuthn.noPreguntarPorAhora(idUsuario); return; }
+                var toast = document.createElement('div');
+                toast.textContent = 'Huella registrada correctamente';
+                toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:12px 24px;border-radius:8px;font-weight:700;font-size:14px;z-index:999999;box-shadow:0 4px 12px rgba(0,0,0,.2);';
+                document.body.appendChild(toast);
+                setTimeout(function() { toast.remove(); }, 3500);
+            }
+
+            function mostrarModal() {
                 var modal = document.getElementById('webauthnModal');
                 if (!modal) return;
                 modal.style.display = 'flex';
@@ -1371,21 +1392,12 @@
                     btn.textContent = 'Registrando...';
                     VidalsaWebAuthn.registrar().then(function(ok) {
                         modal.style.display = 'none';
-                        // Canceló el lector (o falló): cuenta como "Ahora no", para no volver
-                        // a preguntar en la siguiente entrada.
-                        if (!ok) VidalsaWebAuthn.noPreguntarPorAhora(idUsuario);
-                        if (ok) {
-                            var toast = document.createElement('div');
-                            toast.textContent = 'Huella registrada correctamente';
-                            toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:12px 24px;border-radius:8px;font-weight:700;font-size:14px;z-index:999999;box-shadow:0 4px 12px rgba(0,0,0,.2);';
-                            document.body.appendChild(toast);
-                            setTimeout(function() { toast.remove(); }, 3500);
-                        }
+                        terminar(ok === true);
                     }).catch(function() {
                         modal.style.display = 'none';
                     });
                 });
-            });
+            }
         })();
         </script>
         @endif

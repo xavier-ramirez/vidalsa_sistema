@@ -8,6 +8,7 @@ use App\Models\Usuario;
 use App\Models\BloqueoIp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
@@ -31,6 +32,9 @@ class WebAuthnController extends Controller
     public const SESION_REGISTRO = 'webauthn_registro_hasta';
     public const REGISTRO_TTL = 600;
 
+    /** Vida del challenge de registro (el lector espera 60 s; margen para leer el dedo). */
+    private const REGISTRO_CHALLENGE_TTL = 300;
+
     // ─── REGISTRO (usuario ya autenticado) ───────────────────────────────
 
     public function registerOptions(Request $request)
@@ -41,7 +45,7 @@ class WebAuthnController extends Controller
 
         $user = $request->user();
         $challenge = random_bytes(32);
-        $request->session()->put('webauthn_register_challenge', $challenge);
+        Cache::put($this->claveRegistro($request), base64_encode($challenge), self::REGISTRO_CHALLENGE_TTL);
 
         $rpId = $this->getRpId($request);
 
@@ -83,7 +87,7 @@ class WebAuthnController extends Controller
             return $this->sinVentanaDeRegistro();
         }
 
-        $challenge = $request->session()->pull('webauthn_register_challenge');
+        $challenge = base64_decode((string) Cache::pull($this->claveRegistro($request)));
         if (!$challenge) {
             return response()->json(['error' => "Challenge expirado.\nIntente de nuevo."], 422);
         }
@@ -311,6 +315,20 @@ class WebAuthnController extends Controller
     private function ventanaDeRegistro(Request $request): bool
     {
         return (int) $request->session()->get(self::SESION_REGISTRO, 0) >= now()->timestamp;
+    }
+
+    /**
+     * Dónde espera el challenge de registro: en la caché, por usuario, y NO en la sesión. Al
+     * entrar, la app hace varias peticiones a la vez (pantallas guardadas, copia local) y la
+     * que termina después de register-options guardaba la sesión que había leído ANTES, sin el
+     * challenge: el registro daba «Challenge expirado». Pedir la huella al entrar, sin modal
+     * (24-11-2026), cae justo en ese momento.
+     */
+    private function claveRegistro(Request $request): string
+    {
+        // Uno por usuario: dos teléfonos de la misma persona registrando en el mismo segundo
+        // se pisarían y el primero tendría que reintentar (raro y sin daño).
+        return 'webauthn_registro_challenge:' . $request->user()->ID_USUARIO;
     }
 
     private function sinVentanaDeRegistro()
