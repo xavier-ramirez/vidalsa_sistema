@@ -130,6 +130,8 @@ window._openCropModal = function (file, onConfirm, opts) {
     var reader = new FileReader();
     reader.onerror = noSeAbre;
     reader.onload = function (e) {
+        // Se canceló (o se abrió otra foto) mientras se leía: no meter esta en el recorte.
+        if (window._cropPending !== onConfirm) return;
         var img = document.createElement('img');
         img.style.cssText = 'display:block; max-width:100%;';
         body.appendChild(img);
@@ -145,10 +147,13 @@ window._openCropModal = function (file, onConfirm, opts) {
                         aspectRatio: NaN,
                         viewMode: libre ? 0 : 1,
                         autoCropArea: libre ? 1 : 0.9,
-                        responsive: false,     // el cambio de tamaño lo atiende el resize de abajo
+                        responsive: false,     // el cambio de tamaño lo atiende _cropMirarTamano
                         background: false,
                         dragMode: 'move',
                         toggleDragModeOnDblclick: false,
+                        // Puede haberse montado mientras la pantalla todavía cambiaba de tamaño
+                        // (la barra del navegador al volver de la cámara): se mira otra vez.
+                        ready: function () { window._cropMirarTamano(); },
                     });
                 } else if (tries < 30) {
                     tries++;
@@ -165,14 +170,19 @@ window._openCropModal = function (file, onConfirm, opts) {
 window._confirmCrop = function () {
     // Sin listo (todavía cargando, o volviéndose a montar tras un cambio de tamaño) no hay
     // recorte que entregar: el toque no hace nada.
-    if (!window._cropperInstance || !window._cropperInstance.ready || !window._cropPending) return;
+    // Doble toque: el segundo no hace nada (si no, subía la foto dos veces).
+    var pendiente = window._cropPending;
+    if (!window._cropperInstance || !window._cropperInstance.ready || !pendiente || window._cropEntregando) return;
     var canvas = window._cropperInstance.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200, imageSmoothingQuality: 'high',
         fillColor: window._cropLibre ? '#fff' : 'transparent' });
     if (!canvas) return;
+    window._cropEntregando = true;
     canvas.toBlob(function (blob) {
+        window._cropEntregando = false;
+        if (window._cropPending !== pendiente) return;   // se cerró mientras se armaba
         if (!blob) { window.toast('Error al recortar la imagen.', 'error'); return; }
         var croppedFile = new File([blob], 'foto_recortada.webp', { type: 'image/webp' });
-        window._cropPending(croppedFile);
+        pendiente(croppedFile);
         window._closeCropModal();
     }, 'image/webp', 0.88);
 };
@@ -181,22 +191,28 @@ window._confirmCrop = function () {
 // la barra del navegador, o se gira el teléfono), el recorte se vuelve a montar y la foto sale
 // entera, con el mismo pedazo que el usuario ya había marcado. El responsive de Cropper escalaba
 // el encuadre viejo y no dejaba la foto más chica que el recuadro anterior: quedaba ampliada y
-// cortada. Un solo listener aunque el módulo se monte varias veces (SPA).
+// cortada. Se mira 150 ms después del último cambio y otra vez cada vez que un recorte termina
+// de montarse (pudo medir a mitad del cambio); si todavía se está montando, se espera.
+window._cropMirarTamano = function () {
+    clearTimeout(window._cropReencuadrarT);
+    window._cropReencuadrarT = setTimeout(function () {
+        var k = window._cropperInstance;
+        if (!k) return;
+        if (!k.ready) { window._cropMirarTamano(); return; }
+        var area = k.element.parentNode, antes = k.getContainerData();
+        if (area.offsetWidth === antes.width && area.offsetHeight === antes.height) return;
+        var marcado = k.getData(), img = k.element;
+        var opciones = Object.assign({}, k.options, {
+            ready: function () { this.cropper.setData(marcado); window._cropMirarTamano(); },
+        });
+        k.destroy();
+        window._cropperInstance = new Cropper(img, opciones);
+    }, 150);
+};
+// Un solo listener aunque el módulo se monte varias veces (SPA).
 if (!window._cropReencuadrarListo) {
     window._cropReencuadrarListo = true;
-    window.addEventListener('resize', function () {
-        clearTimeout(window._cropReencuadrarT);
-        window._cropReencuadrarT = setTimeout(function () {
-            var k = window._cropperInstance;
-            if (!k || !k.ready) return;
-            var area = k.element.parentNode, antes = k.getContainerData();
-            if (area.offsetWidth === antes.width && area.offsetHeight === antes.height) return;
-            var marcado = k.getData(), img = k.element;
-            var opciones = Object.assign({}, k.options, { ready: function () { this.cropper.setData(marcado); } });
-            k.destroy();
-            window._cropperInstance = new Cropper(img, opciones);
-        }, 150);
-    });
+    window.addEventListener('resize', function () { window._cropMirarTamano(); });
 }
 
 window._closeCropModal = function () {
@@ -204,6 +220,7 @@ window._closeCropModal = function () {
     if (modal) modal.style.display = 'none';
     if (window._cropperInstance) { window._cropperInstance.destroy(); window._cropperInstance = null; }
     window._cropPending = null;
+    window._cropEntregando = false;
     var body = document.querySelector('.crop-modal-body');
     if (body) body.innerHTML = '';
 };

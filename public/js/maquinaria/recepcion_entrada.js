@@ -174,6 +174,9 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             }).join('');
         }
         box.classList.add('open');
+        // Siempre hacia abajo: sube la página o acorta la lista para que no quede bajo el
+        // teclado del teléfono ni fuera de la pantalla (la misma regla de todas las listas).
+        window.ajustarListaAbajo(box);
     };
     function entSuggestHide() { var b = el('entSuggest'); if (b) b.classList.remove('open'); }
 

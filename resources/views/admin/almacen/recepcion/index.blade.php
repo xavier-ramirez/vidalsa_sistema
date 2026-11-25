@@ -104,10 +104,11 @@
             // antes se buscaba dentro del catálogo completo embebido, que ya no viaja en el
             // HTML. Es UNA fila, no las 1439.
             $reqIdProd    = request('id_producto');
+            $hayProd      = $reqIdProd || request('id_producto_in');
             $reqProdLabel = $productoFiltrado ?? '';
         @endphp
         <div class="tr-search-prod">
-            <div class="tr-search-box {{ $reqIdProd ? 'active' : '' }}">
+            <div class="tr-search-box {{ $hayProd ? 'active' : '' }}">
                 <i class="material-icons lupa">inventory_2</i>
                 <input type="text" id="trProdSearch" autocomplete="off" placeholder="Buscar por producto o nº de parte"
                        value="{{ $reqProdLabel }}"
@@ -116,14 +117,16 @@
                        onfocus="window.trProdSuggest()"
                        onblur="setTimeout(function(){ var s=document.getElementById('trProdSuggest'); if(s) s.classList.remove('open'); }, 150);">
                 <input type="hidden" id="trIdProducto" value="{{ $reqIdProd }}">
+                {{-- Enter: todos los que coinciden con lo escrito (ids separados por coma). --}}
+                <input type="hidden" id="trIdsProducto" value="{{ request('id_producto_in') }}">
                 {{-- Escanear el código de barras: icono dentro del propio buscador, visible solo mientras no
                      haya producto elegido (comparte lugar con la "x" de limpiar). En teléfono
                      abre la cámara; en PC enfoca este buscador para el lector USB. --}}
                 <i class="lbr-ic icono-barras" id="trProdScan" title="Escanear código de barras"
-                   style="display:{{ $reqIdProd ? 'none' : 'flex' }};"
+                   style="display:{{ $hayProd ? 'none' : 'flex' }};"
                    onclick="window.LectorBarras.abrir()"></i>
                 <i class="material-icons" id="trProdClear" title="Limpiar filtro por producto"
-                   style="display:{{ $reqIdProd ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:default;"
+                   style="display:{{ $hayProd ? 'flex' : 'none' }};align-items:center;padding:0 10px;color:#64748b;font-size:18px;cursor:default;"
                    onclick="window.trProdClear()">close</i>
             </div>
             <div id="trProdSuggest" class="tr-suggest"></div>

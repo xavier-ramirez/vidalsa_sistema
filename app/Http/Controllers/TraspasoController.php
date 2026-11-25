@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Throwable;
+use App\Support\IdsEnviados;
 use App\Support\MensajeError;
 
 /**
@@ -130,7 +131,7 @@ class TraspasoController extends Controller
         if (
             ! $request->wantsJson()
             && ! $request->boolean('force')
-            && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'id_producto', 'desde', 'hasta', 'kpi'])
+            && ! $request->hasAny(['search', 'estado', 'id_almacen_origen', 'id_almacen_destino', 'id_producto', 'id_producto_in', 'desde', 'hasta', 'kpi'])
             && $tipoPropio === Almacen::TIPO_GENERAL
         ) {
             return redirect()->route('almacen.recepcion.nueva');
@@ -230,10 +231,12 @@ class TraspasoController extends Controller
                 $query->where('ID_ALMACEN_DESTINO', $request->integer('id_almacen_destino'));
             }
             // Filtro por PRODUCTO: solo las notas que CONTIENEN ese producto. El front sugiere
-            // productos (con equivalencias, igual que inventario) y manda su id_producto; con
-            // Enter manda VARIOS separados por coma (todos los que coinciden con lo escrito).
+            // productos (con equivalencias, igual que inventario) y manda su id_producto. Con
+            // Enter manda id_producto_in: TODOS los que coinciden con lo escrito, separados por coma.
             if ($request->filled('id_producto')) {
-                $query->whereHas('lineas', fn ($l) => $l->whereIn('ID_PRODUCTO', self::idsProducto($request)));
+                $query->whereHas('lineas', fn ($l) => $l->where('ID_PRODUCTO', $request->integer('id_producto')));
+            } elseif ($request->filled('id_producto_in')) {
+                $query->whereHas('lineas', fn ($l) => $l->whereIn('ID_PRODUCTO', IdsEnviados::leer($request->input('id_producto_in'))));
             }
             // Fechas: el orWhere DEBE ir agrupado en un where(function) — suelto, el OR sube al
             // nivel superior y se escapa de los AND de estado/visibilidad (mostraría notas de
@@ -386,12 +389,10 @@ class TraspasoController extends Controller
             // Lo único que la vista necesita del catálogo al PINTARSE es el nombre del
             // producto por el que se está filtrando (va escrito dentro del buscador); eso es
             // UNA fila, no la lista entera.
-            // Con varios (Enter) va lo que se escribió; con uno, su nombre.
-            'productoFiltrado'       => match (count($idsProd = self::idsProducto($request))) {
-                0       => '',
-                1       => ProductoInventario::whereKey($idsProd[0])->value('NOMBRE') ?? '',
-                default => (string) $request->input('producto_txt', ''),
-            },
+            // Con varios (Enter) va lo que se escribió; con uno elegido, su nombre.
+            'productoFiltrado'       => $request->filled('id_producto')
+                ? (ProductoInventario::whereKey($request->integer('id_producto'))->value('NOMBRE') ?? '')
+                : ($request->filled('id_producto_in') ? (string) $request->string('producto_txt') : ''),
             // Proyectos de CADA almacén visible. Lo consume el modal de compra directa para
             // saber, en caliente, qué mandar como `id_frente` — el almacén de la bandeja se
             // cambia desde el dropdown del header sin recargar la página, por eso es un mapa
@@ -418,15 +419,6 @@ class TraspasoController extends Controller
                         ->values(),
                 ]]),
         ]);
-    }
-
-    /** id_producto del filtro de la bandeja: uno, o varios separados por coma (Enter). */
-    private static function idsProducto(Request $request): array
-    {
-        return array_values(array_unique(array_filter(
-            array_map('intval', explode(',', (string) $request->input('id_producto', ''))),
-            fn ($id) => $id > 0
-        )));
     }
 
     /**

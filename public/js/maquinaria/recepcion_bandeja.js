@@ -139,6 +139,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         var s = el('trSearch');     if (s) s.value = s.defaultValue;
         var p = el('trProdSearch'); if (p) p.value = p.defaultValue;
         var h = el('trIdProducto'); if (h) h.value = h.defaultValue;
+        var hs = el('trIdsProducto'); if (hs) hs.value = hs.defaultValue;
         trSearchToggleClear();
         trProdToggleClear();   // tinte + X + icono de escaneo del buscador de producto
     };
@@ -151,7 +152,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     window.LectorBarras.init({
         input:      'trProdSearch',
         icono:      'trProdScan',
-        activo:     function () { return !!v('trIdProducto'); },
+        activo:     function () { return trProdFiltrando(); },
         onProducto: function (p, label) { window.trProdPick(label, p.id); },
     });
 
@@ -215,9 +216,11 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     //    inventario/movimientos. Al ELEGIR una sugerencia se fija id_producto y se recarga
     //    la bandeja (backend filtra las notas que contienen ese producto). Editar el texto
     //    descarta el producto elegido (como en inventario). ──────────────────────────────
+    // Hay filtro de producto: uno elegido (trIdProducto) o los de un Enter (trIdsProducto).
+    function trProdFiltrando() { return !!(v('trIdProducto') || v('trIdsProducto')); }
     function trProdToggleClear() {
         var input = el('trProdSearch'); if (!input) return;
-        var has = !!v('trIdProducto');
+        var has = trProdFiltrando();
         var x = el('trProdClear'); if (x) x.style.display = has ? 'flex' : 'none';
         var box = input.closest('.tr-search-box'); if (box) box.classList.toggle('active', has);
         window.LectorBarras.iconToggle();   // escanear visible solo mientras no haya producto elegido
@@ -284,22 +287,33 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     // Escribir en el buscador de producto: si había uno elegido, editarlo lo DESCARTA
     // (quita el filtro y recarga). Luego refresca las sugerencias.
     window.trProdInput = function () {
-        var hid = el('trIdProducto');
-        if (hid && hid.value) { hid.value = ''; trProdToggleClear(); window.trResetKpi(); window.trLoad(); }
+        if (trProdFiltrando()) {
+            el('trIdProducto').value = ''; el('trIdsProducto').value = '';
+            trProdToggleClear(); window.trResetKpi(); window.trLoad();
+        }
         window.trProdSuggest();
     };
     // Enter con texto: las notas que traen CUALQUIERA de los productos que coinciden con lo
     // escrito (trProdTodos: «guantes» → todos los guantes), no uno solo. Viajan como ids
-    // separados por coma en id_producto; lo escrito queda en el cuadro.
+    // separados por coma en id_producto_in; lo escrito queda en el cuadro.
     window.trProdKey = function (ev) {
-        if (ev.key === 'Escape') { var b = el('trProdSuggest'); if (b) b.classList.remove('open'); return; }
-        if (ev.key !== 'Enter') return;
+        if (ev.key !== 'Escape' && ev.key !== 'Enter') return;
+        var box = el('trProdSuggest'); if (box) box.classList.remove('open');
+        if (ev.key === 'Escape') return;
         ev.preventDefault();
+        // Ya filtrando (lo escrito no se tocó: editarlo quita el filtro): Enter solo cierra la
+        // lista; no cambia el producto elegido por todos los parecidos.
+        if (trProdFiltrando()) return;
         var txt = (el('trProdSearch') || {}).value; txt = (txt || '').trim();
         if (!txt) return;
-        var ids = trProdTodos(txt).slice(0, 200).map(function (p) { return p.ID_PRODUCTO; });
+        // El catálogo llega por AJAX después de abrir: sin él no se sabe qué coincide.
+        if (!(window.trProductosLista || []).length) { window.toast('Todavía se está cargando la lista de productos. Intenta en un momento.', 'warning'); return; }
+        var ids = trProdTodos(txt).map(function (p) { return p.ID_PRODUCTO; });
         if (!ids.length) { window.toast('Ningún producto coincide con «' + txt + '».', 'warning'); return; }
-        window.trProdPick(txt, ids.join(','));
+        // Tan general que trae media lista («a»): se pide algo más preciso en vez de cortar la
+        // lista y filtrar a medias sin decirlo (y sin una dirección kilométrica).
+        if (ids.length > 300) { window.toast('«' + txt + '» coincide con ' + ids.length + ' productos. Escribe algo más preciso.', 'warning'); return; }
+        window.trProdPick(txt, ids.join(','), true);
     };
     // Clic en una sugerencia: fija id_producto + el nombre y recarga la bandeja.
     // SPA-safe: se registra UNA sola vez por pestaña (guard _trBindGlobal), igual que los
@@ -311,9 +325,11 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         window.trProdPick(it.getAttribute('data-pick') || '', it.getAttribute('data-pid') || '');
     });
     // Fija el producto del filtro y recarga la bandeja. Punto único: lo usan el clic en una
-    // sugerencia y el escaneo de un código de barras (que resuelve el CODIGO contra el catálogo).
-    window.trProdPick = function (texto, idProducto) {
-        var hid = el('trIdProducto'); if (hid) hid.value = idProducto || '';
+    // sugerencia, el escaneo de un código de barras (que resuelve el CODIGO contra el catálogo)
+    // y el Enter (varios: los ids separados por coma).
+    window.trProdPick = function (texto, idProducto, varios) {
+        var hid = el('trIdProducto'); if (hid) hid.value = varios ? '' : (idProducto || '');
+        var hids = el('trIdsProducto'); if (hids) hids.value = varios ? (idProducto || '') : '';
         var inp = el('trProdSearch'); if (inp) inp.value = texto || '';
         var box = el('trProdSuggest'); if (box) box.classList.remove('open');
         trProdToggleClear();
@@ -331,8 +347,8 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         var p = new URLSearchParams();
         if (v('trSearch'))                                 p.set('search', v('trSearch'));
         if (v('trIdProducto'))                             p.set('id_producto', v('trIdProducto'));
-        // Varios productos (Enter): lo escrito, para volver a ponerlo en el cuadro al recargar.
-        if (v('trIdProducto').indexOf(',') >= 0)          p.set('producto_txt', v('trProdSearch'));
+        // Varios productos (Enter), con lo escrito para volver a ponerlo en el cuadro al recargar.
+        if (v('trIdsProducto'))                            { p.set('id_producto_in', v('trIdsProducto')); p.set('producto_txt', v('trProdSearch')); }
 
         // Estado: ahora es un custom-dropdown → se lee del hidden input (data-filter-value).
         if (hv('estado'))                                  p.set('estado', hv('estado'));
