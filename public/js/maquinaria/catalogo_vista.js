@@ -347,10 +347,26 @@ window.catalogoArrancar = function (CAT_CFG) {
 
     // Ficha de un modelo que solo tenía equipos (tarjeta SIN FICHA): la crea —o encuentra la
     // que ya hay— y le enlaza sus unidades. Resuelve con el id de la ficha.
-    function _catAsegurarFicha(photoEl) {
-        return window.apiPostForm(CAT_CFG.rutaCatalogoAsegurarFicha,
-            { modelo: photoEl.dataset.modelo, anio: photoEl.dataset.anio, tipo: photoEl.dataset.tipo },
-            'No se pudo crear la ficha.');
+    // conTarjeta: que vuelva también la tarjeta de la ficha ya armada (_catPonerTarjeta).
+    function _catAsegurarFicha(photoEl, conTarjeta) {
+        var datos = { modelo: photoEl.dataset.modelo, anio: photoEl.dataset.anio, tipo: photoEl.dataset.tipo };
+        if (conTarjeta) datos.tarjeta = '1';
+        return window.apiPostForm(CAT_CFG.rutaCatalogoAsegurarFicha, datos, 'No se pudo crear la ficha.');
+    }
+    // La tarjeta SIN FICHA pasa a ser la de su ficha (html del servidor): se cambia solo ella,
+    // en su sitio; recargar la grilla la mandaba arriba y movía las demás. Si la ficha ya
+    // tenía su tarjeta en la grilla, esa se quita: no puede salir dos veces. false = no llegó
+    // la tarjeta (quien llama recarga la grilla).
+    function _catPonerTarjeta(card, html) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html || '';
+        var nueva = tmp.querySelector('.cat-card');
+        var id = nueva && (nueva.querySelector('.cat-photo') || {}).dataset;
+        if (!nueva || !card || !card.parentNode || !id || !id.id) return false;
+        card.parentNode.querySelectorAll('.cat-card:not(.cat-sin-ficha) > .cat-photo[data-id="' + id.id + '"]')
+            .forEach(function (p) { if (p.parentNode !== card) p.parentNode.remove(); });
+        card.replaceWith(nueva);
+        return true;
     }
     window.catCrearFicha = function (btn) {
         var photoEl = btn.closest('.cat-card').querySelector('.cat-photo');
@@ -359,14 +375,14 @@ window.catalogoArrancar = function (CAT_CFG) {
             return;
         }
         btn.disabled = true;
-        _catAsegurarFicha(photoEl)
+        _catAsegurarFicha(photoEl, true)
             .then(function (body) {
                 window.toast(body.message, 'success');
-                // Recién creada: se abre para completar lo técnico. Si ya existía, basta con
-                // recargar: sus unidades ya cuentan en su tarjeta.
+                // Recién creada: se abre para completar lo técnico. Si ya existía, esta tarjeta
+                // pasa a ser la suya (sus unidades ya cuentan en ella).
                 var editar = CAT_CFG.urlCatalogo + '/' + body.id + '/edit';
                 if (body.creada && window.navigateTo) window.navigateTo(editar);
-                else catSubmit();
+                else if (!_catPonerTarjeta(btn.closest('.cat-card'), body.tarjeta)) catSubmit();
             })
             .catch(function (e) { btn.disabled = false; window.toast(e.message, 'error'); });
     };
@@ -455,12 +471,7 @@ window.catalogoArrancar = function (CAT_CFG) {
                     function (body) {
                         window.toast(body.message || 'Foto actualizada correctamente.', 'success');
                         if (sinFicha) {
-                            // La tarjeta pasa a ser la de su ficha: se cambia solo ella, en su
-                            // sitio. Recargar la grilla la mandaba arriba y movía todo.
-                            var tmp = document.createElement('div');
-                            tmp.innerHTML = body.tarjeta || '';
-                            var nueva = tmp.querySelector('.cat-card'), card = photoEl.closest('.cat-card');
-                            if (nueva && card) card.replaceWith(nueva); else catSubmit();
+                            if (!_catPonerTarjeta(photoEl.closest('.cat-card'), body.tarjeta)) catSubmit();
                             return;
                         }
                         // body.foto es la ruta guardada; la tarjeta usa la miniatura.

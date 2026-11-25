@@ -438,6 +438,18 @@ class CaracteristicaModeloController extends Controller
     }
 
     /**
+     * HTML de la tarjeta de UNA ficha, como sale en la grilla. ?tarjeta=1 en uploadFoto y
+     * asegurarFicha (tarjetas SIN FICHA del Catálogo): la página cambia solo esa tarjeta en su
+     * sitio en vez de recargar la grilla, que saltaba arriba y movía las demás.
+     */
+    private function tarjetaDeFicha(int $id): string
+    {
+        return view('admin.catalogo.partials.table_rows', [
+            'catalogos' => $this->tarjetasDeFichas($this->consultaFichas()->whereKey($id)->get()),
+        ])->render();
+    }
+
+    /**
      * La marca de una ficha: la ficha no la guarda (vive en cada equipo), así que es la que
      * más se repite entre sus unidades (filas {MARCA, n}). Null si ninguna la tiene.
      */
@@ -790,6 +802,7 @@ class CaracteristicaModeloController extends Controller
             'id'        => $catalogo->ID_ESPEC,
             'creada'    => $creada,
             'enlazados' => $enlazados,
+            'tarjeta'   => $request->boolean('tarjeta') ? $this->tarjetaDeFicha($catalogo->ID_ESPEC) : null,
             'message' => $creada ? "Ficha de {$modelo} {$anio} creada."
                 : ($enlazados ? count($enlazados) . " unidad(es) enlazadas a la ficha de {$modelo} {$anio}."
                     : "La ficha de {$modelo} {$anio} ya existe; no quedaban unidades sueltas por enlazar."),
@@ -1146,20 +1159,12 @@ class CaracteristicaModeloController extends Controller
                 [($color ? 'foto ' . $color : 'foto') => ['antes' => $fotos['anterior'], 'despues' => $nuevaUrl]]
             );
 
-            // ?tarjeta=1 (tarjeta SIN FICHA del Catálogo): va la tarjeta de la ficha ya armada,
-            // para cambiar solo esa en su sitio en vez de recargar la grilla (saltaba arriba).
-            $tarjeta = $request->boolean('tarjeta')
-                ? view('admin.catalogo.partials.table_rows', [
-                    'catalogos' => $this->tarjetasDeFichas($this->consultaFichas()->whereKey($catalogo->ID_ESPEC)->get()),
-                ])->render()
-                : null;
-
             return response()->json([
                 'success' => true,
                 'message' => $color ? "Foto del color {$color} actualizada." : 'Foto del modelo actualizada correctamente.',
                 'foto'    => $nuevaUrl,
                 'color'   => $color,
-                'tarjeta' => $tarjeta,
+                'tarjeta' => $request->boolean('tarjeta') ? $this->tarjetaDeFicha($catalogo->ID_ESPEC) : null,
             ]);
         } catch (\Throwable $e) {
             Log::error('Error subiendo foto de catálogo ID ' . $id . ': ' . $e->getMessage());

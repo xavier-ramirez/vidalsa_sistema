@@ -184,8 +184,11 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->assertStringContainsString('Enlazar a su ficha', $html);
 
         // "Enlazar a su ficha" usa la que hay: no crea un casi-duplicado.
-        $this->actingAs($admin)->postJson(route('catalogo.asegurarFicha'), ['modelo' => $conEspacios, 'anio' => 2026])
-            ->assertOk()->assertJson(['id' => $f->ID_ESPEC, 'creada' => false]);
+        // Con ?tarjeta vuelve la de esa ficha, para cambiar solo la tarjeta en su sitio.
+        $tarjeta = $this->actingAs($admin)->postJson(route('catalogo.asegurarFicha'), ['modelo' => $conEspacios, 'anio' => 2026, 'tarjeta' => 1])
+            ->assertOk()->assertJson(['id' => $f->ID_ESPEC, 'creada' => false])->json('tarjeta');
+        $this->assertSame(1, substr_count($tarjeta, 'class="cat-card'));
+        $this->assertStringContainsString('data-id="' . $f->ID_ESPEC . '"', $tarjeta);
         $this->assertSame($f->ID_ESPEC, $e->fresh()->ID_ESPEC);
         $this->assertSame(1, CaracteristicaModelo::where('ANIO_ESPEC', 2026)->whereIn('MODELO', [$this->modelo, $conEspacios])->count());
 
