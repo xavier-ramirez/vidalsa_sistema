@@ -151,7 +151,7 @@
         .con-acciones {
             display: flex;
             gap: 10px;
-            justify-content: flex-end;
+            justify-content: center;
             align-items: center;
             margin-top: 18px;
         }
@@ -161,10 +161,6 @@
         }
 
         @media (max-width: 900px) {
-            .con-acciones {
-                justify-content: center;
-            }
-
             .hide-on-mobile {
                 display: none !important;
             }

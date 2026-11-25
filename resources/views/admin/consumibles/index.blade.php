@@ -77,33 +77,111 @@
 
 
 
-            /* Encabezados tabla consumibles — mismo tono que tabla Equipos */
-            .admin-table thead th {
-                background: #1e293b !important;
-                color: #ffffff !important;
-                font-size: 13px !important;
-                font-weight: 700 !important;
-                text-transform: uppercase !important;
-                letter-spacing: 1px !important;
-                padding: 10px 20px !important;
-                border-right: 1px solid #334155 !important;
-                border-bottom: 2px solid #0f172a !important;
+            /* Tabla de la lista con el mismo estilo que la de Cargar Consumibles:
+               rejilla compacta, encabezado oscuro de 11 px, letra de 13 px y filas alternas. */
+            .cons-tbl-wrap {
+                overflow-x: auto;
+                border-radius: 10px;
+                border: 1px solid #e2e8f0;
             }
 
-            .admin-table thead th:last-child {
-                border-right: none !important;
+            .cons-tbl-wrap .admin-table {
+                border-collapse: collapse;
+                border-spacing: 0;
+                font-size: 13px;
+                min-width: 700px;
             }
 
-            .admin-table thead th.th-center {
+            .cons-tbl-wrap .admin-table thead th {
+                background: #1e293b;
+                color: #e2e8f0;
+                font-weight: 700;
+                padding: 9px 8px;
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: .4px;
+                border-right: 1px solid #334155;
+                white-space: nowrap;
+            }
+
+            .cons-tbl-wrap .admin-table thead th:last-child {
+                border-right: none;
+            }
+
+            .cons-tbl-wrap .admin-table thead th.th-center {
                 text-align: center !important;
             }
 
-            .admin-table thead th.th-right {
+            .cons-tbl-wrap .admin-table thead th.th-right {
                 text-align: right !important;
             }
 
-            .admin-table thead th.th-left {
-                text-align: left !important;
+            .cons-tbl-wrap .admin-table tbody tr td {
+                padding: 7px 8px;
+                border-top: none;
+                border-left: none;
+                border-radius: 0;
+                border-bottom: 1px solid #e2e8f0;
+                border-right: 1px solid #f1f5f9;
+                vertical-align: middle;
+                color: #1e293b;
+            }
+
+            .cons-tbl-wrap .admin-table tbody tr:nth-child(even) td {
+                background: #f8fafc !important;
+            }
+
+            .cons-tbl-wrap .admin-table tbody tr:hover td {
+                background: #eff6ff !important;
+            }
+
+            .cons-tbl-wrap .admin-table tbody tr td:first-child {
+                text-align: center;
+                color: #94a3b8;
+                font-size: 11px;
+                font-weight: 700;
+                padding: 6px 4px;
+                background: #f8fafc !important;
+                border-right: 2px solid #e2e8f0;
+            }
+
+            .cons-tbl-wrap .admin-table tbody tr td:last-child {
+                border-right: none;
+                text-align: center;
+                background: #fafafa !important;
+            }
+
+            .cons-tbl-wrap .admin-table tbody tr:last-child td {
+                border-bottom: none;
+            }
+
+            .cons-tbl-wrap .badge-ok,
+            .cons-tbl-wrap .badge-pen,
+            .cons-tbl-wrap .badge-err {
+                white-space: nowrap;
+            }
+
+            /* Botones de lápiz y papelera como los de la tabla de Cargar. */
+            .cons-tbl-wrap .cons-btn-edit,
+            .cons-tbl-wrap .cons-btn-del {
+                background: none;
+                border: none;
+                color: #cbd5e0;
+                padding: 4px;
+                cursor: pointer;
+                border-radius: 6px;
+                line-height: 0;
+                transition: all .2s;
+            }
+
+            .cons-tbl-wrap .cons-btn-edit:hover {
+                background: #eff6ff;
+                color: #0067b1;
+            }
+
+            .cons-tbl-wrap .cons-btn-del:hover {
+                background: #fee2e2;
+                color: #ef4444;
             }
 
             @media (max-width: 900px) {
@@ -589,7 +667,7 @@
             @endif
 
             {{-- Tabla --}}
-            <div style="overflow-x:auto;">
+            <div class="cons-tbl-wrap">
 
                 <table class="admin-table">
                     <thead>
@@ -617,8 +695,7 @@
                                 };
                             @endphp
                             <tr>
-                                <td
-                                    style="text-align:center; font-size:11px; font-weight:700; color:#cbd5e0; background:#f8fafc; border-right:1px solid #e2e8f0; padding:6px 4px;">
+                                <td>
                                     {{ ($consumibles->currentPage() - 1) * $consumibles->perPage() + $loop->iteration }}
                                 </td>
                                 <td style="white-space:nowrap; font-weight:600;">
@@ -655,7 +732,7 @@
                                         </span>
                                         @can('equipos.edit')
                                         <button onclick="editarFrente({{ $c->ID_CONSUMIBLE }}, {{ $c->ID_FRENTE ?? 'null' }})"
-                                            style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;"
+                                            class="cons-btn-edit"
                                             title="Cambiar frente">
                                             <i class="material-icons" style="font-size:14px;">edit</i>
                                         </button>
@@ -684,7 +761,7 @@
                                         @can('equipos.edit')
                                         <button
                                             onclick="editarId({{ $c->ID_CONSUMIBLE }})"
-                                            style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;"
+                                            class="cons-btn-edit"
                                             title="Editar identificador">
                                             <i class="material-icons" style="font-size:14px;">edit</i>
                                         </button>
@@ -769,16 +846,16 @@
                                     @can('equipos.edit')
                                     <button type="button" data-consumible-id="{{ $c->ID_CONSUMIBLE }}"
                                         onclick="window.borrarDirecto({{ $c->ID_CONSUMIBLE }}, '{{ route('consumibles.destroy', $c->ID_CONSUMIBLE) }}', this)"
-                                        style="background:none; border:none; color:#ef4444; cursor:pointer; padding:4px;"
+                                        class="cons-btn-del"
                                         title="Eliminar al instante">
-                                        <i class="material-icons" style="font-size:17px;">delete</i>
+                                        <i class="material-icons" style="font-size:16px;">delete</i>
                                     </button>
                                     @endcan
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" style="text-align:center; padding:40px; color:#94a3b8;">
+                                <td colspan="10" style="text-align:center; padding:40px; color:#94a3b8; font-size:13px; font-weight:400;">
                                     <i class="material-icons"
                                         style="font-size:40px; display:block; margin-bottom:8px;">inbox</i>
                                     @if(request()->hasAny(['id_frente', 'tipo', 'estado', 'fecha_desde', 'fecha_hasta', 'identificador']))
