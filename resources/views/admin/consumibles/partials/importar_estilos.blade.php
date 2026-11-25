@@ -10,19 +10,16 @@
     .imp-aviso { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px; }
     .imp-aviso-error { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
 
-    .imp-zona { display:flex; align-items:center; gap:12px; padding:12px 16px; border:2px dashed #bfdbfe;
-        border-radius:10px; background:#f0f9ff; color:#1d4ed8; text-align:center; cursor:pointer; }
-    .imp-zona.arrastrando { background:#dbeafe; border-color:#3b82f6; }
-    .imp-zona i { font-size:30px; flex-shrink:0; }
-    .imp-zona-titulo { display:block; font-size:14px; font-weight:700; }
-    .imp-zona small { display:block; font-size:12px; color:#475569; }
-    /* Más baja (pedido 24-11-2026): la zona de carga ocupaba
-       mucho alto para lo que dice. */
-    .imp-card.imp-card-zona { padding:10px 12px; margin-bottom:12px; }
-    .imp-card-zona .imp-zona { padding:6px 12px; gap:10px; }
-    .imp-card-zona .imp-zona i { font-size:22px; }
-    .imp-card-zona .imp-zona-titulo { font-size:13px; line-height:1.3; }
-    .imp-card-zona .imp-zona small { font-size:11.5px; line-height:1.3; }
+    /* «Carga Masiva desde Excel» de Cargar consumibles: como la de Registrar equipos
+       (admin.partials.bulk_upload_card). Se le pueden soltar los archivos encima. */
+    .imp-carga { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+        padding:10px 20px; margin-bottom:20px; border:2px dashed transparent; }
+    .imp-carga.arrastrando { border-color:#3b82f6; background:#eff6ff; }
+    .imp-carga-titulo { margin:0; color:#0067b1; font-size:14.5px; font-weight:700; }
+    .imp-carga-titulo i { vertical-align:middle; }
+    .imp-carga-sub { margin:4px 0 0; color:#718096; font-size:12px; }
+    .imp-carga .imp-carga-btn { padding:7px 13px; font-size:12.5px; margin:0; cursor:pointer; }
+    .imp-carga .imp-carga-btn .material-icons { font-size:16px; }
 
     .imp-tabla-wrap { overflow-x:auto; border:1px solid #e2e8f0; border-radius:10px; }
     .imp-tabla { width:100%; border-collapse:collapse; font-size:13px; }

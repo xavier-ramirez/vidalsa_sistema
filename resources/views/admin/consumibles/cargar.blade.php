@@ -172,42 +172,9 @@
     </div>
 
     @can('super.admin')
-        {{-- Dos formas de cargar que NO se mezclan: el Excel de gasoil (con su revisión) o la
-             tabla de abajo. Se ve solo la elegida; Ctrl+V también va a la elegida. --}}
-        <div class="cons-modo" role="tablist">
-            <button type="button" class="cons-modo-btn" data-modo="excel" onclick="window.consModo('excel')">
-                <i class="material-icons">upload_file</i> Subir Excel de gasoil
-            </button>
-            <button type="button" class="cons-modo-btn" data-modo="tabla" onclick="window.consModo('tabla')">
-                <i class="material-icons">table_rows</i> Llenar tabla
-            </button>
-        </div>
-        <style>
-            .cons-modo { display:inline-flex; gap:4px; padding:4px; background:#e2e8f0; border-radius:12px; margin-bottom:14px; }
-            .cons-modo-btn { display:flex; align-items:center; gap:6px; border:none; background:transparent; color:#475569;
-                font-weight:700; font-size:13px; padding:8px 14px; border-radius:9px; cursor:pointer; }
-            .cons-modo-btn i { font-size:18px; }
-            .cons-modo-btn.activo { background:#fff; color:#0067b1; box-shadow:0 1px 3px rgba(0,0,0,.12); }
-            @media (max-width: 480px) { .cons-modo { display:flex; } .cons-modo-btn { flex:1; justify-content:center; padding:8px 6px; } }
-        </style>
-        <div id="consModoExcel">
-            @include('admin.consumibles.partials.cargar_excel')
-        </div>
-        <script>
-            // Se ve la forma elegida (la última, recordada en este navegador; la 1ª vez, el Excel).
-            window.consModo = function (modo) {
-                if (modo !== 'excel' && modo !== 'tabla') modo = 'excel';
-                window.consModoActual = modo;
-                var excel = document.getElementById('consModoExcel'), tabla = document.getElementById('formLote');
-                if (excel) excel.hidden = modo !== 'excel';
-                if (tabla) tabla.hidden = modo !== 'tabla';
-                document.querySelectorAll('.cons-modo-btn').forEach(function (b) {
-                    b.classList.toggle('activo', b.getAttribute('data-modo') === modo);
-                    b.setAttribute('aria-selected', b.getAttribute('data-modo') === modo ? 'true' : 'false');
-                });
-                try { localStorage.setItem('consumibles_modo_carga', modo); } catch (e) {}
-            };
-        </script>
+        {{-- Las dos formas de cargar en la misma pantalla, como en Registrar equipos: arriba la
+             carga masiva desde Excel; abajo la tabla. --}}
+        @include('admin.consumibles.partials.cargar_excel')
     @endcan
 
     <form method="POST" action="{{ route('consumibles.guardarLote') }}" id="formLote">
@@ -403,9 +370,6 @@
         </div>
 
     </form>
-    @can('super.admin')
-        <script>window.consModo((function () { try { return localStorage.getItem('consumibles_modo_carga'); } catch (e) { return null; } })());</script>
-    @endcan
 
     {{-- ═══ JAVASCRIPT ═══ --}}
     <script>
@@ -618,16 +582,18 @@
          * Columna de cada campo de la tabla según la fila de encabezados pegada, con las variantes
          * de nombre de los reportes (las de LectorExcelCombustible::campoDe). null si la fila no
          * trae FECHA y la cantidad: entonces no es encabezado. La cantidad es la SALIDA/VOLUMEN si
-         * la hay (no la hora ni el km de salida, ni la ENTRADA del tanque).
+         * la hay (no la hora ni el km de salida, ni la ENTRADA del tanque). reporte: lo que
+         * LectorExcelCombustible::esEncabezadoDeDespachos toma por la tabla de un reporte de gasoil.
          */
         function mapaEncabezado(cols) {
             const m = {};
-            let desc, salida, otraCantidad;
+            let desc, salida, otraCantidad, fechaPura = false, equipo = false;
             const pon = (k, i) => { if (m[k] === undefined) m[k] = i; };
             cols.map(normEncabezado).forEach((h, i) => {
                 if (!h || h.indexOf('ENTRADA') !== -1 || /^(HORA|KM|KILOMETRAJE|ODOMETRO)\b/.test(h)) return;
                 if (h.indexOf('FECHA') === 0) {
                     pon('fecha', i);
+                    if (!/SALIDA|VOLUMEN/.test(h)) fechaPura = true;
                 } else if (/SALIDA|VOLUMEN/.test(h)) {
                     if (salida === undefined) salida = i;
                 } else if (/CANTIDAD|LITROS (DESPACHADOS|SURTIDOS)/.test(h) || EXACTO_LITROS.indexOf(h) !== -1) {
@@ -635,15 +601,17 @@
                 } else if (h === 'CI' || h === 'C I' || /C\. ?I|CEDULA/.test(h)) pon('ci', i);
                 else if (/ORIGEN|SUMINISTRO|CISTERNA|GUIA/.test(h)) pon('origen', i);
                 else if (/VISCOSIDAD|MEDIDA|ESPECIFICACION|MODELO (DEL )?CAUCHO/.test(h)) pon('espec', i);
-                else if (/PLACA|SERIAL|IDENTIFICADOR/.test(h)) pon('id', i);
+                else if (/PLACA|SERIAL|IDENTIFICADOR/.test(h)) { pon('id', i); equipo = true; }
                 else if (/RESPONSABLE|CHOFER|OPERADOR|CONDUCTOR/.test(h)) pon('nombre', i);
                 else if (/DESCRIPCION|CARACTERISTICAS|VEHICULO ?\/ ?EQUIPO/.test(h) || h === 'EQUIPO' || h === 'VEHICULO') {
                     if (desc === undefined) desc = i;
+                    equipo = true;
                 } else if (h.indexOf('NOMBRE') !== -1) pon('nombre', i);
             });
             m.cantidad = salida !== undefined ? salida : otraCantidad;
             if (m.id === undefined && desc !== undefined) m.id = desc;   // sin placa/serial, la descripción
             if (m.fecha === undefined || m.cantidad === undefined) return null;
+            m.reporte = fechaPura && (salida !== undefined || equipo);
             return m;
         }
         var MESES = { ENE: 1, JAN: 1, FEB: 2, MAR: 3, ABR: 4, APR: 4, MAY: 5, JUN: 6, JUL: 7, AGO: 8, AUG: 8, SEP: 9, SET: 9, OCT: 10, NOV: 11, DIC: 12, DEC: 12 };
@@ -696,14 +664,6 @@
 
             e.preventDefault();
 
-            // Modo «Subir Excel de gasoil»: lo pegado es una tabla de gasoil y va a su lector (con
-            // revisión), no a la tabla de abajo, que ni se ve.
-            if (window.consModoActual === 'excel') {
-                if (!window.consImpPegar || !window.consImpPegar(text)) {
-                    window.showModal({ type: 'warning', title: 'No se pudo leer', message: 'Recarga la página e intenta de nuevo, o usa «Llenar tabla».', confirmText: 'Entendido', hideCancel: true });
-                }
-                return;
-            }
             // Una tabla se está reconociendo con IA: otro Ctrl+V ahora la pegaría dos veces.
             if (window.__consPegandoIA) {
                 if (window.showToast) window.showToast('Espera: se están reconociendo las columnas de lo que pegaste.', 'warning');
@@ -725,6 +685,11 @@
                 mapa = mapaEncabezado(filas[i]);
                 if (mapa) desde = i + 1;
             }
+
+            // La tabla completa de un reporte de gasoil (con sus encabezados) va al mismo lector que
+            // un Excel subido arriba (consumibles_importar.js): columnas por nombre, repetidos fuera,
+            // revisión y deshacer. Lo demás, a la tabla.
+            if (tipoPegado === 'GASOIL' && mapa && mapa.reporte && window.consImpPegar && window.consImpPegar(text)) return;
 
             // Las reglas no reconocieron los encabezados: si lo pegado no encaja en el orden fijo
             // (más columnas de las que tiene la tabla, o una 1ª fila de títulos), se le pregunta a la

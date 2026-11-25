@@ -1,20 +1,21 @@
-{{-- Cargar consumibles → Excel de gasoil (solo super.admin, como sus rutas). Dos entradas al
-     MISMO lector (ConsumiblesImportacionController): los archivos de esta zona (se leen al
-     elegirlos) y la tabla copiada del Excel con sus encabezados y pegada con Ctrl+V (el paste
-     de cargar.blade, en este modo, la manda a consumibles.importar.pegar). Columnas por encabezado,
-     repetidos fuera, revisión y deshacer. La tabla para escribir a mano es el otro modo (window.consModo). --}}
+{{-- Cargar consumibles → «Carga Masiva desde Excel» (solo super.admin, como sus rutas), arriba de
+     la tabla y con el aspecto de la de Registrar equipos (admin.partials.bulk_upload_card). Dos
+     entradas al MISMO lector (ConsumiblesImportacionController): los Excel de gasoil elegidos con
+     «Cargar Excel» o soltados en la tarjeta (se leen al elegirlos), y el reporte de gasoil completo
+     copiado con sus encabezados y pegado con Ctrl+V (el paste de cargar.blade lo manda a
+     consumibles.importar.pegar; lo demás va a la tabla). Columnas por encabezado, repetidos fuera,
+     revisión y deshacer. --}}
 @include('admin.consumibles.partials.importar_estilos')
 
-<div class="admin-card imp-card imp-card-zona">
-    <label class="imp-zona" for="impArchivos" id="impZona">
-        <i class="material-icons">upload_file</i>
-        <span>
-            <span class="imp-zona-titulo">Arrastra los Excel de gasoil o haz clic para elegirlos</span>
-            <small>Se leen solos, uno o varios, en cualquier formato. También puedes copiar la tabla
-                completa del Excel (con sus encabezados) y pegarla con Ctrl+V. Nada se guarda hasta que revises.</small>
-        </span>
-        <input type="file" id="impArchivos" multiple accept=".xlsx,.xlsm,.xls" hidden>
+<div id="impZona" class="admin-card imp-carga">
+    <div>
+        <h3 class="imp-carga-titulo"><i class="material-icons">upload_file</i> Carga Masiva desde Excel</h3>
+        <p class="imp-carga-sub">Sube los Excel de gasoil (uno o varios, en cualquier formato) o suéltalos aquí; también puedes pegar el reporte completo con Ctrl+V. Nada se guarda hasta que revises.</p>
+    </div>
+    <label for="impArchivos" class="btn-primary-maquinaria imp-carga-btn">
+        <i class="material-icons">upload</i> Cargar Excel
     </label>
+    <input type="file" id="impArchivos" multiple accept=".xlsx,.xlsm,.xls" hidden>
 </div>
 
 {{-- Solo si hay alguna: desde aquí se retoma una lectura sin confirmar o se deshace una carga. --}}
