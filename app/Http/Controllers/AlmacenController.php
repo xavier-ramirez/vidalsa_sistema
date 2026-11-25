@@ -2292,6 +2292,9 @@ class AlmacenController extends Controller
         $opts += $this->datosNotaSalida($esSalida ? $data : []);
         $transporte = $esSalida ? $this->logistica->transporteDe($data) : [];
         $opts += $transporte;
+        // Aquí ya no hay traspaso (esa rama salió arriba): es consumo, y si el proyecto es de
+        // este almacén la nota vertical va sin el bloque del transporte.
+        $opts['consumo_interno'] = $esSalida && $this->esConsumoInterno($almacenLote, $idFrente);
 
         try {
             // En SALIDA generamos el NUMERO_NOTA (NE-YYYY-NNNN) DENTRO de la transacción
@@ -2502,6 +2505,9 @@ class AlmacenController extends Controller
         $almacen = Almacen::with('frentes:ID_FRENTE')->find($idAlmacen);
         $separa  = $almacen && $almacen->separaPorProyecto();
         $bolsa   = ($separa && $almacen->frentes->contains('ID_FRENTE', $idFrente)) ? $idFrente : 0;
+        // Si el material se queda (sin almacén destino) en un proyecto de este almacén, la nota
+        // vertical va sin el bloque del transporte.
+        $consumoInterno = $idAlmDestino === null && $this->esConsumoInterno($almacen, $idFrente);
 
         $idUsuario  = optional($request->user())->ID_USUARIO;
         $transporte = $this->logistica->transporteDe($data);
@@ -2516,7 +2522,7 @@ class AlmacenController extends Controller
         ];
 
         try {
-            $resultado = DB::transaction(function () use ($idAlmacen, $idFrente, $idAlmDestino, $data, $lineas, $optsEntrada, $bolsa, $idUsuario, $transporte) {
+            $resultado = DB::transaction(function () use ($idAlmacen, $idFrente, $idAlmDestino, $data, $lineas, $optsEntrada, $bolsa, $idUsuario, $transporte, $consumoInterno) {
                 // Las filas de saldo, todas de una vez y en el orden de siempre: la entrada y la
                 // salida en cascada de abajo las tocan en otro orden (ver bloquearSaldos).
                 $this->inventario->bloquearSaldos($idAlmacen, array_values(array_unique(array_column($lineas, 'id_producto'))), $bolsa);
@@ -2546,6 +2552,7 @@ class AlmacenController extends Controller
                     'id_usuario'        => $idUsuario,
                     'permitir_negativo' => false,
                     '_frente_saldo'     => $bolsa,
+                    'consumo_interno'   => $consumoInterno,
                 ] + $this->datosNotaSalida($data) + $transporte;
                 $tandas  = TandasNota::partir($lineas);
                 $numeros = NotasReservadas::tomarVarias(count($tandas), $data, $idUsuario);
@@ -2761,6 +2768,9 @@ class AlmacenController extends Controller
             'solicitante'     => 'nullable|string|max:200',
             'departamento'    => 'nullable|string|max:150',
             'motivo'          => 'nullable|string|max:200',
+            // RECIBIDO POR de la nota: quien se lleva el material (antes, a mano).
+            'recibido_por'    => 'nullable|string|max:150',
+            'cargo_recibe'    => 'nullable|string|max:100',
             // Nº apartado para este dispositivo: la salida se hizo sin internet (NotasReservadas).
             'numero_nota_reservado' => 'nullable|string|max:20',
             // Los de las notas siguientes cuando pasa de TandasNota::RENGLONES (NotasReservadas::tomarVarias).
@@ -2782,6 +2792,8 @@ class AlmacenController extends Controller
             'numero_rq'       => $data['numero_rq']       ?? null,
             'solicitante'     => $data['solicitante']     ?? null,
             'departamento'    => $data['departamento']    ?? null,
+            'recibido_por'    => $data['recibido_por']    ?? null,
+            'cargo_recibe'    => $data['cargo_recibe']    ?? null,
             // Solo con número apartado: es la de un papel ya impreso sin internet.
             'hora_emision'    => !empty($data['numero_nota_reservado']) ? ($data['hora_emision'] ?? null) : null,
         ];
@@ -2875,6 +2887,18 @@ class AlmacenController extends Controller
         return $almacenesDelFrente->isEmpty() ? null : (int) $almacenesDelFrente->first();
     }
 
+    /**
+     * Consumo INTERNO: la salida se queda en un proyecto del propio almacén que despacha (sin
+     * traspaso). Su nota vertical no lleva "Datos del vehículo / Datos del chofer": el material
+     * no viaja. Solo se pregunta en la rama de consumo (sin almacén destino); la misma regla
+     * la aplica el formulario al ocultar Chofer/Vehículo (AlmSalidaNota.consumoInterno).
+     */
+    private function esConsumoInterno(?Almacen $almacen, $idFrente): bool
+    {
+        return $almacen !== null && $idFrente
+            && $almacen->frentes->contains('ID_FRENTE', (int) $idFrente);
+    }
+
     // ─────────────────────────────────────────────────────────────
     //  Nota de Entrega de Materiales (PDF)
     // ─────────────────────────────────────────────────────────────
@@ -2931,6 +2955,10 @@ class AlmacenController extends Controller
             'entregado_por' => trim((string) ($hd->almacen?->ALMACENISTA ?? '')),
             'cargo_entrega' => trim((string) ($hd->almacen?->CARGO_ALMACENISTA ?? '')),
             'motivo'        => $hd->MOTIVO ?? '',
+            'recibido_por'  => $hd->RECIBIDO_POR ?? '',
+            'cargo_recibe'  => $hd->CARGO_RECIBE ?? '',
+            // Congelado al registrar: la nota se reimprime como se firmó.
+            'consumo_interno' => (bool) $hd->CONSUMO_INTERNO,
         ];
         // Vehículo y chofer (bloque "Datos del vehículo / Datos del chofer").
         foreach (MovimientoInventario::CAMPOS_TRANSPORTE as $campo => $columna) {
@@ -3305,6 +3333,13 @@ class AlmacenController extends Controller
             'entregado_por' => trim((string) ($almacen?->ALMACENISTA ?? '')),
             'cargo_entrega' => trim((string) ($almacen?->CARGO_ALMACENISTA ?? '')),
             'motivo'        => $fixReq($data['motivo'] ?? ''),
+            'recibido_por'  => $fixReq($data['recibido_por'] ?? ''),
+            'cargo_recibe'  => $fixReq($data['cargo_recibe'] ?? ''),
+            // Lo mismo que decidirá el registro: sin almacén destino (consumo) y el proyecto
+            // es de este almacén. Si el destino no se puede deducir, no es consumo interno.
+            'consumo_interno' => $frente !== null
+                && $this->almacenDestinoDeSalida($data, (int) $frente->ID_FRENTE) === null
+                && $this->esConsumoInterno($almacen, $frente->ID_FRENTE),
         ] + array_map(fn ($v) => $fixReq($v ?? ''), $this->logistica->transporteDe($data));
 
         // Cada $m del blade lee: CANTIDAD, producto->{UM, NOMBRE, CODIGO} y frente->NOMBRE_FRENTE.
@@ -3557,7 +3592,11 @@ class AlmacenController extends Controller
                 // Con el formato congelado una nota horizontal SI puede quedarse sin almacen (si
                 // lo borraron despues), asi que los bloques caen a un almacen vacio: cinco firmas
                 // en blanco, que es un formulario valido, en vez de reventar el PDF.
-                'firmantes' => $horizontal ? ($almacen?->firmantesNota() ?? (new Almacen())->firmantesNota()) : [],
+                'firmantes' => $horizontal ? Almacen::conRecibido(
+                    $almacen?->firmantesNota() ?? (new Almacen())->firmantesNota(),
+                    $datos['recibido_por'] ?? '',
+                    $datos['cargo_recibe'] ?? '',
+                ) : [],
                 'minFilas'  => $filas,
                 'compacto'  => $compacto,
             ])->render();

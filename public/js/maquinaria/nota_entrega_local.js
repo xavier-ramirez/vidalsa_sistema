@@ -24,6 +24,7 @@
  *
  * datos = { formato: 'VERTICAL'|'HORIZONTAL', numero, numeros, proyecto, contrato, fecha (d/m/Y), hora,
  *           rq, solicitante, departamento, almacen, entregado_por, cargo_entrega, motivo,
+ *           recibido_por, cargo_recibe, consumo_interno (vertical sin bloque del transporte),
  *           transporte_vehiculo, transporte_placa, transporte_chofer, transporte_cedula,
  *           firmantes: [{ rol, nombre, cargo, cedula }],
  *           lineas: [{ clave, cantidad, um, nombre, codigo, numero_parte, destino }] }
@@ -287,12 +288,17 @@
                 ] });
                 tablas.push({ filas: [
                     fila([cel(14, r('', 9)), cel(43, b('ENTREGADO POR:', 9), { align: 'C' }), cel(43, b('RECIBIDO POR:', 9), { align: 'C' })]),
-                    fila([cel(14, b('NOMBRE:', 9)), cel(43, r(datos.entregado_por, 9), { align: 'C' }), cel(43, r('', 9))]),
-                    fila([cel(14, b('CARGO:', 9)), cel(43, r(datos.cargo_entrega, 9), { align: 'C' }), cel(43, r('', 9))]),
+                    fila([cel(14, b('NOMBRE:', 9)), cel(43, r(datos.entregado_por, 9), { align: 'C' }), cel(43, r(datos.recibido_por, 9), { align: 'C' })]),
+                    fila([cel(14, b('CARGO:', 9)), cel(43, r(datos.cargo_entrega, 9), { align: 'C' }), cel(43, r(datos.cargo_recibe, 9), { align: 'C' })]),
                     fila([cel(14, b('FIRMA:', 9)), cel(43, r('', 9)), cel(43, r('', 9))], 24 * PX),
                     fila([cel(14, b('FECHA:', 9)), cel(43, r(String(datos.fecha || '').toUpperCase(), 9), { align: 'C' }), cel(43, r('', 9))]),
                 ] });
-                tablas.push(transporte(14, 36, true));
+                // Consumo del propio almacén: sin transporte, salvo que se haya escrito alguno
+                // (como nota_entrega_pdf.blade.php).
+                const conTransporte = !datos.consumo_interno
+                    || ['transporte_vehiculo', 'transporte_placa', 'transporte_chofer', 'transporte_cedula']
+                        .some((c) => String(datos[c] || '').trim() !== '');
+                if (conTransporte) tablas.push(transporte(14, 36, true));
             } else {
                 tablas.push({ filas: [
                     fila([cel(11, b('ALMACEN:', 8)), cel(39, b(datos.almacen, 8)), cel(11, b('PROYECTO:', 8)), cel(39, b(datos.proyecto, 8))]),

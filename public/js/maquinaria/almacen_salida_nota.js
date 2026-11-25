@@ -1,6 +1,6 @@
 /*
  * Formulario de la NOTA DE ENTREGA de una salida: Proyecto, Almacén destino, Fecha, RQ N°,
- * Solicitante, Departamento, Vehículo/Chofer y Observaciones.
+ * Solicitante, Departamento, Observaciones, Recibido por/Cargo y Vehículo/Chofer.
  *
  * Lo comparten las dos pantallas que despachan con nota, para que pidan EXACTAMENTE lo mismo:
  *   · /admin/almacen → modal "Registrar salida" (almacen_index.js)
@@ -372,10 +372,32 @@
         wrap.style.display = '';
     };
 
+    // Consumo INTERNO: el proyecto es de este mismo almacén y no hay otro almacén al que
+    // mandarlo, así que el material no viaja. Misma regla que el servidor
+    // (AlmacenController::esConsumoInterno, en la rama sin almacén destino).
+    function almSalidaConsumoInterno(idFrente) {
+        if (!idFrente) return false;
+        var propios = (CFG.frentesPorAlmacen || {})[ID_ORIGEN] || [];
+        var id = parseInt(idFrente, 10);
+        return propios.some(function (f) { return parseInt(f, 10) === id; })
+            && almSalidaDestinosDe(idFrente).length === 0;
+    }
+
+    // En consumo interno no se piden Chofer ni Vehículo (la nota vertical sale sin ese bloque).
+    // Al ocultarlo se vacía: lo escrito para otro proyecto no puede viajar en este.
+    function almSalidaSyncTransporte() {
+        var wrap = el('almSalidaTransporteWrap'), sel = el('almSalidaProyecto');
+        if (!wrap) return;
+        var ocultar = almSalidaConsumoInterno(sel ? sel.value : '');
+        if (ocultar) ALM_LOG_CAMPOS.forEach(function (c) { var e = el(c.id); if (e) e.value = ''; });
+        wrap.hidden = ocultar;
+    }
+
     window.almSalidaOnProyectoChange = function () {
         var sel  = el('almSalidaProyecto');
         if (!sel) return;
         window.almSalidaSyncAlmacenDestino();
+        almSalidaSyncTransporte();
     };
     // Al elegir proyecto (componente custom-dropdown global): almacén destino.
     window.addEventListener('dropdown-selection', function (e) {
@@ -403,6 +425,9 @@
         /** true si el almacén idAlmacen emite la Nota de Entrega HORIZONTAL. */
         esHorizontal: almNotaEsHorizontal,
 
+        /** true si la salida al proyecto idFrente es consumo del almacén abierto (sin transporte). */
+        consumoInterno: almSalidaConsumoInterno,
+
         /**
          * Deja el formulario listo para una salida NUEVA del almacén idAlmacen (el que
          * despacha). opts.motivo: observación con la que arranca (p. ej. el kit cargado).
@@ -415,7 +440,8 @@
             // sin recargar — el modal es el mismo nodo para todos.
             almSalidaAplicarFormatoNota(ID_ORIGEN);
             // Limpiar campos de Nota de Entrega y poner FECHA = hoy por default.
-            ['almSalidaRq', 'almSalidaSolicitante', 'almSalidaDepartamento', 'almSalidaMotivo'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
+            ['almSalidaRq', 'almSalidaSolicitante', 'almSalidaDepartamento', 'almSalidaMotivo',
+             'almSalidaRecibidoPor', 'almSalidaCargoRecibe'].forEach(function (id) { var e = el(id); if (e) e.value = ''; });
             if (opts && opts.motivo) { var mo = el('almSalidaMotivo'); if (mo) mo.value = opts.motivo; }
             ALM_LOG_CAMPOS.forEach(function (c) { var e = el(c.id); if (e) e.value = ''; });
             almLogCargar(ID_ORIGEN);
@@ -437,6 +463,8 @@
             // "Almacén destino" arranca oculto y vacío: se decide al elegir proyecto. Sin este
             // reset, reabrir el modal desde OTRO almacén conservaría el destino del anterior.
             window.almSalidaSyncAlmacenDestino();
+            // Sin proyecto elegido el transporte se ve (vuelve a mostrarse si quedó oculto).
+            almSalidaSyncTransporte();
             var ddDest = el('almSalidaAlmacenDestinoDropdown');
             if (ddDest) ddDest.classList.remove('active');
         },
@@ -444,7 +472,7 @@
         /**
          * Lo escrito en el formulario, con los nombres que espera el backend
          * (id_frente_destino, id_almacen_destino, fecha, numero_contrato, numero_rq,
-         * solicitante, departamento, motivo, transporte_*). Devuelve { error } si falta el
+         * solicitante, departamento, motivo, recibido_por, cargo_recibe, transporte_*). Devuelve { error } si falta el
          * proyecto o, cuando hay que elegirlo, el almacén destino; si no, { datos }. El aviso
          * ya queda pintado debajo de ese campo: quien llama no lo repite al pie del modal.
          */
@@ -474,7 +502,13 @@
             var solic  = v('almSalidaSolicitante');   if (solic)  d.solicitante = solic;
             var depto  = v('almSalidaDepartamento');  if (depto)  d.departamento = depto;
             var motivo = v('almSalidaMotivo');        if (motivo) d.motivo = motivo;
-            ALM_LOG_CAMPOS.forEach(function (c) { var t = v(c.id); if (t) d[c.campo] = t; });
+            var recibe = v('almSalidaRecibidoPor');   if (recibe) d.recibido_por = recibe;
+            var cargoR = v('almSalidaCargoRecibe');   if (cargoR) d.cargo_recibe = cargoR;
+            // El transporte solo viaja si el bloque está a la vista (no en consumo interno).
+            var wrapTr = el('almSalidaTransporteWrap');
+            if (!wrapTr || !wrapTr.hidden) {
+                ALM_LOG_CAMPOS.forEach(function (c) { var t = v(c.id); if (t) d[c.campo] = t; });
+            }
             return { datos: d };
         },
 

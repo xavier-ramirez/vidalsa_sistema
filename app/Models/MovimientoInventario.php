@@ -67,6 +67,11 @@ class MovimientoInventario extends Model
         'TRANSPORTE_PLACA',
         'TRANSPORTE_CHOFER',
         'TRANSPORTE_CEDULA',
+        // RECIBIDO POR de la nota, y si fue consumo del propio almacén (la vertical va sin
+        // el bloque del transporte). Ver la migración 2026_11_25_120000.
+        'RECIBIDO_POR',
+        'CARGO_RECIBE',
+        'CONSUMO_INTERNO',
         'NUMERO_NOTA',
         'HORA_EMISION',
         // Plantilla con la que se emitió la Nota (VERTICAL/HORIZONTAL) — se congela al
@@ -171,6 +176,9 @@ class MovimientoInventario extends Model
         'NOTAS'               => MojibakeFix::class,
         'TRANSPORTE_VEHICULO' => MojibakeFix::class,
         'TRANSPORTE_CHOFER'   => MojibakeFix::class,
+        'RECIBIDO_POR'        => MojibakeFix::class,
+        'CARGO_RECIBE'        => MojibakeFix::class,
+        'CONSUMO_INTERNO'     => 'boolean',
         'DESTINO_ITEM'        => MojibakeFix::class,
     ];
 

@@ -130,7 +130,8 @@ class TraspasoService
      *                        'bolsa_por_producto'? ([ID_PRODUCTO => bolsa del origen de la que
      *                        se descuenta esa línea]),
      *                        campos de la Nota de Entrega: 'numero_nota'?, 'numero_contrato'?,
-     *                        'numero_rq'?, 'solicitante'?, 'departamento'? y el transporte
+     *                        'numero_rq'?, 'solicitante'?, 'departamento'?, 'recibido_por'?,
+     *                        'cargo_recibe'? y el transporte
      *                        (MovimientoInventario::CAMPOS_TRANSPORTE)]
      */
     public function enviar(Traspaso $traspaso, array $opts = []): Traspaso
@@ -164,6 +165,8 @@ class TraspasoService
                 'numero_rq'       => $opts['numero_rq']       ?? null,
                 'solicitante'     => $opts['solicitante']     ?? null,
                 'departamento'    => $opts['departamento']    ?? null,
+                'recibido_por'    => $opts['recibido_por']    ?? null,
+                'cargo_recibe'    => $opts['cargo_recibe']    ?? null,
                 'hora_emision'    => $opts['hora_emision']    ?? null,
             ] + array_intersect_key($opts, \App\Models\MovimientoInventario::CAMPOS_TRANSPORTE);
 

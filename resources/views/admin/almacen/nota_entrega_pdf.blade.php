@@ -17,7 +17,8 @@
     Variables disponibles (el controller pasa las MISMAS a los dos formatos; esta vista
     usa solo las que necesita):
       - $datos: de ahí lee 'proyecto', 'contrato', 'fecha', 'rq', 'solicitante',
-                'departamento', 'entregado_por', 'cargo_entrega' y 'motivo'.
+                'departamento', 'entregado_por', 'cargo_entrega', 'recibido_por',
+                'cargo_recibe', 'motivo' y 'consumo_interno' (sin bloque del transporte).
                 También llegan 'numero_nota' (lo imprime el cabezote, no esta vista),
                 'almacen' y 'hora' — esas dos solo las usa el formato horizontal.
       - $movs:  Collection<MovimientoInventario> con relaciones {producto, frente}.
@@ -43,6 +44,11 @@
     $compacto = (bool) ($compacto ?? false);
     $fi  = $compacto ? 7 : 8;   // letra de los renglones de items
     $pad = $compacto ? 1 : 2;   // aire de celda de la tabla de items
+    // Consumo del propio almacén (el material no viaja): sin "Datos del vehículo / Datos del
+    // chofer". Si aun así se escribió algún dato del transporte, el bloque sale con él.
+    $conTransporte = empty($datos['consumo_interno'])
+        || collect(array_keys(\App\Models\MovimientoInventario::CAMPOS_TRANSPORTE))
+            ->contains(fn ($c) => trim((string) ($datos[$c] ?? '')) !== '');
 @endphp
 
 {{-- N° de Nota se renderiza en el cabezote (esquina derecha, Header() del PDF).
@@ -169,8 +175,9 @@
      Almacenista del almacén origen va pre-impreso como ENTREGADO POR +
      cargo (ambos vienen de la BD: almacenes.ALMACENISTA y
      almacenes.CARGO_ALMACENISTA, configurables en el modal "Editar almacén").
-     RECIBIDO POR en blanco para que la persona del proyecto lo rellene a
-     mano al recibir.
+     RECIBIDO POR: nombre y cargo de quien se lleva el material, escritos en el
+     formulario de la salida; si quedaron vacíos se llenan a mano. La firma y
+     la fecha de quien recibe, siempre a mano.
 
      Grid de 3 columnas: 14% | 43% | 43% = 100%. WIDTH EXPLICITO en TODOS los
      <td> de TODAS las filas — sin esto TCPDF recalcula a partir del contenido
@@ -188,12 +195,12 @@
     <tr>
         <td width="14%"><font face="helvetica" size="9"><b>NOMBRE:</b></font></td>
         <td width="43%" align="center"><font face="helvetica" size="9">{{ $datos['entregado_por'] ?: '' }}</font></td>
-        <td width="43%">&nbsp;</td>
+        <td width="43%" align="center"><font face="helvetica" size="9">{{ $datos['recibido_por'] ?? '' }}</font></td>
     </tr>
     <tr>
         <td width="14%"><font face="helvetica" size="9"><b>CARGO:</b></font></td>
         <td width="43%" align="center"><font face="helvetica" size="9">{{ $datos['cargo_entrega'] ?? '' }}</font></td>
-        <td width="43%">&nbsp;</td>
+        <td width="43%" align="center"><font face="helvetica" size="9">{{ $datos['cargo_recibe'] ?? '' }}</font></td>
     </tr>
     <tr>
         <td width="14%"><font face="helvetica" size="9"><b>FIRMA:</b></font></td>
@@ -207,7 +214,9 @@
     </tr>
 </table>
 
-@include('admin.almacen.partials.nota_vehiculo_chofer', ['wLabel' => 14, 'wValor' => 36, 'centrarEmpresa' => true])
+@if($conTransporte)
+    @include('admin.almacen.partials.nota_vehiculo_chofer', ['wLabel' => 14, 'wValor' => 36, 'centrarEmpresa' => true])
+@endif
 @include('admin.almacen.partials.nota_devoluciones')
 @include('admin.almacen.partials.nota_correcciones')
 

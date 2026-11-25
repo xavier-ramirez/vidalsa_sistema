@@ -1260,6 +1260,10 @@ class InventarioService
                 array_values(MovimientoInventario::CAMPOS_TRANSPORTE),
                 array_map(fn ($campo) => $opts[$campo] ?? null, array_keys(MovimientoInventario::CAMPOS_TRANSPORTE))
             ),
+            // RECIBIDO POR de la nota y si fue consumo del propio almacén (sin transporte).
+            'RECIBIDO_POR'              => $opts['recibido_por'] ?? null,
+            'CARGO_RECIBE'              => $opts['cargo_recibe'] ?? null,
+            'CONSUMO_INTERNO'           => !empty($opts['consumo_interno']),
             'NUMERO_NOTA'               => $opts['numero_nota'] ?? null,
             // Formato de la Nota CONGELADO al momento de la operación. Se toma del almacén
             // que despacha —el mismo que ya está cargado aquí— y solo cuando hay NUMERO_NOTA:

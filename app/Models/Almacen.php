@@ -278,10 +278,19 @@ class Almacen extends Model
                 'cedula' => $limpiar($this->SEGURIDAD_CED),
             ],
             // RECIBIDO va DE ULTIMO, al extremo derecho de la fila de firmas: es el que
-            // firma el que se lleva el material, y cierra la hoja. Se firma a mano SIEMPRE
-            // —cambia con cada entrega—, asi que no hay nada que preconfigurar.
+            // firma el que se lleva el material, y cierra la hoja. Cambia con cada entrega,
+            // asi que no hay nada que preconfigurar: su nombre y cargo los pone la nota
+            // (conRecibido) si se escribieron al registrar la salida.
             ['rol' => 'RECIBIDO',  'nombre' => '', 'cargo' => '', 'cedula' => ''],
         ];
+    }
+
+    /** Los firmantes de firmantesNota() con el nombre y el cargo de quien RECIBE en esta nota. */
+    public static function conRecibido(array $firmantes, ?string $nombre, ?string $cargo): array
+    {
+        return array_map(fn ($f) => $f['rol'] === 'RECIBIDO'
+            ? ['nombre' => trim((string) $nombre), 'cargo' => trim((string) $cargo)] + $f
+            : $f, $firmantes);
     }
 
     /**

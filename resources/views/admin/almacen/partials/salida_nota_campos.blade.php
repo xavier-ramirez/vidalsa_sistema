@@ -1,6 +1,7 @@
 {{-- ────────────────────────────────────────────────────────────────
      Campos de la NOTA DE ENTREGA de una salida: Proyecto, Almacén destino,
-     Fecha, RQ N°, Solicitante, Departamento, Observaciones y Chofer/Vehículo.
+     Fecha, RQ N°, Solicitante, Departamento, Observaciones, Recibido por/Cargo y
+     Chofer/Vehículo.
      Un solo formulario para las dos pantallas que despachan con nota:
        · /admin/almacen → modal "Registrar salida" (index.blade.php)
        · Recepción de materiales → modal "Registrar y despachar" (recepcion/partials/despacho_modales,
@@ -16,7 +17,9 @@
        FECHA DE ENTREGA | RQ N° | Solicitante            (3 columnas)
        DEPARTAMENTO                                      (full)
        OBSERVACIONES                                     (full)
-       CHOFER | CÉDULA  y  VEHÍCULO | PLACA              (2 columnas)
+       RECIBIDO POR | CARGO                              (2 columnas)
+       CHOFER | CÉDULA  y  VEHÍCULO | PLACA              (2 columnas; se ocultan en
+                                                          consumo interno, ver abajo)
      Entre la 1ª y la 2ª fila se intercala ALMACÉN DESTINO, que solo aparece cuando
      hace falta (ver su bloque): no es parte de la hoja del Excel, sino de la
      decisión de a dónde va el material.
@@ -146,12 +149,28 @@
         <input type="text" id="almSalidaMotivo" class="alm-nota-input" maxlength="200" placeholder="Ej: entrega parcial, urgente, etc." autocomplete="off">
     </div>
 
+    {{-- RECIBIDO POR | CARGO — quien se lleva el material. Sale impreso en la columna
+         RECIBIDO POR de la nota (antes se escribía a mano). Opcional: vacío = a mano. --}}
+    <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;">
+        <div>
+            <label class="alm-nota-label" for="almSalidaRecibidoPor">Recibido por</label>
+            <input type="text" id="almSalidaRecibidoPor" class="alm-nota-input" maxlength="150" placeholder="Nombre y apellido" autocomplete="off">
+        </div>
+        <div>
+            <label class="alm-nota-label" for="almSalidaCargoRecibe">Cargo</label>
+            <input type="text" id="almSalidaCargoRecibe" class="alm-nota-input" maxlength="100" placeholder="Ej: Supervisor de obra" autocomplete="off">
+        </div>
+    </div>
+
     {{-- TRANSPORTE (primero el chofer, luego el vehículo) — lo imprime el bloque "Datos del
          vehículo / Datos del chofer" de la nota, que antes salía en blanco. Opcional: lo que quede vacío sale en blanco
          para llenarlo a mano. Sugiere la logística del almacén y la flota de sus frentes
          (almLogCargar): el vehículo se busca ESCRIBIENDO su placa o su serial de chasis
          y elegir uno llena los dos campos de su fila. Los dos comparten la lista, que
-         sale debajo del campo que se está escribiendo (almLogSugerir). --}}
+         sale debajo del campo que se está escribiendo (almLogSugerir).
+         En CONSUMO INTERNO (el proyecto es de este mismo almacén) el material no viaja: el
+         bloque se oculta y la nota vertical sale sin él (almSalidaSyncTransporte). --}}
+    <div id="almSalidaTransporteWrap" style="margin-top:10px;">
     <div class="alm-modal-grid alm-modal-grid-2" style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;margin-bottom:10px;">
         <div>
             <label class="alm-nota-label" for="almSalidaChofer">Chofer</label>
@@ -177,6 +196,7 @@
                    data-log="vehiculos" oninput="window.almLogSugerir(this)" onfocus="window.almLogSugerir(this, true)">
         </div>
         <div class="alm-suggest-inline alm-suggest-float" id="almSalidaVehiculosSug"></div>
+    </div>
     </div>
 
 </div>

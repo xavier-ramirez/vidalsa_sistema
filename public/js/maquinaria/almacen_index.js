@@ -4443,14 +4443,18 @@
             transporte_placa:    tr('transporte_placa'),
             transporte_chofer:   tr('transporte_chofer'),
             transporte_cedula:   tr('transporte_cedula'),
-            // Almacen::firmantesNota (los de la nota horizontal), en el mismo orden: RECIBIDO va
-            // de último y en blanco (lo firma a mano quien se lleva el material).
+            recibido_por:  t(payload.recibido_por),
+            cargo_recibe:  t(payload.cargo_recibe),
+            // Lo mismo que guardará el servidor (CONSUMO_INTERNO): la vertical va sin transporte.
+            consumo_interno: window.AlmSalidaNota.consumoInterno(payload.id_frente_destino),
+            // Almacen::firmantesNota + conRecibido (los de la nota horizontal), en el mismo orden:
+            // RECIBIDO va de último, con lo escrito en Recibido por / Cargo.
             firmantes: [
                 firmante('ENTREGADO', 'ALMACENISTA', 'CARGO_ALMACENISTA', 'CEDULA_ALMACENISTA'),
                 firmante('SOPORTADO', 'SOPORTE_1_NOM', 'SOPORTE_1_CAR', 'SOPORTE_1_CED'),
                 firmante('SOPORTADO', 'SOPORTE_2_NOM', 'SOPORTE_2_CAR', 'SOPORTE_2_CED'),
                 firmante('SEGURIDAD', 'SEGURIDAD_NOM', 'SEGURIDAD_CAR', 'SEGURIDAD_CED'),
-                { rol: 'RECIBIDO', nombre: '', cargo: '', cedula: '' },
+                { rol: 'RECIBIDO', nombre: t(payload.recibido_por), cargo: t(payload.cargo_recibe), cedula: '' },
             ],
             lineas: payload.lineas.map(function (l) {
                 var s = almSeleccion[l.id_producto] || {};
