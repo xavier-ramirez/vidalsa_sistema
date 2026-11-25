@@ -484,11 +484,10 @@
             dd.innerHTML = lista.length === 0
                 ? '<div style="padding:10px 14px; color:#94a3b8; font-size:13px;">Sin resultados</div>'
                 : lista.map(f =>
-                    `<div onclick="window.seleccionarFrente(${f.id},'${f.nombre.replace(/'/g, "\\'")}')"
-                                                          style="padding:10px 14px; cursor:pointer; font-size:13px; color:#1e293b; transition:background .15s;"
-                                                          onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">
-                                                        ${f.nombre}
-                                                     </div>`
+                    // El nombre escapado y fuera del onclick: una comilla en él no rompe la lista.
+                    `<div data-frente-id="${Number(f.id)}" onclick="window.seleccionarFrente(Number(this.dataset.frenteId), this.textContent.trim())"
+                          style="padding:10px 14px; cursor:pointer; font-size:13px; color:#1e293b; transition:background .15s;"
+                          onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">${window.escapeHtml(f.nombre)}</div>`
                 ).join('');
             dd.style.display = 'block';
         }
@@ -542,7 +541,7 @@
             tr.id = `fila_${n}`;
             tr.innerHTML = `
                                                 <td>${n}</td>
-                                                <td><input type="date"   name="filas[${n}][fecha]"         value="${limpiar(data.fecha)}"    tabindex="${n * 10 + 1}" class="native-date" onclick="this.showPicker()" style="cursor:pointer;"></td>
+                                                <td><input type="date"   name="filas[${n}][fecha]"         value="${limpiar(data.fecha)}"    tabindex="${n * 10 + 1}" class="native-date" style="cursor:pointer;"></td>
                                                 <td><input type="text"   name="filas[${n}][identificador]" value="${limpiar(data.id)}"       tabindex="${n * 10 + 2}" placeholder="placa / serial"></td>
                                                 <td><input type="text"   name="filas[${n}][resp_nombre]"   value="${limpiar(data.nombre)}"   tabindex="${n * 10 + 3}" placeholder="Nombre responsable"></td>
                                                 <td><input type="text"   name="filas[${n}][resp_ci]"       value="${limpiar(data.ci)}"       tabindex="${n * 10 + 4}" placeholder="C.I."></td>
@@ -793,6 +792,15 @@
                 const frente = document.getElementById('idFrenteHidden').value;
                 const tipo = document.getElementById('tipoSelect').value;
                 const filas = document.getElementById('cuerpoTabla').children.length;
+                // Una fila con algo escrito pero sin fecha o sin cantidad el servidor la descarta
+                // sin avisar: se dice antes cuál es, para no perder el consumo.
+                const aMedias = [];
+                [...document.getElementById('cuerpoTabla').children].forEach(tr => {
+                    const v = n => (tr.querySelector(`[name$="[${n}]"]`) || {}).value || '';
+                    const algo = [...tr.querySelectorAll('input')].some(inp => inp.value.trim() !== '');
+                    // El número es el de la columna «#» (tras borrar filas no coincide con la posición).
+                    if (algo && (!v('fecha') || !(parseFloat(v('cantidad')) > 0))) aMedias.push(tr.firstElementChild.textContent.trim());
+                });
 
                 if (!frente) {
                     if (window.showModal) {
@@ -804,6 +812,10 @@
                     if (window.showModal) {
                         window.showModal({ type: 'warning', title: 'Campo requerido', message: 'Selecciona el tipo de consumible.', confirmText: 'Entendido', hideCancel: true });
                     } else { alert('Selecciona el tipo de consumible.'); }
+                    return;
+                }
+                if (aMedias.length) {
+                    window.showModal({ type: 'warning', title: 'Filas incompletas', message: 'Falta la fecha o la cantidad en ' + (aMedias.length === 1 ? 'la fila ' : 'las filas ') + aMedias.join(', ') + '. Complétalas o bórralas.', confirmText: 'Entendido', hideCancel: true });
                     return;
                 }
                 if (!filas) {
