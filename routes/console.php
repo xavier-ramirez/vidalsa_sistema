@@ -61,6 +61,15 @@ Schedule::command('docs:comprimir --lote=5')
     ->withoutOverlapping(30)
     ->runInBackground();
 
+// Fotos de productos listas en el disco del servidor (copia y miniaturas de la tabla y del
+// catálogo), para que nadie espere a Drive al abrirlas. Solo baja lo que falta: tras la
+// primera noche son unos segundos.
+Schedule::command('fotos:preparar')
+    ->dailyAt('01:30')
+    ->when(fn () => EnlacesDocumentos::esBaseDelServidor()[0])
+    ->withoutOverlapping(60)
+    ->runInBackground();
+
 // Carga masiva: lo que quedó en la fila sin leer (ver ColaCargaMasiva). Normalmente lo lee
 // el lector que arranca tras cada subida; esto es el respaldo si aquel no terminó.
 Schedule::command('docs:carga-masiva-pendientes')

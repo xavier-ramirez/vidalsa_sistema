@@ -350,6 +350,14 @@ class AlmacenController extends Controller
 
             $this->borrarFotoAnterior($anterior, $subido->id);
 
+            // La copia en el disco del servidor, ya: la primera persona que abra la foto la
+            // recibe de ahi y no de Drive (las miniaturas las deja fotos:preparar esta noche,
+            // y si alguien las pide antes, el proxy). Si el disco falla, la foto vale igual.
+            $bytes = @file_get_contents($convertida['file']->getRealPath());
+            if ($bytes) {
+                \App\Services\GoogleDriveService::prepararCopiaLocal($subido->id, $bytes);
+            }
+
             // La foto real, de respaldo, solo cuando la que se muestra la hizo la IA. Si esta
             // copia falla, la foto ya quedó guardada: solo se anota.
             if ($blanca) {

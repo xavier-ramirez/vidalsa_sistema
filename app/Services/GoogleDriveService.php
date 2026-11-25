@@ -445,6 +445,62 @@ class GoogleDriveService
      */
     private const VERSION_MINIATURAS = '2';
 
+    /**
+     * Deja en el disco del servidor la copia de una foto y sus miniaturas, para que el proxy
+     * (GoogleDriveController::proxy) la sirva desde ahi y no tenga que ir a Drive cuando
+     * alguien la abre (pedido del cliente, 25-11-2026: las fotos tardaban en abrir).
+     *
+     * Con $contenido (la foto recien subida) la copia se escribe tal cual, sin bajar nada.
+     * Sin el, se baja de Drive solo si falta: a un temporal y se asciende al nombre bueno
+     * cuando llego entera, como en el proxy, para no dejar nunca una copia a medias. Las
+     * miniaturas las deja miniatura(), que ya las guarda. No resucita lo olvidado.
+     *
+     * Devuelve true si la copia completa quedo en el disco.
+     */
+    public static function prepararCopiaLocal(string $fileId, ?string $contenido = null, array $miniaturas = []): bool
+    {
+        if (self::fueOlvidado($fileId)) {
+            return false;
+        }
+        $disco = Storage::disk('local');
+        $ruta  = self::rutaCopiaLocal($fileId);
+        $lista = true;
+        try {
+            if ($contenido !== null) {
+                $disco->put($ruta, $contenido);
+            } elseif (!$disco->exists($ruta)) {
+                $final = $disco->path($ruta);
+                $tmp   = $final . '.' . bin2hex(random_bytes(4)) . '.parcial';
+                @mkdir(dirname($final), 0775, true);
+                $origen = self::getInstance()->getStreamById($fileId);
+                $copia  = fopen($tmp, 'wb');
+                try {
+                    while (!$origen->eof()) {
+                        fwrite($copia, $origen->read(262144));
+                    }
+                } finally {
+                    fclose($copia);
+                }
+                if (filesize($tmp) > 0 && !self::fueOlvidado($fileId)) {
+                    rename($tmp, $final);
+                } else {
+                    @unlink($tmp);
+                    $lista = false;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('No se preparo la copia local de ' . $fileId . ': ' . $e->getMessage());
+            if (isset($tmp)) {
+                @unlink($tmp);
+            }
+            $lista = false;
+        }
+        foreach ($miniaturas as $sz) {
+            self::miniatura($fileId, $sz);
+        }
+        return $lista;
+    }
+
     /** Ruta (en el disco 'local') de la copia de un archivo, o de su miniatura si se da $sz. */
     public static function rutaCopiaLocal(string $fileId, ?string $sz = null): string
     {

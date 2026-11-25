@@ -7,6 +7,7 @@ use App\Models\Usuario;
 use App\Services\GoogleDriveService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Mockery;
@@ -39,6 +40,10 @@ class FotoProductoSubidaTest extends MySqlTestCase
 
     protected function tearDown(): void
     {
+        // Las copias que la subida deja en el disco del servidor (prepararCopiaLocal).
+        for ($i = 1; $i <= count($this->subidas); $i++) {
+            Storage::disk('local')->delete(GoogleDriveService::rutaCopiaLocal('ID' . $i));
+        }
         $this->ponerDrive(null);
         Cache::forget('cloudflare:imagen:sin_cupo');
         parent::tearDown();
@@ -101,6 +106,9 @@ class FotoProductoSubidaTest extends MySqlTestCase
         Http::assertSent(fn ($req) => str_contains($req->url(), 'accounts/CUENTA/ai/run/@cf/modelo')
             && str_contains(collect($req->data())->firstWhere('name', 'prompt')['contents'], 'PRUEBA FOTO'));
         $this->assertSame($antes, $this->temporalesIA(), 'No quedan temporales de la IA.');
+        // La que se muestra queda YA en el disco del servidor: al abrirla no se va a Drive.
+        $copia = Storage::disk('local')->get(GoogleDriveService::rutaCopiaLocal('ID1'));
+        $this->assertSame(600, getimagesizefromstring((string) $copia)[0] ?? 0, 'La copia local es la foto que se muestra.');
     }
 
     public function test_cambiar_la_foto_no_tira_la_que_sigue_usando_otro_producto(): void
