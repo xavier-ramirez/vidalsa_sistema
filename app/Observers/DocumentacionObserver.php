@@ -26,6 +26,10 @@ class DocumentacionObserver
     public function created(Documentacion $doc): void
     {
         \App\Http\Controllers\DashboardController::bumpDataVersion();
+        // La placa es con lo que más se identifican los consumos de gasoil.
+        if ($doc->PLACA) {
+            \App\Services\Consumibles\MatchConsumibles::pedirReintento();
+        }
     }
 
     public function deleted(Documentacion $doc): void
@@ -36,6 +40,9 @@ class DocumentacionObserver
     public function updated(Documentacion $doc): void
     {
         \App\Http\Controllers\DashboardController::bumpDataVersion();
+        if ($doc->wasChanged('PLACA')) {
+            \App\Services\Consumibles\MatchConsumibles::pedirReintento();
+        }
 
         try {
             $changes = $doc->getChanges();

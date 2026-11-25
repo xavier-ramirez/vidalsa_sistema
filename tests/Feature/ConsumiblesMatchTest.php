@@ -50,6 +50,60 @@ class ConsumiblesMatchTest extends MySqlTestCase
         $this->assertStringContainsString('Sin resolver', $html);
     }
 
+    public function test_lo_escrito_a_mano_encuentra_un_auxiliar_por_su_codigo(): void
+    {
+        $aux = \Illuminate\Support\Facades\DB::table('equipos_auxiliares')->whereNull('deleted_at')
+            ->whereNotNull('CODIGO_INTERNO')->where('CODIGO_INTERNO', '!=', '')->first()
+            ?? $this->markTestSkipped('No hay auxiliares con código.');
+        $codigo = mb_strtoupper(trim($aux->CODIGO_INTERNO));
+        $esDeUnEquipo = \Illuminate\Support\Facades\DB::table('documentacion')->whereRaw('UPPER(TRIM(PLACA)) = ?', [$codigo])->exists()
+            || \Illuminate\Support\Facades\DB::table('equipos')->whereNull('deleted_at')
+                ->where(fn ($q) => $q->whereRaw('UPPER(TRIM(SERIAL_CHASIS)) = ?', [$codigo])->orWhereRaw('UPPER(TRIM(CODIGO_PATIO)) = ?', [$codigo]))->exists();
+        if ($esDeUnEquipo) {
+            $this->markTestSkipped('Ese código es también la placa o el serial de un equipo (gana el equipo).');
+        }
+        $c = $this->consumo($aux->CODIGO_INTERNO);
+
+        (new MatchConsumibles())->ejecutar([$c->ID_CONSUMIBLE]);
+
+        $c->refresh();
+        $this->assertSame('CONFIRMADO', $c->ESTADO_EQUIPO);
+        $this->assertEquals($aux->ID_AUXILIAR, $c->ID_AUXILIAR, 'El código exacto del auxiliar gana al parcial de un equipo.');
+        $this->assertNull($c->ID_EQUIPO);
+    }
+
+    public function test_al_cambiar_una_placa_el_programador_reintenta_lo_por_identificar(): void
+    {
+        $doc = \App\Models\Documentacion::whereNotNull('PLACA')->where('PLACA', '!=', '')
+            ->whereHas('equipo')->first()
+            ?? $this->markTestSkipped('No hay placas de equipos activos.');
+        \Illuminate\Support\Facades\Cache::forget(MatchConsumibles::MARCA_REINTENTO);
+        $placa = 'ZZ' . random_int(10000, 99999);
+        $c = $this->consumo($placa);
+        $c->update(['ESTADO_EQUIPO' => 'SIN_MATCH']);
+
+        $doc->update(['PLACA' => $placa]);   // observer → pedirReintento (no hace esperar a quien guarda)
+        $this->assertSame('SIN_MATCH', $c->fresh()->ESTADO_EQUIPO);
+        $this->assertTrue(MatchConsumibles::hayTrabajoDelMinuto());
+
+        MatchConsumibles::pasadaDelMinuto();   // lo que corre el programador en el minuto
+
+        $c->refresh();
+        $this->assertSame('CONFIRMADO', $c->ESTADO_EQUIPO);
+        $this->assertEquals($doc->ID_EQUIPO, $c->ID_EQUIPO);
+        $this->assertFalse(\Illuminate\Support\Facades\Cache::has(MatchConsumibles::MARCA_REINTENTO));
+    }
+
+    public function test_sin_equipo_muestra_lo_que_dice_el_excel(): void
+    {
+        $c = $this->consumo('ZZ-EXCEL-' . random_int(100000, 999999));
+        $c->update(['ESTADO_EQUIPO' => 'SIN_MATCH', 'DESC_EQUIPO' => 'EXCAVADORA ZZMARCA']);
+
+        $this->actingAs($this->superAdminGlobal())
+            ->get(route('consumibles.index', ['identificador' => $c->IDENTIFICADOR]))
+            ->assertOk()->assertSee('EXCAVADORA ZZMARCA')->assertSee('Sin asociar');
+    }
+
     public function test_sin_resultados_con_filtros_lo_dice(): void
     {
         $this->actingAs($this->superAdminGlobal())

@@ -656,7 +656,8 @@ class ConsumiblesController extends Controller
      */
     private static function buscarIdentificador($query, string $texto): void
     {
-        $t = '%' . trim($texto) . '%';
+        // «_» y «%» son letras para quien busca (hay placas con «_»), no comodines de LIKE.
+        $t = '%' . addcslashes(trim($texto), '\\%_') . '%';
         $query->where(function ($w) use ($t) {
             $w->where('consumibles.IDENTIFICADOR', 'like', $t)
                 ->orWhereIn('consumibles.ID_EQUIPO', fn($s) => $s->select('ID_EQUIPO')->from('equipos')
@@ -685,7 +686,12 @@ class ConsumiblesController extends Controller
             ->leftJoin('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
             ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
             // Los consumos de un auxiliar (máquina de soldar, planta…) llevan ID_AUXILIAR, no ID_EQUIPO.
-            ->leftJoin('equipos_auxiliares', 'equipos_auxiliares.ID_AUXILIAR', '=', 'consumibles.ID_AUXILIAR');
+            ->leftJoin('equipos_auxiliares', 'equipos_auxiliares.ID_AUXILIAR', '=', 'consumibles.ID_AUXILIAR')
+            // La placa del equipo (una por equipo), para el mismo identificador que muestra la tabla.
+            ->leftJoinSub(
+                DB::table('documentacion')->select('ID_EQUIPO', DB::raw('MAX(PLACA) AS PLACA'))->groupBy('ID_EQUIPO'),
+                'doc', 'doc.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO'
+            );
 
         if ($desde) {
             $query->where('consumibles.FECHA', '>=', $desde);
@@ -717,10 +723,13 @@ class ConsumiblesController extends Controller
             DB::raw("COALESCE(frentes_trabajo.NOMBRE_FRENTE, 'S/F') as FRENTE"),
             'consumibles.TIPO_CONSUMIBLE',
             'consumibles.ESPECIFICACION',
-            DB::raw('COALESCE(equipos.CODIGO_PATIO, equipos_auxiliares.CODIGO_INTERNO, consumibles.IDENTIFICADOR) as EQUIPO_PLACA'),
-            DB::raw("COALESCE(equipos.MARCA, 'S/M') as MARCA"),
+            // Como la tabla: placa, serial o código del equipo (o del auxiliar); sin equipo, lo escrito.
+            DB::raw("COALESCE(NULLIF(doc.PLACA, ''), NULLIF(equipos.SERIAL_CHASIS, ''), NULLIF(equipos.CODIGO_PATIO, ''),
+                NULLIF(equipos_auxiliares.CODIGO_INTERNO, ''), NULLIF(equipos_auxiliares.SERIAL, ''), consumibles.IDENTIFICADOR) as EQUIPO_PLACA"),
+            DB::raw("COALESCE(equipos.MARCA, equipos_auxiliares.MARCA, 'S/M') as MARCA"),
             DB::raw("COALESCE(equipos.MODELO, equipos_auxiliares.MODELO, 'S/M') as MODELO"),
-            DB::raw("COALESCE(tipo_equipos.nombre, REPLACE(equipos_auxiliares.TIPO, '_', ' '), 'S/T') as TIPO_EQUIPO"),
+            // Sin equipo asociado: lo que dice el Excel del vehículo.
+            DB::raw("COALESCE(tipo_equipos.nombre, REPLACE(equipos_auxiliares.TIPO, '_', ' '), consumibles.DESC_EQUIPO, 'S/T') as TIPO_EQUIPO"),
             'consumibles.CANTIDAD',
             'consumibles.UNIDAD',
             'consumibles.RESP_NOMBRE',

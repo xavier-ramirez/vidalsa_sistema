@@ -369,6 +369,10 @@ class ImportadorCombustible
                 $n++;
             }
         });
+        if ($equipos) {
+            // Un alias de equipo nuevo puede resolver otros consumos por identificar con el mismo texto.
+            MatchConsumibles::pedirReintento();
+        }
 
         return $n;
     }
@@ -436,6 +440,7 @@ class ImportadorCombustible
                 $lote[] = [
                     'FECHA'           => $f['fecha'],
                     'IDENTIFICADOR'   => $e['clave'] !== '' ? $e['clave'] : null,
+                    'DESC_EQUIPO'     => $this->descEquipo($f),
                     'RESP_NOMBRE'     => $f['resp'] !== null ? mb_substr($f['resp'], 0, 150) : null,
                     'RESP_CI'         => $f['ci'] !== '' ? substr($f['ci'], 0, 20) : null,
                     'CANTIDAD'        => $f['litros'],
@@ -483,6 +488,14 @@ class ImportadorCombustible
 
             return ['insertados' => $insertados, 'litros' => round($litros, 2)];
         }));
+    }
+
+    /** El vehículo o equipo tal como lo describe el Excel (la lista lo muestra si no se asoció). */
+    private function descEquipo(array $f): ?string
+    {
+        $d = trim((string) ($f['desc'] ?? ($f['cat']['equipo'] ?? '')));
+
+        return $d !== '' ? mb_substr($d, 0, 150) : null;
     }
 
     /** Proyecto/actividad y frente/zona tal como venían en el Excel. */

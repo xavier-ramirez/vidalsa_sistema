@@ -13,6 +13,7 @@ class Consumible extends Model
         // Bloque 1 — del Excel
         'FECHA',
         'IDENTIFICADOR',
+        'DESC_EQUIPO',
         'RESP_NOMBRE',
         'RESP_CI',
         'CANTIDAD',

@@ -669,6 +669,12 @@
                                     }
                                     $ids = array_values(array_filter(array_map(fn($v) => trim((string) $v), $ids)));
                                     $mostrado = $ids[0] ?? ($c->IDENTIFICADOR ?: '—');
+                                    // Lo del Excel se guarda como «DESCRIPCIÓN | PLACA | …»: si la descripción ya sale
+                                    // abajo (sin equipo), arriba solo lo demás.
+                                    if (!$ids && $c->DESC_EQUIPO && str_contains((string) $c->IDENTIFICADOR, ' | ')) {
+                                        $resto = array_slice(explode(' | ', $c->IDENTIFICADOR), 1);
+                                        $mostrado = $resto ? implode(' | ', $resto) : '—';
+                                    }
                                 @endphp
                                 <td style="font-size:12px; color:#1e293b; line-height:1.5;"
                                     id="id-cell-{{ $c->ID_CONSUMIBLE }}" data-original="{{ $c->IDENTIFICADOR }}" data-mostrado="{{ $mostrado }}">
@@ -708,6 +714,11 @@
                                     @elseif($c->ESTADO_EQUIPO === 'CONFIRMADO')
                                         {{-- Confirmado sin equipo: se enseñó que no es de ningún equipo. --}}
                                         <span style="color:#64748b; font-style:italic; font-size:12px;">Sin equipo</span>
+                                    @elseif($c->DESC_EQUIPO)
+                                        {{-- Sin equipo asociado: lo que dice el Excel del vehículo (tipo y marca). --}}
+                                        <span style="display:block; color:#64748b; font-weight:700; font-size:12px; text-transform:uppercase;"
+                                            title="Así lo describe el Excel; todavía sin equipo asociado">{{ $c->DESC_EQUIPO }}</span>
+                                        <span style="color:#94a3b8; font-style:italic; font-size:11px;">Sin asociar</span>
                                     @else
                                         <span style="color:#94a3b8; font-style:italic; font-size:12px;">Sin resolver</span>
                                     @endif

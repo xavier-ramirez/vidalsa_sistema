@@ -39,9 +39,16 @@ class EquipoObserver
 
     public function created(Equipo $equipo): void
     {
+        // Un equipo nuevo puede ser el de consumos que esperan «Por identificar».
+        \App\Services\Consumibles\MatchConsumibles::pedirReintento();
         $this->bustTipoCategoriaMap();
         $this->bustHistorialDocs();
         \App\Http\Controllers\DashboardController::bumpDataVersion();
+    }
+
+    public function restored(Equipo $equipo): void
+    {
+        \App\Services\Consumibles\MatchConsumibles::pedirReintento();
     }
 
     public function deleted(Equipo $equipo): void
@@ -62,6 +69,12 @@ class EquipoObserver
 
         if ($equipo->wasChanged(['id_tipo_equipo', 'CATEGORIA_FLOTA'])) {
             $this->bustTipoCategoriaMap();
+        }
+
+        // Con lo que se identifica corregido (serial, código, o lo que usan las reglas del Excel:
+        // serial de motor, tipo, marca y modelo), los consumos por identificar pueden encontrarlo.
+        if ($equipo->wasChanged(['SERIAL_CHASIS', 'CODIGO_PATIO', 'SERIAL_DE_MOTOR', 'id_tipo_equipo', 'MARCA', 'MODELO'])) {
+            \App\Services\Consumibles\MatchConsumibles::pedirReintento();
         }
 
         // El dashboard /menu (alertas, salud de flota, catálogos) se cachea por

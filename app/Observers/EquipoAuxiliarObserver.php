@@ -27,6 +27,12 @@ class EquipoAuxiliarObserver
     public function created(EquipoAuxiliar $aux): void
     {
         \App\Http\Controllers\DashboardController::bumpDataVersion();
+        \App\Services\Consumibles\MatchConsumibles::pedirReintento();
+    }
+
+    public function restored(EquipoAuxiliar $aux): void
+    {
+        \App\Services\Consumibles\MatchConsumibles::pedirReintento();
     }
 
     public function deleted(EquipoAuxiliar $aux): void
@@ -41,6 +47,9 @@ class EquipoAuxiliarObserver
         // auxiliar no aparecía en el panel hasta 10 minutos después.
         if ($aux->wasChanged(self::DASHBOARD_FIELDS)) {
             \App\Http\Controllers\DashboardController::bumpDataVersion();
+        }
+        if ($aux->wasChanged(['CODIGO_INTERNO', 'SERIAL', 'TIPO', 'MARCA', 'MODELO'])) {
+            \App\Services\Consumibles\MatchConsumibles::pedirReintento();
         }
 
         try {

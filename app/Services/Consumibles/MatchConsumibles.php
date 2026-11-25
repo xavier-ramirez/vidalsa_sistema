@@ -5,18 +5,53 @@ namespace App\Services\Consumibles;
 use App\Http\Controllers\ConsumiblesController;
 use App\Models\Consumible;
 use App\Support\CacheVersion;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Identifica el equipo de los consumos PENDIENTES y POR IDENTIFICAR (antes, el botón
  * «Ejecutar Match» de la lista). Lo hace el servidor solo:
  *  - al guardar filas en Cargar consumibles y al editar el identificador (solo esas filas);
- *  - el programador de tareas (consumibles:match): cada minuto si quedó algo PENDIENTE (p. ej.
- *    una fila escrita a mano en la base) y cada hora todo lo POR IDENTIFICAR, por si ya se
- *    registró el equipo o su placa.
+ *  - al registrar, corregir o restaurar un equipo, su placa o un auxiliar, o al enseñar un
+ *    alias (pedirReintento): queda una marca y el programador lo reintenta todo en el minuto,
+ *    en segundo plano (no al final de la petición: con Apache mod_php eso hacía esperar a quien
+ *    guardaba), sin dos pasadas a la vez (withoutOverlapping);
+ *  - el programador de tareas: cada minuto si quedó algo PENDIENTE o hay marca, y cada hora todo
+ *    lo POR IDENTIFICAR (lo que entró sin eventos de modelo).
+ * El vigía en tiempo real (cambios:avisar) ve el cambio en la tabla y la lista se repinta sola
+ * en todos los navegadores.
  */
 class MatchConsumibles
 {
+    public const MARCA_REINTENTO = 'consumibles:reintentar-match';
+
+    /** Cambió algo con lo que se identifica un equipo: el programador reintenta en el minuto. */
+    public static function pedirReintento(): void
+    {
+        try {
+            Cache::put(self::MARCA_REINTENTO, true, now()->addDay());
+        } catch (\Throwable $e) {
+            report($e);   // nunca rompe el guardado del equipo; la pasada de cada hora lo cubre
+        }
+    }
+
+    /** Lo que corre el programador cada minuto: lo pedido (todo) o, si no, solo lo PENDIENTE. */
+    public static function pasadaDelMinuto(): void
+    {
+        if (Cache::pull(self::MARCA_REINTENTO)) {
+            (new self())->ejecutar();
+
+            return;
+        }
+        (new self())->ejecutar(Consumible::where('ESTADO_EQUIPO', 'PENDIENTE')->pluck('ID_CONSUMIBLE')->all());
+    }
+
+    public static function hayTrabajoDelMinuto(): bool
+    {
+        return Cache::has(self::MARCA_REINTENTO)
+            || Consumible::where('ESTADO_EQUIPO', 'PENDIENTE')->exists();
+    }
+
     /**
      * @param  array<int>|null  $ids  Solo esos consumos; null = todos.
      * @return array{total:int,confirmados:int,sin_match:int}
@@ -47,7 +82,9 @@ class MatchConsumibles
 
         // Índices en memoria, una sola vez (no hasta 5 consultas por fila). Caben de sobra:
         // ~1.000 placas y ~1.200 equipos, solo las columnas que el match necesita.
-        $equipos = DB::table('equipos')
+        // Solo equipos activos: uno borrado no se le asigna a un consumo (la lista lo pintaría como
+        // «Sin equipo», que es lo enseñado como «no es un equipo»).
+        $equipos = DB::table('equipos')->whereNull('deleted_at')
             ->select('ID_EQUIPO', 'CODIGO_PATIO', 'SERIAL_CHASIS', 'MARCA', 'MODELO')
             ->get()->keyBy('ID_EQUIPO');
 
@@ -61,7 +98,7 @@ class MatchConsumibles
             ->whereNotNull('PLACA')->where('PLACA', '!=', '')
             ->select('ID_EQUIPO', 'PLACA')->get()
             ->map(fn ($d) => (object) ['id' => $d->ID_EQUIPO, 'txt' => $norm($d->PLACA)])
-            ->filter(fn ($d) => $util($d->txt))->values();
+            ->filter(fn ($d) => $util($d->txt) && $equipos->has($d->id))->values();
         $porPlaca = [];
         foreach ($placas as $d) { $porPlaca[$d->txt] ??= $d->id; }
 
@@ -69,6 +106,16 @@ class MatchConsumibles
         foreach ($equipos as $e) {
             $cp = $norm($e->CODIGO_PATIO); if ($util($cp)) { $porCodigo[$cp] ??= $e->ID_EQUIPO; }
             $sc = $norm($e->SERIAL_CHASIS); if ($util($sc)) { $porSerial[$sc] ??= $e->ID_EQUIPO; }
+        }
+
+        // Auxiliares (máquina de soldar, planta, compresor…): por su código o serial EXACTO.
+        // Sin esto, lo escrito a mano con el código de un auxiliar quedaba siempre por identificar
+        // (lo del Excel sí los encontraba, por IdentificadorConsumo).
+        $porAuxiliar = [];
+        foreach (DB::table('equipos_auxiliares')->whereNull('deleted_at')->select('ID_AUXILIAR', 'CODIGO_INTERNO', 'SERIAL')->get() as $a) {
+            foreach ([$a->CODIGO_INTERNO, $a->SERIAL] as $v) {
+                $v = $norm($v); if ($util($v)) { $porAuxiliar[$v] ??= $a->ID_AUXILIAR; }
+            }
         }
 
         $confirmados = 0;
@@ -124,7 +171,15 @@ class MatchConsumibles
                 $equipo = $equipos->get($porSerial[$id]);
             }
 
-            // 4. Coincidencia PARCIAL (minimo 4 caracteres, para evitar falsos positivos).
+            // 4. Código o serial EXACTO de un auxiliar: antes que el parcial, que si no se lo lleva
+            // el equipo cuyo código CONTIENE ese texto.
+            if (!$equipo && isset($porAuxiliar[$id])) {
+                $aConfirmarAux[$porAuxiliar[$id]][] = $c->ID_CONSUMIBLE;
+                $confirmados++;
+                continue;
+            }
+
+            // 5. Coincidencia PARCIAL (minimo 4 caracteres, para evitar falsos positivos).
             // Misma regla que antes -el identificador contenido en la placa, el serial o el
             // codigo de patio- y sigue exigiendo que resuelva a UN solo equipo.
             if (!$equipo && mb_strlen($id) >= 4) {
@@ -156,26 +211,32 @@ class MatchConsumibles
 
         // Los cambios, en bloque: un UPDATE por equipo confirmado y uno para los que pasan a
         // POR IDENTIFICAR (los que ya lo estaban no se tocan). Consumible no tiene observer.
-        DB::transaction(function () use ($aConfirmar, $aConfirmarAux, $sinEquipo, $aSinMatch) {
+        // Cada UPDATE solo toca el consumo si sigue como se leyó (sin confirmar y con el mismo
+        // identificador): si entretanto alguien corrigió el identificador, no se le pisa.
+        $leidos = $pendientes->merge($deExcel)->pluck('IDENTIFICADOR', 'ID_CONSUMIBLE');
+        $comoSeLeyo = fn (array $ids) => Consumible::whereIn('ID_CONSUMIBLE', $ids)
+            ->whereIn('ESTADO_EQUIPO', ['PENDIENTE', 'SIN_MATCH'])
+            ->whereIn('IDENTIFICADOR', array_values(array_unique(array_map(fn ($i) => $leidos[$i], $ids))));
+        DB::transaction(function () use ($aConfirmar, $aConfirmarAux, $sinEquipo, $aSinMatch, $comoSeLeyo) {
             foreach ($aConfirmar as $idEquipo => $idsConsumible) {
-                Consumible::whereIn('ID_CONSUMIBLE', $idsConsumible)->update([
+                $comoSeLeyo($idsConsumible)->update([
                     'ID_EQUIPO'     => $idEquipo,
                     'ID_AUXILIAR'   => null,
                     'ESTADO_EQUIPO' => 'CONFIRMADO',
                 ]);
             }
             foreach ($aConfirmarAux as $idAux => $idsConsumible) {
-                Consumible::whereIn('ID_CONSUMIBLE', $idsConsumible)->update([
+                $comoSeLeyo($idsConsumible)->update([
                     'ID_EQUIPO'     => null,
                     'ID_AUXILIAR'   => $idAux,
                     'ESTADO_EQUIPO' => 'CONFIRMADO',
                 ]);
             }
             if ($sinEquipo) {
-                Consumible::whereIn('ID_CONSUMIBLE', $sinEquipo)->update(['ID_EQUIPO' => null, 'ID_AUXILIAR' => null, 'ESTADO_EQUIPO' => 'CONFIRMADO']);
+                $comoSeLeyo($sinEquipo)->update(['ID_EQUIPO' => null, 'ID_AUXILIAR' => null, 'ESTADO_EQUIPO' => 'CONFIRMADO']);
             }
             if ($aSinMatch) {
-                Consumible::whereIn('ID_CONSUMIBLE', $aSinMatch)->where('ESTADO_EQUIPO', '!=', 'SIN_MATCH')->update(['ESTADO_EQUIPO' => 'SIN_MATCH']);
+                $comoSeLeyo($aSinMatch)->where('ESTADO_EQUIPO', 'PENDIENTE')->update(['ESTADO_EQUIPO' => 'SIN_MATCH']);
             }
         });
 

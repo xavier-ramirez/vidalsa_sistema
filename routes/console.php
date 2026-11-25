@@ -87,14 +87,12 @@ Schedule::call(fn () => app(\App\Services\CargaMasivaDocumentos::class)->enlazar
 
 // Consumibles: el equipo de cada consumo lo identifica el servidor (no hay botón de Match).
 // Guardar filas o editar el identificador ya lo hace al momento; esto cubre lo que quedó
-// PENDIENTE por otra vía (cada minuto, si hay) y reintenta cada hora lo POR IDENTIFICAR, por
-// si ya se registró el equipo o su placa.
-Schedule::call(fn () => (new \App\Services\Consumibles\MatchConsumibles())->ejecutar(
-    \App\Models\Consumible::where('ESTADO_EQUIPO', 'PENDIENTE')->pluck('ID_CONSUMIBLE')->all()
-))
+// PENDIENTE por otra vía y lo pedido al registrar o corregir un equipo, placa o auxiliar
+// (MatchConsumibles::pedirReintento), cada minuto si hay; y reintenta cada hora lo POR IDENTIFICAR.
+Schedule::call(fn () => \App\Services\Consumibles\MatchConsumibles::pasadaDelMinuto())
     ->name('consumibles-match-pendientes')
     ->everyMinute()
-    ->when(fn () => \App\Models\Consumible::where('ESTADO_EQUIPO', 'PENDIENTE')->exists())
+    ->when(fn () => \App\Services\Consumibles\MatchConsumibles::hayTrabajoDelMinuto())
     ->withoutOverlapping(10);
 Schedule::call(fn () => (new \App\Services\Consumibles\MatchConsumibles())->ejecutar())
     ->name('consumibles-match-todo')
