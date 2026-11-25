@@ -510,7 +510,7 @@
         </div>
         <div class="alm-modal-foot">
             <button type="button" class="btn-primary-maquinaria" style="background:#e2e8f0;color:#475569;box-shadow:none;" onclick="almCerrar('almEtqPreviaModal')">Cancelar</button>
-            <button type="button" id="almEtqImprimirBtn" class="btn-primary-maquinaria" onclick="window.almEtqImprimir()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">print</i><span>Imprimir</span></button>
+            <button type="button" class="btn-primary-maquinaria" onclick="window.almEtqImprimir()"><i class="material-icons" style="font-size:17px;vertical-align:-3px;margin-right:4px;">print</i>Imprimir</button>
         </div>
     </div>
 </div>

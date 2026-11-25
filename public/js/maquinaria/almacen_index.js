@@ -2104,7 +2104,6 @@
         var mas = el('almEtqPreviaMas');
         mas.hidden = total <= muestras.length;
         mas.textContent = 'y ' + (total - muestras.length) + ' más que no se muestran aquí (se imprimen todas)';
-        el('almEtqImprimirBtn').querySelector('span').textContent = 'Imprimir ' + total;
         almOpen('almEtqPreviaModal');
     }
 
