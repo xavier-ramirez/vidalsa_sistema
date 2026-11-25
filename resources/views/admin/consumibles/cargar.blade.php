@@ -308,7 +308,7 @@
                     <div style="position:relative; flex: 0 0 auto; margin-top: auto;">
                         <button type="button" id="btnAcciones" class="btn-primary-maquinaria"
                             style="padding: 0 15px; height: 42px; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);"
-                            onclick="document.getElementById('splitDropdownMenu').style.display = document.getElementById('splitDropdownMenu').style.display === 'none' ? 'block' : 'none'; event.stopPropagation();">
+                            onclick="document.getElementById('splitDropdownMenu').style.display = document.getElementById('splitDropdownMenu').style.display === 'none' ? 'block' : 'none';">
                             <i class="material-icons">settings</i>
                             <span>Acciones</span>
                             <i class="material-icons" style="font-size: 18px; margin-left: 2px;">expand_more</i>
@@ -479,23 +479,35 @@
             }
         };
 
-        // Guardia SPA: navegacion.js re-ejecuta este <script> en cada visita; sin la bandera
-        // este listener de document se apila una vez por visita. Como es una arrow anónima no
-        // se puede quitar luego, así que se registra UNA sola vez por pestaña.
-        if (!window.__cargarClickBound) {
-        window.__cargarClickBound = true;
-        document.addEventListener('click', e => {
+        // ── Desplegables de la pantalla: solo uno abierto a la vez ──────────
+        // Frente, Acciones, Tipo/Unidad (.custom-dropdown) y Frente de cada fila. Con CLIC y con FOCO sin clic (Tab, «siguiente» del
+        // teclado del teléfono): el que se toca se queda, los demás se cierran. Por eso el botón
+        // Acciones no corta el clic (stopPropagation). Una sola vez por pestaña (SPA).
+        function desplegableDe(el) {
+            if (!el || !el.closest) return null;
+            if (el.closest('#frenteSearch, #frenteDropdown')) return 'frente';
+            if (el.closest('#btnAcciones, #splitDropdownMenu')) return 'acciones';
+            if (el.closest('[data-fila-frente], #frenteFilaDropdown')) return 'fila';
+            return el.closest('.custom-dropdown');
+        }
+        function cerrarDesplegablesCargar(dueno) {
             const dd = document.getElementById('frenteDropdown');
-            if (dd && !e.target.closest('#frenteSearch') && !e.target.closest('#frenteDropdown')) {
-                dd.style.display = 'none';
+            if (dd && dueno !== 'frente') dd.style.display = 'none';
+            const acc = document.getElementById('splitDropdownMenu');
+            if (acc && dueno !== 'acciones') acc.style.display = 'none';
+            if (dueno !== 'fila') cerrarListaFrenteFila();
+            // Entre .custom-dropdown ya se cierran solos (uicomponents.js).
+            if (!(dueno instanceof Element && dueno.classList.contains('custom-dropdown')) && window.closeAllDropdowns) {
+                window.closeAllDropdowns(null);
             }
-
-            const accMenu = document.getElementById('splitDropdownMenu');
-            if (accMenu && accMenu.style.display === 'block' && !e.target.closest('#btnAcciones') && !e.target.closest('#splitDropdownMenu')) {
-                accMenu.style.display = 'none';
-            }
-        });
-        } // /guardia __cargarClickBound
+        }
+        if (!window.__cargarDesplegablesBound) {
+            window.__cargarDesplegablesBound = true;
+            ['click', 'focusin'].forEach(ev => document.addEventListener(ev, e => {
+                if (!document.getElementById('cuerpoTabla')) return;   // solo en esta pantalla
+                cerrarDesplegablesCargar(desplegableDe(e.target));
+            }));
+        }
 
         // ── Frente de cada fila ───────────────────────────────────────────
         // Lo pegado puede traer varios proyectos: cada fila lleva su texto (columna FRENTE) y el
