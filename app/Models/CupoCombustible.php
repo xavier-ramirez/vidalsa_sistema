@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-/** El cupo mensual de gasoil de un patio desde un mes (rige hasta que se cambie). */
+/** El cupo fijo mensual de gasoil de un patio; si cambia, rige desde el mes en que se guardó. */
 class CupoCombustible extends Model
 {
     public const PATIOS = ['TIGRE' => 'Patio El Tigre', 'MATURIN' => 'Patio Maturín'];

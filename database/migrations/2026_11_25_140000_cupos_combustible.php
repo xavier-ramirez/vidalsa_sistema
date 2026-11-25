@@ -5,9 +5,9 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Cupos de gasoil: cada patio (El Tigre, Maturín) tiene un cupo de litros por mes que casi nunca
- * cambia. Se guarda desde qué mes rige (sigue igual hasta que se cambie). De ese cupo se piden
- * cisternas (patio, fecha, cisterna y litros). Disponible del mes = cupo − litros pedidos.
+ * Cupos de gasoil: cada patio (El Tigre, Maturín) tiene un cupo fijo de litros por mes. Si alguna vez
+ * cambia, se guarda desde qué mes rige. Lo que consume el cupo son las cisternas surtidas (patio,
+ * fecha y litros). Disponible del mes = cupo − litros surtidos.
  */
 return new class extends Migration
 {
@@ -30,7 +30,6 @@ return new class extends Migration
                 $table->id('ID_CISTERNA');
                 $table->string('PATIO', 20);
                 $table->date('FECHA');
-                $table->string('CISTERNA', 60)->nullable();   // placa o número de la cisterna
                 $table->decimal('LITROS', 12, 2);
                 $table->unsignedBigInteger('ID_USUARIO')->nullable();
                 $table->timestamps();
