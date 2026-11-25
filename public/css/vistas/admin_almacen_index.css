@@ -1147,11 +1147,15 @@
             box-shadow: 0 2px 6px rgba(15,23,42,0.06), 0 8px 20px rgba(15,23,42,0.12) !important;
             transform: translateY(-1px) !important;
         }
+        /* Stock bajo: el mismo rojo claro de la fila en la PC (.alm-row-bajo td, #fee2e2) y sin
+           franja a la izquierda, como allá (pedido del cliente, 24-11-2026; antes era amarillo
+           con franja naranja). El aviso lo completa el ⚠ junto al stock. */
         .alm-table tr.alm-row.alm-row-bajo {
-            border-left: 4px solid #f59e0b !important;
-            background: #fffbeb !important;
-            box-shadow: 0 1px 3px rgba(245,158,11,0.10), 0 4px 12px rgba(245,158,11,0.12) !important;
+            border-color: #fecaca !important;
+            background: #fee2e2 !important;
+            box-shadow: 0 1px 3px rgba(239,68,68,0.08), 0 4px 12px rgba(239,68,68,0.10) !important;
         }
+        .alm-table tr.alm-row.alm-row-bajo td.alm-td-nombre { background: #fee2e2 !important; }
         /* Última vista (almMarcarVista): la tarjeta en celeste. */
         .alm-table tr.alm-row.alm-row-vista { background: #e0f2fe !important; border-color: #93c5fd !important; }
         /* Tarjeta SELECCIONADA, como en Equipos (estilos_globales: .table-equipos-mobile

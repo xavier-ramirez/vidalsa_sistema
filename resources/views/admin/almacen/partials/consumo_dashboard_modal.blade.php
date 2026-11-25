@@ -665,12 +665,11 @@
         });
 
         // ── 2) Top productos (barras horizontales) ───────────────────────────
-        // COLORES de las diapositivas de la empresa (pedido del cliente, 07-10-2026): fondo
-        // blanco, encabezado AZUL MARINO y el rojo como acento. El producto MAS consumido va
-        // en rojo (#c0392b) y del segundo para abajo una escala del azul del encabezado
-        // (#1f4e79) a celeste (#9dc3e6) que se aclara según baja el puesto. Aquí sí vale
-        // una escala de un solo tono: las barras no se tocan y cada una lleva su rótulo, así
-        // que no hace falta que los vecinos se distingan por color.
+        // COLORES de las diapositivas de la empresa: una escala del azul marino del
+        // encabezado (#1f4e79) a celeste (#9dc3e6) que se aclara según baja el puesto. El
+        // primero ya no va en rojo (pedido del cliente, 24-11-2026: una sola barra roja se leía
+        // como alerta). Aquí sí vale una escala de un solo tono: las barras no se tocan y cada
+        // una lleva su rótulo, así que no hace falta que los vecinos se distingan por color.
         var top = data.top_productos || [];
         function cdMezcla(a, b, t) {
             var c = function (h, i) { return parseInt(h.slice(i, i + 2), 16); };
@@ -680,9 +679,7 @@
             }).join('');
         }
         var cdTopColores = top.map(function (_, i) {
-            if (i === 0) return '#c0392b';
-            var resto = top.length - 1;
-            return cdMezcla('#1f4e79', '#9dc3e6', resto > 1 ? (i - 1) / (resto - 1) : 0);
+            return cdMezcla('#1f4e79', '#9dc3e6', top.length > 1 ? i / (top.length - 1) : 0);
         });
 
         // Rótulo del eje = Nº DE PARTE principal (identifica el filtro exacto). Muchos
