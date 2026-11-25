@@ -230,6 +230,8 @@
     img.alm-foto { cursor: zoom-in; }
     .alm-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; }
     .alm-foto-sin .material-icons { font-size: 26px; }
+    /* Sin foto y sin permiso para subirla: un ícono tenue en vez del recuadro en blanco. */
+    span.alm-foto-sin:empty::before { content: 'image'; font-family: 'Material Icons'; font-size: 24px; line-height: 1; }
     /* Sin foto y con super.admin: la cámara para subirla (AlmacenLocal.celdaFoto). Al pasar el
        mouse, el mismo velo oscuro del Catálogo (.cat-photo-overlay): cámara blanca + texto. */
     button.alm-foto-subir { position: relative; overflow: hidden; padding: 0; cursor: pointer;
@@ -1121,10 +1123,10 @@
             display: grid !important;
             /* col 1 = 1fr (stock-info absorbe el ancho sobrante), col 2 = auto
                (stepper natural ~76px), col 3 = auto (boton ojo ~30px). */
-            grid-template-columns: 1fr auto auto !important;
+            grid-template-columns: auto 1fr auto auto !important;
             grid-template-areas:
-                "nombre nombre nombre"
-                "stock  cant   det" !important;
+                "foto nombre nombre nombre"
+                "foto stock  cant   det" !important;
             gap: 0 !important;
             /* Gris claro en la fila de abajo de la tarjeta (pedido del cliente,
                21-10-2026): lo toma la fila de Stock; la de nombre lleva su propia banda. Las
@@ -1186,8 +1188,19 @@
            cliente pidio quitarla. OJO: este display:none debe ir en SU PROPIA regla;
            antes estaba comma-unido a .alm-td-nombre de abajo y, en vez de ocultarse,
            heredaban display:block + gradiente + grid-area:nombre (se encimaban). */
-        .alm-table tr.alm-row td.alm-td-cat,
-        .alm-table tr.alm-row td.alm-td-foto { display: none !important; }
+        .alm-table tr.alm-row td.alm-td-cat { display: none !important; }
+        /* La foto, a la izquierda y a todo el alto de la tarjeta, como en la PC (antes se
+           escondía; el cliente la pidió de vuelta el 24-11-2026). Sin foto: el recuadro con la
+           cámara para subirla, igual que en la tabla. */
+        .alm-table tr.alm-row td.alm-td-foto {
+            grid-area: foto !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 10px 0 10px 10px !important;
+            width: auto !important;
+        }
+        .alm-table tr.alm-row td.alm-td-foto .alm-foto { width: 56px; height: 56px; }
 
         /* Fila 1: nombre + codigo como UN SOLO TEXTO unificado — banda gris.
            El ::before pone "00042 " como prefijo, heredando font/color/weight
@@ -1197,9 +1210,9 @@
             grid-area: nombre !important;
             display: block !important;
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
-            padding: 9px 14px !important;
-            font-size: 12px !important;
-            font-weight: 700 !important;
+            padding: 9px 14px 6px 12px !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
             color: #1e293b !important;
             line-height: 1.3 !important;
         }
@@ -1223,9 +1236,9 @@
            stepper" lado a lado, no apilados. */
         .alm-table tr.alm-row td.alm-td-stock {
             grid-area: stock !important;
-            padding: 10px 8px 10px 14px !important;
-            font-size: 16px !important;
-            font-weight: 800 !important;
+            padding: 6px 8px 10px 12px !important;
+            font-size: 14px !important;
+            font-weight: 700 !important;
             color: #0f172a !important;
             justify-content: flex-start !important;
             gap: 6px !important;
