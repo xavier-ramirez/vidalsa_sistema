@@ -26,7 +26,7 @@ class CuposCombustibleTest extends MySqlTestCase
             ])->assertOk();
         }
 
-        $this->actingAs($u)->get(route('consumibles.cupos', ['mes' => self::MES]))->assertOk()
+        $this->actingAs($u)->get(route('consumibles.cargar', ['mes' => self::MES]))->assertOk()
             ->assertSee('Patio El Tigre')->assertSee('Patio Maturín')
             ->assertSee('120.000 L')->assertSee('76.000 L')->assertSee('44.000 L')
             ->assertSee('A12BC3D')->assertSee('02/03/2031')->assertSee('2 cisternas');
@@ -62,7 +62,10 @@ class CuposCombustibleTest extends MySqlTestCase
 
     public function test_mes_mal_escrito_muestra_el_actual(): void
     {
-        $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cupos', ['mes' => ['x']]))->assertOk();
-        $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cupos', ['mes' => '2031-13']))->assertOk();
+        $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cargar', ['mes' => ['x']]))->assertOk();
+        $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cupos', ['mes' => '2031-13', 'parcial' => 1]))->assertOk();
+        // La sección vive en Cargar consumibles: la dirección sola lleva allá con el mes.
+        $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cupos', ['mes' => self::MES]))
+            ->assertRedirect(route('consumibles.cargar', ['mes' => self::MES]));
     }
 }

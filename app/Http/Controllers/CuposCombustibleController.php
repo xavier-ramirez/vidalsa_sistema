@@ -10,15 +10,28 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
- * Cupos de gasoil (Consumibles → Cupos): el cupo del mes de cada patio y las cisternas que se
- * piden de él. Ver lo puede cualquiera con sesión; cargar y borrar, super.admin (las rutas).
+ * Cupos de gasoil (sección de Cargar consumibles): el cupo del mes de cada patio y las cisternas
+ * que se piden de él. Ver lo puede cualquiera con sesión; cargar y borrar, super.admin (las rutas).
  */
 class CuposCombustibleController extends Controller
 {
-    /** GET consumibles/cupos?mes=YYYY-MM — con parcial=1 devuelve solo el contenido (se repinta tras guardar). */
+    /**
+     * GET consumibles/cupos?mes=YYYY-MM&parcial=1 — el contenido de la sección (se repinta tras guardar
+     * o al cambiar de mes). La sección vive en Cargar consumibles: sin parcial, se va allá.
+     */
     public function index(Request $request)
     {
-        $mes = self::mes($request->query('mes'));
+        if (!$request->boolean('parcial')) {
+            return redirect()->route('consumibles.cargar', ['mes' => self::mes($request->query('mes'))->format('Y-m')]);
+        }
+
+        return view('admin.consumibles.partials.cupos_contenido', self::datos($request->query('mes')));
+    }
+
+    /** Lo que pinta la sección para un mes (YYYY-MM; si no es válido, el actual): $mes, $patios y $resumen. */
+    public static function datos($mesTexto): array
+    {
+        $mes = self::mes($mesTexto);
         $cupos = CupoCombustible::with('cisternas')->whereDate('MES', $mes)->get()->keyBy('PATIO');
 
         $patios = [];
@@ -33,11 +46,7 @@ class CuposCombustibleController extends Controller
             ];
         }
 
-        $datos = ['mes' => $mes, 'patios' => $patios, 'resumen' => self::resumen($mes)];
-
-        return $request->boolean('parcial')
-            ? view('admin.consumibles.partials.cupos_contenido', $datos)
-            : view('admin.consumibles.cupos', $datos);
+        return ['mes' => $mes, 'patios' => $patios, 'resumen' => self::resumen($mes)];
     }
 
     /** POST consumibles/cupos — el cupo (litros) de un patio en un mes; si ya estaba, se cambia. */
