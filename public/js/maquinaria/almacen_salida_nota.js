@@ -42,7 +42,7 @@
     // diga data-ancla (cuando dos campos comparten la lista, el que se está escribiendo) o, si no,
     // su contenedor. data-ancho-min: ancho mínimo en px, si el modal tiene sitio. Solo actúa sobre
     // esas: las sugerencias de la barra de filtros son absolute normales y no necesitan anclaje.
-    // Si no cabe debajo, se abre hacia arriba.
+    // Siempre se abre hacia ABAJO (ver almAnclarFlotante).
     function almSuggestAnclar(box) {
         if (!box || !box.classList.contains('alm-suggest-float') || !box.classList.contains('open')) return;
         var campo = (box.dataset.ancla && el(box.dataset.ancla)) || box.parentElement; if (!campo) return;
@@ -65,9 +65,33 @@
         }
         caja.style.left  = izq + 'px';
         caja.style.width = ancho + 'px';   // el ancho se fija ANTES de medir el alto
-        var alto = caja.offsetHeight;
-        var cabeAbajo = (window.innerHeight - r.bottom - 8) >= alto;
-        caja.style.top = (!cabeAbajo && r.top > alto ? (r.top - alto - 4) : (r.bottom + 4)) + 'px';
+        // SIEMPRE hacia ABAJO, como el resto de listas de la app (uicomponents.js ·
+        // ajustarListaAbajo): antes, al fondo del modal (Chofer, Vehículo, Placa) se volteaba
+        // hacia arriba. Si no cabe, se desplaza el cuerpo del modal lo que falte (sin que el
+        // campo se salga por arriba) y lo que siga sobrando se acorta (.dd-acotada, mín. 120 px).
+        caja.classList.remove('dd-acotada');
+        caja.style.removeProperty('--dd-max');
+        var vv = window.visualViewport;
+        var techo = vv ? vv.offsetTop : 0, suelo = (vv ? vv.height + vv.offsetTop : window.innerHeight) - 8;
+        var alto = caja.offsetHeight, falta = r.bottom + 4 + alto - suelo;
+        if (falta > 0) {
+            for (var p = ancla.parentElement; p && p !== document.body; p = p.parentElement) {
+                var oy = getComputedStyle(p).overflowY;
+                if (p.scrollHeight <= p.clientHeight || (oy !== 'auto' && oy !== 'scroll')) continue;
+                var antes = p.scrollTop;
+                p.scrollTop = antes + Math.min(falta, Math.max(0, r.top - techo - 8));
+                r = ancla.getBoundingClientRect();
+                break;
+            }
+            falta = r.bottom + 4 + alto - suelo;
+            if (falta > 0) {   // con content-box, max-height no cuenta relleno ni borde
+                var cs = getComputedStyle(caja);
+                var extra = cs.boxSizing === 'border-box' ? 0 : parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+                caja.style.setProperty('--dd-max', Math.max(120, Math.floor(alto - falta - extra)) + 'px');
+                caja.classList.add('dd-acotada');
+            }
+        }
+        caja.style.top = (r.bottom + 4) + 'px';
     }
     // Pinta la lista (o su aviso de vacía), la abre y la ancla.
     function mostrarSugerencias(box, html, emptyHtml) {
