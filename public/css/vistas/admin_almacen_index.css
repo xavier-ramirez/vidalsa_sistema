@@ -515,8 +515,8 @@
     .alm-otros-almacenes .alm-panel-row > .nom { white-space:normal; overflow:visible; }
     .alm-otros-almacenes .alm-panel-row > .alm-panel-sub { grid-column:1 / -1; }
     .alm-otros-almacenes .alm-panel-row.con > .qty { background:#dcfce7; color:#166534; }
-    .alm-otros-almacenes .alm-panel-row.cero > .nom { color:#94a3b8; font-weight:500; }
-    .alm-otros-almacenes .alm-panel-row.cero > .qty { background:transparent; color:#94a3b8; font-weight:600; }
+    .alm-otros-almacenes .alm-panel-row.cero > .nom { color:#475569; font-weight:600; }
+    .alm-otros-almacenes .alm-panel-row.cero > .qty { background:#f1f5f9; color:#64748b; font-weight:700; }
     .alm-otros-almacenes .alm-panel-row.cero > .guia { border-bottom-color:#e2e8f0; }
     .alm-panel-sub { list-style:none; margin:3px 0 1px 0; padding:0 0 0 10px;
         display:flex; flex-direction:column; gap:1px; border-left:2px solid #cbd5e1; }
