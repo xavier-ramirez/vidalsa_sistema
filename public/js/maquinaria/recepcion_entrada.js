@@ -238,14 +238,17 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
     };
     // Tocar el producto elegido (fuera de su foto y de la X): vuelve al buscador con su
     // nombre escrito y seleccionado, para corregirlo o borrarlo escribiendo encima, sin
-    // tener que pasar por la X.
+    // tener que pasar por la X. La UM y la cantidad se quedan como estaban (igual que en
+    // Compra directa). La foto que abre el visor no cuenta; el recuadro gris sin foto sí.
     window.entEditarElegido = function (ev) {
-        if (!entSelected || (ev && ev.target.closest('.alm-foto, .clear'))) return;
-        var nombre = entSelected.nombre;
-        window.entClearSelected(true);
+        if (!entSelected || (ev && ev.target.closest('img.alm-foto, .clear'))) return;
         var inp = el('entSearch');
-        inp.value = nombre;
-        inp.select();
+        inp.value = entSelected.nombre;
+        entSelected = null;
+        el('entSelectedBadge').classList.remove('show');
+        inp.style.display = '';
+        entSkipNextSuggest = false;
+        inp.focus(); inp.select();
         window.entSuggest();
     };
 

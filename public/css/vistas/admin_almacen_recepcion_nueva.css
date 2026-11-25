@@ -89,7 +89,7 @@
     /* Producto ya elegido: el chip tapa el buscador (y su lupa). Mismo aspecto que el del
        modal: azul claro con el código en negrita. */
     .ent-selected-badge { display:none; position:absolute; inset:0; z-index:2; align-items:center; gap:6px; padding:0 10px 0 1px; background:#e1effa; border:1px solid #0067b1; border-radius:10px; color:#0f172a; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; box-sizing:border-box; }
-    .ent-selected-badge.show { display:flex; }
+    .ent-selected-badge.show { display:flex; cursor:text; }   /* tocarlo lo vuelve a escribir */
     /* Foto del producto elegido, a la izquierda del código (tocarla la abre en grande). */
     .ent-selected-foto .alm-foto { width:34px; height:34px; border-radius:6px; }
     .ent-selected-foto span.alm-foto-sin:empty::before { font-size:18px; }

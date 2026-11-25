@@ -146,8 +146,9 @@
         var rawNorm = norm(rawTerm).replace(/\s+/g, ' ');
         var minTokens = Math.ceil(tokens.length / 2);
         var enteros = !!(opts && opts.enteros) && tokens.length > 1;
-        // El último token, si no se cerró con un espacio, se está escribiendo todavía.
-        var ultimo = tokens.length - 1, enteroUltimo = /\s$/.test(rawTerm) ? true : 'prefijo';
+        // El último token se está escribiendo todavía (los buscadores pasan el texto ya
+        // recortado, así que no hay un espacio final que diga que se cerró).
+        var ultimo = tokens.length - 1;
         var scored = [];
 
         for (var j = 0; j < items.length; j++) {
@@ -159,7 +160,7 @@
 
             var total = 0, matched = 0;
             for (var k = 0; k < tokens.length; k++) {
-                var r = scoreToken(palabras, hayFull, tokens[k], enteros && k === ultimo ? enteroUltimo : enteros);
+                var r = scoreToken(palabras, hayFull, tokens[k], enteros && k === ultimo ? 'prefijo' : enteros);
                 if (r.hit) { matched++; total += r.score; }
             }
             if (matched < minTokens) continue;

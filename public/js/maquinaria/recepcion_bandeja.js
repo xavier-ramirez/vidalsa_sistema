@@ -234,12 +234,16 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     // «guantes» → GUANTE…). La lista de sugerencias, que ordena, deja entrar también los
     // apenas parecidos (ESCOBA, RASTRILLO…); filtrar con ellos traería notas que no son.
     // Si ninguno la trae entera (un error al escribir), los que pasan con una letra de margen.
+    // El número del final se mide igual que en la lista (rank): «braga 4» trae la TALLA 42.
     function trProdTodos(termino) {
         var FS = window.FuzzySearch, tokens = FS.tokenize(termino), enteros = tokens.length > 1;
+        var ultimo = tokens.length - 1;
         var lista = trProdCoincidencias(termino);
         var enteras = lista.filter(function (p) {
             var hay = FS.norm(window.ProductoSuggest.texto(p)), palabras = hay.split(/\s+/).filter(Boolean);
-            return tokens.every(function (t) { return FS.scoreToken(palabras, hay, t, enteros).score >= 12; });
+            return tokens.every(function (t, k) {
+                return FS.scoreToken(palabras, hay, t, enteros && k === ultimo ? 'prefijo' : enteros).score >= 12;
+            });
         });
         return enteras.length ? enteras : lista.filter(function (p) { return FS.coincide(termino, window.ProductoSuggest.texto(p)); });
     }

@@ -882,9 +882,10 @@
     window.cdirQuitarSeleccion = function () { resetCaptura('buscar'); };
     // Tocar el producto elegido (fuera de su foto y de la X): vuelve al buscador con su
     // nombre escrito y seleccionado, para corregirlo o borrarlo escribiendo encima.
-    // La UM y la cantidad se quedan como estaban.
+    // La UM y la cantidad se quedan como estaban. La foto que abre el visor no cuenta; el
+    // recuadro gris sin foto sí.
     window.cdirEditarElegido = function (ev) {
-        if (!elegido || (ev && ev.target.closest('.alm-foto, .material-icons'))) return;
+        if (!elegido || (ev && ev.target.closest('img.alm-foto, .material-icons'))) return;
         var nombre = elegido.nombre;
         elegido = null;
         el('cdirBadge').classList.remove('show');

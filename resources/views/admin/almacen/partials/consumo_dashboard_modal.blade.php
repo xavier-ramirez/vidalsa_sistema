@@ -145,8 +145,8 @@
                     <div class="cdash-card full"><h4>Top {{ \App\Http\Controllers\AlmacenController::TOP_PRODUCTOS_GRAFICO }} productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'top-productos-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
                         <div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
                     {{-- Ranking del MES ACTUAL: qué proyecto consume más este mes, de mayor a
-                         menor. Sale de los mismos datos de la gráfica de abajo (por_mes_frente)
-                         y cada barra lleva el color de su proyecto allí. Con un rango de fechas
+                         menor. Sale de los mismos datos de la gráfica de abajo (por_mes_frente),
+                         con los colores del Top de productos. Con un rango de fechas
                          que no llega a este mes, se muestra el mes del extremo del rango. --}}
                     <div class="cdash-card full"><h4><span>Proyecto que más consume · <span id="cdashMesActualLbl"></span></span><button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'proyecto-que-mas-consume-del-mes')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
                         <div class="cdash-canvas-wrap" id="cdashMesActualWrap"><canvas id="cdashChartMesActual"></canvas></div>
@@ -676,11 +676,34 @@
             }
         });
 
+        // COLORES de los rankings (Top productos y Proyecto que más consume), los de las
+        // diapositivas de la empresa: los TRES primeros en rojo, del más oscuro al más claro
+        // (pedido del cliente, 25-11-2026: todo azul no destacaba nada, y una sola barra roja
+        // se leía como alerta), y del cuarto para abajo una escala del azul marino del
+        // encabezado (#1f4e79) a celeste (#9dc3e6) que se aclara según baja el puesto. Las
+        // barras no se tocan y cada una lleva su rótulo, así que no hace falta que los vecinos
+        // se distingan por color (con el color de cada proyecto se veía un arcoíris).
+        function cdMezcla(a, b, t) {
+            var c = function (h, i) { return parseInt(h.slice(i, i + 2), 16); };
+            return '#' + [1, 3, 5].map(function (i) {
+                var v = Math.round(c(a, i) + (c(b, i) - c(a, i)) * t).toString(16);
+                return v.length < 2 ? '0' + v : v;
+            }).join('');
+        }
+        function cdColoresRanking(n) {
+            var ROJOS = ['#8f1410', '#c0392b', '#e06666'], resto = n - ROJOS.length, out = [];
+            for (var i = 0; i < n; i++) {
+                out.push(i < ROJOS.length ? ROJOS[i]
+                    : cdMezcla('#1f4e79', '#9dc3e6', resto > 1 ? (i - ROJOS.length) / (resto - 1) : 0));
+            }
+            return out;
+        }
+
         // ── 1b) Proyecto que más consume en el MES ACTUAL (barras horizontales) ──
         // Mes en curso según el servidor, acotado al rango del filtro: con un "Hasta" anterior,
         // el mes de ese "Hasta"; con un "Desde" posterior, el de ese "Desde". Si ese mes no sale
-        // en la gráfica de arriba (sin consumo, o antes del corte de junio), aviso de vacío: así
-        // nunca contradice a la de arriba y cada barra tiene el color de su proyecto allí.
+        // en la gráfica de pilas (sin consumo, o antes del corte de junio), aviso de vacío: así
+        // nunca la contradice.
         // "POR DEFINIR" no entra: no es un proyecto y no tiene sentido en un ranking (tampoco
         // va en la leyenda de arriba).
         var cdMesObj = String(data.mes_actual || '');
@@ -701,9 +724,7 @@
         if (cdMesProy.length) {
             // Alto según la cantidad de proyectos (30 px por barra), con 240 de piso.
             cdMesWrap.style.height = Math.max(240, cdMesProy.length * 30 + 40) + 'px';
-            // Mismo color que el proyecto tiene en la gráfica de arriba (está en series: el
-            // mes es uno de los dibujados).
-            var cdMesColores = cdMesProy.map(function (p) { return cdColorProyecto(series.indexOf(p)); });
+            var cdMesColores = cdColoresRanking(cdMesProy.length);
             window._cdashCharts.mesActual = new Chart(document.getElementById('cdashChartMesActual'), {
                 type: 'bar',
                 plugins: [cdValLabels],
@@ -732,26 +753,9 @@
         }
 
         // ── 2) Top productos (barras horizontales) ───────────────────────────
-        // COLORES de las diapositivas de la empresa: los TRES más consumidos en rojo, del más
-        // oscuro al más claro (pedido del cliente, 25-11-2026: todo azul no destacaba nada, y
-        // una sola barra roja se leía como alerta), y del cuarto para abajo una escala del azul
-        // marino del encabezado (#1f4e79) a celeste (#9dc3e6) que se aclara según baja el
-        // puesto. Las barras no se tocan y cada una lleva su rótulo, así que no hace falta que
-        // los vecinos se distingan por color.
+        // Colores del ranking (cdColoresRanking, arriba).
         var top = data.top_productos || [];
-        function cdMezcla(a, b, t) {
-            var c = function (h, i) { return parseInt(h.slice(i, i + 2), 16); };
-            return '#' + [1, 3, 5].map(function (i) {
-                var v = Math.round(c(a, i) + (c(b, i) - c(a, i)) * t).toString(16);
-                return v.length < 2 ? '0' + v : v;
-            }).join('');
-        }
-        var CD_TOP_ROJOS = ['#8f1410', '#c0392b', '#e06666'];
-        var cdTopColores = top.map(function (_, i) {
-            if (i < CD_TOP_ROJOS.length) return CD_TOP_ROJOS[i];
-            var resto = top.length - CD_TOP_ROJOS.length;
-            return cdMezcla('#1f4e79', '#9dc3e6', resto > 1 ? (i - CD_TOP_ROJOS.length) / (resto - 1) : 0);
-        });
+        var cdTopColores = cdColoresRanking(top.length);
 
         // Rótulo del eje = Nº DE PARTE principal (identifica el filtro exacto). Muchos
         // filtros comparten descripción, así que rotular por descripción se veía
