@@ -6,6 +6,8 @@
 {{-- Modales y formulario de la Nota de Entrega, compartidos con la recepción: ANTES del CSS
      propio del módulo, que sigue pudiendo afinarlos. --}}
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_salida_nota.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_salida_nota.css')) }}">
+{{-- Foto de los productos (miniatura y visor), compartida con Recepción. --}}
+<link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_producto.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_producto.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_index.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_index.css')) }}">
 
 @php

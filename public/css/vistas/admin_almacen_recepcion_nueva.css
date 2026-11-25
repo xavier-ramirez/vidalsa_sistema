@@ -151,34 +151,35 @@
     .ent-add-btn:active { transform:scale(0.94); }
     .ent-add-btn .material-icons { font-size:20px; }
 
-    /* Tabla de líneas: tarjeta blanca con la tabla de la bandeja (.tr-table): encabezado
-       oscuro con divisores entre columnas, filas cebra y el mismo realce al pasar. El fondo
-       del recuadro es gris azulado muy suave y las filas blancas: vacío no es un bloque
-       blanco de pantalla completa. overflow:auto (no hidden): recorta las esquinas igual y, si
-       la tabla no cabe, se desplaza de lado en vez de perder la papelera. */
+    /* Tabla de líneas: la MISMA de la tabla del Inventario (.alm-table, admin_almacen_index.css):
+       encabezado oscuro de 13 px con divisores, filas blancas con el realce celeste al pasar,
+       la foto en su columna y el código chico encima del nombre (.alm-foto y .alm-cod-mini,
+       admin_almacen_producto.css). El fondo del recuadro es gris azulado muy suave: vacío no
+       es un bloque blanco de pantalla completa. overflow:auto (no hidden): recorta las
+       esquinas igual y, si la tabla no cabe, se desplaza de lado en vez de perder la papelera. */
     .ent-list-wrap { padding:14px; }
     .ent-list-box { border:1px solid #e2e8f0; border-radius:10px; overflow:auto; background:#f8fafc; }
-    .ent-list-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#0f172a; }
-    .ent-list-table thead th { background:#1e293b; color:#fff; font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:1px;
-        padding:10px 12px; text-align:center; white-space:nowrap; border-right:1px solid #334155; border-bottom:2px solid #0f172a; }
+    .ent-list-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; color:#000; }
+    .ent-list-table thead th { background:#1e293b; color:#fff; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px;
+        padding:10px 15px; text-align:center; white-space:nowrap; border-right:1px solid #334155; border-bottom:2px solid #0f172a; }
     .ent-list-table thead th:last-child { border-right:none; }
-    /* Anchos de contenido (el padding de 12px por lado va aparte): lo que sobra es para la
-       descripción. */
+    /* Anchos de contenido (el padding va aparte): lo que sobra es para la descripción. */
     .ent-list-table thead th.col-num    { width:36px; }
-    .ent-list-table thead th.col-codigo { width:84px; }
+    .ent-list-table thead th.col-foto   { width:58px; }
     .ent-list-table thead th.col-desc   { text-align:left; }
     .ent-list-table thead th.col-cant   { width:110px; }
     .ent-list-table thead th.col-del    { width:28px; }
-    .ent-list-table tbody td { padding:11px 12px; background:#fff; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; vertical-align:middle; }
+    .ent-list-table tbody td { padding:12px 15px; background:#fff; border-bottom:1px solid #e2e8f0; border-right:1px solid #e2e8f0; vertical-align:middle; }
     .ent-list-table tbody td:last-child { border-right:none; }
-    .ent-list-table tbody tr:nth-child(even) td { background:#fafbfc; }
     .ent-list-table tbody tr:hover td { background:#e0f2fe; }
     .ent-list-table tbody .col-num      { text-align:center; font-weight:800; color:#94a3b8; font-size:13px; }
-    .ent-list-table tbody .col-codigo   { text-align:center; font-weight:700; white-space:nowrap; }
-    .ent-list-table tbody .col-cant     { text-align:center; font-weight:800; }
+    .ent-list-table tbody .col-foto     { padding:6px 4px 6px 8px; }
+    .ent-list-table tbody .col-desc     { font-weight:600; color:#1e293b; }
+    .ent-list-table tbody .col-cant     { text-align:center; color:#0f172a; white-space:nowrap; }
     .ent-list-table tbody .col-del      { text-align:center; }
-    .ent-list-nom { font-weight:600; display:block; }
-    .ent-list-meta { font-size:10.5px; font-weight:700; color:#0f172a; }
+    .ent-list-nom { display:block; }
+    /* La unidad junto a la cantidad, como el stock del Inventario (.alm-stock-um). */
+    .ent-list-meta { margin-left:5px; font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; }
     .ent-row-del-btn { background:none; border:none; cursor:default; color:#cbd5e0; padding:2px; display:inline-flex; }
     .ent-row-del-btn:hover { color:#ef4444; }
     /* Sin líneas todavía: el aviso del modal, con un ícono que le da peso al hueco. */

@@ -494,6 +494,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
             .then(function (data) {
                 if (miSeq !== _trDetSeq) return;   // llegó tarde: ya se cerró o se abrió otra nota
                 box.innerHTML = data.html || '';
+                window.AlmFoto.pintar(box);   // la foto de cada material (almacen_foto.js)
                 _trModalId = data.id || id;
             })
             .catch(function () {

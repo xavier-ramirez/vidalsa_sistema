@@ -81,6 +81,8 @@
     </div>
 </section>
 
+{{-- Foto de los productos (modal de la nota), la misma del Inventario. --}}
+<link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_producto.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_producto.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_recepcion_index.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_recepcion_index.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_recepcion_botones.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_recepcion_botones.css')) }}">
 
@@ -1410,6 +1412,7 @@
 <script>
     window.RECB_CFG = @json($recb_cfg);
 </script>
+<script src="{{ asset('js/maquinaria/almacen_foto.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen_foto.js')) }}"></script>
 <script src="{{ asset('js/maquinaria/recepcion_bandeja.js') }}?v={{ @filemtime(public_path('js/maquinaria/recepcion_bandeja.js')) }}"></script>
 <script>
     // El archivo de arriba se carga UNA vez en toda la sesion; esta llamada es la que

@@ -640,6 +640,16 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
             ? orden.map(function (u) { return '<span class="ent-res-chip">' + escHtml(fmtCant(porUm[u])) + ' <small>' + escHtml(u) + '</small></span>'; }).join('')
             : '—';
     }
+    // id → foto, del catálogo. Se rehace solo cuando cambia la lista (llega del servidor o
+    // se le suma un producto creado aquí), no en cada repintado de la tabla.
+    var fotosCache = { lista: null, largo: -1, mapa: null };
+    function fotosPorId() {
+        if (fotosCache.lista !== PRODUCTOS || fotosCache.largo !== PRODUCTOS.length) {
+            fotosCache = { lista: PRODUCTOS, largo: PRODUCTOS.length, mapa: new Map() };
+            PRODUCTOS.forEach(function (p) { if (p.FOTO) fotosCache.mapa.set(p.ID_PRODUCTO, p.FOTO); });
+        }
+        return fotosCache.mapa;
+    }
     function entRender() {
         var tb = el('entLineasTbody');
         if (!tb) return;
@@ -649,20 +659,21 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         var vacio = el('entEmpty');
         if (vacio) vacio.hidden = entLineas.length > 0;
         if (entLineas.length === 0) { tb.innerHTML = ''; return; }
-        // Columnas: [Código] [Descripcion] [Cantidad + UM] [delete]. El codigo sale en
-        // su propia columna (en negro, monospace); la columna "Descripcion" muestra
-        // unicamente el nombre del producto para que se lea limpio sin el codigo encima.
+        // Columnas como la tabla del Inventario: [Nº] [Foto] [Descripción: código chico
+        // encima del nombre] [Cantidad + UM] [quitar]. La foto sale del catálogo (FOTO de
+        // listaAutocomplete) por el id: las líneas se arman en varios sitios y así ninguno
+        // tiene que acordarse de copiarla. Un producto creado aquí mismo no tiene foto.
+        var fotos = fotosPorId();
         tb.innerHTML = entLineas.map(function (l, idx) {
             var num = (idx + 1);
             var numPad = (num < 10 ? '0' : '') + num;
-            // data-num + data-codigo en el td de descripcion: el CSS mobile los
-            // inyecta como prefijo via ::before para unificar "01 · 000042 NOMBRE"
-            // en un solo banner gris (mismo patron que .alm-td-nombre en /admin/almacen).
+            // data-num en el código: el CSS del teléfono lo antepone ("01 · 000042"), en la
+            // misma banda gris que el nombre, como la tarjeta del Inventario.
             return '<tr data-idx="' + idx + '">'
                 +   '<td class="col-num">' + num + '</td>'
-                +   '<td class="col-codigo">' + escHtml(l.codigo) + '</td>'
-                +   '<td class="col-desc" data-num="' + numPad + '" data-codigo="' + escHtml(l.codigo) + '"><span class="ent-list-nom">' + escHtml(l.nombre) + '</span></td>'
-                +   '<td class="col-cant">' + escHtml(fmtCant(l.cantidad)) + ' <span class="ent-list-meta">' + escHtml(l.um) + '</span></td>'
+                +   '<td class="col-foto">' + window.AlmFoto.mini(fotos.get(l.id_producto), l.nombre) + '</td>'
+                +   '<td class="col-desc"><span class="alm-cod-mini" data-num="' + numPad + '">' + escHtml(l.codigo) + '</span><span class="ent-list-nom">' + escHtml(l.nombre) + '</span></td>'
+                +   '<td class="col-cant">' + escHtml(fmtCant(l.cantidad)) + '<span class="ent-list-meta">' + escHtml(l.um) + '</span></td>'
                 +   '<td class="col-del"><button type="button" class="ent-row-del-btn" onclick="window.entRemoverLinea(' + idx + ')" title="Quitar"><i class="material-icons" style="font-size:20px;">delete</i></button></td>'
                 + '</tr>';
         }).join('');

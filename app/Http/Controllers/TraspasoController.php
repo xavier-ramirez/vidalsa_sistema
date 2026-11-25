@@ -603,7 +603,8 @@ class TraspasoController extends Controller
         // ESTATUS se incluye en el select de almacenDestino porque Almacen::visiblePara()
         // lo necesita; evita una segunda query al evaluar $puedeRecibir más abajo.
         $traspaso = Traspaso::with([
-            'lineas.producto:ID_PRODUCTO,CODIGO,NOMBRE,UM',
+            // FOTO: la miniatura de cada material en el modal, como en el Inventario.
+            'lineas.producto:ID_PRODUCTO,CODIGO,NOMBRE,UM,FOTO',
             // Nºs de parte: alimentan el buscador de materiales del modal (data-buscar).
             // Sin este eager-load sería una query por línea.
             'lineas.producto.equivalencias:ID_PRODUCTO,NUMERO_PARTE',

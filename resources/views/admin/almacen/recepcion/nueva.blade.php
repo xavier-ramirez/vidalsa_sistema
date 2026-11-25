@@ -60,6 +60,8 @@
 
 {{-- Modal y formulario de la Nota de Entrega de "Registrar y despachar": los de /admin/almacen. --}}
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_salida_nota.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_salida_nota.css')) }}">
+{{-- Foto de los productos, la misma del Inventario (miniatura y visor). --}}
+<link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_producto.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_producto.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/vistas/admin_almacen_recepcion_nueva.css') }}?v={{ @filemtime(public_path('css/vistas/admin_almacen_recepcion_nueva.css')) }}">
 
 <div class="ent-layout">
@@ -105,9 +107,11 @@
     <table class="ent-list-table">
         <thead>
             <tr>
+                {{-- Como la tabla del Inventario: la foto en su columna sin título y el código
+                     chico encima del nombre, dentro de la descripción (recepcion_entrada.js). --}}
                 <th class="col-num">Nº</th>
-                <th class="col-codigo">Código</th>
-                <th class="col-desc">Descripción</th>
+                <th class="col-foto"></th>
+                <th class="col-desc">Descripción del producto</th>
                 <th class="col-cant">Cantidad</th>
                 <th class="col-del"></th>
             </tr>
@@ -240,6 +244,7 @@
 </script>
 <script src="{{ asset('js/maquinaria/almacen_salida_nota.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen_salida_nota.js')) }}"></script>
 <script src="{{ asset('js/maquinaria/recepcion_despacho.js') }}?v={{ @filemtime(public_path('js/maquinaria/recepcion_despacho.js')) }}"></script>
+<script src="{{ asset('js/maquinaria/almacen_foto.js') }}?v={{ @filemtime(public_path('js/maquinaria/almacen_foto.js')) }}"></script>
 <script src="{{ asset('js/maquinaria/recepcion_entrada.js') }}?v={{ @filemtime(public_path('js/maquinaria/recepcion_entrada.js')) }}"></script>
 <script>
     // El archivo de arriba se carga UNA vez en toda la sesion; esta llamada es la que

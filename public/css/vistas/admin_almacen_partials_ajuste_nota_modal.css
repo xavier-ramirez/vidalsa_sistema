@@ -27,8 +27,8 @@
     /* El producto en su tarjeta: qué es, cuánto se entregó y cuánto volvió ya. */
     #ajNotaModal .ajn-linea { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px; box-shadow:0 1px 2px rgba(15,23,42,.05); }
     #ajNotaModal .ajn-prod-cab { display:flex; align-items:center; gap:12px; min-width:0; }
-    /* Foto, código y nombre con el mismo diseño que la fila del Inventario (.alm-foto,
-       .alm-cod-mini, .alm-nombre-txt en admin_almacen_index.css; pedido del cliente,
+    /* Foto, código y nombre con el mismo diseño que la fila del Inventario (.alm-foto y
+       .alm-cod-mini en admin_almacen_producto.css, .alm-nombre-txt en admin_almacen_index.css; pedido del cliente,
        23-11-2026): recuadro de 58 px con la foto o el ícono gris, y el código chico y
        monoespaciado en su renglón, encima del nombre. */
     #ajNotaModal .ajn-foto { width:58px; height:58px; flex-shrink:0; box-sizing:border-box; border-radius:9px; border:1px solid #e2e8f0; background:#f8fafc; object-fit:cover; display:block; }

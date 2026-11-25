@@ -57,8 +57,11 @@
         <table class="dtm-table">
             <thead>
                 <tr>
+                    {{-- Como la tabla del Inventario: la foto en su columna sin título y el
+                         código chico encima del nombre. --}}
                     <th>Item</th>
-                    <th>Producto</th>
+                    <th class="dtm-th-foto"></th>
+                    <th class="dtm-th-prod">Producto</th>
                     <th>Enviado</th>
                     <th>Recibido</th>
                     {{-- Las columnas Dif./Estado solo aplican a una nota ya cerrada (las parciales
@@ -99,14 +102,18 @@
                          trMarcarFila para precargar ese input al tildar. --}}
                     <tr class="dtm-linea{{ $puedeRecibir && !$lineaConfirmada ? ' dtm-linea-rec' : '' }}" data-id-linea="{{ $linea->ID_LINEA }}" data-enviada="{{ (float) $linea->CANTIDAD_ENVIADA }}" data-buscar="{{ $buscar }}">
                         <td class="dtm-col-idx">{{ $loop->iteration }}</td>
+                        {{-- La miniatura la pone AlmFoto.pintar (almacen_foto.js) al abrir el
+                             modal: el HTML de la foto vive en un solo sitio, el mismo de la
+                             tabla de Recepción nueva. --}}
+                        <td class="dtm-td-foto"><span data-alm-foto="{{ $prod?->FOTO }}" data-nombre="{{ $prod?->NOMBRE }}"></span></td>
                         <td class="dtm-td-prod">
-                            <span class="dtm-linea-cod">{{ optional($linea->producto)->CODIGO }}</span>
-                            <span class="dtm-linea-nom">{{ optional($linea->producto)->NOMBRE }}</span>
+                            <span class="alm-cod-mini">{{ $prod?->CODIGO }}</span>
+                            <span class="dtm-linea-nom">{{ $prod?->NOMBRE }}</span>
                         </td>
                         {{-- La UM acompaña a la CANTIDAD, no al nombre: "10 UNIDAD" se lee como una
                              magnitud. Pegada al nombre alargaba la columna Producto y parecía
                              parte de la descripción. --}}
-                        <td class="dtm-col-num">{{ $cantEnvFmt }}<span class="dtm-linea-um">{{ optional($linea->producto)->UM }}</span></td>
+                        <td class="dtm-col-num">{{ $cantEnvFmt }}<span class="dtm-linea-um">{{ $prod?->UM }}</span></td>
                         @if($puedeRecibir)
                             {{-- Recibido = campo EDITABLE. Tocar la fila lo rellena con la cantidad
                                  enviada (caso normal "llegó todo"); si llegó menos, se escribe el

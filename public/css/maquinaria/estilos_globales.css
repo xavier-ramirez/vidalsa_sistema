@@ -4128,12 +4128,13 @@ body:has(.mobile-menu.active) .selection-floating-bar {
     body:has(.ent-layout) .page-title-card .ent-header-block .ent-dest-pill .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* ── MOBILE CARD LAYOUT — Lineas de la recepcion ──
-       Cada <tr> se transforma en una tarjeta 2x2:
-           ┌──────────────────────────────┐
-           │ 01 · PRD-0042 NOMBRE         │  banner gris
-           ├──────────────────────────────┤
-           │ CANTIDAD 5.000 UND     [🗑] │
-           └──────────────────────────────┘
+       Cada <tr> se transforma en una tarjeta, con la foto a la izquierda y a todo el alto:
+           ┌──────┬───────────────────────┐
+           │      │ 01 · PRD-0042         │  banda gris: código chico
+           │ foto │ NOMBRE                │  y nombre debajo
+           │      ├───────────────────────┤
+           │      │ CANTIDAD 5.000 UND [🗑]│
+           └──────┴───────────────────────┘
        Calcado de .alm-row en /admin/almacen. La lista deja de ser una tarjeta (ni su
        recuadro): cada línea ya es la suya. */
     body:has(.ent-layout) .ent-list-wrap {
@@ -4148,8 +4149,8 @@ body:has(.mobile-menu.active) .selection-floating-bar {
     body:has(.ent-layout) .ent-list-table tbody { display: flex !important; flex-direction: column !important; gap: 8px !important; }
     body:has(.ent-layout) .ent-list-table tbody tr {
         display: grid !important;
-        grid-template-columns: 1fr auto !important;
-        grid-template-areas: "desc desc" "cant del" !important;
+        grid-template-columns: auto 1fr auto !important;
+        grid-template-areas: "foto desc desc" "foto cant del" !important;
         gap: 0 !important;
         background: #fff !important;
         border: 1px solid #cbd5e1 !important;
@@ -4168,27 +4169,29 @@ body:has(.mobile-menu.active) .selection-floating-bar {
         min-width: 0 !important;
         white-space: normal !important;
     }
-    body:has(.ent-layout) .ent-list-table tbody tr td.col-num,
-    body:has(.ent-layout) .ent-list-table tbody tr td.col-codigo { display: none !important; }
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-num { display: none !important; }
+    /* La foto, como en la tarjeta del Inventario (.alm-td-foto en el teléfono). */
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-foto {
+        grid-area: foto !important;
+        justify-content: center !important;
+        padding: 10px 0 10px 10px !important;
+    }
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-foto .alm-foto { width: 56px; height: 56px; }
+    /* Banda gris con el código chico arriba (.alm-cod-mini, con el nº de línea delante) y el
+       nombre debajo, en la letra de la PC: lo mismo que .alm-td-nombre del Inventario. */
     body:has(.ent-layout) .ent-list-table tbody tr td.col-desc {
         grid-area: desc !important;
+        display: block !important;
         background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
         border-bottom: 1px solid #e2e8f0 !important;
-        padding: 6px 12px !important;
-        font-size: 11.5px !important;
-        font-weight: 700 !important;
+        padding: 9px 14px 6px 12px !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
         color: #1e293b !important;
         line-height: 1.25 !important;
     }
-    body:has(.ent-layout) .ent-list-table tbody tr td.col-desc::before {
-        content: attr(data-num) " · " attr(data-codigo) "  ";
-        white-space: pre;
-    }
-    body:has(.ent-layout) .ent-list-table tbody tr td.col-desc .ent-list-nom {
-        font-size: inherit !important;
-        font-weight: inherit !important;
-        color: inherit !important;
-        display: inline !important;
+    body:has(.ent-layout) .ent-list-table tbody tr td.col-desc .alm-cod-mini::before {
+        content: attr(data-num) " · ";
     }
     body:has(.ent-layout) .ent-list-table tbody tr td.col-cant {
         grid-area: cant !important;
@@ -4211,6 +4214,7 @@ body:has(.mobile-menu.active) .selection-floating-bar {
         white-space: nowrap;
     }
     body:has(.ent-layout) .ent-list-table tbody tr td.col-cant .ent-list-meta {
+        margin-left: 0 !important;   /* aquí la separa el gap de la celda */
         font-size: 11px !important;
         font-weight: 700 !important;
         color: #475569 !important;

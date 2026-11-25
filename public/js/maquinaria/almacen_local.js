@@ -1107,6 +1107,7 @@
             .map((p) => ({
                 ID_PRODUCTO: p.id, CODIGO: p.codigo, NOMBRE: p.nombre, UM: p.um, CATEGORIA: p.cat,
                 EQUIV: (p.partes || []).join(' '), PARTE: (p.partes || [])[0] || '', PARTES: p.partes || [],
+                FOTO: p.foto || null,
             }));
     }
 

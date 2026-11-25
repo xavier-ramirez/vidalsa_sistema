@@ -121,13 +121,14 @@ class ProductoInventario extends Model
      *   · EQUIV  = nºs de parte equivalentes unidos en un string (haystack de FuzzySearch)
      *   · PARTE  = nº de parte PRINCIPAL (default en la sugerencia)
      *   · PARTES = lista completa (la sugerencia muestra la que COINCIDE con lo buscado)
+     *   · FOTO   = la foto del producto (Recepción la muestra en su tabla, como el Inventario)
      * La relación equivalencias NO se envía al front (solo los campos derivados).
      */
     public static function listaAutocomplete(): \Illuminate\Support\Collection
     {
         return static::activos()
             ->with(['equivalencias' => fn ($q) => $q->orderByDesc('ES_PRINCIPAL')])
-            ->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA'])
+            ->orderBy('NOMBRE')->get(['ID_PRODUCTO', 'CODIGO', 'NOMBRE', 'UM', 'CATEGORIA', 'FOTO'])
             ->map(function ($p) {
                 $p->EQUIV  = $p->equivalencias->pluck('NUMERO_PARTE')->implode(' ');
                 $p->PARTE  = (string) ($p->equivalencias->first()->NUMERO_PARTE ?? '');

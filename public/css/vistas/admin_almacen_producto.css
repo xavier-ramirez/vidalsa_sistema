@@ -1,0 +1,38 @@
+/* Cómo se ve un PRODUCTO del Almacén en una tabla: su foto (miniatura y visor) y su código
+   chico encima del nombre. COMPARTIDA por el Inventario (admin/almacen) y Recepción (la
+   tabla de Recepción nueva y el modal de la nota de la bandeja), para que el producto se lea
+   igual en todos. Lo que solo existe en el Inventario (subir, cambiar y eliminar la foto)
+   sigue en admin_almacen_index.css. */
+
+/* CÓDIGO dentro de la celda de Descripción: renglón propio ENCIMA del nombre, pequeño
+   y monoespaciado — misma jerarquía que la cabecera del modal de movimientos
+   (.alm-kp-hero-cod), para que el producto se lea igual en todos los sitios. */
+.alm-cod-mini { display:block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                font-size:10px; font-weight:700; letter-spacing:.9px; color:#64748b; line-height:1.2;
+                margin-bottom:2px; }
+
+/* Miniatura del producto. Medida fija para que la columna no baile de ancho de una fila
+   a otra, y el mismo recuadro cuando no hay foto (con su ícono en gris). */
+.alm-foto { width: 58px; height: 58px; border-radius: 9px; border: 1px solid #e2e8f0;
+            background: #f8fafc; object-fit: cover; display: block; }
+img.alm-foto { cursor: zoom-in; }
+.alm-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; }
+.alm-foto-sin .material-icons { font-size: 26px; }
+/* Sin foto (y sin permiso para subirla): un ícono tenue en vez del recuadro en blanco. */
+span.alm-foto-sin:empty::before { content: 'image'; font-family: 'Material Icons'; font-size: 24px; line-height: 1; }
+
+/* Visor de la foto: al tocar la miniatura (almVerFoto en el Inventario, AlmFoto.ver en
+   Recepción). Centrado sobre todo; se cierra tocando fuera, la X o Esc. */
+.alm-visor-foto { display: none; position: fixed; inset: 0; z-index: 100000; padding: 24px;
+                  background: rgba(15, 23, 42, 0.8); align-items: center; justify-content: center;
+                  cursor: zoom-out; }
+.alm-visor-foto.abierto { display: flex; }
+.alm-visor-caja { position: relative; display: inline-flex; border-radius: 12px; overflow: hidden;
+                  background: #fff; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); cursor: default; }
+/* Mientras llega la foto entera, el visor muestra la miniatura ya en caché a tamaño de
+   visor, para que abra al instante. */
+.alm-visor-foto img.alm-visor-previa { width: min(92vw, 600px); height: auto; }
+.alm-visor-foto img { display: block; max-width: min(92vw, 900px); max-height: 86vh;
+                      background: #fff; object-fit: contain; }
+.alm-visor-foto .alm-visor-x { position: absolute; top: 14px; right: 18px; color: #fff;
+                               font-size: 30px; cursor: pointer; }
