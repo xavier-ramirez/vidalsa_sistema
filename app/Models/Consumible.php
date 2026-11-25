@@ -67,8 +67,6 @@ class Consumible extends Model
             'GASOLINA'     => 'Gasolina',
             'ACEITE'       => 'Aceite',
             'CAUCHO'       => 'Caucho',
-            'REFRIGERANTE' => 'Refrigerante',
-            'OTRO'         => 'Otro',
         ];
     }
 

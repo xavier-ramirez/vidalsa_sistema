@@ -10,7 +10,7 @@
 window.borrarDirecto = function(id, url, btn) {
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="material-icons" style="font-size:17px; animation:spin 1s linear infinite;">refresh</i>';
+        btn.innerHTML = '<i class="material-icons" style="font-size:16px; animation:spin 1s linear infinite;">refresh</i>';
         btn.style.opacity = '0.5';
     }
 
@@ -32,12 +32,12 @@ window.borrarDirecto = function(id, url, btn) {
             consumiblesRefrescar();
         } else {
             window.toast(data.message || 'No se pudo eliminar', 'error');
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="material-icons" style="font-size:17px;">delete</i>'; btn.style.opacity = '1'; }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="material-icons" style="font-size:16px;">close</i>'; btn.style.opacity = '1'; }
         }
     })
     .catch(function() {
         window.toast('Error de red', 'error');
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="material-icons" style="font-size:17px;">delete</i>'; btn.style.opacity = '1'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="material-icons" style="font-size:16px;">close</i>'; btn.style.opacity = '1'; }
     });
 };
 

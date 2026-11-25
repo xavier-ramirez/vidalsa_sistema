@@ -174,7 +174,7 @@ class ConsumiblesController extends Controller
 
         // ── 2. Validar solo filas con datos ──────────────────────
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
-            'tipo_consumible' => 'required|in:GASOIL,GASOLINA,ACEITE,CAUCHO,REFRIGERANTE,OTRO',
+            'tipo_consumible' => 'required|in:GASOIL,GASOLINA,ACEITE,CAUCHO',
             'unidad' => 'required|in:LITROS,GALONES,UNIDADES,KG',
             // El de arriba vale para las filas sin proyecto propio; cada fila puede traer el suyo.
             'id_frente' => 'nullable|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',

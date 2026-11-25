@@ -72,12 +72,10 @@
                     <div class="dropdown-content" style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
                         <div class="dropdown-item-list" style="max-height:250px; overflow-y:auto;">
                             @foreach(\App\Models\Consumible::tiposLabel() as $v => $l)
-                                @if(!in_array($v, ['REFRIGERANTE', 'OTRO']))
-                                    <div class="dropdown-item {{ $v == 'GASOIL' ? 'selected' : '' }}" data-value="{{ $v }}"
-                                        onclick="window.selectOption('tipoFilterSelect', '{{ $v }}', '{{ addslashes($l) }}'); window.cargarDatos();">
-                                        {{ $l }}
-                                    </div>
-                                @endif
+                                <div class="dropdown-item {{ $v == 'GASOIL' ? 'selected' : '' }}" data-value="{{ $v }}"
+                                    onclick="window.selectOption('tipoFilterSelect', '{{ $v }}', '{{ addslashes($l) }}'); window.cargarDatos();">
+                                    {{ $l }}
+                                </div>
                             @endforeach
                         </div>
                     </div>
@@ -337,7 +335,7 @@
     <script>
         window.TIPO_LABEL = window.TIPO_LABEL || {
             'GASOIL': 'Gasoil', 'GASOLINA': 'Gasolina', 'ACEITE': 'Aceite',
-            'CAUCHO': 'Caucho', 'REFRIGERANTE': 'Refrigerante', 'OTRO': 'Otro'
+            'CAUCHO': 'Caucho'
         };
 
         // La gráfica viva de esta pantalla. Se guarda en window (y no en una var del

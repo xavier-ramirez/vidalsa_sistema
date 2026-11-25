@@ -209,7 +209,6 @@
                 <h1 class="page-title" style="margin-bottom:4px;">
                     <span class="page-title-line2" style="color:#000;">Gestión de Consumibles</span>
                 </h1>
-                <p style="margin:0; color:#64748b; font-size:13px;">Gasoil · Aceite · Cauchos por frente y equipo</p>
             </div>
         </div>
 
@@ -306,7 +305,7 @@
                             $tiposList = \App\Models\Consumible::tiposLabel();
                         @endphp
                         <div class="custom-dropdown" id="tipoFilterSelect" data-filter-type="tipo"
-                            data-default-label="Todos los tipos">
+                            data-default-label="Tipos">
                             <input type="hidden" name="tipo" data-filter-value value="{{ $currentTipo }}"
                                 form="filtrosForm">
                             <div class="dropdown-trigger {{ $currentTipo ? 'filter-active' : '' }}"
@@ -326,9 +325,6 @@
                             <div class="dropdown-content"
                                 style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
                                 <div class="dropdown-item-list" style="max-height:250px; overflow-y:auto;">
-                                    <div class="dropdown-item {{ !$currentTipo ? 'selected' : '' }}" data-value=""
-                                        onclick="window.selectOption('tipoFilterSelect', '', 'Todos los tipos'); setTimeout(()=>window.submitConsumiblesFilters(), 50);">
-                                        Todos los tipos</div>
                                     @foreach($tiposList as $val => $label)
                                         <div class="dropdown-item {{ $currentTipo == $val ? 'selected' : '' }}"
                                             data-value="{{ $val }}"
@@ -836,8 +832,8 @@
                                     <button type="button" data-consumible-id="{{ $c->ID_CONSUMIBLE }}"
                                         onclick="window.borrarDirecto({{ $c->ID_CONSUMIBLE }}, '{{ route('consumibles.destroy', $c->ID_CONSUMIBLE) }}', this)"
                                         class="cons-btn-del"
-                                        title="Eliminar al instante">
-                                        <i class="material-icons" style="font-size:16px;">delete</i>
+                                        title="Eliminar">
+                                        <i class="material-icons" style="font-size:16px;">close</i>
                                     </button>
                                     @endcan
                                 </td>

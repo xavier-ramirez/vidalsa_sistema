@@ -392,11 +392,11 @@
             // Unidad automática
             const mapa = {
                 'GASOIL': 'LITROS', 'GASOLINA': 'LITROS', 'ACEITE': 'LITROS',
-                'CAUCHO': 'UNIDADES', 'REFRIGERANTE': 'LITROS', 'OTRO': 'LITROS'
+                'CAUCHO': 'UNIDADES'
             };
             const labelMapa = {
                 'GASOIL': 'Litros', 'GASOLINA': 'Litros', 'ACEITE': 'Litros',
-                'CAUCHO': 'Unidades', 'REFRIGERANTE': 'Litros', 'OTRO': 'Litros'
+                'CAUCHO': 'Unidades'
             };
             const nuevaUnidad = mapa[tipo] || 'LITROS';
             const nuevaLabel = labelMapa[tipo] || 'Litros';
