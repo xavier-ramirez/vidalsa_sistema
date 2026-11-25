@@ -85,7 +85,7 @@ class ConsumiblesController extends Controller
     // ══════════════════════════════════════════════════════════════
     // CARGAR CONSUMIBLES — la pantalla (Excel de gasoil arriba, tabla a mano debajo)
     // ══════════════════════════════════════════════════════════════
-    public function cargar(Request $request)
+    public function cargar()
     {
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
             ->orderBy('NOMBRE_FRENTE')->get();
@@ -98,9 +98,9 @@ class ConsumiblesController extends Controller
                 ->orderByDesc('ID_IMPORTACION')->limit(30)->get()
             : collect();
 
-        // Sección «Cupos de Gasoil» al pie (CuposCombustibleController): $mes, $patios, $resumen.
+        // Modal «Cupos de Gasoil» (CuposCombustibleController): $hoy y $patios.
         return view('admin.consumibles.cargar', compact('frentes', 'tipos', 'unidades', 'cargas')
-            + \App\Http\Controllers\CuposCombustibleController::datos($request->query('mes')));
+            + \App\Http\Controllers\CuposCombustibleController::datos());
     }
 
     /**

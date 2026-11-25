@@ -9,70 +9,89 @@ use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 /**
- * Cupos de gasoil (modal de Cargar consumibles): cada patio tiene un cupo fijo por mes y lo que lo
- * consume son las cisternas surtidas (fecha y litros). Si el cupo cambia, rige desde el mes en que se
- * guarda. Ver lo puede cualquiera con sesión; cargar y borrar, super.admin (las rutas).
+ * Cupos de gasoil (modal de Cargar consumibles). Se elige el patio y se ve su cupo fijo (se edita ahí),
+ * se cargan las cisternas surtidas (fecha y litros), que son lo que consume el cupo, y su historial
+ * mes a mes. Si el cupo cambia, rige desde el mes en curso. Ver lo puede cualquiera con sesión;
+ * cargar y borrar, super.admin (las rutas).
  */
 class CuposCombustibleController extends Controller
 {
+    /** Meses de historial que se muestran por patio. */
+    private const MESES = 12;
+
     /**
-     * GET consumibles/cupos?mes=YYYY-MM&parcial=1 — el contenido del modal (se repinta tras guardar o al
-     * cambiar de mes). El modal vive en Cargar consumibles: sin parcial, se va allá (y se abre solo).
+     * GET consumibles/cupos?parcial=1 — el contenido del modal (se repinta tras guardar). El modal vive
+     * en Cargar consumibles: sin parcial, se va allá y se abre solo.
      */
     public function index(Request $request)
     {
         if (!$request->boolean('parcial')) {
-            return redirect()->route('consumibles.cargar', ['mes' => self::mes($request->query('mes'))->format('Y-m')]);
+            return redirect()->route('consumibles.cargar', ['cupos' => 1]);
         }
 
-        return view('admin.consumibles.partials.cupos_contenido', self::datos($request->query('mes')));
+        return view('admin.consumibles.partials.cupos_contenido', self::datos());
     }
 
     /**
-     * Para un mes (YYYY-MM; si no es válido, el actual): por patio, el cupo, lo surtido y lo que queda; y
-     * las cisternas de los dos patios en una sola lista, por fecha, con lo que le quedaba a su patio.
+     * Por patio: el cupo vigente, lo que queda este mes y el historial de los últimos meses con
+     * cisternas (cada mes con su cupo, lo surtido, lo que quedó y sus cisternas por fecha).
      */
-    public static function datos($mesTexto): array
+    public static function datos(): array
     {
-        $mes = self::mes($mesTexto);
-        $cupos = CupoCombustible::where('MES', '<=', $mes->toDateString())->orderByDesc('MES')->get();
-        $cisternas = CisternaCupo::whereBetween('FECHA', [$mes->toDateString(), $mes->copy()->endOfMonth()->toDateString()])
+        $hoy = now()->startOfMonth()->startOfDay();
+        $desde = $hoy->copy()->subMonths(self::MESES - 1);
+        $cupos = CupoCombustible::orderByDesc('MES')->get();
+        $cisternas = CisternaCupo::where('FECHA', '>=', $desde->toDateString())
             ->orderBy('FECHA')->orderBy('ID_CISTERNA')->get();
 
         $patios = [];
         foreach (CupoCombustible::PATIOS as $clave => $nombre) {
-            $cupo = $cupos->first(fn ($c) => $c->PATIO === $clave);
-            $patios[$clave] = ['nombre' => $nombre, 'cupo' => $cupo ? (float) $cupo->LITROS : null, 'surtido' => 0.0, 'cisternas' => 0];
-        }
-        $filas = $cisternas->map(function ($k) use (&$patios) {
-            $p = &$patios[$k->PATIO];
-            $p['surtido'] += (float) $k->LITROS;
-            $p['cisternas']++;
+            // El que regía ese mes; antes del primero que se cargó, ese primero (el cupo es fijo).
+            $suyos = $cupos->where('PATIO', $clave);
+            $cupoDe = fn (Carbon $mes) => optional($suyos->first(fn ($c) => $c->MES->lte($mes)) ?? $suyos->last())->LITROS;
 
-            return ['cisterna' => $k, 'quedan' => $p['cupo'] !== null ? $p['cupo'] - $p['surtido'] : null];
-        });
-        foreach ($patios as &$p) {
-            $p['quedan'] = $p['cupo'] !== null ? $p['cupo'] - $p['surtido'] : null;
-        }
-        unset($p);
+            $meses = [];
+            foreach ($cisternas->where('PATIO', $clave)->groupBy(fn ($k) => $k->FECHA->format('Y-m')) as $ym => $suyas) {
+                $mes = Carbon::createFromFormat('!Y-m', $ym);
+                $cupo = ($c = $cupoDe($mes)) !== null ? (float) $c : null;
+                $surtido = 0.0;
+                $filas = $suyas->values()->map(function ($k) use (&$surtido, $cupo) {
+                    $surtido += (float) $k->LITROS;
 
-        return ['mes' => $mes, 'patios' => $patios, 'filas' => $filas];
+                    return ['cisterna' => $k, 'quedan' => $cupo !== null ? $cupo - $surtido : null];
+                });
+                $meses[$ym] = ['mes' => $mes, 'cupo' => $cupo, 'surtido' => $surtido, 'filas' => $filas,
+                    'quedan' => $cupo !== null ? $cupo - $surtido : null];
+            }
+            krsort($meses);   // el mes más reciente arriba
+
+            $cupo = ($c = $cupoDe($hoy)) !== null ? (float) $c : null;
+            $surtidoMes = $meses[$hoy->format('Y-m')]['surtido'] ?? 0.0;
+            $patios[$clave] = [
+                'nombre'  => $nombre,
+                'cupo'    => $cupo,
+                'surtido' => $surtidoMes,
+                'quedan'  => $cupo !== null ? $cupo - $surtidoMes : null,
+                'meses'   => $meses,
+            ];
+        }
+
+        return ['hoy' => $hoy, 'patios' => $patios];
     }
 
-    /** POST consumibles/cupos — el cupo de un patio (patio, litros); si cambia, rige desde el mes elegido. */
+    /** POST consumibles/cupos — el cupo de un patio (patio, litros); si cambia, rige desde el mes en curso. */
     public function guardarCupo(Request $request)
     {
         $v = $request->validate([
             'patio'  => ['required', Rule::in(array_keys(CupoCombustible::PATIOS))],
-            'mes'    => ['required', 'date_format:Y-m'],
             'litros' => ['required', 'numeric', 'min:0', 'max:9999999999'],
         ], [], ['litros' => 'cupo']);
 
-        $mes = self::mes($v['mes']);
-        $vigente = CupoCombustible::where('PATIO', $v['patio'])->where('MES', '<=', $mes->toDateString())->orderByDesc('MES')->first();
+        $mes = now()->startOfMonth()->toDateString();
+        $vigente = CupoCombustible::where('PATIO', $v['patio'])->where('MES', '<=', $mes)->orderByDesc('MES')->first();
         if (!$vigente || (float) $vigente->LITROS !== (float) $v['litros']) {
             CupoCombustible::updateOrCreate(
-                ['PATIO' => $v['patio'], 'MES' => $mes->toDateString()],
+                ['PATIO' => $v['patio'], 'MES' => $mes],
                 ['LITROS' => $v['litros'], 'ID_USUARIO' => auth()->id()]
             );
         }
@@ -80,22 +99,14 @@ class CuposCombustibleController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /** POST consumibles/cupos/cisternas — una cisterna surtida: patio, fecha (del mes elegido) y litros. */
+    /** POST consumibles/cupos/cisternas — una cisterna surtida: patio, fecha (no futura) y litros. */
     public function agregarCisterna(Request $request)
     {
         $v = $request->validate([
             'patio'  => ['required', Rule::in(array_keys(CupoCombustible::PATIOS))],
-            'mes'    => ['required', 'date_format:Y-m'],
-            'fecha'  => ['required', 'date_format:Y-m-d'],
+            'fecha'  => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'litros' => ['required', 'numeric', 'gt:0', 'max:9999999999'],
         ]);
-
-        $mes = self::mes($v['mes']);
-        if (!Carbon::parse($v['fecha'])->isSameMonth($mes)) {
-            $msg = 'La fecha debe ser de ' . self::nombreMes($mes) . '.';
-
-            return response()->json(['message' => $msg, 'errors' => ['fecha' => [$msg]]], 422);
-        }
 
         CisternaCupo::create([
             'PATIO' => $v['patio'], 'FECHA' => $v['fecha'], 'LITROS' => $v['litros'], 'ID_USUARIO' => auth()->id(),
@@ -115,15 +126,5 @@ class CuposCombustibleController extends Controller
     public static function nombreMes(Carbon $mes): string
     {
         return ucfirst($mes->locale('es')->translatedFormat('F Y'));
-    }
-
-    /** El día 1 del mes pedido (YYYY-MM); si no viene o no es válido, el mes actual. */
-    private static function mes($texto): Carbon
-    {
-        if (is_string($texto) && preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $texto)) {
-            return Carbon::createFromFormat('!Y-m', $texto);
-        }
-
-        return now()->startOfMonth()->startOfDay();
     }
 }
