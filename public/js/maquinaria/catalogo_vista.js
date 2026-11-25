@@ -202,6 +202,12 @@ window.catalogoArrancar = function (CAT_CFG) {
         });
     }
 
+    // Al quitarse el spinner de una subida, la tarjeta que recibió la foto queda al frente,
+    // centrada en la pantalla.
+    function _catEnfocar(card) {
+        if (card && card.isConnected) card.scrollIntoView({ block: 'center' });
+    }
+
     // ── Subida AUXILIAR ──
     window.auxCatUploadPhoto = function (photoEl, editar) {
         var tipo = photoEl.dataset.tipo || '', marca = photoEl.dataset.marca || '',
@@ -227,6 +233,7 @@ window.catalogoArrancar = function (CAT_CFG) {
                             photoEl.insertBefore(n, photoEl.firstChild);
                         }
                     }
+                    _catEnfocar(photoEl.closest('.cat-card'));
                 },
                 function (msg) { window.toast(msg, 'error'); }
             );
@@ -366,6 +373,7 @@ window.catalogoArrancar = function (CAT_CFG) {
         card.parentNode.querySelectorAll('.cat-card:not(.cat-sin-ficha) > .cat-photo[data-id="' + id.id + '"]')
             .forEach(function (p) { if (p.parentNode !== card) p.parentNode.remove(); });
         card.replaceWith(nueva);
+        _catEnfocar(nueva);
         return true;
     }
     window.catCrearFicha = function (btn) {
@@ -477,6 +485,7 @@ window.catalogoArrancar = function (CAT_CFG) {
                         // body.foto es la ruta guardada; la tarjeta usa la miniatura.
                         var idDrive = String(body.foto || '').replace(/^.*\/storage\/google\//, '').split('?')[0];
                         _catGuardarFotoVista(photoEl, idDrive ? '/storage/google/' + idDrive + '?sz=w300' : '');
+                        _catEnfocar(photoEl.closest('.cat-card'));
                     },
                     function (msg) { window.toast(msg, 'error'); }
                 );
