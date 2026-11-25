@@ -257,6 +257,9 @@
     .alm-visor-caja { position: relative; display: inline-flex; border-radius: 12px; overflow: hidden;
                       background: #fff; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); cursor: default; }
     .alm-visor-caja.editable { cursor: pointer; }
+    /* Mientras llega la foto entera, el visor muestra la miniatura ya en caché a tamaño de
+       visor (almVerFoto), para que abra al instante. */
+    .alm-visor-foto img.alm-visor-previa { width: min(92vw, 600px); height: auto; }
     .alm-visor-foto img { display: block; max-width: min(92vw, 900px); max-height: 86vh;
                           background: #fff; object-fit: contain; }
     .alm-visor-foto .alm-visor-x { position: absolute; top: 14px; right: 18px; color: #fff;

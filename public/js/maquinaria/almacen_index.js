@@ -2560,19 +2560,72 @@
             .finally(function () { marcar(false); });
     }
 
+    // Foto entera de una miniatura (?sz=w120 → sin sz).
+    function almFotoEntera(src) { return String(src || '').replace(/[?&]sz=[^&]*$/, ''); }
+
+    // Bajar la foto entera ANTES de que se pida, para que el visor abra al instante (pedido
+    // del cliente, 25-11-2026: tardaba en abrir). La deja en la caché del navegador, que el
+    // servidor ya marca por 21 días (GoogleDriveController::proxy). Una vez por foto. La
+    // llaman: la miniatura al cargarse (onload en celdaFoto; como es loading="lazy", eso solo
+    // pasa con las filas que están a la vista) y el dedo o el mouse al apoyarse en ella.
+    // Con «Ahorro de datos» del teléfono solo se baja al tocar.
+    var almFotosPrecargadas = {};
+    window.almPrecargarFoto = function (src, yaPedida) {
+        var entera = almFotoEntera(src);
+        if (!entera || almFotosPrecargadas[entera]) return;
+        var con = navigator.connection;
+        if (!yaPedida && con && con.saveData) return;
+        almFotosPrecargadas[entera] = true;
+        var bajar = function () {
+            var im = new Image();
+            if (!yaPedida) im.fetchPriority = 'low';
+            im.decoding = 'async';
+            im.src = entera;
+        };
+        if (yaPedida || !window.requestIdleCallback) bajar();
+        else window.requestIdleCallback(bajar, { timeout: 2000 });
+    };
+    // El dedo (o el mouse) sobre una miniatura: la foto entera empieza a bajar ya, unos
+    // cientos de ms antes del clic.
+    ['pointerdown', 'mouseover'].forEach(function (tipo) {
+        document.addEventListener(tipo, function (e) {
+            var im = e.target && e.target.closest && e.target.closest('#almTableBody img.alm-foto');
+            if (im) window.almPrecargarFoto(im.src, true);
+        }, { passive: true });
+    });
+
     // Visor de la foto: lo abre la miniatura de la tabla (id = el producto, para Cambiar y
-    // la papelera).
+    // la papelera). Abre AL INSTANTE con la miniatura (ya está en caché), en grande, y la
+    // cambia por la foto entera en cuanto llega; si la entera ya estaba bajada, va directo.
     window.almVerFoto = function (src, id) {
         if (!src) return;
-        // Llega la miniatura (?sz=): en grande va la foto entera.
-        el('almVisorFotoImg').src = src.replace(/[?&]sz=[^&]*$/, '');
+        var img = el('almVisorFotoImg');
+        var entera = almFotoEntera(src);
+        img.dataset.entera = entera;
+        var pre = new Image();
+        pre.src = entera;
+        if (pre.complete && pre.naturalWidth) {
+            img.classList.remove('alm-visor-previa');
+            img.src = entera;
+        } else {
+            img.classList.add('alm-visor-previa');
+            img.src = src;
+            pre.onload = function () {
+                if (img.dataset.entera !== entera) return;   // ya se cerró o se abrió otra
+                img.src = entera;
+                img.classList.remove('alm-visor-previa');
+            };
+        }
         el('almVisorFoto').dataset.id = id ? String(id) : '';
         el('almVisorFoto').classList.add('abierto');
     };
     window.almCerrarFoto = function () {
         var v = el('almVisorFoto'); if (!v) return;
         v.classList.remove('abierto');
-        el('almVisorFotoImg').removeAttribute('src');
+        var img = el('almVisorFotoImg');
+        img.removeAttribute('src');
+        img.classList.remove('alm-visor-previa');
+        delete img.dataset.entera;
     };
 
     // Producto de la foto abierta en el visor ('' si no hay).

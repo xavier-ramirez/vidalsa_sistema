@@ -663,7 +663,7 @@
     // con un ícono tenue (CSS: span.alm-foto-sin:empty) para que la columna no baile.
     function celdaFoto(id, url, nombre) {
         if (url) {
-            return '<img src="' + h(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'sz=w120') + '" alt="' + h(nombre || '') + '" class="alm-foto" loading="lazy" title="Ver la foto" onclick="event.stopPropagation(); window.almVerFoto(this.src, ' + Number(id) + ')">';
+            return '<img src="' + h(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'sz=w120') + '" alt="' + h(nombre || '') + '" class="alm-foto" loading="lazy" title="Ver la foto" onload="window.almPrecargarFoto && window.almPrecargarFoto(this.src)" onclick="event.stopPropagation(); window.almVerFoto(this.src, ' + Number(id) + ')">';
         }
         if (window.ALM_CFG && window.ALM_CFG.puedeFoto) {
             return '<button type="button" class="alm-foto alm-foto-sin alm-foto-subir" title="Subir foto"'
