@@ -77,6 +77,7 @@
                    placeholder="Buscar producto por código o descripción…"
                    oninput="window.entSuggest()" onfocus="window.entSuggest()" onkeydown="window.entSearchKey(event)">
             <div id="entSelectedBadge" class="ent-selected-badge">
+                <span id="entSelectedFoto" class="ent-selected-foto"></span>
                 <span class="cod" id="entSelectedCod"></span>
                 <span id="entSelectedNom"></span>
                 <i class="material-icons clear" onclick="window.entClearSelected()" title="Cambiar producto">close</i>

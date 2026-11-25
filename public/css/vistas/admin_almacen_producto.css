@@ -16,6 +16,7 @@
 .alm-foto { width: 58px; height: 58px; border-radius: 9px; border: 1px solid #e2e8f0;
             background: #f8fafc; object-fit: cover; display: block; }
 img.alm-foto { cursor: zoom-in; }
+img.alm-foto.alm-foto-fija { cursor: inherit; }   /* sin visor (AlmFoto.mini con fija) */
 .alm-foto-sin { display: flex; align-items: center; justify-content: center; color: #cbd5e0; }
 .alm-foto-sin .material-icons { font-size: 26px; }
 /* Sin foto (y sin permiso para subirla): un ícono tenue en vez del recuadro en blanco. */

@@ -160,13 +160,14 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
                 // como en /admin/almacen — helper compartido de FuzzySearch (una sola fuente).
                 var parteMostrar = window.FuzzySearch.matchedPart(rawTerm, p.PARTES, p.PARTE);
                 var partePrefix = parteMostrar ? '<span class="parte">' + escHtml(parteMostrar) + '</span>' : '';
-                // Sugerencia: nº de parte (si es filtro) + NOMBRE + UM (sin codigo — pedido cliente).
+                // Sugerencia: foto + nº de parte (si es filtro) + NOMBRE + UM (sin codigo — pedido cliente).
                 // La UM se pinta como tag al final porque un mismo material puede existir en varias
                 // presentaciones (mismo nombre, distinta UM) — sin la UM serian indistinguibles.
                 // data-cod queda en el elemento (no visible) porque entPick lo usa para el badge
                 // del producto seleccionado; data-um prefija el campo UM; data-cat para que una
                 // presentacion nueva herede la categoria del original.
                 return '<div class="ent-suggest-item" data-id="' + p.ID_PRODUCTO + '" data-cod="' + cod + '" data-nom="' + nom + '" data-um="' + um + '" data-cat="' + cat + '">'
+                    +    window.AlmFoto.mini(p.FOTO, p.NOMBRE, true)
                     +    partePrefix + '<span class="nom">' + nom + '</span>'
                     +    (um ? '<span class="um">' + um + '</span>' : '')
                     +  '</div>';
@@ -199,6 +200,8 @@ window.recepcionEntradaArrancar = function (RECE_CFG) {
         // Solo CODIGO · NOMBRE en el badge. La UM se muestra (y eventualmente se edita)
         // en el input `#entUm` que tenemos al lado — duplicarla aqui era ruido visual.
         el('entSelectedNom').textContent = ' · ' + entSelected.nombre;
+        // Su foto delante del código (la del catálogo, por el id; uno recién creado no tiene).
+        el('entSelectedFoto').innerHTML = window.AlmFoto.mini(fotosPorId().get(entSelected.id_producto), entSelected.nombre);
         var inp = el('entSearch');
         // Ocultamos el input y mostramos el badge encima — UX clara de "ya elegiste".
         inp.value = '';

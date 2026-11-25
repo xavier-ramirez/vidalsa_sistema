@@ -2,7 +2,9 @@
  * Foto de los productos en Recepción (la tabla de Recepción nueva y el modal de la nota de la
  * bandeja): la misma miniatura y el mismo visor que el Inventario (admin_almacen_producto.css).
  *
- *   AlmFoto.mini(url, nombre) → html de la miniatura (o el recuadro gris sin foto).
+ *   AlmFoto.mini(url, nombre[, fija]) → html de la miniatura (o el recuadro gris sin foto);
+ *                               fija = sin abrir el visor al tocarla (la lista de sugerencias
+ *                               del buscador: ahí tocar la fila elige el producto).
  *   AlmFoto.pintar(raiz)      → cambia los <span data-alm-foto> del HTML del servidor por
  *                               su miniatura.
  *   AlmFoto.ver(src)          → abre la foto en grande. Solo para VER: subir, cambiar y
@@ -24,11 +26,11 @@
     // Miniatura de Drive (?sz=w120, la misma medida que la tabla del Inventario) o el
     // recuadro gris con el ícono. Tocarla abre el visor sin tocar la fila (stopPropagation:
     // en el modal de la nota, tocar la fila la marca como recibida).
-    function mini(url, nombre) {
+    function mini(url, nombre, fija) {
         if (!url) return '<span class="alm-foto alm-foto-sin" title="Sin foto"></span>';
         var src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'sz=w120';
-        return '<img src="' + h(src) + '" alt="' + h(nombre || '') + '" class="alm-foto" loading="lazy" title="Ver la foto"'
-            + ' onclick="event.stopPropagation(); window.AlmFoto.ver(this.src)">';
+        return '<img src="' + h(src) + '" alt="' + h(nombre || '') + '" class="alm-foto' + (fija ? ' alm-foto-fija' : '') + '" loading="lazy"'
+            + (fija ? '>' : ' title="Ver la foto" onclick="event.stopPropagation(); window.AlmFoto.ver(this.src)">');
     }
 
     // HTML que pinta el SERVIDOR (el modal de la nota): deja un <span data-alm-foto="url"
