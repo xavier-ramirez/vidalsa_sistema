@@ -308,6 +308,24 @@
         almDeptoPintar();
     }
 
+    // ── Aviso por campo ──
+    // Lo que falta en Proyecto o Almacén destino se avisa JUSTO debajo de ese campo (y el
+    // campo en rojo), no al pie del modal, donde quedaba lejos del campo. msg vacío = lo borra.
+    var CAMPO_ERROR = {
+        proyecto: { dd: 'almSalidaProyectoDropdown',       msg: 'almSalidaProyectoError' },
+        destino:  { dd: 'almSalidaAlmacenDestinoDropdown', msg: 'almSalidaAlmacenDestinoError' },
+    };
+    function almSalidaCampoError(campo, msg) {
+        var c = CAMPO_ERROR[campo]; if (!c) return;
+        var dd = el(c.dd), m = el(c.msg);
+        if (dd) dd.classList.toggle('alm-campo-invalido', !!msg);
+        if (!m) return;
+        m.textContent = msg || '';
+        m.classList.toggle('visible', !!msg);
+        // Sin .focus(): el foco en el buscador abre la lista sola (ver abrir()).
+        if (msg && dd) { try { dd.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (x) { dd.scrollIntoView(false); } }
+    }
+
     // ── Almacén destino ──
     // Almacenes a los que PUEDE ir el material del proyecto elegido: los del frente
     // menos el de origen (mandarse material a uno mismo no es un traspaso).
@@ -333,6 +351,7 @@
         // anterior viajaría en el payload del siguiente y el backend la rechazaría por
         // no pertenecer al frente.
         window.clearDropdownFilter('almSalidaAlmacenDestinoDropdown');
+        almSalidaCampoError('destino', '');
 
         if (destinos.length < 2) {
             wrap.style.display = 'none';
@@ -367,7 +386,10 @@
             var hid = el('almSalidaProyecto');
             if (hid && e.detail.value) hid.setAttribute('data-nombre', String(e.detail.label || ''));
             else if (hid) hid.removeAttribute('data-nombre');
+            if (e.detail.value) almSalidaCampoError('proyecto', '');
             window.almSalidaOnProyectoChange();
+        } else if (e.detail && e.detail.dropdownId === 'almSalidaAlmacenDestinoDropdown' && e.detail.value) {
+            almSalidaCampoError('destino', '');
         }
     });
 
@@ -404,6 +426,7 @@
                 window.clearDropdownFilter('almSalidaProyectoDropdown');
             }
             var hidP = el('almSalidaProyecto'); if (hidP) hidP.removeAttribute('data-nombre');
+            almSalidaCampoError('proyecto', '');
             almSalidaOrdenarProyectos(ID_ORIGEN);
             var fe = el('almSalidaFecha'); if (fe) fe.value = window.hoyISO();
             // Asegurar que el dropdown de Proyecto NO quede abierto si una sesion previa lo
@@ -422,12 +445,16 @@
          * Lo escrito en el formulario, con los nombres que espera el backend
          * (id_frente_destino, id_almacen_destino, fecha, numero_contrato, numero_rq,
          * solicitante, departamento, motivo, transporte_*). Devuelve { error } si falta el
-         * proyecto o, cuando hay que elegirlo, el almacén destino; si no, { datos }.
+         * proyecto o, cuando hay que elegirlo, el almacén destino; si no, { datos }. El aviso
+         * ya queda pintado debajo de ese campo: quien llama no lo repite al pie del modal.
          */
         datos: function () {
             var v = function (id) { var e = el(id); return e ? e.value.trim() : ''; };
+            var falta = function (campo, msg) { almSalidaCampoError(campo, msg); return { error: msg }; };
+            almSalidaCampoError('proyecto', '');
+            almSalidaCampoError('destino', '');
             var idFrenteDest = v('almSalidaProyecto');
-            if (!idFrenteDest) return { error: 'Elige el proyecto / frente destino.' };
+            if (!idFrenteDest) return falta('proyecto', 'Elige el proyecto / frente destino.');
             var d = { id_frente_destino: parseInt(idFrenteDest, 10) };
             // Almacén destino: solo viaja cuando el campo está visible, o sea cuando el
             // proyecto se maneja en varios almacenes y hay que decir a cuál va. Con uno solo
@@ -435,7 +462,7 @@
             var wrapDest = el('almSalidaDestinoWrap');
             if (wrapDest && wrapDest.style.display !== 'none') {
                 var idDest = v('almSalidaAlmacenDestino');
-                if (!idDest) return { error: 'Este proyecto se maneja en varios almacenes: elige el almacén destino.' };
+                if (!idDest) return falta('destino', 'Este proyecto se maneja en varios almacenes: elige el almacén destino.');
                 d.id_almacen_destino = parseInt(idDest, 10);
             }
             var fecha  = v('almSalidaFecha');         if (fecha)  d.fecha = fecha;

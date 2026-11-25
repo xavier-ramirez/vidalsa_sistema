@@ -4290,7 +4290,9 @@
         // Los datos de la Nota (formulario compartido): proyecto, almacén destino si hay que
         // elegirlo, fecha, contrato, RQ, solicitante, departamento, transporte y observaciones.
         var nota = window.AlmSalidaNota.datos();
-        if (nota.error) { showErr('almSalidaError', nota.error); return null; }
+        // El aviso de Proyecto / Almacén destino ya sale debajo de ese campo (datos()): aquí
+        // solo se borra el del pie, para no mostrar dos mensajes.
+        if (nota.error) { showErr('almSalidaError', ''); return null; }
         // Mismo criterio que la validación previa a abrir el modal (ver almSelAccion):
         // "sin cantidad + sin saldo" se reporta como stock insuficiente, no como un olvido.
         var lineas = [], faltan = [], sinSaldo = [];

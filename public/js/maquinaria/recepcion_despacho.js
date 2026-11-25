@@ -73,7 +73,8 @@ window.RecepcionDespacho = {
         window.entDespVistaPrevia = function () {
             err('');
             var nota = window.AlmSalidaNota.datos();
-            if (nota.error) { err(nota.error); toast(nota.error, 'error'); return; }
+            // El aviso ya sale debajo del campo que falta (AlmSalidaNota.datos).
+            if (nota.error) return;
             var payload = Object.assign({
                 id_almacen: parseInt(cfg.almacen(), 10),
                 lineas:     cfg.lineas(),

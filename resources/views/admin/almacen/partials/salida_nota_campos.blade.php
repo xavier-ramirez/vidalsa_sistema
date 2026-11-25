@@ -71,6 +71,9 @@
                 </div>
             </div>
         </div>
+        {{-- Aviso de este campo, JUSTO debajo de él (no al pie del modal). Lo pinta y lo
+             borra almSalidaCampoError (almacen_salida_nota.js). --}}
+        <div id="almSalidaProyectoError" class="alm-campo-error" role="alert"></div>
     </div>
 
     {{-- ALMACÉN DESTINO — solo aparece cuando el proyecto elegido está asignado a
@@ -93,6 +96,7 @@
                 <div class="dropdown-item-list" id="almSalidaAlmacenDestinoItems" style="max-height:240px;overflow-y:auto;"></div>
             </div>
         </div>
+        <div id="almSalidaAlmacenDestinoError" class="alm-campo-error" role="alert"></div>
         <div class="alm-hint">
             Este proyecto se maneja en varios almacenes: indica a cuál se envía el material.
         </div>
