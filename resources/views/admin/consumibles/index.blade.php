@@ -166,6 +166,38 @@
                     <span class="page-title-line2" style="color:#000;">Gestión de Consumibles</span>
                 </h1>
             </div>
+            {{-- Contadores: en su caja, a la derecha del título (a pedido del usuario). --}}
+            <div id="consContadores"
+                style="display:flex; gap:8px; align-items: center; flex-shrink: 0; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:8px 10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                <a id="consCntPend" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'PENDIENTE'])) }}"
+                    onclick="return window.consumiblesFiltrarEstado('PENDIENTE', 'Pendiente');"
+                    style="text-decoration:none; background:#fffbeb; border: 1px solid #fde68a; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
+                    onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">
+                    <strong style="display:block; font-size:18px; font-weight:800; color:#d97706; line-height: 1;"
+                        id="cnt-pendientes">{{ $pendientes }}</strong>
+                    <span
+                        style="font-size:9px; color:#b45309; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Pendientes</span>
+                </a>
+                <a id="consCntConf" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'CONFIRMADO'])) }}"
+                    onclick="return window.consumiblesFiltrarEstado('CONFIRMADO', 'Confirmado');"
+                    style="text-decoration:none; background:#f8fafc; border: 1px solid #e2e8f0; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
+                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
+                    <strong style="display:block; font-size:18px; font-weight:800; color:#10b981; line-height: 1;"
+                        id="cnt-confirmados">{{ $confirmados }}</strong>
+                    <span
+                        style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Confirmados</span>
+                </a>
+                <a id="consCntSin" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'SIN_MATCH'])) }}"
+                    onclick="return window.consumiblesFiltrarEstado('SIN_MATCH', 'Por identificar');"
+                    style="text-decoration:none; background:#fef2f2; border: 1px solid #fecaca; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
+                    onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
+                    <strong style="display:block; font-size:18px; font-weight:800; color:#ef4444; line-height: 1;"
+                        id="cnt-sinmatch">{{ $sinMatch }}</strong>
+                    <span
+                        style="font-size:9px; color:#b91c1c; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Por
+                        identificar</span>
+                </a>
+            </div>
         </div>
 
 
@@ -179,38 +211,6 @@
             <form method="GET" action="{{ route('consumibles.index') }}" id="filtrosForm">
                 <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom: 20px;">
 
-                    {{-- Contadores Comprimidos --}}
-                    <div
-                        style="display:flex; gap:8px; align-items: center; border-right: 1px solid #e2e8f0; padding-right: 12px; flex-shrink: 0;">
-                        <a id="consCntPend" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'PENDIENTE'])) }}"
-                            onclick="return window.consumiblesFiltrarEstado('PENDIENTE', 'Pendiente');"
-                            style="text-decoration:none; background:#fffbeb; border: 1px solid #fde68a; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
-                            onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">
-                            <strong style="display:block; font-size:18px; font-weight:800; color:#d97706; line-height: 1;"
-                                id="cnt-pendientes">{{ $pendientes }}</strong>
-                            <span
-                                style="font-size:9px; color:#b45309; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Pendientes</span>
-                        </a>
-                        <a id="consCntConf" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'CONFIRMADO'])) }}"
-                            onclick="return window.consumiblesFiltrarEstado('CONFIRMADO', 'Confirmado');"
-                            style="text-decoration:none; background:#f8fafc; border: 1px solid #e2e8f0; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
-                            onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
-                            <strong style="display:block; font-size:18px; font-weight:800; color:#10b981; line-height: 1;"
-                                id="cnt-confirmados">{{ $confirmados }}</strong>
-                            <span
-                                style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Confirmados</span>
-                        </a>
-                        <a id="consCntSin" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'SIN_MATCH'])) }}"
-                            onclick="return window.consumiblesFiltrarEstado('SIN_MATCH', 'Por identificar');"
-                            style="text-decoration:none; background:#fef2f2; border: 1px solid #fecaca; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
-                            onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
-                            <strong style="display:block; font-size:18px; font-weight:800; color:#ef4444; line-height: 1;"
-                                id="cnt-sinmatch">{{ $sinMatch }}</strong>
-                            <span
-                                style="font-size:9px; color:#b91c1c; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Por
-                                identificar</span>
-                        </a>
-                    </div>
                     <div style="flex: 1; min-width: 150px;">
                         @php
                             $currentFrenteId = request('id_frente');

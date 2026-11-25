@@ -18,7 +18,7 @@ class CuposCombustibleTest extends MySqlTestCase
 
         // Meses después, sin volver a cargarlo, sigue el mismo.
         $this->actingAs($u)->get(route('consumibles.cupos', ['mes' => '2031-07', 'parcial' => 1]))->assertOk()
-            ->assertSee('100.000 L')->assertSee('60.000 L')->assertSee('vigente desde Marzo 2031');
+            ->assertSee('100.000 L')->assertSee('60.000 L')->assertSee('Vigente desde Marzo 2031');
 
         // Guardar lo mismo no crea otro; cambiarlo en junio rige desde junio, y marzo queda igual.
         $this->actingAs($u)->postJson(route('consumibles.cupos.guardar'), ['mes' => '2031-05', 'cupos' => ['TIGRE' => 100000, 'MATURIN' => null]])->assertOk();
@@ -40,8 +40,8 @@ class CuposCombustibleTest extends MySqlTestCase
         }
 
         $this->actingAs($u)->get(route('consumibles.cargar', ['mes' => self::MES]))->assertOk()
-            ->assertSee('Cupos de Gasoil')->assertSee('76.000 L')->assertSee('24.000 L')
-            ->assertSee('A12BC3D')->assertSee('02/03/2031')->assertSee('-500 L');   // Maturín se pasó
+            ->assertSee('Cupos de Gasoil')->assertSee('76.000 L')->assertSee('24.000 L')->assertSee('disponibles de 100.000')
+            ->assertSee('A12BC3D')->assertSee('02/03/2031')->assertSee('-500 L')->assertSee('Se pasó del cupo');   // Maturín se pasó
     }
 
     public function test_la_cisterna_pide_patio_y_una_fecha_del_mes(): void

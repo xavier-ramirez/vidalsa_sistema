@@ -9,15 +9,15 @@ use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 /**
- * Cupos de gasoil (sección de Cargar consumibles): un formulario para anotar las cisternas pedidas
- * de cada patio y un modal para el cupo mensual, que casi nunca cambia: rige desde el mes en que
- * se guarda hasta que se cambie. Ver lo puede cualquiera con sesión; cargar y borrar, super.admin.
+ * Cupos de gasoil (modal de Cargar consumibles): por patio, el cupo mensual (casi nunca cambia: rige
+ * desde el mes en que se guarda hasta que se cambie), las cisternas pedidas de él y su historial.
+ * Ver lo puede cualquiera con sesión; cargar y borrar, super.admin.
  */
 class CuposCombustibleController extends Controller
 {
     /**
-     * GET consumibles/cupos?mes=YYYY-MM&parcial=1 — el contenido de la sección (se repinta tras guardar
-     * o al cambiar de mes). La sección vive en Cargar consumibles: sin parcial, se va allá.
+     * GET consumibles/cupos?mes=YYYY-MM&parcial=1 — el contenido del modal (se repinta tras guardar o al
+     * cambiar de mes). El modal vive en Cargar consumibles: sin parcial, se va allá (y se abre solo).
      */
     public function index(Request $request)
     {
@@ -28,30 +28,40 @@ class CuposCombustibleController extends Controller
         return view('admin.consumibles.partials.cupos_contenido', self::datos($request->query('mes')));
     }
 
-    /** Lo que pinta la sección para un mes (YYYY-MM; si no es válido, el actual). */
+    /**
+     * Lo que pinta el modal para un mes (YYYY-MM; si no es válido, el actual): por patio, el cupo
+     * que rige, lo pedido, las cisternas del mes (con acumulado y disponible) y los últimos 12 meses.
+     */
     public static function datos($mesTexto): array
     {
         $mes = self::mes($mesTexto);
         $cupos = CupoCombustible::where('MES', '<=', $mes->toDateString())->orderByDesc('MES')->get();
         $cisternas = CisternaCupo::whereBetween('FECHA', [$mes->toDateString(), $mes->copy()->endOfMonth()->toDateString()])
             ->orderBy('FECHA')->orderBy('ID_CISTERNA')->get();
+        $historial = self::historial($mes, $cupos);
 
         $patios = [];
         foreach (CupoCombustible::PATIOS as $clave => $nombre) {
             $cupo = self::cupoVigente($cupos, $clave, $mes);
-            $suyas = $cisternas->where('PATIO', $clave);
-            $pedido = (float) $suyas->sum('LITROS');
+            $litrosCupo = $cupo ? (float) $cupo->LITROS : null;
+            $acumulado = 0.0;
+            $filas = $cisternas->where('PATIO', $clave)->values()->map(function ($k) use (&$acumulado, $litrosCupo) {
+                $acumulado += (float) $k->LITROS;
+
+                return ['cisterna' => $k, 'acumulado' => $acumulado, 'disponible' => $litrosCupo !== null ? $litrosCupo - $acumulado : null];
+            });
             $patios[$clave] = [
                 'nombre'     => $nombre,
-                'cupo'       => $cupo ? (float) $cupo->LITROS : null,
+                'cupo'       => $litrosCupo,
                 'desde'      => $cupo?->MES,
-                'pedido'     => $pedido,
-                'cisternas'  => $suyas->count(),
-                'disponible' => $cupo ? (float) $cupo->LITROS - $pedido : null,
+                'pedido'     => $acumulado,
+                'filas'      => $filas,
+                'disponible' => $litrosCupo !== null ? $litrosCupo - $acumulado : null,
+                'historial'  => array_map(fn ($h) => ['mes' => $h['mes']] + $h['patios'][$clave], $historial),
             ];
         }
 
-        return ['mes' => $mes, 'patios' => $patios, 'cisternas' => $cisternas, 'historial' => self::historial($mes, $cupos)];
+        return ['mes' => $mes, 'patios' => $patios];
     }
 
     /**
@@ -144,10 +154,10 @@ class CuposCombustibleController extends Controller
         return $cupos->first(fn ($c) => $c->PATIO === $patio && $c->MES->lte($mes));
     }
 
-    /** Los últimos 6 meses hasta el elegido: cupo que regía y litros pedidos de cada patio. */
+    /** Los últimos 12 meses hasta el elegido: cupo que regía, litros pedidos y cisternas de cada patio. */
     private static function historial(Carbon $mes, $cupos): array
     {
-        $desde = $mes->copy()->subMonths(5);
+        $desde = $mes->copy()->subMonths(11);
         $pedidos = CisternaCupo::whereBetween('FECHA', [$desde->toDateString(), $mes->copy()->endOfMonth()->toDateString()])
             ->selectRaw("PATIO, DATE_FORMAT(FECHA, '%Y-%m') AS MES, SUM(LITROS) AS LITROS, COUNT(*) AS N")
             ->groupBy('PATIO', 'MES')->get();
