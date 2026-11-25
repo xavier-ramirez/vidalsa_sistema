@@ -89,23 +89,27 @@ if (typeof window.ModuleManager !== 'undefined') {
             // El identificador lo escribe cualquiera con permiso: se pinta SIEMPRE escapado y
             // el valor de antes vive en la celda (data-original), no dentro de un onclick.
             var esc = window.escapeHtml;
+            // Solo se cambia la línea de la placa/serial: debajo, en la misma celda, va el equipo.
+            function filaId(celda) { return celda.querySelector('.cons-id-fila'); }
             function pintarId(celda, id, valor) {
                 celda.dataset.original = valor || '';
-                celda.innerHTML =
-                    '<div style="display:flex;align-items:center;gap:5px;">' +
-                        '<span id="id-txt-' + id + '" style="flex:1;">' + (esc(valor) || '—') + '</span>' +
-                        '<button onclick="editarId(' + id + ')" style="background:none;border:none;cursor:pointer;padding:2px;color:#94a3b8;" title="Editar">' +
-                            '<i class="material-icons" style="font-size:14px;">edit</i>' +
-                        '</button>' +
-                    '</div>';
+                var fila = filaId(celda);
+                if (!fila) return;
+                fila.innerHTML =
+                    '<span id="id-txt-' + id + '" style="flex:1; font-family:monospace; font-weight:700;">' + (esc(valor) || '—') + '</span>' +
+                    '<button onclick="editarId(' + id + ')" class="cons-btn-edit" title="Editar identificador">' +
+                        '<i class="material-icons" style="font-size:14px;">edit</i>' +
+                    '</button>';
             }
 
             window.editarId = function(id) {
                 var celda = document.getElementById('id-cell-' + id);
                 if (!celda) return;
                 var valorActual = celda.dataset.original || '';
-                celda.innerHTML =
-                    '<div style="display:flex;align-items:center;gap:4px;">' +
+                var fila = filaId(celda);
+                if (!fila) return;
+                fila.innerHTML =
+                    '<div style="display:flex;align-items:center;gap:4px;flex:1;">' +
                         '<input id="inp-id-' + id + '" type="text" value="' + esc(valorActual) + '" ' +
                                'style="font-family:monospace;font-size:12px;padding:3px 6px;border:1px solid #0067b1;border-radius:6px;flex:1;min-width:0;outline:none;" ' +
                                'onkeydown="if(event.key===\'Enter\')guardarId(' + id + ');if(event.key===\'Escape\')cancelarId(' + id + ')">' +

@@ -161,6 +161,13 @@
                 white-space: nowrap;
             }
 
+            /* Equipo resuelto debajo de la placa/serial escrita, en la misma celda. */
+            .cons-tbl-wrap .cons-equipo {
+                margin-top: 3px;
+                padding-top: 3px;
+                border-top: 1px dashed #e2e8f0;
+            }
+
             /* Botones de lápiz y papelera como los de la tabla de Cargar. */
             .cons-tbl-wrap .cons-btn-edit,
             .cons-tbl-wrap .cons-btn-del {
@@ -675,11 +682,10 @@
                             <th class="th-center" style="width:38px;">#</th>
                             <th class="th-left">Fecha</th>
                             <th class="th-left">Tipo</th>
-                            <th class="th-right">Cantidad</th>
-                            <th class="th-left">Frente</th>
-                            <th class="th-left">Identificador</th>
-                            <th class="th-left">Equipo Resuelto</th>
+                            <th class="th-left">Equipo <span style="font-weight:400;opacity:.7;">(placa / serial)</span></th>
                             <th class="th-left">Responsable</th>
+                            <th class="th-right">Cantidad</th>
+                            <th class="th-left">Frente <span style="font-weight:400;opacity:.7;">(proyecto)</span></th>
                             <th class="th-left">Estado</th>
                             <th style="width:40px;"></th>
                         </tr>
@@ -708,6 +714,81 @@
                                     @if($c->ESPECIFICACION)
                                         <span style="display:block; font-size:10px; color:#64748b; font-weight:600;
                                                  margin-top:2px; font-family:monospace;">{{ $c->ESPECIFICACION }}</span>
+                                    @endif
+                                </td>
+                                <td style="font-size:12px; color:#1e293b; line-height:1.5;"
+                                    id="id-cell-{{ $c->ID_CONSUMIBLE }}" data-original="{{ $c->IDENTIFICADOR }}">
+                                    <div class="cons-id-fila" style="display:flex; align-items:center; gap:5px;">
+                                        <span id="id-txt-{{ $c->ID_CONSUMIBLE }}"
+                                            style="flex:1; font-family:monospace; font-weight:700;">{{ $c->IDENTIFICADOR ?? '—' }}</span>
+                                        @can('equipos.edit')
+                                        <button
+                                            onclick="editarId({{ $c->ID_CONSUMIBLE }})"
+                                            class="cons-btn-edit"
+                                            title="Editar identificador">
+                                            <i class="material-icons" style="font-size:14px;">edit</i>
+                                        </button>
+                                        @endcan
+                                    </div>
+                                    <div class="cons-equipo">
+                                    @if($c->equipo)
+                                        @php
+                                            // ¿El identificador buscado es exactamente la placa o el serial?
+                                            $idBuscado = strtoupper(trim($c->IDENTIFICADOR ?? ''));
+                                            $placa = strtoupper(trim($c->equipo->CODIGO_PATIO ?? ''));
+                                            $serial = strtoupper(trim($c->equipo->SERIAL_CHASIS ?? ''));
+                                            $esExacto = ($idBuscado === $placa || $idBuscado === $serial);
+                                            // Coincidencia real: mostrar serial si el buscado no es exacto
+                                            $coincidencia = (!$esExacto && $idBuscado)
+                                                ? ($serial ?: $placa)
+                                                : null;
+                                        @endphp
+
+                                        {{-- Tipo --}}
+                                        <span
+                                            style="font-size:10px; font-weight:700; color:#0067b1; text-transform:uppercase; letter-spacing:.3px;">
+                                            {{ $c->equipo->tipo?->nombre ?? 'S/T' }}
+                                        </span>
+
+                                        {{-- Marca --}}
+                                        <span style="display:block; color:#1e293b; font-weight:700; font-size:13px;">
+                                            {{ $c->equipo->MARCA }}
+                                        </span>
+
+
+                                        {{-- Coincidencia completa (si el buscado era parcial) --}}
+                                        @if($coincidencia)
+                                            <span style="display:block; font-family:monospace; font-size:10px;
+                                                         color:#059669; margin-top:1px; font-weight:700;"
+                                                title="Serial/placa completo encontrado en la BD">
+                                                → {{ $coincidencia }}
+                                            </span>
+                                        @endif
+
+                                    @elseif($c->auxiliar)
+                                        {{-- Auxiliar (máquina de soldar, planta, compresor…) --}}
+                                        <span
+                                            style="font-size:10px; font-weight:700; color:#0067b1; text-transform:uppercase; letter-spacing:.3px;">
+                                            {{ str_replace('_', ' ', $c->auxiliar->TIPO) }}
+                                        </span>
+                                        <span style="display:block; color:#1e293b; font-weight:700; font-size:13px;">
+                                            {{ trim($c->auxiliar->MARCA . ' ' . $c->auxiliar->MODELO) ?: '—' }}
+                                        </span>
+                                        <span style="display:block; font-family:monospace; font-size:11px; color:#64748b; margin-top:2px;">
+                                            {{ $c->auxiliar->CODIGO_INTERNO ?: $c->auxiliar->SERIAL }}
+                                        </span>
+                                    @elseif($c->ESTADO_EQUIPO === 'CONFIRMADO')
+                                        {{-- Confirmado sin equipo: se enseñó que no es de ningún equipo. --}}
+                                        <span style="color:#64748b; font-style:italic; font-size:12px;">Sin equipo</span>
+                                    @else
+                                        <span style="color:#94a3b8; font-style:italic; font-size:12px;">Sin resolver</span>
+                                    @endif
+                                    </div>
+                                </td>
+                                <td style="font-size:12px;">
+                                    {{ $c->RESP_NOMBRE ?? '—' }}
+                                    @if($c->RESP_CI)
+                                        <span style="color:#94a3b8;"> · {{ $c->RESP_CI }}</span>
                                     @endif
                                 </td>
                                 <td style="font-weight:700; text-align:right; white-space:nowrap;">
@@ -753,86 +834,6 @@
                                         </span>
                                     @endif
                                 </td>
-                                <td style="font-family:monospace; font-size:12px; color:#1e293b;"
-                                    id="id-cell-{{ $c->ID_CONSUMIBLE }}" data-original="{{ $c->IDENTIFICADOR }}">
-                                    <div style="display:flex; align-items:center; gap:5px;">
-                                        <span id="id-txt-{{ $c->ID_CONSUMIBLE }}"
-                                            style="flex:1;">{{ $c->IDENTIFICADOR ?? '—' }}</span>
-                                        @can('equipos.edit')
-                                        <button
-                                            onclick="editarId({{ $c->ID_CONSUMIBLE }})"
-                                            class="cons-btn-edit"
-                                            title="Editar identificador">
-                                            <i class="material-icons" style="font-size:14px;">edit</i>
-                                        </button>
-                                        @endcan
-                                    </div>
-                                </td>
-                                <td style="font-size:12px; line-height:1.5;">
-                                    @if($c->equipo)
-                                        @php
-                                            // ¿El identificador buscado es exactamente la placa o el serial?
-                                            $idBuscado = strtoupper(trim($c->IDENTIFICADOR ?? ''));
-                                            $placa = strtoupper(trim($c->equipo->CODIGO_PATIO ?? ''));
-                                            $serial = strtoupper(trim($c->equipo->SERIAL_CHASIS ?? ''));
-                                            $esExacto = ($idBuscado === $placa || $idBuscado === $serial);
-                                            // Coincidencia real: mostrar serial si el buscado no es exacto
-                                            $coincidencia = (!$esExacto && $idBuscado)
-                                                ? ($serial ?: $placa)
-                                                : null;
-                                        @endphp
-
-                                        {{-- Tipo --}}
-                                        <span
-                                            style="font-size:10px; font-weight:700; color:#0067b1; text-transform:uppercase; letter-spacing:.3px;">
-                                            {{ $c->equipo->tipo?->nombre ?? 'S/T' }}
-                                        </span>
-
-                                        {{-- Marca --}}
-                                        <span style="display:block; color:#1e293b; font-weight:700; font-size:13px;">
-                                            {{ $c->equipo->MARCA }}
-                                        </span>
-
-                                        {{-- Frente actual del equipo en la BD --}}
-                                        <span style="display:block; font-size:11px; color:#475569; margin-top:1px;">
-                                            <i class="material-icons" style="font-size:11px; vertical-align:middle;">location_on</i>
-                                            {{ $c->equipo->frenteActual?->NOMBRE_FRENTE ?? 'Sin frente asignado' }}
-                                        </span>
-
-                                        {{-- Coincidencia completa (si el buscado era parcial) --}}
-                                        @if($coincidencia)
-                                            <span style="display:block; font-family:monospace; font-size:10px;
-                                                         color:#059669; margin-top:1px; font-weight:700;"
-                                                title="Serial/placa completo encontrado en la BD">
-                                                → {{ $coincidencia }}
-                                            </span>
-                                        @endif
-
-                                    @elseif($c->auxiliar)
-                                        {{-- Auxiliar (máquina de soldar, planta, compresor…) --}}
-                                        <span
-                                            style="font-size:10px; font-weight:700; color:#0067b1; text-transform:uppercase; letter-spacing:.3px;">
-                                            {{ str_replace('_', ' ', $c->auxiliar->TIPO) }}
-                                        </span>
-                                        <span style="display:block; color:#1e293b; font-weight:700; font-size:13px;">
-                                            {{ trim($c->auxiliar->MARCA . ' ' . $c->auxiliar->MODELO) ?: '—' }}
-                                        </span>
-                                        <span style="display:block; font-family:monospace; font-size:11px; color:#64748b; margin-top:2px;">
-                                            {{ $c->auxiliar->CODIGO_INTERNO ?: $c->auxiliar->SERIAL }}
-                                        </span>
-                                    @elseif($c->ESTADO_EQUIPO === 'CONFIRMADO')
-                                        {{-- Confirmado sin equipo: se enseñó que no es de ningún equipo. --}}
-                                        <span style="color:#64748b; font-style:italic; font-size:12px;">Sin equipo</span>
-                                    @else
-                                        <span style="color:#94a3b8; font-style:italic; font-size:12px;">Sin resolver</span>
-                                    @endif
-                                </td>
-                                <td style="font-size:12px;">
-                                    {{ $c->RESP_NOMBRE ?? '—' }}
-                                    @if($c->RESP_CI)
-                                        <span style="color:#94a3b8;"> · {{ $c->RESP_CI }}</span>
-                                    @endif
-                                </td>
                                 <td>
                                     @if($c->ESTADO_EQUIPO === 'CONFIRMADO')
                                         <span class="badge-ok">✔ Confirmado</span>
@@ -855,7 +856,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" style="text-align:center; padding:40px; color:#94a3b8; font-size:13px; font-weight:400;">
+                                <td colspan="9" style="text-align:center; padding:40px; color:#94a3b8; font-size:13px; font-weight:400;">
                                     <i class="material-icons"
                                         style="font-size:40px; display:block; margin-bottom:8px;">inbox</i>
                                     @if(request()->hasAny(['id_frente', 'tipo', 'estado', 'fecha_desde', 'fecha_hasta', 'identificador']))
