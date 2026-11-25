@@ -130,9 +130,10 @@
             .cons-tbl-wrap .admin-table tbody tr td:first-child {
                 text-align: center;
                 color: #94a3b8;
-                font-size: 11px;
+                /* El número de la fila, más chico que los datos. */
+                font-size: 10px !important;
                 font-weight: 700;
-                padding: 6px 4px;
+                padding: 6px 2px;
                 background: #f8fafc !important;
                 border-right: 2px solid #e2e8f0;
             }
@@ -619,7 +620,7 @@
                 <table class="admin-table">
                     <thead>
                         <tr>
-                            <th class="th-center" style="width:38px;">#</th>
+                            <th class="th-center" style="width:28px; padding:9px 2px;">#</th>
                             <th class="th-left">Fecha</th>
                             <th class="th-left">Tipo</th>
                             <th class="th-left">Equipo <span style="font-weight:400;opacity:.7;">(placa / serial)</span></th>
