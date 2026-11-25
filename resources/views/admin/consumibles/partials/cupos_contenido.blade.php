@@ -32,8 +32,8 @@
                 @if ($puede)
                     <form class="cupos-cupo-editar" data-accion="cupo" hidden>
                         <input type="hidden" name="patio" value="{{ $clave }}">
-                        <input type="number" name="litros" min="0" step="any" required placeholder="Litros por mes"
-                            value="{{ $p['cupo'] !== null ? $p['cupo'] : '' }}">
+                        <input type="text" name="litros" inputmode="decimal" required placeholder="Litros por mes" autocomplete="off"
+                            value="{{ $p['cupo'] !== null ? $lt($p['cupo']) : '' }}">
                         <button type="submit" class="cupos-mini" title="Guardar"><i class="material-icons">check</i></button>
                         <button type="button" class="cupos-mini cupos-mini-gris" data-cancelar-cupo title="Cancelar"><i class="material-icons">close</i></button>
                     </form>
@@ -49,8 +49,9 @@
         @if ($puede)
             <form class="cupos-form" data-accion="cisterna">
                 <input type="hidden" name="patio" value="{{ $clave }}">
-                <input type="date" name="fecha" required value="{{ now()->toDateString() }}" max="{{ now()->toDateString() }}" title="Fecha">
-                <input type="number" name="litros" min="0.01" step="any" required placeholder="Litros de la cisterna">
+                <input type="date" name="fecha" required value="{{ now()->toDateString() }}" title="Fecha"
+                    min="{{ \App\Http\Controllers\CuposCombustibleController::desde()->toDateString() }}" max="{{ now()->toDateString() }}">
+                <input type="text" name="litros" inputmode="decimal" required placeholder="Litros de la cisterna" autocomplete="off">
                 <button type="submit" class="btn-primary-maquinaria btn-compacto"><i class="material-icons">add</i> Agregar cisterna</button>
             </form>
         @endif

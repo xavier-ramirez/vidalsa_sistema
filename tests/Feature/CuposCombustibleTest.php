@@ -17,6 +17,9 @@ class CuposCombustibleTest extends MySqlTestCase
     {
         parent::setUp();
         Carbon::setTestNow('2031-03-20 10:00:00');
+        // Sin los cupos y cisternas reales (dentro de la transacción: se devuelven al terminar).
+        CupoCombustible::query()->delete();
+        CisternaCupo::query()->delete();
     }
 
     protected function tearDown(): void
@@ -81,6 +84,31 @@ class CuposCombustibleTest extends MySqlTestCase
         // El cupo cargado después también cuenta para ese mes (es fijo).
         $this->cupo('MATURIN', 5000)->assertOk();
         $this->modal()->assertSee('Enero 2031')->assertSee('Cupo 5.000 L · Surtido 1.000 L (1)');
+    }
+
+    public function test_litros_escritos_como_se_muestran(): void
+    {
+        $this->cupo('TIGRE', '100.000')->assertOk();                  // punto de miles: 100000, no 100
+        $this->cisterna('TIGRE', '2031-03-02', '38.000')->assertOk();
+        $this->cisterna('TIGRE', '2031-03-03', '1.250,5')->assertOk();
+        $this->cisterna('TIGRE', '2031-03-04', '10,5')->assertOk();
+        $this->assertEquals(100000, CupoCombustible::where('PATIO', 'TIGRE')->value('LITROS'));
+        $this->assertEquals([38000, 1250.5, 10.5], CisternaCupo::orderBy('FECHA')->pluck('LITROS')->map(fn ($l) => (float) $l)->all());
+    }
+
+    public function test_cisterna_fuera_del_historial_no_se_guarda(): void
+    {
+        // El historial va de abril 2030 a marzo 2031: una de antes no se vería ni se podría quitar.
+        $this->cisterna('TIGRE', '2030-03-31', 1000)->assertStatus(422)->assertJsonValidationErrors('fecha');
+        $this->cisterna('TIGRE', '2030-04-01', 1000)->assertOk();
+    }
+
+    public function test_justo_el_cupo_no_sale_pasado(): void
+    {
+        $this->cupo('TIGRE', '1000,3')->assertOk();
+        $this->cisterna('TIGRE', '2031-03-02', '1000,1')->assertOk();
+        $this->cisterna('TIGRE', '2031-03-03', '0,2')->assertOk();
+        $this->modal()->assertDontSee('-0,00')->assertSee('Quedó <b style="color: inherit;">0 L', false);
     }
 
     public function test_quitar_una_cisterna(): void

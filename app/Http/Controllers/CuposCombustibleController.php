@@ -39,7 +39,7 @@ class CuposCombustibleController extends Controller
     public static function datos(): array
     {
         $hoy = now()->startOfMonth()->startOfDay();
-        $desde = $hoy->copy()->subMonths(self::MESES - 1);
+        $desde = self::desde();
         $cupos = CupoCombustible::orderByDesc('MES')->get();
         $cisternas = CisternaCupo::where('FECHA', '>=', $desde->toDateString())
             ->orderBy('FECHA')->orderBy('ID_CISTERNA')->get();
@@ -56,12 +56,12 @@ class CuposCombustibleController extends Controller
                 $cupo = ($c = $cupoDe($mes)) !== null ? (float) $c : null;
                 $surtido = 0.0;
                 $filas = $suyas->values()->map(function ($k) use (&$surtido, $cupo) {
-                    $surtido += (float) $k->LITROS;
+                    $surtido = round($surtido + (float) $k->LITROS, 2);
 
-                    return ['cisterna' => $k, 'quedan' => $cupo !== null ? $cupo - $surtido : null];
+                    return ['cisterna' => $k, 'quedan' => $cupo !== null ? round($cupo - $surtido, 2) : null];
                 });
                 $meses[$ym] = ['mes' => $mes, 'cupo' => $cupo, 'surtido' => $surtido, 'filas' => $filas,
-                    'quedan' => $cupo !== null ? $cupo - $surtido : null];
+                    'quedan' => $cupo !== null ? round($cupo - $surtido, 2) : null];
             }
             krsort($meses);   // el mes más reciente arriba
 
@@ -71,7 +71,7 @@ class CuposCombustibleController extends Controller
                 'nombre'  => $nombre,
                 'cupo'    => $cupo,
                 'surtido' => $surtidoMes,
-                'quedan'  => $cupo !== null ? $cupo - $surtidoMes : null,
+                'quedan'  => $cupo !== null ? round($cupo - $surtidoMes, 2) : null,
                 'meses'   => $meses,
             ];
         }
@@ -82,6 +82,7 @@ class CuposCombustibleController extends Controller
     /** POST consumibles/cupos — el cupo de un patio (patio, litros); si cambia, rige desde el mes en curso. */
     public function guardarCupo(Request $request)
     {
+        self::normalizarLitros($request);
         $v = $request->validate([
             'patio'  => ['required', Rule::in(array_keys(CupoCombustible::PATIOS))],
             'litros' => ['required', 'numeric', 'min:0', 'max:9999999999'],
@@ -99,12 +100,14 @@ class CuposCombustibleController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /** POST consumibles/cupos/cisternas — una cisterna surtida: patio, fecha (no futura) y litros. */
+    /** POST consumibles/cupos/cisternas — una cisterna surtida: patio, fecha (no futura, dentro del historial) y litros. */
     public function agregarCisterna(Request $request)
     {
+        self::normalizarLitros($request);
         $v = $request->validate([
             'patio'  => ['required', Rule::in(array_keys(CupoCombustible::PATIOS))],
-            'fecha'  => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            // Dentro del historial que se ve (si no, quedaría guardada sin poder verse ni quitarse).
+            'fecha'  => ['required', 'date_format:Y-m-d', 'before_or_equal:today', 'after_or_equal:' . self::desde()->toDateString()],
             'litros' => ['required', 'numeric', 'gt:0', 'max:9999999999'],
         ]);
 
@@ -121,6 +124,35 @@ class CuposCombustibleController extends Controller
         CisternaCupo::findOrFail($id)->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    /** El primer día del historial: el día 1 de hace MESES − 1 meses. */
+    public static function desde(): Carbon
+    {
+        return now()->startOfMonth()->startOfDay()->subMonths(self::MESES - 1);
+    }
+
+    /**
+     * Los litros como se escriben en esta pantalla, que los muestra con punto de miles: «38.000» son
+     * 38000 (no 38), «1.250,5» son 1250.5, «38,5» y «38.5» son 38.5.
+     */
+    private static function normalizarLitros(Request $request): void
+    {
+        $t = $request->input('litros');
+        if (!is_string($t)) {
+            return;
+        }
+        $t = str_replace(' ', '', trim($t));
+        $coma = strrpos($t, ',');
+        $punto = strrpos($t, '.');
+        if ($coma !== false && $punto !== false) {
+            $t = $coma > $punto ? str_replace(['.', ','], ['', '.'], $t) : str_replace(',', '', $t);
+        } elseif ($coma !== false) {
+            $t = substr_count($t, ',') > 1 ? str_replace(',', '', $t) : str_replace(',', '.', $t);
+        } elseif (preg_match('/^\d{1,3}(\.\d{3})+$/', $t)) {
+            $t = str_replace('.', '', $t);
+        }
+        $request->merge(['litros' => $t]);
     }
 
     public static function nombreMes(Carbon $mes): string

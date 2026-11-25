@@ -8,6 +8,7 @@
     .cupos-modal-cab { background: var(--maquinaria-dark-blue); color: #fff; padding: 12px 18px; display: flex;
         justify-content: space-between; align-items: center; gap: 10px; }
     .cupos-modal-cab h2 { margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .cupos-modal:focus { outline: none; }
     .cupos-modal-x { background: none; border: none; color: #fff; cursor: pointer; display: flex; padding: 0; }
     #cuposContenido { padding: 16px 18px 18px; overflow-y: auto; }
 
@@ -66,7 +67,7 @@
 </style>
 
 <div id="cuposModal" class="modal-overlay" data-abrir="{{ request()->boolean('cupos') ? '1' : '' }}">
-    <div class="modal-content cupos-modal" role="dialog" aria-labelledby="cuposModalTitulo">
+    <div class="modal-content cupos-modal" role="dialog" aria-labelledby="cuposModalTitulo" tabindex="-1">
         <div class="cupos-modal-cab">
             <h2 id="cuposModalTitulo"><i class="material-icons">local_gas_station</i> Cupos de Gasoil</h2>
             <button type="button" class="cupos-modal-x" data-cerrar-modal title="Cerrar"><i class="material-icons">close</i></button>
@@ -103,7 +104,8 @@
         }
         mostrarPatio(window.__cuposPatio || 'TIGRE');
 
-        function abrir() { modal.classList.add('active'); }
+        // Al abrir, el foco entra al modal (Escape lo cierra sin tocar antes con el ratón).
+        function abrir() { modal.classList.add('active'); modal.querySelector('.cupos-modal').focus(); }
         // Al cerrar, la dirección vuelve a Cargar sola: recargar no lo abre de nuevo.
         function cerrar() { modal.classList.remove('active'); history.replaceState(history.state, '', URL_CARGAR); }
         if (modal.dataset.abrir) abrir();
@@ -143,16 +145,22 @@
             var f = e.target.closest('form[data-accion]');
             if (!f) return;
             e.preventDefault();
+            // Un envío a la vez: Enter dos veces no guarda la misma cisterna dos veces.
+            if (f.dataset.enviando) return;
+            f.dataset.enviando = '1';
             var esCupo = f.dataset.accion === 'cupo';
             f.classList.add('cupos-ocupado');
             enviar(esCupo ? URL_CUPO : URL_CISTERNA, 'POST', new FormData(f))
                 .then(function () { aviso(esCupo ? 'Cupo guardado.' : 'Cisterna agregada.', 'success'); return repintar(); })
                 .catch(function (m) { aviso(typeof m === 'string' ? m : 'No se pudo guardar.', 'error'); })
-                .finally(function () { f.classList.remove('cupos-ocupado'); });
+                .finally(function () { delete f.dataset.enviando; f.classList.remove('cupos-ocupado'); });
         });
 
+        // Se cierra al tocar fuera solo si el toque EMPEZÓ fuera (no al soltar ahí una selección de texto).
+        var abajoEnFondo = false;
+        modal.addEventListener('mousedown', function (e) { abajoEnFondo = e.target === modal; });
         modal.addEventListener('click', function (e) {
-            if (e.target === modal || e.target.closest('[data-cerrar-modal]')) { cerrar(); return; }
+            if ((e.target === modal && abajoEnFondo) || e.target.closest('[data-cerrar-modal]')) { cerrar(); return; }
             var tab = e.target.closest('[data-tab]');
             if (tab) { mostrarPatio(tab.dataset.tab); return; }
             var panel = e.target.closest('[data-panel]');
@@ -163,11 +171,7 @@
                 f.querySelector('input[name=litros]').focus();
                 return;
             }
-            if (e.target.closest('[data-cancelar-cupo]')) {
-                panel.querySelector('.cupos-cupo-editar').hidden = true;
-                panel.querySelector('.cupos-cupo-ver').hidden = false;
-                return;
-            }
+            if (e.target.closest('[data-cancelar-cupo]')) { cancelarCupo(panel); return; }
             var b = e.target.closest('[data-borrar]');
             if (!b) return;
             window.confirmarAccion({
@@ -181,6 +185,18 @@
             });
         });
 
-        modal.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrar(); });
+        function cancelarCupo(panel) {
+            panel.querySelector('.cupos-cupo-editar').hidden = true;
+            panel.querySelector('.cupos-cupo-ver').hidden = false;
+            var lapiz = panel.querySelector('[data-editar-cupo]');
+            if (lapiz) lapiz.focus();   // el foco sigue en el modal (el siguiente Escape lo cierra)
+        }
+        // Escape: en el campo del cupo cancela solo ese cambio; si no, cierra el modal.
+        modal.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape' || !modal.classList.contains('active')) return;
+            e.stopPropagation();
+            var editando = e.target.closest && e.target.closest('.cupos-cupo-editar');
+            if (editando) cancelarCupo(editando.closest('[data-panel]')); else cerrar();
+        });
     })();
 </script>
