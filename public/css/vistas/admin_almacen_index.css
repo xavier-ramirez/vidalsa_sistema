@@ -1151,6 +1151,24 @@
         }
         /* Última vista (almMarcarVista): la tarjeta en celeste. */
         .alm-table tr.alm-row.alm-row-vista { background: #e0f2fe !important; border-color: #93c5fd !important; }
+        /* Tarjeta SELECCIONADA, como en Equipos (estilos_globales: .table-equipos-mobile
+           tr.selected-row-maquinaria): borde azul, fondo celeste muy claro y sombra azul, toda
+           la tarjeta igual. Antes la regla de PC pintaba cada celda de #bfdbfe y la banda del
+           nombre quedaba en otro tono (pedido del cliente, 24-11-2026). La salida por corregir
+           sigue en rojo. */
+        #almTableBody tr.alm-row.selected-row-maquinaria {
+            border: 2px solid #0067b1 !important;
+            background: #f0f9ff !important;
+            box-shadow: 0 4px 12px rgba(0, 103, 177, 0.15) !important;
+        }
+        #almTableBody tr.alm-row.selected-row-maquinaria > td,
+        #almTableBody tr.alm-row.selected-row-maquinaria:hover > td { background: transparent !important; }
+        #almTableBody tr.alm-row.selected-row-maquinaria > td.alm-td-nombre { border-bottom: 1px solid #e2e8f0 !important; }
+        #almTableBody tr.alm-row.selected-row-maquinaria.alm-row-missing-cant,
+        #almTableBody tr.alm-row.selected-row-maquinaria.alm-row-exceeds-stock {
+            border-color: #ef4444 !important; background: #fee2e2 !important;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15) !important;
+        }
 
         .alm-table tr.alm-row td {
             display: flex !important;
