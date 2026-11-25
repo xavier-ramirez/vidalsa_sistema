@@ -325,6 +325,13 @@ Route::middleware(['auth'])->group(function () {
                 Route::post  ('consumibles/importar/{importacion}/deshacer',   'deshacer')    ->whereNumber('importacion')->name('consumibles.importar.deshacer');
                 Route::delete('consumibles/importar/{importacion}',            'descartar')   ->whereNumber('importacion')->name('consumibles.importar.descartar');
             });
+            // Cupos de gasoil de los patios (El Tigre, Maturín) y las cisternas pedidas de cada cupo.
+            Route::get('consumibles/cupos', [App\Http\Controllers\CuposCombustibleController::class, 'index'])->name('consumibles.cupos');
+            Route::middleware('can:super.admin')->controller(App\Http\Controllers\CuposCombustibleController::class)->group(function () {
+                Route::post  ('consumibles/cupos',                 'guardarCupo')    ->name('consumibles.cupos.guardar');
+                Route::post  ('consumibles/cupos/cisternas',       'agregarCisterna')->name('consumibles.cupos.cisterna');
+                Route::delete('consumibles/cupos/cisternas/{id}',  'borrarCisterna') ->whereNumber('id')->name('consumibles.cupos.borrarCisterna');
+            });
             // Rutas con wildcard {id} al final para no capturar segmentos estáticos.
             // Cambiar, emparejar y borrar registros pide equipos.edit (antes cualquier usuario
             // con sesión podía). Borrar NO pide user.delete: en mar-2026 se pidió quitarle la

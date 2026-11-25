@@ -1,5 +1,5 @@
 {{-- Menú «Acciones» de Consumibles: las otras pantallas del módulo (sin la actual: $actual =
-     'lista' | 'graficos' | 'cargar'), con el estilo del menú de Equipos. Las acciones propias de
+     'lista' | 'graficos' | 'cargar' | 'cupos'), con el estilo del menú de Equipos. Las acciones propias de
      cada pantalla van debajo, en su vista. Cargar se oculta en el teléfono (.hide-on-mobile): su
      tabla no se usa ahí. --}}
 @php
@@ -7,6 +7,7 @@
         'lista'    => ['ruta' => 'consumibles.index',    'icono' => 'list',      'fondo' => '#e0f2fe', 'color' => '#0284c7', 'texto' => 'Lista de Consumibles', 'movil' => true],
         'graficos' => ['ruta' => 'consumibles.graficos', 'icono' => 'analytics', 'fondo' => '#eff6ff', 'color' => '#3b82f6', 'texto' => 'Gráficos y Reportes',  'movil' => true],
         'cargar'   => ['ruta' => 'consumibles.cargar',   'icono' => 'note_add',  'fondo' => '#fff7ed', 'color' => '#ea580c', 'texto' => 'Cargar consumibles',   'movil' => false],
+        'cupos'    => ['ruta' => 'consumibles.cupos',    'icono' => 'local_gas_station', 'fondo' => '#ecfdf5', 'color' => '#059669', 'texto' => 'Cupos de gasoil', 'movil' => true],
     ];
 @endphp
 @foreach ($pantallas as $clave => $p)
