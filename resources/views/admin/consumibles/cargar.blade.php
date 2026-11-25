@@ -739,8 +739,8 @@
             // Si el foco está en un input del lote de configuración → no interceptar
             const active = document.activeElement;
             if (active && (active.id === 'frenteSearch' || active.id === 'tipoSelect' || active.id === 'unidadSelect')) return;
-            // Ni lo pegado en la sección de Cupos de Gasoil (va a su campo, no a la tabla).
-            if (active && active.closest && active.closest('#cuposSeccion, #cuposContenido')) return;
+            // Ni lo pegado en el modal de Cupos de Gasoil (va a su campo, no a la tabla).
+            if (active && active.closest && active.closest('#cuposModal')) return;
 
             const text = (e.clipboardData || window.clipboardData).getData('text');
             if (!text || (!text.includes('\t') && !text.includes('\n'))) return;

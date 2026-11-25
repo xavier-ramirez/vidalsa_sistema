@@ -1,13 +1,7 @@
-{{-- Cargar consumibles → «Cupos de Gasoil»: una tarjeta con lo disponible de cada patio y el botón
-     que abre el modal (pestaña por patio: cupo editable, cisternas del mes y su historial). El cuerpo
-     del modal se repinta solo (consumibles.cupos?parcial=1). Con ?mes= en la dirección se abre solo. --}}
+{{-- Cargar consumibles → modal «Cupos de Gasoil» (pestaña por patio: cupo editable, cisternas del mes y
+     su historial). Lo abre «Cupos de gasoil» del menú Acciones; con ?cupos=1 o ?mes= en la dirección se
+     abre solo (desde las otras pantallas). El cuerpo se repinta solo (consumibles.cupos?parcial=1). --}}
 <style>
-    .cupos-card { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
-        padding: 10px 20px; margin-top: 20px; }
-    .cupos-res { margin: 4px 0 0; color: #718096; font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 16px; }
-    .cupos-card .btn-primary-maquinaria { padding: 7px 13px; font-size: 12.5px; margin: 0; }
-    .cupos-card .btn-primary-maquinaria .material-icons { font-size: 16px; }
-
     .cupos-modal { width: 94%; max-width: 920px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden;
         background: #fff; margin: auto; max-height: 92vh; display: flex; flex-direction: column; text-align: left; }
     .cupos-modal-cab { background: var(--maquinaria-dark-blue); color: #fff; padding: 12px 18px; display: flex;
@@ -83,17 +77,7 @@
     }
 </style>
 
-<div id="cuposSeccion" class="admin-card cupos-card">
-    <div>
-        <h3 class="imp-carga-titulo"><i class="material-icons">local_gas_station</i> Cupos de Gasoil</h3>
-        <div class="cupos-res" id="cuposResumen">@include('admin.consumibles.partials.cupos_resumen')</div>
-    </div>
-    <button type="button" class="btn-primary-maquinaria" data-abrir-modal>
-        <i class="material-icons">open_in_new</i> Ver cupos y cisternas
-    </button>
-</div>
-
-<div id="cuposModal" class="modal-overlay" data-abrir="{{ request()->filled('mes') ? '1' : '' }}">
+<div id="cuposModal" class="modal-overlay" data-abrir="{{ request()->boolean('cupos') || request()->filled('mes') ? '1' : '' }}">
     <div class="modal-content cupos-modal" role="dialog" aria-labelledby="cuposModalTitulo">
         <div class="cupos-modal-cab">
             <h2 id="cuposModalTitulo"><i class="material-icons">local_gas_station</i> Cupos de Gasoil</h2>
@@ -119,7 +103,6 @@
         var JSON_H = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
         var modal = document.getElementById('cuposModal');
         if (!modal) return;
-        var tarjeta = document.getElementById('cuposSeccion');
 
         function caja() { return document.getElementById('cuposContenido'); }
         function mesActual() { var d = document.getElementById('cuposDatos'); return d ? d.dataset.mes : ''; }
@@ -135,7 +118,8 @@
         mostrarPatio(window.__cuposPatio || 'TIGRE');
 
         function abrir() { modal.classList.add('active'); }
-        function cerrar() { modal.classList.remove('active'); }
+        // Al cerrar, la dirección vuelve a Cargar sola: recargar no lo abre de nuevo.
+        function cerrar() { modal.classList.remove('active'); history.replaceState(history.state, '', URL_CARGAR); }
         if (modal.dataset.abrir) abrir();
 
         // Repinta el cuerpo del mes (sin recargar la página) y deja el mes en la dirección.
@@ -147,8 +131,6 @@
                 .then(function (html) {
                     c.innerHTML = html;
                     mostrarPatio(window.__cuposPatio);
-                    var nuevo = document.getElementById('cuposResumenNuevo');
-                    if (nuevo) document.getElementById('cuposResumen').innerHTML = nuevo.innerHTML;
                     document.getElementById('cuposMes').value = mes;
                     history.replaceState(history.state, '', URL_CARGAR + '?mes=' + mes);
                 })
@@ -170,7 +152,15 @@
             if (/^\d{4}-\d{2}$/.test(this.value)) repintar(this.value);
         });
 
-        tarjeta.addEventListener('click', function (e) { if (e.target.closest('[data-abrir-modal]')) abrir(); });
+        // «Cupos de gasoil» del menú Acciones: abre el modal y cierra el menú.
+        document.querySelectorAll('[data-abrir-cupos]').forEach(function (b) {
+            b.addEventListener('click', function (e) {
+                e.preventDefault();
+                var menu = document.getElementById('splitDropdownMenu');
+                if (menu) menu.style.display = 'none';
+                abrir();
+            });
+        });
 
         modal.addEventListener('submit', function (e) {
             var f = e.target.closest('form[data-accion]');

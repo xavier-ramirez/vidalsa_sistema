@@ -9,7 +9,6 @@
     $hoy = now()->isSameMonth($mes) ? now()->toDateString() : $mes->toDateString();
 @endphp
 <div id="cuposDatos" data-mes="{{ $mes->format('Y-m') }}" hidden></div>
-<div id="cuposResumenNuevo" hidden>@include('admin.consumibles.partials.cupos_resumen')</div>
 
 <div class="cupos-tabs" role="tablist">
     @foreach ($patios as $clave => $p)
