@@ -1098,15 +1098,15 @@
            MOBILE CARD LAYOUT — Inventario de Almacén
            Cada <tr.alm-row> es una tarjeta GRID 4-col × 2 filas:
              ┌────────┬─────────────────────────────────────────────┐
-             │        │ 00042 ABRAZADERA INOXIDABLE 1/2 (banda gris)│  ← nombre+codigo
+             │        │ 00042 (chico, gris)                         │  ← codigo
+             │        │ ABRAZADERA INOXIDABLE 1/2 (banda gris)      │  ← nombre
              │  FOTO  ├─────────────────────────────────────────────┤
              │        │ STOCK 5.000 UND ⚠   [▲ 0 ▼]   [👁]          │  ← stock | cant | det
              └────────┴─────────────────────────────────────────────┘
 
-           - Codigo + nombre se leen como UN solo texto unificado: el <span> del
-             codigo (.alm-cod-mini) pasa a display:inline y hereda font, color y
-             peso del nombre. En PC ese mismo span va en su renglon, pequeno y
-             monoespaciado, ENCIMA del nombre. Ya NO hay columna de codigo.
+           - Codigo y nombre como en la PC (pedido del cliente, 24-11-2026): el codigo
+             (.alm-cod-mini) en su renglon, pequeno, gris y monoespaciado, ENCIMA del
+             nombre; el nombre en la misma letra que la PC. Ya NO hay columna de codigo.
            - alm-td-cat OCULTO (peticion previa del cliente). La foto, a la izquierda.
            - La letra, la misma que en la PC (Nunito 14 px; nombre en 600).
            - La unidad (UM) vive inline en la celda de Stock (span .alm-stock-um),
@@ -1202,7 +1202,8 @@
         }
         .alm-table tr.alm-row td.alm-td-foto .alm-foto { width: 56px; height: 56px; }
 
-        /* Fila 1: nombre + codigo como UN SOLO TEXTO — banda gris (el codigo, abajo). */
+        /* Fila 1: codigo arriba y nombre — banda gris. El codigo toma su regla de la PC
+           (.alm-cod-mini); el nombre, la letra de la PC (Nunito 14 px, 600). */
         .alm-table tr.alm-row td.alm-td-nombre {
             grid-area: nombre !important;
             display: block !important;
@@ -1211,22 +1212,7 @@
             font-size: 14px !important;
             font-weight: 600 !important;
             color: #1e293b !important;
-            line-height: 1.3 !important;
         }
-        /* En teléfono el cliente lo quiere como UN SOLO texto ("00042 ABRAZADERA"), no en
-           dos renglones: el mismo <span> del código se pone en línea y hereda el tipo, el
-           color y el peso del nombre. Antes esto lo hacía un ::before con data-codigo, que
-           duplicaba el dato; ahora se pinta una sola vez y solo cambia de forma. */
-        .alm-table tr.alm-row td.alm-td-nombre .alm-cod-mini {
-            display: inline !important;
-            font-family: inherit !important;
-            font-size: inherit !important;
-            font-weight: inherit !important;
-            letter-spacing: inherit !important;
-            color: inherit !important;
-            margin: 0 !important;
-        }
-        .alm-table tr.alm-row td.alm-td-nombre .alm-cod-mini::after { content: "  "; white-space: pre; }
 
         /* Fila 2: stock-info (label STOCK + valor + UM) | stepper | boton ojo.
            Todo en una sola linea — el cliente pidio ver "STOCK valor unidad
