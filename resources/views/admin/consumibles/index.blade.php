@@ -2,7 +2,7 @@
 @section('title', 'Consumibles')
 
 @section('content')
-    <div id="consumiblesAppRoot" data-route-match="{{ route('consumibles.matchAutomatico') }}"
+    <div id="consumiblesAppRoot"
         data-frentes='@json($frentes->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE]))'>
         <style>
             .badge-pen {
@@ -379,20 +379,6 @@
                         <div id="splitDropdownMenu"
                             style="display: none; position: absolute; top: 100%; right: 0; width: 220px; background: #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; z-index: 1050; margin-top: 5px; overflow: hidden; animation: slideDown 0.2s ease-out;">
                             @include('admin.consumibles.partials.acciones_navegacion', ['actual' => 'lista'])
-                            {{-- Acciones Locales --}}
-                            @can('equipos.edit')
-                            <button type="button" id="btnMatch"
-                                onclick="document.getElementById('splitDropdownMenu').style.display='none'; ejecutarMatch()"
-                                class="dropdown-item-custom"
-                                style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; width: 100%; text-align: left;"
- {{ ($pendientes == 0 && $sinMatch == 0) ? 'disabled' : '' }}>
-                                <div style="background: #fee2e2; padding: 6px; border-radius: 6px; display: flex;">
-                                    <i class="material-icons" style="font-size: 18px; color: #ef4444;">bolt</i>
-                                </div>
-                                <span id="consumiblesMatchTxt" style="font-size:14px; font-weight:500;">Ejecutar Match ({{ $pendientes }} /
-                                    {{ $sinMatch }})</span>
-                            </button>
-                            @endcan
                             <a id="consumiblesExportar" href="{{ route('consumibles.exportarCsv', request()->all()) }}"
                                 onclick="document.getElementById('splitDropdownMenu').style.display='none';"
                                 class="dropdown-item-custom"
@@ -481,13 +467,16 @@
                  * den lo mismo. Si la respuesta no trae los resultados (sesion caducada, error),
                  * se navega como antes.
                  */
-                window.cargarConsumibles = function (destino) {
+                // silencioso: lo trae un aviso del servidor (otro usuario o el match de fondo):
+                // sin spinner y, si falla, se queda como está.
+                window.cargarConsumibles = function (destino, silencioso) {
+                    var spin = !silencioso && window.showPreloader;
                     var url = new URL(destino, window.location.origin);
                     var seguir = function () {
                         if (typeof window.navigateTo === 'function') window.navigateTo(url.pathname + url.search);
                         else window.location.href = url.pathname + url.search;
                     };
-                    if (window.showPreloader) window.showPreloader();
+                    if (spin) window.showPreloader();
                     var pedido = (window._consumiblesPedido = (window._consumiblesPedido || 0) + 1);
                     // X-SPA-Navigate: la respuesta corta (sin menu ni scripts), que trae todo esto.
                     fetch(url.pathname + url.search, {
@@ -498,20 +487,17 @@
                     .then(function (html) {
                         // Llego otro pedido despues: este no pinta nada, pero SI suelta su
                         // referencia del spinner (es un contador; sin esto quedaba puesto).
-                        if (pedido !== window._consumiblesPedido) { if (window.hidePreloader) window.hidePreloader(); return; }
+                        if (pedido !== window._consumiblesPedido) { if (spin) window.hidePreloader(); return; }
                         var doc = new DOMParser().parseFromString(html, 'text/html');
                         var nuevo = doc.getElementById('consumiblesResultados');
                         var actual = document.getElementById('consumiblesResultados');
-                        if (!nuevo || !actual) { seguir(); return; }
+                        if (!nuevo || !actual) { if (!silencioso) seguir(); return; }
                         actual.innerHTML = nuevo.innerHTML;
-                        ['cnt-pendientes', 'cnt-confirmados', 'cnt-sinmatch', 'consumiblesMatchTxt'].forEach(function (id) {
+                        ['cnt-pendientes', 'cnt-confirmados', 'cnt-sinmatch'].forEach(function (id) {
                             var a = document.getElementById(id), n = doc.getElementById(id);
                             if (a && n) a.textContent = n.textContent;
                         });
-                        // Lo de fuera de los resultados que depende de los filtros o de los
-                        // numeros: el Match (se apaga si no queda nada) y el Excel (sus filtros).
-                        var btnM = document.getElementById('btnMatch'), nBtnM = doc.getElementById('btnMatch');
-                        if (btnM && nBtnM) btnM.disabled = nBtnM.disabled;
+                        // Lo de fuera de los resultados que depende de los filtros: el Excel.
                         var exp = document.getElementById('consumiblesExportar'), nExp = doc.getElementById('consumiblesExportar');
                         if (exp && nExp) exp.href = nExp.getAttribute('href');
                         // Lo que se marca según los filtros (botón de filtros, caja de placa y su X,
@@ -524,11 +510,11 @@
                         if (window.location.pathname + window.location.search !== url.pathname + url.search) {
                             history.pushState({}, '', url.pathname + url.search);
                         }
-                        if (window.hidePreloader) window.hidePreloader();
+                        if (spin) window.hidePreloader();
                     })
                     .catch(function () {
-                        if (window.hidePreloader) window.hidePreloader();
-                        if (pedido !== window._consumiblesPedido) return;
+                        if (spin) window.hidePreloader();
+                        if (pedido !== window._consumiblesPedido || silencioso) return;
                         seguir();
                     });
                 };

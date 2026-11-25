@@ -7,6 +7,7 @@ use App\Models\ConsumibleImportacion;
 use App\Models\FrenteTrabajo;
 use App\Services\Consumibles\IdentificadorConsumo;
 use App\Services\Consumibles\ImportadorCombustible;
+use App\Services\Consumibles\MatchConsumibles;
 use Illuminate\Http\Request;
 use App\Support\CacheVersion;
 use Illuminate\Support\Facades\Cache;
@@ -241,7 +242,7 @@ class ConsumiblesController extends Controller
         }
 
         $tiposConEspec = ['ACEITE', 'CAUCHO'];
-        $insertados = 0;
+        $nuevos = [];
 
         DB::beginTransaction();
         try {
@@ -252,7 +253,7 @@ class ConsumiblesController extends Controller
                     $especFila = $raw !== '' ? $raw : null;
                 }
 
-                Consumible::create([
+                $nuevos[] = Consumible::create([
                     'FECHA' => $fila['fecha'],
                     'IDENTIFICADOR' => isset($fila['identificador']) ? trim($fila['identificador']) : null,
                     'RESP_NOMBRE' => isset($fila['resp_nombre']) ? trim($fila['resp_nombre']) : null,
@@ -266,8 +267,7 @@ class ConsumiblesController extends Controller
                     'ID_EQUIPO' => null,
                     'ID_SUMINISTRO' => null,
                     'ESTADO_EQUIPO' => 'PENDIENTE',
-                ]);
-                $insertados++;
+                ])->ID_CONSUMIBLE;
             }
             if ($ensenar) {
                 (new ImportadorCombustible())->ensenar($ensenar, [], auth()->id());
@@ -283,9 +283,11 @@ class ConsumiblesController extends Controller
             return back()->withErrors(['error' => $errMsg])->withInput();
         }
 
-        // Invalidar caché de gráficos — los datos cambiaron
+        // El equipo de cada fila lo identifica el servidor ya, sin botón.
+        (new MatchConsumibles())->ejecutar($nuevos);
         CacheVersion::bump(self::DATA_VER_KEY);
 
+        $insertados = count($nuevos);
         $mensaje = "$insertados registros cargados exitosamente.";
 
         if ($request->expectsJson()) {
@@ -325,7 +327,7 @@ class ConsumiblesController extends Controller
     }
 
     // ══════════════════════════════════════════════════════════════
-    // ACTUALIZAR IDENTIFICADOR — Resetea a PENDIENTE para re-match
+    // ACTUALIZAR IDENTIFICADOR — y se vuelve a identificar el equipo
     // ══════════════════════════════════════════════════════════════
     public function updateIdentificador(Request $request, int $id)
     {
@@ -337,10 +339,11 @@ class ConsumiblesController extends Controller
 
         $consumible->update([
             'IDENTIFICADOR' => strtoupper(trim($request->identificador)),
-            'ESTADO_EQUIPO' => 'PENDIENTE',   // resetear para re-match
+            'ESTADO_EQUIPO' => 'PENDIENTE',   // se vuelve a identificar ya, con el texto nuevo
             'ID_EQUIPO' => null,
             'ID_AUXILIAR' => null,
         ]);
+        (new MatchConsumibles())->ejecutar([$consumible->ID_CONSUMIBLE]);
 
         // Invalidar caché de gráficos
         CacheVersion::bump(self::DATA_VER_KEY);
@@ -913,189 +916,5 @@ class ConsumiblesController extends Controller
         $name = 'Exportacion_Consumibles_' . date('Y-m-d_H-i') . '.xlsx';
 
         return response()->download($tempFile, $name)->deleteFileAfterSend(true);
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // MATCH AUTOMÁTICO — Resuelve equipos PENDIENTES
-    // ══════════════════════════════════════════════════════════════
-    public function matchAutomatico()
-    {
-        // Un PENDIENTE sin identificador no tiene con qué buscarse: queda «Por identificar»
-        // (se le escribe el identificador a mano y vuelve a PENDIENTE). Antes se quedaba
-        // pendiente para siempre y el contador del Match nunca bajaba.
-        $sinIdentificador = Consumible::where('ESTADO_EQUIPO', 'PENDIENTE')
-            ->where(fn ($q) => $q->whereNull('IDENTIFICADOR')->orWhere('IDENTIFICADOR', ''))
-            ->update(['ESTADO_EQUIPO' => 'SIN_MATCH']);
-
-        // Procesa PENDIENTE y SIN_MATCH — permite reintentar los no encontrados
-        $pendientes = Consumible::whereIn('ESTADO_EQUIPO', ['PENDIENTE', 'SIN_MATCH'])
-            ->whereNotNull('IDENTIFICADOR')
-            ->where('IDENTIFICADOR', '!=', '')
-            ->get();
-
-        // INDICES EN MEMORIA, una sola vez. Antes este bucle lanzaba hasta 5 consultas por
-        // fila mas un UPDATE por fila: con las 98 filas candidatas de hoy son del orden de
-        // 400-600 consultas por clic, y crece con la tabla. Es un boton de pantalla, no una
-        // tarea nocturna, asi que con unos miles de consumibles se iba a timeout.
-        //
-        // Caben de sobra: 945 placas y 1.209 equipos. Se cargan solo las columnas que el
-        // match necesita.
-        $equipos = DB::table('equipos')
-            ->select('ID_EQUIPO', 'CODIGO_PATIO', 'SERIAL_CHASIS', 'MARCA', 'MODELO')
-            ->get()->keyBy('ID_EQUIPO');
-
-        $norm = fn ($v) => mb_strtoupper(trim((string) $v));
-
-        // placa normalizada -> ID_EQUIPO (y la lista completa para el parcial)
-        $placas = DB::table('documentacion')
-            ->whereNotNull('PLACA')->where('PLACA', '!=', '')
-            ->select('ID_EQUIPO', 'PLACA')->get()
-            ->map(fn ($d) => (object) ['id' => $d->ID_EQUIPO, 'txt' => $norm($d->PLACA)]);
-        $porPlaca = [];
-        foreach ($placas as $d) { $porPlaca[$d->txt] ??= $d->id; }
-
-        $porCodigo = $porSerial = [];
-        foreach ($equipos as $e) {
-            $cp = $norm($e->CODIGO_PATIO); if ($cp !== '') { $porCodigo[$cp] ??= $e->ID_EQUIPO; }
-            $sc = $norm($e->SERIAL_CHASIS); if ($sc !== '') { $porSerial[$sc] ??= $e->ID_EQUIPO; }
-        }
-
-        $confirmados = 0;
-        $sinMatch = 0;
-        $detalle = [];
-        // Se acumulan para aplicarlos en bloque al final, no un UPDATE por fila.
-        $aConfirmar = [];   // [ID_EQUIPO => [ID_CONSUMIBLE, ...]]
-        $aConfirmarAux = [];// [ID_AUXILIAR => [ID_CONSUMIBLE, ...]]
-        $sinEquipo  = [];   // [ID_CONSUMIBLE, ...] enseñados como «no es un equipo»
-        $aSinMatch  = [];   // [ID_CONSUMIBLE, ...]
-
-        // Los que vinieron de un Excel de gasoil (Cargar → subir Excel) se resuelven con las MISMAS reglas y alias de
-        // esa carga (IdentificadorConsumo): su IDENTIFICADOR es el texto del Excel, no una placa
-        // limpia, y la coincidencia parcial de abajo podría dar un equipo de otro tipo.
-        $deExcel = $pendientes->whereNotNull('ID_IMPORTACION');
-        $pendientes = $pendientes->whereNull('ID_IMPORTACION');
-        $ident = $deExcel->isNotEmpty() ? new \App\Services\Consumibles\IdentificadorConsumo() : null;
-        foreach ($deExcel as $c) {
-            $r = $ident->resolverEquipo(['desc' => $c->IDENTIFICADOR]);
-            if ($r['estado'] === 'SIN_MATCH') {
-                $aSinMatch[] = $c->ID_CONSUMIBLE;
-                $sinMatch++;
-            } else {
-                if ($r['id_equipo']) {
-                    $aConfirmar[$r['id_equipo']][] = $c->ID_CONSUMIBLE;
-                } elseif ($r['id_auxiliar']) {
-                    $aConfirmarAux[$r['id_auxiliar']][] = $c->ID_CONSUMIBLE;
-                } else {
-                    $sinEquipo[] = $c->ID_CONSUMIBLE;
-                }
-                $confirmados++;
-            }
-            $detalle[] = [
-                'identificador' => $c->IDENTIFICADOR,
-                'match' => $r['estado'] === 'SIN_MATCH' ? null : $r['etiqueta'],
-                'modo' => $r['modo'],
-                'estado' => $r['estado'] === 'SIN_MATCH' ? 'SIN_MATCH' : 'CONFIRMADO',
-            ];
-        }
-
-        foreach ($pendientes as $c) {
-            $id = $norm($c->IDENTIFICADOR);
-            $equipo = null;
-            $modo = null;
-
-            // 1. Por placa EXACTA
-            if (isset($porPlaca[$id])) {
-                $equipo = $equipos->get($porPlaca[$id]);
-                if ($equipo) $modo = 'placa';
-            }
-            // 2. Por CODIGO_PATIO exacto (etiqueta interna)
-            if (!$equipo && isset($porCodigo[$id])) {
-                $equipo = $equipos->get($porCodigo[$id]);
-                if ($equipo) $modo = 'codigo_patio';
-            }
-            // 3. Por serial de chasis exacto
-            if (!$equipo && isset($porSerial[$id])) {
-                $equipo = $equipos->get($porSerial[$id]);
-                if ($equipo) $modo = 'serial_exacto';
-            }
-
-            // 4. Coincidencia PARCIAL (minimo 4 caracteres, para evitar falsos positivos).
-            // Misma regla que antes -el identificador contenido en la placa, el serial o el
-            // codigo de patio- y sigue exigiendo que resuelva a UN solo equipo.
-            if (!$equipo && mb_strlen($id) >= 4) {
-                $idsDoc = [];
-                foreach ($placas as $d) {
-                    if (str_contains($d->txt, $id)) { $idsDoc[$d->id] = true; }
-                }
-                $idsEq = [];
-                foreach ($equipos as $e) {
-                    if (str_contains($norm($e->SERIAL_CHASIS), $id) || str_contains($norm($e->CODIGO_PATIO), $id)) {
-                        $idsEq[$e->ID_EQUIPO] = true;
-                    }
-                }
-                $todos = array_keys($idsDoc + $idsEq);
-                if (count($todos) === 1) {
-                    $equipo = $equipos->get($todos[0]);
-                    $modo = isset($idsDoc[$todos[0]]) ? 'placa_parcial' : 'serial_parcial';
-                }
-            }
-
-            // — Actualizar el registro —
-            if ($equipo) {
-                $aConfirmar[$equipo->ID_EQUIPO][] = $c->ID_CONSUMIBLE;
-                $confirmados++;
-                $detalle[] = [
-                    'identificador' => $c->IDENTIFICADOR,
-                    'match' => "{$equipo->CODIGO_PATIO} · {$equipo->MARCA} {$equipo->MODELO}",
-                    'modo' => $modo,
-                    'estado' => 'CONFIRMADO',
-                ];
-            } else {
-                $aSinMatch[] = $c->ID_CONSUMIBLE;
-                $sinMatch++;
-                $detalle[] = [
-                    'identificador' => $c->IDENTIFICADOR,
-                    'match' => null,
-                    'modo' => $modo,
-                    'estado' => 'SIN_MATCH',
-                ];
-            }
-        }
-
-        // Los cambios, en bloque: un UPDATE por equipo confirmado y uno para todos los
-        // SIN_MATCH, en vez de un UPDATE por fila. Consumible no tiene observer, asi que
-        // el mass-update no se salta ningun efecto (comprobado).
-        DB::transaction(function () use ($aConfirmar, $aConfirmarAux, $sinEquipo, $aSinMatch) {
-            foreach ($aConfirmar as $idEquipo => $idsConsumible) {
-                Consumible::whereIn('ID_CONSUMIBLE', $idsConsumible)->update([
-                    'ID_EQUIPO'     => $idEquipo,
-                    'ID_AUXILIAR'   => null,
-                    'ESTADO_EQUIPO' => 'CONFIRMADO',
-                ]);
-            }
-            foreach ($aConfirmarAux as $idAux => $idsConsumible) {
-                Consumible::whereIn('ID_CONSUMIBLE', $idsConsumible)->update([
-                    'ID_EQUIPO'     => null,
-                    'ID_AUXILIAR'   => $idAux,
-                    'ESTADO_EQUIPO' => 'CONFIRMADO',
-                ]);
-            }
-            if ($sinEquipo) {
-                Consumible::whereIn('ID_CONSUMIBLE', $sinEquipo)->update(['ID_EQUIPO' => null, 'ID_AUXILIAR' => null, 'ESTADO_EQUIPO' => 'CONFIRMADO']);
-            }
-            if ($aSinMatch) {
-                Consumible::whereIn('ID_CONSUMIBLE', $aSinMatch)->update(['ESTADO_EQUIPO' => 'SIN_MATCH']);
-            }
-        });
-
-        // Invalidar caché de gráficos — el match puede cambiar muchos registros
-        CacheVersion::bump(self::DATA_VER_KEY);
-
-        return response()->json([
-            'total' => $pendientes->count(),
-            'confirmados' => $confirmados,
-            'sin_match' => $sinMatch + $sinIdentificador,
-            'detalle' => $detalle,
-        ]);
     }
 }

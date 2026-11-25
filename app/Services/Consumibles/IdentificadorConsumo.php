@@ -305,7 +305,7 @@ class IdentificadorConsumo
         // Al final, para no cambiar el primero (la identidad de la huella, ver identidad()): un
         // IDENTIFICADOR guardado por la carga es «descripción | placa | serial», cada trozo un
         // valor de celda tal cual; y si en Consumibles alguien lo cambia a mano por la placa o el
-        // serial completo, el texto entero es ese valor (así lo resuelve «Ejecutar Match»).
+        // serial completo, el texto entero es ese valor (así lo resuelve el match del servidor, MatchConsumibles).
         // Solo trozos con algún dígito: «BUS» o «PALA» solos no son una placa ni un código.
         array_push($c, ...preg_grep('/\d/', explode(' | ', $desc)));
 
@@ -335,7 +335,7 @@ class IdentificadorConsumo
     /**
      * Texto con el que se agrupa (y se enseña) un equipo no identificado. Es también el
      * IDENTIFICADOR que se guarda en el consumo (100 caracteres, el largo de esa columna):
-     * así «Ejecutar Match» vuelve a resolverlo con las mismas reglas y los mismos alias.
+     * así el match del servidor (MatchConsumibles) vuelve a resolverlo con las mismas reglas y los mismos alias.
      */
     public function claveAliasEquipo(array $f): string
     {

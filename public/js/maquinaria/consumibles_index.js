@@ -1,6 +1,7 @@
 /**
  * consumibles_index.js — pantalla Gestión de Consumibles (admin/consumibles/index.blade.php):
- * borrar, Match automático y edición en la fila del identificador y del frente.
+ * borrar, edición en la fila del identificador y del frente, y la lista al día sola.
+ * El equipo de cada consumo lo identifica el servidor (MatchConsumibles), sin botón.
  */
 
 // ═══════════════════════════════════════════════════════════════════
@@ -27,7 +28,7 @@ window.borrarDirecto = function(id, url, btn) {
                 setTimeout(function() { row.remove(); }, 200);
             }
             window.toast('Registro eliminado al instante.', 'success');
-            // Los contadores de arriba (y el botón del Match) cuentan este registro.
+            // Los contadores de arriba cuentan este registro.
             consumiblesRefrescar();
         } else {
             window.toast(data.message || 'No se pudo eliminar', 'error');
@@ -46,8 +47,35 @@ function consumiblesRefrescar() {
     if (window.submitConsumiblesFilters) window.submitConsumiblesFilters(true);
 }
 
+// La lista al día sola: lo que carga o edita otro usuario y lo que el servidor identifica en
+// segundo plano llega con el aviso en tiempo real (tiempo-real.js → 'consumibles-cambiaron')
+// y, además, al volver a la pestaña. No se repinta con una celda en edición (se
+// perdería lo escrito): queda pendiente y se hace al terminar.
+(function () {
+    if (window.__consumiblesAlDia) return;
+    window.__consumiblesAlDia = true;
+    var pendiente = false, espera = null;
+    function editando() {
+        return !!document.querySelector('#consumiblesResultados input, #consumiblesResultados select');
+    }
+    function refrescar() {
+        if (!document.getElementById('consumiblesResultados') || !window.cargarConsumibles) return;
+        if (document.hidden || editando()) { pendiente = true; return; }
+        pendiente = false;
+        clearTimeout(espera);
+        // Lo mismo que se ve (la URL: filtros aplicados y página), no un filtro a medio escribir.
+        espera = setTimeout(function () { window.cargarConsumibles(location.pathname + location.search, true); }, 300);
+    }
+    window.addEventListener('consumibles-cambiaron', refrescar);
+    // Volver a la pestaña pregunta siempre (como las demás pantallas): cubre lo que pasó sin aviso.
+    window.addEventListener('focus', refrescar);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refrescar(); });
+    // Terminó una edición en la fila (guardar o cancelar quita el campo): lo que esperaba, ahora.
+    document.addEventListener('click', function () { if (pendiente) setTimeout(function () { if (!editando()) refrescar(); }, 0); });
+})();
+
 // ═══════════════════════════════════════════════════════════════════
-// MÓDULO CONSUMIBLES — lógica de la página (Match, edición inline)
+// MÓDULO CONSUMIBLES — lógica de la página (edición inline)
 // ═══════════════════════════════════════════════════════════════════
 if (typeof window.ModuleManager !== 'undefined') {
     ModuleManager.register(
@@ -56,53 +84,6 @@ if (typeof window.ModuleManager !== 'undefined') {
         function() {
             var appRoot = document.getElementById('consumiblesAppRoot');
             if (!appRoot) return;
-
-            // ── Match automático ──────────────────────────────────────
-            window.ejecutarMatch = function() {
-                var btn        = document.getElementById('btnMatch');
-                var routeMatch = appRoot.dataset.routeMatch;
-
-                if (btn) btn.disabled = true;
-                if (window.showPreloader) window.showPreloader();
-
-                window.apiFetch(routeMatch, { headers: { 'Accept': 'application/json' },
-                    method: 'POST'})
-                .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
-                .then(function(res) {
-                    var data = res.data || {};
-                    // Un 403 también trae JSON: sin esto salía "0 equipos confirmados" en verde.
-                    if (!res.ok) {
-                        if (window.hidePreloader) window.hidePreloader();
-                        if (btn) btn.disabled = false;
-                        window.toast(data.message || 'No se pudo ejecutar el match', 'error');
-                        return;
-                    }
-                    // Cuenta consumos (filas), no equipos: varios consumos son del mismo equipo.
-                    // Los contadores de arriba los trae la recarga de abajo.
-                    var confirmados = data.confirmados || 0;
-                    var sinMatch    = data.sin_match   || 0;
-                    var msg = confirmados + ' consumo' + (confirmados === 1 ? '' : 's') + ' identificado' + (confirmados === 1 ? '' : 's');
-                    if (sinMatch > 0) msg += ' · ' + sinMatch + ' por identificar';
-                    window.toast(msg, 'success');
-
-                    // Recargar los resultados. cargarConsumibles toma su PROPIA referencia del
-                    // spinner antes de soltar la del match (es un contador), asi que no parpadea;
-                    // y el boton vuelve a servir porque ya no se repinta la pantalla entera.
-                    if (window.submitConsumiblesFilters) {
-                        window.submitConsumiblesFilters();
-                        if (window.hidePreloader) window.hidePreloader();
-                        // El boton lo deja como toca cargarConsumibles (apagado si ya no
-                        // queda nada que emparejar), al llegar los numeros nuevos.
-                    } else {
-                        location.reload();
-                    }
-                })
-                .catch(function() {
-                    if (window.hidePreloader) window.hidePreloader();
-                    if (btn) btn.disabled = false;
-                    window.toast('Error al ejecutar match', 'error');
-                });
-            };
 
             // ── Edición inline — Identificador ───────────────────────
             // El identificador lo escribe cualquiera con permiso: se pinta SIEMPRE escapado y
@@ -156,9 +137,9 @@ if (typeof window.ModuleManager !== 'undefined') {
                         window.toast(data.message || 'No se pudo guardar el identificador', 'error');
                         return;
                     }
-                    // El servidor lo deja PENDIENTE y sin equipo (hasta el próximo Match): se
-                    // recargan los resultados para que el estado, el equipo y los contadores lo digan.
-                    window.toast('Identificador guardado. Queda pendiente hasta el próximo Match.', 'success');
+                    // El servidor ya buscó el equipo con el identificador nuevo: se recargan los
+                    // resultados para que el estado, el equipo y los contadores lo digan.
+                    window.toast('Identificador guardado.', 'success');
                     consumiblesRefrescar();
                 })
                 .catch(function() {

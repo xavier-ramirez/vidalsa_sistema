@@ -313,7 +313,6 @@ Route::middleware(['auth'])->group(function () {
             Route::get ('consumibles/exportar-csv',       [App\Http\Controllers\ConsumiblesController::class, 'exportarCsv'])    ->name('consumibles.exportarCsv');
             Route::post('consumibles/frentes-de-textos',  [App\Http\Controllers\ConsumiblesController::class, 'frentesDeTextos'])->middleware('can:super.admin')->name('consumibles.frentesDeTextos');
             Route::post('consumibles/guardar-lote',       [App\Http\Controllers\ConsumiblesController::class, 'guardarLote'])    ->middleware('can:super.admin')->name('consumibles.guardarLote');
-            Route::post('consumibles/match-automatico',   [App\Http\Controllers\ConsumiblesController::class, 'matchAutomatico'])->middleware('can:equipos.edit')->name('consumibles.matchAutomatico');
             // Excel de gasoil (reportes de los proyectos), dentro de Cargar consumibles: super.admin,
             // como guardar lo pegado a mano. La subida y las cargas anteriores salen en consumibles.cargar.
             Route::middleware('can:super.admin')->controller(App\Http\Controllers\ConsumiblesImportacionController::class)->group(function () {

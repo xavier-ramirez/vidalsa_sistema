@@ -31,6 +31,9 @@ use Throwable;
  * Mira además el ACCESO de los usuarios (Usuario::CAMPOS_ACCESO): cambiarle el frente o el
  * nivel a alguien no pasa por `cambios`, pero cambia lo que su copia debe tener (la firma).
  *
+ * Y la tabla de CONSUMIBLES (cuántos, el último y la última edición): no está en la copia
+ * local, pero su lista se repinta con el aviso (marca `consumibles`).
+ *
  * Y cada LATIDO_SEG manda un latido: el navegador solo se da por «en vivo» (y deja de
  * preguntar cada 15 s) mientras le llegan. Si este vigía se cae, dejan de llegar y todos
  * vuelven solos a preguntar cada 15 s.
@@ -51,6 +54,9 @@ class AvisarCambios extends Command
 
     /** El acceso de la última vuelta que avisó bien: si cambia, el aviso lo dice (HuboCambios::$acceso). */
     private ?string $acceso = null;
+
+    /** Lo mismo para la tabla de consumibles (HuboCambios::$consumibles). */
+    private ?string $consumibles = null;
 
     private int $ultimoLatido = 0;
 
@@ -93,19 +99,24 @@ class AvisarCambios extends Command
             $this->base ??= max(0, RegistroCambios::ultimo() - $this->ventana);
             [$maximo, $total, $desdeNueva, $nuevaBase] = $this->mirar($this->base);
             $acceso = $this->accesos();
+            $consumibles = $this->consumibles();
 
             unset($this->fallas['base']);
 
-            $aviso = $this->huella !== null && "{$maximo}:{$total}:{$acceso}" !== $this->huella;
+            $aviso = $this->huella !== null && "{$maximo}:{$total}:{$acceso}:{$consumibles}" !== $this->huella;
             if ($aviso) {
-                broadcast(new HuboCambios(acceso: $this->acceso !== null && $acceso !== $this->acceso));
+                broadcast(new HuboCambios(
+                    acceso: $this->acceso !== null && $acceso !== $this->acceso,
+                    consumibles: $this->consumibles !== null && $consumibles !== $this->consumibles,
+                ));
                 unset($this->fallas['aviso']);
                 $this->ultimoLatido = time();   // un aviso también dice «sigo vivo»
             }
             // La ventana avanza con la misma foto de la tabla: la huella sigue valiendo.
             $this->base   = $nuevaBase;
-            $this->huella = "{$maximo}:{$desdeNueva}:{$acceso}";
+            $this->huella = "{$maximo}:{$desdeNueva}:{$acceso}:{$consumibles}";
             $this->acceso = $acceso;
+            $this->consumibles = $consumibles;
 
             return $aviso;
         } catch (Throwable $e) {
@@ -174,5 +185,16 @@ class AvisarCambios extends Command
             ->first();
 
         return $f->n . '/' . $f->s;
+    }
+
+    /**
+     * Huella de la tabla de consumibles: alta (cantidad, el más alto), baja (cantidad) y edición
+     * (updated_at más reciente; el match del servidor y las ediciones de la lista lo cambian).
+     */
+    private function consumibles(): string
+    {
+        $f = DB::table('consumibles')->selectRaw('COUNT(*) AS n, MAX(ID_CONSUMIBLE) AS m, MAX(updated_at) AS u')->first();
+
+        return $f->n . '/' . $f->m . '/' . $f->u;
     }
 }

@@ -13,13 +13,18 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
  *
  * Con `latido` es solo «el vigía sigue vivo»: no hace preguntar nada. Con `acceso`, a alguien
  * le cambiaron permisos, rol, nivel o frentes: cada pestaña mira ya si fue a ella
- * (navegacion.js → revisarAcceso), sin esperar su minuto.
+ * (navegacion.js → revisarAcceso), sin esperar su minuto. Con `consumibles`, cambió la tabla de
+ * consumibles (no pasa por la copia local): su lista se repinta (consumibles_index.js).
  */
 class HuboCambios implements ShouldBroadcastNow
 {
     use InteractsWithBroadcasting;
 
-    public function __construct(public readonly bool $latido = false, public readonly bool $acceso = false)
+    public function __construct(
+        public readonly bool $latido = false,
+        public readonly bool $acceso = false,
+        public readonly bool $consumibles = false,
+    )
     {
         $this->broadcastVia('reverb');   // ver config/broadcasting.php
     }
@@ -36,6 +41,6 @@ class HuboCambios implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
-        return $this->acceso ? ['acceso' => true] : [];
+        return array_filter(['acceso' => $this->acceso, 'consumibles' => $this->consumibles]);
     }
 }

@@ -129,7 +129,6 @@ class SeguridadHuellaPapeleraFallasTest extends MySqlTestCase
 
         $this->actingAs($sin)->patchJson("/admin/consumibles/{$id}/identificador", ['identificador' => '<img src=x onerror=alert(1)>'])->assertForbidden();
         $this->actingAs($sin)->patchJson("/admin/consumibles/{$id}/estado", ['estado_equipo' => 'PENDIENTE'])->assertForbidden();
-        $this->actingAs($sin)->postJson('/admin/consumibles/match-automatico')->assertForbidden();
         $this->actingAs($sin)->deleteJson("/admin/consumibles/{$id}")->assertForbidden();
         $this->assertDatabaseHas('consumibles', ['ID_CONSUMIBLE' => $id]);
 

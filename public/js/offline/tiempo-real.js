@@ -62,6 +62,8 @@
                 // Le cambiaron el acceso a alguien: cada pestaña pregunta si fue a ella (una
                 // lectura de caché). Repartido en 1 s para no llegar todas a la vez.
                 if (d && d.acceso && window.revisarAcceso) setTimeout(window.revisarAcceso, Math.random() * 1000);
+                // Cambió la tabla de consumibles (no va en la copia): su lista se repinta.
+                if (d && d.consumibles) window.dispatchEvent(new Event('consumibles-cambiaron'));
             });
             conexion.connection.bind('state_change', (s) => { if (s.current !== 'connected') caido(); });
         }).catch(() => window.addEventListener('online', iniciar, { once: true }));

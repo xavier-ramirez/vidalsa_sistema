@@ -87,6 +87,24 @@ class AvisarCambiosTest extends MySqlTestCase
         Event::assertDispatched(HuboCambios::class, fn (HuboCambios $e) => $e->acceso && $e->broadcastWith() === ['acceso' => true]);
     }
 
+    public function test_cargar_o_editar_consumibles_avisa_a_su_lista(): void
+    {
+        $this->vigia->vuelta();
+
+        $c = \App\Models\Consumible::create([
+            'FECHA' => '2026-08-01', 'IDENTIFICADOR' => 'ZZ-VIGIA', 'CANTIDAD' => 1,
+            'TIPO_CONSUMIBLE' => 'GASOIL', 'UNIDAD' => 'LITROS', 'ESTADO_EQUIPO' => 'SIN_MATCH',
+        ]);
+        $this->assertTrue($this->vigia->vuelta(), 'una fila nueva avisa');
+        $this->assertFalse($this->vigia->vuelta());
+
+        DB::table('consumibles')->where('ID_CONSUMIBLE', $c->ID_CONSUMIBLE)->update(['updated_at' => now()->addMinute()]);
+        $this->assertTrue($this->vigia->vuelta(), 'editarla avisa');
+        // El aviso lo dice: la lista de Consumibles se repinta (tiempo-real.js → 'consumibles-cambiaron').
+        Event::assertDispatched(HuboCambios::class, fn (HuboCambios $e) => $e->consumibles && $e->broadcastWith() === ['consumibles' => true]);
+        Event::assertNotDispatched(HuboCambios::class, fn (HuboCambios $e) => $e->acceso);
+    }
+
     public function test_pasar_un_frente_de_asignado_a_bloqueado_avisa(): void
     {
         $id = DB::table('usuarios')->min('ID_USUARIO');

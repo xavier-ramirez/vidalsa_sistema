@@ -288,7 +288,7 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertSame([], $importador->revisar($imp)['resumen']['sin_equipo']);
     }
 
-    public function test_ejecutar_match_resuelve_lo_cargado_con_lo_ensenado_despues(): void
+    public function test_el_match_del_servidor_resuelve_lo_cargado_con_lo_ensenado_despues(): void
     {
         [$equipo, $digitos] = $this->motoniveladora();
         $u = $this->superAdminGlobal();
@@ -302,7 +302,7 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
             'equipos' => [['clave' => $clave, 'ref' => 'E:' . $equipo->ID_EQUIPO]],
         ])->assertOk();
 
-        $this->postJson(route('consumibles.matchAutomatico'))->assertOk();
+        (new \App\Services\Consumibles\MatchConsumibles())->ejecutar();   // la pasada de cada hora
         $this->assertSame(0, (clone $porIdentificar)->count());
         $this->assertSame(5, DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)
             ->where('ID_EQUIPO', $equipo->ID_EQUIPO)->where('ESTADO_EQUIPO', 'CONFIRMADO')->count());
@@ -318,8 +318,8 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
 
         // En Consumibles: al «camión desconocido» se le escribe el serial que faltaba en el Excel.
         $id = DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->where('ESTADO_EQUIPO', 'SIN_MATCH')->value('ID_CONSUMIBLE');
+        // Sin botón: guardar el identificador ya lo identifica.
         $this->patchJson(route('consumibles.updateIdentificador', $id), ['identificador' => $equipo->SERIAL_CHASIS])->assertOk();
-        $this->postJson(route('consumibles.matchAutomatico'))->assertOk();
 
         $c = DB::table('consumibles')->where('ID_CONSUMIBLE', $id)->first();
         $this->assertSame('CONFIRMADO', $c->ESTADO_EQUIPO);
