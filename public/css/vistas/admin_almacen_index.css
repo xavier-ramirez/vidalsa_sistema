@@ -1096,18 +1096,19 @@
 
         /* ═══════════════════════════════════════════════════════════
            MOBILE CARD LAYOUT — Inventario de Almacén
-           Cada <tr.alm-row> es una tarjeta GRID 3-col × 2 filas:
-             ┌──────────────────────────────────────────────────────┐
-             │ 00042 ABRAZADERA INOXIDABLE 1/2  (banda gris)        │  ← nombre+codigo (full)
-             ├──────────────────────────────────────────────────────┤
-             │ STOCK 5.000 UND ⚠    [▲ 0 ▼ stepper]      [👁]       │  ← stock | cant | det
-             └──────────────────────────────────────────────────────┘
+           Cada <tr.alm-row> es una tarjeta GRID 4-col × 2 filas:
+             ┌────────┬─────────────────────────────────────────────┐
+             │        │ 00042 ABRAZADERA INOXIDABLE 1/2 (banda gris)│  ← nombre+codigo
+             │  FOTO  ├─────────────────────────────────────────────┤
+             │        │ STOCK 5.000 UND ⚠   [▲ 0 ▼]   [👁]          │  ← stock | cant | det
+             └────────┴─────────────────────────────────────────────┘
 
            - Codigo + nombre se leen como UN solo texto unificado: el <span> del
              codigo (.alm-cod-mini) pasa a display:inline y hereda font, color y
              peso del nombre. En PC ese mismo span va en su renglon, pequeno y
              monoespaciado, ENCIMA del nombre. Ya NO hay columna de codigo.
-           - alm-td-cat OCULTO (peticion previa del cliente).
+           - alm-td-cat OCULTO (peticion previa del cliente). La foto, a la izquierda.
+           - La letra, la misma que en la PC (Nunito 14 px; nombre en 600).
            - La unidad (UM) vive inline en la celda de Stock (span .alm-stock-um),
              tanto en desktop como en mobile — ya no hay columna "UND" aparte.
            - Stock row: ::before "STOCK" label + valor + unidad (span),
@@ -1121,8 +1122,8 @@
 
         .alm-table tr.alm-row {
             display: grid !important;
-            /* col 1 = 1fr (stock-info absorbe el ancho sobrante), col 2 = auto
-               (stepper natural ~76px), col 3 = auto (boton ojo ~30px). */
+            /* col 1 = auto (foto), col 2 = 1fr (stock-info absorbe el ancho sobrante),
+               col 3 = auto (stepper natural ~76px), col 4 = auto (boton ojo ~30px). */
             grid-template-columns: auto 1fr auto auto !important;
             grid-template-areas:
                 "foto nombre nombre nombre"
@@ -1183,11 +1184,10 @@
         }
         .alm-table tr.alm-row td .tooltip-bubble { display: none !important; }
 
-        /* Codigo y categoria SE OCULTAN como celdas propias en mobile — el codigo se
-           reusa como prefijo del nombre (::before via data-codigo) y la categoria el
-           cliente pidio quitarla. OJO: este display:none debe ir en SU PROPIA regla;
-           antes estaba comma-unido a .alm-td-nombre de abajo y, en vez de ocultarse,
-           heredaban display:block + gradiente + grid-area:nombre (se encimaban). */
+        /* La categoria se oculta en mobile (el cliente pidio quitarla). OJO: este
+           display:none debe ir en SU PROPIA regla; antes estaba comma-unido a
+           .alm-td-nombre de abajo y, en vez de ocultarse, heredaba display:block +
+           gradiente + grid-area:nombre (se encimaban). */
         .alm-table tr.alm-row td.alm-td-cat { display: none !important; }
         /* La foto, a la izquierda y a todo el alto de la tarjeta, como en la PC (antes se
            escondía; el cliente la pidió de vuelta el 24-11-2026). Sin foto: el recuadro con la
@@ -1202,10 +1202,7 @@
         }
         .alm-table tr.alm-row td.alm-td-foto .alm-foto { width: 56px; height: 56px; }
 
-        /* Fila 1: nombre + codigo como UN SOLO TEXTO unificado — banda gris.
-           El ::before pone "00042 " como prefijo, heredando font/color/weight
-           del td padre (sin monospace, sin separador "·", sin gris distinto).
-           El cliente lo pidio: "todo en el mismo texto, sin separar". */
+        /* Fila 1: nombre + codigo como UN SOLO TEXTO — banda gris (el codigo, abajo). */
         .alm-table tr.alm-row td.alm-td-nombre {
             grid-area: nombre !important;
             display: block !important;

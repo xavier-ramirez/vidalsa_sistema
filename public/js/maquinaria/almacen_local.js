@@ -660,7 +660,7 @@
     // y almacen_index.js al terminar de subir una foto. Con foto: la miniatura, que abre el
     // visor. Sin foto: la cámara para subirla SOLO con almacen.foto (ALM_CFG.puedeFoto, se lee
     // al pintar porque la vista SPA lo reemplaza al volver a entrar); a los demás, el recuadro
-    // vacío para que la columna no baile.
+    // con un ícono tenue (CSS: span.alm-foto-sin:empty) para que la columna no baile.
     function celdaFoto(id, url, nombre) {
         if (url) {
             return '<img src="' + h(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'sz=w120') + '" alt="' + h(nombre || '') + '" class="alm-foto" loading="lazy" title="Ver la foto" onclick="event.stopPropagation(); window.almVerFoto(this.src, ' + Number(id) + ')">';
