@@ -50,9 +50,10 @@ class PanelOtrosAlmacenesTest extends MySqlTestCase
         $this->assertStringContainsString('En otros almacenes', $html);
         $this->assertStringNotContainsString('alm-otros-prod', $html, 'La fila marcada ya dice qué producto es.');
         $this->assertStringContainsString('class="guia"', $html, 'Cada nombre va unido a su cantidad.');
-        // El almacén abierto va en su tarjeta, y todos llevan barra a la misma escala.
+        // El almacén abierto va en su tarjeta; sin barras de color: el que tiene, en verde.
         $this->assertStringContainsString('alm-panel-aqui', $html);
-        $this->assertSame(1 + substr_count($html, 'almVerProductoEnAlmacen('), substr_count($html, 'class="alm-panel-barra"'));
+        $this->assertStringNotContainsString('alm-panel-barra', $html);
+        $this->assertStringContainsString('alm-panel-row clicable con', $html);
         $this->assertStringNotContainsString('Distribución de Inventario', $html);
     }
 
@@ -73,6 +74,7 @@ class PanelOtrosAlmacenesTest extends MySqlTestCase
         // Cada otro almacén visible sale como fila clicable, y la cifra es un 0 (no desaparece).
         $this->assertSame($otros, substr_count($html, 'almVerProductoEnAlmacen('), 'Un renglón por cada otro almacén.');
         $this->assertMatchesRegularExpression('/<span class="qty[^"]*">0<\/span>/', $html);
+        $this->assertSame($otros, substr_count($html, 'alm-panel-row clicable cero'), 'Sin existencias, en gris.');
     }
 
     public function test_sin_producto_el_panel_reparte_por_categoria(): void
