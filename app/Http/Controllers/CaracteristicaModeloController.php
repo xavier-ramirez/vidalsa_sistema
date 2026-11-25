@@ -1146,11 +1146,20 @@ class CaracteristicaModeloController extends Controller
                 [($color ? 'foto ' . $color : 'foto') => ['antes' => $fotos['anterior'], 'despues' => $nuevaUrl]]
             );
 
+            // ?tarjeta=1 (tarjeta SIN FICHA del Catálogo): va la tarjeta de la ficha ya armada,
+            // para cambiar solo esa en su sitio en vez de recargar la grilla (saltaba arriba).
+            $tarjeta = $request->boolean('tarjeta')
+                ? view('admin.catalogo.partials.table_rows', [
+                    'catalogos' => $this->tarjetasDeFichas($this->consultaFichas()->whereKey($catalogo->ID_ESPEC)->get()),
+                ])->render()
+                : null;
+
             return response()->json([
                 'success' => true,
                 'message' => $color ? "Foto del color {$color} actualizada." : 'Foto del modelo actualizada correctamente.',
                 'foto'    => $nuevaUrl,
                 'color'   => $color,
+                'tarjeta' => $tarjeta,
             ]);
         } catch (\Throwable $e) {
             Log::error('Error subiendo foto de catálogo ID ' . $id . ': ' . $e->getMessage());

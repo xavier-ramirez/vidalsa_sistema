@@ -438,7 +438,7 @@ window.catalogoArrancar = function (CAT_CFG) {
 
     // ── Subida VEHÍCULO: la foto del modelo o la del color que se está viendo ──
     // En una tarjeta SIN FICHA primero se asegura la ficha (y se enlazan sus unidades); al
-    // terminar se recarga la lista, porque la tarjeta pasa a ser la de una ficha.
+    // terminar la tarjeta se cambia por la de su ficha (la manda el servidor), en su sitio.
     window.catUploadPhoto = function (photoEl, editar) {
         var sinFicha = photoEl.dataset.sinFicha === '1';
         if (sinFicha && !photoEl.dataset.anio) {
@@ -450,10 +450,19 @@ window.catalogoArrancar = function (CAT_CFG) {
                 var fd = new FormData();
                 fd.append('foto', croppedFile);
                 if (photoEl.dataset.color) fd.append('color', photoEl.dataset.color);
+                if (sinFicha) fd.append('tarjeta', '1');
                 _uploadBlob(CAT_CFG.urlCatalogo + '/' + id + '/photo', fd,
                     function (body) {
                         window.toast(body.message || 'Foto actualizada correctamente.', 'success');
-                        if (sinFicha) { catSubmit(); return; }
+                        if (sinFicha) {
+                            // La tarjeta pasa a ser la de su ficha: se cambia solo ella, en su
+                            // sitio. Recargar la grilla la mandaba arriba y movía todo.
+                            var tmp = document.createElement('div');
+                            tmp.innerHTML = body.tarjeta || '';
+                            var nueva = tmp.querySelector('.cat-card'), card = photoEl.closest('.cat-card');
+                            if (nueva && card) card.replaceWith(nueva); else catSubmit();
+                            return;
+                        }
                         // body.foto es la ruta guardada; la tarjeta usa la miniatura.
                         var idDrive = String(body.foto || '').replace(/^.*\/storage\/google\//, '').split('?')[0];
                         _catGuardarFotoVista(photoEl, idDrive ? '/storage/google/' + idDrive + '?sz=w300' : '');

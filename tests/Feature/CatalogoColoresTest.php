@@ -113,6 +113,33 @@ class CatalogoColoresTest extends MySqlTestCase
         $this->assertSame('/storage/google/modelo', $f->fresh()->FOTO_REFERENCIAL);
     }
 
+    /** Tarjeta SIN FICHA del Catálogo: la foto vuelve con la tarjeta de su ficha ya armada, para
+     *  cambiar solo esa en su sitio (recargar la grilla la mandaba arriba y movía las demás). */
+    public function test_la_foto_de_una_tarjeta_sin_ficha_devuelve_la_tarjeta_de_su_ficha(): void
+    {
+        $f = $this->ficha(null);
+        $this->equipo($f->ID_ESPEC, null);
+        $admin = $this->conFotoCatalogo();
+
+        $res = $this->actingAs($admin)->post(route('catalogo.uploadFoto', $f->ID_ESPEC), [
+            'foto' => UploadedFile::fake()->image('tarjeta.png', 60, 40), 'tarjeta' => '1',
+        ], ['Accept' => 'application/json'])->assertOk()->assertJson(['success' => true]);
+
+        $tarjeta = (string) $res->json('tarjeta');
+        $this->assertSame(1, substr_count($tarjeta, 'class="cat-card'), 'Solo la tarjeta de esa ficha.');
+        $this->assertStringContainsString('data-id="' . $f->ID_ESPEC . '"', $tarjeta);
+        $this->assertStringContainsString('/storage/google/falso-', $tarjeta, 'Ya con la foto nueva.');
+        $this->assertStringNotContainsString('data-sin-ficha="1"', $tarjeta);
+
+        // Sin ?tarjeta (tarjeta con ficha, modal de Equipos) no se arma nada. Otra ficha sin
+        // foto: el Drive falso no sabe reemplazar una que ya está.
+        $otra = CaracteristicaModelo::create(['MODELO' => $this->modelo, 'TIPO' => 'CAMIONETA', 'ANIO_ESPEC' => 2025]);
+        $res = $this->actingAs($admin)->post(route('catalogo.uploadFoto', $otra->ID_ESPEC), [
+            'foto' => UploadedFile::fake()->image('otra.png', 60, 40),
+        ], ['Accept' => 'application/json'])->assertOk();
+        $this->assertNull($res->json('tarjeta'));
+    }
+
     public function test_una_foto_compartida_por_el_modelo_y_un_color_no_se_borra_de_drive(): void
     {
         // Así quedó la pick-up al unir las fichas: la foto gris es la del modelo Y la del GRIS.
