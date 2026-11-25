@@ -3525,3 +3525,69 @@ if (!window.__fechaAbreCalendario) {
         if (typeof campo.showPicker === 'function') { try { campo.showPicker(); } catch (err) {} }
     });
 }
+
+// Foto en el teléfono: al tocar cualquier campo de imagen sale «Tomar foto» o «Elegir de la
+// galería» (sin esto, algunos Android abren la cámara directo). Un solo manejador para todo el
+// sistema, en captura: corta el selector, muestra la hoja y luego vuelve a hacer click() en el
+// mismo input con `capture` puesto o quitado. En la PC (puntero fino) no cambia nada.
+if (!window.__fotoCamaraOGaleria) {
+    window.__fotoCamaraOGaleria = true;
+    var fotoEsTactil = function () {
+        return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    };
+    var fotoCerrarHoja = function () {
+        var h = document.getElementById('fotoOrigenHoja');
+        if (h) h.remove();
+    };
+    var fotoAbrir = function (campo, origen) {
+        var accept = campo.getAttribute('accept');
+        if (origen === 'camara') campo.setAttribute('capture', 'environment');
+        else { campo.removeAttribute('capture'); campo.setAttribute('accept', 'image/*'); }
+        // El Catálogo saca su input del DOM al segundo: si ya no está, se devuelve oculto.
+        if (!campo.isConnected) { campo.hidden = true; document.body.appendChild(campo); }
+        campo.__fotoOrigenListo = true;
+        campo.click();
+        // El selector ya leyó los atributos: se deja el input como estaba.
+        setTimeout(function () {
+            campo.removeAttribute('capture');
+            if (accept === null) campo.removeAttribute('accept'); else campo.setAttribute('accept', accept);
+        }, 0);
+    };
+    document.addEventListener('click', function (e) {
+        var campo = e.target;
+        if (!campo || campo.tagName !== 'INPUT' || campo.type !== 'file' || campo.disabled) return;
+        if (!/image/i.test(campo.getAttribute('accept') || '') || !fotoEsTactil()) return;
+        if (campo.__fotoOrigenListo) { campo.__fotoOrigenListo = false; return; }
+        e.preventDefault();
+        fotoCerrarHoja();
+        if (!document.getElementById('fotoOrigenEstilo')) {
+            var st = document.createElement('style');
+            st.id = 'fotoOrigenEstilo';
+            st.textContent =
+                '.foto-origen-fondo{position:fixed;inset:0;z-index:1000010;background:rgba(15,23,42,.45);display:flex;align-items:flex-end;justify-content:center;padding:12px}' +
+                '.foto-origen-hoja{width:100%;max-width:420px;display:flex;flex-direction:column;gap:8px;padding-bottom:env(safe-area-inset-bottom)}' +
+                '.foto-origen-hoja button{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:15px;border:none;border-radius:12px;background:#fff;color:#0f172a;font:600 15px Inter,"Segoe UI",sans-serif;cursor:pointer}' +
+                '.foto-origen-hoja button .material-icons{color:#1e40af}' +
+                '.foto-origen-hoja .foto-origen-cancelar{color:#64748b;margin-top:4px}';
+            document.head.appendChild(st);
+        }
+        var hoja = document.createElement('div');
+        hoja.id = 'fotoOrigenHoja';
+        hoja.className = 'foto-origen-fondo';
+        hoja.innerHTML =
+            '<div class="foto-origen-hoja" role="dialog" aria-label="Subir foto">' +
+            '<button type="button" data-origen="camara"><i class="material-icons">photo_camera</i>Tomar foto</button>' +
+            '<button type="button" data-origen="galeria"><i class="material-icons">photo_library</i>Elegir de la galería</button>' +
+            '<button type="button" class="foto-origen-cancelar">Cancelar</button>' +
+            '</div>';
+        hoja.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            var b = ev.target.closest('button');
+            if (!b && ev.target !== hoja) return;
+            fotoCerrarHoja();
+            var origen = b && b.getAttribute('data-origen');
+            if (origen) fotoAbrir(campo, origen);
+        });
+        document.body.appendChild(hoja);
+    }, true);
+}
