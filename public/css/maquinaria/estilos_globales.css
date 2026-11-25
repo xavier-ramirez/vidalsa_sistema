@@ -5713,3 +5713,10 @@ html.fotos-protegidas img { -webkit-touch-callout: none; -webkit-user-drag: none
 }
 .foto-origen-hoja button .material-icons { color: var(--maquinaria-blue); }
 .foto-origen-hoja .foto-origen-cancelar { color: var(--maquinaria-gray-text); margin-top: 4px; }
+
+/* Enlaces de menú que no funcionan en el teléfono (p. ej. el menú Acciones de Consumibles). */
+@media (max-width: 900px) {
+    .hide-on-mobile {
+        display: none !important;
+    }
+}

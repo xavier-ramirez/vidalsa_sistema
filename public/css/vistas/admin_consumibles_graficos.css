@@ -63,10 +63,6 @@
                 min-width: 100%;
             }
 
-            .hide-on-mobile {
-                display: none !important;
-            }
-
             /* Forzar el ancho completo en mobile, reduciendo el padding del viewport */
             body:has(.graficos-layout) .main-viewport {
                 padding-left: 8px !important;

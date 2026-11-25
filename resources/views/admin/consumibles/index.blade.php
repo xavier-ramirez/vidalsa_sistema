@@ -318,9 +318,6 @@
                                     placeholder="{{ $currentTipo ? $tiposList[$currentTipo] : 'Tipos' }}"
                                     style="width:100%; min-width:40px; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%; font-family:inherit;"
                                     oninput="window.filterDropdownOptions(this)" autocomplete="off">
-                                <i class="material-icons" data-clear-btn
-                                    style="padding:0 5px; color:var(--maquinaria-gray-text, #94a3b8); font-size:18px; display:{{ $currentTipo ? 'block' : 'none' }}; cursor:pointer;"
-                                    onclick="event.stopPropagation(); window.clearDropdownFilter('tipoFilterSelect'); window.submitConsumiblesFilters();">close</i>
                             </div>
                             <div class="dropdown-content"
                                 style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
@@ -530,7 +527,7 @@
 
                 /*
                  * Filtrar o paginar SIN volver a montar la pantalla: se pide la misma pagina y se
-                 * cambian solo los resultados (resumen, tabla y paginador) y los contadores. Lo
+                 * cambian solo los resultados (tabla y paginador) y los contadores. Lo
                  * demas se queda como esta —el filtro que se esta escribiendo no pierde el foco,
                  * los paneles abiertos siguen abiertos— y la URL se actualiza para que Atras y F5
                  * den lo mismo. Si la respuesta no trae los resultados (sesion caducada, error),
@@ -615,47 +612,6 @@
             {{-- Lo que cambia al filtrar o paginar: cargarConsumibles() reemplaza SOLO esto (y
                  los contadores de arriba) sin volver a pintar la pantalla entera. --}}
             <div id="consumiblesResultados">
-            {{-- Resumen surtido por frente --}}
-            @if($resumenFrente->isNotEmpty() && request('tipo') === 'GASOIL')
-                @php $maxFrente = $resumenFrente->max('total'); @endphp
-                <div style="margin: 18px 0 20px 0;">
-                    <p
-                        style="font-size:12px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.5px; margin:0 0 10px 0; display:flex; align-items:center; gap:6px;">
-                        <i class="material-icons" style="font-size:15px; color:#0067b1;">bar_chart</i>
-                        Surtido por frente
-                        <span style="font-weight:400; color:#94a3b8; text-transform:none; letter-spacing:0;">— con los filtros
-                            aplicados</span>
-                    </p>
-                    <div style="display:flex; flex-direction:column; gap:6px;">
-                        @foreach($resumenFrente as $rf)
-                            @php
-                                $pct = $maxFrente > 0 ? round($rf->total / $maxFrente * 100, 1) : 0;
-                                $isTop = $loop->first;
-                                $barColor = $isTop
-                                    ? 'linear-gradient(90deg,#7f1d1d,#b91c1c)'
-                                    : 'linear-gradient(90deg,#003a70,#0067b1)';
-                            @endphp
-                            <div style="display:grid; grid-template-columns:180px 1fr 130px; align-items:center; gap:10px;">
-                                <span
-                                    style="font-size:12px; font-weight:700; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
-                                    title="{{ $rf->NOMBRE_FRENTE }}">
-                                    {{ $rf->NOMBRE_FRENTE }}
-                                </span>
-                                <div style="background:#f1f5f9; border-radius:20px; height:9px; overflow:hidden;">
-                                    <div
-                                        style="width:{{ $pct }}%; background:{{ $barColor }}; height:100%; border-radius:20px; transition:width .5s;">
-                                    </div>
-                                </div>
-                                <span style="font-size:12px; font-weight:800; color:#003a70; white-space:nowrap; text-align:right;">
-                                    {{ number_format($rf->total, 0, ',', '.') }} {{ $rf->unidad }}
-                                    <span style="display:block; font-size:10px; font-weight:600; color:#64748b;">⛽
-                                        {{ $rf->despachos }} despacho{{ $rf->despachos != 1 ? 's' : '' }}</span>
-                                </span>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
 
             {{-- Tabla --}}
             <div class="cons-tbl-wrap">
@@ -714,20 +670,24 @@
                                         </button>
                                         @endcan
                                     </div>
+                                    {{-- Un identificador basta: si lo escrito arriba ya es la placa, el serial o el código
+                                         completo del equipo, no se repite; si era una parte, sale el completo (la placa,
+                                         y si no tiene, el serial) para ver con qué equipo se emparejó. --}}
+                                    @php
+                                        $escrito = strtoupper(trim($c->IDENTIFICADOR ?? ''));
+                                        $completo = null;
+                                        if ($c->equipo) {
+                                            $ids = array_filter([$c->equipo->documentacion?->PLACA, $c->equipo->SERIAL_CHASIS, $c->equipo->CODIGO_PATIO]);
+                                        } elseif ($c->auxiliar) {
+                                            $ids = array_filter([$c->auxiliar->CODIGO_INTERNO, $c->auxiliar->SERIAL]);
+                                        } else {
+                                            $ids = [];
+                                        }
+                                        $ids = array_map(fn($v) => strtoupper(trim($v)), $ids);
+                                        if ($ids && !in_array($escrito, $ids, true)) $completo = reset($ids);
+                                    @endphp
                                     <div class="cons-equipo">
                                     @if($c->equipo)
-                                        @php
-                                            // ¿El identificador buscado es exactamente la placa o el serial?
-                                            $idBuscado = strtoupper(trim($c->IDENTIFICADOR ?? ''));
-                                            $placa = strtoupper(trim($c->equipo->CODIGO_PATIO ?? ''));
-                                            $serial = strtoupper(trim($c->equipo->SERIAL_CHASIS ?? ''));
-                                            $esExacto = ($idBuscado === $placa || $idBuscado === $serial);
-                                            // Coincidencia real: mostrar serial si el buscado no es exacto
-                                            $coincidencia = (!$esExacto && $idBuscado)
-                                                ? ($serial ?: $placa)
-                                                : null;
-                                        @endphp
-
                                         {{-- Tipo --}}
                                         <span
                                             style="font-size:10px; font-weight:700; color:#0067b1; text-transform:uppercase; letter-spacing:.3px;">
@@ -738,17 +698,6 @@
                                         <span style="display:block; color:#1e293b; font-weight:700; font-size:13px;">
                                             {{ $c->equipo->MARCA }}
                                         </span>
-
-
-                                        {{-- Coincidencia completa (si el buscado era parcial) --}}
-                                        @if($coincidencia)
-                                            <span style="display:block; font-family:monospace; font-size:10px;
-                                                         color:#059669; margin-top:1px; font-weight:700;"
-                                                title="Serial/placa completo encontrado en la BD">
-                                                → {{ $coincidencia }}
-                                            </span>
-                                        @endif
-
                                     @elseif($c->auxiliar)
                                         {{-- Auxiliar (máquina de soldar, planta, compresor…) --}}
                                         <span
@@ -758,14 +707,15 @@
                                         <span style="display:block; color:#1e293b; font-weight:700; font-size:13px;">
                                             {{ trim($c->auxiliar->MARCA . ' ' . $c->auxiliar->MODELO) ?: '—' }}
                                         </span>
-                                        <span style="display:block; font-family:monospace; font-size:11px; color:#64748b; margin-top:2px;">
-                                            {{ $c->auxiliar->CODIGO_INTERNO ?: $c->auxiliar->SERIAL }}
-                                        </span>
                                     @elseif($c->ESTADO_EQUIPO === 'CONFIRMADO')
                                         {{-- Confirmado sin equipo: se enseñó que no es de ningún equipo. --}}
                                         <span style="color:#64748b; font-style:italic; font-size:12px;">Sin equipo</span>
                                     @else
                                         <span style="color:#94a3b8; font-style:italic; font-size:12px;">Sin resolver</span>
+                                    @endif
+                                    @if($completo)
+                                        <span style="display:block; font-family:monospace; font-size:10px; color:#059669; margin-top:1px; font-weight:700;"
+                                            title="Placa o serial completo del equipo emparejado">→ {{ $completo }}</span>
                                     @endif
                                     </div>
                                 </td>
@@ -843,11 +793,11 @@
                                 <td colspan="9" style="text-align:center; padding:40px; color:#94a3b8; font-size:13px; font-weight:400;">
                                     <i class="material-icons"
                                         style="font-size:40px; display:block; margin-bottom:8px;">inbox</i>
-                                    @if(request()->hasAny(['id_frente', 'tipo', 'estado', 'fecha_desde', 'fecha_hasta', 'identificador']))
+                                    @if(request()->hasAny(['id_frente', 'estado', 'fecha_desde', 'fecha_hasta', 'identificador']))
                                         Ningún consumible cumple con los filtros.
                                         <a href="{{ route('consumibles.index') }}" style="color:#0067b1; font-weight:600;">Quitar filtros</a>
                                     @else
-                                        No hay registros de consumibles todavía.
+                                        No hay registros de {{ strtolower($tiposList[$currentTipo] ?? 'consumibles') }} todavía.
                                         <a href="{{ route('consumibles.cargar') }}" style="color:#0067b1; font-weight:600;">Cargar
                                             el primer lote →</a>
                                     @endif

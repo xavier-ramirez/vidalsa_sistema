@@ -251,7 +251,7 @@
                                 style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; cursor:default; position:relative;">
                                 <input type="text" data-filter-search id="search_tipo_cargar" name="search_tipo_cargar"
                                     readonly
-                                    value="{{ old('tipo_consumible') ? \App\Models\Consumible::tiposLabel()[old('tipo_consumible')] : '' }}"
+                                    value="{{ old('tipo_consumible') ? (\App\Models\Consumible::tiposLabel()[old('tipo_consumible')] ?? '') : '' }}"
                                     placeholder="Tipo de Consumible *"
                                     style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; outline:none; height:100%; cursor:default; font-family:inherit;"
                                     autocomplete="off">

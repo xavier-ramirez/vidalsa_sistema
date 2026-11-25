@@ -36,13 +36,19 @@ class ConsumiblesController extends Controller
     // ══════════════════════════════════════════════════════════════
     public function index(Request $request)
     {
+        // La lista abre en Gasoil y siempre muestra un tipo (no hay «Todos los tipos»).
+        $tipo = $request->input('tipo');
+        if (!is_string($tipo) || !array_key_exists($tipo, Consumible::tiposLabel())) {
+            $request->merge(['tipo' => 'GASOIL']);
+        }
+
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
             ->orderBy('NOMBRE_FRENTE')->get();
 
         // Sin 'suministro': la tabla suministros_origen esta VACIA y ningun consumible
         // tiene ID_SUMINISTRO (el registro de consumible lo escribe siempre null), asi que
         // era una consulta mas en cada carga para traer nada. Ninguna vista la lee.
-        $query = Consumible::with(['equipo.frenteActual', 'equipo.tipo', 'auxiliar', 'frente'])
+        $query = Consumible::with(['equipo.frenteActual', 'equipo.tipo', 'equipo.documentacion', 'auxiliar', 'frente'])
             ->orderBy('FECHA', 'desc')
             ->orderBy('ID_CONSUMIBLE', 'desc');
 
@@ -72,7 +78,9 @@ class ConsumiblesController extends Controller
         }
 
         // ── Contadores de estado — 1 sola query en lugar de 3 ──────────────────
+        // Los contadores son del tipo que se está viendo (la lista siempre filtra por uno).
         $conteos = DB::table('consumibles')
+            ->where('TIPO_CONSUMIBLE', $request->tipo)
             ->selectRaw("
                 SUM(CASE WHEN ESTADO_EQUIPO = 'PENDIENTE'  THEN 1 ELSE 0 END) as pendientes,
                 SUM(CASE WHEN ESTADO_EQUIPO = 'SIN_MATCH'  THEN 1 ELSE 0 END) as sinMatch,
@@ -82,32 +90,12 @@ class ConsumiblesController extends Controller
         $sinMatch = (int) ($conteos->sinMatch ?? 0);
         $confirmados = (int) ($conteos->confirmados ?? 0);
 
-        // ── Resumen de cantidades surtidas por frente (respeta filtros activos) ──
-        $resumenFrente = DB::table('consumibles')
-            ->join('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'consumibles.ID_FRENTE')
-            ->when($request->filled('id_frente'), fn($q) => $q->where('consumibles.ID_FRENTE', $request->id_frente))
-            ->when($request->filled('tipo'), fn($q) => $q->where('consumibles.TIPO_CONSUMIBLE', $request->tipo))
-            ->when($request->filled('estado'), fn($q) => $q->where('consumibles.ESTADO_EQUIPO', $request->estado))
-            ->when($request->filled('fecha_desde'), fn($q) => $q->where('consumibles.FECHA', '>=', $request->fecha_desde))
-            ->when($request->filled('fecha_hasta'), fn($q) => $q->where('consumibles.FECHA', '<=', $request->fecha_hasta))
-            ->when($request->filled('identificador'), fn($q) => $q->where('consumibles.IDENTIFICADOR', 'LIKE', '%' . trim($request->identificador) . '%'))
-            ->select(
-                'frentes_trabajo.NOMBRE_FRENTE',
-                DB::raw('SUM(consumibles.CANTIDAD) as total'),
-                DB::raw('COUNT(*) as despachos'),
-                DB::raw('MAX(consumibles.UNIDAD) as unidad')
-            )
-            ->groupBy('frentes_trabajo.NOMBRE_FRENTE')
-            ->orderByDesc('total')
-            ->get();
-
         return view('admin.consumibles.index', compact(
             'consumibles',
             'frentes',
             'pendientes',
             'sinMatch',
-            'confirmados',
-            'resumenFrente'
+            'confirmados'
         ));
     }
 
@@ -690,7 +678,7 @@ class ConsumiblesController extends Controller
         if ($idFrente && $idFrente !== 'all') {
             $query->where('consumibles.ID_FRENTE', $idFrente);
         }
-        // Filtro por tipo de equipo: lo aplican index() y resumenFrente(), y el botón de export
+        // Filtro por tipo de equipo: lo aplica index(), y el botón de export
         // manda request()->all(), pero aquí no se leía → el XLSX salía con todos los tipos. El
         // join a `equipos` ya existe arriba.
         if ($request->filled('id_tipo_equipo')) {
