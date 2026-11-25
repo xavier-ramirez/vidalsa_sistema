@@ -94,7 +94,7 @@ Schedule::call(fn () => \App\Services\Consumibles\MatchConsumibles::pasadaDelMin
     ->everyMinute()
     ->when(fn () => \App\Services\Consumibles\MatchConsumibles::hayTrabajoDelMinuto())
     ->withoutOverlapping(10);
-Schedule::call(fn () => (new \App\Services\Consumibles\MatchConsumibles())->ejecutar())
+Schedule::call(fn () => \App\Services\Consumibles\MatchConsumibles::pasadaDeLaHora())
     ->name('consumibles-match-todo')
     ->hourly()
     ->withoutOverlapping(30);

@@ -40,7 +40,8 @@ class Consumible extends Model
 
     public function equipo()
     {
-        return $this->belongsTo(Equipo::class, 'ID_EQUIPO', 'ID_EQUIPO');
+        // Con borrados: el consumo ya pasó con ese equipo; la lista, el export y el buscador lo muestran igual.
+        return $this->belongsTo(Equipo::class, 'ID_EQUIPO', 'ID_EQUIPO')->withTrashed();
     }
 
     public function auxiliar()

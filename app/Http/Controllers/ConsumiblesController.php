@@ -41,6 +41,16 @@ class ConsumiblesController extends Controller
         if (!is_string($tipo) || !array_key_exists($tipo, Consumible::tiposLabel())) {
             $request->merge(['tipo' => 'GASOIL']);
         }
+        // Filtros de la URL mal formados (?estado=FOO, ?identificador[]=x) se ignoran: la vista
+        // los pinta tal cual y con un arreglo o un estado desconocido daba error 500.
+        foreach (['id_frente', 'identificador', 'fecha_desde', 'fecha_hasta'] as $campo) {
+            if ($request->has($campo) && !is_string($request->input($campo))) {
+                $request->merge([$campo => null]);
+            }
+        }
+        if ($request->has('estado') && !self::estadoValido($request->input('estado'))) {
+            $request->merge(['estado' => null]);
+        }
 
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
             ->orderBy('NOMBRE_FRENTE')->get();
@@ -52,24 +62,28 @@ class ConsumiblesController extends Controller
             ->orderBy('FECHA', 'desc')
             ->orderBy('ID_CONSUMIBLE', 'desc');
 
-        // Filtros
-        if ($request->filled('id_frente'))
-            $query->where('ID_FRENTE', $request->id_frente);
-
-        if ($request->filled('tipo'))
-            $query->where('TIPO_CONSUMIBLE', $request->tipo);
-
-        if ($request->filled('estado'))
-            $query->where('ESTADO_EQUIPO', $request->estado);
-
-        if ($request->filled('fecha_desde'))
-            $query->where('FECHA', '>=', $request->fecha_desde);
-
-        if ($request->filled('fecha_hasta'))
-            $query->where('FECHA', '<=', $request->fecha_hasta);
-
-        if ($request->filled('identificador'))
-            self::buscarIdentificador($query, $request->identificador);
+        // Los mismos filtros para la lista y los contadores (estos sin el de estado: cada uno
+        // cuenta el suyo, y al pulsarlo la lista muestra justo esos).
+        $filtrar = function ($q, bool $conEstado) use ($request) {
+            $q->where('consumibles.TIPO_CONSUMIBLE', $request->tipo);
+            if ($request->filled('id_frente')) {
+                $q->where('consumibles.ID_FRENTE', $request->id_frente);
+            }
+            if ($conEstado && self::estadoValido($request->input('estado'))) {
+                $q->where('consumibles.ESTADO_EQUIPO', $request->input('estado'));
+            }
+            if ($request->filled('fecha_desde')) {
+                $q->where('consumibles.FECHA', '>=', $request->fecha_desde);
+            }
+            if ($request->filled('fecha_hasta')) {
+                $q->where('consumibles.FECHA', '<=', $request->fecha_hasta);
+            }
+            $texto = $request->input('identificador');
+            if (is_string($texto) && trim($texto) !== '') {
+                self::buscarIdentificador($q, $texto);
+            }
+        };
+        $filtrar($query, true);
 
         $consumibles = (clone $query)->paginate(50)->onEachSide(3)->withQueryString();
         // Pasada la última página (se borró lo último que había en ella): la última que queda.
@@ -78,9 +92,7 @@ class ConsumiblesController extends Controller
         }
 
         // ── Contadores de estado — 1 sola query en lugar de 3 ──────────────────
-        // Los contadores son del tipo que se está viendo (la lista siempre filtra por uno).
-        $conteos = DB::table('consumibles')
-            ->where('TIPO_CONSUMIBLE', $request->tipo)
+        $conteos = tap(DB::table('consumibles'), fn ($q) => $filtrar($q, false))
             ->selectRaw("
                 SUM(CASE WHEN ESTADO_EQUIPO = 'PENDIENTE'  THEN 1 ELSE 0 END) as pendientes,
                 SUM(CASE WHEN ESTADO_EQUIPO = 'SIN_MATCH'  THEN 1 ELSE 0 END) as sinMatch,
@@ -306,10 +318,8 @@ class ConsumiblesController extends Controller
             'ID_EQUIPO' => null,
             'ID_AUXILIAR' => null,
         ]);
+        // ejecutar() ya invalida la caché de la lista y los gráficos.
         (new MatchConsumibles())->ejecutar([$consumible->ID_CONSUMIBLE]);
-
-        // Invalidar caché de gráficos
-        CacheVersion::bump(self::DATA_VER_KEY);
 
         return response()->json(['ok' => true, 'identificador' => $consumible->IDENTIFICADOR]);
     }
@@ -650,6 +660,11 @@ class ConsumiblesController extends Controller
     // su propio historial). Si en el futuro vuelve, restaurar este metodo
     // junto a la ruta consumibles.auditoriaCatalogo y al panel Blade.
 
+    private static function estadoValido($estado): bool
+    {
+        return is_string($estado) && in_array($estado, ['PENDIENTE', 'CONFIRMADO', 'SIN_MATCH'], true);
+    }
+
     /**
      * «Buscar placa/serial» de la lista y del export: lo escrito en el consumo o la placa, el
      * serial o el código del equipo (o auxiliar) emparejado, que es lo que muestra la tabla.
@@ -678,8 +693,8 @@ class ConsumiblesController extends Controller
         $hasta = $request->get('fecha_hasta') ?: $request->get('hasta');
         $idFrente = $request->get('id_frente');
         $tipo = $request->get('tipo');
-        $identificador = $request->get('identificador');
-        $estado = $request->get('estado');
+        $identificador = is_string($request->get('identificador')) ? trim($request->get('identificador')) : null;
+        $estado = self::estadoValido($request->get('estado')) ? $request->get('estado') : null;
 
         $query = DB::table('consumibles')
             ->leftJoin('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'consumibles.ID_FRENTE')
@@ -702,12 +717,6 @@ class ConsumiblesController extends Controller
         if ($idFrente && $idFrente !== 'all') {
             $query->where('consumibles.ID_FRENTE', $idFrente);
         }
-        // Filtro por tipo de equipo: lo aplica index(), y el botón de export
-        // manda request()->all(), pero aquí no se leía → el XLSX salía con todos los tipos. El
-        // join a `equipos` ya existe arriba.
-        if ($request->filled('id_tipo_equipo')) {
-            $query->where('equipos.id_tipo_equipo', $request->get('id_tipo_equipo'));
-        }
         if ($tipo) {
             $query->where('consumibles.TIPO_CONSUMIBLE', $tipo);
         }
@@ -724,9 +733,13 @@ class ConsumiblesController extends Controller
             'consumibles.TIPO_CONSUMIBLE',
             'consumibles.ESPECIFICACION',
             // Como la tabla: placa, serial o código del equipo (o del auxiliar); sin equipo, lo escrito.
-            DB::raw("COALESCE(NULLIF(doc.PLACA, ''), NULLIF(equipos.SERIAL_CHASIS, ''), NULLIF(equipos.CODIGO_PATIO, ''),
-                NULLIF(equipos_auxiliares.CODIGO_INTERNO, ''), NULLIF(equipos_auxiliares.SERIAL, ''), consumibles.IDENTIFICADOR) as EQUIPO_PLACA"),
-            DB::raw("COALESCE(equipos.MARCA, equipos_auxiliares.MARCA, 'S/M') as MARCA"),
+            // Las de relleno («,,,», «_», «....») no cuentan: no tienen ni una letra ni un número.
+            DB::raw("COALESCE(" . implode(', ', array_map(
+                fn ($col) => "CASE WHEN {$col} REGEXP '[[:alnum:]]' THEN {$col} END",
+                ['doc.PLACA', 'equipos.SERIAL_CHASIS', 'equipos.CODIGO_PATIO', 'equipos_auxiliares.CODIGO_INTERNO', 'equipos_auxiliares.SERIAL']
+            )) . ", CASE WHEN consumibles.DESC_EQUIPO IS NOT NULL AND consumibles.IDENTIFICADOR LIKE '% | %'
+                THEN SUBSTRING(consumibles.IDENTIFICADOR, LOCATE(' | ', consumibles.IDENTIFICADOR) + 3)
+                ELSE consumibles.IDENTIFICADOR END) as EQUIPO_PLACA"),
             DB::raw("COALESCE(equipos.MODELO, equipos_auxiliares.MODELO, 'S/M') as MODELO"),
             // Sin equipo asociado: lo que dice el Excel del vehículo.
             DB::raw("COALESCE(tipo_equipos.nombre, REPLACE(equipos_auxiliares.TIPO, '_', ' '), consumibles.DESC_EQUIPO, 'S/T') as TIPO_EQUIPO"),

@@ -43,7 +43,12 @@ window.borrarDirecto = function(id, url, btn) {
 
 // Vuelve a pedir los resultados con los filtros de la pantalla y en la misma página: la
 // fila, el estado y los contadores quedan como los dejó el servidor.
+// Con otra celda en edición no se repinta (se perdería lo escrito): queda pendiente.
+function consumiblesEditando() {
+    return !!document.querySelector('#consumiblesResultados input:not(:disabled), #consumiblesResultados select:not(:disabled)');
+}
 function consumiblesRefrescar() {
+    if (consumiblesEditando()) { window.__consumiblesPendiente = true; return; }
     if (window.submitConsumiblesFilters) window.submitConsumiblesFilters(true);
 }
 
@@ -54,24 +59,27 @@ function consumiblesRefrescar() {
 (function () {
     if (window.__consumiblesAlDia) return;
     window.__consumiblesAlDia = true;
-    var pendiente = false, espera = null;
-    function editando() {
-        return !!document.querySelector('#consumiblesResultados input, #consumiblesResultados select');
-    }
+    var espera = null;
     function refrescar() {
         if (!document.getElementById('consumiblesResultados') || !window.cargarConsumibles) return;
-        if (document.hidden || editando()) { pendiente = true; return; }
-        pendiente = false;
+        if (document.hidden || consumiblesEditando()) { window.__consumiblesPendiente = true; return; }
+        window.__consumiblesPendiente = false;
         clearTimeout(espera);
-        // Lo mismo que se ve (la URL: filtros aplicados y página), no un filtro a medio escribir.
-        espera = setTimeout(function () { window.cargarConsumibles(location.pathname + location.search, true); }, 300);
+        espera = setTimeout(function () {
+            // Se vuelve a mirar al disparar: en estos 300 ms pudo abrirse un lápiz.
+            if (document.hidden || consumiblesEditando()) { window.__consumiblesPendiente = true; return; }
+            // Lo último que se pidió (filtro recién elegido) o, si no, lo que se ve.
+            window.cargarConsumibles(window._consumiblesUltimaUrl || (location.pathname + location.search), true);
+        }, 300);
     }
     window.addEventListener('consumibles-cambiaron', refrescar);
     // Volver a la pestaña pregunta siempre (como las demás pantallas): cubre lo que pasó sin aviso.
     window.addEventListener('focus', refrescar);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refrescar(); });
     // Terminó una edición en la fila (guardar o cancelar quita el campo): lo que esperaba, ahora.
-    document.addEventListener('click', function () { if (pendiente) setTimeout(function () { if (!editando()) refrescar(); }, 0); });
+    document.addEventListener('click', function () {
+        if (window.__consumiblesPendiente) setTimeout(function () { if (!consumiblesEditando()) refrescar(); }, 0);
+    });
 })();
 
 // ═══════════════════════════════════════════════════════════════════
@@ -97,7 +105,7 @@ if (typeof window.ModuleManager !== 'undefined') {
                 var fila = filaId(celda);
                 if (!fila) return;
                 fila.innerHTML =
-                    '<span id="id-txt-' + id + '" style="flex:1; font-family:monospace; font-weight:700;">' + (esc(celda.dataset.mostrado || celda.dataset.original) || '—') + '</span>' +
+                    '<span id="id-txt-' + id + '" style="flex:1; font-weight:700;">' + (esc(celda.dataset.mostrado || celda.dataset.original) || '—') + '</span>' +
                     '<button onclick="editarId(' + id + ')" class="cons-btn-edit" title="Ver y editar lo escrito">' +
                         '<i class="material-icons" style="font-size:14px;">edit</i>' +
                     '</button>';
@@ -112,7 +120,7 @@ if (typeof window.ModuleManager !== 'undefined') {
                 fila.innerHTML =
                     '<div style="display:flex;align-items:center;gap:4px;flex:1;">' +
                         '<input id="inp-id-' + id + '" type="text" value="' + esc(valorActual) + '" ' +
-                               'style="font-family:monospace;font-size:12px;padding:3px 6px;border:1px solid #0067b1;border-radius:6px;flex:1;min-width:0;outline:none;" ' +
+                               'style="font-size:12px;padding:3px 6px;border:1px solid #0067b1;border-radius:6px;flex:1;min-width:0;outline:none;" ' +
                                'onkeydown="if(event.key===\'Enter\')guardarId(' + id + ');if(event.key===\'Escape\')cancelarId(' + id + ')">' +
                         '<button onclick="guardarId(' + id + ')" style="background:#0067b1;color:#fff;border:none;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:11px;font-weight:700;">✓</button>' +
                         '<button onclick="cancelarId(' + id + ')" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e0;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:11px;">✕</button>' +

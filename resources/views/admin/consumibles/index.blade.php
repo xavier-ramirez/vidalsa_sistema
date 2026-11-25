@@ -154,12 +154,21 @@
                 white-space: nowrap;
             }
 
+            /* Todos los datos de la tabla con la misma letra y el mismo tamaño (los iconos aparte). */
+            .cons-tbl-wrap tbody td,
+            .cons-tbl-wrap tbody td *:not(.material-icons) {
+                font-size: 12px !important;
+                font-family: inherit !important;
+            }
+
             /* Equipo resuelto debajo de la placa/serial escrita, en la misma celda. */
             .cons-tbl-wrap .cons-equipo {
                 margin-top: 3px;
                 padding-top: 3px;
                 border-top: 1px dashed #e2e8f0;
             }
+            .cons-tbl-wrap .cons-equipo span { display: block; }
+            .cons-tbl-wrap .cons-equipo .cons-nota { color: #94a3b8; font-style: italic; }
 
             /* Botones de lápiz y papelera como los de la tabla de Cargar. */
             .cons-tbl-wrap .cons-btn-edit,
@@ -272,7 +281,7 @@
                                     style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
                                     <i class="material-icons" style="font-size:18px;">search</i>
                                 </div>
-                                <input type="text" data-filter-search id="search_frentes" name="search_frentes"
+                                <input type="text" data-filter-search id="search_frentes"
                                     placeholder="{{ $currentFrente ? $currentFrente->NOMBRE_FRENTE : 'Todos los frentes' }}"
                                     style="width:100%; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%; font-family:inherit;"
                                     oninput="window.filterDropdownOptions(this)" autocomplete="off">
@@ -315,7 +324,7 @@
                                     style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
                                     <i class="material-icons" style="font-size:18px;">category</i>
                                 </div>
-                                <input type="text" data-filter-search id="search_tipos" name="search_tipos"
+                                <input type="text" data-filter-search id="search_tipos"
                                     placeholder="{{ $currentTipo ? $tiposList[$currentTipo] : 'Tipos' }}"
                                     style="width:100%; min-width:40px; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%; font-family:inherit;"
                                     oninput="window.filterDropdownOptions(this)" autocomplete="off">
@@ -403,10 +412,10 @@
                                             style="padding:0 8px; display:flex; align-items:center; color:{{ $currentEstado ? '#0067b1' : '#94a3b8' }};">
                                             <i class="material-icons" style="font-size:16px;">flag</i>
                                         </div>
-                                        <input type="text" data-filter-search id="search_estados" name="search_estados"
+                                        <input type="text" data-filter-search id="search_estados"
                                             readonly
-                                            placeholder="{{ $currentEstado ? $estadosList[$currentEstado] : 'Todos los estados' }}"
-                                            value="{{ $currentEstado ? $estadosList[$currentEstado] : 'Todos los estados' }}"
+                                            placeholder="{{ $estadosList[$currentEstado] ?? 'Todos los estados' }}"
+                                            value="{{ $estadosList[$currentEstado] ?? 'Todos los estados' }}"
                                             style="width:100%; border:none; background:transparent; padding:6px 5px; font-size:12px; outline:none; cursor:default; font-family:inherit;"
                                             autocomplete="off">
                                         <i class="material-icons" data-clear-btn
@@ -451,10 +460,10 @@
                                 class="dropdown-item-custom"
                                 style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent;"
 >
-                                <div style="background: #dcfce7; padding: 6px; border-radius: 6px; display: flex;">
-                                    <i class="material-icons" style="font-size: 18px; color: #16a34a;">table_view</i>
+                                <div style="background: #f1f5f9; padding: 6px; border-radius: 6px; display: flex;">
+                                    <i class="material-icons" style="font-size: 18px; color: #64748b;">download</i>
                                 </div>
-                                <span style="font-size: 14px; font-weight: 500;">Exportación de Excel</span>
+                                <span style="font-size: 14px; font-weight: 500;">Exportación de Data</span>
                             </a>
                         </div>
                     </div>
@@ -544,6 +553,9 @@
                         else window.location.href = url.pathname + url.search;
                     };
                     if (spin) window.showPreloader();
+                    // Lo que pide el usuario manda: un repintado por aviso pide ESTA URL, no la de la
+                    // barra (que hasta que llega la respuesta sigue siendo la del filtro anterior).
+                    if (!silencioso) window._consumiblesUltimaUrl = url.pathname + url.search;
                     var pedido = (window._consumiblesPedido = (window._consumiblesPedido || 0) + 1);
                     // X-SPA-Navigate: la respuesta corta (sin menu ni scripts), que trae todo esto.
                     fetch(url.pathname + url.search, {
@@ -653,8 +665,7 @@
                                         {{ $c->tipo_label }}
                                     </span>
                                     @if($c->ESPECIFICACION)
-                                        <span style="display:block; font-size:10px; color:#64748b; font-weight:600;
-                                                 margin-top:2px; font-family:monospace;">{{ $c->ESPECIFICACION }}</span>
+                                        <span style="display:block; color:#64748b; font-weight:600; margin-top:2px;">{{ $c->ESPECIFICACION }}</span>
                                     @endif
                                 </td>
                                 {{-- Un solo identificador en la tabla: el completo del equipo emparejado (la placa, y si
@@ -668,7 +679,9 @@
                                     } else {
                                         $ids = [];
                                     }
-                                    $ids = array_values(array_filter(array_map(fn($v) => trim((string) $v), $ids)));
+                                    // Sin las de relleno («,,,», «_», «....»): no son una placa ni un serial.
+                                    $ids = array_values(array_filter(array_map(fn($v) => trim((string) $v), $ids),
+                                        fn($v) => preg_match('/[\p{L}\p{N}]/u', $v) === 1));
                                     $mostrado = $ids[0] ?? ($c->IDENTIFICADOR ?: '—');
                                     // Lo del Excel se guarda como «DESCRIPCIÓN | PLACA | …»: si la descripción ya sale
                                     // abajo (sin equipo), arriba solo lo demás.
@@ -677,11 +690,11 @@
                                         $mostrado = $resto ? implode(' | ', $resto) : '—';
                                     }
                                 @endphp
-                                <td style="font-size:12px; color:#1e293b; line-height:1.5;"
+                                <td style="line-height:1.5;"
                                     id="id-cell-{{ $c->ID_CONSUMIBLE }}" data-original="{{ $c->IDENTIFICADOR }}" data-mostrado="{{ $mostrado }}">
                                     <div class="cons-id-fila" style="display:flex; align-items:center; gap:5px;">
                                         <span id="id-txt-{{ $c->ID_CONSUMIBLE }}"
-                                            style="flex:1; font-family:monospace; font-weight:700;">{{ $mostrado }}</span>
+                                            style="flex:1; font-weight:700;">{{ $mostrado }}</span>
                                         @can('equipos.edit')
                                         <button
                                             onclick="editarId({{ $c->ID_CONSUMIBLE }})"
@@ -694,38 +707,24 @@
                                     <div class="cons-equipo">
                                     @if($c->equipo)
                                         {{-- Tipo --}}
-                                        <span
-                                            style="font-size:10px; font-weight:700; color:#0067b1; text-transform:uppercase; letter-spacing:.3px;">
-                                            {{ $c->equipo->tipo?->nombre ?? 'S/T' }}
-                                        </span>
-
-                                        {{-- Marca --}}
-                                        <span style="display:block; color:#1e293b; font-weight:700; font-size:13px;">
-                                            {{ $c->equipo->MARCA }}
-                                        </span>
+                                        {{-- Tipo y marca en una sola línea --}}
+                                        <span>{{ trim(($c->equipo->tipo?->nombre ?? 'S/T') . ' ' . $c->equipo->MARCA) }}</span>
                                     @elseif($c->auxiliar)
                                         {{-- Auxiliar (máquina de soldar, planta, compresor…) --}}
-                                        <span
-                                            style="font-size:10px; font-weight:700; color:#0067b1; text-transform:uppercase; letter-spacing:.3px;">
-                                            {{ str_replace('_', ' ', $c->auxiliar->TIPO) }}
-                                        </span>
-                                        <span style="display:block; color:#1e293b; font-weight:700; font-size:13px;">
-                                            {{ trim($c->auxiliar->MARCA . ' ' . $c->auxiliar->MODELO) ?: '—' }}
-                                        </span>
+                                        <span>{{ trim(str_replace('_', ' ', $c->auxiliar->TIPO) . ' ' . $c->auxiliar->MARCA . ' ' . $c->auxiliar->MODELO) }}</span>
                                     @elseif($c->ESTADO_EQUIPO === 'CONFIRMADO')
                                         {{-- Confirmado sin equipo: se enseñó que no es de ningún equipo. --}}
-                                        <span style="color:#64748b; font-style:italic; font-size:12px;">Sin equipo</span>
+                                        <span class="cons-nota">Sin equipo</span>
                                     @elseif($c->DESC_EQUIPO)
                                         {{-- Sin equipo asociado: lo que dice el Excel del vehículo (tipo y marca). --}}
-                                        <span style="display:block; color:#64748b; font-weight:700; font-size:12px; text-transform:uppercase;"
-                                            title="Así lo describe el Excel; todavía sin equipo asociado">{{ $c->DESC_EQUIPO }}</span>
-                                        <span style="color:#94a3b8; font-style:italic; font-size:11px;">Sin asociar</span>
+                                        <span title="Así lo describe el Excel; todavía sin equipo asociado">{{ $c->DESC_EQUIPO }}</span>
+                                        <span class="cons-nota">Sin asociar</span>
                                     @else
-                                        <span style="color:#94a3b8; font-style:italic; font-size:12px;">Sin resolver</span>
+                                        <span class="cons-nota">Sin resolver</span>
                                     @endif
                                     </div>
                                 </td>
-                                <td style="font-size:12px;">
+                                <td>
                                     {{ $c->RESP_NOMBRE ?? '—' }}
                                     @if($c->RESP_CI)
                                         <span style="color:#94a3b8;"> · {{ $c->RESP_CI }}</span>
@@ -801,7 +800,7 @@
                                         style="font-size:40px; display:block; margin-bottom:8px;">inbox</i>
                                     @if(request()->hasAny(['id_frente', 'estado', 'fecha_desde', 'fecha_hasta', 'identificador']))
                                         Ningún consumible cumple con los filtros.
-                                        <a href="{{ route('consumibles.index') }}" style="color:#0067b1; font-weight:600;">Quitar filtros</a>
+                                        <a href="{{ route('consumibles.index', ['tipo' => request('tipo')]) }}" style="color:#0067b1; font-weight:600;">Quitar filtros</a>
                                     @else
                                         No hay registros de {{ strtolower($tiposList[$currentTipo] ?? 'consumibles') }} todavía.
                                         <a href="{{ route('consumibles.cargar') }}" style="color:#0067b1; font-weight:600;">Cargar

@@ -38,13 +38,29 @@ class MatchConsumibles
     /** Lo que corre el programador cada minuto: lo pedido (todo) o, si no, solo lo PENDIENTE. */
     public static function pasadaDelMinuto(): void
     {
-        if (Cache::pull(self::MARCA_REINTENTO)) {
-            (new self())->ejecutar();
+        if (Cache::has(self::MARCA_REINTENTO)) {
+            Cache::forget(self::MARCA_REINTENTO);
+            try {
+                (new self())->ejecutar();
+            } catch (\Throwable $e) {
+                self::pedirReintento();   // falló (deadlock, BD caída): se reintenta el minuto siguiente
+                throw $e;
+            }
 
             return;
         }
         (new self())->ejecutar(Consumible::where('ESTADO_EQUIPO', 'PENDIENTE')->pluck('ID_CONSUMIBLE')->all());
     }
+
+    /** La de cada hora: no se repite si la del minuto acaba de hacer la pasada completa. */
+    public static function pasadaDeLaHora(): void
+    {
+        if (!Cache::has(self::COMPLETA_RECIENTE)) {
+            (new self())->ejecutar();
+        }
+    }
+
+    public const COMPLETA_RECIENTE = 'consumibles:match-completo-reciente';
 
     public static function hayTrabajoDelMinuto(): bool
     {
@@ -102,10 +118,11 @@ class MatchConsumibles
         $porPlaca = [];
         foreach ($placas as $d) { $porPlaca[$d->txt] ??= $d->id; }
 
-        $porCodigo = $porSerial = [];
+        $porCodigo = $porSerial = $textosEquipo = [];
         foreach ($equipos as $e) {
             $cp = $norm($e->CODIGO_PATIO); if ($util($cp)) { $porCodigo[$cp] ??= $e->ID_EQUIPO; }
             $sc = $norm($e->SERIAL_CHASIS); if ($util($sc)) { $porSerial[$sc] ??= $e->ID_EQUIPO; }
+            $textosEquipo[$e->ID_EQUIPO] = [$sc, $cp];   // normalizados una vez (el parcial los recorre por consumo)
         }
 
         // Auxiliares (máquina de soldar, planta, compresor…): por su código o serial EXACTO.
@@ -188,9 +205,9 @@ class MatchConsumibles
                     if (str_contains($d->txt, $id)) { $idsDoc[$d->id] = true; }
                 }
                 $idsEq = [];
-                foreach ($equipos as $e) {
-                    if (str_contains($norm($e->SERIAL_CHASIS), $id) || str_contains($norm($e->CODIGO_PATIO), $id)) {
-                        $idsEq[$e->ID_EQUIPO] = true;
+                foreach ($textosEquipo as $idE => [$sc, $cp]) {
+                    if (str_contains($sc, $id) || str_contains($cp, $id)) {
+                        $idsEq[$idE] = true;
                     }
                 }
                 $todos = array_keys($idsDoc + $idsEq);
@@ -244,6 +261,10 @@ class MatchConsumibles
         // siguió POR IDENTIFICAR no cambió nada.
         if ($confirmados || $sinIdentificador || $pendientes->merge($deExcel)->contains('ESTADO_EQUIPO', 'PENDIENTE')) {
             CacheVersion::bump(ConsumiblesController::DATA_VER_KEY);
+        }
+
+        if ($ids === null) {
+            Cache::put(self::COMPLETA_RECIENTE, true, now()->addMinutes(5));   // la de la hora no la repite
         }
 
         return ['total' => $deExcel->count() + $pendientes->count(), 'confirmados' => $confirmados, 'sin_match' => $sinMatch + $sinIdentificador];
