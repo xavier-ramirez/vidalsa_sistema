@@ -1161,8 +1161,7 @@
             background: #f0f9ff !important;
             box-shadow: 0 4px 12px rgba(0, 103, 177, 0.15) !important;
         }
-        #almTableBody tr.alm-row.selected-row-maquinaria > td,
-        #almTableBody tr.alm-row.selected-row-maquinaria:hover > td { background: transparent !important; }
+        #almTableBody tr.alm-row.selected-row-maquinaria > td { background: transparent !important; }
         #almTableBody tr.alm-row.selected-row-maquinaria > td.alm-td-nombre { border-bottom: 1px solid #e2e8f0 !important; }
         #almTableBody tr.alm-row.selected-row-maquinaria.alm-row-missing-cant,
         #almTableBody tr.alm-row.selected-row-maquinaria.alm-row-exceeds-stock {
