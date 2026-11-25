@@ -645,7 +645,12 @@
                     // quedan uno debajo de otro y las barras a su derecha.
                     legend: { display: datasets.length > 1, position: cdEstrecho ? 'bottom' : 'left', align: 'start',
                         maxWidth: 300,   // los nombres largos ("TUBERÍA DE 30'' VELADERO TRAMO I") se cortaban contra el eje
-                        labels: { boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle',
+                        labels: {
+                            // El frente "POR DEFINIR" no va en la leyenda (pedido del cliente,
+                            // 25-11-2026). Su tramo sigue en la barra y en el tooltip, para que
+                            // el total del mes no cambie.
+                            filter: function (item) { return String(item.text || '').trim().toUpperCase() !== 'POR DEFINIR'; },
+                            boxWidth: 9, boxHeight: 9, usePointStyle: true, pointStyle: 'circle',
                             padding: cdEstrecho ? 8 : 14,
                             font: { size: cdEstrecho ? 10 : 11.5, family: "'Inter','Segoe UI',sans-serif", weight: 600 }, color: '#334155' } },
                     datalabels: CD_SIN_DATALABELS,
@@ -665,11 +670,12 @@
         });
 
         // ── 2) Top productos (barras horizontales) ───────────────────────────
-        // COLORES de las diapositivas de la empresa: una escala del azul marino del
-        // encabezado (#1f4e79) a celeste (#9dc3e6) que se aclara según baja el puesto. El
-        // primero ya no va en rojo (pedido del cliente, 24-11-2026: una sola barra roja se leía
-        // como alerta). Aquí sí vale una escala de un solo tono: las barras no se tocan y cada
-        // una lleva su rótulo, así que no hace falta que los vecinos se distingan por color.
+        // COLORES de las diapositivas de la empresa: los TRES más consumidos en rojo, del más
+        // oscuro al más claro (pedido del cliente, 25-11-2026: todo azul no destacaba nada, y
+        // una sola barra roja se leía como alerta), y del cuarto para abajo una escala del azul
+        // marino del encabezado (#1f4e79) a celeste (#9dc3e6) que se aclara según baja el
+        // puesto. Las barras no se tocan y cada una lleva su rótulo, así que no hace falta que
+        // los vecinos se distingan por color.
         var top = data.top_productos || [];
         function cdMezcla(a, b, t) {
             var c = function (h, i) { return parseInt(h.slice(i, i + 2), 16); };
@@ -678,8 +684,11 @@
                 return v.length < 2 ? '0' + v : v;
             }).join('');
         }
+        var CD_TOP_ROJOS = ['#8f1410', '#c0392b', '#e06666'];
         var cdTopColores = top.map(function (_, i) {
-            return cdMezcla('#1f4e79', '#9dc3e6', top.length > 1 ? i / (top.length - 1) : 0);
+            if (i < CD_TOP_ROJOS.length) return CD_TOP_ROJOS[i];
+            var resto = top.length - CD_TOP_ROJOS.length;
+            return cdMezcla('#1f4e79', '#9dc3e6', resto > 1 ? (i - CD_TOP_ROJOS.length) / (resto - 1) : 0);
         });
 
         // Rótulo del eje = Nº DE PARTE principal (identifica el filtro exacto). Muchos
