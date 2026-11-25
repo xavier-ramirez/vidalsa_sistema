@@ -28,7 +28,10 @@ class CuposCombustibleController extends Controller
         return view('admin.consumibles.partials.cupos_contenido', self::datos($request->query('mes')));
     }
 
-    /** Por patio, para un mes (YYYY-MM; si no es válido, el actual): el cupo, las cisternas surtidas y lo que queda. */
+    /**
+     * Para un mes (YYYY-MM; si no es válido, el actual): por patio, el cupo, lo surtido y lo que queda; y
+     * las cisternas de los dos patios en una sola lista, por fecha, con lo que le quedaba a su patio.
+     */
     public static function datos($mesTexto): array
     {
         $mes = self::mes($mesTexto);
@@ -39,23 +42,21 @@ class CuposCombustibleController extends Controller
         $patios = [];
         foreach (CupoCombustible::PATIOS as $clave => $nombre) {
             $cupo = $cupos->first(fn ($c) => $c->PATIO === $clave);
-            $litrosCupo = $cupo ? (float) $cupo->LITROS : null;
-            $surtido = 0.0;
-            $filas = $cisternas->where('PATIO', $clave)->values()->map(function ($k) use (&$surtido, $litrosCupo) {
-                $surtido += (float) $k->LITROS;
-
-                return ['cisterna' => $k, 'quedan' => $litrosCupo !== null ? $litrosCupo - $surtido : null];
-            });
-            $patios[$clave] = [
-                'nombre'  => $nombre,
-                'cupo'    => $litrosCupo,
-                'surtido' => $surtido,
-                'filas'   => $filas,
-                'quedan'  => $litrosCupo !== null ? $litrosCupo - $surtido : null,
-            ];
+            $patios[$clave] = ['nombre' => $nombre, 'cupo' => $cupo ? (float) $cupo->LITROS : null, 'surtido' => 0.0, 'cisternas' => 0];
         }
+        $filas = $cisternas->map(function ($k) use (&$patios) {
+            $p = &$patios[$k->PATIO];
+            $p['surtido'] += (float) $k->LITROS;
+            $p['cisternas']++;
 
-        return ['mes' => $mes, 'patios' => $patios];
+            return ['cisterna' => $k, 'quedan' => $p['cupo'] !== null ? $p['cupo'] - $p['surtido'] : null];
+        });
+        foreach ($patios as &$p) {
+            $p['quedan'] = $p['cupo'] !== null ? $p['cupo'] - $p['surtido'] : null;
+        }
+        unset($p);
+
+        return ['mes' => $mes, 'patios' => $patios, 'filas' => $filas];
     }
 
     /** POST consumibles/cupos — el cupo de un patio (patio, litros); si cambia, rige desde el mes elegido. */

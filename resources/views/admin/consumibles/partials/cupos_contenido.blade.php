@@ -1,6 +1,6 @@
-{{-- Cuerpo del modal Cupos de Gasoil (se repinta solo, tras guardar o al cambiar de mes): los dos
-     patios lado a lado, cada uno con su cupo fijo (lápiz para cambiarlo), las cisternas surtidas del
-     mes (fecha y litros) y lo que queda. --}}
+{{-- Cuerpo del modal Cupos de Gasoil (se repinta solo, tras guardar o al cambiar de mes): arriba una
+     tarjeta por patio con su cupo fijo (lápiz para cambiarlo), lo surtido y lo que queda; debajo UN
+     formulario para los dos (se elige el patio) y una sola tabla con las cisternas del mes. --}}
 @php
     $lt = fn ($n) => number_format((float) $n, fmod((float) $n, 1) ? 2 : 0, ',', '.');
     $colores = ['TIGRE' => '#1F4E79', 'MATURIN' => '#5B9BD5'];
@@ -20,7 +20,7 @@
             <div class="cupos-patio-cab">
                 <b>{{ $p['nombre'] }}</b>
                 <span class="cupos-cupo-ver">
-                    Cupo: <b>{{ $p['cupo'] !== null ? $lt($p['cupo']) . ' L' : 'sin cargar' }}</b>
+                    Cupo <b>{{ $p['cupo'] !== null ? $lt($p['cupo']) . ' L' : 'sin cargar' }}</b>
                     @if ($puede)
                         <button type="button" class="cupos-lapiz" data-editar-cupo title="Cambiar el cupo"><i class="material-icons">edit</i></button>
                     @endif
@@ -35,49 +35,57 @@
                     </form>
                 @endif
             </div>
-
-            <div class="cupos-cifras">
-                <span>Surtido <b>{{ $lt($p['surtido']) }} L</b> ({{ $p['filas']->count() }} {{ $p['filas']->count() === 1 ? 'cisterna' : 'cisternas' }})</span>
-                <span>Quedan <b style="color: {{ $pasado ? '#dc2626' : 'inherit' }};">{{ $p['cupo'] !== null ? $lt($p['quedan']) . ' L' : '—' }}</b></span>
+            <div class="cupos-quedan" style="color: {{ $pasado ? '#dc2626' : '#0f172a' }};">
+                {{ $p['cupo'] !== null ? $lt($p['quedan']) . ' L' : '—' }}
+                <small>{{ $pasado ? 'pasado del cupo' : 'quedan' }}</small>
             </div>
             <div class="cupos-barra"><i style="width: {{ round($pct, 1) }}%; background: {{ $pasado ? '#dc2626' : $colores[$clave] }};"></i></div>
-
-            @if ($puede)
-                <form class="cupos-form" data-accion="cisterna">
-                    <input type="hidden" name="patio" value="{{ $clave }}">
-                    <input type="date" name="fecha" required value="{{ $hoy }}" title="Fecha"
-                        min="{{ $mes->toDateString() }}" max="{{ $mes->copy()->endOfMonth()->toDateString() }}">
-                    <input type="number" name="litros" min="0.01" step="any" required placeholder="Litros">
-                    <button type="submit" class="btn-primary-maquinaria btn-compacto"><i class="material-icons">add</i> Agregar</button>
-                </form>
-            @endif
-
-            <div class="cupos-tbl-wrap">
-                <table class="cupos-tbl">
-                    <thead><tr><th>#</th><th>Fecha</th><th class="num">Litros</th><th class="num">Quedan</th>@if ($puede)<th></th>@endif</tr></thead>
-                    <tbody>
-                        @forelse ($p['filas'] as $i => $f)
-                            @php $k = $f['cisterna']; @endphp
-                            <tr>
-                                <td class="cupos-n">{{ $i + 1 }}</td>
-                                <td>{{ $k->FECHA->format('d/m/Y') }}</td>
-                                <td class="num">{{ $lt($k->LITROS) }} L</td>
-                                <td class="num" style="color: {{ $f['quedan'] !== null && $f['quedan'] < 0 ? '#dc2626' : 'inherit' }};">{{ $f['quedan'] !== null ? $lt($f['quedan']) . ' L' : '—' }}</td>
-                                @if ($puede)
-                                    <td class="cupos-acc">
-                                        <button type="button" class="cupos-borrar" title="Quitar" data-borrar="{{ $k->ID_CISTERNA }}"
-                                            data-texto="{{ $p['nombre'] }} · {{ $k->FECHA->format('d/m/Y') }} · {{ $lt($k->LITROS) }} L">
-                                            <i class="material-icons">delete_outline</i>
-                                        </button>
-                                    </td>
-                                @endif
-                            </tr>
-                        @empty
-                            <tr><td colspan="{{ $puede ? 5 : 4 }}" class="cupos-vacio">Sin cisternas en {{ $mesTxt }}.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+            <div class="cupos-surtido">Surtido {{ $lt($p['surtido']) }} L · {{ $p['cisternas'] }} {{ $p['cisternas'] === 1 ? 'cisterna' : 'cisternas' }}</div>
         </div>
     @endforeach
+</div>
+
+@if ($puede)
+    <form class="cupos-form" data-accion="cisterna">
+        <div class="cupos-elegir" role="radiogroup" aria-label="Patio">
+            @foreach ($patios as $clave => $p)
+                <label style="--color: {{ $colores[$clave] }};">
+                    <input type="radio" name="patio" value="{{ $clave }}" required @checked($loop->first)>
+                    {{ str_replace('Patio ', '', $p['nombre']) }}
+                </label>
+            @endforeach
+        </div>
+        <input type="date" name="fecha" required value="{{ $hoy }}" title="Fecha"
+            min="{{ $mes->toDateString() }}" max="{{ $mes->copy()->endOfMonth()->toDateString() }}">
+        <input type="number" name="litros" min="0.01" step="any" required placeholder="Litros">
+        <button type="submit" class="btn-primary-maquinaria btn-compacto"><i class="material-icons">add</i> Agregar</button>
+    </form>
+@endif
+
+<div class="cupos-tbl-wrap">
+    <table class="cupos-tbl">
+        <thead><tr><th>#</th><th>Fecha</th><th>Patio</th><th class="num">Litros</th><th class="num">Quedan</th>@if ($puede)<th></th>@endif</tr></thead>
+        <tbody>
+            @forelse ($filas as $i => $f)
+                @php $k = $f['cisterna']; $nombre = $patios[$k->PATIO]['nombre'] ?? $k->PATIO; @endphp
+                <tr>
+                    <td class="cupos-n">{{ $i + 1 }}</td>
+                    <td>{{ $k->FECHA->format('d/m/Y') }}</td>
+                    <td><span class="cupos-punto" style="background: {{ $colores[$k->PATIO] ?? '#94a3b8' }};"></span>{{ $nombre }}</td>
+                    <td class="num">{{ $lt($k->LITROS) }} L</td>
+                    <td class="num" style="color: {{ $f['quedan'] !== null && $f['quedan'] < 0 ? '#dc2626' : 'inherit' }};">{{ $f['quedan'] !== null ? $lt($f['quedan']) . ' L' : '—' }}</td>
+                    @if ($puede)
+                        <td class="cupos-acc">
+                            <button type="button" class="cupos-borrar" title="Quitar" data-borrar="{{ $k->ID_CISTERNA }}"
+                                data-texto="{{ $nombre }} · {{ $k->FECHA->format('d/m/Y') }} · {{ $lt($k->LITROS) }} L">
+                                <i class="material-icons">delete_outline</i>
+                            </button>
+                        </td>
+                    @endif
+                </tr>
+            @empty
+                <tr><td colspan="{{ $puede ? 6 : 5 }}" class="cupos-vacio">Sin cisternas en {{ $mesTxt }}.</td></tr>
+            @endforelse
+        </tbody>
+    </table>
 </div>

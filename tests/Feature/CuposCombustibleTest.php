@@ -46,7 +46,7 @@ class CuposCombustibleTest extends MySqlTestCase
 
         $this->actingAs($u)->get(route('consumibles.cargar', ['mes' => self::MES]))->assertOk()
             ->assertSee('Cupos de Gasoil')->assertSee('data-abrir-cupos', false)
-            ->assertSee('76.000 L')->assertSee('2 cisternas')->assertSee('24.000 L')   // El Tigre: quedan 24.000
+            ->assertSee('Surtido 76.000 L · 2 cisternas')->assertSee('24.000 L')   // El Tigre: quedan 24.000
             ->assertSee('02/03/2031')->assertSee('-500 L');                            // Maturín se pasó
     }
 

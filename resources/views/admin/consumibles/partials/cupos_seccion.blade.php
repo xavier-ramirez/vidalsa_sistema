@@ -1,8 +1,9 @@
-{{-- Cargar consumibles → modal «Cupos de Gasoil» (los dos patios lado a lado: su cupo fijo y las
-     cisternas surtidas del mes, con fecha y litros). Lo abre «Cupos de gasoil» del menú Acciones; con ?cupos=1 o ?mes= en la dirección se
-     abre solo (desde las otras pantallas). El cuerpo se repinta solo (consumibles.cupos?parcial=1). --}}
+{{-- Cargar consumibles → modal «Cupos de Gasoil»: el cupo fijo de cada patio y lo que queda, un solo
+     formulario para anotar la cisterna surtida (patio, fecha y litros) y una tabla con las del mes. Lo
+     abre «Cupos de gasoil» del menú Acciones; con ?cupos=1 o ?mes= en la dirección se abre solo (desde
+     las otras pantallas). El cuerpo se repinta solo (consumibles.cupos?parcial=1). --}}
 <style>
-    .cupos-modal { width: 94%; max-width: 920px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden;
+    .cupos-modal { width: 94%; max-width: 760px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden;
         background: #fff; margin: auto; max-height: 92vh; display: flex; flex-direction: column; text-align: left; }
     .cupos-modal-cab { background: var(--maquinaria-dark-blue); color: #fff; padding: 12px 18px; display: flex;
         justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -13,12 +14,14 @@
     #cuposContenido { padding: 0 18px 18px; overflow-y: auto; }
 
     .cupos-patios { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding-top: 16px; }
-    .cupos-patio { border: 1px solid #e2e8f0; border-top: 4px solid var(--color); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+    .cupos-patio { border: 1px solid #e2e8f0; border-left: 5px solid var(--color); border-radius: 12px; padding: 12px 14px; min-width: 0;
+        background: linear-gradient(135deg, #fff 60%, #f1f5f9); }
     .cupos-patio-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #475569; }
     .cupos-patio-cab > b { font-size: 15px; color: #0f172a; }
 
-    .cupos-cifras { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: #475569; }
-    .cupos-cifras b { color: #0f172a; }
+    .cupos-quedan { font-size: 24px; font-weight: 800; margin-top: 8px; line-height: 1.1; }
+    .cupos-quedan small { font-size: 12px; font-weight: 500; color: #64748b; }
+    .cupos-surtido { font-size: 12px; color: #64748b; margin-top: 6px; }
     .cupos-cupo-ver { display: flex; align-items: center; gap: 6px; }
     .cupos-cupo-ver[hidden] { display: none; }
     .cupos-lapiz { border: none; background: none; cursor: pointer; color: #0067b1; padding: 0; display: flex; }
@@ -34,15 +37,22 @@
     .cupos-barra { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 8px; }
     .cupos-barra i { display: block; height: 100%; border-radius: 3px; }
 
-    .cupos-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 14px 0 0; }
+    .cupos-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 16px 0 0; padding: 10px;
+        background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
     .cupos-form input { height: 36px; border: 1px solid #cbd5e0; border-radius: 8px; background: #fbfcfd; padding: 0 10px;
         font-size: 13px; font-family: inherit; outline: none; min-width: 0; box-sizing: border-box; }
     .cupos-form input:focus { border-color: #0067b1; }
     .cupos-form input[name=fecha] { flex: 1; min-width: 130px; }
-    .cupos-form input[name=litros] { width: 110px; }
+    .cupos-form input[name=litros] { flex: 1; min-width: 100px; }
+    .cupos-elegir { display: flex; border: 1px solid #cbd5e0; border-radius: 8px; overflow: hidden; height: 36px; background: #fff; }
+    .cupos-elegir label { display: flex; align-items: center; padding: 0 14px; font-size: 13px; cursor: pointer; color: #475569; transition: background .15s; }
+    .cupos-elegir label + label { border-left: 1px solid #cbd5e0; }
+    .cupos-elegir input { position: absolute; opacity: 0; pointer-events: none; }
+    .cupos-elegir label:has(input:checked) { background: var(--color); color: #fff; font-weight: 600; }
+    .cupos-elegir label:has(input:focus-visible) { outline: 2px solid #0067b1; outline-offset: -2px; }
     .cupos-form .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; }
 
-    /* Tablas con el estilo de la Lista de Consumibles. */
+    /* Tabla con el estilo de la Lista de Consumibles. */
     .cupos-tbl-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid #e2e8f0; margin-top: 12px; }
     .cupos-tbl { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 300px; }
     .cupos-tbl th { background: #1e293b; color: #e2e8f0; font-weight: 700; padding: 8px; font-size: 11px; text-transform: uppercase;
@@ -56,12 +66,16 @@
     .cupos-tbl .cupos-n { text-align: center; color: #94a3b8; font-size: 10px; font-weight: 700; width: 28px; background: #f8fafc; border-right: 2px solid #e2e8f0; }
     .cupos-tbl .cupos-acc { width: 34px; text-align: center; border-right: none; }
     .cupos-vacio { color: #94a3b8; font-style: italic; text-align: center; }
+    .cupos-punto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
     .cupos-borrar { border: none; background: none; cursor: pointer; color: #94a3b8; padding: 2px; display: inline-flex; }
     .cupos-borrar:hover { color: #dc2626; }
     .cupos-borrar i { font-size: 18px; }
     .cupos-ocupado { opacity: .55; pointer-events: none; }
-    @media (max-width: 760px) {
+    @media (max-width: 600px) {
         .cupos-patios { grid-template-columns: 1fr; }
+        .cupos-elegir { flex: 1 1 100%; }
+        .cupos-elegir label { flex: 1; justify-content: center; }
+        .cupos-form .btn-primary-maquinaria { flex: 1 1 100%; justify-content: center; }
     }
 </style>
 
@@ -96,6 +110,13 @@
         function mesActual() { var d = document.getElementById('cuposDatos'); return d ? d.dataset.mes : ''; }
         function aviso(msg, tipo) { if (window.showToast) window.showToast(msg, tipo); else console.log(msg); }
 
+        // El patio elegido en el formulario se mantiene al repintar (se suelen anotar varias seguidas).
+        function marcarPatio() {
+            var r = window.__cuposPatio && modal.querySelector('input[name=patio][value="' + window.__cuposPatio + '"]');
+            if (r) r.checked = true;
+        }
+        marcarPatio();
+
         function abrir() { modal.classList.add('active'); }
         // Al cerrar, la dirección vuelve a Cargar sola: recargar no lo abre de nuevo.
         function cerrar() { modal.classList.remove('active'); history.replaceState(history.state, '', URL_CARGAR); }
@@ -109,6 +130,7 @@
                 .then(function (r) { return r.ok ? r.text() : Promise.reject(); })
                 .then(function (html) {
                     c.innerHTML = html;
+                    marcarPatio();
                     document.getElementById('cuposMes').value = mes;
                     history.replaceState(history.state, '', URL_CARGAR + '?mes=' + mes);
                 })
@@ -147,6 +169,7 @@
             var datos = new FormData(f);
             datos.append('mes', mesActual());
             var esCupo = f.dataset.accion === 'cupo';
+            if (!esCupo) window.__cuposPatio = datos.get('patio');
             f.classList.add('cupos-ocupado');
             enviar(esCupo ? URL_CUPO : URL_CISTERNA, 'POST', datos)
                 .then(function () {
