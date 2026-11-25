@@ -311,6 +311,7 @@ Route::middleware(['auth'])->group(function () {
             // El historial de cambios sigue accesible desde /admin/catalogo
             // (cada modelo tiene su propio audit log).
             Route::get ('consumibles/exportar-csv',       [App\Http\Controllers\ConsumiblesController::class, 'exportarCsv'])    ->name('consumibles.exportarCsv');
+            Route::post('consumibles/frentes-de-textos',  [App\Http\Controllers\ConsumiblesController::class, 'frentesDeTextos'])->middleware('can:super.admin')->name('consumibles.frentesDeTextos');
             Route::post('consumibles/guardar-lote',       [App\Http\Controllers\ConsumiblesController::class, 'guardarLote'])    ->middleware('can:super.admin')->name('consumibles.guardarLote');
             Route::post('consumibles/match-automatico',   [App\Http\Controllers\ConsumiblesController::class, 'matchAutomatico'])->middleware('can:equipos.edit')->name('consumibles.matchAutomatico');
             // Excel de gasoil (reportes de los proyectos), dentro de Cargar consumibles: super.admin,

@@ -95,6 +95,16 @@
             background: #fafafa;
         }
 
+        /* Frente de la fila: lo reconocido sale debajo (verde) o «no reconocido» (rojo). */
+        .fila-frente-estado { font-size: 11px; padding: 0 8px 5px; line-height: 1.25; }
+        .fila-frente-estado:empty { display: none; }
+        .fila-frente-estado.ok { color: #059669; }
+        .fila-frente-estado.mal { color: #dc2626; font-weight: 600; }
+        #frenteFilaDropdown { display: none; position: fixed; background: #fff; border: 1px solid #cbd5e0; border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0,0,0,.12); z-index: 1200; max-height: 240px; overflow-y: auto; }
+        #frenteFilaDropdown div { padding: 9px 12px; cursor: pointer; font-size: 13px; color: #1e293b; }
+        #frenteFilaDropdown div:hover { background: #f1f5f9; }
+
         /* Celdas editables */
         #tablaFilas td input[type=text],
         #tablaFilas td input[type=date],
@@ -227,7 +237,7 @@
                             <div
                                 style="box-sizing:border-box; padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; position:relative;">
                                 <input type="text" id="frenteSearch" name="search_frente_cargar"
-                                    placeholder="Frente de Trabajo *" autocomplete="off"
+                                    placeholder="Frente de Trabajo (filas sin proyecto)" autocomplete="off"
                                     style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; outline:none; height:100%; font-family:inherit;"
                                     oninput="filtrarFrentes(this.value)" onfocus="mostrarTodosLosFrente()">
                                 <i class="material-icons"
@@ -325,7 +335,7 @@
                 {{-- Instrucciones de Pegado Rápido --}}
                 <div class="paste-zone" id="pasteZone">
                     <i class="material-icons">content_paste</i>
-                    <span>Elija el tipo y pegue filas de Excel con Ctrl+V: con encabezados, cada columna va a su lugar; sin ellos, en este orden: <span id="pasteOrden">fecha, placa/serial, nombre, C.I., cantidad, origen</span></span>
+                    <span>Elija el tipo y pegue filas de Excel con Ctrl+V: con encabezados, cada columna va a su lugar; sin ellos, en este orden: <span id="pasteOrden">fecha, placa/serial, nombre, C.I., cantidad, origen, proyecto</span></span>
                 </div>
 
                 <table id="tablaFilas">
@@ -339,11 +349,14 @@
                             <th>CANTIDAD *</th>
                             <th id="thEspec" style="display:none; color:#0067b1;">VISCOSIDAD</th>
                             <th>ORIGEN SUMINISTRO</th>
+                            <th>FRENTE <span style="font-weight:400;opacity:.7;">(proyecto)</span></th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody id="cuerpoTabla"></tbody>
                 </table>
+                {{-- Lista para elegir el frente de una fila: una sola, se coloca bajo la celda. --}}
+                <div id="frenteFilaDropdown"></div>
             </div>
 
             {{-- El botón "Agregar Fila" se eliminó: ahora la fila se agrega sola al escribir
@@ -375,6 +388,7 @@
     <script>
         var FRENTES = @json($frentes->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE]));
         var filaCount = 0;
+        var URL_FRENTES_DE_TEXTOS = @json(route('consumibles.frentesDeTextos'));
 
         // ── Tipo helper ──────────────────    ───────────────────────────────    ─────
         var TIPOS_ACEITE = ['ACEITE'];
@@ -413,7 +427,7 @@
             // viscosidad o el modelo va antes del origen.
             const orden = document.getElementById('pasteOrden');
             if (orden) orden.textContent = 'fecha, placa/serial, nombre, C.I., cantidad, '
-                + (espec ? (TIPOS_ACEITE.includes(tipo) ? 'viscosidad, ' : 'modelo del caucho, ') : '') + 'origen';
+                + (espec ? (TIPOS_ACEITE.includes(tipo) ? 'viscosidad, ' : 'modelo del caucho, ') : '') + 'origen, proyecto';
 
             // Cabecera de columna
             if (espec) {
@@ -495,6 +509,64 @@
         });
         } // /guardia __cargarClickBound
 
+        // ── Frente de cada fila ───────────────────────────────────────────
+        // Lo pegado puede traer varios proyectos: cada fila lleva su texto (columna FRENTE) y el
+        // frente que se le reconoce con las reglas del Excel de gasoil (frentesDeTextos →
+        // IdentificadorConsumo). Lo que no se reconoce se elige en la fila y, al guardar, queda
+        // aprendido. Una fila sin texto usa el frente de arriba.
+        function estadoFrenteFila(inp, id, nombre) {
+            const td = inp.closest('td');
+            const texto = inp.value.trim();
+            td.querySelector('[name$="[id_frente]"]').value = texto && id ? id : '';
+            inp.dataset.resuelto = texto;
+            // El texto que no se reconoció: al elegir su frente se vuelve a él (así se aprende).
+            if (texto && !id) inp.dataset.sinReconocer = texto;
+            else if (id) delete inp.dataset.sinReconocer;
+            const est = td.querySelector('.fila-frente-estado');
+            est.className = 'fila-frente-estado' + (!texto ? '' : (id ? ' ok' : ' mal'));
+            est.textContent = !texto ? '' : (id ? '✓ ' + nombre : 'No reconocido: elige el frente');
+        }
+        // Reconoce en el servidor los textos de las filas que aún no lo están.
+        function resolverFrentesFilas() {
+            const pend = [...document.querySelectorAll('#cuerpoTabla [data-fila-frente]')]
+                .filter(i => i.value.trim() && i.dataset.resuelto !== i.value.trim());
+            if (!pend.length) return Promise.resolve(true);
+            return window.apiFetch(URL_FRENTES_DE_TEXTOS, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ textos: [...new Set(pend.map(i => i.value.trim()))] }),
+            }).then(r => r.ok ? r.json() : Promise.reject())
+                .then(b => {
+                    pend.forEach(i => {
+                        const f = (b.frentes || {})[i.value.trim()];
+                        estadoFrenteFila(i, f && f.id, f && f.nombre);
+                    });
+                    return true;
+                })
+                .catch(() => {
+                    if (window.showToast) window.showToast('No se pudieron reconocer los frentes de las filas. Intenta de nuevo.', 'warning');
+                    return false;
+                });
+        }
+        function listaFrenteFila(inp) {
+            const dd = document.getElementById('frenteFilaDropdown');
+            const q = inp.value.trim();
+            const lista = q ? window.FuzzySearch.filtrar(FRENTES, q, f => f.nombre) : FRENTES;
+            dd.innerHTML = lista.length
+                ? lista.map(f => `<div data-frente-id="${Number(f.id)}">${window.escapeHtml(f.nombre)}</div>`).join('')
+                : '<div style="color:#94a3b8; cursor:default;">Sin resultados</div>';
+            const r = inp.getBoundingClientRect();
+            dd.style.left = r.left + 'px';
+            dd.style.top = (r.bottom + 2) + 'px';
+            dd.style.width = Math.max(r.width, 240) + 'px';
+            dd.style.display = 'block';
+            dd._inp = inp;
+        }
+        function cerrarListaFrenteFila() {
+            const dd = document.getElementById('frenteFilaDropdown');
+            if (dd) { dd.style.display = 'none'; dd._inp = null; }
+        }
+
         // ── Gestión de filas ──────────────────────────────────────────────
         window.agregarFila = function (data = {}, idx = null) {
             filaCount++;
@@ -517,6 +589,12 @@
                                                            style="min-width:90px;">
                                                 </td>
                                                 <td><input type="text"   name="filas[${n}][raw_origen]"    value="${limpiar(data.origen)}"   tabindex="${n * 10 + 7}" placeholder="Cisterna, guía... (opcional)"></td>
+                                                <td style="min-width:190px;">
+                                                    <input type="text" name="filas[${n}][frente]" value="${limpiar(data.frente)}" tabindex="${n * 10 + 8}"
+                                                           data-fila-frente placeholder="el de arriba" autocomplete="off">
+                                                    <input type="hidden" name="filas[${n}][id_frente]" value="">
+                                                    <div class="fila-frente-estado"></div>
+                                                </td>
                                                 <td><button type="button" class="btn-del" onclick="window.eliminarFila(${n})" title="Eliminar">
                                                         <i class="material-icons" style="font-size:16px;">close</i>
                                                     </button></td>`;
@@ -603,6 +681,7 @@
                 else if (/VISCOSIDAD|MEDIDA|ESPECIFICACION|MODELO (DEL )?CAUCHO/.test(h)) pon('espec', i);
                 else if (/PLACA|SERIAL|IDENTIFICADOR/.test(h)) { pon('id', i); equipo = true; }
                 else if (/RESPONSABLE|CHOFER|OPERADOR|CONDUCTOR/.test(h)) pon('nombre', i);
+                else if (/^(PROYECTO|FRENTE|OBRA)\b/.test(h)) pon('frente', i);
                 else if (/DESCRIPCION|CARACTERISTICAS|VEHICULO ?\/ ?EQUIPO/.test(h) || h === 'EQUIPO' || h === 'VEHICULO') {
                     if (desc === undefined) desc = i;
                     equipo = true;
@@ -695,7 +774,7 @@
             // (más columnas de las que tiene la tabla, o una 1ª fila de títulos), se le pregunta a la
             // IA qué columna es cada dato. Sin respuesta útil, se pega por posición como siempre.
             const espec0 = necesitaEspec();
-            const enOrden = espec0 ? 7 : 6;
+            const enOrden = espec0 ? 8 : 7;
             const raro = filas.length >= 2 && (filas.some(c => c.filter(x => x !== '').length > enOrden)
                 || (filas[0][0] && !fechaISO(filas[0][0]) && isNaN(parseFloat(filas[0][0]))));
             if (!mapa && raro && window.consImpColumnas) {
@@ -740,9 +819,11 @@
                     cantidad: numeroPegado(col('cantidad', 4)),
                     espec: (mapa || espec) ? col('espec', 5) : '',
                     origen: col('origen', espec ? 6 : 5),
+                    frente: col('frente', espec ? 7 : 6),
                 });
                 insertadas++;
             });
+            resolverFrentesFilas();
             if (sinFecha && window.showToast) {
                 window.showToast(sinFecha + (sinFecha === 1 ? ' fila trae una fecha que no se reconoce' : ' filas traen una fecha que no se reconoce') + ': complétala a mano.', 'warning');
             }
@@ -760,15 +841,18 @@
 
         // ── Envío AJAX con spinner ────────────────────────────────────────
         if (document.getElementById('formLote')) {
-            document.getElementById('formLote').addEventListener('submit', function (e) {
+            document.getElementById('formLote').addEventListener('submit', async function (e) {
                 e.preventDefault();
 
+                // Lo escrito en la columna FRENTE y aún sin reconocer, antes de revisar.
+                if (!(await resolverFrentesFilas())) return;
                 const frente = document.getElementById('idFrenteHidden').value;
                 const tipo = document.getElementById('tipoSelect').value;
                 const filas = document.getElementById('cuerpoTabla').children.length;
                 // Una fila con algo escrito pero sin fecha o sin cantidad el servidor la descarta
                 // sin avisar: se dice antes cuál es, para no perder el consumo.
-                const aMedias = [];
+                const aMedias = [], sinReconocer = [];
+                let sinProyecto = false;
                 [...document.getElementById('cuerpoTabla').children].forEach(tr => {
                     const v = n => (tr.querySelector(`[name$="[${n}]"]`) || {}).value || '';
                     // Solo lo que se ve: la viscosidad o el modelo de otro tipo quedan ocultos y el
@@ -776,12 +860,17 @@
                     const algo = [...tr.querySelectorAll('input')].some(inp => inp.value.trim() !== '' && !inp.closest('[data-espec-cell][style*="none"]'));
                     // El número es el de la columna «#» (tras borrar filas no coincide con la posición).
                     if (algo && (!v('fecha') || !(parseFloat(v('cantidad')) > 0))) aMedias.push(tr.firstElementChild.textContent.trim());
+                    // Frente: el reconocido o elegido en la fila; sin texto, el de arriba.
+                    if (algo && v('frente').trim() && !v('id_frente')) sinReconocer.push(tr.firstElementChild.textContent.trim());
+                    if (algo && !v('frente').trim()) sinProyecto = true;
                 });
 
-                if (!frente) {
-                    if (window.showModal) {
-                        window.showModal({ type: 'warning', title: 'Campo requerido', message: 'Selecciona un frente de trabajo.', confirmText: 'Entendido', hideCancel: true });
-                    } else { alert('Selecciona un frente de trabajo.'); }
+                if (sinReconocer.length) {
+                    window.showModal({ type: 'warning', title: 'Frente sin reconocer', message: 'No se reconoce el proyecto de ' + (sinReconocer.length === 1 ? 'la fila ' : 'las filas ') + sinReconocer.join(', ') + ': elige su frente en la columna FRENTE.', confirmText: 'Entendido', hideCancel: true });
+                    return;
+                }
+                if (sinProyecto && !frente) {
+                    window.showModal({ type: 'warning', title: 'Campo requerido', message: 'Selecciona el frente de trabajo de arriba para las filas sin proyecto, o escríbelo en su columna FRENTE.', confirmText: 'Entendido', hideCancel: true });
                     return;
                 }
                 if (!tipo) {
@@ -889,6 +978,57 @@
                     );
                     if (algunDato) window.agregarFila();
                 });
+                // Columna FRENTE: al escribir, la lista de frentes; al salir, se reconoce lo escrito.
+                tabla.addEventListener('focusin', function (e) {
+                    if (e.target.matches('[data-fila-frente]')) listaFrenteFila(e.target);
+                });
+                tabla.addEventListener('input', function (e) {
+                    if (!e.target.matches('[data-fila-frente]')) return;
+                    // Cambió el texto: lo reconocido antes ya no vale (se vuelve a reconocer al salir).
+                    var td = e.target.closest('td');
+                    td.querySelector('[name$="[id_frente]"]').value = '';
+                    td.querySelector('.fila-frente-estado').textContent = '';
+                    e.target.dataset.resuelto = '';
+                    listaFrenteFila(e.target);
+                });
+                tabla.addEventListener('focusout', function (e) {
+                    if (!e.target.matches('[data-fila-frente]')) return;
+                    cerrarListaFrenteFila();
+                    resolverFrentesFilas();
+                });
+            }
+            // Elegir en la lista: mousedown para que gane al focusout de la celda.
+            var dd = document.getElementById('frenteFilaDropdown');
+            if (dd && !dd._bound) {
+                dd._bound = true;
+                dd.addEventListener('mousedown', function (e) {
+                    var op = e.target.closest('[data-frente-id]');
+                    e.preventDefault();
+                    if (!op || !dd._inp) return;
+                    var inp = dd._inp, id = Number(op.dataset.frenteId), nombre = op.textContent.trim();
+                    // Para un texto no reconocido: la fila lo conserva (se aprende al guardar) y el
+                    // frente vale para todas las que traen ese mismo texto. Si no, el nombre elegido.
+                    var original = inp.dataset.sinReconocer || '';
+                    var filas = original
+                        ? [].filter.call(document.querySelectorAll('#cuerpoTabla [data-fila-frente]'), function (i) {
+                            return i === inp || (i.value.trim() === original && !i.closest('td').querySelector('[name$="[id_frente]"]').value);
+                        })
+                        : [inp];
+                    filas.forEach(function (i) {
+                        i.value = original || nombre;
+                        estadoFrenteFila(i, id, nombre);
+                    });
+                    cerrarListaFrenteFila();
+                });
+                // La lista es fija en la pantalla: al desplazar la tabla o la página se cierra.
+                document.getElementById('tablaFilas').closest('.tbl-wrap').addEventListener('scroll', cerrarListaFrenteFila, { passive: true });
+            }
+            if (!window.__cargarFrenteScroll) {
+                window.__cargarFrenteScroll = true;
+                window.addEventListener('scroll', function () {
+                    var l = document.getElementById('frenteFilaDropdown');
+                    if (l) l.style.display = 'none';
+                }, { passive: true });
             }
         }
 

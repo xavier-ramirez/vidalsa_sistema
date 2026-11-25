@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Consumible;
 use App\Models\ConsumibleImportacion;
 use App\Models\FrenteTrabajo;
+use App\Services\Consumibles\IdentificadorConsumo;
+use App\Services\Consumibles\ImportadorCombustible;
 use Illuminate\Http\Request;
 use App\Support\CacheVersion;
 use Illuminate\Support\Facades\Cache;
@@ -127,6 +129,24 @@ class ConsumiblesController extends Controller
         return view('admin.consumibles.cargar', compact('frentes', 'tipos', 'unidades', 'cargas'));
     }
 
+    /**
+     * POST consumibles/frentes-de-textos — el frente de cada texto de proyecto de la tabla de
+     * Cargar consumibles (lo pegado trae uno por fila), con el reconocedor del Excel de gasoil
+     * (IdentificadorConsumo::resolverFrente). {texto: {id, nombre} | null}.
+     */
+    public function frentesDeTextos(Request $request)
+    {
+        $request->validate(['textos' => 'required|array|max:500', 'textos.*' => 'nullable|string|max:191']);
+        $ident = new IdentificadorConsumo();
+        $r = [];
+        foreach (array_unique(array_filter(array_map('trim', $request->input('textos')))) as $t) {
+            $id = $ident->resolverFrente(['proyecto' => $t])['id_frente'];
+            $r[$t] = $id !== null ? ['id' => $id, 'nombre' => $ident->nombreFrente($id)] : null;
+        }
+
+        return response()->json(['frentes' => (object) $r]);
+    }
+
     // ══════════════════════════════════════════════════════════════
     // GUARDAR LOTE
     // ══════════════════════════════════════════════════════════════
@@ -155,9 +175,12 @@ class ConsumiblesController extends Controller
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'tipo_consumible' => 'required|in:GASOIL,GASOLINA,ACEITE,CAUCHO,REFRIGERANTE,OTRO',
             'unidad' => 'required|in:LITROS,GALONES,UNIDADES,KG',
-            'id_frente' => 'required|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
+            // El de arriba vale para las filas sin proyecto propio; cada fila puede traer el suyo.
+            'id_frente' => 'nullable|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             'filas' => 'required|array|min:1',
             'filas.*.fecha' => 'required|date',
+            'filas.*.frente' => 'nullable|string|max:191',
+            'filas.*.id_frente' => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
             'filas.*.cantidad' => 'required|numeric|min:0.01',
             'filas.*.especificacion' => 'nullable|string|max:30',
         ]);
@@ -174,14 +197,55 @@ class ConsumiblesController extends Controller
 
         $tipo = $request->tipo_consumible;
         $unidad = $request->unidad;
-        $frente = $request->id_frente;
+
+        // ── 3. Frente de cada fila ───────────────────────────────
+        // El elegido en la fila; si no, el que se reconoce de su texto de proyecto (las mismas
+        // reglas que el Excel de gasoil: nombre mal escrito, reglas fijas, lo ya enseñado); sin
+        // texto, el de arriba. Un texto que no se reconoce y no tiene frente elegido NO toma el
+        // de arriba: sería cargar ese consumo en otro proyecto.
+        $ident = null;
+        $frentes = $sinFrente = $ensenar = [];
+        foreach ($request->filas as $i => $fila) {
+            $texto = trim((string) ($fila['frente'] ?? ''));
+            $elegido = !empty($fila['id_frente']) ? (int) $fila['id_frente'] : null;
+            $reconocido = ['id_frente' => null, 'clave' => ''];
+            if ($texto !== '') {
+                $ident ??= new IdentificadorConsumo();
+                $reconocido = $ident->resolverFrente(['proyecto' => $texto]);
+            }
+            $frentes[$i] = $elegido ?? $reconocido['id_frente'] ?? ($texto === '' && $request->id_frente ? (int) $request->id_frente : null);
+            if ($frentes[$i] === null) {
+                $sinFrente[$texto] = true;
+            }
+            // Elegido a mano para un texto que no se reconocía (o se reconocía como otro): queda
+            // aprendido para la tabla y el Excel, como «Textos sin proyecto» en la revisión.
+            if ($elegido !== null && $texto !== '' && $reconocido['id_frente'] !== $elegido) {
+                $ensenar[$reconocido['clave'] !== '' ? $reconocido['clave'] : $texto] = $elegido;
+            }
+        }
+        if ($sinFrente) {
+            $sinTexto = isset($sinFrente['']);
+            unset($sinFrente['']);
+            $partes = [];
+            if ($sinFrente) {
+                $partes[] = 'No se reconoce el proyecto ' . implode(', ', array_map(fn ($t) => '«' . $t . '»', array_keys($sinFrente))) . ': elige su frente en la fila.';
+            }
+            if ($sinTexto) {
+                $partes[] = 'Hay filas sin proyecto: elige el frente de arriba o escríbelo en la fila.';
+            }
+            $msg = implode(' ', $partes);
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $msg, 'errors' => ['id_frente' => [$msg]]], 422);
+            }
+            return back()->withErrors(['id_frente' => $msg])->withInput();
+        }
 
         $tiposConEspec = ['ACEITE', 'CAUCHO'];
         $insertados = 0;
 
         DB::beginTransaction();
         try {
-            foreach ($request->filas as $fila) {
+            foreach ($request->filas as $i => $fila) {
                 $especFila = null;
                 if (in_array($tipo, $tiposConEspec)) {
                     $raw = trim($fila['especificacion'] ?? '');
@@ -198,12 +262,15 @@ class ConsumiblesController extends Controller
                     'TIPO_CONSUMIBLE' => $tipo,
                     'ESPECIFICACION' => $especFila,
                     'UNIDAD' => $unidad,
-                    'ID_FRENTE' => $frente,
+                    'ID_FRENTE' => $frentes[$i],
                     'ID_EQUIPO' => null,
                     'ID_SUMINISTRO' => null,
                     'ESTADO_EQUIPO' => 'PENDIENTE',
                 ]);
                 $insertados++;
+            }
+            if ($ensenar) {
+                (new ImportadorCombustible())->ensenar($ensenar, [], auth()->id());
             }
 
             DB::commit();
