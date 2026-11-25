@@ -20,9 +20,11 @@ return new class extends Migration
             });
         }
 
-        // Los ya importados: su IDENTIFICADOR es «DESCRIPCIÓN | PLACA | …» (claveAliasEquipo).
+        // Los ya importados: su IDENTIFICADOR es «DESCRIPCIÓN | PLACA | …» (claveAliasEquipo), pero
+        // sin descripción en el Excel la primera parte es la placa. Solo se toma si tiene palabras:
+        // placas, seriales y códigos no llevan espacios.
         DB::table('consumibles')->whereNotNull('ID_IMPORTACION')->whereNull('DESC_EQUIPO')
-            ->where('IDENTIFICADOR', 'like', '% | %')
+            ->whereRaw("SUBSTRING_INDEX(IDENTIFICADOR, ' | ', 1) LIKE '% %'")
             ->update(['DESC_EQUIPO' => DB::raw("LEFT(SUBSTRING_INDEX(IDENTIFICADOR, ' | ', 1), 150)")]);
     }
 

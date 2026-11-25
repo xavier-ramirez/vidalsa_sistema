@@ -72,8 +72,8 @@ class EquipoObserver
         }
 
         // Con lo que se identifica corregido (serial, código, o lo que usan las reglas del Excel:
-        // serial de motor, tipo, marca y modelo), los consumos por identificar pueden encontrarlo.
-        if ($equipo->wasChanged(['SERIAL_CHASIS', 'CODIGO_PATIO', 'SERIAL_DE_MOTOR', 'id_tipo_equipo', 'MARCA', 'MODELO'])) {
+        // serial de motor, etiqueta, tipo, marca y modelo), los consumos por identificar pueden encontrarlo.
+        if ($equipo->wasChanged(['SERIAL_CHASIS', 'CODIGO_PATIO', 'SERIAL_DE_MOTOR', 'NUMERO_ETIQUETA', 'id_tipo_equipo', 'MARCA', 'MODELO'])) {
             \App\Services\Consumibles\MatchConsumibles::pedirReintento();
         }
 

@@ -43,6 +43,21 @@ class Consumible extends Model
         return $this->belongsTo(Equipo::class, 'ID_EQUIPO', 'ID_EQUIPO')->withTrashed();
     }
 
+    /**
+     * Lo escrito sin la descripción del Excel al frente. El importador guarda «DESCRIPCIÓN | PLACA
+     * | …» (IdentificadorConsumo::claveAliasEquipo) y la descripción ya se muestra aparte; solo se
+     * quita si la primera parte ES esa descripción (sin descripción en el Excel la primera es la placa).
+     */
+    public static function escritoSinDescripcion(?string $identificador, ?string $desc): string
+    {
+        $partes = explode(' | ', (string) $identificador);
+        if ($desc !== null && $desc !== '' && $partes[0] === \App\Services\Consumibles\TextoConsumo::norm($desc)) {
+            array_shift($partes);
+        }
+
+        return implode(' | ', $partes);
+    }
+
     public function auxiliar()
     {
         return $this->belongsTo(EquipoAuxiliar::class, 'ID_AUXILIAR', 'ID_AUXILIAR')->withTrashed();

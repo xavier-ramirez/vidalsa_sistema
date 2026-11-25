@@ -225,7 +225,7 @@
                     {{-- FRENTE (primer filtro, a pedido del cliente) --}}
                     <div style="flex: 1; min-width: 200px;">
                         <div style="position:relative;">
-                            <div
+                            <div id="frenteCaja"
                                 style="box-sizing:border-box; padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; position:relative;">
                                 <input type="text" id="frenteSearch" name="search_frente_cargar"
                                     placeholder="Frente de Trabajo (filas sin proyecto)" autocomplete="off"
@@ -484,7 +484,7 @@
         // Acciones no corta el clic (stopPropagation). Una sola vez por pestaña (SPA).
         function desplegableDe(el) {
             if (!el || !el.closest) return null;
-            if (el.closest('#frenteSearch, #frenteDropdown')) return 'frente';
+            if (el.closest('#frenteCaja, #frenteDropdown')) return 'frente';
             if (el.closest('#btnAcciones, #splitDropdownMenu')) return 'acciones';
             if (el.closest('[data-fila-frente], #frenteFilaDropdown')) return 'fila';
             return el.closest('.custom-dropdown');
@@ -675,6 +675,9 @@
                 } else if (/CANTIDAD|LITROS (DESPACHADOS|SURTIDOS)/.test(h) || EXACTO_LITROS.indexOf(h) !== -1) {
                     if (otraCantidad === undefined) otraCantidad = i;
                 } else if (h === 'CI' || h === 'C I' || /C\. ?I|CEDULA/.test(h)) pon('ci', i);
+                // Origen, cisterna o guía: no se cargan, y van antes que PLACA para que la
+                // «PLACA CISTERNA» no se tome por la del vehículo.
+                else if (/ORIGEN|SUMINISTRO|CISTERNA|GUIA/.test(h)) return;
                 else if (/VISCOSIDAD|MEDIDA|ESPECIFICACION|MODELO (DEL )?CAUCHO/.test(h)) pon('espec', i);
                 else if (/PLACA|SERIAL|IDENTIFICADOR/.test(h)) { pon('id', i); equipo = true; }
                 else if (/RESPONSABLE|CHOFER|OPERADOR|CONDUCTOR/.test(h)) pon('nombre', i);

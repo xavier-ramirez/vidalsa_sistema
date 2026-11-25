@@ -491,6 +491,7 @@
                  */
                 // silencioso: lo trae un aviso del servidor (otro usuario o el match de fondo):
                 // sin spinner y, si falla, se queda como está.
+                window._consumiblesUltimaUrl = null;   // cada visita empieza sin pedido en vuelo
                 window.cargarConsumibles = function (destino, silencioso) {
                     var spin = !silencioso && window.showPreloader;
                     var url = new URL(destino, window.location.origin);
@@ -535,11 +536,14 @@
                         if (window.location.pathname + window.location.search !== url.pathname + url.search) {
                             history.pushState({}, '', url.pathname + url.search);
                         }
+                        window._consumiblesUltimaUrl = null;   // ya está en la barra
                         if (spin) window.hidePreloader();
                     })
                     .catch(function () {
                         if (spin) window.hidePreloader();
-                        if (pedido !== window._consumiblesPedido || silencioso) return;
+                        if (pedido !== window._consumiblesPedido) return;
+                        window._consumiblesUltimaUrl = null;
+                        if (silencioso) return;
                         seguir();
                     });
                 };
@@ -629,11 +633,9 @@
                                     $ids = array_values(array_filter(array_map(fn($v) => trim((string) $v), $ids),
                                         fn($v) => preg_match('/[\p{L}\p{N}]/u', $v) === 1));
                                     $mostrado = $ids[0] ?? ($c->IDENTIFICADOR ?: '—');
-                                    // Lo del Excel se guarda como «DESCRIPCIÓN | PLACA | …»: si la descripción ya sale
-                                    // abajo (sin equipo), arriba solo lo demás.
-                                    if (!$ids && $c->DESC_EQUIPO && str_contains((string) $c->IDENTIFICADOR, ' | ')) {
-                                        $resto = array_slice(explode(' | ', $c->IDENTIFICADOR), 1);
-                                        $mostrado = $resto ? implode(' | ', $resto) : '—';
+                                    // Sin equipo, la descripción del Excel sale abajo: arriba, lo escrito sin ella.
+                                    if (!$c->equipo && !$c->auxiliar && $c->DESC_EQUIPO) {
+                                        $mostrado = \App\Models\Consumible::escritoSinDescripcion($c->IDENTIFICADOR, $c->DESC_EQUIPO) ?: '—';
                                     }
                                 @endphp
                                 <td style="line-height:1.5;"
@@ -660,6 +662,9 @@
                                         <span>{{ trim(str_replace('_', ' ', $c->auxiliar->TIPO) . ' ' . $c->auxiliar->MARCA . ' ' . $c->auxiliar->MODELO) }}</span>
                                     @elseif($c->ESTADO_EQUIPO === 'CONFIRMADO')
                                         {{-- Confirmado sin equipo: se enseñó que no es de ningún equipo. --}}
+                                        @if($c->DESC_EQUIPO)
+                                            <span title="Así lo describe el Excel">{{ $c->DESC_EQUIPO }}</span>
+                                        @endif
                                         <span class="cons-nota">Sin equipo</span>
                                     @elseif($c->DESC_EQUIPO)
                                         {{-- Sin equipo asociado: lo que dice el Excel del vehículo (tipo y marca). --}}
@@ -689,9 +694,9 @@
                                             default => $c->UNIDAD,
                                         };
                                     @endphp
-                                    <span style="color:#94a3b8; font-size:11px;">{{ $unidadAbrev }}</span>
+                                    <span style="color:#94a3b8;">{{ $unidadAbrev }}</span>
                                 </td>
-                                <td style="font-size:12px;" id="frente-cell-{{ $c->ID_CONSUMIBLE }}">
+                                <td id="frente-cell-{{ $c->ID_CONSUMIBLE }}">
                                     <div style="display:flex; align-items:center; gap:4px;">
                                         <span id="frente-txt-{{ $c->ID_CONSUMIBLE }}" style="flex:1;">
                                             {{ $c->frente?->NOMBRE_FRENTE ?? '—' }}
@@ -739,7 +744,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" style="text-align:center; padding:40px; color:#94a3b8; font-size:13px; font-weight:400;">
+                                <td colspan="9" style="text-align:center; padding:40px; color:#94a3b8; font-weight:400;">
                                     <i class="material-icons"
                                         style="font-size:40px; display:block; margin-bottom:8px;">inbox</i>
                                     @if(request()->hasAny(['id_frente', 'estado', 'fecha_desde', 'fecha_hasta', 'identificador']))

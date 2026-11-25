@@ -104,6 +104,22 @@ class ConsumiblesMatchTest extends MySqlTestCase
             ->assertOk()->assertSee('EXCAVADORA ZZMARCA')->assertSee('Sin asociar');
     }
 
+    public function test_la_descripcion_del_excel_solo_se_quita_si_va_al_frente(): void
+    {
+        // Con descripción en el Excel: «DESC | PLACA» → la placa (la descripción va aparte).
+        $this->assertSame('A12BC3D', Consumible::escritoSinDescripcion('CAMION 350 | A12BC3D', 'Camión 350'));
+        // Sin descripción (DESC_EQUIPO del catálogo): la primera parte es la placa y se queda.
+        $this->assertSame('A12BC3D | COD9', Consumible::escritoSinDescripcion('A12BC3D | COD9', 'EXCAVADORA X'));
+        $this->assertSame('6933', Consumible::escritoSinDescripcion('6933', null));
+    }
+
+    public function test_filtros_mal_formados_no_rompen_la_lista_ni_el_export(): void
+    {
+        $u = $this->superAdminGlobal();
+        $this->actingAs($u)->get(route('consumibles.index', ['estado' => 'FOO', 'tipo' => ['X'], 'identificador' => ['A']]))->assertOk();
+        $this->actingAs($u)->get(route('consumibles.exportarCsv', ['estado' => 'FOO', 'tipo' => ['X'], 'identificador' => ['A']]))->assertOk();
+    }
+
     public function test_sin_resultados_con_filtros_lo_dice(): void
     {
         $this->actingAs($this->superAdminGlobal())

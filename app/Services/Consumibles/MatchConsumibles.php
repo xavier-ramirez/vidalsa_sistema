@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
  *  - al registrar, corregir o restaurar un equipo, su placa o un auxiliar, o al enseñar un
  *    alias (pedirReintento): queda una marca y el programador lo reintenta todo en el minuto,
  *    en segundo plano (no al final de la petición: con Apache mod_php eso hacía esperar a quien
- *    guardaba), sin dos pasadas a la vez (withoutOverlapping);
+ *    guardaba); la del minuto no se encima consigo misma (withoutOverlapping) y si cae justo
+ *    antes de la de la hora, esta no repite la pasada completa (COMPLETA_RECIENTE);
  *  - el programador de tareas: cada minuto si quedó algo PENDIENTE o hay marca, y cada hora todo
  *    lo POR IDENTIFICAR (lo que entró sin eventos de modelo).
  * El vigía en tiempo real (cambios:avisar) ve el cambio en la tabla y la lista se repinta sola
@@ -23,7 +24,11 @@ use Illuminate\Support\Facades\DB;
  */
 class MatchConsumibles
 {
+    /** Pedido de reintento (pedirReintento): lo atiende la pasada del minuto. */
     public const MARCA_REINTENTO = 'consumibles:reintentar-match';
+
+    /** Hubo una pasada completa hace menos de 5 minutos: la de la hora no la repite. */
+    public const COMPLETA_RECIENTE = 'consumibles:match-completo-reciente';
 
     /** Cambió algo con lo que se identifica un equipo: el programador reintenta en el minuto. */
     public static function pedirReintento(): void
@@ -59,8 +64,6 @@ class MatchConsumibles
             (new self())->ejecutar();
         }
     }
-
-    public const COMPLETA_RECIENTE = 'consumibles:match-completo-reciente';
 
     public static function hayTrabajoDelMinuto(): bool
     {
@@ -98,8 +101,8 @@ class MatchConsumibles
 
         // Índices en memoria, una sola vez (no hasta 5 consultas por fila). Caben de sobra:
         // ~1.000 placas y ~1.200 equipos, solo las columnas que el match necesita.
-        // Solo equipos activos: uno borrado no se le asigna a un consumo (la lista lo pintaría como
-        // «Sin equipo», que es lo enseñado como «no es un equipo»).
+        // Solo equipos activos: a uno dado de baja no se le asignan consumos nuevos (los que ya
+        // tenía los conserva: Consumible::equipo() lo trae con withTrashed).
         $equipos = DB::table('equipos')->whereNull('deleted_at')
             ->select('ID_EQUIPO', 'CODIGO_PATIO', 'SERIAL_CHASIS', 'MARCA', 'MODELO')
             ->get()->keyBy('ID_EQUIPO');
