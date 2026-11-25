@@ -230,9 +230,10 @@ class TraspasoController extends Controller
                 $query->where('ID_ALMACEN_DESTINO', $request->integer('id_almacen_destino'));
             }
             // Filtro por PRODUCTO: solo las notas que CONTIENEN ese producto. El front sugiere
-            // productos (con equivalencias, igual que inventario) y manda su id_producto.
+            // productos (con equivalencias, igual que inventario) y manda su id_producto; con
+            // Enter manda VARIOS separados por coma (todos los que coinciden con lo escrito).
             if ($request->filled('id_producto')) {
-                $query->whereHas('lineas', fn ($l) => $l->where('ID_PRODUCTO', $request->integer('id_producto')));
+                $query->whereHas('lineas', fn ($l) => $l->whereIn('ID_PRODUCTO', self::idsProducto($request)));
             }
             // Fechas: el orWhere DEBE ir agrupado en un where(function) — suelto, el OR sube al
             // nivel superior y se escapa de los AND de estado/visibilidad (mostraría notas de
@@ -385,9 +386,12 @@ class TraspasoController extends Controller
             // Lo único que la vista necesita del catálogo al PINTARSE es el nombre del
             // producto por el que se está filtrando (va escrito dentro del buscador); eso es
             // UNA fila, no la lista entera.
-            'productoFiltrado'       => $request->filled('id_producto')
-                ? (ProductoInventario::whereKey($request->integer('id_producto'))->value('NOMBRE') ?? '')
-                : '',
+            // Con varios (Enter) va lo que se escribió; con uno, su nombre.
+            'productoFiltrado'       => match (count($idsProd = self::idsProducto($request))) {
+                0       => '',
+                1       => ProductoInventario::whereKey($idsProd[0])->value('NOMBRE') ?? '',
+                default => (string) $request->input('producto_txt', ''),
+            },
             // Proyectos de CADA almacén visible. Lo consume el modal de compra directa para
             // saber, en caliente, qué mandar como `id_frente` — el almacén de la bandeja se
             // cambia desde el dropdown del header sin recargar la página, por eso es un mapa
@@ -414,6 +418,15 @@ class TraspasoController extends Controller
                         ->values(),
                 ]]),
         ]);
+    }
+
+    /** id_producto del filtro de la bandeja: uno, o varios separados por coma (Enter). */
+    private static function idsProducto(Request $request): array
+    {
+        return array_values(array_unique(array_filter(
+            array_map('intval', explode(',', (string) $request->input('id_producto', ''))),
+            fn ($id) => $id > 0
+        )));
     }
 
     /**

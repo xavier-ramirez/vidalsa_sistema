@@ -222,14 +222,32 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         var box = input.closest('.tr-search-box'); if (box) box.classList.toggle('active', has);
         window.LectorBarras.iconToggle();   // escanear visible solo mientras no haya producto elegido
     }
+    // Productos del catálogo que coinciden con lo escrito (con equivalencias, como el
+    // inventario). Una sola fuente para la lista de sugerencias y para el Enter.
+    function trProdTexto(p) { return (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''); }
+    function trProdCoincidencias(termino) {
+        return window.FuzzySearch.rank(window.trProductosLista || [], termino, function (p) {
+            return { haystack: trProdTexto(p), label: p.NOMBRE || '' };
+        }, { enteros: true });
+    }
+    // Para el Enter: de esos, solo los que traen CADA palabra escrita (plural o singular:
+    // «guantes» → GUANTE…). La lista de sugerencias, que ordena, deja entrar también los
+    // apenas parecidos (ESCOBA, RASTRILLO…); filtrar con ellos traería notas que no son.
+    // Si ninguno la trae entera (un error al escribir), los que pasan con una letra de margen.
+    function trProdTodos(termino) {
+        var FS = window.FuzzySearch, tokens = FS.tokenize(termino), enteros = tokens.length > 1;
+        var lista = trProdCoincidencias(termino);
+        var enteras = lista.filter(function (p) {
+            var hay = FS.norm(trProdTexto(p)), palabras = hay.split(/\s+/).filter(Boolean);
+            return tokens.every(function (t) { return FS.scoreToken(palabras, hay, t, enteros).score >= 12; });
+        });
+        return enteras.length ? enteras : lista.filter(function (p) { return FS.coincide(termino, trProdTexto(p)); });
+    }
     window.trProdSuggest = function () {
         var inp = el('trProdSearch'), box = el('trProdSuggest');
         if (!inp || !box) return;
         var rawTerm = inp.value.trim();
-        var lista = window.trProductosLista || [];
-        var matches = window.FuzzySearch.rank(lista, rawTerm, function (p) {
-            return { haystack: (p.CODIGO || '') + ' ' + (p.NOMBRE || '') + ' ' + (p.EQUIV || ''), label: p.NOMBRE || '' };
-        }, { enteros: true }).slice(0, 17);
+        var matches = trProdCoincidencias(rawTerm).slice(0, 17);
         var html = '';
         if (!matches.length) {
             html = '<div class="tr-suggest-empty">Sin coincidencias.</div>';
@@ -270,6 +288,19 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         if (hid && hid.value) { hid.value = ''; trProdToggleClear(); window.trResetKpi(); window.trLoad(); }
         window.trProdSuggest();
     };
+    // Enter con texto: las notas que traen CUALQUIERA de los productos que coinciden con lo
+    // escrito (trProdTodos: «guantes» → todos los guantes), no uno solo. Viajan como ids
+    // separados por coma en id_producto; lo escrito queda en el cuadro.
+    window.trProdKey = function (ev) {
+        if (ev.key === 'Escape') { var b = el('trProdSuggest'); if (b) b.classList.remove('open'); return; }
+        if (ev.key !== 'Enter') return;
+        ev.preventDefault();
+        var txt = (el('trProdSearch') || {}).value; txt = (txt || '').trim();
+        if (!txt) return;
+        var ids = trProdTodos(txt).slice(0, 200).map(function (p) { return p.ID_PRODUCTO; });
+        if (!ids.length) { window.toast('Ningún producto coincide con «' + txt + '».', 'warning'); return; }
+        window.trProdPick(txt, ids.join(','));
+    };
     // Clic en una sugerencia: fija id_producto + el nombre y recarga la bandeja.
     // SPA-safe: se registra UNA sola vez por pestaña (guard _trBindGlobal), igual que los
     // demás listeners globales; sin esto se duplicaba en cada navegación SPA → un clic
@@ -300,6 +331,8 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         var p = new URLSearchParams();
         if (v('trSearch'))                                 p.set('search', v('trSearch'));
         if (v('trIdProducto'))                             p.set('id_producto', v('trIdProducto'));
+        // Varios productos (Enter): lo escrito, para volver a ponerlo en el cuadro al recargar.
+        if (v('trIdProducto').indexOf(',') >= 0)          p.set('producto_txt', v('trProdSearch'));
 
         // Estado: ahora es un custom-dropdown → se lee del hidden input (data-filter-value).
         if (hv('estado'))                                  p.set('estado', hv('estado'));
@@ -605,7 +638,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     }
 
     // Marca/desmarca UNA fila (clase + campo "Recibido"). Fuente única: la usan el clic en la
-    // fila y "Marcar todas", así las dos rutas dejan exactamente el mismo estado.
+    // fila y el botón "Todos", así las dos rutas dejan exactamente el mismo estado.
     // trParseCant, no parseFloat: es la MISMA función con la que trCollectLineas lee este
     // data-enviada al enviar. Con dos parsers distintos para el mismo dato, cualquier
     // formato que uno acepte y el otro no (una coma decimal) los pone en desacuerdo.
@@ -634,7 +667,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         trMarcarFila(row, marcar);
         // Al MARCAR una fila suelta, el campo queda enfocado con la cantidad seleccionada:
         // el caso normal es "llegó todo" (ya viene puesta), y si llegó menos basta teclear el
-        // número real encima sin tener que borrar. Solo al marcar una a una — "Marcar todas"
+        // número real encima sin tener que borrar. Solo al marcar una a una — "Todos"
         // usa trMarcarFila directo y no roba el foco a 20 campos.
         if (marcar) {
             var inp = row.querySelector('.dtm-rec-input');
@@ -643,7 +676,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
         window.trUpdateConfirmBtn();
     });
 
-    // "Marcar todas" (va al lado del buscador de materiales): el atajo para la nota completa.
+    // "Todos" (va al lado del buscador de materiales): el atajo para la nota completa.
     // Actúa sobre las filas VISIBLES — si el buscador del modal está filtrando, marca lo que
     // el usuario tiene delante, no líneas que no puede ver. Si ya están todas marcadas,
     // el mismo botón las quita (es un interruptor, no una acción de una sola dirección).
@@ -718,7 +751,7 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
             vacio.style.display = 'none';
         }
 
-        // Cambió el conjunto visible → "Marcar todas" puede tener que cambiar de rótulo.
+        // Cambió el conjunto visible → "Todos" puede tener que encenderse o apagarse.
         window.trUpdateConfirmBtn();
 
         if (limpiar && input) input.focus();
@@ -731,18 +764,16 @@ window.recepcionBandejaArrancar = function (RECB_CFG) {
     window.trUpdateConfirmBtn = function () {
         var box = el('trDetalleBox'); if (!box) return;
 
-        // "Marcar todas" ↔ "Quitar todas": el rótulo sigue al estado de las filas visibles,
-        // se llegue como se llegue (botón, clic en una fila, escribir una cantidad o filtrar).
-        // Por eso vive aquí, el único punto por el que pasan todas esas rutas.
+        // El botón dice siempre "Todos"; encendido (.activo) si están todas marcadas, y su
+        // title dice qué hará: "Marcar todos" ↔ "Quitar todos". Sigue al estado de las filas
+        // visibles, se llegue como se llegue (botón, clic en una fila, escribir una cantidad
+        // o filtrar). Por eso vive aquí, el único punto por el que pasan todas esas rutas.
         var btnTodas = box.querySelector('#dtmMarcarTodas');
         if (btnTodas) {
             var filas  = trFilasVisibles(box);
             var todas  = filas.length > 0 && filas.every(function (r) { return r.classList.contains('recibida'); });
             btnTodas.classList.toggle('activo', todas);
-            var rotulo = todas ? 'Quitar todas' : 'Marcar todas';
-            var txt = btnTodas.querySelector('.desktop-text');
-            if (txt) txt.textContent = rotulo;
-            btnTodas.title = rotulo; // en teléfono el texto se oculta y solo queda el title
+            btnTodas.title = todas ? 'Quitar todos' : 'Marcar todos';
         }
 
         var btnSel = box.querySelector('#trConfirmSelBtn'); if (!btnSel) return;

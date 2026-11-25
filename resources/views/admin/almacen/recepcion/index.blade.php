@@ -112,6 +112,7 @@
                 <input type="text" id="trProdSearch" autocomplete="off" placeholder="Buscar por producto o nº de parte"
                        value="{{ $reqProdLabel }}"
                        oninput="window.trProdInput()"
+                       onkeydown="window.trProdKey(event)"
                        onfocus="window.trProdSuggest()"
                        onblur="setTimeout(function(){ var s=document.getElementById('trProdSuggest'); if(s) s.classList.remove('open'); }, 150);">
                 <input type="hidden" id="trIdProducto" value="{{ $reqIdProd }}">

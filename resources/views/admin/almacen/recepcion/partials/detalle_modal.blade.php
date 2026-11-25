@@ -45,9 +45,9 @@
              el usuario tiene delante). En teléfono se queda solo el icono — el rótulo lo dice
              el `title`, y si están todas marcadas el botón se ve encendido. --}}
         @if($puedeRecibir)
-            <button type="button" id="dtmMarcarTodas" class="dtm-marcar-todas" title="Marcar todas"
+            <button type="button" id="dtmMarcarTodas" class="dtm-marcar-todas" title="Marcar todos"
                     onclick="window.trMarcarTodas()">
-                <i class="material-icons">done_all</i><span class="desktop-text">Marcar todas</span>
+                <i class="material-icons">done_all</i><span class="desktop-text">Todos</span>
             </button>
         @endif
     </div>
