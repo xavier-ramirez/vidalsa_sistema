@@ -144,6 +144,13 @@
                 <div class="cdash-grid">
                     <div class="cdash-card full"><h4>Top {{ \App\Http\Controllers\AlmacenController::TOP_PRODUCTOS_GRAFICO }} productos consumidos<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'top-productos-consumidos')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
                         <div class="cdash-canvas-wrap tall"><canvas id="cdashChartTop"></canvas></div></div>
+                    {{-- Ranking del MES ACTUAL: qué proyecto consume más este mes, de mayor a
+                         menor. Sale de los mismos datos de la gráfica de abajo (por_mes_frente)
+                         y cada barra lleva el color de su proyecto allí. Con un rango de fechas
+                         que no llega a este mes, se muestra el mes del extremo del rango. --}}
+                    <div class="cdash-card full"><h4><span>Proyecto que más consume · <span id="cdashMesActualLbl"></span></span><button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'proyecto-que-mas-consume-del-mes')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
+                        <div class="cdash-canvas-wrap" id="cdashMesActualWrap"><canvas id="cdashChartMesActual"></canvas></div>
+                        <div id="cdashMesActualVacio" class="cdash-mesact-vacio" style="display:none;">Ningún proyecto ha consumido en este mes.</div></div>
                     {{-- Una barra por mes, apilada por PROYECTO (lo dice el título y lo enseña la
                          leyenda). Sin nota debajo: alargaba el modal y el cliente lo quiere corto.
 
@@ -156,13 +163,6 @@
                          mes con pocas notas y una barra alta, por eso queda escrito. --}}
                     <div class="cdash-card full"><h4>Comparación volumétrica de despacho de stock por proyecto<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'despacho-de-stock-por-proyecto')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
                         <div class="cdash-canvas-wrap conleyenda"><canvas id="cdashChartMes"></canvas></div></div>
-                    {{-- Ranking del MES ACTUAL: qué proyecto consume más este mes, de mayor a
-                         menor. Sale de los mismos datos de la gráfica de arriba (por_mes_frente)
-                         y cada barra lleva el color de su proyecto allí. Con un rango de fechas
-                         que no llega a este mes, se muestra el mes del extremo del rango. --}}
-                    <div class="cdash-card full"><h4><span>Proyecto que más consume · <span id="cdashMesActualLbl"></span></span><button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'proyecto-que-mas-consume-del-mes')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
-                        <div class="cdash-canvas-wrap" id="cdashMesActualWrap"><canvas id="cdashChartMesActual"></canvas></div>
-                        <div id="cdashMesActualVacio" class="cdash-mesact-vacio" style="display:none;">Ningún proyecto ha consumido en este mes.</div></div>
                     <div class="cdash-card full"><h4>Consumo por almacén<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-almacen')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartAlm"></canvas></div></div>
                 </div>
             </div>
