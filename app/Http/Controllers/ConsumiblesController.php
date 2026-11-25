@@ -302,31 +302,6 @@ class ConsumiblesController extends Controller
 
 
     // ══════════════════════════════════════════════════════════════
-    // ACTUALIZAR ESTADO individual (confirmar / marcar sin match)
-    // ══════════════════════════════════════════════════════════════
-    public function updateEstado(Request $request, int $id)
-    {
-        $consumible = Consumible::findOrFail($id);
-
-        $request->validate([
-            'estado_equipo' => 'required|in:CONFIRMADO,PENDIENTE,SIN_MATCH',
-            'id_equipo' => 'nullable|exists:equipos,ID_EQUIPO',
-        ]);
-
-        $consumible->update([
-            'ESTADO_EQUIPO' => $request->estado_equipo,
-            'ID_EQUIPO' => $request->id_equipo,
-            // Un consumo es de un equipo O de un auxiliar, nunca de los dos.
-            'ID_AUXILIAR' => $request->id_equipo ? null : $consumible->ID_AUXILIAR,
-        ]);
-
-        // Invalidar caché de gráficos
-        CacheVersion::bump(self::DATA_VER_KEY);
-
-        return response()->json(['ok' => true]);
-    }
-
-    // ══════════════════════════════════════════════════════════════
     // ACTUALIZAR IDENTIFICADOR — y se vuelve a identificar el equipo
     // ══════════════════════════════════════════════════════════════
     public function updateIdentificador(Request $request, int $id)
@@ -388,23 +363,6 @@ class ConsumiblesController extends Controller
         }
 
         return back()->with('success', 'Registro eliminado.');
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // API — Buscar frentes (para autocomplete AJAX)
-    // ══════════════════════════════════════════════════════════════
-    public function buscarFrente(Request $request)
-    {
-        $term = $request->get('q', '');
-
-        $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
-            ->where('NOMBRE_FRENTE', 'LIKE', "%$term%")
-            ->select('ID_FRENTE', 'NOMBRE_FRENTE')
-            ->orderBy('NOMBRE_FRENTE')
-            ->limit(20)
-            ->get();
-
-        return response()->json($frentes);
     }
 
     // ══════════════════════════════════════════════════════════════

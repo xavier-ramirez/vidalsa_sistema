@@ -303,7 +303,6 @@ Route::middleware(['auth'])->group(function () {
             // IMPORTANTE: rutas estáticas ANTES de wildcards ({id}) para evitar colisión
             Route::get ('consumibles',                    [App\Http\Controllers\ConsumiblesController::class, 'index'])          ->name('consumibles.index');
             Route::get ('consumibles/cargar',             [App\Http\Controllers\ConsumiblesController::class, 'cargar'])         ->name('consumibles.cargar');
-            Route::get ('consumibles/buscar-frente',      [App\Http\Controllers\ConsumiblesController::class, 'buscarFrente'])   ->name('consumibles.buscarFrente');
             Route::get ('consumibles/graficos-data',      [App\Http\Controllers\ConsumiblesController::class, 'graficosData'])   ->name('consumibles.graficosData');
             Route::get ('consumibles/graficos',           [App\Http\Controllers\ConsumiblesController::class, 'graficos'])       ->name('consumibles.graficos');
             // Ruta consumibles.auditoriaCatalogo removida: el panel de
@@ -330,7 +329,6 @@ Route::middleware(['auth'])->group(function () {
             // Cambiar, emparejar y borrar registros pide equipos.edit (antes cualquier usuario
             // con sesión podía). Borrar NO pide user.delete: en mar-2026 se pidió quitarle la
             // restricción de super.admin, y user.delete lo tienen solo dos usuarios.
-            Route::patch('consumibles/{id}/estado',       [App\Http\Controllers\ConsumiblesController::class, 'updateEstado'])   ->middleware('can:equipos.edit')->name('consumibles.updateEstado');
             Route::patch('consumibles/{id}/identificador',[App\Http\Controllers\ConsumiblesController::class, 'updateIdentificador'])->middleware('can:equipos.edit')->name('consumibles.updateIdentificador');
             Route::patch('consumibles/{id}/frente',       [App\Http\Controllers\ConsumiblesController::class, 'updateFrente'])   ->middleware('can:equipos.edit')->name('consumibles.updateFrente');
             Route::delete('consumibles/{id}',             [App\Http\Controllers\ConsumiblesController::class, 'destroy'])        ->middleware('can:equipos.edit')->name('consumibles.destroy');

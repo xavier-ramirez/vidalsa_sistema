@@ -35,14 +35,6 @@
                 font-weight: 700;
             }
 
-            .badge-none {
-                background: #f1f5f9;
-                color: #475569;
-                border-radius: 20px;
-                padding: 2px 10px;
-                font-size: 12px;
-                font-weight: 700;
-            }
 
             /* Chips para Tipos de consumible */
             .tipo-chip {
@@ -207,10 +199,6 @@
                 #splitDropdownMenu {
                     width: 100% !important;
                     min-width: 100%;
-                }
-
-                .hide-on-mobile {
-                    display: none !important;
                 }
             }
 </style>

@@ -160,11 +160,6 @@
             margin-left: 0;
         }
 
-        @media (max-width: 900px) {
-            .hide-on-mobile {
-                display: none !important;
-            }
-        }
     </style>
 
     {{-- CABECERA --}}
@@ -354,9 +349,6 @@
                 {{-- Lista para elegir el frente de una fila: una sola, se coloca bajo la celda. --}}
                 <div id="frenteFilaDropdown"></div>
             </div>
-
-            {{-- El botón "Agregar Fila" se eliminó: ahora la fila se agrega sola al escribir
-                 en la última (auto-row en initCargarConsumibles). --}}
 
             {{-- ACCIONES, al pie de la tarjeta y compactas (como en Usuarios/Frentes).
                  "Guardar" solo visible con permiso super.admin
