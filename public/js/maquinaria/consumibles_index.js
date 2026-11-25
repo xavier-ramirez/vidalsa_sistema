@@ -90,14 +90,15 @@ if (typeof window.ModuleManager !== 'undefined') {
             // el valor de antes vive en la celda (data-original), no dentro de un onclick.
             var esc = window.escapeHtml;
             // Solo se cambia la línea de la placa/serial: debajo, en la misma celda, va el equipo.
+            // La tabla muestra el identificador del equipo (data-mostrado); el lápiz abre lo
+            // escrito tal cual (data-original).
             function filaId(celda) { return celda.querySelector('.cons-id-fila'); }
-            function pintarId(celda, id, valor) {
-                celda.dataset.original = valor || '';
+            function pintarId(celda, id) {
                 var fila = filaId(celda);
                 if (!fila) return;
                 fila.innerHTML =
-                    '<span id="id-txt-' + id + '" style="flex:1; font-family:monospace; font-weight:700;">' + (esc(valor) || '—') + '</span>' +
-                    '<button onclick="editarId(' + id + ')" class="cons-btn-edit" title="Editar identificador">' +
+                    '<span id="id-txt-' + id + '" style="flex:1; font-family:monospace; font-weight:700;">' + (esc(celda.dataset.mostrado || celda.dataset.original) || '—') + '</span>' +
+                    '<button onclick="editarId(' + id + ')" class="cons-btn-edit" title="Ver y editar lo escrito">' +
                         '<i class="material-icons" style="font-size:14px;">edit</i>' +
                     '</button>';
             }
@@ -154,7 +155,7 @@ if (typeof window.ModuleManager !== 'undefined') {
 
             window.cancelarId = function(id) {
                 var celda = document.getElementById('id-cell-' + id);
-                if (celda) pintarId(celda, id, celda.dataset.original);
+                if (celda) pintarId(celda, id);
             };
 
             // ── Edición inline — Frente ───────────────────────────────

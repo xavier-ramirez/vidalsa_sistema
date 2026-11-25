@@ -450,8 +450,8 @@
                                 class="dropdown-item-custom"
                                 style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent;"
 >
-                                <div style="background: #f1f5f9; padding: 6px; border-radius: 6px; display: flex;">
-                                    <i class="material-icons" style="font-size: 18px; color: #64748b;">download</i>
+                                <div style="background: #dcfce7; padding: 6px; border-radius: 6px; display: flex;">
+                                    <i class="material-icons" style="font-size: 18px; color: #16a34a;">table_view</i>
                                 </div>
                                 <span style="font-size: 14px; font-weight: 500;">Exportación de Excel</span>
                             </a>
@@ -656,36 +656,34 @@
                                                  margin-top:2px; font-family:monospace;">{{ $c->ESPECIFICACION }}</span>
                                     @endif
                                 </td>
+                                {{-- Un solo identificador en la tabla: el completo del equipo emparejado (la placa, y si
+                                     no tiene, el serial o el código); sin equipo, lo escrito. Lo escrito tal cual se ve
+                                     al presionar el lápiz (data-original). --}}
+                                @php
+                                    if ($c->equipo) {
+                                        $ids = [$c->equipo->documentacion?->PLACA, $c->equipo->SERIAL_CHASIS, $c->equipo->CODIGO_PATIO];
+                                    } elseif ($c->auxiliar) {
+                                        $ids = [$c->auxiliar->CODIGO_INTERNO, $c->auxiliar->SERIAL];
+                                    } else {
+                                        $ids = [];
+                                    }
+                                    $ids = array_values(array_filter(array_map(fn($v) => trim((string) $v), $ids)));
+                                    $mostrado = $ids[0] ?? ($c->IDENTIFICADOR ?: '—');
+                                @endphp
                                 <td style="font-size:12px; color:#1e293b; line-height:1.5;"
-                                    id="id-cell-{{ $c->ID_CONSUMIBLE }}" data-original="{{ $c->IDENTIFICADOR }}">
+                                    id="id-cell-{{ $c->ID_CONSUMIBLE }}" data-original="{{ $c->IDENTIFICADOR }}" data-mostrado="{{ $mostrado }}">
                                     <div class="cons-id-fila" style="display:flex; align-items:center; gap:5px;">
                                         <span id="id-txt-{{ $c->ID_CONSUMIBLE }}"
-                                            style="flex:1; font-family:monospace; font-weight:700;">{{ $c->IDENTIFICADOR ?? '—' }}</span>
+                                            style="flex:1; font-family:monospace; font-weight:700;">{{ $mostrado }}</span>
                                         @can('equipos.edit')
                                         <button
                                             onclick="editarId({{ $c->ID_CONSUMIBLE }})"
                                             class="cons-btn-edit"
-                                            title="Editar identificador">
+                                            title="Ver y editar lo escrito">
                                             <i class="material-icons" style="font-size:14px;">edit</i>
                                         </button>
                                         @endcan
                                     </div>
-                                    {{-- Un identificador basta: si lo escrito arriba ya es la placa, el serial o el código
-                                         completo del equipo, no se repite; si era una parte, sale el completo (la placa,
-                                         y si no tiene, el serial) para ver con qué equipo se emparejó. --}}
-                                    @php
-                                        $escrito = strtoupper(trim($c->IDENTIFICADOR ?? ''));
-                                        $completo = null;
-                                        if ($c->equipo) {
-                                            $ids = array_filter([$c->equipo->documentacion?->PLACA, $c->equipo->SERIAL_CHASIS, $c->equipo->CODIGO_PATIO]);
-                                        } elseif ($c->auxiliar) {
-                                            $ids = array_filter([$c->auxiliar->CODIGO_INTERNO, $c->auxiliar->SERIAL]);
-                                        } else {
-                                            $ids = [];
-                                        }
-                                        $ids = array_map(fn($v) => strtoupper(trim($v)), $ids);
-                                        if ($ids && !in_array($escrito, $ids, true)) $completo = reset($ids);
-                                    @endphp
                                     <div class="cons-equipo">
                                     @if($c->equipo)
                                         {{-- Tipo --}}
@@ -712,10 +710,6 @@
                                         <span style="color:#64748b; font-style:italic; font-size:12px;">Sin equipo</span>
                                     @else
                                         <span style="color:#94a3b8; font-style:italic; font-size:12px;">Sin resolver</span>
-                                    @endif
-                                    @if($completo)
-                                        <span style="display:block; font-family:monospace; font-size:10px; color:#059669; margin-top:1px; font-weight:700;"
-                                            title="Placa o serial completo del equipo emparejado">→ {{ $completo }}</span>
                                     @endif
                                     </div>
                                 </td>

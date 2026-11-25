@@ -69,7 +69,7 @@ class ConsumiblesController extends Controller
             $query->where('FECHA', '<=', $request->fecha_hasta);
 
         if ($request->filled('identificador'))
-            $query->where('IDENTIFICADOR', 'LIKE', '%' . trim($request->identificador) . '%');
+            self::buscarIdentificador($query, $request->identificador);
 
         $consumibles = (clone $query)->paginate(50)->onEachSide(3)->withQueryString();
         // Pasada la última página (se borró lo último que había en ella): la última que queda.
@@ -650,6 +650,24 @@ class ConsumiblesController extends Controller
     // su propio historial). Si en el futuro vuelve, restaurar este metodo
     // junto a la ruta consumibles.auditoriaCatalogo y al panel Blade.
 
+    /**
+     * «Buscar placa/serial» de la lista y del export: lo escrito en el consumo o la placa, el
+     * serial o el código del equipo (o auxiliar) emparejado, que es lo que muestra la tabla.
+     */
+    private static function buscarIdentificador($query, string $texto): void
+    {
+        $t = '%' . trim($texto) . '%';
+        $query->where(function ($w) use ($t) {
+            $w->where('consumibles.IDENTIFICADOR', 'like', $t)
+                ->orWhereIn('consumibles.ID_EQUIPO', fn($s) => $s->select('ID_EQUIPO')->from('equipos')
+                    ->where('SERIAL_CHASIS', 'like', $t)->orWhere('CODIGO_PATIO', 'like', $t))
+                ->orWhereIn('consumibles.ID_EQUIPO', fn($s) => $s->select('ID_EQUIPO')->from('documentacion')
+                    ->where('PLACA', 'like', $t))
+                ->orWhereIn('consumibles.ID_AUXILIAR', fn($s) => $s->select('ID_AUXILIAR')->from('equipos_auxiliares')
+                    ->where('CODIGO_INTERNO', 'like', $t)->orWhere('SERIAL', 'like', $t));
+        });
+    }
+
     // ══════════════════════════════════════════════════════════════
     // EXPORTAR CSV — Descarga directa de datos confirmados
     // ══════════════════════════════════════════════════════════════
@@ -691,11 +709,7 @@ class ConsumiblesController extends Controller
             $query->where('consumibles.ESTADO_EQUIPO', $estado);
         }
         if ($identificador) {
-            $query->where(function ($q) use ($identificador) {
-                $q->where('consumibles.IDENTIFICADOR', 'like', "%{$identificador}%")
-                    ->orWhere('equipos.CODIGO_PATIO', 'like', "%{$identificador}%")
-                    ->orWhere('equipos.SERIAL_CHASIS', 'like', "%{$identificador}%");
-            });
+            self::buscarIdentificador($query, $identificador);
         }
 
         $filas = $query->select(
