@@ -156,6 +156,13 @@
                          mes con pocas notas y una barra alta, por eso queda escrito. --}}
                     <div class="cdash-card full"><h4>Comparación volumétrica de despacho de stock por proyecto<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'despacho-de-stock-por-proyecto')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
                         <div class="cdash-canvas-wrap conleyenda"><canvas id="cdashChartMes"></canvas></div></div>
+                    {{-- Ranking del MES ACTUAL: qué proyecto consume más este mes, de mayor a
+                         menor. Sale de los mismos datos de la gráfica de arriba (por_mes_frente)
+                         y cada barra lleva el color de su proyecto allí. Si el "Hasta" del filtro
+                         termina antes de este mes, se muestra el mes de ese "Hasta". --}}
+                    <div class="cdash-card full"><h4><span>Proyecto que más consume · <span id="cdashMesActualLbl"></span></span><button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'proyecto-que-mas-consume-del-mes')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
+                        <div class="cdash-canvas-wrap" id="cdashMesActualWrap"><canvas id="cdashChartMesActual"></canvas></div>
+                        <div id="cdashMesActualVacio" class="cdash-mesact-vacio" style="display:none;">Ningún proyecto ha consumido en este mes.</div></div>
                     <div class="cdash-card full"><h4>Consumo por almacén<button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'consumo-por-almacen')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4><div class="cdash-canvas-wrap"><canvas id="cdashChartAlm"></canvas></div></div>
                 </div>
             </div>
@@ -422,7 +429,7 @@
         // flota. Como la app es SPA, ese registro sobrevive a la navegación y este dashboard
         // —que pinta sus valores con el plugin propio cdValLabels— mostraría CADA cantidad
         // dos veces: la del plugin global dentro de la barra y la de cdValLabels fuera. Por
-        // eso los TRES gráficos de aquí lo apagan uno por uno.
+        // eso los CUATRO gráficos de aquí lo apagan uno por uno.
         var CD_SIN_DATALABELS = { display: false };
 
         // Estilo COMÚN, formal y coherente (paleta corporativa azul, sin arcoíris).
@@ -668,6 +675,60 @@
                 }
             }
         });
+
+        // ── 1b) Proyecto que más consume en el MES ACTUAL (barras horizontales) ──
+        // Mes de hoy; si el "Hasta" del filtro termina antes, el mes de ese "Hasta" (si no,
+        // la gráfica saldría siempre vacía con un rango pasado). "POR DEFINIR" no entra: no es
+        // un proyecto y no tiene sentido en un ranking (tampoco va en la leyenda de arriba).
+        var cdHoy = new Date();
+        var cdMesObj = cdHoy.getFullYear() + '-' + String(cdHoy.getMonth() + 1).padStart(2, '0');
+        var cdHasta = ((document.getElementById('cdashHasta') || {}).value || '').slice(0, 7);
+        if (cdHasta && cdHasta < cdMesObj) cdMesObj = cdHasta;
+        var cdMesTot = {};
+        (data.por_mes_frente || []).forEach(function (x) {
+            if (x.mes !== cdMesObj || String(x.proyecto || '').trim().toUpperCase() === 'POR DEFINIR') return;
+            cdMesTot[x.proyecto] = (cdMesTot[x.proyecto] || 0) + x.total;
+        });
+        var cdMesProy = Object.keys(cdMesTot).sort(function (a, b) { return cdMesTot[b] - cdMesTot[a]; });
+        document.getElementById('cdashMesActualLbl').textContent = window.cdashMesLabel(cdMesObj);
+        var cdMesWrap = document.getElementById('cdashMesActualWrap');
+        cdMesWrap.style.display = cdMesProy.length ? '' : 'none';
+        document.getElementById('cdashMesActualVacio').style.display = cdMesProy.length ? 'none' : '';
+        if (cdMesProy.length) {
+            // Alto según la cantidad de proyectos (30 px por barra), con 240 de piso.
+            cdMesWrap.style.height = Math.max(240, cdMesProy.length * 30 + 40) + 'px';
+            // Mismo color que el proyecto tiene en la gráfica de arriba; si allí no sale
+            // (un "Desde" propio que deja el mes fuera), el marino de la paleta.
+            var cdMesColores = cdMesProy.map(function (p) {
+                var i = series.indexOf(p);
+                return i >= 0 ? cdColorProyecto(i) : CD_PALETA[3];
+            });
+            window._cdashCharts.mesActual = new Chart(document.getElementById('cdashChartMesActual'), {
+                type: 'bar',
+                plugins: [cdValLabels],
+                data: {
+                    labels: cdMesProy.map(function (p) { return cdDosLineas(p, cdEstrecho ? 22 : 40); }),
+                    datasets: [{ label: 'Consumo', data: cdMesProy.map(function (p) { return cdMesTot[p]; }),
+                        backgroundColor: cdMesColores, borderWidth: 0, borderRadius: 4, maxBarThickness: 22 }]
+                },
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    layout: { padding: { right: 40 } },   // hueco para la cifra al final de la barra
+                    plugins: {
+                        legend: { display: false },
+                        datalabels: CD_SIN_DATALABELS,
+                        tooltip: Object.assign({}, cdTooltip, { callbacks: {
+                            title: function (items) { return cdMesProy[items[0].dataIndex]; },
+                            label: function (c) { return 'Consumo: ' + fmt(c.parsed.x); }
+                        } })
+                    },
+                    scales: {
+                        x: { beginAtZero: true, grid: cdGrid, ticks: Object.assign({ callback: function (v) { return fmt(v); } }, cdTick) },
+                        y: { grid: { display: false, drawBorder: false }, ticks: { color: '#0f172a', font: { size: 11, weight: 600 } } }
+                    }
+                }
+            });
+        }
 
         // ── 2) Top productos (barras horizontales) ───────────────────────────
         // COLORES de las diapositivas de la empresa: los TRES más consumidos en rojo, del más

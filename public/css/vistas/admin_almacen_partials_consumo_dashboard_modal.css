@@ -100,6 +100,8 @@
        se recogía a una franja de ~100 px y saltaba de tamaño al cambiar un filtro. El
        mensaje va centrado en ese hueco (por eso el JS los muestra con display:flex). */
     .cdash-empty { color:#94a3b8; font-size:13px; text-align:center; padding:40px 0; min-height:min(60vh, 520px); box-sizing:border-box; flex-direction:column; align-items:center; justify-content:center; }
+    /* Ranking del mes sin consumo de ningún proyecto: aviso corto en lugar del gráfico vacío. */
+    .cdash-mesact-vacio { color:#94a3b8; font-size:13px; text-align:center; padding:28px 0; }
     .cdash-loading { text-align:center; color:#64748b; font-size:14px; padding:50px 0; font-weight:600; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; min-height:min(60vh, 520px); box-sizing:border-box; }
     .cdash-loading .cdash-spin { animation:cdashSpin .8s linear infinite; font-size:28px; color:#0067b1; }
     @keyframes cdashSpin { 100% { transform:rotate(360deg); } }
