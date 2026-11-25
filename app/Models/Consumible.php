@@ -17,7 +17,6 @@ class Consumible extends Model
         'RESP_NOMBRE',
         'RESP_CI',
         'CANTIDAD',
-        'RAW_ORIGEN',
         // Bloque 2 — del formulario
         'TIPO_CONSUMIBLE',
         'ESPECIFICACION',   // Aceites: viscosidad (15W-40, SAE90). Caucho: medida (11R22.5)

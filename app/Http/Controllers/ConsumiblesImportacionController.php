@@ -108,7 +108,6 @@ class ConsumiblesImportacionController extends Controller
             'nombre'   => 'nombre de quien recibe (responsable, operador, chofer)',
             'ci'       => 'cédula de quien recibe',
             'cantidad' => 'cantidad despachada (litros o unidades; la salida, no la entrada al tanque)',
-            'origen'   => 'origen del suministro (cisterna, guía, proveedor)',
             'frente'   => 'proyecto, obra o frente de trabajo donde se usó',
         ];
         if ($request->boolean('espec')) {

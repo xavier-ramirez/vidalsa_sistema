@@ -326,7 +326,7 @@
                 {{-- Instrucciones de Pegado Rápido --}}
                 <div class="paste-zone" id="pasteZone">
                     <i class="material-icons">content_paste</i>
-                    <span>Elija el tipo y pegue filas de Excel con Ctrl+V: con encabezados, cada columna va a su lugar; sin ellos, en este orden: <span id="pasteOrden">fecha, placa/serial, nombre, C.I., cantidad, origen, proyecto</span></span>
+                    <span>Elija el tipo y pegue filas de Excel con Ctrl+V: con encabezados, cada columna va a su lugar; sin ellos, en este orden: <span id="pasteOrden">fecha, placa/serial, nombre, C.I., cantidad, proyecto</span></span>
                 </div>
 
                 <table id="tablaFilas">
@@ -339,7 +339,6 @@
                             <th>RESP. C.I.</th>
                             <th>CANTIDAD *</th>
                             <th id="thEspec" style="display:none; color:#0067b1;">VISCOSIDAD</th>
-                            <th>ORIGEN SUMINISTRO</th>
                             <th>FRENTE <span style="font-weight:400;opacity:.7;">(proyecto)</span></th>
                             <th></th>
                         </tr>
@@ -412,10 +411,10 @@
             const th = document.getElementById('thEspec');
 
             // El orden del pegado sin encabezados (pasteLoteCargarHandler): con aceite o caucho, la
-            // viscosidad o el modelo va antes del origen.
+            // viscosidad o el modelo va antes del proyecto.
             const orden = document.getElementById('pasteOrden');
             if (orden) orden.textContent = 'fecha, placa/serial, nombre, C.I., cantidad, '
-                + (espec ? (TIPOS_ACEITE.includes(tipo) ? 'viscosidad, ' : 'modelo del caucho, ') : '') + 'origen, proyecto';
+                + (espec ? (TIPOS_ACEITE.includes(tipo) ? 'viscosidad, ' : 'modelo del caucho, ') : '') + 'proyecto';
 
             // Cabecera de columna
             if (espec) {
@@ -588,9 +587,8 @@
                                                            placeholder="${dlId === 'listAceite' ? '15W-40, SAE 90...' : 'Ej: Goodyear G177, Bridgestone M854...'}"
                                                            style="min-width:90px;">
                                                 </td>
-                                                <td><input type="text"   name="filas[${n}][raw_origen]"    value="${limpiar(data.origen)}"   tabindex="${n * 10 + 7}" placeholder="Cisterna, guía... (opcional)"></td>
                                                 <td style="min-width:190px;">
-                                                    <input type="text" name="filas[${n}][frente]" value="${limpiar(data.frente)}" tabindex="${n * 10 + 8}"
+                                                    <input type="text" name="filas[${n}][frente]" value="${limpiar(data.frente)}" tabindex="${n * 10 + 7}"
                                                            data-fila-frente placeholder="el de arriba" autocomplete="off">
                                                     <input type="hidden" name="filas[${n}][id_frente]" value="">
                                                     <div class="fila-frente-estado"></div>
@@ -677,7 +675,6 @@
                 } else if (/CANTIDAD|LITROS (DESPACHADOS|SURTIDOS)/.test(h) || EXACTO_LITROS.indexOf(h) !== -1) {
                     if (otraCantidad === undefined) otraCantidad = i;
                 } else if (h === 'CI' || h === 'C I' || /C\. ?I|CEDULA/.test(h)) pon('ci', i);
-                else if (/ORIGEN|SUMINISTRO|CISTERNA|GUIA/.test(h)) pon('origen', i);
                 else if (/VISCOSIDAD|MEDIDA|ESPECIFICACION|MODELO (DEL )?CAUCHO/.test(h)) pon('espec', i);
                 else if (/PLACA|SERIAL|IDENTIFICADOR/.test(h)) { pon('id', i); equipo = true; }
                 else if (/RESPONSABLE|CHOFER|OPERADOR|CONDUCTOR/.test(h)) pon('nombre', i);
@@ -818,8 +815,7 @@
                     ci: col('ci', 3),
                     cantidad: numeroPegado(col('cantidad', 4)),
                     espec: (mapa || espec) ? col('espec', 5) : '',
-                    origen: col('origen', espec ? 6 : 5),
-                    frente: col('frente', espec ? 7 : 6),
+                    frente: col('frente', espec ? 6 : 5),
                 });
                 insertadas++;
             });

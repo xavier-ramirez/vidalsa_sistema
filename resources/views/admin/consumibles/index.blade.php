@@ -5,69 +5,15 @@
     <div id="consumiblesAppRoot"
         data-frentes='@json($frentes->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE]))'>
         <style>
-            .badge-pen {
-                background: #fef3c7;
-                color: #92400e;
-                border-radius: 20px;
-                padding: 2px 10px;
-                font-size: 12px;
-                font-weight: 700;
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-            }
-
-            .badge-ok {
-                background: #d1fae5;
-                color: #065f46;
-                border-radius: 20px;
-                padding: 2px 10px;
-                font-size: 12px;
-                font-weight: 700;
-            }
-
-            .badge-err {
-                background: #fee2e2;
-                color: #991b1b;
-                border-radius: 20px;
-                padding: 2px 10px;
-                font-size: 12px;
-                font-weight: 700;
-            }
-
-
-            /* Chips para Tipos de consumible */
-            .tipo-chip {
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-                border-radius: 20px;
-                padding: 2px 10px;
-                font-size: 11px;
-                font-weight: 700;
-            }
-
-            .tipo-gasoil {
-                background: #fef3c7;
-                color: #92400e;
-            }
-
-            .tipo-aceite {
-                background: #e0f2fe;
-                color: #0369a1;
-            }
-
-            .tipo-caucho {
-                background: #f3e8ff;
-                color: #6b21a8;
-            }
-
-            .tipo-otro {
-                background: #f1f5f9;
-                color: #475569;
-            }
-
-
+            /* Estado y tipo: solo la letra de color, sin caja alrededor. */
+            .badge-pen { color: #92400e; font-weight: 700; }
+            .badge-ok { color: #065f46; font-weight: 700; }
+            .badge-err { color: #991b1b; font-weight: 700; }
+            .tipo-chip { font-weight: 700; }
+            .tipo-gasoil { color: #92400e; }
+            .tipo-aceite { color: #0369a1; }
+            .tipo-caucho { color: #6b21a8; }
+            .tipo-otro { color: #475569; }
 
             /* Tabla de la lista con el mismo estilo que la de Cargar Consumibles:
                rejilla compacta, encabezado oscuro de 11 px, letra de 13 px y filas alternas. */
@@ -766,9 +712,7 @@
                                     @if($discrepancia)
                                         <span
                                             title="El equipo está registrado en otro frente: {{ $c->equipo->frenteActual?->NOMBRE_FRENTE ?? 'N/A' }}"
-                                            style="display:inline-flex; align-items:center; gap:3px; background:#fef3c7; color:#92400e;
-                                                 border-radius:6px; padding:1px 6px; font-size:10px; font-weight:700;
-                                                 cursor:help; margin-left:4px; white-space:nowrap;">
+                                            style="display:block; color:#92400e; font-weight:700; cursor:help;">
                                             ⚠ {{ $c->equipo->frenteActual?->NOMBRE_FRENTE ?? '?' }}
                                         </span>
                                     @endif

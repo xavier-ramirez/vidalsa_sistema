@@ -259,7 +259,6 @@ class ConsumiblesController extends Controller
                     'RESP_NOMBRE' => isset($fila['resp_nombre']) ? trim($fila['resp_nombre']) : null,
                     'RESP_CI' => isset($fila['resp_ci']) ? trim($fila['resp_ci']) : null,
                     'CANTIDAD' => $fila['cantidad'],
-                    'RAW_ORIGEN' => isset($fila['raw_origen']) ? trim($fila['raw_origen']) : null,
                     'TIPO_CONSUMIBLE' => $tipo,
                     'ESPECIFICACION' => $especFila,
                     'UNIDAD' => $unidad,
@@ -747,7 +746,6 @@ class ConsumiblesController extends Controller
             'consumibles.UNIDAD',
             'consumibles.RESP_NOMBRE',
             'consumibles.RESP_CI',
-            'consumibles.RAW_ORIGEN',
             'consumibles.ESTADO_EQUIPO'
         )
             ->orderBy('consumibles.FECHA', 'desc')

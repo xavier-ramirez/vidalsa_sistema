@@ -164,7 +164,7 @@ class ColumnasConIATest extends MySqlTestCase
             ['7', '10/11/2026', '08:15', 'A45AF4Y', 'PEDRO PEREZ', '15500', '140', 'GUIA 45'],
             ['8', '11/11/2026', '09:40', 'A12BC3D', 'LUIS DIAZ', '88200', '210', 'GUIA 46'],
         ]])->assertOk()->assertExactJson(['fila' => null, 'mapa' => [
-            'fecha' => 1, 'id' => 3, 'nombre' => 4, 'cantidad' => 6, 'origen' => 7,
+            'fecha' => 1, 'id' => 3, 'nombre' => 4, 'cantidad' => 6,   // sin origen: ya no se carga
         ]]);
     }
 }
