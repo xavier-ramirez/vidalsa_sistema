@@ -686,6 +686,8 @@
         // ── PEGAR DESDE EXCEL ─────────────────────────────────────────────
         // Funciona en TODA la página (no solo dentro de la tabla)
         window.pasteLoteCargarHandler = window.pasteLoteCargarHandler || function (e) {
+            // El listener queda en document al salir por la SPA: fuera de esta pantalla, no toca nada.
+            if (!document.getElementById('formLote')) return;
             // Si el foco está en un input del lote de configuración → no interceptar
             const active = document.activeElement;
             if (active && (active.id === 'frenteSearch' || active.id === 'tipoSelect' || active.id === 'unidadSelect')) return;
@@ -717,9 +719,6 @@
                 mapa = mapaEncabezado(filas[i]);
                 if (mapa) desde = i + 1;
             }
-
-            // Aquí todo va a la tabla, también un reporte de gasoil completo: su lector está en el
-            // modo «Subir Excel de gasoil» (arriba).
 
             // Las reglas no reconocieron los encabezados: si lo pegado no encaja en el orden fijo
             // (más columnas de las que tiene la tabla, o una 1ª fila de títulos), se le pregunta a la

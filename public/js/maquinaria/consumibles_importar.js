@@ -86,9 +86,9 @@
     }
 
     /**
-     * La llama el Ctrl+V de Cargar consumibles cuando ya vio que es la tabla completa de un
-     * reporte de gasoil (cargar.blade: tipo Gasoil + mapaEncabezado). Devuelve true si se
-     * encargó (la manda al mismo lector que un Excel subido); false sin permiso para esta carga.
+     * La llama el Ctrl+V de Cargar consumibles en el modo «Subir Excel de gasoil» (cargar.blade:
+     * window.consModo). Devuelve true si se encargó (la manda al mismo
+     * lector que un Excel subido); false sin permiso para esta carga.
      */
     window.consImpPegar = function (texto) {
         if (!CFG.pegar || !document.getElementById('impZona')) return false;

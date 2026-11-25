@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ConsumibleImportacion;
+use App\Services\Consumibles\ColumnasConIA;
 use App\Services\Consumibles\ImportadorCombustible;
 use App\Services\Consumibles\TextoConsumo;
 use App\Support\MensajeError;
@@ -93,7 +94,7 @@ class ConsumiblesImportacionController extends Controller
      * Responde {fila, mapa} con índices desde 0, o {fila:null, mapa:null} si no se pudo: entonces
      * la página pega por posición, como siempre.
      */
-    public function columnas(Request $request, \App\Services\Consumibles\ColumnasConIA $ia): JsonResponse
+    public function columnas(Request $request, ColumnasConIA $ia): JsonResponse
     {
         $request->validate([
             'filas'   => 'required|array|min:2|max:20',
