@@ -239,8 +239,9 @@ class Almacen extends Model
      * No lo es: en el formato que usa el cliente (FORMATO DE SALIDA.xlsm) las 90 notas con ese
      * bloque lleno traen a la MISMA persona, es un cargo fijo del patio.
      *
-     * El unico que va SIEMPRE en blanco es RECIBIDO: lo firma quien recibe en el frente
-     * destino, y ese si cambia en cada nota. Va de ULTIMO en el orden de impresion (extremo
+     * RECIBIDO va aqui en blanco: lo firma quien recibe en el frente destino, y ese si cambia
+     * en cada nota (su nombre y cargo, si se escribieron en la salida, los pone conRecibido).
+     * Va de ULTIMO en el orden de impresion (extremo
      * derecho de la fila de firmas), que es donde lo pide el cliente.
      *
      * Lee solo columnas de $this: cero consultas. Un campo sin configurar sale como raya en

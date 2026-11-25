@@ -4040,7 +4040,7 @@ class AlmacenController extends Controller
             'SOPORTE_2_CAR'      => 'nullable|string|max:120',
             'SOPORTE_2_CED'      => 'nullable|string|max:20',
             // SEGURIDAD: persona fija del patio en el formato del cliente. RECIBIDO no tiene
-            // campos — ese se firma a mano en cada entrega (ver Almacen::firmantesNota).
+            // campos aquí: cambia en cada entrega y se escribe en la salida (Almacen::conRecibido).
             'SEGURIDAD_NOM'      => 'nullable|string|max:120',
             'SEGURIDAD_CAR'      => 'nullable|string|max:120',
             'SEGURIDAD_CED'      => 'nullable|string|max:20',
