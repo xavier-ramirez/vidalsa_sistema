@@ -12,12 +12,7 @@
     .cupos-modal-cab h2 { margin: 0; font-size: 15px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
     .cupos-modal-x { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none;
         color: #fff; cursor: pointer; display: flex; padding: 2px; border-radius: 6px; }
-    .cupos-modal-x:hover, .cupos-modal-foto:hover { background: rgba(255,255,255,.12); }
-    /* Foto opcional del patio, al lado de la X (sale en WebP comprimido). */
-    .cupos-modal-foto { position: absolute; right: 50px; top: 50%; transform: translateY(-50%); background: none; border: none;
-        color: rgba(255,255,255,.75); cursor: pointer; display: flex; padding: 4px; border-radius: 6px; }
-    .cupos-modal-foto i { font-size: 19px; }
-    .cupos-modal-foto:hover { color: #fff; }
+    .cupos-modal-x:hover { background: rgba(255,255,255,.12); }
     #cuposContenido { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 
     /* Patio */
@@ -62,7 +57,8 @@
        (al llenarla aparece otra); esa no lleva la ×. */
     .cupos-tbl { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-variant-numeric: tabular-nums;
         border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-    .cupos-tbl th:nth-child(4) { width: 36px; }
+    .cupos-tbl th:nth-child(4) { width: 44px; text-align: center; }
+    .cupos-tbl th:nth-child(5) { width: 36px; }
     .cupos-tbl th { background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
         text-align: left; padding: 7px 8px; border-bottom: 1px solid #e2e8f0; }
     .cupos-tbl th.num, .cupos-tbl td.num { text-align: right; }
@@ -78,6 +74,16 @@
     .cupos-previo { font-size: 12px; color: #64748b; padding: 0 8px !important; white-space: nowrap; }
     .cupos-acc { text-align: center; }
     .cupos-tbl tr:last-child .cupos-borrar { visibility: hidden; }
+    /* Foto de cada cisterna: gris sin foto, azul con foto elegida o guardada. */
+    .cupos-foto-btn { border: none; background: none; cursor: pointer; color: #94a3b8; padding: 4px; display: inline-flex; justify-content: center;
+        border-radius: 6px; margin: 0; }
+    .cupos-foto-btn:hover { color: #0067b1; background: #e1effa; }
+    .cupos-foto-btn i { font-size: 18px; }
+    .cupos-foto-btn.cupos-foto-lista, .cupos-foto-tiene { color: #0067b1; }
+    .cupos-foto-visor { position: fixed; inset: 0; z-index: 100000; background: rgba(15,23,42,.85); display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 10px; padding: 16px; box-sizing: border-box; cursor: zoom-out; }
+    .cupos-foto-visor img { max-width: 100%; max-height: calc(100% - 40px); border-radius: 8px; background: #fff; object-fit: contain; }
+    .cupos-foto-visor span { color: #fff; font-size: 13px; font-weight: 600; }
     .cupos-pie { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
     .cupos-lote-total { flex: 1; text-align: right; font-size: 12px; color: #475569; font-weight: 600; }
     .cupos-pie .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; height: 36px; }
@@ -99,7 +105,7 @@
         background: #f1f5f9; border-radius: 8px; padding: 8px 10px; font-size: 12px; color: #475569; box-shadow: inset 3px 0 0 var(--color); }
     .cupos-mes-cab > b { color: #0f172a; font-size: 13px; }
     .cupos-mes-cab span b { color: #0f172a; }
-    .cupos-hist { display: grid; grid-template-columns: 1fr 1fr 1.2fr 32px; gap: 8px; align-items: center; padding: 6px 0 6px 10px;
+    .cupos-hist { display: grid; grid-template-columns: 1fr 1fr 1.2fr 32px 32px; gap: 8px; align-items: center; padding: 6px 0 6px 10px;
         border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #1e293b; font-variant-numeric: tabular-nums; }
     .cupos-hist:last-child { border-bottom: none; }
     .cupos-hist-litros { text-align: right; font-weight: 600; }
@@ -122,9 +128,10 @@
         .cupos-pie { flex-wrap: wrap; }
         .cupos-lote-total { flex: 1 1 auto; }
         .cupos-pie .btn-primary-maquinaria { flex: 1 1 100%; justify-content: center; }
-        .cupos-hist { grid-template-columns: 1fr 1fr 28px; padding-left: 6px; }
+        .cupos-hist { grid-template-columns: 1fr 1fr 28px 28px; padding-left: 6px; }
         .cupos-hist-queda { grid-column: 1 / 3; grid-row: 2; text-align: left; font-size: 12px; }
-        .cupos-hist .cupos-borrar { grid-row: 1 / 3; grid-column: 3; }
+        .cupos-hist .cupos-foto-btn, .cupos-hist .cupos-foto-vacia { grid-row: 1 / 3; grid-column: 3; }
+        .cupos-hist .cupos-borrar { grid-row: 1 / 3; grid-column: 4; }
     }
 </style>
 
@@ -132,7 +139,6 @@
     <div class="modal-content cupos-modal" role="dialog" aria-labelledby="cuposModalTitulo" tabindex="-1">
         <div class="cupos-modal-cab">
             <h2 id="cuposModalTitulo"><i class="material-icons">local_gas_station</i> Cupos de Gasoil</h2>
-            <button type="button" class="cupos-modal-foto" data-foto-cupos title="Descargar foto (opcional)"><i class="material-icons">photo_camera</i></button>
             <button type="button" class="cupos-modal-x" data-cerrar-modal title="Cerrar"><i class="material-icons">close</i></button>
         </div>
         <div id="cuposContenido">
@@ -148,6 +154,7 @@
         var URL_CISTERNA = @json(route('consumibles.cupos.cisterna'));
         var URL_BORRAR = @json(route('consumibles.cupos.borrarCisterna', ['id' => '__ID__']));
         var URL_EXCEL = @json(route('consumibles.cupos.excel'));
+        var URL_FOTO = @json(route('consumibles.cupos.fotoCisterna', ['id' => '__ID__']));
         var JSON_H = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
         var modal = document.getElementById('cuposModal');
         if (!modal) return;
@@ -292,6 +299,8 @@
                 filas.forEach(function (tr, i) {
                     datos.append('cisternas[' + i + '][fecha]', tr.querySelector('[data-campo=fecha]').value);
                     datos.append('cisternas[' + i + '][litros]', tr.querySelector('[data-campo=litros]').value);
+                    var foto = tr.querySelector('[data-foto-fila]');
+                    if (foto && foto.files && foto.files[0]) datos.append('cisternas[' + i + '][foto]', foto.files[0]);
                 });
                 f.querySelectorAll('.cupos-mal').forEach(function (i) { i.classList.remove('cupos-mal'); });
             }
@@ -322,7 +331,10 @@
         modal.addEventListener('mousedown', function (e) { abajoEnFondo = e.target === modal; });
         modal.addEventListener('click', function (e) {
             if ((e.target === modal && abajoEnFondo) || e.target.closest('[data-cerrar-modal]')) { cerrar(); return; }
-            if (e.target.closest('[data-foto-cupos]')) { foto(); return; }
+            var ver = e.target.closest('[data-ver-foto]');
+            if (ver) { verFoto(ver.dataset.verFoto, ver.dataset.texto); return; }
+            var cargar = e.target.closest('[data-cargar-foto]');
+            if (cargar) { elegirFoto(cargar.dataset.cargarFoto); return; }
             var quitar = e.target.closest('[data-quitar-fila]');
             if (quitar) { quitarFila(quitar.closest('[data-fila]')); return; }
             if (e.target.closest('[data-ver-historial]')) { verHistorial(!window.__cuposHistorial); return; }
@@ -356,6 +368,9 @@
                 var nueva = ultima.cloneNode(true);
                 nueva.querySelector('[data-campo=litros]').value = '';
                 nueva.querySelectorAll('.cupos-mal').forEach(function (i) { i.classList.remove('cupos-mal'); });
+                // La foto es de cada cisterna: la fila nueva empieza sin foto.
+                var fotoNueva = nueva.querySelector('[data-foto-fila]');
+                if (fotoNueva) { fotoNueva.value = ''; fotoNueva.closest('.cupos-foto-btn').classList.remove('cupos-foto-lista'); }
                 tbody.appendChild(nueva);
             } else {
                 while (filas.length > 1 && vacia(filas[filas.length - 1]) && vacia(filas[filas.length - 2])) {
@@ -425,6 +440,13 @@
         modal.addEventListener('change', function (e) {
             if (!e.target.matches) return;
             if (e.target.matches('[data-elegir-patio]')) mostrarPatio(e.target.value);
+            // Foto elegida para una fila de la tablita: el botón queda azul (se sube con Guardar).
+            else if (e.target.matches('[data-foto-fila]')) {
+                var lista = !!(e.target.files && e.target.files[0]);
+                var btn = e.target.closest('.cupos-foto-btn');
+                btn.classList.toggle('cupos-foto-lista', lista);
+                btn.title = lista ? 'Foto: ' + e.target.files[0].name : 'Foto de la cisterna (opcional)';
+            }
             // El cupo se guarda al salir del cuadro (o con Enter, que envía el formulario).
             else if (e.target.matches('.cupos-cupo input[name=litros]')) enviarForm(e.target.form);
         });
@@ -447,46 +469,44 @@
             cerrar();
         });
 
-        // Foto (opcional) del patio que se ve: resumen e historial, sin la tablita de carga. Sale en
-        // WebP comprimido (descargarFotoWebp, dom_helpers.js).
-        function foto() {
-            var panel = modal.querySelector('[data-panel]:not([hidden])');
-            if (!panel) return;
-            if (typeof html2canvas === 'undefined') {
+        // Foto de una cisterna ya guardada: se elige y se sube de una vez.
+        function elegirFoto(id) {
+            var input = document.createElement('input');
+            input.type = 'file'; input.accept = 'image/*'; input.hidden = true;
+            modal.appendChild(input);
+            input.addEventListener('change', function () {
+                var archivo = input.files && input.files[0];
+                input.remove();
+                if (!archivo) return;
+                var datos = new FormData();
+                datos.append('foto', archivo);
                 if (window.showPreloader) window.showPreloader();
-                window.cargarScriptUnaVez(@json(asset('js/html2canvas.min.js') . '?v=' . filemtime(public_path('js/html2canvas.min.js'))))
-                    .then(function () {
-                        if (window.hidePreloader) window.hidePreloader();
-                        // Cargó pero no trajo la librería (archivo dañado): avisar, no reintentar sin fin.
-                        if (typeof html2canvas === 'undefined') { aviso('No se pudo preparar la foto.', 'error'); return; }
-                        foto();
-                    })
-                    .catch(function () { if (window.hidePreloader) window.hidePreloader(); aviso('No se pudo preparar la foto. Revise la conexión.', 'error'); });
-                return;
+                enviar(URL_FOTO.replace('__ID__', id), 'POST', datos)
+                    .then(function () { aviso('Foto guardada.', 'success'); return repintar(); })
+                    .catch(function (m) { aviso((m && m.mensaje) || 'No se pudo guardar la foto.', 'error'); })
+                    .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
+            });
+            input.addEventListener('cancel', function () { input.remove(); });
+            input.click();
+        }
+        // La foto de una cisterna, encima del modal; un toque o Escape la cierra.
+        function verFoto(url, texto) {
+            var v = document.createElement('div');
+            v.className = 'cupos-foto-visor';
+            var img = document.createElement('img');
+            img.src = url; img.alt = 'Foto de la cisterna';
+            var t = document.createElement('span');
+            t.textContent = texto || '';
+            v.appendChild(img); v.appendChild(t);
+            function cerrarVisor(e) {
+                if (e.type === 'keydown' && e.key !== 'Escape') return;
+                e.stopPropagation();
+                v.remove();
+                document.removeEventListener('keydown', cerrarVisor, true);
             }
-            var sel = modal.querySelector('[data-elegir-patio]');
-            var nombre = sel ? sel.options[sel.selectedIndex].text : panel.dataset.panel;
-            panel.setAttribute('data-foto', '1');
-            html2canvas(panel, {
-                scale: 1.5, backgroundColor: '#f8fafc', logging: false, useCORS: true,
-                onclone: function (doc) {
-                    var p = doc.querySelector('[data-foto]');
-                    var form = p.querySelector('form[data-accion=cisterna]');
-                    if (form) form.remove();
-                    p.querySelectorAll('.cupos-hist-cab button, .cupos-borrar').forEach(function (b) { b.remove(); });
-                    var t = doc.createElement('div');
-                    t.textContent = 'Cupo de gasoil · ' + nombre;
-                    t.style.cssText = 'font:700 16px sans-serif;color:#0f172a;padding:4px 2px 2px;';
-                    p.insertBefore(t, p.firstChild);
-                    p.style.padding = '12px';
-                },
-            }).then(function (canvas) {
-                var archivo = 'Cupo_Gasoil_' + nombre.replace(/\s+/g, '_');
-                // Quien tenía la app abierta desde antes de descargarFotoWebp (dom_helpers.js) la baja en PNG.
-                if (window.descargarFotoWebp) window.descargarFotoWebp(canvas, archivo);
-                else window.descargarEnlace(canvas.toDataURL('image/png'), archivo + '_' + new Date().toISOString().slice(0, 10) + '.png');
-            }).catch(function () { aviso('No se pudo sacar la foto.', 'error'); })
-              .finally(function () { panel.removeAttribute('data-foto'); });
+            v.addEventListener('click', cerrarVisor);
+            document.addEventListener('keydown', cerrarVisor, true);
+            document.body.appendChild(v);
         }
     })();
 </script>

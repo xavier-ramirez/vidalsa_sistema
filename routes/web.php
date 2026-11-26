@@ -331,6 +331,7 @@ Route::middleware(['auth'])->group(function () {
                 Route::post  ('consumibles/cupos',                 'guardarCupo')    ->name('consumibles.cupos.guardar');
                 Route::post  ('consumibles/cupos/cisternas',       'agregarCisternas')->name('consumibles.cupos.cisterna');
                 Route::delete('consumibles/cupos/cisternas/{id}',  'borrarCisterna') ->whereNumber('id')->name('consumibles.cupos.borrarCisterna');
+                Route::post  ('consumibles/cupos/cisternas/{id}/foto', 'fotoCisterna') ->whereNumber('id')->name('consumibles.cupos.fotoCisterna');
             });
             // Rutas con wildcard {id} al final para no capturar segmentos estáticos.
             // Cambiar, emparejar y borrar registros pide equipos.edit (antes cualquier usuario

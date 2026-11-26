@@ -160,6 +160,24 @@
                     min-width: 100%;
                 }
             }
+
+            /* Lista con la columna de contadores a la derecha, como Equipos. */
+            .cons-layout > .admin-card { margin: 0; min-width: 0; }
+            .cons-sidebar { position: sticky; top: 20px; }
+            .cons-consolidado { position: relative; overflow: hidden; background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%); border-radius: 12px; padding: 8px 12px; color: #fff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+            .cons-consolidado-icono { position: absolute; right: -15px; bottom: -15px; font-size: 72px; opacity: .1; transform: rotate(-15deg); }
+            .cons-consolidado-titulo { position: relative; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 3px; }
+            .cons-consolidado-grid { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+            .cons-blk { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 4px; border-radius: 8px; text-decoration: none; color: #fff; transition: filter .2s; }
+            .cons-blk:hover { filter: brightness(1.2); }
+            .cons-blk strong { font-size: 20px; font-weight: 800; line-height: 1; color: #fff; }
+            .cons-blk span { margin-top: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; text-align: center; line-height: 1.1; }
+            .cons-blk-pend { background: rgba(245, 158, 11, 0.32); border: 1px solid rgba(245, 158, 11, 0.3); }
+            .cons-blk-conf { background: rgba(34, 197, 94, 0.28); border: 1px solid rgba(34, 197, 94, 0.25); }
+            .cons-blk-sin { background: rgba(239, 68, 68, 0.28); border: 1px solid rgba(239, 68, 68, 0.25); }
+            @media (max-width: 1024px) {
+                .cons-sidebar { position: static; order: -1; }
+            }
 </style>
 
         <div
@@ -169,42 +187,9 @@
                     <span class="page-title-line2" style="color:#000;">Gestión de Consumibles</span>
                 </h1>
             </div>
-            {{-- Contadores: en su caja, a la derecha del título (a pedido del usuario). --}}
-            <div id="consContadores"
-                style="display:flex; gap:8px; align-items: center; flex-shrink: 0; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:8px 10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                <a id="consCntPend" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'PENDIENTE'])) }}"
-                    onclick="return window.consumiblesFiltrarEstado('PENDIENTE', 'Pendiente');"
-                    style="text-decoration:none; background:#fffbeb; border: 1px solid #fde68a; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
-                    onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">
-                    <strong style="display:block; font-size:18px; font-weight:800; color:#d97706; line-height: 1;"
-                        id="cnt-pendientes">{{ $pendientes }}</strong>
-                    <span
-                        style="font-size:9px; color:#b45309; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Pendientes</span>
-                </a>
-                <a id="consCntConf" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'CONFIRMADO'])) }}"
-                    onclick="return window.consumiblesFiltrarEstado('CONFIRMADO', 'Confirmado');"
-                    style="text-decoration:none; background:#f8fafc; border: 1px solid #e2e8f0; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
-                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
-                    <strong style="display:block; font-size:18px; font-weight:800; color:#10b981; line-height: 1;"
-                        id="cnt-confirmados">{{ $confirmados }}</strong>
-                    <span
-                        style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Confirmados</span>
-                </a>
-                <a id="consCntSin" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'SIN_MATCH'])) }}"
-                    onclick="return window.consumiblesFiltrarEstado('SIN_MATCH', 'Por identificar');"
-                    style="text-decoration:none; background:#fef2f2; border: 1px solid #fecaca; border-radius:10px; padding:5px 10px; text-align:center; min-width:60px; transition:all 0.2s; cursor: pointer;"
-                    onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
-                    <strong style="display:block; font-size:18px; font-weight:800; color:#ef4444; line-height: 1;"
-                        id="cnt-sinmatch">{{ $sinMatch }}</strong>
-                    <span
-                        style="font-size:9px; color:#b91c1c; text-transform:uppercase; font-weight: 700; letter-spacing:0.5px;">Por
-                        identificar</span>
-                </a>
-            </div>
         </div>
 
-
-
+        <div class="page-layout-grid cons-layout">
         <div class="admin-card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 25px;">
             {{-- Filtros --}}
             {{-- SIN onsubmit que encienda el spinner: el listener de más abajo hace
@@ -770,6 +755,32 @@
             </div>
             </div>{{-- #consumiblesResultados --}}
         </div>
+
+        {{-- Columna derecha: contadores en una tarjeta como la de Equipos (a pedido del usuario). --}}
+        <div class="cons-sidebar">
+            <div id="consContadores" class="cons-consolidado">
+                <i class="material-icons cons-consolidado-icono">local_gas_station</i>
+                <div class="cons-consolidado-titulo">Consumibles</div>
+                <div class="cons-consolidado-grid">
+                    <a id="consCntPend" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'PENDIENTE'])) }}"
+                        onclick="return window.consumiblesFiltrarEstado('PENDIENTE', 'Pendiente');" class="cons-blk cons-blk-pend" title="Filtrar: Pendientes">
+                        <strong id="cnt-pendientes">{{ $pendientes }}</strong>
+                        <span>Pendientes</span>
+                    </a>
+                    <a id="consCntConf" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'CONFIRMADO'])) }}"
+                        onclick="return window.consumiblesFiltrarEstado('CONFIRMADO', 'Confirmado');" class="cons-blk cons-blk-conf" title="Filtrar: Confirmados">
+                        <strong id="cnt-confirmados">{{ $confirmados }}</strong>
+                        <span>Confirmados</span>
+                    </a>
+                    <a id="consCntSin" data-cons-sync href="{{ route('consumibles.index', array_merge(request()->except(['estado', 'page']), ['estado' => 'SIN_MATCH'])) }}"
+                        onclick="return window.consumiblesFiltrarEstado('SIN_MATCH', 'Por identificar');" class="cons-blk cons-blk-sin" title="Filtrar: Por identificar">
+                        <strong id="cnt-sinmatch">{{ $sinMatch }}</strong>
+                        <span>Por identificar</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        </div>{{-- .cons-layout --}}
 
         <script>
             (function () {

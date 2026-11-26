@@ -361,9 +361,9 @@ class ConsumiblesController extends Controller
         // ── Clave de caché única por combinación de filtros + versión de datos ──
         // La versión sube cada vez que se escriben datos → invalida todo el caché anterior.
         $version = CacheVersion::current(self::DATA_VER_KEY);
-        // "f3": la forma de la respuesta cambió (sin por_frente ni tipo_activo);
+        // "f4": el Top 20 se agrupa por el proyecto del surtido (antes, el frente actual del equipo);
         // un valor guardado con la forma vieja no debe servirse.
-        $cacheKey = 'graficos_f3_v' . $version
+        $cacheKey = 'graficos_f4_v' . $version
             . '_d' . ($desde ?? 'null')
             . '_h' . ($hasta ?? 'null')
             . '_f' . ($idFrente ?? 'all')
@@ -389,23 +389,27 @@ class ConsumiblesController extends Controller
                 $q->where('consumibles.ESTADO_EQUIPO', 'CONFIRMADO');
             };
 
-            // ── 2. Top 15 equipos mayor consumo — solo CONFIRMADOS ───────────────────
+            // ── 2. Top 20 equipos de mayor consumo POR PROYECTO — solo CONFIRMADOS ──
+            // El proyecto es el del SURTIDO (consumibles.ID_FRENTE); si el surtido no lo trae, el
+            // frente al que pertenece el equipo. Antes se agrupaba siempre por el frente ACTUAL del
+            // equipo y un surtido de Oleoducto salía bajo otro proyecto. Un equipo que surtió en
+            // dos proyectos sale en los dos, cada uno con sus litros y sus surtidos.
+            // Orden: litros y, a igual litros, más surtidos primero.
+            $proyecto = DB::raw('COALESCE(consumibles.ID_FRENTE, equipos.ID_FRENTE_ACTUAL)');
             $topEquipos = DB::table('consumibles')
                 ->join('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
                 ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
-                ->leftJoin('documentacion', 'documentacion.ID_EQUIPO', '=', 'equipos.ID_EQUIPO')
-                ->leftJoin('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'equipos.ID_FRENTE_ACTUAL')
+                ->leftJoin('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', $proyecto)
                 ->where(function ($q) use ($filtrosConfirmados) {
                     $filtrosConfirmados($q);
                 })
-                ->whereNotNull('consumibles.ID_EQUIPO')
                 ->select(
                     'equipos.ID_EQUIPO',
                     'equipos.CODIGO_PATIO',
                     'equipos.MARCA',
                     'equipos.MODELO',
                     'equipos.SERIAL_CHASIS',
-                    DB::raw("MAX(documentacion.PLACA) as PLACA"),
+                    DB::raw("(SELECT MAX(d.PLACA) FROM documentacion d WHERE d.ID_EQUIPO = equipos.ID_EQUIPO) as PLACA"),
                     DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo"),
                     DB::raw("MAX(frentes_trabajo.NOMBRE_FRENTE) as frente"),
                     'consumibles.TIPO_CONSUMIBLE',
@@ -420,9 +424,11 @@ class ConsumiblesController extends Controller
                     'equipos.MODELO',
                     'equipos.SERIAL_CHASIS',
                     'tipo_equipos.nombre',
-                    'consumibles.TIPO_CONSUMIBLE'
+                    'consumibles.TIPO_CONSUMIBLE',
+                    $proyecto
                 )
                 ->orderBy('total', 'desc')
+                ->orderBy('despachos', 'desc')
                 ->limit(20)
                 ->get();
 

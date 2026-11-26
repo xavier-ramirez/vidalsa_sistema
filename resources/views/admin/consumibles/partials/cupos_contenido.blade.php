@@ -72,13 +72,15 @@
                 <input type="hidden" name="patio" value="{{ $clave }}">
                 <h3>Registrar cisternas</h3>
                 <table class="cupos-tbl">
-                    <thead><tr><th>Fecha</th><th class="num">Litros</th><th class="num cupos-col-queda">Quedan</th><th></th></tr></thead>
+                    <thead><tr><th>Fecha</th><th class="num">Litros</th><th class="num cupos-col-queda">Quedan</th><th title="Foto de la cisterna (opcional)">Foto</th><th></th></tr></thead>
                     <tbody data-filas>
                         <tr data-fila>
                             <td><input type="date" data-campo="fecha" required value="{{ now()->toDateString() }}" aria-label="Fecha"
                                 min="{{ \App\Http\Controllers\CuposCombustibleController::desde()->toDateString() }}" max="{{ now()->toDateString() }}"></td>
                             <td><input type="text" data-campo="litros" class="num" inputmode="decimal" placeholder="Litros" autocomplete="off" aria-label="Litros"></td>
                             <td class="num cupos-previo cupos-col-queda" data-previo></td>
+                            {{-- Foto opcional de ESTA cisterna (sale con el Guardar). --}}
+                            <td class="cupos-acc"><label class="cupos-foto-btn" title="Foto de la cisterna (opcional)"><input type="file" accept="image/*" data-foto-fila hidden><i class="material-icons">photo_camera</i></label></td>
                             <td class="cupos-acc"><button type="button" class="cupos-borrar" data-quitar-fila title="Quitar fila"><i class="material-icons">close</i></button></td>
                         </tr>
                     </tbody>
@@ -117,6 +119,15 @@
                             <span class="cupos-hist-fecha">{{ $k->FECHA->format('d/m/Y') }}</span>
                             <span class="cupos-hist-litros">{{ $lt($k->LITROS) }} L</span>
                             <span class="cupos-hist-queda{{ $rojo($f['quedan']) }}">@if ($f['quedan'] !== null)<small>quedan</small> {{ $lt($f['quedan']) }} L @endif</span>
+                            {{-- Foto de la cisterna: si tiene, se ve; si no, se carga (super.admin). --}}
+                            @if ($k->FOTO)
+                                <button type="button" class="cupos-foto-btn cupos-foto-tiene" title="Ver la foto" data-ver-foto="{{ $k->FOTO }}"
+                                    data-texto="{{ $p['nombre'] }} · {{ $k->FECHA->format('d/m/Y') }} · {{ $lt($k->LITROS) }} L"><i class="material-icons">image</i></button>
+                            @elseif ($puede)
+                                <button type="button" class="cupos-foto-btn" title="Cargar la foto de esta cisterna" data-cargar-foto="{{ $k->ID_CISTERNA }}"><i class="material-icons">photo_camera</i></button>
+                            @else
+                                <span class="cupos-foto-vacia"></span>
+                            @endif
                             @if ($puede)
                                 <button type="button" class="cupos-borrar" title="Quitar" data-borrar="{{ $k->ID_CISTERNA }}"
                                     data-texto="{{ $p['nombre'] }} · {{ $k->FECHA->format('d/m/Y') }} · {{ $lt($k->LITROS) }} L">

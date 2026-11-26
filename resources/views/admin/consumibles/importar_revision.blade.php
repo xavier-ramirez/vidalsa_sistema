@@ -96,7 +96,6 @@
                                 @if ($o['inicio']) Inicio de mes: {{ $o['inicio'] }}<br>@endif
                                 @if ($o['sin_litros']) Sin litros: {{ $o['sin_litros'] }}<br>@endif
                                 @if ($o['sin_fecha']) Sin fecha legible: {{ $o['sin_fecha'] }} (filas {{ implode(', ', $h['sin_fecha']) }})<br>@endif
-                                @if ($h['corregidas']) Fechas corregidas: {{ $h['corregidas'] }}@endif
                             </td>
                         </tr>
                     @endforeach
@@ -209,25 +208,6 @@
             </div>
         @endif
 
-        {{-- ═══ Fechas corregidas ═══ --}}
-        @if ($resumen['corregidas'])
-            <div class="admin-card imp-card">
-                <details>
-                    <summary class="imp-titulo" style="cursor:pointer;">Fechas corregidas ({{ count($resumen['corregidas']) }})</summary>
-                    <p class="imp-sub" style="margin-top:8px;">Año imposible o ilegible, o día y mes invertidos: se corrigieron con las filas vecinas. La corrección queda en las notas del consumo.</p>
-                    <div class="imp-tabla-wrap">
-                        <table class="imp-tabla">
-                            <thead><tr><th>Dónde</th><th>Corrección</th></tr></thead>
-                            <tbody>
-                                @foreach ($resumen['corregidas'] as $c)
-                                    <tr><td>{{ $c['origen'] }}</td><td>{{ $c['aviso'] }}</td></tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </details>
-            </div>
-        @endif
     @endif
 
     <div class="admin-card imp-card">

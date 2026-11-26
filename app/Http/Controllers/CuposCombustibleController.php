@@ -7,6 +7,7 @@ use App\Models\CupoCombustible;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 /**
@@ -18,6 +19,10 @@ use Illuminate\Validation\Rule;
 class CuposCombustibleController extends Controller
 {
     use \App\Traits\ExcelLogoCorporativo;
+    use \App\Traits\ConvertsImageToWebp;
+
+    /** Ancho tope (px) de la foto de una cisterna: alcanza para leer la guía o el contador. */
+    private const FOTO_ANCHO = 1600;
 
     /** Meses de historial que se muestran por patio. */
     private const MESES = 12;
@@ -195,12 +200,22 @@ class CuposCombustibleController extends Controller
             // Dentro del historial que se ve (si no, quedaría guardada sin poder verse ni quitarse).
             'cisternas.*.fecha'  => ['required', 'date_format:Y-m-d', 'before_or_equal:today', 'after_or_equal:' . self::desde()->toDateString()],
             'cisternas.*.litros' => ['required', 'numeric', 'gt:0', 'max:9999999999'],
-        ], [], ['cisternas.*.fecha' => 'fecha', 'cisternas.*.litros' => 'litros']);
+            'cisternas.*.foto'   => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:12288'],
+        ], [], ['cisternas.*.fecha' => 'fecha', 'cisternas.*.litros' => 'litros', 'cisternas.*.foto' => 'foto']);
 
-        DB::transaction(function () use ($v) {
-            foreach ($v['cisternas'] as $f) {
+        // Las fotos se suben ANTES de la transacción (Drive no va dentro: una caída de red tumbaría el guardado).
+        $fotos = [];
+        foreach ($v['cisternas'] as $i => $f) {
+            if (!empty($f['foto'])) {
+                $fotos[$i] = $this->subirFoto($f['foto'], $v['patio']);
+            }
+        }
+
+        DB::transaction(function () use ($v, $fotos) {
+            foreach ($v['cisternas'] as $i => $f) {
                 CisternaCupo::create([
-                    'PATIO' => $v['patio'], 'FECHA' => $f['fecha'], 'LITROS' => $f['litros'], 'ID_USUARIO' => auth()->id(),
+                    'PATIO' => $v['patio'], 'FECHA' => $f['fecha'], 'LITROS' => $f['litros'],
+                    'FOTO' => $fotos[$i] ?? null, 'ID_USUARIO' => auth()->id(),
                 ]);
             }
         });
@@ -208,10 +223,74 @@ class CuposCombustibleController extends Controller
         return response()->json(['ok' => true, 'guardadas' => count($v['cisternas'])]);
     }
 
+    /** POST consumibles/cupos/cisternas/{id}/foto — pone o cambia la foto de una cisterna ya guardada. */
+    public function fotoCisterna(Request $request, int $id)
+    {
+        $cisterna = CisternaCupo::findOrFail($id);
+        $request->validate(['foto' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:12288']], [
+            'foto.required' => 'Elija una foto.',
+            'foto.image'    => 'El archivo no es una imagen.',
+            'foto.mimes'    => 'Se aceptan JPG, PNG o WebP.',
+            'foto.max'      => 'La foto pesa más de 12 MB.',
+        ]);
+
+        $anterior = $cisterna->FOTO;
+        $cisterna->update(['FOTO' => $this->subirFoto($request->file('foto'), $cisterna->PATIO)]);
+        self::fotoAPapelera($anterior);
+
+        return response()->json(['ok' => true, 'foto' => $cisterna->FOTO]);
+    }
+
+    /**
+     * Sube la foto a Drive en WebP (carpeta privada de fotos; el navegador la ve por /storage/google
+     * con sesión) y devuelve su enlace. Si Drive no la acepta, corta con un 503 que dice qué pasó.
+     */
+    private function subirFoto($archivo, string $patio): string
+    {
+        @set_time_limit(120);
+        $convertida = $this->convertToWebp($archivo, self::FOTO_ANCHO);
+        try {
+            $file = $convertida['file'];
+            $ext = $file->getMimeType() === 'image/webp' ? 'webp' : ($file->guessExtension() ?: 'jpg');
+            $nombre = 'cisterna_' . $patio . '_' . (int) (microtime(true) * 1000) . '.' . $ext;
+            try {
+                $drive = \App\Services\GoogleDriveService::getInstance();
+                $subido = $drive->uploadFile(config('filesystems.disks.google.product_folder'), $file, $nombre, $file->getMimeType());
+            } catch (\Throwable $e) {
+                Log::error('Cupos: Drive rechazó la foto de la cisterna', ['error' => $e->getMessage()]);
+                abort(503, 'No se pudo guardar la foto en Drive. Revise la conexión e intente de nuevo.');
+            }
+            if (!$subido || !isset($subido->id)) {
+                abort(503, 'Drive no aceptó la foto. Intente de nuevo.');
+            }
+            $bytes = @file_get_contents($file->getRealPath());
+            if ($bytes) {
+                \App\Services\GoogleDriveService::prepararCopiaLocal($subido->id, $bytes);
+            }
+
+            return '/storage/google/' . $subido->id;
+        } finally {
+            if (!empty($convertida['tempPath'])) {
+                @unlink($convertida['tempPath']);
+            }
+        }
+    }
+
+    /** La foto que dejó de usarse va a la papelera de Drive (en local no se toca Drive). */
+    private static function fotoAPapelera(?string $foto): void
+    {
+        $id = \App\Models\DocumentoAnexo::driveIdDeLink($foto);
+        if ($id && !app()->environment('local')) {
+            \App\Services\GoogleDriveService::borrarTrasResponder($id);
+        }
+    }
+
     /** DELETE consumibles/cupos/cisternas/{id} */
     public function borrarCisterna(int $id)
     {
-        CisternaCupo::findOrFail($id)->delete();
+        $cisterna = CisternaCupo::findOrFail($id);
+        $cisterna->delete();
+        self::fotoAPapelera($cisterna->FOTO);
 
         return response()->json(['ok' => true]);
     }

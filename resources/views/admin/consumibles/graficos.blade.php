@@ -222,7 +222,7 @@
         <div class="g-card">
             <p class="g-title" style="justify-content:space-between;">
                 <span style="display:flex;align-items:center;gap:8px;">
-                    Top 20 Equipos Mayor Consumo
+                    Top 20 Equipos Mayor Consumo <span class="g-subtitle">— por proyecto · litros y surtidos</span>
                 </span>
                 <button onclick="descargarRanking()" title="Descargar imagen"
                     style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
