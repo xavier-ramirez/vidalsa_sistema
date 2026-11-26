@@ -760,7 +760,11 @@ class EquipoAuxiliarController extends Controller
         }
 
         try {
-            $aux->forceDelete();
+            DB::transaction(function () use ($aux) {
+                // Sus despachos de consumibles vuelven a «Por identificar» (si no, quedarían confirmados sin equipo).
+                \App\Models\Consumible::where('ID_AUXILIAR', $aux->ID_AUXILIAR)->update(['ID_AUXILIAR' => null, 'ESTADO_EQUIPO' => 'SIN_MATCH']);
+                $aux->forceDelete();
+            });
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,

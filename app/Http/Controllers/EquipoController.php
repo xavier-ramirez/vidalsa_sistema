@@ -1825,6 +1825,9 @@ class EquipoController extends Controller
                 // que los desanclamos a mano (incluye los que esten en la papelera)
                 // para no dejar referencias colgando.
                 Equipo::withTrashed()->where('ID_ANCLAJE', $id)->update(['ID_ANCLAJE' => null]);
+                // Sus despachos de consumibles se quedan sin equipo (FK SET NULL): vuelven a «Por
+                // identificar»; confirmados y sin equipo contaban como confirmados y no salían en ningún gráfico.
+                \App\Models\Consumible::where('ID_EQUIPO', $id)->update(['ID_EQUIPO' => null, 'ESTADO_EQUIPO' => 'SIN_MATCH']);
 
                 $equipo->forceDelete();
             });
