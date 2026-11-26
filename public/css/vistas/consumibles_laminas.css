@@ -109,7 +109,7 @@
 .gl .cb-mes i.cb-hoy { background: var(--construccion); }
 .gl .cb-mes small { font: 700 10.5px/1 Arial, sans-serif; letter-spacing: .05em; color: #000; margin-top: 4px; }
 .gl .cb-base { position: absolute; left: 90px; top: 364px; width: 1100px; height: 1px; background: #AEB6C2; }
-.gl .cb-crono { position: absolute; left: 90px; top: 446px; width: 1100px; display: grid; row-gap: 4px; column-gap: 2px; align-items: stretch; }
+.gl .cb-crono { position: absolute; left: 90px; top: 458px; width: 1100px; display: grid; row-gap: 4px; column-gap: 2px; align-items: stretch; }
 .gl .cb-crono > small { height: 17px; display: grid; place-items: center; font: 700 10px/1 Arial, sans-serif; color: #000; background: #E3E8EF; border-radius: 3px; }
 .gl .cb-crono > small.cb-fin { background: #F2F2F2; color: #5B6575; }
 .gl .cb-crono > b { height: 20px; display: grid; place-items: center; font: 700 11px/1 Arial, sans-serif; color: #fff; background: var(--noche); border-radius: 3px; }

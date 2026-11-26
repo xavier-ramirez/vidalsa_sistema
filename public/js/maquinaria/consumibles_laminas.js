@@ -121,8 +121,8 @@
         if (otros.length) filas += fila('', 'OTROS ' + otros.length + ' PROYECTOS', suma(otros), 0, '', 'gp-otros');
         var periodo = periodoDe(d.desde, d.hasta);
         if (periodo) periodo = ' · ' + esc(periodo);
-        var ley = '<div class="gp-ley"><span><i style="background:' + AZUL + '"></i>' + (ps.length > 4 ? 'LOS 4 DE MAYOR CONSUMO' : 'PROYECTOS') + '</span>' +
-            (ps.length > 4 ? '<span><i style="background:' + GRIS + '"></i>DEMÁS PROYECTOS</span>' : '') + '</div>';
+        var ley = '<div class="gp-ley"><span><i style="background:' + AZUL + '"></i>' + (ps.length > 4 ? 'MAYOR CONSUMO' : 'PROYECTOS') + '</span>' +
+            (ps.length > 4 ? '<span><i style="background:' + GRIS + '"></i>MENOR CONSUMO</span>' : '') + '</div>';
         var izq = '<div class="gp-card"><div class="gp-tit">CONSUMO POR PROYECTO</div><div class="gp-sub">LITROS DE GASOIL' + periodo + '</div>' +
             (ps.length
                 ? '<div class="gp-cab"><span>#</span><small>PROYECTO</small><span></span><b>LITROS</b></div>' +
@@ -281,8 +281,8 @@
             }
         });
         var titulo = 'CRONOGRAMA DE SOLICITUD DE COMBUSTIBLE ' + may(c.mes) + (cont ? ' (CONT.)' : '');
-        return (arriba ? '' : '<div class="cb-sep" style="left:90px;top:398px;height:1px;width:1100px"></div>') +
-            '<div class="cb-tit" style="left:0;width:1280px;text-align:center;top:' + (arriba ? 146 : 410) + 'px">' + titulo + '</div>' +
+        return (arriba ? '' : '<div class="cb-sep" style="left:90px;top:402px;height:1px;width:1100px"></div>') +
+            '<div class="cb-tit" style="left:0;width:1280px;text-align:center;top:' + (arriba ? 146 : 420) + 'px">' + titulo + '</div>' +
             '<div class="cb-crono" style="grid-template-columns:112px repeat(' + dias + ',minmax(0,1fr))' + (arriba ? ';top:182px' : '') + '">' + g + '</div>' +
             (sols.length ? '' : '<p class="cb-sin-sol" style="top:' + (arriba ? 260 : 520) + 'px">Sin solicitudes programadas.</p>');
     }
