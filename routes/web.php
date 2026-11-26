@@ -329,7 +329,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('consumibles/cupos', [App\Http\Controllers\CuposCombustibleController::class, 'index'])->name('consumibles.cupos');
             Route::middleware('can:super.admin')->controller(App\Http\Controllers\CuposCombustibleController::class)->group(function () {
                 Route::post  ('consumibles/cupos',                 'guardarCupo')    ->name('consumibles.cupos.guardar');
-                Route::post  ('consumibles/cupos/cisternas',       'agregarCisterna')->name('consumibles.cupos.cisterna');
+                Route::post  ('consumibles/cupos/cisternas',       'agregarCisternas')->name('consumibles.cupos.cisterna');
                 Route::delete('consumibles/cupos/cisternas/{id}',  'borrarCisterna') ->whereNumber('id')->name('consumibles.cupos.borrarCisterna');
             });
             // Rutas con wildcard {id} al final para no capturar segmentos estáticos.

@@ -12,10 +12,11 @@
     .cupos-modal-x { background: none; border: none; color: #fff; cursor: pointer; display: flex; padding: 0; }
     #cuposContenido { padding: 16px 18px 18px; overflow-y: auto; }
 
-    .cupos-elegir { display: flex; background: #f1f5f9; border-radius: 10px; padding: 4px; gap: 4px; }
-    .cupos-elegir button { flex: 1; border: none; background: none; border-radius: 8px; padding: 9px 12px; font-size: 13px;
-        font-weight: 600; color: #64748b; cursor: pointer; font-family: inherit; transition: background .15s, color .15s; }
-    .cupos-elegir button.activo { background: var(--color); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+    .cupos-patio { display: flex; align-items: center; gap: 10px; }
+    .cupos-patio span { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; }
+    .cupos-patio select { flex: 1; min-width: 0; height: 40px; border: 1px solid #cbd5e0; border-radius: 10px; background: #fff;
+        padding: 0 12px; font-size: 14px; font-weight: 600; color: #0f172a; font-family: inherit; cursor: pointer; outline: none; }
+    .cupos-patio select:focus { border-color: #0067b1; }
 
     .cupos-cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
     .cupos-cifra { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; text-align: center;
@@ -37,12 +38,24 @@
     .cupos-barra { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 10px; }
     .cupos-barra i { display: block; height: 100%; border-radius: 4px; }
 
-    .cupos-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center; margin-top: 16px; padding: 10px;
-        background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
-    .cupos-form input { height: 36px; border: 1px solid #cbd5e0; border-radius: 8px; background: #fff; padding: 0 10px;
-        font-size: 13px; font-family: inherit; outline: none; min-width: 0; width: 100%; box-sizing: border-box; }
-    .cupos-form input:focus { border-color: #0067b1; }
-    .cupos-form .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; height: 36px; justify-content: center; }
+    /* Tabla para cargar varias cisternas de una vez. */
+    .cupos-lote { margin-top: 16px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
+    .cupos-lote-titulo { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .4px; margin: 0 0 8px 2px; }
+    .cupos-lote-tbl { width: 100%; border-collapse: separate; border-spacing: 0 6px; table-layout: fixed; margin-top: -6px; }
+    .cupos-lote-tbl th { font-size: 11px; color: #64748b; font-weight: 600; text-align: left; padding: 0 4px; text-transform: uppercase; }
+    .cupos-lote-tbl td { padding: 0 4px; }
+    .cupos-lote-n { text-align: center; font-size: 12px; color: #94a3b8; font-weight: 700; }
+    .cupos-lote-tbl input { height: 36px; border: 1px solid #cbd5e0; border-radius: 8px; background: #fff; padding: 0 10px;
+        font-size: 13px; font-family: inherit; outline: none; width: 100%; box-sizing: border-box; }
+    .cupos-lote-tbl input:focus { border-color: #0067b1; }
+    .cupos-lote-tbl input.cupos-mal { border-color: #dc2626; background: #fef2f2; }
+    .cupos-lote-pie { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+    .cupos-otra { border: 1px dashed #94a3b8; background: #fff; color: #0067b1; border-radius: 8px; height: 36px; padding: 0 12px;
+        font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+    .cupos-otra i { font-size: 18px; }
+    .cupos-otra:hover { border-color: #0067b1; }
+    .cupos-lote-total { flex: 1; text-align: right; font-size: 12px; color: #475569; }
+    .cupos-lote .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; height: 36px; justify-content: center; }
 
     /* Historial con el estilo de la tabla de la Lista de Consumibles; una fila por mes con su resumen. */
     .cupos-tbl-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid #e2e8f0; margin-top: 14px; }
@@ -65,8 +78,13 @@
         .cupos-cifra { padding: 8px 6px; }
         .cupos-cifra small { font-size: 10px; }
         .cupos-cifra b { font-size: 14px; }
-        .cupos-form { grid-template-columns: 1fr 1fr; }
-        .cupos-form .btn-primary-maquinaria { grid-column: 1 / -1; }
+        .cupos-lote { padding: 8px; }
+        .cupos-lote-tbl col:first-child { width: 18px !important; }
+        .cupos-lote-tbl col:last-child { width: 28px !important; }
+        .cupos-lote-tbl td, .cupos-lote-tbl th { padding: 0 2px; }
+        .cupos-lote-tbl input { padding: 0 6px; font-size: 12px; }
+        .cupos-lote-pie { flex-wrap: wrap; }
+        .cupos-lote .btn-primary-maquinaria { flex: 1 1 100%; }
         .cupos-tbl tr.cupos-mes span { float: none; display: block; }
     }
 </style>
@@ -101,10 +119,8 @@
         function mostrarPatio(patio) {
             if (!modal.querySelector('[data-panel="' + patio + '"]')) patio = 'TIGRE';
             window.__cuposPatio = patio;
-            modal.querySelectorAll('[data-tab]').forEach(function (t) {
-                t.classList.toggle('activo', t.dataset.tab === patio);
-                t.setAttribute('aria-selected', t.dataset.tab === patio ? 'true' : 'false');
-            });
+            var sel = modal.querySelector('[data-elegir-patio]');
+            if (sel) sel.value = patio;
             modal.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = p.dataset.panel !== patio; });
         }
         mostrarPatio(window.__cuposPatio || 'TIGRE');
@@ -130,7 +146,7 @@
             return window.apiFetch(url, { method: metodo, headers: JSON_H, body: cuerpo })
                 .then(function (r) {
                     return r.json().catch(function () { return {}; }).then(function (b) {
-                        if (!r.ok) return Promise.reject(b.message || 'No se pudo guardar.');
+                        if (!r.ok) return Promise.reject({ mensaje: b.message || 'No se pudo guardar.', errores: b.errors || {} });
                         return b;
                     });
                 });
@@ -154,10 +170,41 @@
             if (f.dataset.enviando) return;
             f.dataset.enviando = '1';
             var esCupo = f.dataset.accion === 'cupo';
+            var datos = new FormData(f), filas = [];
+            if (!esCupo) {
+                // Solo las filas con litros (las vacías no cuentan); cada una con su número para marcar errores.
+                filas = Array.prototype.filter.call(f.querySelectorAll('[data-fila]'), function (tr) {
+                    return tr.querySelector('[data-campo=litros]').value.trim() !== '';
+                });
+                if (!filas.length) {
+                    delete f.dataset.enviando;
+                    aviso('Escriba los litros de al menos una cisterna.', 'error');
+                    f.querySelector('[data-campo=litros]').focus();
+                    return;
+                }
+                filas.forEach(function (tr, i) {
+                    datos.append('cisternas[' + i + '][fecha]', tr.querySelector('[data-campo=fecha]').value);
+                    datos.append('cisternas[' + i + '][litros]', tr.querySelector('[data-campo=litros]').value);
+                });
+                f.querySelectorAll('.cupos-mal').forEach(function (i) { i.classList.remove('cupos-mal'); });
+            }
             f.classList.add('cupos-ocupado');
-            enviar(esCupo ? URL_CUPO : URL_CISTERNA, 'POST', new FormData(f))
-                .then(function () { aviso(esCupo ? 'Cupo guardado.' : 'Cisterna agregada.', 'success'); return repintar(); })
-                .catch(function (m) { aviso(typeof m === 'string' ? m : 'No se pudo guardar.', 'error'); })
+            enviar(esCupo ? URL_CUPO : URL_CISTERNA, 'POST', datos)
+                .then(function (b) {
+                    aviso(esCupo ? 'Cupo guardado.' : (b.guardadas === 1 ? 'Cisterna guardada.' : b.guardadas + ' cisternas guardadas.'), 'success');
+                    return repintar();
+                })
+                .catch(function (m) {
+                    // Marca en rojo la fila y el campo que fallaron (cisternas.N.campo) y dice la primera.
+                    var errores = (m && m.errores) || {}, primero = '';
+                    Object.keys(errores).forEach(function (k) {
+                        var p = k.split('.');
+                        if (p[0] !== 'cisternas' || !filas[p[1]]) return;
+                        filas[p[1]].querySelector('[data-campo=' + p[2] + ']').classList.add('cupos-mal');
+                        if (!primero) primero = 'Fila ' + (+p[1] + 1) + ': ' + errores[k][0];
+                    });
+                    aviso(primero || (m && m.mensaje) || 'No se pudo guardar.', 'error');
+                })
                 .finally(function () { delete f.dataset.enviando; f.classList.remove('cupos-ocupado'); });
         });
 
@@ -166,9 +213,10 @@
         modal.addEventListener('mousedown', function (e) { abajoEnFondo = e.target === modal; });
         modal.addEventListener('click', function (e) {
             if ((e.target === modal && abajoEnFondo) || e.target.closest('[data-cerrar-modal]')) { cerrar(); return; }
-            var tab = e.target.closest('[data-tab]');
-            if (tab) { mostrarPatio(tab.dataset.tab); return; }
             var panel = e.target.closest('[data-panel]');
+            if (e.target.closest('[data-otra-fila]')) { otraFila(panel.querySelector('[data-filas]')); return; }
+            var quitar = e.target.closest('[data-quitar-fila]');
+            if (quitar) { quitarFila(quitar.closest('[data-fila]')); return; }
             if (e.target.closest('[data-editar-cupo]')) {
                 panel.querySelector('.cupos-cupo-ver').hidden = true;
                 var f = panel.querySelector('.cupos-cupo-editar');
@@ -186,8 +234,69 @@
             }, function () {
                 enviar(URL_BORRAR + b.dataset.borrar, 'DELETE')
                     .then(function () { aviso('Cisterna quitada.', 'success'); return repintar(); })
-                    .catch(function (m) { aviso(typeof m === 'string' ? m : 'No se pudo quitar.', 'error'); });
+                    .catch(function (m) { aviso(m && m.mensaje ? m.mensaje : 'No se pudo quitar.', 'error'); });
             });
+        });
+
+        // ── Tabla de cisternas: filas ──
+        function numerar(tbody) {
+            tbody.querySelectorAll('[data-fila]').forEach(function (tr, i) { tr.querySelector('.cupos-lote-n').textContent = i + 1; });
+            totalLote(tbody);
+        }
+        // Una fila más, con la fecha de la última (las cisternas de un día suelen ir juntas).
+        function otraFila(tbody) {
+            var ultima = tbody.querySelector('[data-fila]:last-child');
+            var nueva = ultima.cloneNode(true);
+            nueva.querySelector('[data-campo=litros]').value = '';
+            nueva.querySelector('[data-campo=fecha]').value = ultima.querySelector('[data-campo=fecha]').value;
+            nueva.querySelectorAll('.cupos-mal').forEach(function (i) { i.classList.remove('cupos-mal'); });
+            tbody.appendChild(nueva);
+            numerar(tbody);
+            nueva.querySelector('[data-campo=litros]').focus();
+        }
+        // Quitar la fila; si es la única, solo se limpia.
+        function quitarFila(tr) {
+            var tbody = tr.parentNode;
+            if (tbody.querySelectorAll('[data-fila]').length > 1) tr.remove();
+            else tr.querySelector('[data-campo=litros]').value = '';
+            numerar(tbody);
+        }
+        // Los litros como en el servidor: «38.000» = 38000, «1.250,5» = 1250.5.
+        function numeroLitros(t) {
+            t = String(t || '').replace(/\s/g, '');
+            var coma = t.lastIndexOf(','), punto = t.lastIndexOf('.');
+            if (coma !== -1 && punto !== -1) t = coma > punto ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
+            else if (coma !== -1) t = t.split(',').length > 2 ? t.replace(/,/g, '') : t.replace(',', '.');
+            else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+            var n = parseFloat(t);
+            return isNaN(n) ? 0 : n;
+        }
+        function totalLote(tbody) {
+            var n = 0, suma = 0;
+            tbody.querySelectorAll('[data-campo=litros]').forEach(function (i) {
+                var v = numeroLitros(i.value);
+                if (v > 0) { n++; suma += v; }
+            });
+            var t = tbody.closest('form').querySelector('[data-lote-total]');
+            t.textContent = n ? n + (n === 1 ? ' cisterna · ' : ' cisternas · ') + suma.toLocaleString('es-VE', { maximumFractionDigits: 2 }) + ' L' : '';
+        }
+        modal.addEventListener('input', function (e) {
+            if (e.target.matches && e.target.matches('[data-campo]')) {
+                e.target.classList.remove('cupos-mal');
+                if (e.target.dataset.campo === 'litros') totalLote(e.target.closest('[data-filas]'));
+            }
+        });
+        modal.addEventListener('change', function (e) {
+            if (e.target.matches && e.target.matches('[data-elegir-patio]')) mostrarPatio(e.target.value);
+        });
+        // Enter en los litros: pasa a la fila siguiente (o crea otra); se guarda con el botón.
+        modal.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' || !e.target.matches || !e.target.matches('[data-campo=litros]')) return;
+            e.preventDefault();
+            if (e.target.value.trim() === '') return;
+            var tr = e.target.closest('[data-fila]');
+            var sig = tr.nextElementSibling;
+            if (sig) sig.querySelector('[data-campo=litros]').focus(); else otraFila(tr.parentNode);
         });
 
         function cancelarCupo(panel) {

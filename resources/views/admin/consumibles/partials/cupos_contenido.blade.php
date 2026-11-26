@@ -1,6 +1,7 @@
-{{-- Cuerpo del modal Cupos de Gasoil (se repinta solo tras guardar): arriba se elige el patio; de ese
-     patio se ve el cupo (lápiz para cambiarlo) y lo que queda este mes, se carga la cisterna surtida
-     (fecha y litros) y debajo está su historial mes a mes. --}}
+{{-- Cuerpo del modal Cupos de Gasoil (se repinta solo tras guardar): arriba se elige el patio en el
+     desplegable; de ese patio se ve el cupo (lápiz para cambiarlo) y lo que queda este mes, se cargan
+     las cisternas surtidas en una tabla (una fila por cisterna: fecha y litros) y debajo está su
+     historial mes a mes. --}}
 @php
     $lt = fn ($n) => number_format((float) $n, fmod((float) $n, 1) ? 2 : 0, ',', '.');
     $colores = ['TIGRE' => '#1F4E79', 'MATURIN' => '#5B9BD5'];
@@ -8,11 +9,14 @@
     $nombreMes = fn ($m) => \App\Http\Controllers\CuposCombustibleController::nombreMes($m);
 @endphp
 
-<div class="cupos-elegir" role="tablist" aria-label="Patio">
-    @foreach ($patios as $clave => $p)
-        <button type="button" role="tab" data-tab="{{ $clave }}" style="--color: {{ $colores[$clave] }};">{{ $p['nombre'] }}</button>
-    @endforeach
-</div>
+<label class="cupos-patio">
+    <span>Patio</span>
+    <select data-elegir-patio>
+        @foreach ($patios as $clave => $p)
+            <option value="{{ $clave }}">{{ $p['nombre'] }}</option>
+        @endforeach
+    </select>
+</label>
 
 @foreach ($patios as $clave => $p)
     @php
@@ -52,12 +56,28 @@
         <div class="cupos-barra"><i style="width: {{ round($pct, 1) }}%; background: {{ $pasado ? '#dc2626' : $colores[$clave] }};"></i></div>
 
         @if ($puede)
-            <form class="cupos-form" data-accion="cisterna">
+            {{-- Una fila por cisterna; «Otra fila» (o Enter en los litros) agrega más y se guardan todas juntas. --}}
+            <form class="cupos-lote" data-accion="cisterna">
                 <input type="hidden" name="patio" value="{{ $clave }}">
-                <input type="date" name="fecha" required value="{{ now()->toDateString() }}" title="Fecha"
-                    min="{{ \App\Http\Controllers\CuposCombustibleController::desde()->toDateString() }}" max="{{ now()->toDateString() }}">
-                <input type="text" name="litros" inputmode="decimal" required placeholder="Litros de la cisterna" autocomplete="off">
-                <button type="submit" class="btn-primary-maquinaria btn-compacto"><i class="material-icons">add</i> Agregar cisterna</button>
+                <div class="cupos-lote-titulo">Cargar cisternas</div>
+                <table class="cupos-lote-tbl">
+                    <colgroup><col style="width: 34px;"><col><col><col style="width: 38px;"></colgroup>
+                    <thead><tr><th>#</th><th>Fecha</th><th>Litros</th><th></th></tr></thead>
+                    <tbody data-filas>
+                        <tr data-fila>
+                            <td class="cupos-lote-n">1</td>
+                            <td><input type="date" data-campo="fecha" required value="{{ now()->toDateString() }}"
+                                min="{{ \App\Http\Controllers\CuposCombustibleController::desde()->toDateString() }}" max="{{ now()->toDateString() }}"></td>
+                            <td><input type="text" data-campo="litros" inputmode="decimal" placeholder="Litros" autocomplete="off"></td>
+                            <td><button type="button" class="cupos-borrar" data-quitar-fila title="Quitar fila"><i class="material-icons">close</i></button></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="cupos-lote-pie">
+                    <button type="button" class="cupos-otra" data-otra-fila><i class="material-icons">add</i> Otra fila</button>
+                    <span class="cupos-lote-total" data-lote-total></span>
+                    <button type="submit" class="btn-primary-maquinaria btn-compacto"><i class="material-icons">save</i> Guardar cisternas</button>
+                </div>
             </form>
         @endif
 

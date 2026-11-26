@@ -6,6 +6,7 @@ use App\Models\CisternaCupo;
 use App\Models\CupoCombustible;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -82,7 +83,7 @@ class CuposCombustibleController extends Controller
     /** POST consumibles/cupos — el cupo de un patio (patio, litros); si cambia, rige desde el mes en curso. */
     public function guardarCupo(Request $request)
     {
-        self::normalizarLitros($request);
+        $request->merge(['litros' => self::litros($request->input('litros'))]);
         $v = $request->validate([
             'patio'  => ['required', Rule::in(array_keys(CupoCombustible::PATIOS))],
             'litros' => ['required', 'numeric', 'min:0', 'max:9999999999'],
@@ -100,22 +101,36 @@ class CuposCombustibleController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /** POST consumibles/cupos/cisternas — una cisterna surtida: patio, fecha (no futura, dentro del historial) y litros. */
-    public function agregarCisterna(Request $request)
+    /**
+     * POST consumibles/cupos/cisternas — las cisternas surtidas de un patio (la tabla del modal):
+     * patio y cisternas[] con fecha (no futura, dentro del historial) y litros. Todas o ninguna.
+     */
+    public function agregarCisternas(Request $request)
     {
-        self::normalizarLitros($request);
+        $filas = $request->input('cisternas');
+        if (is_array($filas)) {
+            $request->merge(['cisternas' => array_map(
+                fn ($f) => is_array($f) ? ['litros' => self::litros($f['litros'] ?? null)] + $f : $f,
+                $filas
+            )]);
+        }
         $v = $request->validate([
-            'patio'  => ['required', Rule::in(array_keys(CupoCombustible::PATIOS))],
+            'patio'              => ['required', Rule::in(array_keys(CupoCombustible::PATIOS))],
+            'cisternas'          => ['required', 'array', 'min:1', 'max:50'],
             // Dentro del historial que se ve (si no, quedaría guardada sin poder verse ni quitarse).
-            'fecha'  => ['required', 'date_format:Y-m-d', 'before_or_equal:today', 'after_or_equal:' . self::desde()->toDateString()],
-            'litros' => ['required', 'numeric', 'gt:0', 'max:9999999999'],
-        ]);
+            'cisternas.*.fecha'  => ['required', 'date_format:Y-m-d', 'before_or_equal:today', 'after_or_equal:' . self::desde()->toDateString()],
+            'cisternas.*.litros' => ['required', 'numeric', 'gt:0', 'max:9999999999'],
+        ], [], ['cisternas.*.fecha' => 'fecha', 'cisternas.*.litros' => 'litros']);
 
-        CisternaCupo::create([
-            'PATIO' => $v['patio'], 'FECHA' => $v['fecha'], 'LITROS' => $v['litros'], 'ID_USUARIO' => auth()->id(),
-        ]);
+        DB::transaction(function () use ($v) {
+            foreach ($v['cisternas'] as $f) {
+                CisternaCupo::create([
+                    'PATIO' => $v['patio'], 'FECHA' => $f['fecha'], 'LITROS' => $f['litros'], 'ID_USUARIO' => auth()->id(),
+                ]);
+            }
+        });
 
-        return response()->json(['ok' => true]);
+        return response()->json(['ok' => true, 'guardadas' => count($v['cisternas'])]);
     }
 
     /** DELETE consumibles/cupos/cisternas/{id} */
@@ -136,11 +151,10 @@ class CuposCombustibleController extends Controller
      * Los litros como se escriben en esta pantalla, que los muestra con punto de miles: «38.000» son
      * 38000 (no 38), «1.250,5» son 1250.5, «38,5» y «38.5» son 38.5.
      */
-    private static function normalizarLitros(Request $request): void
+    private static function litros($t)
     {
-        $t = $request->input('litros');
         if (!is_string($t)) {
-            return;
+            return $t;
         }
         $t = str_replace(' ', '', trim($t));
         $coma = strrpos($t, ',');
@@ -152,7 +166,7 @@ class CuposCombustibleController extends Controller
         } elseif (preg_match('/^\d{1,3}(\.\d{3})+$/', $t)) {
             $t = str_replace('.', '', $t);
         }
-        $request->merge(['litros' => $t]);
+        return $t;
     }
 
     public static function nombreMes(Carbon $mes): string

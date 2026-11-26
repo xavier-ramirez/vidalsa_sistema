@@ -36,8 +36,16 @@ class CuposCombustibleTest extends MySqlTestCase
 
     private function cisterna(string $patio, string $fecha, $litros)
     {
-        return $this->actingAs($this->superAdminGlobal())
-            ->postJson(route('consumibles.cupos.cisterna'), ['patio' => $patio, 'fecha' => $fecha, 'litros' => $litros]);
+        return $this->cisternas($patio, [[$fecha, $litros]]);
+    }
+
+    /** Varias filas de la tabla en un solo guardado: [[fecha, litros], ...]. */
+    private function cisternas(string $patio, array $filas)
+    {
+        return $this->actingAs($this->superAdminGlobal())->postJson(route('consumibles.cupos.cisterna'), [
+            'patio' => $patio,
+            'cisternas' => array_map(fn ($f) => ['fecha' => $f[0], 'litros' => $f[1]], $filas),
+        ]);
     }
 
     private function modal(): \Illuminate\Testing\TestResponse
@@ -77,9 +85,10 @@ class CuposCombustibleTest extends MySqlTestCase
 
     public function test_la_cisterna_pide_patio_y_fecha_no_futura(): void
     {
-        $this->cisterna('MATURIN', '2031-03-21', 1000)->assertStatus(422)->assertJsonValidationErrors('fecha');
+        $this->cisterna('MATURIN', '2031-03-21', 1000)->assertStatus(422)->assertJsonValidationErrors('cisternas.0.fecha');
         $this->cisterna('OTRO', '2031-03-05', 1000)->assertStatus(422)->assertJsonValidationErrors('patio');
-        $this->cisterna('MATURIN', '2031-03-05', 0)->assertStatus(422)->assertJsonValidationErrors('litros');
+        $this->cisterna('MATURIN', '2031-03-05', 0)->assertStatus(422)->assertJsonValidationErrors('cisternas.0.litros');
+        $this->cisternas('MATURIN', [])->assertStatus(422)->assertJsonValidationErrors('cisternas');
         $this->cisterna('MATURIN', '2031-01-05', 1000)->assertOk();   // de un mes anterior: va a su mes
         // El cupo cargado después también cuenta para ese mes (es fijo).
         $this->cupo('MATURIN', 5000)->assertOk();
@@ -96,10 +105,23 @@ class CuposCombustibleTest extends MySqlTestCase
         $this->assertEquals([38000, 1250.5, 10.5], CisternaCupo::orderBy('FECHA')->pluck('LITROS')->map(fn ($l) => (float) $l)->all());
     }
 
+    public function test_varias_cisternas_de_una_vez_todas_o_ninguna(): void
+    {
+        $this->cisternas('TIGRE', [['2031-03-02', '38.000'], ['2031-03-02', '38.000'], ['2031-03-09', '20000']])
+            ->assertOk()->assertJson(['guardadas' => 3]);
+        $this->assertSame(3, CisternaCupo::where('PATIO', 'TIGRE')->count());
+
+        // Una fila mala (la 2.ª, fecha futura): no se guarda ninguna y se dice cuál falló.
+        $this->cisternas('TIGRE', [['2031-03-10', 1000], ['2031-04-01', 1000]])
+            ->assertStatus(422)->assertJsonValidationErrors('cisternas.1.fecha')->assertJsonMissingValidationErrors('cisternas.0.fecha');
+        $this->assertSame(3, CisternaCupo::where('PATIO', 'TIGRE')->count());
+        $this->modal()->assertSee('Surtido 96.000 L (3)')->assertSee('data-elegir-patio', false);
+    }
+
     public function test_cisterna_fuera_del_historial_no_se_guarda(): void
     {
         // El historial va de abril 2030 a marzo 2031: una de antes no se vería ni se podría quitar.
-        $this->cisterna('TIGRE', '2030-03-31', 1000)->assertStatus(422)->assertJsonValidationErrors('fecha');
+        $this->cisterna('TIGRE', '2030-03-31', 1000)->assertStatus(422)->assertJsonValidationErrors('cisternas.0.fecha');
         $this->cisterna('TIGRE', '2030-04-01', 1000)->assertOk();
     }
 
