@@ -153,10 +153,10 @@
 .gl .gp-tit { font: 700 18px/1 Arial, sans-serif; letter-spacing: .05em; color: #1F2A37; }
 .gl .gp-sub { margin-top: 7px; font: 700 11.5px/1 Arial, sans-serif; letter-spacing: .08em; color: #6B7684; }
 .gl .gp-fila { display: grid; grid-template-columns: 290px minmax(0, 1fr) 80px; align-items: center; column-gap: 14px; }
-.gl .gp-filas { --pista: 22px; --nombre: 12px; --cifra: 13px; flex: 1; min-height: 0; margin-top: 14px; padding: 12px 0 8px; border-top: 1px solid #E3E7ED; display: flex; flex-direction: column; justify-content: space-between; }
+.gl .gp-filas { --pista: 14px; --nombre: 12px; --cifra: 13px; flex: 1; min-height: 0; margin-top: 14px; padding: 12px 0 8px; border-top: 1px solid #E3E7ED; display: flex; flex-direction: column; justify-content: space-between; }
 .gl .gp-fila small { font: 700 var(--nombre)/1.1 Arial, sans-serif; letter-spacing: .03em; color: #1F2A37; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gl .gp-pista { position: relative; height: var(--pista); border-radius: 0 4px 4px 0; background: #EEF2F6; }
-.gl .gp-pista i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; }
+.gl .gp-pista { position: relative; height: var(--pista); border-radius: calc(var(--pista) / 2); background: #EEF2F6; }
+.gl .gp-pista i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: calc(var(--pista) / 2); }
 .gl .gp-fila b { font: 700 var(--cifra)/1 Arial, sans-serif; color: #000; text-align: right; white-space: nowrap; }
 .gl .gp-otros small, .gl .gp-otros b { color: #4A5563; }
 .gl .gp-ley { display: flex; gap: 16px; font: 700 10.5px/1 Arial, sans-serif; letter-spacing: .05em; color: #2B3440; }
@@ -173,8 +173,8 @@
 .gl .gp-div small { font: 700 12.5px/1 Arial, sans-serif; letter-spacing: .05em; color: #2B3440; white-space: nowrap; }
 .gl .gp-div b { font: 700 16px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
 .gl .gp-div em { font: 700 12px/1 Arial, sans-serif; font-style: normal; color: #4A5563; white-space: nowrap; }
-.gl .gp-div span { grid-column: 1 / -1; position: relative; height: 8px; border-radius: 0 4px 4px 0; background: #E3E8EF; }
-.gl .gp-div span i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; background: #2E75B6; }
+.gl .gp-div span { grid-column: 1 / -1; position: relative; height: 8px; border-radius: 4px; background: #E3E8EF; }
+.gl .gp-div span i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #2E75B6; }
 
 /* En Gráficos: solo el gráfico (de la lámina se muestra lo que va bajo el encabezado, y = 126..720), escalado al ancho. */
 .gl-vista { display: flex; flex-direction: column; gap: 18px; }

@@ -109,7 +109,7 @@
         // Con muchos proyectos las filas llenan el alto de la tarjeta y se achican; con pocos, son más grandes.
         var n = ps.length + (otros.length ? 1 : 0), paso = ALTO_FILAS / Math.max(n, 1);
         var med = function (f, min, max) { return Math.max(min, Math.min(max, paso * f)).toFixed(1) + 'px'; };
-        var vars = '--pista:' + med(0.6, 5, 22) + ';--nombre:' + med(0.5, 8, 12) + ';--cifra:' + med(0.5, 9, 13) +
+        var vars = '--pista:' + med(0.4, 5, 14) + ';--nombre:' + med(0.5, 8, 12) + ';--cifra:' + med(0.5, 9, 13) +
             // con pocas filas, centradas y con separación tope (no se reparten por toda la tarjeta)
             (n < 13 ? ';justify-content:center;gap:' + Math.min(26, (ALTO_FILAS - n * 24) / Math.max(n - 1, 1)).toFixed(1) + 'px' : '');
         var fila = function (nombre, litros, ancho, color, clase) {
