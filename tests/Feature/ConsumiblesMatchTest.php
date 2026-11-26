@@ -173,6 +173,25 @@ class ConsumiblesMatchTest extends MySqlTestCase
         $this->assertNotNull($c->ID_EQUIPO);
     }
 
+    public function test_lo_pegado_como_viene_en_el_reporte_saca_la_placa_de_dentro(): void
+    {
+        // «CHUTO STK PLACA: A59BEO2R» (reporte de ventas de Patio El Tigre pegado con Ctrl+V): el
+        // texto entero no es ninguna placa; las reglas de la carga de Excel sacan la de dentro.
+        $placa = \Illuminate\Support\Facades\DB::table('documentacion')->where('PLACA', 'regexp', '^[A-Z][0-9]{2}[A-Z]{2}[0-9][A-Z]$')
+            ->whereNotNull('ID_EQUIPO')->value('PLACA') ?? $this->markTestSkipped('No hay placas.');
+        $texto = 'VEHICULO PLACA: ' . $placa;
+        $esperado = (new \App\Services\Consumibles\IdentificadorConsumo())->resolverEquipo(['desc' => $texto]);
+        if ($esperado['estado'] === 'SIN_MATCH') {
+            $this->markTestSkipped('Esa placa no la resuelven las reglas del Excel.');
+        }
+        $c = $this->consumo($texto);
+
+        (new MatchConsumibles())->ejecutar([$c->ID_CONSUMIBLE]);
+
+        $this->assertSame('CONFIRMADO', $c->fresh()->ESTADO_EQUIPO);
+        $this->assertSame($esperado['id_equipo'], $c->fresh()->ID_EQUIPO, 'El mismo equipo que si se hubiera subido el Excel.');
+    }
+
     public function test_un_por_identificar_que_sigue_igual_no_se_reescribe(): void
     {
         $c = $this->consumo('ZZ-QUIETO-' . random_int(100000, 999999));

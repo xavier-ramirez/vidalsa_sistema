@@ -151,21 +151,29 @@ class MatchConsumibles
         // limpia, y la coincidencia parcial de abajo podría dar un equipo de otro tipo.
         $deExcel = $pendientes->whereNotNull('ID_IMPORTACION');
         $pendientes = $pendientes->whereNull('ID_IMPORTACION');
-        $ident = $deExcel->isNotEmpty() ? new IdentificadorConsumo() : null;
-        foreach ($deExcel as $c) {
+        $ident = null;
+        // true si las reglas del Excel lo resolvieron (equipo, auxiliar o «no es un equipo»).
+        $comoExcel = function ($c) use (&$ident, &$aConfirmar, &$aConfirmarAux, &$sinEquipo, &$confirmados): bool {
+            $ident ??= new IdentificadorConsumo();
             $r = $ident->resolverEquipo(['desc' => $c->IDENTIFICADOR]);
             if ($r['estado'] === 'SIN_MATCH') {
+                return false;
+            }
+            if ($r['id_equipo']) {
+                $aConfirmar[$r['id_equipo']][] = $c->ID_CONSUMIBLE;
+            } elseif ($r['id_auxiliar']) {
+                $aConfirmarAux[$r['id_auxiliar']][] = $c->ID_CONSUMIBLE;
+            } else {
+                $sinEquipo[] = $c->ID_CONSUMIBLE;
+            }
+            $confirmados++;
+
+            return true;
+        };
+        foreach ($deExcel as $c) {
+            if (!$comoExcel($c)) {
                 $aSinMatch[] = $c->ID_CONSUMIBLE;
                 $sinMatch++;
-            } else {
-                if ($r['id_equipo']) {
-                    $aConfirmar[$r['id_equipo']][] = $c->ID_CONSUMIBLE;
-                } elseif ($r['id_auxiliar']) {
-                    $aConfirmarAux[$r['id_auxiliar']][] = $c->ID_CONSUMIBLE;
-                } else {
-                    $sinEquipo[] = $c->ID_CONSUMIBLE;
-                }
-                $confirmados++;
             }
         }
 
@@ -223,7 +231,10 @@ class MatchConsumibles
             if ($equipo) {
                 $aConfirmar[$equipo->ID_EQUIPO][] = $c->ID_CONSUMIBLE;
                 $confirmados++;
-            } else {
+            } elseif (!$comoExcel($c)) {
+                // 6. Lo pegado o escrito como viene en los reportes («VOLQUETA JAC PLACA: A45AF4Y»,
+                // «PAYLODER 950»): las reglas y alias de la carga de Excel, que sacan la placa de
+                // dentro del texto. Solo si nada de lo anterior encontró el equipo.
                 $aSinMatch[] = $c->ID_CONSUMIBLE;
                 $sinMatch++;
             }
