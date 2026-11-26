@@ -92,9 +92,11 @@ class ConsumiblesController extends Controller
 
         $tipos = Consumible::tiposLabel();
         $unidades = ['LITROS' => 'Litros', 'GALONES' => 'Galones', 'UNIDADES' => 'Unidades', 'KG' => 'Kg'];
-        // Las cargas de Excel de gasoil: solo las ve (y las usa) super.admin.
+        // Las cargas de Excel de gasoil guardadas (para deshacerlas): solo las ve super.admin. Un
+        // borrador es un Excel subido a la tabla y aún sin guardar: no se lista.
         $cargas = auth()->user()->can('super.admin')
             ? ConsumibleImportacion::with('usuario:ID_USUARIO,NOMBRE_COMPLETO')
+                ->where('ESTADO', '!=', ConsumibleImportacion::BORRADOR)
                 ->orderByDesc('ID_IMPORTACION')->limit(30)->get()
             : collect();
 
@@ -154,10 +156,28 @@ class ConsumiblesController extends Controller
             'filas' => 'required|array|min:1',
             'filas.*.fecha' => 'required|date',
             'filas.*.frente' => 'nullable|string|max:191',
-            'filas.*.id_frente' => 'nullable|integer|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
+            // Que el frente exista se mira de una vez más abajo: con exists, un Excel de miles
+            // de filas hacía una consulta por fila.
+            'filas.*.id_frente' => 'nullable|integer',
             'filas.*.cantidad' => 'required|numeric|min:0.01',
             'filas.*.especificacion' => 'nullable|string|max:30',
+            // Fila que vino de un Excel subido: su carga (borrador) y su lugar en ella. Que vengan
+            // las dos se mira abajo: required_with con miles de filas tardaba más de 10 s.
+            'filas.*.imp' => 'nullable|integer',
+            'filas.*.ref' => 'nullable|integer|min:0',
         ]);
+        $validator->after(function ($v) use ($request) {
+            $ids = collect($request->input('filas'))->pluck('id_frente')->filter()->map(fn ($id) => (int) $id)->unique();
+            if ($ids->isNotEmpty() && DB::table('frentes_trabajo')->whereIn('ID_FRENTE', $ids)->whereNull('deleted_at')->count() !== $ids->count()) {
+                $v->errors()->add('id_frente', 'Una de las filas tiene un frente que ya no existe: elígelo de nuevo.');
+            }
+            if (collect($request->input('filas'))->contains(fn ($f) => empty($f['imp']) !== (($f['ref'] ?? '') === ''))) {
+                $v->errors()->add('filas', 'Una fila del Excel llegó incompleta: vuelve a subir el archivo.');
+            }
+            if ($request->tipo_consumible !== 'GASOIL' && collect($request->input('filas'))->contains(fn ($f) => !empty($f['imp']))) {
+                $v->errors()->add('tipo_consumible', 'Las filas del Excel subido son de gasoil: elige el tipo Gasoil.');
+            }
+        });
 
         if ($validator->fails()) {
             if ($request->expectsJson()) {
@@ -192,7 +212,7 @@ class ConsumiblesController extends Controller
                 $sinFrente[$texto] = true;
             }
             // Elegido a mano para un texto que no se reconocía (o se reconocía como otro): queda
-            // aprendido para la tabla y el Excel, como «Textos sin proyecto» en la revisión.
+            // aprendido para la tabla y el Excel.
             if ($elegido !== null && $texto !== '' && $reconocido['id_frente'] !== $elegido) {
                 $ensenar[$reconocido['clave'] !== '' ? $reconocido['clave'] : $texto] = $elegido;
             }
@@ -215,39 +235,82 @@ class ConsumiblesController extends Controller
         }
 
         $tiposConEspec = ['ACEITE', 'CAUCHO'];
-        $nuevos = [];
+        $importador = new ImportadorCombustible();
+        // Las filas de un Excel subido, por carga: índice en el borrador → lo que quedó en la tabla.
+        $deExcel = [];
+        foreach ($request->filas as $i => $fila) {
+            if (!empty($fila['imp'])) {
+                $deExcel[(int) $fila['imp']][(int) $fila['ref']] = [
+                    'fecha'         => $fila['fecha'],
+                    'identificador' => $fila['identificador'] ?? null,
+                    'resp_nombre'   => $fila['resp_nombre'] ?? null,
+                    'resp_ci'       => $fila['resp_ci'] ?? null,
+                    'cantidad'      => $fila['cantidad'],
+                    'id_frente'     => $frentes[$i],
+                ];
+            }
+        }
 
-        DB::beginTransaction();
-        try {
-            foreach ($request->filas as $i => $fila) {
-                $especFila = null;
-                if (in_array($tipo, $tiposConEspec)) {
-                    $raw = trim($fila['especificacion'] ?? '');
-                    $especFila = $raw !== '' ? $raw : null;
+        $guardar = function () use ($request, $tipo, $unidad, $frentes, $ensenar, $deExcel, $importador, $tiposConEspec) {
+            return DB::transaction(function () use ($request, $tipo, $unidad, $frentes, $ensenar, $deExcel, $importador, $tiposConEspec) {
+                // Primero lo enseñado: el frente elegido para un texto cuenta ya al buscar repetidos.
+                if ($ensenar) {
+                    $importador->ensenar($ensenar, auth()->id());
+                }
+                $nuevos = [];   // los que identifica el match de abajo
+                foreach ($request->filas as $i => $fila) {
+                    if (!empty($fila['imp'])) {
+                        continue;
+                    }
+                    $especFila = null;
+                    if (in_array($tipo, $tiposConEspec)) {
+                        $raw = trim($fila['especificacion'] ?? '');
+                        $especFila = $raw !== '' ? $raw : null;
+                    }
+
+                    $nuevos[] = Consumible::create([
+                        'FECHA' => $fila['fecha'],
+                        'IDENTIFICADOR' => isset($fila['identificador']) ? trim($fila['identificador']) : null,
+                        'RESP_NOMBRE' => isset($fila['resp_nombre']) ? trim($fila['resp_nombre']) : null,
+                        'RESP_CI' => isset($fila['resp_ci']) ? trim($fila['resp_ci']) : null,
+                        'CANTIDAD' => $fila['cantidad'],
+                        'TIPO_CONSUMIBLE' => $tipo,
+                        'ESPECIFICACION' => $especFila,
+                        'UNIDAD' => $unidad,
+                        'ID_FRENTE' => $frentes[$i],
+                        'ID_EQUIPO' => null,
+                        'ID_SUMINISTRO' => null,
+                        'ESTADO_EQUIPO' => 'PENDIENTE',
+                    ])->ID_CONSUMIBLE;
+                }
+                // Lo del Excel: solo lo que no estaba (en la base, en lo de arriba o en otro archivo).
+                $insertados = count($nuevos);
+                $saltados = 0;
+                foreach ($deExcel as $idImp => $tabla) {
+                    $imp = ConsumibleImportacion::find($idImp);
+                    if (!$imp) {
+                        throw new \RuntimeException('La lectura del Excel ya no está (pasaron más de dos días o se guardó en otra pestaña). Vuelve a subir el archivo.');
+                    }
+                    $r = $importador->aplicar($imp, $tabla);
+                    array_push($nuevos, ...$r['pendientes']);
+                    $insertados += $r['insertados'];
+                    $saltados += $r['saltados'];
                 }
 
-                $nuevos[] = Consumible::create([
-                    'FECHA' => $fila['fecha'],
-                    'IDENTIFICADOR' => isset($fila['identificador']) ? trim($fila['identificador']) : null,
-                    'RESP_NOMBRE' => isset($fila['resp_nombre']) ? trim($fila['resp_nombre']) : null,
-                    'RESP_CI' => isset($fila['resp_ci']) ? trim($fila['resp_ci']) : null,
-                    'CANTIDAD' => $fila['cantidad'],
-                    'TIPO_CONSUMIBLE' => $tipo,
-                    'ESPECIFICACION' => $especFila,
-                    'UNIDAD' => $unidad,
-                    'ID_FRENTE' => $frentes[$i],
-                    'ID_EQUIPO' => null,
-                    'ID_SUMINISTRO' => null,
-                    'ESTADO_EQUIPO' => 'PENDIENTE',
-                ])->ID_CONSUMIBLE;
-            }
-            if ($ensenar) {
-                (new ImportadorCombustible())->ensenar($ensenar, [], auth()->id());
-            }
+                return [$nuevos, $insertados, $saltados];
+            });
+        };
 
-            DB::commit();
+        try {
+            @set_time_limit(180);
+            // Con filas de Excel, de a una carga en todo el sistema (ImportadorCombustible::deUnoEnUno).
+            [$nuevos, $insertados, $saltados] = $deExcel ? $importador->deUnoEnUno($guardar) : $guardar();
+        } catch (\RuntimeException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+            return back()->withErrors(['error' => $e->getMessage()])->withInput();
         } catch (\Exception $e) {
-            DB::rollBack();
             $errMsg = 'Error al guardar: ' . MensajeError::para($e, MensajeError::REINTENTAR);
             if ($request->expectsJson()) {
                 return response()->json(['message' => $errMsg], 500);
@@ -259,13 +322,14 @@ class ConsumiblesController extends Controller
         (new MatchConsumibles())->ejecutar($nuevos);
         CacheVersion::bump(self::DATA_VER_KEY);
 
-        $insertados = count($nuevos);
-        $mensaje = "$insertados registros cargados exitosamente.";
+        $mensaje = "$insertados registros cargados exitosamente."
+            . ($saltados ? ' ' . number_format($saltados, 0, ',', '.') . ($saltados === 1 ? ' se saltó porque ya estaba cargado o repetido en otro archivo.' : ' se saltaron porque ya estaban cargados o repetidos en otro archivo.') : '');
 
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => $mensaje,
                 'insertados' => $insertados,
+                'saltados' => $saltados,
             ]);
         }
 

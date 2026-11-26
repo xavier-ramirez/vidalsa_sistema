@@ -34,6 +34,16 @@
             border: 1px solid #e2e8f0;
         }
 
+        .excel-mas {
+            margin-top: 10px;
+            padding: 10px;
+            text-align: center;
+            font-size: 12.5px;
+            color: #64748b;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+        }
+
         #tablaFilas {
             width: 100%;
             border-collapse: collapse;
@@ -345,6 +355,8 @@
                     </thead>
                     <tbody id="cuerpoTabla"></tbody>
                 </table>
+                {{-- Filas del Excel subido que aún no se pintan: aparecen al bajar (consCargarFilasExcel). --}}
+                <div id="excelMas" class="excel-mas" hidden></div>
                 {{-- Lista para elegir el frente de una fila: una sola, se coloca bajo la celda. --}}
                 <div id="frenteFilaDropdown"></div>
             </div>
@@ -569,7 +581,10 @@
         }
 
         // ── Gestión de filas ──────────────────────────────────────────────
-        window.agregarFila = function (data = {}, idx = null) {
+        // destino: dónde se pone la fila (por omisión, la tabla). El Excel subido arma miles de
+        // filas en un fragmento aparte y las mete de una vez: fila por fila en la tabla, la
+        // página quedaba congelada varios segundos.
+        window.agregarFila = function (data = {}, idx = null, destino = null) {
             filaCount++;
             const n = filaCount;
             const espec = necesitaEspec();
@@ -594,12 +609,15 @@
                                                            data-fila-frente placeholder="el de arriba" autocomplete="off">
                                                     <input type="hidden" name="filas[${n}][id_frente]" value="">
                                                     <div class="fila-frente-estado"></div>
+                                                    ${data.imp ? `<input type="hidden" name="filas[${n}][imp]" value="${Number(data.imp)}"><input type="hidden" name="filas[${n}][ref]" value="${Number(data.ref)}">` : ''}
                                                 </td>
                                                 <td><button type="button" class="btn-del" onclick="window.eliminarFila(${n})" title="Eliminar">
                                                         <i class="material-icons" style="font-size:16px;">close</i>
                                                     </button></td>`;
-            document.getElementById('cuerpoTabla').appendChild(tr);
-            window.actualizarContador();
+            (destino || document.getElementById('cuerpoTabla')).appendChild(tr);
+            // Del Excel subido el frente ya viene reconocido por el servidor: no se vuelve a pedir.
+            if (data.imp) estadoFrenteFila(tr.querySelector('[data-fila-frente]'), data.id_frente, data.nombre_frente);
+            if (!destino) window.actualizarContador();
             if (filaCount === 1) { const f = tr.querySelector('input'); if (f) f.id = 'primerInput'; }
             return tr;
         };
@@ -766,8 +784,8 @@
             }
 
             // Lo pegado va SIEMPRE a esta tabla (26-11, pedido del usuario), también el reporte de
-            // gasoil completo: con encabezados, cada columna a la suya. Los Excel subidos arriba son
-            // los que pasan por la revisión (repetidos fuera, equipos sin identificar).
+            // gasoil completo: con encabezados, cada columna a la suya. Los Excel subidos arriba
+            // caen aquí también (consCargarFilasExcel).
 
             // Las reglas no reconocieron los encabezados: si lo pegado no encaja en el orden fijo
             // (más columnas de las que tiene la tabla, o una 1ª fila de títulos), se le pregunta a la
@@ -787,14 +805,18 @@
             }
             pegarFilas(filas, mapa, desde);
         };
-        function pegarFilas(filas, mapa, desde) {
-            // Limpiar tabla antes de pegar (solo si todas sus filas están vacías)
+        // Antes de pegar o de poner un Excel: si la tabla solo tiene filas vacías, se vacía.
+        function vaciarSiNoHayDatos() {
+            if (excelPorPintar.length) return;
             const filasSinDatos = [...document.getElementById('cuerpoTabla').querySelectorAll('tr')]
-                .every(tr => [...tr.querySelectorAll('input')].every(i => !i.value.trim()));
+                .every(tr => [...tr.querySelectorAll('input:not([type=hidden])')].every(i => !i.value.trim()));
             if (filasSinDatos) {
                 document.getElementById('cuerpoTabla').innerHTML = '';
                 filaCount = 0;
             }
+        }
+        function pegarFilas(filas, mapa, desde) {
+            vaciarSiNoHayDatos();
 
             // Con encabezados, cada columna va a la suya por su nombre; sin ellos, por posición:
             // el orden que dice #pasteOrden (con aceite o caucho, la viscosidad o el modelo).
@@ -847,6 +869,69 @@
         document.removeEventListener('paste', window.pasteLoteCargarHandler);
         document.addEventListener('paste', window.pasteLoteCargarHandler);
 
+        // ── EXCEL SUBIDO (consumibles_importar.js) ────────────────────────
+        // Sus despachos caen en esta misma tabla, como lo pegado, y se guardan con el mismo
+        // Guardar. Cada fila lleva su carga y su lugar en ella (imp/ref): con eso el servidor
+        // salta al guardar los que ya estaban cargados (ImportadorCombustible::aplicar).
+        // Miles de filas con sus campos tardan segundos en acomodarse y congelan la página: se
+        // pintan por tandas al bajar (como el catálogo). Las que no se pintaron se guardan igual.
+        var excelPorPintar = [];
+        var TANDA_EXCEL = 200;
+        function pintarTandaExcel(n) {
+            const frag = document.createDocumentFragment();
+            excelPorPintar.splice(0, n || TANDA_EXCEL).forEach(f => agregarFila(f, null, frag));
+            document.getElementById('cuerpoTabla').appendChild(frag);
+            window.actualizarContador();
+            const mas = document.getElementById('excelMas');
+            mas.hidden = !excelPorPintar.length;
+            mas.textContent = excelPorPintar.length
+                ? Number(excelPorPintar.length).toLocaleString('es-VE') + ' filas más del Excel: aparecen al bajar. Al guardar van todas.'
+                : '';
+            // Bajó rápido y el aviso sigue a la vista: otra tanda (el observador avisa solo al entrar).
+            if (excelPorPintar.length && mas.getBoundingClientRect().top < window.innerHeight + 600) {
+                requestAnimationFrame(() => pintarTandaExcel());
+            }
+        }
+        function filaExcelParaGuardar(f) {
+            return {
+                fecha: f.fecha, identificador: f.id, resp_nombre: f.nombre, resp_ci: f.ci, cantidad: String(f.cantidad),
+                frente: f.frente, id_frente: f.frente && f.id_frente ? String(f.id_frente) : '', imp: String(f.imp), ref: String(f.ref),
+            };
+        }
+
+        window.consCargarFilasExcel = function (r) {
+            if (!document.getElementById('cuerpoTabla')) return;   // se fue a otra pantalla
+            if (tipoActual() !== 'GASOIL') {
+                const item = document.querySelector('#tipoDropdownCargar .dropdown-item[data-value="GASOIL"]');
+                window.selectOption('tipoDropdownCargar', 'GASOIL', item ? item.textContent.trim() : 'Gasoil');
+                actualizarUnidad();
+            }
+            vaciarSiNoHayDatos();
+            // Primero las que piden atención (proyecto sin reconocer): se pintan todas de entrada.
+            const filas = r.filas.map(f => Object.assign({ imp: r.importacion }, f));
+            const mal = f => f.frente && !f.id_frente;
+            const nMal = filas.filter(mal).length;
+            excelPorPintar = filas.filter(mal).concat(excelPorPintar, filas.filter(f => !mal(f)));
+            pintarTandaExcel(Math.max(TANDA_EXCEL, nMal));
+            const mas = document.getElementById('excelMas');
+            if (!mas._io && 'IntersectionObserver' in window) {
+                mas._io = new IntersectionObserver(e => { if (e[0].isIntersecting && excelPorPintar.length) pintarTandaExcel(); }, { rootMargin: '600px' });
+                mas._io.observe(mas);
+            }
+
+            const n = r.filas.length, cargados = r.cargados || 0, repetidos = r.repetidos || 0;
+            const fmt = x => Number(x).toLocaleString('es-VE');
+            const partes = [];
+            if (cargados) partes.push(fmt(cargados) + (cargados === 1 ? ' ya estaba cargado' : ' ya estaban cargados'));
+            if (repetidos) partes.push(fmt(repetidos) + (repetidos === 1 ? ' se repite en otro de los archivos' : ' se repiten en otro de los archivos'));
+            let msj = fmt(n) + (n === 1 ? ' despacho del Excel en la tabla.' : ' despachos del Excel en la tabla.');
+            if (partes.length) msj += ' ' + partes.join(' y ') + ': se saltan al guardar.';
+            if (window.showToast) window.showToast(msj, 'success');
+            if (r.avisos && r.avisos.length && window.showToast) window.showToast(r.avisos.join(' '), 'warning');
+            const pz = document.getElementById('pasteZone');
+            if (pz) pz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+
         // ── Envío AJAX con spinner ────────────────────────────────────────
         if (document.getElementById('formLote')) {
             document.getElementById('formLote').addEventListener('submit', async function (e) {
@@ -865,7 +950,7 @@
                     const v = n => (tr.querySelector(`[name$="[${n}]"]`) || {}).value || '';
                     // Solo lo que se ve: la viscosidad o el modelo de otro tipo quedan ocultos y el
                     // servidor los ignora.
-                    const algo = [...tr.querySelectorAll('input')].some(inp => inp.value.trim() !== '' && !inp.closest('[data-espec-cell][style*="none"]'));
+                    const algo = [...tr.querySelectorAll('input:not([type=hidden])')].some(inp => inp.value.trim() !== '' && !inp.closest('[data-espec-cell][style*="none"]'));
                     // El número es el de la columna «#» (tras borrar filas no coincide con la posición).
                     if (algo && (!v('fecha') || !(parseFloat(v('cantidad')) > 0))) aMedias.push(tr.firstElementChild.textContent.trim());
                     // Frente: el reconocido o elegido en la fila; sin texto, el de arriba.
@@ -891,7 +976,7 @@
                     window.showModal({ type: 'warning', title: 'Filas incompletas', message: 'Falta la fecha o la cantidad en ' + (aMedias.length === 1 ? 'la fila ' : 'las filas ') + aMedias.join(', ') + '. Complétalas o bórralas.', confirmText: 'Entendido', hideCancel: true });
                     return;
                 }
-                if (!filas) {
+                if (!filas && !excelPorPintar.length) {
                     if (window.showModal) {
                         window.showModal({ type: 'warning', title: 'Tabla vacía', message: 'Agrega al menos una fila con datos.', confirmText: 'Entendido', hideCancel: true });
                     } else { alert('Agrega al menos una fila.'); }
@@ -900,11 +985,23 @@
 
                 if (window.showPreloader) window.showPreloader();
 
-                const formData = new FormData(this);
+                // En JSON y no como formulario: PHP lee hasta 1000 campos (max_input_vars) y una
+                // tabla de más de ~140 filas perdía el resto sin avisar.
+                const campos = ['fecha', 'identificador', 'resp_nombre', 'resp_ci', 'cantidad', 'especificacion', 'frente', 'id_frente', 'imp', 'ref'];
+                const datos = {
+                    tipo_consumible: tipo,
+                    unidad: document.getElementById('unidadSelect').value,
+                    id_frente: frente,
+                    filas: [...document.getElementById('cuerpoTabla').children].map(tr => {
+                        const o = {};
+                        campos.forEach(c => { const i = tr.querySelector(`[name$="[${c}]"]`); if (i) o[c] = i.value; });
+                        return o;
+                    }).concat(excelPorPintar.map(filaExcelParaGuardar)),
+                };
 
-                window.apiFetch(this.action, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                window.apiFetch(this.action, { headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     method: 'POST',
-                    body: formData
+                    body: JSON.stringify(datos)
                 })
                     .then(async response => {
                         // Los 401/419 los ataja el interceptor global de fetch
@@ -922,6 +1019,8 @@
                             // 1. Vaciar tabla y poner 5 filas limpias
                             document.getElementById('cuerpoTabla').innerHTML = '';
                             filaCount = 0;
+                            excelPorPintar = [];
+                            document.getElementById('excelMas').hidden = true;
                             for (var i = 0; i < 5; i++) agregarFila();
 
                             // 2. Resetear frente
@@ -931,9 +1030,10 @@
                             if (badge) { badge.textContent = ''; badge.style.display = 'none'; }
 
                             // 3. Toast de éxito (pequeño, no intrusivo)
-                            const n = body.insertados || '?';
+                            const n = body.insertados != null ? body.insertados : '?';
+                            const saltados = body.saltados ? ` · ${Number(body.saltados).toLocaleString('es-VE')} repetidos se saltaron` : '';
                             if (window.showToast) {
-                                window.showToast(`✓ ${n} registros guardados correctamente`, 'success');
+                                window.showToast(`✓ ${n} registros guardados${saltados}`, 'success');
                             } else if (window.showModal) {
                                 window.showModal({
                                     type: 'success',

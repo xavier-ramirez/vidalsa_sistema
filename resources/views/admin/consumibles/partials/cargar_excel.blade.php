@@ -1,14 +1,15 @@
 {{-- Cargar consumibles → «Carga Masiva desde Excel» (solo super.admin, como sus rutas), arriba de
      la tabla y con el aspecto de la de Registrar equipos (admin.partials.bulk_upload_card): los
      Excel de gasoil elegidos con «Cargar Excel» o soltados en la tarjeta (se leen al elegirlos)
-     van al lector (ConsumiblesImportacionController): columnas por encabezado, repetidos fuera,
-     revisión y deshacer. Lo pegado con Ctrl+V va SIEMPRE a la tabla de abajo (26-11). --}}
+     pasan por el lector (ConsumiblesImportacionController, columnas por encabezado) y sus
+     despachos caen en la MISMA tabla de abajo que lo pegado con Ctrl+V (26-11, pedido del
+     usuario). Al guardar, los que ya estaban cargados se saltan. --}}
 @include('admin.consumibles.partials.importar_estilos')
 
 <div id="impZona" class="admin-card imp-carga">
     <div>
         <h3 class="imp-carga-titulo"><i class="material-icons">upload_file</i> Carga Masiva desde Excel</h3>
-        <p class="imp-carga-sub">Sube los Excel de gasoil (uno o varios, en cualquier formato) o suéltalos aquí. Nada se guarda hasta que revises.</p>
+        <p class="imp-carga-sub">Sube los Excel de gasoil (uno o varios, en cualquier formato) o suéltalos aquí. Los despachos aparecen en la tabla de abajo; al guardar, los que ya estaban cargados se saltan.</p>
     </div>
     <label for="impArchivos" class="btn-primary-maquinaria imp-carga-btn">
         <i class="material-icons">upload</i> Cargar Excel
@@ -16,7 +17,7 @@
     <input type="file" id="impArchivos" multiple accept=".xlsx,.xlsm,.xls" hidden>
 </div>
 
-{{-- Solo si hay alguna: desde aquí se retoma una lectura sin confirmar o se deshace una carga. --}}
+{{-- Solo si hay alguna: las cargas guardadas, para deshacer una entera. --}}
 @if ($cargas->isNotEmpty())
 <div class="admin-card imp-card">
     <h3 class="imp-titulo">Cargas de Excel</h3>
@@ -40,19 +41,15 @@
                         <td>{{ $c->created_at?->format('d/m/Y H:i') }}</td>
                         <td>{{ $c->usuario?->NOMBRE_COMPLETO ?? '—' }}</td>
                         <td class="imp-archivos">{{ $nombres->implode(', ') }}</td>
-                        <td class="num">{{ $c->ESTADO === 'BORRADOR' ? '—' : number_format($c->INSERTADOS, 0, ',', '.') }}</td>
-                        <td class="num">{{ $c->ESTADO === 'BORRADOR' ? '—' : number_format((float) $c->LITROS, 0, ',', '.') }}</td>
+                        <td class="num">{{ number_format($c->INSERTADOS, 0, ',', '.') }}</td>
+                        <td class="num">{{ number_format((float) $c->LITROS, 0, ',', '.') }}</td>
                         <td>
                             <span class="imp-estado imp-estado-{{ strtolower($c->ESTADO) }}">
-                                {{ ['BORRADOR' => 'Sin confirmar', 'APLICADA' => 'Cargada', 'DESHECHA' => 'Deshecha'][$c->ESTADO] ?? $c->ESTADO }}
+                                {{ $c->ESTADO === 'APLICADA' ? 'Cargada' : 'Deshecha' }}
                             </span>
                         </td>
                         <td class="imp-acciones-fila">
-                            @if ($c->ESTADO === 'BORRADOR')
-                                <a href="{{ route('consumibles.importar.revisar', $c) }}" class="imp-link">Revisar</a>
-                                <button type="button" class="imp-link imp-link-rojo"
-                                    onclick="window.consImpDescartar('{{ route('consumibles.importar.descartar', $c) }}')">Descartar</button>
-                            @elseif ($c->ESTADO === 'APLICADA')
+                            @if ($c->ESTADO === 'APLICADA')
                                 <button type="button" class="imp-link imp-link-rojo"
                                     onclick="window.consImpDeshacer('{{ route('consumibles.importar.deshacer', $c) }}', {{ (int) $c->INSERTADOS }})">Deshacer</button>
                             @endif

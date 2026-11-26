@@ -573,13 +573,4 @@ class IdentificadorConsumo
     {
         return $id !== null ? ($this->nombresFrente[$id] ?? null) : null;
     }
-
-    /** @return array<int,string> ID_FRENTE → nombre, ordenados */
-    public function frentes(): array
-    {
-        $f = $this->nombresFrente;
-        asort($f);
-
-        return $f;
-    }
 }

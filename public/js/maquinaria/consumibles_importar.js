@@ -1,16 +1,14 @@
 /*
- * Cargar consumibles → Excel de gasoil: la subida y el Ctrl+V de la tabla completa
- * (partials/cargar_excel.blade.php + cargar.blade.php) y la revisión
- * (importar_revision.blade.php). La SPA no vuelve a ejecutar un <script src> ya cargado, así
- * que cada vista llama a window.consImpArrancar(CFG) en CADA apertura; lo de la petición
- * (rutas) viaja en CFG.
+ * Cargar consumibles → Excel de gasoil (partials/cargar_excel.blade.php): la subida, cuyos
+ * despachos caen en la tabla de carga de abajo (window.consCargarFilasExcel, cargar.blade.php)
+ * como lo pegado; las columnas de lo pegado con IA y deshacer una carga. La SPA no vuelve a
+ * ejecutar un <script src> ya cargado, así que la vista llama a window.consImpArrancar(CFG) en
+ * CADA apertura; lo de la petición (rutas) viaja en CFG.
  */
 (function () {
     'use strict';
 
     var CFG = {};
-    var cambios = false;    // hay asignaciones sin guardar en la revisión
-    var temporizador = null;
     var EXTENSIONES = /\.(xlsx|xlsm|xls)$/i;
 
     function aviso(tipo, titulo, mensaje) {
@@ -47,11 +45,11 @@
         return promesa.finally(function () { if (window.hidePreloader) window.hidePreloader(); });
     }
 
-    // ── Subida (archivos o tabla pegada): las dos entran por el mismo lector ─────
+    // ── Subida: los despachos del Excel van a la tabla de carga ──────────────
 
-    var leyendo = false;    // una lectura a la vez: dos a la par dejarían un borrador huérfano
+    var leyendo = false;    // una lectura a la vez: la tabla recibiría las dos mezcladas
 
-    /** Manda a leer y, si salen despachos, abre su revisión. */
+    /** Manda a leer y pone los despachos en la tabla (se guardan con su Guardar). */
     function leer(url, opts, siFalla) {
         if (leyendo) {
             if (window.showToast) window.showToast('Espera: ya se está leyendo una carga.', 'warning');
@@ -59,7 +57,10 @@
         }
         leyendo = true;
         conEspera(pedir(url, opts)).then(function (r) {
-            if (r.ok && r.body.url) { ir(r.body.url); return; }
+            if (r.ok && Array.isArray(r.body.filas)) {
+                if (typeof window.consCargarFilasExcel === 'function') window.consCargarFilasExcel(r.body);
+                return;
+            }
             aviso('warning', 'No se pudo leer', mensajeDe(r.body, siFalla));
         }).catch(function (e) {
             if (e && e.message === 'Sesión expirada.') return;
@@ -74,7 +75,7 @@
             (EXTENSIONES.test(f.name) ? archivos : rechazados).push(f);
         });
         if (rechazados.length) {
-            // Con Excel que leer, aviso que no tapa la lectura ni se pierde al abrir la revisión.
+            // Con Excel que leer, un aviso que no tapa la lectura.
             var msj = 'No son archivos de Excel y se dejan fuera: ' + rechazados.map(function (f) { return f.name; }).join(', ');
             if (archivos.length && window.showToast) window.showToast(msj, 'warning');
             else aviso('warning', 'Solo Excel', esc(msj));
@@ -117,140 +118,7 @@
         zona.addEventListener('drop', function (e) { subirArchivos(e.dataTransfer && e.dataTransfer.files); });
     }
 
-    // ── Revisión: enseñar equipos y proyectos ───────────────────────────────
-
-    window.consImpMarcarCambio = function () { cambios = true; };
-
-    function cerrarSugerencias(excepto) {
-        document.querySelectorAll('.imp-sugerencias').forEach(function (s) {
-            if (s !== excepto) s.style.display = 'none';
-        });
-    }
-
-    // turnoBusqueda: solo pinta la ÚLTIMA búsqueda; una anterior que llegue tarde no pisa
-    // los resultados de lo que se escribió después.
-    var turnoBusqueda = 0;
-    window.consImpBuscar = function (input) {
-        var caja = input.parentNode.querySelector('.imp-sugerencias');
-        var q = input.value.trim();
-        var turno = ++turnoBusqueda;
-        clearTimeout(temporizador);
-        if (q.length < 2) { caja.style.display = 'none'; return; }
-        temporizador = setTimeout(function () {
-            pedir(CFG.buscar + '?q=' + encodeURIComponent(q)).then(function (r) {
-                if (turno !== turnoBusqueda) return;
-                var lista = Array.isArray(r.body) ? r.body : [];
-                caja.innerHTML = lista.length
-                    ? lista.map(function (o) { return '<div data-ref="' + esc(o.ref) + '">' + esc(o.texto) + '</div>'; }).join('')
-                    : '<div style="cursor:default;color:#94a3b8;">Sin resultados</div>';
-                cerrarSugerencias(caja);
-                caja.style.display = 'block';
-            }).catch(function () { if (turno === turnoBusqueda) caja.style.display = 'none'; });
-        }, 250);
-    };
-
-    function elegir(opcion) {
-        var buscador = opcion.closest('.imp-buscador');
-        var fila = opcion.closest('tr');
-        var etiqueta = buscador.querySelector('.imp-elegido');
-        fila.dataset.ref = opcion.dataset.ref;
-        etiqueta.textContent = '✓ ' + opcion.textContent;
-        etiqueta.hidden = false;
-        buscador.querySelector('.imp-input').value = '';
-        opcion.parentNode.style.display = 'none';
-        var chk = fila.querySelector('.imp-no-equipo input');
-        if (chk) chk.checked = false;
-        cambios = true;
-    }
-
-    window.consImpNoEquipo = function (chk) {
-        var fila = chk.closest('tr');
-        var buscador = fila.querySelector('.imp-buscador');
-        if (chk.checked) {
-            fila.dataset.ref = 'NO';
-            buscador.querySelector('.imp-elegido').hidden = true;
-        } else if (fila.dataset.ref === 'NO') {
-            delete fila.dataset.ref;
-        }
-        buscador.querySelector('.imp-input').disabled = chk.checked;
-        cambios = true;
-    };
-
-    window.consImpVerTodos = function (btn) {
-        document.querySelectorAll('#impTablaEquipos tr[data-oculta]').forEach(function (tr) { tr.hidden = false; });
-        btn.remove();
-    };
-
-    function asignaciones() {
-        var frentes = [], equipos = [];
-        document.querySelectorAll('select[data-frente-clave]').forEach(function (s) {
-            if (s.value) frentes.push({ clave: s.dataset.frenteClave, id: Number(s.value) });
-        });
-        document.querySelectorAll('tr[data-equipo-clave][data-ref]').forEach(function (tr) {
-            equipos.push({ clave: tr.dataset.equipoClave, ref: tr.dataset.ref });
-        });
-        return frentes.length || equipos.length ? { frentes: frentes, equipos: equipos } : null;
-    }
-
-    function guardarAsignaciones() {
-        var datos = asignaciones();
-        if (!datos) return Promise.resolve(true);
-        return pedir(CFG.ensenar, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(datos),
-        }).then(function (r) {
-            if (!r.ok) throw new Error(mensajeDe(r.body, 'No se guardó lo asignado.'));
-            cambios = false;
-            return true;
-        });
-    }
-
-    window.consImpAplicar = function () {
-        var marcados = Array.prototype.filter.call(document.querySelectorAll('#impMeses input'), function (c) { return c.checked; });
-        if (!marcados.length) { aviso('warning', 'Meses', 'Marca al menos un mes.'); return; }
-        var total = marcados.reduce(function (s, c) { return s + Number(c.dataset.filas || 0); }, 0);
-        window.confirmarAccion({
-            type: 'info',
-            title: 'Cargar consumos',
-            message: 'Se cargarán <b>' + total.toLocaleString('es-VE') + '</b> despachos de ' + marcados.length +
-                (marcados.length === 1 ? ' mes' : ' meses') + (cambios ? ', con lo que asignaste' : '') + '.',
-            confirmText: 'Cargar',
-        }, function () {
-            conEspera(guardarAsignaciones().then(function () {
-                return pedir(CFG.aplicar, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ meses: marcados.map(function (c) { return c.value; }) }),
-                });
-            })).then(function (r) {
-                if (!r.ok) { aviso('warning', 'No se cargó', mensajeDe(r.body, 'No se guardó nada.')); return; }
-                if (window.showToast) window.showToast(r.body.message, 'success');
-                ir(r.body.url);
-            }).catch(function (e) {
-                if (e && e.message === 'Sesión expirada.') return;
-                aviso('error', 'No se cargó', (e && e.message) || 'No se guardó nada. Intenta de nuevo.');
-            });
-        });
-    };
-
-    // ── Descartar / deshacer (las dos vistas) ───────────────────────────────
-
-    window.consImpDescartar = function (url, volver) {
-        window.confirmarAccion({
-            title: 'Descartar la carga',
-            message: 'Se borra la lectura de estos archivos. No se cargó nada todavía, así que no se pierde ningún consumo.',
-            confirmText: 'Descartar',
-        }, function () {
-            conEspera(pedir(url, { method: 'DELETE' })).then(function (r) {
-                if (!r.ok) { aviso('warning', 'No se descartó', mensajeDe(r.body, 'Intenta de nuevo.')); return; }
-                ir(volver ? CFG.cargas : window.location.href);
-            }).catch(function (e) {
-                if (e && e.message === 'Sesión expirada.') return;   // apiFetch ya llevó al login
-                aviso('error', 'No se descartó', (e && e.message) || 'Revisa la conexión e intenta de nuevo.');
-            });
-        });
-    };
+    // ── Deshacer una carga (lista «Cargas de Excel») ───────────────────────
 
     window.consImpDeshacer = function (url, n) {
         window.confirmarAccion({
@@ -274,15 +142,6 @@
 
     window.consImpArrancar = function (cfg) {
         CFG = cfg || {};
-        cambios = false;
         prepararZona();
-        if (!window.__consImpClicsListos) {
-            window.__consImpClicsListos = true;
-            document.addEventListener('click', function (e) {
-                var opcion = e.target.closest('.imp-sugerencias div[data-ref]');
-                if (opcion) { elegir(opcion); return; }
-                if (!e.target.closest('.imp-buscador')) cerrarSugerencias(null);
-            });
-        }
     };
 })();

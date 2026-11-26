@@ -19,8 +19,9 @@ use Tests\MySqlTestCase;
  * Cargar consumibles → Excel de gasoil, con un reporte de gasoil armado aquí mismo en el formato
  * «control de combustible» de los proyectos: lectura (recargas fuera, año imposible reparado,
  * total que solo suma parte de las filas), identificación (PATROL = motoniveladora, por el
- * final del serial), y el flujo completo por HTTP: subir → revisar → aplicar → la misma carga
- * otra vez no repite nada → deshacer. La transacción de cada caso lo revierte todo.
+ * final del serial), y el flujo completo por HTTP: subir (las filas van a la tabla de Cargar) →
+ * guardar la tabla → la misma carga otra vez se salta al guardar → deshacer. La transacción
+ * de cada caso lo revierte todo.
  */
 class ConsumiblesImportarExcelTest extends MySqlTestCase
 {
@@ -106,6 +107,37 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         ]);
     }
 
+    /**
+     * Guarda la tabla de Cargar consumibles con las filas de una subida, como la página: cada una
+     * con su carga y su lugar (imp/ref) y el frente ya reconocido. $cambiar retoca una fila
+     * (por su posición) antes de enviarla; $mas, filas escritas a mano en la misma tabla.
+     */
+    private function guardarTabla($subida, ?callable $cambiar = null, array $mas = [], string $tipo = 'GASOIL')
+    {
+        $filas = [];
+        foreach ($subida->json('filas') as $i => $f) {
+            $fila = [
+                'fecha'         => $f['fecha'],
+                'identificador' => $f['id'],
+                'resp_nombre'   => $f['nombre'],
+                'resp_ci'       => $f['ci'],
+                'cantidad'      => (string) $f['cantidad'],
+                'frente'        => $f['frente'],
+                'id_frente'     => $f['frente'] !== '' && $f['id_frente'] ? (string) $f['id_frente'] : '',
+                'imp'           => (string) $subida->json('importacion'),
+                'ref'           => (string) $f['ref'],
+            ];
+            $filas[] = $cambiar ? $cambiar($fila, $i) : $fila;
+        }
+
+        return $this->postJson(route('consumibles.guardarLote'), [
+            'tipo_consumible' => $tipo,
+            'unidad'          => 'LITROS',
+            'id_frente'       => '',
+            'filas'           => array_values(array_filter(array_merge($filas, $mas))),
+        ]);
+    }
+
     public function test_lee_el_reporte_sin_recargas_y_repara_el_anio_imposible(): void
     {
         $ruta = $this->excel('1234567');
@@ -157,7 +189,7 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertSame('C0MPRES0R750CFM', $ident->identidad(['desc' => 'COMPRESOR 750 CFM']));
     }
 
-    public function test_subir_revisar_aplicar_no_repetir_y_deshacer(): void
+    public function test_subir_a_la_tabla_guardar_saltar_repetidos_y_deshacer(): void
     {
         [$equipo, $digitos] = $this->motoniveladora();
         $ruta = $this->excel($digitos);
@@ -166,38 +198,77 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $equipos = DB::table('equipos')->count();
         $auxiliares = DB::table('equipos_auxiliares')->count();
         $subida = $this->subir($u, $ruta)->assertOk();
-        $imp = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
+        $this->assertCount(5, $subida->json('filas'), 'los despachos van a la tabla, sin la recarga');
+        $this->assertSame(0, $subida->json('cargados'));
+        $this->assertNotNull($subida->json('filas.0.id_frente'), 'VELADERO ya viene reconocido');
+        $imp = ConsumibleImportacion::findOrFail($subida->json('importacion'));
         $this->assertSame(ConsumibleImportacion::BORRADOR, $imp->ESTADO);
 
-        $this->get($subida->json('url'))->assertOk()
-            ->assertSee('Revisar carga de Excel')
-            ->assertSee('Equipos por identificar');
-
-        $this->postJson(route('consumibles.importar.aplicar', $imp), ['meses' => ['2026-08']])->assertOk();
+        // Una fila escrita a mano en la misma tabla entra también.
+        $aMano = ['fecha' => '2026-08-09', 'identificador' => 'ZZ98TST', 'resp_nombre' => 'A MANO', 'resp_ci' => '',
+            'cantidad' => '25', 'frente' => '', 'id_frente' => (string) $subida->json('filas.0.id_frente')];
+        $this->guardarTabla($subida, null, [$aMano])->assertOk()->assertJson(['insertados' => 6, 'saltados' => 0]);
         $imp->refresh();
         $this->assertSame(ConsumibleImportacion::APLICADA, $imp->ESTADO);
         $this->assertSame(5, (int) $imp->INSERTADOS);
+        $this->assertSame('', (string) $imp->FILAS, 'guardada, la carga ya no guarda sus filas');
 
         $filas = DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->get();
         $this->assertCount(2, $filas->where('ID_EQUIPO', $equipo->ID_EQUIPO), 'las dos de la PATROL, con su equipo');
         $this->assertCount(3, $filas->where('ESTADO_EQUIPO', 'SIN_MATCH'), 'las del camión desconocido entran por identificar');
         $this->assertSame(1, $filas->pluck('ID_FRENTE')->unique()->count());
         $this->assertNotNull($filas->first()->ID_FRENTE);
+        $this->assertNotNull($filas->first()->HUELLA_EQ, 'con su huella, para no repetirse después');
+        $this->assertStringContainsString('fila 4', $filas->sortBy('ID_CONSUMIBLE')->first()->ORIGEN);
         $this->assertSame($equipos, DB::table('equipos')->count(), 'la carga nunca registra equipos');
         $this->assertSame($auxiliares, DB::table('equipos_auxiliares')->count());
 
-        // La misma carga otra vez: todo «ya estaba».
-        $this->subir($u, $ruta)->assertOk();
-        $otra = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
-        $rev = app(\App\Services\Consumibles\ImportadorCombustible::class)->revisar($otra);
-        $this->assertSame(0, $rev['resumen']['totales']['nuevo'][0]);
-        $this->assertSame(5, $rev['resumen']['totales']['cargado'][0]);
-        $this->deleteJson(route('consumibles.importar.descartar', $otra))->assertOk();
-        $this->assertNull(ConsumibleImportacion::find($otra->ID_IMPORTACION));
+        // El mismo Excel otra vez: la tabla los muestra, pero al guardar se saltan todos.
+        $otra = $this->subir($u, $ruta)->assertOk();
+        $this->assertSame(5, $otra->json('cargados'));
+        $antes = DB::table('consumibles')->count();
+        $this->guardarTabla($otra)->assertOk()
+            ->assertJson(['insertados' => 0, 'saltados' => 5])
+            ->assertJsonFragment(['message' => '0 registros cargados exitosamente. 5 se saltaron porque ya estaban cargados o repetidos en otro archivo.']);
+        $this->assertSame($antes, DB::table('consumibles')->count());
+        $this->assertNull(ConsumibleImportacion::find($otra->json('importacion')), 'sin nada nuevo no queda carga que deshacer');
+
+        // Ya guardada, la misma lectura no se guarda dos veces (otra pestaña, doble clic).
+        $this->guardarTabla($subida)->assertStatus(422);
 
         $this->postJson(route('consumibles.importar.deshacer', $imp))->assertOk();
         $this->assertSame(0, DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->count());
         $this->assertSame(ConsumibleImportacion::DESHECHA, $imp->refresh()->ESTADO);
+    }
+
+    /**
+     * Lo que se cambia en la tabla es lo que se guarda (litros, cédula); una fila borrada ahí no
+     * entra ni hace «repetida» a su copia; y el Excel solo se guarda como gasoil.
+     */
+    public function test_se_guarda_lo_escrito_en_la_tabla(): void
+    {
+        [, $digitos] = $this->motoniveladora();
+        $u = $this->superAdminGlobal();
+        $subida = $this->subir($u, $this->excel($digitos))->assertOk();
+
+        $this->guardarTabla($subida, null, [], 'ACEITE')->assertStatus(422)->assertJsonValidationErrors('tipo_consumible');
+
+        $this->guardarTabla($subida, function ($f, $i) {
+            if ($i === 0) {
+                return null;                                   // borrada en la tabla
+            }
+            if ($i === 1) {
+                $f['cantidad'] = '61.5';
+                $f['resp_ci'] = '99999999';
+            }
+
+            return $f;
+        })->assertOk()->assertJson(['insertados' => 4]);
+
+        $filas = DB::table('consumibles')->where('ID_IMPORTACION', $subida->json('importacion'))->orderBy('ID_CONSUMIBLE')->get();
+        $this->assertCount(4, $filas);
+        $this->assertEquals(61.5, (float) $filas->first()->CANTIDAD);
+        $this->assertSame('99999999', $filas->first()->RESP_CI);
     }
 
     /**
@@ -220,20 +291,15 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         ]);
 
         $r = $this->subir($u, $this->tabla($texto))->assertOk();
-        $imp = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
-        $this->get($r->json('url'))->assertOk()->assertSee('Revisar carga de Excel');
-
-        $this->postJson(route('consumibles.importar.aplicar', $imp), ['meses' => ['2026-08']])->assertOk();
-        $filas = DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->orderBy('FECHA')->get();
+        $this->guardarTabla($r)->assertOk();
+        $filas = DB::table('consumibles')->where('ID_IMPORTACION', $r->json('importacion'))->orderBy('FECHA')->get();
         $this->assertCount(3, $filas, 'la recarga del tanque no es un consumo');
         $this->assertEquals([80, 60.5, 40], $filas->pluck('CANTIDAD')->map(fn ($c) => (float) $c)->all(), 'litros de SALIDA, con coma decimal');
         $this->assertCount(2, $filas->where('ID_EQUIPO', $equipo->ID_EQUIPO));
         $this->assertSame('11111111', $filas->first()->RESP_CI);
 
-        // El mismo archivo otra vez: nada nuevo.
-        $this->subir($u, $this->tabla($texto))->assertOk();
-        $otra = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
-        $this->assertSame(0, app(\App\Services\Consumibles\ImportadorCombustible::class)->revisar($otra)['resumen']['totales']['nuevo'][0]);
+        // El mismo archivo otra vez: todo ya estaba.
+        $this->assertSame(3, $this->subir($u, $this->tabla($texto))->assertOk()->json('cargados'));
 
         // Sin encabezado reconocible, lo dice.
         $this->subir($u, $this->tabla("01/08/2026\tABC123\t40"))->assertStatus(422);
@@ -291,49 +357,32 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertStringNotContainsString('"', $filas[0]['desc']);
     }
 
-    public function test_lo_ensenado_identifica_en_la_misma_carga(): void
+    /** El identificador cambiado en la tabla lo identifica el servidor con lo escrito. */
+    public function test_el_identificador_corregido_en_la_tabla_identifica_el_equipo(): void
     {
         [$equipo, $digitos] = $this->motoniveladora();
         $u = $this->superAdminGlobal();
-        $this->subir($u, $this->excel($digitos))->assertOk();
-        $imp = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
+        $subida = $this->subir($u, $this->excel($digitos))->assertOk();
+        $this->guardarTabla($subida, function ($f, $i) use ($equipo) {
+            if ($i === 4) {
+                $f['identificador'] = $equipo->SERIAL_CHASIS;   // el camión desconocido, con su serial
+            }
 
-        $importador = app(\App\Services\Consumibles\ImportadorCombustible::class);
-        $clave = $importador->revisar($imp)['resumen']['sin_equipo'][0]['clave'];
-        $this->postJson(route('consumibles.importar.ensenar', $imp), [
-            'equipos' => [['clave' => $clave, 'ref' => 'E:' . $equipo->ID_EQUIPO]],
-        ])->assertOk();
+            return $f;
+        })->assertOk();
 
-        $this->assertSame([], $importador->revisar($imp)['resumen']['sin_equipo']);
-    }
-
-    public function test_el_match_del_servidor_resuelve_lo_cargado_con_lo_ensenado_despues(): void
-    {
-        [$equipo, $digitos] = $this->motoniveladora();
-        $u = $this->superAdminGlobal();
-        $this->subir($u, $this->excel($digitos))->assertOk();
-        $imp = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
-        $this->postJson(route('consumibles.importar.aplicar', $imp), ['meses' => ['2026-08']])->assertOk();
-
-        $porIdentificar = DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->where('ESTADO_EQUIPO', 'SIN_MATCH');
-        $clave = (clone $porIdentificar)->value('IDENTIFICADOR');
-        $this->postJson(route('consumibles.importar.ensenar', $imp), [
-            'equipos' => [['clave' => $clave, 'ref' => 'E:' . $equipo->ID_EQUIPO]],
-        ])->assertOk();
-
-        (new \App\Services\Consumibles\MatchConsumibles())->ejecutar();   // la pasada de cada hora
-        $this->assertSame(0, (clone $porIdentificar)->count());
-        $this->assertSame(5, DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)
-            ->where('ID_EQUIPO', $equipo->ID_EQUIPO)->where('ESTADO_EQUIPO', 'CONFIRMADO')->count());
+        $c = DB::table('consumibles')->where('ID_IMPORTACION', $subida->json('importacion'))->orderByDesc('ID_CONSUMIBLE')->first();
+        $this->assertSame('CONFIRMADO', $c->ESTADO_EQUIPO);
+        $this->assertSame($equipo->ID_EQUIPO, (int) $c->ID_EQUIPO);
     }
 
     public function test_por_identificar_se_resuelve_escribiendo_el_serial_completo(): void
     {
         [$equipo, $digitos] = $this->motoniveladora();
         $u = $this->superAdminGlobal();
-        $this->subir($u, $this->excel($digitos))->assertOk();
-        $imp = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
-        $this->postJson(route('consumibles.importar.aplicar', $imp), ['meses' => ['2026-08']])->assertOk();
+        $subida = $this->subir($u, $this->excel($digitos))->assertOk();
+        $this->guardarTabla($subida)->assertOk();
+        $imp = ConsumibleImportacion::findOrFail($subida->json('importacion'));
 
         // En Consumibles: al «camión desconocido» se le escribe el serial que faltaba en el Excel.
         $id = DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->where('ESTADO_EQUIPO', 'SIN_MATCH')->value('ID_CONSUMIBLE');
@@ -351,8 +400,10 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
     {
         $html = $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cargar'))->assertOk()->getContent();
         $this->assertStringContainsString('id="impArchivos"', $html);
-        // La tarjeta de cargas solo sale si hay alguna (retomar o deshacer).
-        $this->assertSame(ConsumibleImportacion::exists(), str_contains($html, 'Cargas de Excel'));
+        // La tarjeta de cargas solo sale si hay alguna guardada (para deshacerla); lo subido y
+        // sin guardar no se lista.
+        $this->assertSame(ConsumibleImportacion::where('ESTADO', '!=', ConsumibleImportacion::BORRADOR)->exists(), str_contains($html, 'Cargas de Excel'));
+        $this->assertStringNotContainsString('importar_revision', $html);
         $this->assertStringContainsString('id="formLote"', $html, 'Y la tabla para pegar, debajo.');
     }
 

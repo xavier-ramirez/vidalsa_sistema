@@ -12,9 +12,10 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * Carga de Excel de gasoil en tres pasos: LEER (borrador) → REVISAR (vista previa, enseñar
- * equipos y proyectos) → APLICAR (guardar en consumibles). Nada toca `consumibles` hasta
- * aplicar, y aplicar es todo o nada.
+ * Carga de Excel de gasoil: LEER (borrador con las filas y sus huellas) → las filas van a la
+ * tabla de Cargar consumibles (paraTabla), donde se ven y se corrigen como lo pegado → al
+ * guardar la tabla (ConsumiblesController::guardarLote), APLICAR mete solo los despachos que
+ * no estaban, con lo que quedó escrito en la tabla. Nada toca `consumibles` hasta guardar.
  *
  * Despachos repetidos: los Excel son acumulados (el de septiembre repite abril–agosto) y
  * entre versiones corrigen la cédula, la placa o las dos. Cada despacho lleva tres huellas
@@ -74,9 +75,10 @@ class ImportadorCombustible
         $imp->guardarFilas($filas);
         $imp->save();
 
-        // Lecturas que nadie confirmó ni descartó: no cargaron nada y sus filas ocupan espacio.
+        // Lecturas que nadie guardó (se subió el Excel y no se pulsó Guardar): no cargaron nada y
+        // sus filas ocupan espacio.
         ConsumibleImportacion::where('ESTADO', ConsumibleImportacion::BORRADOR)
-            ->where('created_at', '<', now()->subDays(7))->delete();
+            ->where('created_at', '<', now()->subDays(2))->delete();
 
         return $imp;
     }
@@ -119,8 +121,10 @@ class ImportadorCombustible
      *    → «ci 18820652 / 2270»).
      * Una huella igual en OTRO proyecto no es el mismo despacho: el mismo chofer puede sacar
      * 40 L el mismo día en dos tanques distintos.
+     * @param array<int,mixed>|null $solo índices de las filas que siguen en la tabla (las borradas
+     *        ahí no cuentan: no hacen «repetida» a su copia de otro archivo); null = todas
      */
-    public function revisar(ConsumibleImportacion $imp): array
+    public function revisar(ConsumibleImportacion $imp, ?array $solo = null): array
     {
         $ident = new IdentificadorConsumo();
         $filas = $imp->filas();
@@ -149,6 +153,9 @@ class ImportadorCombustible
 
         $res = [];
         foreach ($orden as $i) {
+            if ($solo !== null && !isset($solo[$i])) {
+                continue;
+            }
             $f = $filas[$i];
             $eq = $ident->resolverEquipo($f);
             $fr = $ident->resolverFrente($f, $principal[$f['archivo'] . '|' . $f['hoja']]);
@@ -184,12 +191,41 @@ class ImportadorCombustible
         }
         ksort($res);
 
-        return [
-            'filas'     => $filas,
-            'res'       => $res,
-            'resumen'   => $this->resumir($filas, $res, $hojas, $ident),
-            'frentes'   => $ident->frentes(),
-        ];
+        return ['filas' => $filas, 'res' => $res, 'ident' => $ident];
+    }
+
+    /**
+     * Las filas del borrador como las muestra la tabla de Cargar consumibles: el identificador
+     * es la clave con la que se enseña y se identifica el equipo (igual que en la base), y el
+     * proyecto, el trozo de texto que se reconoció (o el de la columna principal).
+     * @return array{filas: array, cargados: int, repetidos: int}
+     */
+    public function paraTabla(ConsumibleImportacion $imp): array
+    {
+        $rev = $this->revisar($imp);
+        $ident = $rev['ident'];
+        $salida = [];
+        $n = ['cargado' => 0, 'repetido' => 0];
+        foreach ($rev['res'] as $i => $r) {
+            $f = $rev['filas'][$i];
+            if ($r['estado'] !== 'nuevo') {
+                $n[$r['estado']]++;
+            }
+            $id = $r['frente']['id_frente'];
+            $salida[] = [
+                'ref'           => $i,
+                'fecha'         => $f['fecha'],
+                'id'            => $r['equipo']['clave'],
+                'nombre'        => (string) $f['resp'],
+                'ci'            => (string) $f['ci'],
+                'cantidad'      => $f['litros'],
+                'frente'        => $r['frente']['clave'],
+                'id_frente'     => $id,
+                'nombre_frente' => $ident->nombreFrente($id),
+            ];
+        }
+
+        return ['filas' => $salida, 'cargados' => $n['cargado'], 'repetidos' => $n['repetido']];
     }
 
     /** ¿La fila coincide con algo de $hay (C|E|D → huella → [['fr','ci'], …])? Ver revisar(). */
@@ -265,85 +301,18 @@ class ImportadorCombustible
         return [$hay, $ocupadas];
     }
 
-    private function resumir(array $filas, array $res, array $hojas, IdentificadorConsumo $ident): array
-    {
-        $tot = ['nuevo' => [0, 0.0], 'cargado' => [0, 0.0], 'repetido' => [0, 0.0]];
-        $meses = $porFrente = $sinFrente = $sinEquipo = $corregidas = $porHoja = [];
-        $identificados = $noEquipo = 0;
-
-        foreach ($res as $i => $r) {
-            $f = $filas[$i];
-            $tot[$r['estado']][0]++;
-            $tot[$r['estado']][1] += $f['litros'];
-            $hoja = $f['archivo'] . '|' . $f['hoja'];
-            $porHoja[$hoja][$r['estado']] = ($porHoja[$hoja][$r['estado']] ?? 0) + 1;
-            if ($r['estado'] !== 'nuevo') {
-                continue;
-            }
-            $mes = substr($f['fecha'], 0, 7);
-            $meses[$mes][0] = ($meses[$mes][0] ?? 0) + 1;
-            $meses[$mes][1] = ($meses[$mes][1] ?? 0) + $f['litros'];
-
-            if ($r['frente']['id_frente'] !== null) {
-                $id = $r['frente']['id_frente'];
-                $porFrente[$id][0] = ($porFrente[$id][0] ?? 0) + 1;
-                $porFrente[$id][1] = ($porFrente[$id][1] ?? 0) + $f['litros'];
-            } else {
-                $k = $r['frente']['clave'];
-                $sinFrente[$k] ??= ['clave' => $k, 'filas' => 0, 'litros' => 0.0, 'archivo' => $f['archivo']];
-                $sinFrente[$k]['filas']++;
-                $sinFrente[$k]['litros'] += $f['litros'];
-            }
-
-            $e = $r['equipo'];
-            if ($e['estado'] === 'CONFIRMADO') {
-                $identificados++;
-            } elseif ($e['estado'] === 'NO_EQUIPO') {
-                $noEquipo++;
-            } else {
-                $k = $e['clave'];
-                $sinEquipo[$k] ??= ['clave' => $k, 'filas' => 0, 'litros' => 0.0, 'aviso' => $e['etiqueta'], 'frente' => $ident->nombreFrente($r['frente']['id_frente'])];
-                $sinEquipo[$k]['filas']++;
-                $sinEquipo[$k]['litros'] += $f['litros'];
-            }
-            foreach ($f['avisos'] as $a) {
-                $corregidas[] = ['origen' => "{$f['archivo']} · {$f['hoja']} · fila {$f['fila']}", 'aviso' => $a];
-            }
-        }
-
-        ksort($meses);
-        uasort($porFrente, fn ($a, $b) => $b[1] <=> $a[1]);
-        $porLitros = fn ($a, $b) => $b['litros'] <=> $a['litros'];
-        uasort($sinFrente, $porLitros);
-        uasort($sinEquipo, $porLitros);
-
-        return [
-            'totales'       => $tot,
-            'meses'         => $meses,
-            'por_frente'    => $porFrente,
-            'sin_frente'    => array_values($sinFrente),
-            'sin_equipo'    => array_values($sinEquipo),
-            'identificados' => $identificados,
-            'no_equipo'     => $noEquipo,
-            'corregidas'    => $corregidas,
-            'por_hoja'      => $porHoja,   // «archivo|hoja» → nuevo/cargado/repetido
-            'hojas'         => $hojas,
-        ];
-    }
-
     // ── Enseñar ─────────────────────────────────────────────────────────────
 
     /**
-     * Guarda lo que el usuario asignó en la revisión. Vale para esta carga y las siguientes.
-     * @param array<string,int>    $frentes clave → ID_FRENTE (un frente eliminado se ignora)
-     * @param array<string,string> $equipos clave → 'E:12' | 'A:3' | 'NO' (si el equipo ya no
-     *                                       existe, se borra lo enseñado para esa clave)
+     * Guarda el frente elegido en la tabla para un texto de proyecto que no se reconocía. Vale
+     * para esta carga y las siguientes (y para lo pegado).
+     * @param array<string,int> $frentes clave → ID_FRENTE (un frente eliminado se ignora)
      */
-    public function ensenar(array $frentes, array $equipos, ?int $idUsuario): int
+    public function ensenar(array $frentes, ?int $idUsuario): int
     {
         $n = 0;
         $ahora = now();
-        DB::transaction(function () use ($frentes, $equipos, $idUsuario, $ahora, &$n) {
+        DB::transaction(function () use ($frentes, $idUsuario, $ahora, &$n) {
             foreach ($frentes as $clave => $id) {
                 $clave = TextoConsumo::norm($clave);
                 if ($clave === '') {
@@ -355,24 +324,7 @@ class ImportadorCombustible
                 $this->guardarAlias('FRENTE', $clave, ['ID_FRENTE' => (int) $id, 'ID_EQUIPO' => null, 'ID_AUXILIAR' => null, 'NO_ES_EQUIPO' => false], $idUsuario, $ahora);
                 $n++;
             }
-            foreach ($equipos as $clave => $ref) {
-                $clave = mb_substr(TextoConsumo::norm($clave), 0, 191);
-                if ($clave === '') {
-                    continue;
-                }
-                $datos = $this->datosAliasEquipo((string) $ref);
-                if ($datos === null) {
-                    DB::table('consumibles_alias')->where(['TIPO' => 'EQUIPO', 'TEXTO' => $clave])->delete();
-                    continue;
-                }
-                $this->guardarAlias('EQUIPO', $clave, $datos + ['ID_FRENTE' => null], $idUsuario, $ahora);
-                $n++;
-            }
         });
-        if ($equipos) {
-            // Un alias de equipo nuevo puede resolver otros consumos por identificar con el mismo texto.
-            MatchConsumibles::pedirReintento();
-        }
 
         return $n;
     }
@@ -388,106 +340,99 @@ class ImportadorCombustible
         }
     }
 
-    /** 'E:12' / 'A:3' / 'NO' → columnas del alias; null si no vale (o es '' = quitar). */
-    private function datosAliasEquipo(string $ref): ?array
-    {
-        if ($ref === 'NO') {
-            return ['ID_EQUIPO' => null, 'ID_AUXILIAR' => null, 'NO_ES_EQUIPO' => true];
-        }
-        if (preg_match('/^E:(\d+)$/', $ref, $m) && DB::table('equipos')->where('ID_EQUIPO', $m[1])->whereNull('deleted_at')->exists()) {
-            return ['ID_EQUIPO' => (int) $m[1], 'ID_AUXILIAR' => null, 'NO_ES_EQUIPO' => false];
-        }
-        if (preg_match('/^A:(\d+)$/', $ref, $m) && DB::table('equipos_auxiliares')->where('ID_AUXILIAR', $m[1])->whereNull('deleted_at')->exists()) {
-            return ['ID_EQUIPO' => null, 'ID_AUXILIAR' => (int) $m[1], 'NO_ES_EQUIPO' => false];
-        }
-
-        return null;
-    }
-
     // ── 3. Aplicar / deshacer ───────────────────────────────────────────────
 
     /**
-     * Guarda los despachos NUEVOS de los meses elegidos. Todo o nada; la revisión se rehace
-     * dentro de la transacción (nada de lo que mande el navegador se usa como dato).
-     * @param string[]|null $meses 'AAAA-MM'; null = todos
-     * @return array{insertados:int, litros:float}
+     * Guarda los despachos NUEVOS de las filas que siguen en la tabla, con lo escrito en ella
+     * (fecha, identificador, responsable, cédula, litros y frente); los que ya estaban en la
+     * base o en otro archivo de la carga se saltan. Las huellas y el origen son los del Excel.
+     * Lo llama guardarLote dentro de su transacción y de deUnoEnUno.
+     * @param array<int,array{fecha:string, identificador:?string, resp_nombre:?string, resp_ci:?string, cantidad:float|string, id_frente:?int}> $tabla
+     *        índice de la fila en el borrador → lo que quedó en la tabla
+     * @return array{insertados:int, saltados:int, pendientes:int[]} pendientes: los ID_CONSUMIBLE
+     *         que quedan para el match del servidor (identificador cambiado o sin equipo)
      */
-    public function aplicar(ConsumibleImportacion $imp, ?array $meses): array
+    public function aplicar(ConsumibleImportacion $imp, array $tabla): array
     {
-        return $this->deUnoEnUno(fn () => DB::transaction(function () use ($imp, $meses) {
-            $imp = ConsumibleImportacion::whereKey($imp->getKey())->lockForUpdate()->firstOrFail();
-            if ($imp->ESTADO !== ConsumibleImportacion::BORRADOR) {
-                throw new RuntimeException('Esta carga ya fue aplicada o descartada.');
-            }
-            $rev = $this->revisar($imp);
-            $ahora = now();
-            $lote = [];
-            $insertados = 0;
-            $litros = 0.0;
+        $imp = ConsumibleImportacion::whereKey($imp->getKey())->lockForUpdate()->firstOrFail();
+        if ($imp->ESTADO !== ConsumibleImportacion::BORRADOR) {
+            throw new RuntimeException('Esa carga de Excel ya se guardó. Vuelve a subir el archivo.');
+        }
+        $rev = $this->revisar($imp, $tabla);
+        $ahora = now();
+        $lote = [];
+        $insertados = $saltados = 0;
+        $litros = 0.0;
+        $texto = fn ($v, int $largo) => ($v = trim((string) $v)) !== '' ? mb_substr($v, 0, $largo) : null;
 
-            foreach ($rev['res'] as $i => $r) {
-                $f = $rev['filas'][$i];
-                if ($r['estado'] !== 'nuevo' || ($meses !== null && !in_array(substr($f['fecha'], 0, 7), $meses, true))) {
-                    continue;
-                }
-                $e = $r['equipo'];
-                $notas = array_filter([
-                    $e['estado'] === 'NO_EQUIPO' ? 'No es un equipo (enseñado en la carga).' : null,
-                    $e['estado'] === 'SIN_MATCH' && $e['etiqueta'] ? $e['etiqueta'] . '.' : null,
-                    $f['nota'] ? "Nota de despacho {$f['nota']}." : null,
-                    ...$f['avisos'],
-                ]);
-                $lote[] = [
-                    'FECHA'           => $f['fecha'],
-                    'IDENTIFICADOR'   => $e['clave'] !== '' ? $e['clave'] : null,
-                    'DESC_EQUIPO'     => $this->descEquipo($f),
-                    'RESP_NOMBRE'     => $f['resp'] !== null ? mb_substr($f['resp'], 0, 150) : null,
-                    'RESP_CI'         => $f['ci'] !== '' ? substr($f['ci'], 0, 20) : null,
-                    'CANTIDAD'        => $f['litros'],
-                    'ORIGEN'          => mb_substr("{$f['archivo']} · {$f['hoja']} · fila {$f['fila']}", 0, 255),
-                    'ACTIVIDAD'       => $this->actividad($f),
-                    'TIPO_CONSUMIBLE' => 'GASOIL',
-                    'UNIDAD'          => 'LITROS',
-                    'ID_FRENTE'       => $r['frente']['id_frente'],
-                    'ID_EQUIPO'       => $e['id_equipo'],
-                    'ID_AUXILIAR'     => $e['id_auxiliar'],
-                    'ESTADO_EQUIPO'   => $e['estado'] === 'SIN_MATCH' ? 'SIN_MATCH' : 'CONFIRMADO',
-                    'NOTAS'           => $notas ? implode(' ', $notas) : null,
-                    'ID_IMPORTACION'  => $imp->ID_IMPORTACION,
-                    'HUELLA_CI'       => $r['huella_ci'],
-                    'HUELLA_EQ'       => $r['huella_eq'],
-                    'HUELLA_DESC'     => $f['huella_desc'],
-                    'created_at'      => $ahora,
-                    'updated_at'      => $ahora,
-                ];
-                $insertados++;
-                $litros += $f['litros'];
-                if (count($lote) === 500) {
-                    DB::table('consumibles')->insert($lote);
-                    $lote = [];
-                }
+        foreach ($rev['res'] as $i => $r) {
+            if ($r['estado'] !== 'nuevo') {
+                $saltados++;
+                continue;
             }
-            if ($lote !== []) {
-                DB::table('consumibles')->insert($lote);
-            }
-
-            $archivos = $imp->ARCHIVOS;
-            $archivos['resumen'] = [
-                'totales' => $rev['resumen']['totales'],
-                'meses'   => $meses,
+            $f = $rev['filas'][$i];
+            $t = $tabla[$i];
+            $escrito = $texto($t['identificador'] ?? '', 100);
+            $e = $r['equipo'];
+            // El equipo ya resuelto vale si el identificador sigue como vino; si se cambió en la
+            // tabla, lo identifica el match del servidor con lo escrito.
+            $resuelto = $escrito === $e['clave'] && $e['estado'] !== 'SIN_MATCH';
+            $notas = array_filter([
+                $resuelto && $e['estado'] === 'NO_EQUIPO' ? 'No es un equipo (enseñado en la carga).' : null,
+                $f['nota'] ? "Nota de despacho {$f['nota']}." : null,
+                ...$f['avisos'],
+            ]);
+            $lote[] = [
+                'FECHA'           => $t['fecha'],
+                'IDENTIFICADOR'   => $escrito,
+                'DESC_EQUIPO'     => $this->descEquipo($f),
+                'RESP_NOMBRE'     => $texto($t['resp_nombre'] ?? '', 150),
+                'RESP_CI'         => $texto($t['resp_ci'] ?? '', 20),
+                'CANTIDAD'        => $t['cantidad'],
+                'ORIGEN'          => mb_substr("{$f['archivo']} · {$f['hoja']} · fila {$f['fila']}", 0, 255),
+                'ACTIVIDAD'       => $this->actividad($f),
+                'TIPO_CONSUMIBLE' => 'GASOIL',
+                'UNIDAD'          => 'LITROS',
+                'ID_FRENTE'       => $t['id_frente'],
+                'ID_EQUIPO'       => $resuelto ? $e['id_equipo'] : null,
+                'ID_AUXILIAR'     => $resuelto ? $e['id_auxiliar'] : null,
+                'ESTADO_EQUIPO'   => $resuelto ? 'CONFIRMADO' : 'PENDIENTE',
+                'NOTAS'           => $notas ? implode(' ', $notas) : null,
+                'ID_IMPORTACION'  => $imp->ID_IMPORTACION,
+                'HUELLA_CI'       => $r['huella_ci'],
+                'HUELLA_EQ'       => $r['huella_eq'],
+                'HUELLA_DESC'     => $f['huella_desc'],
+                'created_at'      => $ahora,
+                'updated_at'      => $ahora,
             ];
-            $imp->ARCHIVOS = $archivos;
+            $insertados++;
+            $litros += (float) $t['cantidad'];
+            if (count($lote) === 500) {
+                DB::table('consumibles')->insert($lote);
+                $lote = [];
+            }
+        }
+        if ($lote !== []) {
+            DB::table('consumibles')->insert($lote);
+        }
+
+        // Sin nada nuevo no queda carga que deshacer.
+        if ($insertados === 0) {
+            $imp->delete();
+        } else {
             $imp->ESTADO = ConsumibleImportacion::APLICADA;
             $imp->INSERTADOS = $insertados;
             $imp->LITROS = round($litros, 2);
             $imp->APLICADA_EN = $ahora;
             $imp->guardarFilas(null);
             $imp->save();
+        }
 
-            DB::afterCommit(fn () => CacheVersion::bump(ConsumiblesController::DATA_VER_KEY));
+        $pendientes = $insertados === 0 ? [] : DB::table('consumibles')
+            ->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->where('ESTADO_EQUIPO', 'PENDIENTE')
+            ->pluck('ID_CONSUMIBLE')->all();
 
-            return ['insertados' => $insertados, 'litros' => round($litros, 2)];
-        }));
+        return ['insertados' => $insertados, 'saltados' => $saltados, 'pendientes' => $pendientes];
     }
 
     /** El vehículo o equipo tal como lo describe el Excel (la lista lo muestra si no se asoció). */
@@ -524,11 +469,12 @@ class ImportadorCombustible
     }
 
     /**
-     * Aplicar y deshacer, de a uno en todo el sistema. Lo «nuevo» se decide comparando con lo
-     * que ya está en la base: dos cargas guardándose a la vez (dos usuarios con los mismos
-     * archivos) se verían vacías la una a la otra y meterían el mismo despacho dos veces.
+     * Guardar una carga y deshacerla, de a uno en todo el sistema. Lo «nuevo» se decide
+     * comparando con lo que ya está en la base: dos cargas guardándose a la vez (dos usuarios
+     * con los mismos archivos) se verían vacías la una a la otra y meterían el mismo despacho
+     * dos veces. guardarLote envuelve en esto su transacción entera cuando trae filas de Excel.
      */
-    private function deUnoEnUno(callable $trabajo): mixed
+    public function deUnoEnUno(callable $trabajo): mixed
     {
         try {
             return Cache::lock('consumibles:importar', 300)->block(60, $trabajo);
