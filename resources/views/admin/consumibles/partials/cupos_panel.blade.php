@@ -18,14 +18,7 @@
     <form class="cupos-bloque" data-accion="cisterna" novalidate>
         <input type="hidden" name="patio" value="{{ $clave }}">
         <div class="cupos-tbl-cab">
-            <h3><i class="material-icons">local_shipping</i> Cisternas</h3>
-            {{-- El mes: el actual para cargar; los anteriores son el historial; los que vienen, para programar.
-                 (El Excel del patio se baja con el ícono de descarga del encabezado del modal.) --}}
-            <select class="cupos-mes-sel" data-elegir-mes aria-label="Mes">
-                @foreach ($meses as $clMes => $nombreMes)
-                    <option value="{{ $clMes }}" @selected($clMes === $ym)>{{ $nombreMes }}</option>
-                @endforeach
-            </select>
+            <h3><i class="material-icons">local_shipping</i> Cisternas · <span class="cupos-tbl-mes">{{ \App\Http\Controllers\CuposCombustibleController::nombreMes($mes) }}</span></h3>
         </div>
 
         <div class="cupos-tbl-marco">

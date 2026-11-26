@@ -146,7 +146,7 @@ class CuposCombustibleTest extends MySqlTestCase
         // Se ven de abril 2030 a junio 2031: una de antes no se vería ni se podría quitar.
         $this->cisterna('TIGRE', '2030-03-31', 1000)->assertStatus(422)->assertJsonValidationErrors('cisternas.0.llegada');
         $this->cisterna('TIGRE', '2030-04-01', 1000)->assertOk();
-        $this->modal(['patio' => 'TIGRE', 'mes' => '2029-01'])->assertSee('value="2031-03" selected', false);   // mes fuera: el actual
+        $this->modal(['patio' => 'TIGRE', 'mes' => '2029-01'])->assertSee('data-mes="2031-03"', false);   // mes fuera: el actual
     }
 
     public function test_guardada_con_plan_de_antes_se_puede_editar_y_no_pierde_su_numero(): void

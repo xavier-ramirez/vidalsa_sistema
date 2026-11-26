@@ -173,8 +173,15 @@
 .gl .cb-otros small { color: #4A5563; }
 .gl .cb-proy-vacio { display: grid; place-items: center; padding: 0; }
 .gl .cb-proy-vacio p { margin: 0; font: 400 16px Arial, sans-serif; color: #4A5563; }
-/* la leyenda en la columna derecha (cuando una barra llegaba hasta ella) */
-.gl .cb-ley.cb-ley-der { position: static; align-self: flex-start; }
+/* la leyenda va en la columna derecha, debajo del total, suelta (sin cuadro): pedido del usuario 26-11 */
+.gl .cb-ley.cb-ley-der { position: static; align-self: flex-start; padding: 0 4px; background: none; border: none; border-radius: 0; }
+/* solicitud ejecutada (la cisterna llegó): su nombre en verde; las que faltan siguen en rojo */
+.gl .cb-crono > .cb-sol.cb-hecha { color: var(--ambiente); }
+/* solo en la página: lo recibido en el mes, cisterna por cisterna */
+.gl .cb-hist.gl-rec { top: 196px; height: 470px; }
+.gl .gl-rec-base { top: 650px; }
+.gl .gl-rec-total { position: absolute; left: 0; width: 1280px; top: 172px; margin: 0; text-align: center; font: 700 15px/1 Arial, sans-serif; color: var(--navy); }
+.gl .gl-rec-total span { font-weight: 400; color: #4A5563; }
 .gl .cb-nota-l3 { margin: 0; font: 400 13px/1.3 Arial, sans-serif; color: #4A5563; text-align: center; }
 /* cisterna sin foto cargada */
 .gl .cb-sinfoto { width: 100%; height: 100%; border-radius: 12px; background: #F2F4F7; border: 1px solid #DCE2EA;

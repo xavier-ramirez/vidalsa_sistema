@@ -18,13 +18,19 @@
     .cupos-modal-x .material-icons { font-size: 18px; }
     #cuposContenido { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 
-    /* Fila de arriba: el patio (izquierda) y su cupo (derecha). */
-    .cupos-arriba { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; }
-    .cupos-patio { position: relative; flex: 1 1 auto; min-width: 0; }
-    .cupos-patio > i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 20px; color: #0067b1; pointer-events: none; }
-    .cupos-patio select { width: 100%; height: 40px; border: 1px solid #cbd5e0; border-radius: 10px; background-color: #fff;
-        padding: 0 10px 0 36px; font-size: 15px; font-weight: 700; color: #0f172a; font-family: inherit; cursor: pointer; outline: none; }
-    .cupos-patio select:focus { border-color: #0067b1; box-shadow: 0 0 0 3px rgba(0,103,177,.12); }
+    /* Fila de arriba, una al lado de la otra: patio, mes y el cupo del patio. Las dos listas son las de la
+       aplicación (custom-dropdown, como los filtros de Gráficos). */
+    .cupos-arriba { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; }
+    .cupos-dd { width: auto; flex: 1 1 0; min-width: 0; }
+    .cupos-dd .cupos-dd-boton { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 6px 0 10px; border: 1px solid #cbd5e0;
+        border-radius: 10px; background: #fbfcfd; cursor: pointer; box-sizing: border-box; outline: none; }
+    .cupos-dd .cupos-dd-boton:focus-visible { border-color: #0067b1; box-shadow: 0 0 0 3px rgba(0,103,177,.12); }
+    .cupos-dd .cupos-dd-boton > i { font-size: 18px; color: #94a3b8; flex-shrink: 0; }
+    .cupos-dd .cupos-dd-boton > i:first-child { color: #0067b1; }
+    .cupos-dd [data-dd-texto] { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        font-size: 14px; font-weight: 700; color: #0f172a; }
+    .cupos-dd .dropdown-content { max-height: 260px; overflow-y: auto; }
+    .cupos-dd .dropdown-item { cursor: pointer; padding: 9px 12px; font-size: 13.5px; }
     .cupos-cupo-lado { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .cupos-cupo-lado[hidden] { display: none; }
     .cupos-cupo-titulo { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
@@ -44,24 +50,23 @@
     .cupos-bloque h3 { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #0f172a; }
     .cupos-bloque h3 i { font-size: 18px; color: var(--color); }
 
-    /* Cabecera de la tabla: título y mes. */
+    /* Cabecera de la tabla: el título con el mes que se ve. */
     .cupos-tbl-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-    .cupos-tbl-cab h3 { margin-right: auto; }
-    .cupos-mes-sel { height: 32px; border: 1px solid #cbd5e0; border-radius: 8px; background: #fff; padding: 0 8px; font-size: 13px;
-        font-weight: 600; color: #0f172a; font-family: inherit; cursor: pointer; outline: none; }
-    .cupos-mes-sel:focus { border-color: #0067b1; }
+    .cupos-tbl-mes { color: #475569; font-weight: 600; }
 
     /* La tabla: N.º | Plan | Llegada | Litros | Foto | quitar. */
-    .cupos-tbl-marco { border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; }
+    .cupos-tbl-marco { border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; background: #fff; }
     .cupos-tbl { width: 100%; min-width: 600px; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
-    .cupos-tbl th { background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
-        text-align: left; padding: 7px 8px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+    /* Cabecera como la de la Lista de consumibles (.tabla-cabecera): azul oscuro, letra blanca en mayúsculas. */
+    .cupos-tbl th { background: #1e293b; color: #fff; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+        text-align: left; padding: 9px 8px; white-space: nowrap; }
     .cupos-tbl th.num, .cupos-tbl td.num { text-align: right; }
     .cupos-tbl .cupos-c-num { width: 84px; }
     .cupos-tbl .cupos-c-acc { width: 44px; text-align: center; }
-    .cupos-tbl td { padding: 0; border-bottom: 1px solid #eef2f6; height: 38px; }
+    .cupos-tbl td { padding: 0; border-bottom: 1px solid #e5e7eb; height: 40px; }
     .cupos-tbl tr:last-child td { border-bottom: none; }
-    .cupos-tbl td + td { border-left: 1px solid #eef2f6; }
+    .cupos-tbl td + td { border-left: 1px solid #e5e7eb; }
+    .cupos-tbl tbody tr:hover td { background: #f0f7fd; }
     .cupos-tbl td.cupos-txt { padding: 0 8px; font-size: 14px; color: #0f172a; }
     .cupos-tbl td.cupos-c-num { position: relative; padding-left: 14px; font-size: 14px; font-weight: 700; color: #0f172a; }
     .cupos-tbl input { height: 37px; width: 100%; box-sizing: border-box; border: none; background: transparent; padding: 0 8px;
@@ -87,12 +92,13 @@
     .cupos-vacio { text-align: center; color: #94a3b8; font-size: 13px; padding: 16px 8px !important; height: auto !important; }
     .cupos-vacio i { display: block; font-size: 30px; color: #cbd5e0; margin: 0 auto 4px; }
 
-    .cupos-pie { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    /* Pie: el resumen del mes y, debajo, Cancelar y Guardar centrados. */
+    .cupos-pie { display: flex; align-items: center; justify-content: center; gap: 8px 10px; margin-top: 10px; flex-wrap: wrap; }
     .cupos-resumen-mes { flex: 1 1 auto; font-size: 12px; color: #475569; }
     .cupos-resumen-mes b { color: #0f172a; }
     .cupos-cambios { font-size: 12px; font-weight: 600; color: #b45309; }
-    .cupos-botones { display: flex; gap: 8px; margin-left: auto; }
-    .cupos-pie .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; height: 36px; }
+    .cupos-botones { flex: 1 1 100%; display: flex; justify-content: center; gap: 10px; }
+    .cupos-pie .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; height: 36px; min-width: 120px; justify-content: center; }
     .cupos-pie .cupos-cancelar { background: #e2e8f0; color: #475569; box-shadow: none; }
     .cupos-pie .cupos-cancelar:hover { background: #cbd5e1; }
     .cupos-pie .btn-primary-maquinaria:disabled { opacity: .45; cursor: default; }
@@ -108,7 +114,9 @@
     @media (max-width: 600px) {
         #cuposContenido { padding: 10px; }
         .cupos-arriba { flex-wrap: wrap; }
-        .cupos-patio { flex-basis: 100%; }
+        .cupos-dd { flex: 1 1 calc(50% - 5px); }
+        .cupos-dd [data-dd-texto] { font-size: 13px; }
+        .cupos-dd .cupos-dd-boton { gap: 4px; padding-left: 8px; }
         .cupos-cupo-lado { flex: 1 1 100%; justify-content: space-between; }
         .cupos-bloque { padding: 10px; }
         .cupos-tbl-cab { flex-wrap: wrap; }
@@ -172,10 +180,18 @@
         function mostrarPatio(patio) {
             if (!panelDe(patio)) patio = 'TIGRE';
             window.__cuposPatio = patio;
-            var sel = modal.querySelector('[data-elegir-patio]');
-            if (sel) sel.value = patio;
+            ponerLista(modal.querySelector('[data-elegir-patio]'), patio);
+            ponerLista(modal.querySelector('[data-elegir-mes]'), panelDe(patio).dataset.mes);   // el mes de la tabla de ese patio
             modal.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = p.dataset.panel !== patio; });
             modal.querySelectorAll('[data-cupo-de]').forEach(function (c) { c.hidden = c.dataset.cupoDe !== patio; });
+        }
+        // Una lista (custom-dropdown): muestra la opción de ese valor y la marca.
+        function ponerLista(dd, valor) {
+            if (!dd) return;
+            var op = dd.querySelector('.dropdown-item[data-value="' + valor + '"]');
+            dd.dataset.valor = valor;
+            dd.querySelectorAll('.dropdown-item').forEach(function (i) { i.classList.toggle('selected', i === op); });
+            if (op) dd.querySelector('[data-dd-texto]').textContent = op.textContent.trim();
         }
         mostrarPatio(window.__cuposPatio || 'TIGRE');
         modal.querySelectorAll('[data-panel]').forEach(function (p) { prepararPanel(p); });
@@ -402,9 +418,25 @@
 
         // Se cierra al tocar fuera solo si el toque EMPEZÓ fuera (no al soltar ahí una selección de texto).
         var abajoEnFondo = false;
-        modal.addEventListener('mousedown', function (e) { abajoEnFondo = e.target === modal; });
+        modal.addEventListener('mousedown', function (e) {
+            abajoEnFondo = e.target === modal;
+            // Tocar una opción de las listas no mueve el foco: si no, el foco pasa al modal y Cargar (que cierra
+            // las listas al cambiar el foco) la cerraba antes del clic y no se elegía nada.
+            if (e.target.closest('.cupos-dd .dropdown-content')) e.preventDefault();
+        });
         modal.addEventListener('click', function (e) {
             if ((e.target === modal && abajoEnFondo) || e.target.closest('[data-cerrar-modal]')) { cerrar(); return; }
+            var op = e.target.closest('.cupos-dd .dropdown-item');
+            if (op) {
+                var dd = op.closest('.cupos-dd'), valor = op.dataset.value;
+                dd.classList.remove('active');
+                if (dd.hasAttribute('data-elegir-patio')) { mostrarPatio(valor); return; }
+                // El mes queda como estaba hasta que se pinte el elegido (si se cancela, no cambia).
+                var patioMes = window.__cuposPatio || 'TIGRE';
+                if (valor === panelDe(patioMes).dataset.mes) return;
+                siPuedePerder(patioMes, function () { repintarPanel(patioMes, valor); });
+                return;
+            }
             var ver = e.target.closest('[data-ver-foto]');
             if (ver) { verFoto(ver); return; }
             var quitar = e.target.closest('[data-quitar-fila]');
@@ -417,8 +449,8 @@
             }
             // Descargar (encabezado): el Excel de todas las cisternas del patio que se está viendo.
             if (e.target.closest('[data-excel-cupos]')) {
-                var patio = window.__cuposPatio || 'TIGRE', sel = modal.querySelector('[data-elegir-patio]');
-                var nombre = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent.trim() : patio;
+                var patio = window.__cuposPatio || 'TIGRE', lista = modal.querySelector('[data-elegir-patio] [data-dd-texto]');
+                var nombre = lista ? lista.textContent.trim() : patio;
                 window.descargarArchivo(URL_EXCEL + '?patio=' + encodeURIComponent(patio), null,
                     'Cisternas_Cupo_Gasoil_' + nombre.replace(/\s+/g, '_') + '.xlsx', 'No se pudo descargar el Excel.');
                 return;
@@ -460,14 +492,6 @@
         });
         modal.addEventListener('change', function (e) {
             if (!e.target.matches) return;
-            if (e.target.matches('[data-elegir-patio]')) { mostrarPatio(e.target.value); return; }
-            if (e.target.matches('[data-elegir-mes]')) {
-                // El mes queda como estaba hasta que se pinte el elegido (si se cancela, no cambia).
-                var sel = e.target, panel = sel.closest('[data-panel]'), elegido = sel.value;
-                sel.value = panel.dataset.mes;
-                siPuedePerder(panel.dataset.panel, function () { repintarPanel(panel.dataset.panel, elegido); });
-                return;
-            }
             if (e.target.matches('[data-foto-fila]')) {
                 var tr = e.target.closest('[data-fila]');
                 marcarFoto(e.target);
@@ -488,10 +512,16 @@
             var sig = i < CAMPOS.length - 1 ? campo(tr, CAMPOS[i + 1]) : (tr.nextElementSibling && campo(tr.nextElementSibling, 'numero'));
             if (sig) sig.focus();
         });
-        // Escape: en el cupo deshace lo escrito; si no, cierra el modal.
+        // Las listas de patio y mes con el teclado: Enter o espacio la abre (como un clic).
+        modal.addEventListener('keydown', function (e) {
+            if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.cupos-dd-boton')) { e.preventDefault(); e.target.click(); }
+        });
+        // Escape: con una lista abierta, la cierra; en el cupo deshace lo escrito; si no, cierra el modal.
         modal.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape' || !modal.classList.contains('active')) return;
             e.stopPropagation();
+            var abierta = modal.querySelector('.cupos-dd.active');
+            if (abierta) { abierta.classList.remove('active'); return; }
             var cupo = e.target.matches && e.target.matches('.cupos-cupo input[name=litros]') ? e.target : null;
             if (cupo && cupo.value !== cupo.defaultValue) { cupo.value = cupo.defaultValue; return; }
             cerrar();

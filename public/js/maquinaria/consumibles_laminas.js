@@ -112,12 +112,14 @@
                 mil(otros.reduce(function (s, p) { return s + p.litros; }, 0)) + '</b></div></div>';
         }
         var cuerpo = ps.length
-            ? '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy" style="' + vars + '">' + filas + '</div>' +
-              '<div class="cb-ley"><span><i style="background:#A8261F"></i>ROJO: MAYOR CONSUMO</span><span><i style="background:#1F4E79"></i>AZUL: RESTO DE PROYECTOS</span></div>'
+            ? '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy" style="' + vars + '">' + filas + '</div>'
             : '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy cb-proy-vacio"><p>Sin gasoil en el período.</p></div>';
-        // Derecha: el consumo total (el sistema no tiene «división» de los proyectos: no se inventa).
+        // Derecha: el consumo total (el sistema no tiene «división» de los proyectos: no se inventa) y, debajo, la
+        // leyenda suelta, fuera de la tarjeta de las barras y sin cuadro (así ninguna barra la tapa).
         var der = '<div class="cb-l3der"><div class="cb-total-l3"><small>CONSUMO TOTAL</small><b>' + mil(d.total) + ' L</b></div>' +
-            (d.sin_frente > 0 ? '<p class="cb-nota-l3">Incluye ' + mil(d.sin_frente) + ' L cargados sin proyecto</p>' : '') + '</div>';
+            (d.sin_frente > 0 ? '<p class="cb-nota-l3">Incluye ' + mil(d.sin_frente) + ' L cargados sin proyecto</p>' : '') +
+            (ps.length ? '<div class="cb-ley cb-ley-der"><span><i style="background:#A8261F"></i>ROJO: MAYOR CONSUMO</span>' +
+                '<span><i style="background:#1F4E79"></i>AZUL: RESTO DE PROYECTOS</span></div>' : '') + '</div>';
         return lamina('cb', encabezado('CONSUMO DE GASOIL POR PROYECTO') + cuerpo +
             '<div class="cb-sep" style="left:858px;top:170px;height:514px"></div>' + der, 'grafico');
     }
@@ -137,7 +139,7 @@
         return lamina('cb', encabezado('CONSUMO DE GASOIL · ' + may(p.nombre)) +
             '<div class="cb-l3tit pm-tit">CONSUMO MENSUAL (LITROS)</div><div class="pm-graf">' + cols + '</div>' +
             '<div class="cb-sep" style="left:858px;top:150px;height:550px"></div><div class="pm-der">' +
-            '<div class="cb-l3sub pm-sub">TOP 4 EQUIPOS DE MAYOR CONSUMO</div><div class="pm-top">' + top + '</div></div>', 'grafico');
+            '<div class="cb-l3sub pm-sub">TOP 4 EQUIPOS DE MAYOR CONSUMO</div><div class="pm-top">' + top + '</div></div>', 'detalle');
     }
 
     // ── 5. Consumo del cupo: un tanque por patio y las tres sumas al centro (pedidos.py · armar_cupos) ──
@@ -254,6 +256,20 @@
         return salida;
     }
 
+    // Solo para la página (en el PowerPoint esto es la lámina de fotos): los litros de cada cisterna que llegó en el mes.
+    function recibido(patio, mes) {
+        var cis = patio.recibidas, mx = Math.max.apply(null, cis.map(function (c) { return c.litros; }).concat([1]));
+        var mesSolo = may(String(mes).split(' ')[0]);
+        return lamina('cb', '<div class="cb-tit" style="left:0;width:1280px;text-align:center;top:150px">GASOIL RECIBIDO EN ' + mesSolo +
+            ' · ' + may(patio.nombre) + ' (LITROS)</div>' +
+            '<p class="gl-rec-total">' + mil(patio.total_recibido) + ' L <span>en ' + plural(cis.length, 'cisterna', 'cisternas') + '</span></p>' +
+            '<div class="cb-hist gl-rec" style="grid-template-columns:repeat(' + Math.max(cis.length, 4) + ',minmax(0,1fr))">' +
+            cis.map(function (c, k) {
+                return '<div class="cb-mes"><em>PEDIDO ' + (k + 1) + '</em><b>' + mil(c.litros) + '</b>' +
+                    '<i style="height:' + Math.round(c.litros / mx * 300) + 'px"></i><small>' + esc(String(c.fecha).slice(0, 5)) + '</small></div>';
+            }).join('') + '</div><div class="cb-base gl-rec-base"></div>', 'pagina');
+    }
+
     // Todas las láminas, en el orden de la presentación. d = ConsumiblesController::presentacionData.
     function armar(d) {
         var cis = d.cisternas, l = [portada(cis.mes)];
@@ -274,26 +290,28 @@
             var max = 1280 - 166 - 30 - 48.6, px = 30.67;
             while (h.offsetWidth > max && px > 14) { px -= 0.5; h.style.fontSize = px + 'px'; }
         });
-        // Leyenda de la lámina 3: si alguna barra o cifra llega hasta ella, pasa a la columna derecha (debajo del total).
-        var ley = lam.querySelector('.cb-ley');
-        if (ley) {
-            var r = ley.getBoundingClientRect();
-            var choca = Array.prototype.some.call(lam.querySelectorAll('.cb-pista i, .cb-pista b'), function (e) {
-                var q = e.getBoundingClientRect();
-                return q.right > r.left - 6 && q.left < r.right && q.bottom > r.top - 4 && q.top < r.bottom + 4;
-            });
-            if (choca) lam.querySelector('.cb-l3der').appendChild(ley).classList.add('cb-ley-der');
-        }
     }
+    // Espera las fotos; la de una cisterna que no carga (borrada en Drive, sin red) pasa a «Sin foto».
     function esperarFotos(raiz) {
+        var sinFoto = function (img) {
+            if (img.naturalWidth || !img.closest('.cb-ped')) return;
+            var d = document.createElement('div');
+            d.className = 'cb-sinfoto'; d.textContent = 'Sin foto';
+            img.replaceWith(d);
+        };
         return Promise.all(Array.prototype.map.call(raiz.querySelectorAll('img'), function (img) {
-            return img.complete ? Promise.resolve() : new Promise(function (ok) { img.onload = img.onerror = function () { ok(); }; });
+            return (img.complete ? Promise.resolve() : new Promise(function (ok) { img.onload = img.onerror = function () { ok(); }; }))
+                .then(function () { sinFoto(img); });
         }));
     }
 
     // ── En Gráficos: solo los gráficos (sin encabezado ni portada ni fotos), cada uno escalado al ancho ──
     function pintar(cont, d) {
-        var graf = armar(d).filter(function (l) { return l.tipo === 'grafico'; });
+        var graf = armar(d).filter(function (l) { return l.tipo === 'grafico'; }), cis = d.cisternas;
+        // Lo recibido de cada patio va antes de sus gráficos de histórico (después del cupo).
+        var rec = cis.patios.filter(function (p) { return p.recibidas.length; }).map(function (p) { return recibido(p, cis.mes); });
+        var antesDe = graf.findIndex(function (l) { return /cb-hist/.test(l.html); });
+        graf.splice(antesDe < 0 ? graf.length : antesDe, 0, ...rec);
         cont.innerHTML = '<div class="gl gl-vista">' + graf.map(function (l) {
             return '<div class="gl-hoja">' + l.html + '</div>';
         }).join('') + '</div>';
