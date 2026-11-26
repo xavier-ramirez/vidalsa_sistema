@@ -66,5 +66,8 @@ class ConsumiblesPresentacionTest extends MySqlTestCase
         $html = $this->actingAs($this->superAdminGlobal())->get(route('consumibles.graficos'))->assertOk()->getContent();
         $this->assertStringContainsString('window.consumiblesExportar(', $html);
         $this->assertStringContainsString('consumibles_presentacion.js', $html);
+        // Las láminas también se ven en la página, sin descargar el PowerPoint.
+        $this->assertStringContainsString('id="presLaminas"', $html);
+        $this->assertStringContainsString('window.consumiblesVistaPrevia(', $html);
     }
 }

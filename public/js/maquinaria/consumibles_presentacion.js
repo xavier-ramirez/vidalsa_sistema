@@ -8,8 +8,9 @@
  *   un proyecto (se elige aquí: 6 meses y sus 4 equipos de mayor consumo); consumo del cupo de los
  *   dos patios; e histórico de despacho y cronograma de solicitudes de cada patio. Las cisternas,
  *   cupos y solicitudes salen del modal «Cupos de Gasoil» (CuposCombustibleController::presentacion).
- * Las barras van como figuras (para que se vean como en la presentación original); el gráfico de meses
- * del proyecto, como gráfico de PowerPoint. PptxGenJS se carga solo al usarlo.
+ * Todo va como figuras (barras, columnas, tanques), como en la presentación original. El mismo código
+ * dibuja las láminas en el PowerPoint (PptxGenJS, que se carga solo al usarlo) y en la vista previa de
+ * Gráficos (LienzoHtml: las mismas medidas en pulgadas, pasadas a una lámina de 1280 × 720 px).
  */
 (function () {
     'use strict';
@@ -136,18 +137,22 @@
         var p = d.proyecto, lam = pptx.addSlide();
         encabezado(pptx, lam, 'CONSUMO DE GASOIL · ' + p.nombre, logo);
         lam.addText('CONSUMO MENSUAL (LITROS)', { x: 0.4, y: 1.6, w: 8.3, h: 0.45, align: 'center', fontFace: 'Arial', fontSize: 17, bold: true, color: '000000' });
-        var n = p.meses.length, etiquetas = p.meses.map(function (m) { return m.mes; });
-        // El último mes en naranja, los demás en azul (dos series superpuestas).
-        lam.addChart(pptx.ChartType.bar, [
-            { name: 'Meses', labels: etiquetas, values: p.meses.map(function (m, k) { return k < n - 1 ? m.litros : 0; }) },
-            { name: 'Último mes', labels: etiquetas, values: p.meses.map(function (m, k) { return k === n - 1 ? m.litros : 0; }) }
-        ], {
-            x: 0.4, y: 2.15, w: 8.3, h: 5.0, barDir: 'col', barGrouping: 'clustered', barOverlapPct: 100, barGapWidthPct: 40, chartColors: [AZUL, NARANJA],
-            catAxisLabelFontFace: 'Arial', catAxisLabelFontSize: 11, catAxisLabelColor: TINTA, catAxisLineShow: true,
-            valAxisHidden: true, valGridLine: { style: 'none' }, showValue: true, dataLabelFormatCode: '#,##0;;;',
-            dataLabelFontFace: 'Arial', dataLabelFontSize: 12, dataLabelFontBold: true, dataLabelColor: '000000', dataLabelPosition: 'outEnd',
-            showLegend: false
+        // Columnas mes a mes como en el original (left 40, top 250, 780 × 380 px; columnas de 96 px):
+        // el último mes en naranja, los litros encima y el mes debajo. Son figuras (no un gráfico de
+        // PowerPoint) para que la vista previa de Gráficos las dibuje igual.
+        var n = p.meses.length, gx = 0.42, gw = 8.125, base = 6.56, maxH = 3.5, cw = 1.0;
+        var mayorMes = Math.max.apply(null, p.meses.map(function (m) { return m.litros; }).concat([1]));
+        var pasoMes = n > 1 ? (gw - cw) / (n - 1) : 0;
+        p.meses.forEach(function (m, k) {
+            var x = n > 1 ? gx + k * pasoMes : gx + (gw - cw) / 2, ultimo = k === n - 1, col = ultimo ? NARANJA : AZUL;
+            var bh = m.litros > 0 ? Math.max(0.03, maxH * m.litros / mayorMes) : 0;
+            if (bh) lam.addShape(pptx.ShapeType.rect, { x: x, y: base - bh, w: cw, h: bh, fill: { color: col }, line: { color: col } });
+            lam.addText(m.litros > 0 ? mil(m.litros) : '—', T({ x: x - 0.3, y: base - bh - 0.42, w: cw + 0.6, h: 0.34, align: 'center', valign: 'bottom',
+                fontSize: ultimo ? 16.5 : 13.5, bold: true, color: ultimo ? NARANJA : (m.litros > 0 ? '000000' : '8A94A3') }));
+            lam.addText(String(m.mes).toUpperCase(), T({ x: x - 0.3, y: base + 0.1, w: cw + 0.6, h: 0.25, align: 'center', fontSize: 11,
+                bold: true, color: ultimo ? NARANJA : '000000', charSpacing: 0.5 }));
         });
+        lam.addShape(pptx.ShapeType.line, { x: gx, y: base, w: gw, h: 0, line: { color: TINTA, width: 1.5 } });
 
         lam.addShape(pptx.ShapeType.line, { x: 8.95, y: 1.6, w: 0, h: 5.6, line: { color: 'D5DBE3', width: 0.75 } });
         lam.addText('TOP 4 EQUIPOS DE MAYOR CONSUMO', { x: 9.2, y: 1.6, w: 3.85, h: 0.45, fontFace: 'Arial', fontSize: 13, bold: true, color: '000000' });
@@ -390,31 +395,155 @@
         }
     }
 
+    // Todas las láminas, en el orden de la presentación, sobre un lienzo (PptxGenJS o LienzoHtml).
+    function armar(pptx, d, logo, portada, fotos) {
+        var cis = d.cisternas;
+        laminaPortada(pptx, cis.mes, logo, portada);
+        cis.patios.forEach(function (p, i) { if (p.recibidas.length) laminasSuministro(pptx, cis.mes, p, fotos[i], logo); });
+        laminaProyectos(pptx, d, logo);
+        if (d.proyecto) laminaUnProyecto(pptx, d, logo);
+        if (cis.cupos.some(function (c) { return c.cupo !== null || c.consumido > 0; })) laminaCupo(pptx, cis, logo);
+        cis.patios.forEach(function (p) {
+            var hay = p.cronograma.solicitudes.length || p.historico.some(function (m) { return m.litros > 0; });
+            if (hay) laminasHistorico(pptx, p, logo);
+        });
+    }
+
     function descargarPowerPoint(url, idProyecto) {
         return Promise.all([cargarLib(), logoDataUrl(), pedirDatos(url, { id_proyecto: idProyecto }), fotoJpeg(PORTADA, 1400)]).then(function (r) {
             var d = r[2], logo = r[1], portada = r[3];
             if (d.vacio) throw new Error('No hay gasoil cargado.');
-            var cis = d.cisternas;
             // Las fotos de todas las cisternas recibidas, por patio (en paralelo).
-            return Promise.all(cis.patios.map(function (p) {
+            return Promise.all(d.cisternas.patios.map(function (p) {
                 return Promise.all(p.recibidas.map(function (c) { return fotoJpeg(c.foto, 1400); }));
             })).then(function (fotos) {
                 var pptx = new window.PptxGenJS();
                 pptx.layout = 'LAYOUT_WIDE';
                 pptx.title = 'Gestión, control y suministro de combustible';
-                laminaPortada(pptx, cis.mes, logo, portada);
-                cis.patios.forEach(function (p, i) { if (p.recibidas.length) laminasSuministro(pptx, cis.mes, p, fotos[i], logo); });
-                laminaProyectos(pptx, d, logo);
-                if (d.proyecto) laminaUnProyecto(pptx, d, logo);
-                if (cis.cupos.some(function (c) { return c.cupo !== null || c.consumido > 0; })) laminaCupo(pptx, cis, logo);
-                cis.patios.forEach(function (p) {
-                    var hay = p.cronograma.solicitudes.length || p.historico.some(function (m) { return m.litros > 0; });
-                    if (hay) laminasHistorico(pptx, p, logo);
-                });
-                return pptx.writeFile({ fileName: 'Gestion_Combustible_' + cis.mes.replace(/\s+/g, '_') + '.pptx' });
+                armar(pptx, d, logo, portada, fotos);
+                return pptx.writeFile({ fileName: 'Gestion_Combustible_' + d.cisternas.mes.replace(/\s+/g, '_') + '.pptx' });
             });
         });
     }
+
+    // ── Vista previa en Gráficos: las mismas láminas, dibujadas en la página ──
+    // LienzoHtml entiende lo que usan las láminas de arriba (addSlide, addShape, addText, addImage) y lo
+    // pone en una lámina de 1280 × 720 px (1 pulgada = 96 px; puntos → px × 4/3), que luego se escala.
+    var PX = 96, PT = 4 / 3;
+    function rgba(hex, transp) {
+        var h = String(hex || '000000').replace('#', ''), a = 1 - (transp || 0) / 100;
+        return 'rgba(' + parseInt(h.slice(0, 2), 16) + ',' + parseInt(h.slice(2, 4), 16) + ',' + parseInt(h.slice(4, 6), 16) + ',' + a + ')';
+    }
+    function caja(o, clase) {
+        var e = document.createElement('div');
+        e.className = clase;
+        e.style.left = (o.x * PX) + 'px'; e.style.top = (o.y * PX) + 'px';
+        e.style.width = ((o.w || 0) * PX) + 'px'; e.style.height = ((o.h || 0) * PX) + 'px';
+        return e;
+    }
+    function LaminaHtml() { this.el = document.createElement('div'); this.el.className = 'cons-lam'; this.background = null; }
+    LaminaHtml.prototype.addShape = function (tipo, o) {
+        var e = caja(o, 'cons-lam-fig'), ln = o.line || {}, grosor = (ln.width === undefined ? 1 : ln.width) * PT;
+        if (tipo === 'line') {
+            e.style.background = rgba(ln.color);
+            if (!o.w) { e.style.width = grosor + 'px'; e.style.marginLeft = (-grosor / 2) + 'px'; }
+            else { e.style.height = grosor + 'px'; e.style.marginTop = (-grosor / 2) + 'px'; }
+        } else {
+            if (o.fill) e.style.background = rgba(o.fill.color, o.fill.transparency);
+            if (o.line && grosor > 0 && ln.transparency !== 100 && ln.color !== (o.fill && o.fill.color)) e.style.border = grosor + 'px solid ' + rgba(ln.color);
+            if (tipo === 'ellipse') e.style.borderRadius = '50%';
+            if (tipo === 'roundRect') e.style.borderRadius = (Math.min(o.rectRadius || 0, Math.min(o.w, o.h) / 2) * PX) + 'px';
+            if (o.shadow) e.style.boxShadow = '0 ' + (o.shadow.offset || 0) * PT + 'px ' + (o.shadow.blur || 0) * PT + 'px ' +
+                rgba(o.shadow.color, 100 - (o.shadow.opacity || 0) * 100);
+        }
+        this.el.appendChild(e);
+    };
+    LaminaHtml.prototype.addText = function (texto, o) {
+        var e = caja(o, 'cons-lam-txt'), m = o.margin;
+        e.style.justifyContent = o.valign === 'middle' ? 'center' : o.valign === 'bottom' ? 'flex-end' : 'flex-start';
+        e.style.textAlign = o.align || 'left';
+        e.style.padding = m === undefined ? '4.8px 9.6px' : (m * PT) + 'px';
+        var dentro = document.createElement('div');
+        var runs = typeof texto === 'string' ? [{ text: texto, options: {} }] : texto;
+        runs.forEach(function (r) {
+            var op = r.options || {}, sp = document.createElement('span'), v = function (k) { return op[k] !== undefined ? op[k] : o[k]; };
+            sp.textContent = r.text;
+            sp.style.fontSize = 'calc(' + (v('fontSize') || 18) * PT + 'px * var(--f, 1))';
+            sp.style.fontWeight = v('bold') ? '700' : '400';
+            sp.style.color = '#' + (v('color') || '000000');
+            if (v('charSpacing')) sp.style.letterSpacing = v('charSpacing') * PT + 'px';
+            dentro.appendChild(sp);
+            if (op.breakLine) dentro.appendChild(document.createElement('br'));
+        });
+        if (o.fit === 'shrink') e.setAttribute('data-encoger', '');
+        e.appendChild(dentro);
+        this.el.appendChild(e);
+    };
+    LaminaHtml.prototype.addImage = function (o) {
+        var s = o.sizing, e = caja(s ? { x: o.x, y: o.y, w: s.w, h: s.h } : o, 'cons-lam-img'), img = document.createElement('img');
+        img.src = o.data || o.path; img.alt = '';
+        img.style.objectFit = s ? 'cover' : 'fill';
+        e.appendChild(img);
+        this.el.appendChild(e);
+    };
+    function LienzoHtml() { this.laminas = []; this.ShapeType = { rect: 'rect', roundRect: 'roundRect', ellipse: 'ellipse', line: 'line' }; }
+    LienzoHtml.prototype.addSlide = function () { var l = new LaminaHtml(); this.laminas.push(l); return l; };
+
+    // «fit: shrink» del PowerPoint: con la lámina ya en la página, baja la letra hasta que el texto quepa.
+    function encoger(lam) {
+        lam.querySelectorAll('[data-encoger]').forEach(function (e) {
+            var d = e.firstChild, cs = getComputedStyle(e);
+            if (!e.clientHeight) return;   // lámina oculta: no hay con qué medir
+            var alto = e.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+            for (var f = 1; f > 0.45 && (d.offsetHeight > alto + 1 || d.scrollWidth > d.clientWidth + 1); f -= 0.05) e.style.setProperty('--f', f - 0.05);
+        });
+    }
+    // La foto con su tamaño real (ponerFoto la recorta al centro), sin pasarla a JPEG: en la página se ve tal cual.
+    function fotoVista(url) {
+        if (!url) return Promise.resolve(null);
+        return new Promise(function (ok) {
+            var img = new Image();
+            img.onload = function () { ok({ data: url, w: img.naturalWidth, h: img.naturalHeight }); };
+            img.onerror = function () { ok(null); };
+            img.src = url;
+        });
+    }
+    var vistaPedida = 0;
+    // Pinta las láminas en `cont` con los filtros de la pantalla. Devuelve los datos (para la lista de proyectos).
+    window.consumiblesVistaPrevia = function (cont, urlDatos, idProyecto, filtros) {
+        var turno = ++vistaPedida;
+        if (filtros) leerFiltros = filtros;
+        return Promise.all([pedirDatos(urlDatos, { id_proyecto: idProyecto }), fotoVista(PORTADA)]).then(function (r) {
+            var d = r[0];
+            if (d.vacio) return d;
+            return Promise.all(d.cisternas.patios.map(function (p) {
+                return Promise.all(p.recibidas.map(function (c) { return fotoVista(c.foto); }));
+            })).then(function (fotos) {
+                if (turno !== vistaPedida || !cont.isConnected) return d;   // llegó otra petición después
+                var lienzo = new LienzoHtml();
+                armar(lienzo, d, LOGO, r[1], fotos);
+                cont.innerHTML = '';
+                lienzo.laminas.forEach(function (l, i) {
+                    if (l.background) l.el.style.background = '#' + l.background.color;
+                    var marco = document.createElement('div');
+                    marco.className = 'cons-lam-marco';
+                    marco.setAttribute('data-n', (i + 1) + ' / ' + lienzo.laminas.length);
+                    marco.appendChild(l.el);
+                    cont.appendChild(marco);
+                    encoger(l.el);
+                });
+                escalarLaminas(cont);
+                return d;
+            });
+        });
+    };
+    // Cada lámina de 1280 px se escala al ancho de su marco (y otra vez si cambia el ancho de la pantalla).
+    function escalarLaminas(cont) {
+        var poner = function () { cont.querySelectorAll('.cons-lam-marco').forEach(function (m) { m.style.setProperty('--k', m.clientWidth / 1280); }); };
+        poner();
+        if (window.ResizeObserver && !cont._obs) { cont._obs = new ResizeObserver(poner); cont._obs.observe(cont); }
+    }
+    window.consumiblesDescargarPowerPoint = descargarPowerPoint;
 
     // ── Diálogo «Exportar» ───────────────────────────────────────────────────
     window.consumiblesExportar = function (opc) {

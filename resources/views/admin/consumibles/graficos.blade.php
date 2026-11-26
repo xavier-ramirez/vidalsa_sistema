@@ -292,6 +292,25 @@
     </div>
 
 
+    {{-- PRESENTACIÓN DE GASOIL: las mismas láminas del PowerPoint, dibujadas aquí con los filtros de la
+         pantalla (consumibles_presentacion.js · consumiblesVistaPrevia), para verlas sin descargarlo. --}}
+    <div class="g-grid-1" id="secPresentacion">
+        <div class="g-card">
+            <p class="g-title cons-pres-tit">
+                <span style="display:flex;align-items:center;gap:8px;min-width:0;">
+                    <i class="material-icons" style="color:#F26A21;">slideshow</i>
+                    <span>Presentación de gasoil <span class="g-subtitle" id="presPeriodo"></span></span>
+                </span>
+                <span class="cons-pres-acc">
+                    <select id="presProyecto" title="Proyecto de la lámina de detalle" disabled></select>
+                    <button type="button" class="btn-primary-maquinaria btn-compacto" id="presBajar" disabled
+                        title="Descargar estas láminas en PowerPoint"><i class="material-icons">download</i> PowerPoint</button>
+                </span>
+            </p>
+            <div id="presLaminas" class="cons-pres-laminas"><p class="cons-pres-nota">Cargando láminas…</p></div>
+        </div>
+    </div>
+
     {{-- Auditoria de Catalogo removida: la auditoria de cambios en
          CaracteristicaModelo se accede directamente desde /admin/catalogo
          (cada modelo tiene su historial). El panel saturaba la vista de
@@ -375,6 +394,7 @@
                 window.showPreloader();
             }
             const params = getParams();
+            window.cargarPresentacionGraficos(true);
 
             // ── Loading: mostrar spinners de las secciones siempre visibles ──
             ['loadingRanking', 'loadingInoperativos'].forEach(show);
@@ -946,6 +966,44 @@
             }).then(canvas => bajarFoto(canvas, nombre))
               .catch(() => window.showToast('No se pudo generar la imagen.', 'warning'));
         }
+
+        // ── Presentación de gasoil (láminas en la página) ─────────
+        // nuevaBusqueda: cambiaron los filtros → el proyecto de la lámina de detalle vuelve a elegirse solo
+        // (el del frente filtrado o el de mayor consumo).
+        window.cargarPresentacionGraficos = function (nuevaBusqueda) {
+            var cont = document.getElementById('presLaminas'), sel = document.getElementById('presProyecto');
+            if (!cont || typeof window.consumiblesVistaPrevia !== 'function') return;
+            var bajar = document.getElementById('presBajar');
+            if (nuevaBusqueda) sel.value = '';
+            cont.style.opacity = '.5';
+            window.consumiblesVistaPrevia(cont, '{{ route('consumibles.presentacionData') }}', sel.value, getParams).then(function (d) {
+                cont.style.opacity = '';
+                if (!d || !document.getElementById('presLaminas')) return;
+                if (d.vacio) {
+                    cont.innerHTML = '<p class="cons-pres-nota">No hay gasoil cargado en el período.</p>';
+                    sel.innerHTML = ''; sel.disabled = true; bajar.disabled = true;
+                    document.getElementById('presPeriodo').textContent = '';
+                    return;
+                }
+                sel.innerHTML = d.proyectos.map(function (p) {
+                    return '<option value="' + p.id + '"' + (d.proyecto && d.proyecto.id === p.id ? ' selected' : '') + '>' +
+                        window.escapeHtml(p.nombre) + '</option>';
+                }).join('');
+                sel.disabled = !d.proyectos.length; bajar.disabled = false;
+                document.getElementById('presPeriodo').textContent = '— del ' + d.desde + ' al ' + d.hasta;
+            }).catch(function (e) {
+                cont.style.opacity = '';
+                cont.innerHTML = '<p class="cons-pres-nota">' + window.escapeHtml(e.message || 'No se pudieron armar las láminas.') + '</p>';
+            });
+        };
+        document.getElementById('presProyecto').addEventListener('change', function () { window.cargarPresentacionGraficos(false); });
+        document.getElementById('presBajar').addEventListener('click', function () {
+            var b = this;
+            b.disabled = true;
+            window.consumiblesDescargarPowerPoint('{{ route('consumibles.presentacionData') }}', document.getElementById('presProyecto').value)
+                .catch(function (e) { if (window.showToast) window.showToast(e.message || 'No se pudo armar la presentación.', 'error'); })
+                .then(function () { b.disabled = false; });
+        });
 
         // ── Descargar "Tarjetas Resumen" como foto ─────────────────
 
