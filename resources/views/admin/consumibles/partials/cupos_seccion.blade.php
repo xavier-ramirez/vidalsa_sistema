@@ -27,14 +27,15 @@
 
     /* Bloques blancos */
     .cupos-resumen, .cupos-bloque { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; }
-    .cupos-bloque h3 { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: #0f172a; }
+    /* Títulos de los tres bloques iguales: ícono del color del patio y texto oscuro. */
+    .cupos-bloque h3 { margin: 0 0 10px; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #0f172a; }
+    .cupos-bloque h3 i { font-size: 18px; color: var(--color); }
 
-    /* Resumen */
+    /* Cupo mensual: título y cuadro en una sola línea; el borde con el color del patio. */
     .cupos-resumen { border-left: 4px solid var(--color); }
-    .cupos-resumen-fila { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-    .cupos-dato { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .cupos-dato small { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
-    .cupos-dato b { font-size: 22px; line-height: 1.2; color: #0f172a; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .cupos-cupo-fila { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .cupos-cupo-fila h3 { margin: 0; }
+    .cupos-cupo-valor { font-size: 20px; color: #0f172a; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .cupos-tenue { color: #94a3b8 !important; font-weight: 600; }
     .cupos-pasado { color: #dc2626 !important; }
     /* Cupo: un cuadro de texto simple con su «L» (se guarda con Enter o al salir). */
@@ -113,8 +114,8 @@
     @media (max-width: 600px) {
         #cuposContenido { padding: 12px; }
         .cupos-resumen, .cupos-bloque { padding: 12px; }
-        .cupos-dato b { font-size: 18px; }
-        .cupos-cupo-caja input { width: 140px; font-size: 16px; }
+        .cupos-cupo-valor { font-size: 18px; }
+        .cupos-cupo-caja input { width: 150px; font-size: 16px; }
         .cupos-tbl input { padding: 0 6px; font-size: 13px; }
         .cupos-pie { flex-wrap: wrap; }
         .cupos-lote-total { flex: 1 1 auto; }

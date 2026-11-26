@@ -21,27 +21,25 @@
 @foreach ($patios as $clave => $p)
     <div class="cupos-panel" data-panel="{{ $clave }}" style="--color: {{ $colores[$clave] }};" hidden>
 
-        {{-- El cupo mensual del patio. --}}
-        <section class="cupos-resumen">
-            <div class="cupos-resumen-fila">
-                <div class="cupos-dato">
-                    <small>Cupo mensual</small>
-                    {{-- Un cuadro de texto, sin botones: se guarda al pulsar Enter o al salir del cuadro. --}}
-                    @if ($puede)
-                        <form class="cupos-cupo" data-accion="cupo">
-                            <input type="hidden" name="patio" value="{{ $clave }}">
-                            <label class="cupos-cupo-caja">
-                                <input type="text" name="litros" inputmode="decimal" placeholder="Escriba el cupo" autocomplete="off"
-                                    aria-label="Cupo mensual en litros" value="{{ $p['cupo'] !== null ? $lt($p['cupo']) : '' }}">
-                                <span>L</span>
-                            </label>
-                        </form>
-                    @elseif ($p['cupo'] !== null)
-                        <b>{{ $lt($p['cupo']) }} L</b>
-                    @else
-                        <b class="cupos-tenue">Sin cargar</b>
-                    @endif
-                </div>
+        {{-- El cupo mensual del patio: título a la izquierda y el cuadro a la derecha, en una línea. --}}
+        <section class="cupos-bloque cupos-resumen">
+            <div class="cupos-cupo-fila">
+                <h3><i class="material-icons">speed</i> Cupo mensual</h3>
+                {{-- Un cuadro de texto, sin botones: se guarda al pulsar Enter o al salir del cuadro. --}}
+                @if ($puede)
+                    <form class="cupos-cupo" data-accion="cupo">
+                        <input type="hidden" name="patio" value="{{ $clave }}">
+                        <label class="cupos-cupo-caja">
+                            <input type="text" name="litros" inputmode="decimal" placeholder="Escriba el cupo" autocomplete="off"
+                                aria-label="Cupo mensual en litros" value="{{ $p['cupo'] !== null ? $lt($p['cupo']) : '' }}">
+                            <span>L</span>
+                        </label>
+                    </form>
+                @elseif ($p['cupo'] !== null)
+                    <b class="cupos-cupo-valor">{{ $lt($p['cupo']) }} L</b>
+                @else
+                    <b class="cupos-cupo-valor cupos-tenue">Sin cargar</b>
+                @endif
             </div>
         </section>
 
@@ -51,7 +49,7 @@
         @if ($puede)
             <form class="cupos-bloque" data-accion="cisterna" novalidate>
                 <input type="hidden" name="patio" value="{{ $clave }}">
-                <h3>Registrar cisternas</h3>
+                <h3><i class="material-icons">local_shipping</i> Registrar cisternas</h3>
                 <table class="cupos-tbl">
                     <thead><tr><th>Fecha</th><th class="num">Litros</th><th title="Foto de la cisterna (opcional)">Foto</th><th></th></tr></thead>
                     <tbody data-filas>
@@ -76,8 +74,9 @@
              descarga en Excel. Un bloque por mes con su resumen y sus cisternas. --}}
         <section class="cupos-bloque">
             <div class="cupos-hist-cab">
-                <h3>Historial</h3>
-                <button type="button" class="cupos-hist-btn" data-ver-historial aria-expanded="false">
+                <h3><i class="material-icons">history</i> Historial</h3>
+                <button type="button" class="cupos-hist-btn" data-ver-historial aria-expanded="false"
+                    @if (!$p['meses']) disabled title="Todavía no hay cisternas" @endif>
                     <i class="material-icons">visibility</i> <span>Ver historial</span>
                 </button>
                 <button type="button" class="cupos-hist-btn cupos-hist-excel" data-excel-historial="{{ $clave }}"
