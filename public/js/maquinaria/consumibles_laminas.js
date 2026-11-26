@@ -109,7 +109,7 @@
         // Con muchos proyectos las filas llenan el alto de la tarjeta y se achican; con pocos, son más grandes.
         var n = ps.length + (otros.length ? 1 : 0), paso = ALTO_FILAS / Math.max(n, 1);
         var med = function (f, min, max) { return Math.max(min, Math.min(max, paso * f)).toFixed(1) + 'px'; };
-        var vars = '--pista:' + med(0.6, 5, 22) + ';--nombre:' + med(0.5, 8, 12) + ';--cifra:' + med(0.55, 9, 14) +
+        var vars = '--pista:' + med(0.6, 5, 22) + ';--nombre:' + med(0.5, 8, 12) + ';--cifra:' + med(0.5, 9, 13) +
             // con pocas filas, centradas y con separación tope (no se reparten por toda la tarjeta)
             (n < 13 ? ';justify-content:center;gap:' + Math.min(26, (ALTO_FILAS - n * 24) / Math.max(n - 1, 1)).toFixed(1) + 'px' : '');
         var fila = function (nombre, litros, ancho, color, clase) {
@@ -139,7 +139,7 @@
         var divs = (d.divisiones || []).filter(function (v) { return v.litros > 0 || v.clave !== 'OTROS'; });
         var sumaDiv = divs.reduce(function (s, v) { return s + v.litros; }, 0);
         var der = '<div class="gp-der">' +
-            '<div class="gp-total"><i></i><small>CONSUMO TOTAL · ' + plural(d.proyectos.length, 'PROYECTO', 'PROYECTOS') + '</small><b>' + mil(d.total) + ' L</b></div>' +
+            '<div class="gp-caja gp-total"><small>CONSUMO TOTAL · ' + plural(d.proyectos.length, 'PROYECTO', 'PROYECTOS') + '</small><b>' + mil(d.total) + ' L</b></div>' +
             (ps.length && divs.length ? '<div class="gp-caja"><div class="gp-caja-tit">CONSUMO POR DIVISIÓN</div>' + divs.map(function (v) {
                 return '<div class="gp-div"><small>' + may(v.nombre) + '</small><b>' + mil(v.litros) + ' L</b><em>' + pct(v.litros, sumaDiv) + '</em>' +
                     '<span><i style="width:' + (sumaDiv > 0 ? v.litros / sumaDiv * 100 : 0).toFixed(2) + '%"></i></span></div>';
