@@ -116,8 +116,11 @@
             }
             /* Buscador de placa/serial: más angosto que Frente y Tipo (a pedido); en el teléfono, lo que deje el botón de filtros. */
             @media (max-width: 900px) { #consIdentWrap { flex: 1 1 150px !important; } }
-            /* Columna Equipo más angosta: el tipo pasa a dos líneas si no cabe. */
-            .cons-tbl-wrap .admin-table .cons-col-eq { width: 190px; max-width: 190px; }
+            /* Columna Equipo angosta (160 px): el tipo y el título pasan a dos líneas si no caben. */
+            .cons-tbl-wrap .admin-table .cons-col-eq { width: 160px; max-width: 160px; }
+            /* la placa o serial en 12 px: un serial de 17 caracteres cabe en una línea */
+            .cons-tbl-wrap .cons-col-eq .cons-id-fila { font-size: 12px; }
+            .cons-tbl-wrap .admin-table thead th.cons-col-eq { white-space: normal; }
             .cons-tbl-wrap td.cons-col-eq { overflow-wrap: anywhere; }
             /* Columna de la X que borra la fila: solo lo que mide el botón. */
             .cons-tbl-wrap .admin-table .cons-col-del { width: 22px; padding: 0 3px !important; text-align: center; }
@@ -265,7 +268,7 @@
                         </div>
                     </div>
 
-                    <div style="flex: 1; min-width: 150px;">
+                    <div style="flex: 0 1 160px; min-width: 120px;">
                         @php
                             $currentTipo = request('tipo');
                             $tiposList = \App\Models\Consumible::tiposLabel();
@@ -597,7 +600,7 @@
                             <th class="th-center" style="width:28px; padding:9px 2px;">#</th>
                             <th class="th-left">Fecha</th>
                             <th class="th-left">Tipo</th>
-                            <th class="th-left cons-col-eq">Equipo <span style="font-weight:400;opacity:.7;">(placa / serial)</span></th>
+                            <th class="th-left cons-col-eq">Equipo <span style="font-weight:400;opacity:.7;white-space:nowrap;">(placa / serial)</span></th>
                             <th class="th-left">Responsable</th>
                             <th class="th-right">Cantidad</th>
                             <th class="th-left">Frente <span style="font-weight:400;opacity:.7;">(proyecto)</span></th>
