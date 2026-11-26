@@ -193,27 +193,6 @@
         </div>
     </div>
 
-    {{-- TOTAL POR FRENTE --}}
-    <div class="g-grid-1" id="totalFrenteWrapper">
-        <div class="g-card" id="panelTotalFrente">
-            <p class="g-title" style="justify-content:space-between; flex-wrap: wrap; gap: 8px;">
-                <span style="display:flex;align-items:center;gap:8px; min-width: 0; flex: 1;">
-                    <i class="material-icons">bar_chart</i>
-                    <span id="tituloTotalFrente" style="word-break: break-word;">Total de Consumo por Frente</span>
-                </span>
-                <button onclick="descargarPanelHtml('panelTotalFrente','consumo_por_frente')" title="Descargar imagen"
-                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s; flex-shrink: 0;"
-                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
-                </button>
-            </p>
-            <div id="loadingTotalFrente" class="loading-overlay">
-                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-            </div>
-            <div id="totalFrenteBody" style="display:none;"></div>
-        </div>
-    </div>
-
     {{-- EQUIPOS QUE SURTIERON POR FRENTE (solo con frente seleccionado) --}}
     <div class="g-grid-1" id="secEqFrente" style="display:none;">
         <div class="g-card" id="panelEqFrente">
@@ -286,8 +265,8 @@
         <div class="g-card">
             <p class="g-title" id="titleEspecFrente" style="justify-content:space-between;">
                 <span style="display:flex;align-items:center;gap:8px;">
-                    <i class="material-icons" id="iconEspecFrente" style="color:#1b5e20;">tire_repair</i>
-                    <span><span id="txtEspecFrente">Consumo por Frente — Desglose por Especificación</span> <span
+                    <i class="material-icons" style="color:#0067b1;">opacity</i>
+                    <span><span>Aceite por Frente — Desglose por Viscosidad</span> <span
                             class="g-subtitle">— todos los registros</span></span>
                 </span>
                 <button onclick="descargarPanelEspecFrente('desglose_especificacion')" title="Descargar imagen"
@@ -307,8 +286,8 @@
     <div class="g-grid-1" id="secEspecEquipo" style="display:none;">
         <div class="g-card">
             <p class="g-title" id="titleEspecEquipo">
-                <i class="material-icons" id="iconEspecEquipo" style="color:#0067b1;">settings</i>
-                <span id="txtEspecEquipo">Consumo por Equipo — Desglose por Especificación</span>
+                <i class="material-icons" style="color:#0067b1;">settings</i>
+                <span>Aceite por Equipo — Desglose por Viscosidad</span>
                 <span class="g-subtitle">— solo equipos identificados</span>
             </p>
             <div id="loadingAceiteEquipo" class="loading-overlay">
@@ -410,10 +389,10 @@
             const params = getParams();
 
             // ── Loading: mostrar spinners de las secciones siempre visibles ──
-            ['loadingTotalFrente', 'loadingRanking', 'loadingInoperativos'].forEach(show);
+            ['loadingRanking', 'loadingInoperativos'].forEach(show);
 
             // ── Ocultar contenido previo (prev carga) ────────────────────────
-            ['totalFrenteBody', 'rankingBody', 'inoperativosBody'].forEach(hide);
+            ['rankingBody', 'inoperativosBody'].forEach(hide);
 
             // ── Secciones de especificación: ocultar antes de cada carga ─────
             // Evita que queden datos viejos visibles durante la nueva carga.
@@ -433,16 +412,9 @@
                     // existen y pintarlos rompía («Cannot read properties of null»).
                     if (!document.getElementById('fFrente') || !document.getElementById('resumenGrid')) return;
                     const frenteSeleccionado = document.getElementById('fFrente').value;
-                    const tipoFiltro = document.getElementById('fTipo').value;
 
                     renderResumen(data.resumen);
 
-                    if (tipoFiltro === 'GASOIL') {
-                        document.getElementById('totalFrenteWrapper').style.display = 'block';
-                        renderTotalFrente(data.por_frente);
-                    } else {
-                        document.getElementById('totalFrenteWrapper').style.display = 'none';
-                    }
                     // Solo mostrar equipos×frente cuando hay un frente específico seleccionado
                     if (frenteSeleccionado) {
                         document.getElementById('secEqFrente').style.display = '';
@@ -461,12 +433,12 @@
                     }
                     renderRanking(data.top_equipos);
 
-                    renderEspecFrente(data.espec_frente, data.tipo_activo);
-                    renderEspecEquipo(data.espec_equipo, data.tipo_activo);
+                    renderEspecFrente(data.espec_frente);
+                    renderEspecEquipo(data.espec_equipo);
                 })
                 .catch(err => {
                     console.error('Error cargando datos de gráficos:', err);
-                    ['loadingTotalFrente', 'loadingRanking', 'loadingInoperativos'].forEach(id => {
+                    ['loadingRanking', 'loadingInoperativos'].forEach(id => {
                             const el = document.getElementById(id);
                             if (el) el.innerHTML = '<span style="color:#ef4444;">Error al cargar datos</span>';
                         });
@@ -520,92 +492,6 @@
             }).join('');
         }
 
-        // ── Total por frente (barras horizontales) ───────────────────────────────
-        function renderTotalFrente(datos) {
-            const searchInput = document.querySelector('#frenteFilterSelect [data-filter-search]');
-            const nombreFrente = searchInput ? searchInput.placeholder : '';
-            const hayFrenteSeleccionado = !!document.getElementById('fFrente').value;
-            const tituloEl = document.getElementById('tituloTotalFrente');
-            if (tituloEl) {
-                tituloEl.textContent = hayFrenteSeleccionado
-                    ? `Consumo — ${nombreFrente}`
-                    : 'Total de Consumo por Frente';
-            }
-            hide('loadingTotalFrente');
-            const body = document.getElementById('totalFrenteBody');
-            body.style.display = 'block';
-            if (!datos || datos.length === 0) {
-                body.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">Sin datos.</p>';
-                return;
-            }
-
-
-            const mapaTotal = {};
-            const mapaDespachos = {};
-            const mapaUnidad = {};
-            datos.forEach(d => {
-                mapaTotal[d.NOMBRE_FRENTE] = (mapaTotal[d.NOMBRE_FRENTE] || 0) + parseFloat(d.total);
-                mapaDespachos[d.NOMBRE_FRENTE] = (mapaDespachos[d.NOMBRE_FRENTE] || 0) + parseInt(d.despachos || 0);
-                if (!mapaUnidad[d.NOMBRE_FRENTE]) mapaUnidad[d.NOMBRE_FRENTE] = d.unidad || '';
-            });
-            const ordenado = Object.entries(mapaTotal).sort((a, b) => b[1] - a[1]);
-            const maxVal = ordenado[0]?.[1] || 1;
-            const n = ordenado.length;
-
-            body.innerHTML = ordenado.map(([frente, total], i) => {
-                const pct = (total / maxVal * 100).toFixed(1);
-                const dep = mapaDespachos[frente] || 0;
-                const unidad = mapaUnidad[frente] || '';
-                let color;
-                if (i === 0) {
-                    color = 'linear-gradient(90deg,#7f1d1d,#b91c1c)';
-                } else if (i === 1) {
-                    color = 'linear-gradient(90deg,#b91c1c,#ef4444)';
-                } else {
-                    const blueIdx = i - 2;
-                    const blueN = Math.max(n - 2, 1);
-                    const lightA = Math.round(22 + (28 * blueIdx / blueN));
-                    const lightB = Math.round(32 + (22 * blueIdx / blueN));
-                    const satA = Math.round(82 - (18 * blueIdx / blueN));
-                    color = `linear-gradient(90deg,hsl(213,${satA}%,${lightA}%),hsl(213,${satA - 5}%,${lightB}%))`;
-                }
-                return `
-            <div class="frow">
-                <span class="frow-num">#${i + 1}</span>
-                <span class="frow-name" title="${frente}">${frente}</span>
-                <div class="frow-bar-wrap">
-                    <div class="frow-bar" style="width:${pct}%; background:${color};"></div>
-                </div>
-                <span class="frow-val">
-                    ${total.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} ${unidad}
-                    <span class="frow-dep">&#9981; ${dep} llenado${dep !== 1 ? 's' : ''}</span>
-                </span>
-            </div>`;
-            }).join('');
-        }
-
-
-
-
-
-
-
-        // Paleta armoniosa para cauchos — misma en badges y gráfico de barras
-        window.PALETA_CAUCHO_GLOBAL = [
-            '#1b5e20', // verde bosque
-            '#0d47a1', // azul marino
-            '#e65100', // naranja quemado
-            '#4a148c', // púrpura oscuro
-            '#006064', // teal oscuro
-            '#b71c1c', // rojo oscuro
-            '#37474f', // gris azulado
-            '#4e342e', // marrón cacao
-            '#1a237e', // azul índigo
-            '#827717', // oliva
-        ];
-
-        // renderCauchosPorModelo + chartCauchoModelo removidos: el panel
-        // "Cauchos por Tipo de Equipo y Medida" se elimino del modulo.
 
         // ── Equipos individuales que surtieron en el frente seleccionado ────
         function renderEquiposPorFrente(datos, frenteId) {
@@ -880,26 +766,13 @@
             capturaPanelHtml('panelRankingEquipos', 'top_equipos_consumo');
         }
 
-        // ── Especificación por frente (Aceite × Viscosidad ó Caucho × Modelo) ──────
-        function renderEspecFrente(datos, tipoActivo) {
+        // ── Aceite por frente × viscosidad (solo con el filtro Aceite) ──────
+        function renderEspecFrente(datos) {
             const sec = document.getElementById('secEspecFrente');
             const load = document.getElementById('loadingAceiteFrente');
             const body = document.getElementById('aceiteFrente-body');
             if (!datos || datos.length === 0) { sec.style.display = 'none'; return; }
-
-            const esCaucho = tipoActivo === 'CAUCHO';
-            const UNIDAD = esCaucho ? 'Un' : 'L';
-            const TITULO = esCaucho
-                ? 'Caucho por Frente — Desglose por Modelo'
-                : 'Aceite por Frente — Desglose por Viscosidad';
-
-            // Icono y color dinámicos según tipo
-            const iconEl = document.getElementById('iconEspecFrente');
-            if (iconEl) {
-                iconEl.textContent = esCaucho ? 'tire_repair' : 'opacity';
-                iconEl.style.color = esCaucho ? '#1b5e20' : '#0067b1';
-            }
-            document.getElementById('txtEspecFrente').textContent = TITULO;
+            const UNIDAD = 'L';
 
             sec.style.display = '';
             load.style.display = 'none';
@@ -918,10 +791,7 @@
             const especs = Object.keys(mapEspec).sort((a, b) => mapEspec[b] - mapEspec[a]);
             const maxTotal = Math.max(...Object.values(mapaFrente));
 
-            // Paleta armoniosa — misma que el gráfico de barras de cauchos
-            const PALETA = esCaucho
-                ? (window.PALETA_CAUCHO_GLOBAL || ['#1b5e20', '#0d47a1', '#e65100', '#4a148c', '#006064', '#b71c1c', '#37474f', '#4e342e'])
-                : ['#0d47a1', '#b71c1c', '#1b5e20', '#4a148c', '#e65100', '#006064', '#37474f', '#827717'];
+            const PALETA = ['#0d47a1', '#b71c1c', '#1b5e20', '#4a148c', '#e65100', '#006064', '#37474f', '#827717'];
 
             // ── Fila por frente: barra segmentada + badges de modelo ─────────
             body.innerHTML = frentes.map((frente, i) => {
@@ -999,21 +869,13 @@
         }
 
         // ── Especificación por equipo (tabla) ────────────────────────────────
-        function renderEspecEquipo(datos, tipoActivo) {
+        function renderEspecEquipo(datos) {
             const sec = document.getElementById('secEspecEquipo');
             const load = document.getElementById('loadingAceiteEquipo');
             const body = document.getElementById('aceiteEquipoBody');
             if (!datos || datos.length === 0) { sec.style.display = 'none'; return; }
-
-            const esCaucho = tipoActivo === 'CAUCHO';
-            const COLOR_BASE = esCaucho ? '#059669' : '#0067b1';
-            const UNIDAD = esCaucho ? 'Un' : 'L';
-            const TITULO = esCaucho
-                ? 'Caucho por Equipo — Desglose por Modelo'
-                : 'Aceite por Equipo — Desglose por Viscosidad';
-
-            document.getElementById('txtEspecEquipo').textContent = TITULO;
-            document.getElementById('iconEspecEquipo').style.color = COLOR_BASE;
+            const COLOR_BASE = '#0067b1';
+            const UNIDAD = 'L';
 
             sec.style.display = '';
             load.style.display = 'none';
@@ -1085,15 +947,14 @@
             window.location.href = `{{ route('consumibles.exportarCsv') }}?${getParams()}`;
         }
 
-        // ── Descargar gráfico como imagen PNG ─────────────────────────────
+        // ── Descargar gráfico como foto WebP comprimida ─────────────────────────────
         function descargarGrafico(canvasId, nombre) {
             const canvas = document.getElementById(canvasId);
             if (!canvas || canvas.style.display === 'none') {
                 alert('El gráfico no está visible aún. Aplica los filtros primero.');
                 return;
             }
-            const fecha = new Date().toISOString().slice(0, 10);
-            window.descargarEnlace(canvas.toDataURL('image/png'), `${nombre}_${fecha}.png`);   // dom_helpers.js
+            window.descargarFotoWebp(canvas, nombre);   // dom_helpers.js
         }
 
         // ── Helper: capturar cualquier panel del DOM tal como se ve en pantalla ──────
@@ -1115,9 +976,8 @@
                     });
                 return;
             }
-            const fecha = new Date().toISOString().slice(0, 10);
             html2canvas(el, {
-                scale: 2,
+                scale: 1.5,
                 useCORS: true,
                 backgroundColor: '#ffffff',
                 logging: false,
@@ -1125,28 +985,11 @@
                     if (callbackClone) callbackClone(clonedDoc);
                 }
             }).then(canvas => {
-                window.descargarEnlace(canvas.toDataURL('image/png'), nombre + '_' + fecha + '.png');   // dom_helpers.js
+                window.descargarFotoWebp(canvas, nombre);   // dom_helpers.js
             });
         }
 
-        // ── Descargar "Total por Frente" — captura del DOM real ───────────────────────
-        function descargarPanelHtml(panelId, nombre) {
-            const body = document.getElementById('totalFrenteBody');
-            if (!body || !body.querySelector('.frow')) {
-                alert('No hay datos para descargar.'); return;
-            }
-            // Captura el panel completo (g-card padre)
-            const card = body.closest('.g-card') || body.parentElement;
-            capturaPanelHtml(card?.id || 'panelTotalFrente', nombre);
-            if (!card?.id) {
-                // Si no tiene id, asignar temporalmente
-                card.id = '__tmp_panel_frente';
-                capturaPanelHtml('__tmp_panel_frente', nombre);
-                setTimeout(() => { if (card) card.removeAttribute('id'); }, 2000);
-            }
-        }
-
-        // ── Descargar "Tarjetas Resumen" como PNG ─────────────────
+        // ── Descargar "Tarjetas Resumen" como foto ─────────────────
         function descargarPanelResumen(nombre) {
             capturaPanelHtml('resumenGrid', nombre || 'resumen_general');
         }

@@ -471,6 +471,19 @@
         window.descargarEnlace(burl, nombre);
         setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 60000);
     };
+    // Foto de un <canvas> comprimida en WebP (para la web): fondo blanco, como mucho 1600 px de
+    // ancho y calidad 0,8. «nombre» sin extensión; se le añade la fecha y .webp.
+    window.descargarFotoWebp = function (canvas, nombre) {
+        var escala = Math.min(1, 1600 / canvas.width);
+        var c = document.createElement('canvas');
+        c.width = Math.round(canvas.width * escala); c.height = Math.round(canvas.height * escala);
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(canvas, 0, 0, c.width, c.height);
+        c.toBlob(function (blob) {
+            window.descargarBlob(blob, nombre + '_' + new Date().toISOString().slice(0, 10) + '.webp');
+        }, 'image/webp', 0.8);
+    };
 
     /**
      * Pide un Excel al servidor y lo DESCARGA (fetch → blob → <a download>) con el preloader

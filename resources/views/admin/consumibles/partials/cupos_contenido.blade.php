@@ -1,6 +1,6 @@
 {{-- Cuerpo del modal Cupos de Gasoil (se repinta solo tras guardar). Arriba el patio (desplegable);
-     del patio elegido, tres bloques: el resumen del mes (cupo con su botón para cambiarlo, quedan y
-     la barra de lo surtido), la carga de cisternas nuevas (fecha y litros; «Quedan» se calcula al
+     del patio elegido, tres bloques: el resumen del mes (el cupo en un cuadro de texto, quedan y la
+     barra de lo surtido), la tablita de cisternas nuevas (fecha y litros; «Quedan» se calcula al
      escribir) y el historial mes a mes. --}}
 @php
     $lt = fn ($n) => number_format((float) $n, fmod((float) $n, 1) ? 2 : 0, ',', '.');
@@ -32,26 +32,20 @@
             <div class="cupos-resumen-fila">
                 <div class="cupos-dato">
                     <small>Cupo mensual</small>
-                    <div class="cupos-cupo-ver">
-                        @if ($p['cupo'] !== null)
-                            <b>{{ $lt($p['cupo']) }} L</b>
-                            @if ($puede)
-                                <button type="button" class="cupos-lapiz" data-editar-cupo title="Cambiar el cupo"><i class="material-icons">edit</i></button>
-                            @endif
-                        @elseif ($puede)
-                            <button type="button" class="cupos-cargar-cupo" data-editar-cupo><i class="material-icons">add</i> Cargar cupo</button>
-                        @else
-                            <b class="cupos-tenue">Sin cargar</b>
-                        @endif
-                    </div>
+                    {{-- Un cuadro de texto, sin botones: se guarda al pulsar Enter o al salir del cuadro. --}}
                     @if ($puede)
-                        <form class="cupos-cupo-editar" data-accion="cupo" hidden>
+                        <form class="cupos-cupo" data-accion="cupo">
                             <input type="hidden" name="patio" value="{{ $clave }}">
-                            <input type="text" name="litros" inputmode="decimal" required placeholder="Litros al mes" autocomplete="off"
-                                value="{{ $p['cupo'] !== null ? $lt($p['cupo']) : '' }}">
-                            <button type="submit" class="cupos-mini" title="Guardar"><i class="material-icons">check</i></button>
-                            <button type="button" class="cupos-mini cupos-mini-gris" data-cancelar-cupo title="Cancelar"><i class="material-icons">close</i></button>
+                            <label class="cupos-cupo-caja">
+                                <input type="text" name="litros" inputmode="decimal" required placeholder="Escriba el cupo" autocomplete="off"
+                                    aria-label="Cupo mensual en litros" value="{{ $p['cupo'] !== null ? $lt($p['cupo']) : '' }}">
+                                <span>L</span>
+                            </label>
                         </form>
+                    @elseif ($p['cupo'] !== null)
+                        <b>{{ $lt($p['cupo']) }} L</b>
+                    @else
+                        <b class="cupos-tenue">Sin cargar</b>
                     @endif
                 </div>
                 <div class="cupos-dato cupos-dato-der">
@@ -70,27 +64,26 @@
             </div>
         </section>
 
-        {{-- Cisternas nuevas: una fila cada una; Enter u «Otra cisterna» agrega otra y se guardan juntas.
-             novalidate: las filas vacías no cuentan y no frenan el guardado; valida el servidor, fila por fila. --}}
+        {{-- Cisternas nuevas: una tablita; al llenar los litros de la última fila aparece otra vacía
+             debajo, y se guardan todas juntas. novalidate: la fila vacía del final no cuenta ni frena
+             el guardado; valida el servidor, fila por fila. --}}
         @if ($puede)
             <form class="cupos-bloque" data-accion="cisterna" novalidate>
                 <input type="hidden" name="patio" value="{{ $clave }}">
                 <h3>Registrar cisternas</h3>
-                <div class="cupos-nuevas-cab"><span>Fecha</span><span>Litros</span><span></span><span></span></div>
-                <div class="cupos-nuevas" data-filas>
-                    <div class="cupos-nueva" data-fila>
-                        <input type="date" data-campo="fecha" required value="{{ now()->toDateString() }}" aria-label="Fecha"
-                            min="{{ \App\Http\Controllers\CuposCombustibleController::desde()->toDateString() }}" max="{{ now()->toDateString() }}">
-                        <label class="cupos-litros">
-                            <input type="text" data-campo="litros" inputmode="decimal" placeholder="0" autocomplete="off" aria-label="Litros">
-                            <span>L</span>
-                        </label>
-                        <span class="cupos-previo" data-previo></span>
-                        <button type="button" class="cupos-borrar" data-quitar-fila title="Quitar fila"><i class="material-icons">close</i></button>
-                    </div>
-                </div>
+                <table class="cupos-tbl">
+                    <thead><tr><th>Fecha</th><th class="num">Litros</th><th class="num cupos-col-queda">Quedan</th><th></th></tr></thead>
+                    <tbody data-filas>
+                        <tr data-fila>
+                            <td><input type="date" data-campo="fecha" required value="{{ now()->toDateString() }}" aria-label="Fecha"
+                                min="{{ \App\Http\Controllers\CuposCombustibleController::desde()->toDateString() }}" max="{{ now()->toDateString() }}"></td>
+                            <td><input type="text" data-campo="litros" class="num" inputmode="decimal" placeholder="Litros" autocomplete="off" aria-label="Litros"></td>
+                            <td class="num cupos-previo cupos-col-queda" data-previo></td>
+                            <td class="cupos-acc"><button type="button" class="cupos-borrar" data-quitar-fila title="Quitar fila"><i class="material-icons">close</i></button></td>
+                        </tr>
+                    </tbody>
+                </table>
                 <div class="cupos-pie">
-                    <button type="button" class="cupos-otra" data-otra-fila><i class="material-icons">add</i> Otra cisterna</button>
                     <span class="cupos-lote-total" data-lote-total></span>
                     <button type="submit" class="btn-primary-maquinaria btn-compacto"><i class="material-icons">save</i> Guardar</button>
                 </div>

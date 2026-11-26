@@ -88,35 +88,16 @@
                 flex: 0 0 auto !important;
             }
         }
-        /* Ranking "Total de Consumo por Frente" - compactar en pantallas chicas */
+        /* Tarjetas más compactas en pantallas chicas */
         @media (max-width: 640px) {
             .g-card { padding: 12px !important; }
             .g-title { font-size: 12px !important; }
             .g-title i { font-size: 15px !important; }
-            .frow {
-                display: flex !important;
-                flex-wrap: wrap !important;
-                align-items: center !important;
-                gap: 4px !important;
-                padding: 6px 0 !important;
-            }
-            .frow-num  { flex: 0 0 16px !important; font-size: 9.5px !important; }
-            .frow-name { flex: 1 !important; min-width: 100px !important; font-size: 9.5px !important; line-height: 1.1 !important; }
-            .frow-val  { flex: 0 0 auto !important; font-size: 10px !important; padding-left: 2px !important; text-align: right !important; }
-            .frow-dep  { display: inline-block !important; margin-left: 4px !important; font-size: 8.5px !important; }
-            .frow-bar-wrap { flex: 0 0 100% !important; height: 5px !important; margin-top: 2px !important; }
         }
 
         @media (max-width: 420px) {
             .g-card { padding: 10px !important; }
             .g-title { font-size: 11px !important; }
-            .frow {
-                padding: 5px 0 !important;
-            }
-            .frow-num  { font-size: 8.5px !important; }
-            .frow-name { font-size: 9px !important; }
-            .frow-val  { font-size: 9px !important; }
-            .frow-dep  { font-size: 8px !important; }
         }
 
         /* Tarjetas resumen */
@@ -137,65 +118,6 @@
         }
 
         /* Tarjetas resumen — estilos internos manejados por JS */
-
-        /* Ranking frentes — grid de 4 columnas, valor auto-ancho para alinear */
-        .frow {
-            display: grid;
-            grid-template-columns: 24px 190px 1fr auto;
-            align-items: center;
-            gap: 8px;
-            padding: 7px 0;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .frow:last-child {
-            border: none;
-        }
-
-        .frow-num {
-            font-size: 11px;
-            color: #94a3b8;
-            font-weight: 700;
-            text-align: center;
-        }
-
-        .frow-name {
-            font-weight: 700;
-            font-size: 12px;
-            color: #1e293b;
-            word-break: break-word;
-            line-height: 1.3;
-        }
-
-        .frow-bar-wrap {
-            background: #f1f5f9;
-            border-radius: 20px;
-            height: 10px;
-            overflow: hidden;
-        }
-
-        .frow-bar {
-            height: 100%;
-            border-radius: 20px;
-            transition: width .6s;
-        }
-
-        .frow-val {
-            text-align: left;
-            font-weight: 800;
-            font-size: 13px;
-            color: #003a70;
-            white-space: nowrap;
-            padding-left: 4px;
-        }
-
-        .frow-dep {
-            display: block;
-            font-size: 11px;
-            font-weight: 700;
-            color: #0077cc;
-            margin-top: 1px;
-        }
 
         /* Ranking "Top 20" — BOARD horizontal: cada FRENTE es una COLUMNA (cabecera arriba
            + sus equipos apilados debajo). Las columnas van lado a lado; si no caben, hay

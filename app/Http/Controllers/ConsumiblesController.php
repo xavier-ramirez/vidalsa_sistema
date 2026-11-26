@@ -361,9 +361,9 @@ class ConsumiblesController extends Controller
         // ── Clave de caché única por combinación de filtros + versión de datos ──
         // La versión sube cada vez que se escriben datos → invalida todo el caché anterior.
         $version = CacheVersion::current(self::DATA_VER_KEY);
-        // "f2": la forma de la respuesta cambió (los inoperativos traen FOTO ya resuelta);
+        // "f3": la forma de la respuesta cambió (sin por_frente ni tipo_activo);
         // un valor guardado con la forma vieja no debe servirse.
-        $cacheKey = 'graficos_f2_v' . $version
+        $cacheKey = 'graficos_f3_v' . $version
             . '_d' . ($desde ?? 'null')
             . '_h' . ($hasta ?? 'null')
             . '_f' . ($idFrente ?? 'all')
@@ -388,23 +388,6 @@ class ConsumiblesController extends Controller
                 $filtrosTodos($q);
                 $q->where('consumibles.ESTADO_EQUIPO', 'CONFIRMADO');
             };
-
-            // ── 1. Total por frente — TODOS los registros ─────────────────────
-            $porFrente = DB::table('consumibles')
-                ->join('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'consumibles.ID_FRENTE')
-                ->where(function ($q) use ($filtrosTodos) {
-                    $filtrosTodos($q);
-                })
-                ->select(
-                    'frentes_trabajo.NOMBRE_FRENTE',
-                    DB::raw('SUM(consumibles.CANTIDAD) as total'),
-                    DB::raw('COUNT(*) as despachos'),
-                    DB::raw('MAX(consumibles.UNIDAD) as unidad'),
-                    DB::raw('COUNT(DISTINCT consumibles.ID_EQUIPO) as equipos_distintos')
-                )
-                ->groupBy('frentes_trabajo.NOMBRE_FRENTE')
-                ->orderByDesc('total')
-                ->get();
 
             // ── 2. Top 15 equipos mayor consumo — solo CONFIRMADOS ───────────────────
             $topEquipos = DB::table('consumibles')
@@ -492,10 +475,9 @@ class ConsumiblesController extends Controller
                 ->orderBy('total', 'desc')
                 ->get();
 
-            // ── 7. Por Especificación — solo cuando el tipo activo es ACEITE o CAUCHO ───────
-            // Si el tipo no requiere especificación → vacío → secciones ocultas.
-            $tiposConEspec = ['ACEITE', 'CAUCHO'];
-            $tipoEspec = in_array($tipo, $tiposConEspec) ? $tipo : null;
+            // ── 7. Aceite por viscosidad — solo con el filtro ACEITE ───────
+            // (El desglose de cauchos por modelo se quitó a pedido.) Otro tipo → vacío → secciones ocultas.
+            $tipoEspec = $tipo === 'ACEITE' ? 'ACEITE' : null;
 
             if ($tipoEspec) {
                 // Por frente × especificacion
@@ -527,7 +509,7 @@ class ConsumiblesController extends Controller
                     ->where(function ($q) use ($filtrosConfirmados) {
                         $filtrosConfirmados($q);
                     })
-                    ->where('consumibles.TIPO_CONSUMIBLE', $tipoEspec)   // siempre ACEITE o CAUCHO
+                    ->where('consumibles.TIPO_CONSUMIBLE', $tipoEspec)
                     ->whereNotNull('consumibles.ESPECIFICACION')
                     ->where('consumibles.ESPECIFICACION', '<>', '')
                     ->whereNotNull('consumibles.ID_EQUIPO')
@@ -610,11 +592,9 @@ class ConsumiblesController extends Controller
             }
 
             return [
-                'por_frente' => $porFrente,
                 'equipos_por_frente' => $equiposPorFrente,
                 'top_equipos' => $topEquipos,
                 'resumen' => $resumen,
-                'tipo_activo' => $tipoEspec,
                 'espec_frente' => $especFrente,
                 'espec_equipo' => $especEquipo,
                 'inoperativos' => $inoperativos,
