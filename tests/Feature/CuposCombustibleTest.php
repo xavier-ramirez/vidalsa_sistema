@@ -149,6 +149,20 @@ class CuposCombustibleTest extends MySqlTestCase
         $this->modal(['patio' => 'TIGRE', 'mes' => '2029-01'])->assertSee('value="2031-03" selected', false);   // mes fuera: el actual
     }
 
+    public function test_guardada_con_plan_de_antes_se_puede_editar_y_no_pierde_su_numero(): void
+    {
+        // Plan de antes de la ventana y llegada dentro: se ve; cambiarle los litros no debe dar error por el plan.
+        $k = CisternaCupo::create(['PATIO' => 'TIGRE', 'NUMERO' => 7, 'FECHA_PLAN' => '2030-03-28', 'FECHA' => '2030-04-02', 'LITROS' => 100]);
+        $fila = ['id' => $k->ID_CISTERNA, 'numero' => 7, 'plan' => '2030-03-28', 'llegada' => '2030-04-02', 'litros' => 300];
+        $this->filas('TIGRE', [$fila])->assertOk();
+        $this->assertSame(300.0, (float) $k->fresh()->LITROS);
+        // Mover el plan a otra fecha fuera de la ventana sí se rechaza.
+        $this->filas('TIGRE', [['plan' => '2030-03-20'] + $fila])->assertStatus(422)->assertJsonValidationErrors('cisternas.0.plan');
+        // Vaciar el número de una guardada se rechaza (no queda sin número).
+        $this->filas('TIGRE', [['numero' => ''] + $fila])->assertStatus(422)->assertJsonValidationErrors('cisternas.0.numero');
+        $this->assertSame(7, (int) $k->fresh()->NUMERO);
+    }
+
     public function test_quitar_una_cisterna(): void
     {
         $k = CisternaCupo::create(['PATIO' => 'TIGRE', 'FECHA_PLAN' => '2031-03-03', 'FECHA' => '2031-03-03', 'LITROS' => 200]);

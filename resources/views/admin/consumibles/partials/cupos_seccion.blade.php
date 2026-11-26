@@ -316,7 +316,7 @@
         function mismoCupo(input) { return numeroLitros(input.value) === numeroLitros(input.defaultValue); }
         function sinGuardar(patio) {
             var f = panelDe(patio) && panelDe(patio).querySelector('form[data-accion=cisterna]');
-            return f ? contarCambios(f) : 0;
+            return f && !f.dataset.guardada ? contarCambios(f) : 0;
         }
         // Si hay filas sin guardar, pregunta antes de perderlas.
         function siPuedePerder(patio, hacer) {
@@ -335,6 +335,8 @@
             if (f.dataset.enviando) return;   // un envío a la vez (Enter dos veces no guarda dos veces)
             var patio = f.querySelector('[name=patio]').value;
             if (f.dataset.accion === 'cupo') { guardarCupo(f, patio); return; }
+            // Ya se guardó y falló el repintado: estas filas siguen como nuevas y reenviarlas las duplicaría.
+            if (f.dataset.guardada) { aviso('Ya está guardado. Actualizando la tabla…', 'info'); repintarPanel(patio); return; }
 
             var filas = Array.prototype.filter.call(f.querySelectorAll('[data-fila]'), cambiada);
             if (!filas.length) return;
@@ -357,6 +359,7 @@
                     aviso((b.guardadas === 1 ? 'Cisterna guardada.' : b.guardadas + ' cisternas guardadas.')
                         + (otros.length ? ' Quedó en ' + otros.join(', ') + '.' : ''), 'success');
                     delete f.dataset.enviando;
+                    f.dataset.guardada = '1';      // hasta que llegue la tabla nueva no se vuelve a enviar
                     return repintarPanel(patio);
                 })
                 .catch(function (m) {

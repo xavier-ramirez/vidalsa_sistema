@@ -255,9 +255,9 @@ class CuposCombustibleController extends Controller
             'cisternas'           => ['required', 'array', 'min:1', 'max:60'],
             'cisternas.*.id'      => ['nullable', 'integer'],
             'cisternas.*.numero'  => ['nullable', 'integer', 'min:1', 'max:999999', 'distinct'],
-            // Dentro de los meses que se ven (si no, quedaría guardada sin poder verse ni quitarse).
-            'cisternas.*.plan'    => ['nullable', 'required_without:cisternas.*.llegada', 'date_format:Y-m-d', 'after_or_equal:' . $desde, 'before_or_equal:' . $tope],
-            'cisternas.*.llegada' => ['nullable', 'required_with:cisternas.*.litros', 'date_format:Y-m-d', 'after_or_equal:' . $desde, 'before_or_equal:today'],
+            // El «desde» de los meses que se ven se revisa abajo, solo en filas nuevas o fechas cambiadas.
+            'cisternas.*.plan'    => ['nullable', 'required_without:cisternas.*.llegada', 'date_format:Y-m-d', 'before_or_equal:' . $tope],
+            'cisternas.*.llegada' => ['nullable', 'required_with:cisternas.*.litros', 'date_format:Y-m-d', 'before_or_equal:today'],
             'cisternas.*.litros'  => ['nullable', 'required_with:cisternas.*.llegada', 'numeric', 'gt:0', 'max:9999999999'],
             'cisternas.*.foto'    => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:12288'],
         ], [
@@ -276,13 +276,23 @@ class CuposCombustibleController extends Controller
         $existentes = CisternaCupo::where('PATIO', $patio)->whereIn('ID_CISTERNA', $ids)->get()->keyBy('ID_CISTERNA');
         $errores = [];
         foreach ($v['cisternas'] as $i => $f) {
-            if (!empty($f['id']) && !$existentes->has((int) $f['id'])) {
+            $k = !empty($f['id']) ? $existentes->get((int) $f['id']) : null;
+            if (!empty($f['id']) && !$k) {
                 $errores["cisternas.$i.plan"] = 'Esa cisterna ya no existe; actualice la tabla.';
+                continue;
             }
-            // El número no se repite en el patio (salvo en la misma cisterna o en otra de esta tabla).
-            if (!empty($f['numero']) && CisternaCupo::where('PATIO', $patio)->where('NUMERO', $f['numero'])
-                    ->whereNotIn('ID_CISTERNA', $ids)->exists()) {
-                $errores["cisternas.$i.numero"] = 'La solicitud ' . $f['numero'] . ' ya existe en ' . CupoCombustible::PATIOS[$patio] . '.';
+            // Una fecha nueva o cambiada va dentro de los meses que se ven (si no, quedaría guardada sin poder
+            // verse ni quitarse). La de una cisterna ya guardada, sin tocar, se deja como está.
+            foreach (['plan' => 'FECHA_PLAN', 'llegada' => 'FECHA'] as $c => $col) {
+                $nueva = $f[$c] ?? null;
+                $antes = $k && $k->$col ? Carbon::parse($k->$col)->toDateString() : null;
+                if ($nueva && $nueva < $desde && $nueva !== $antes) {
+                    $errores["cisternas.$i.$c"] = 'La fecha no puede ser anterior al ' . Carbon::parse($desde)->format('d/m/Y') . '.';
+                }
+            }
+            // Una solicitud guardada no se queda sin número.
+            if ($k && empty($f['numero']) && $k->NUMERO) {
+                $errores["cisternas.$i.numero"] = 'Ponga el número de la solicitud.';
             }
         }
         if ($errores) {
@@ -290,19 +300,52 @@ class CuposCombustibleController extends Controller
         }
 
         // Las fotos se suben ANTES de la transacción (Drive no va dentro: una caída de red tumbaría el guardado).
+        // Si algo falla después, las que ya subieron van a la papelera de Drive (no quedan sueltas).
         $fotos = [];
-        foreach ($v['cisternas'] as $i => $f) {
-            if (!empty($f['foto'])) {
-                $fotos[$i] = $this->subirFoto($f['foto'], $patio);
+        $viejas = [];
+        try {
+            foreach ($v['cisternas'] as $i => $f) {
+                if (!empty($f['foto'])) {
+                    $fotos[$i] = $this->subirFoto($f['foto'], $patio);
+                }
             }
+            $this->guardarFilas($v['cisternas'], $patio, $fotos, $existentes, $ids, $viejas);
+        } catch (\Throwable $e) {
+            foreach ($fotos as $foto) {
+                self::fotoAPapelera($foto);
+            }
+            throw $e;
+        }
+        foreach ($viejas as $foto) {
+            self::fotoAPapelera($foto);
         }
 
-        $viejas = [];
-        DB::transaction(function () use ($v, $patio, $fotos, $existentes, &$viejas) {
-            // Una solicitud nueva sin número toma el que sigue (después del mayor del patio y de la tabla).
+        // Los meses donde quedaron (la pantalla avisa si alguna no es del mes que se está viendo).
+        $meses = collect($v['cisternas'])->map(fn ($f) => substr($f['llegada'] ?? $f['plan'], 0, 7))->unique()
+            ->mapWithKeys(fn ($m) => [$m => self::nombreMes(Carbon::createFromFormat('!Y-m', $m))]);
+
+        return response()->json(['ok' => true, 'guardadas' => count($v['cisternas']), 'meses' => $meses]);
+    }
+
+    /** Las filas de guardarCisternas, todas o ninguna. Las fotos que se reemplazan quedan en $viejas. */
+    private function guardarFilas(array $filas, string $patio, array $fotos, $existentes, $ids, array &$viejas): void
+    {
+        DB::transaction(function () use ($filas, $patio, $fotos, $existentes, $ids, &$viejas) {
+            // Bloquea las cisternas del patio: dos guardados a la vez no sacan ni repiten el mismo número.
             $siguiente = max((int) CisternaCupo::where('PATIO', $patio)->lockForUpdate()->max('NUMERO'),
-                (int) collect($v['cisternas'])->max('numero')) + 1;
-            foreach ($v['cisternas'] as $i => $f) {
+                (int) collect($filas)->max('numero')) + 1;
+            // El número no se repite en el patio (salvo en la misma cisterna o en otra de esta tabla).
+            $errores = [];
+            foreach ($filas as $i => $f) {
+                if (!empty($f['numero']) && CisternaCupo::where('PATIO', $patio)->where('NUMERO', $f['numero'])
+                        ->whereNotIn('ID_CISTERNA', $ids)->exists()) {
+                    $errores["cisternas.$i.numero"] = 'La solicitud ' . $f['numero'] . ' ya existe en ' . CupoCombustible::PATIOS[$patio] . '.';
+                }
+            }
+            if ($errores) {
+                throw ValidationException::withMessages($errores);
+            }
+            foreach ($filas as $i => $f) {
                 if (empty($f['id']) && empty($f['numero'])) {
                     $f['numero'] = $siguiente++;
                 }
@@ -325,15 +368,6 @@ class CuposCombustibleController extends Controller
                 }
             }
         });
-        foreach ($viejas as $foto) {
-            self::fotoAPapelera($foto);
-        }
-
-        // Los meses donde quedaron (la pantalla avisa si alguna no es del mes que se está viendo).
-        $meses = collect($v['cisternas'])->map(fn ($f) => substr($f['llegada'] ?? $f['plan'], 0, 7))->unique()
-            ->mapWithKeys(fn ($m) => [$m => self::nombreMes(Carbon::createFromFormat('!Y-m', $m))]);
-
-        return response()->json(['ok' => true, 'guardadas' => count($v['cisternas']), 'meses' => $meses]);
     }
 
     /** POST consumibles/cupos/cisternas/{id}/foto — pone o cambia la foto de una cisterna ya guardada. */
