@@ -114,8 +114,6 @@
                 border-bottom: 1px dashed #e2e8f0;
                 font-weight: 700;
             }
-            /* Buscador de placa/serial: más angosto que Frente y Tipo (a pedido); en el teléfono, lo que deje el botón de filtros. */
-            @media (max-width: 900px) { #consIdentWrap { flex: 1 1 150px !important; } }
             /* Columna Equipo angosta (160 px): el tipo y el título pasan a dos líneas si no caben. */
             .cons-tbl-wrap .admin-table .cons-col-eq { width: 160px; max-width: 160px; }
             /* la placa o serial en 12 px: un serial de 17 caracteres cabe en una línea */
@@ -224,7 +222,7 @@
             <form method="GET" action="{{ route('consumibles.index') }}" id="filtrosForm">
                 <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom: 20px;">
 
-                    <div style="flex: 1; min-width: 150px;">
+                    <div style="flex: 1 1 0; min-width: 120px;">
                         @php
                             $currentFrenteId = request('id_frente');
                             $currentFrente = $currentFrenteId ? $frentes->firstWhere('ID_FRENTE', $currentFrenteId) : null;
@@ -268,7 +266,7 @@
                         </div>
                     </div>
 
-                    <div style="flex: 0 1 160px; min-width: 120px;">
+                    <div style="flex: 1 1 0; min-width: 120px;">
                         @php
                             $currentTipo = request('tipo');
                             $tiposList = \App\Models\Consumible::tiposLabel();
@@ -303,7 +301,7 @@
                     </div>
 
                     <div id="consIdentWrap" data-cons-sync
-                        style="flex: 0 1 210px; min-width: 150px; height: 42px; border-radius: 10px; display: flex; align-items: center; border: 1px solid {{ request('identificador') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('identificador') ? '#e1effa' : '#fbfcfd' }}; overflow: hidden;">
+                        style="flex: 1 1 0; min-width: 120px; height: 42px; border-radius: 10px; display: flex; align-items: center; border: 1px solid {{ request('identificador') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('identificador') ? '#e1effa' : '#fbfcfd' }}; overflow: hidden;">
                         <i class="material-icons"
                             style="padding: 0 8px; color: #94a3b8; font-size: 18px; flex-shrink: 0;">search</i>
                         <input type="text" name="identificador" value="{{ request('identificador') }}"
