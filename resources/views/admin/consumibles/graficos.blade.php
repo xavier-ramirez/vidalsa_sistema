@@ -954,7 +954,14 @@
                 alert('El gráfico no está visible aún. Aplica los filtros primero.');
                 return;
             }
-            window.descargarFotoWebp(canvas, nombre);   // dom_helpers.js
+            bajarFoto(canvas, nombre);
+        }
+
+        // La foto en WebP comprimido (dom_helpers.js). Quien tenía la app abierta desde antes de
+        // esa función todavía no la tiene en memoria: a esos les sale en PNG.
+        function bajarFoto(canvas, nombre) {
+            if (window.descargarFotoWebp) { window.descargarFotoWebp(canvas, nombre); return; }
+            window.descargarEnlace(canvas.toDataURL('image/png'), nombre + '_' + new Date().toISOString().slice(0, 10) + '.png');
         }
 
         // ── Helper: capturar cualquier panel del DOM tal como se ve en pantalla ──────
@@ -968,6 +975,8 @@
                 window.cargarScriptUnaVez("{{ asset('js/html2canvas.min.js') }}?v={{ @filemtime(public_path('js/html2canvas.min.js')) }}")
                     .then(function () {
                         if (window.hidePreloader) window.hidePreloader();
+                        // Cargó pero no trajo la librería (archivo dañado): avisar, no volver a intentar sin fin.
+                        if (typeof html2canvas === 'undefined') { alert('Error al cargar la librería de captura.'); return; }
                         capturaPanelHtml(panelId, nombre, callbackClone);
                     })
                     .catch(function () {
@@ -984,9 +993,8 @@
                 onclone: function (clonedDoc) {
                     if (callbackClone) callbackClone(clonedDoc);
                 }
-            }).then(canvas => {
-                window.descargarFotoWebp(canvas, nombre);   // dom_helpers.js
-            });
+            }).then(canvas => bajarFoto(canvas, nombre))
+              .catch(() => alert('No se pudo generar la imagen.'));
         }
 
         // ── Descargar "Tarjetas Resumen" como foto ─────────────────

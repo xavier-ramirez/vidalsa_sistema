@@ -471,18 +471,28 @@
         window.descargarEnlace(burl, nombre);
         setTimeout(function () { try { URL.revokeObjectURL(burl); } catch (e) {} }, 60000);
     };
-    // Foto de un <canvas> comprimida en WebP (para la web): fondo blanco, como mucho 1600 px de
-    // ancho y calidad 0,8. «nombre» sin extensión; se le añade la fecha y .webp.
+    // Foto de un <canvas> comprimida en WebP (para la web): fondo blanco, como mucho 3200 px de
+    // ancho (un panel ancho sigue legible) y calidad 0,8. «nombre» sin extensión; se le añade la
+    // fecha y la extensión de lo que el navegador generó (Safari no hace WebP: sale PNG).
     window.descargarFotoWebp = function (canvas, nombre) {
-        var escala = Math.min(1, 1600 / canvas.width);
+        if (!canvas || !canvas.width || !canvas.height) {
+            if (window.showToast) window.showToast('No hay nada visible para la foto.', 'error');
+            return;
+        }
+        var escala = Math.min(1, 3200 / canvas.width);
         var c = document.createElement('canvas');
         c.width = Math.round(canvas.width * escala); c.height = Math.round(canvas.height * escala);
         var ctx = c.getContext('2d');
         ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-        ctx.drawImage(canvas, 0, 0, c.width, c.height);
-        c.toBlob(function (blob) {
-            window.descargarBlob(blob, nombre + '_' + new Date().toISOString().slice(0, 10) + '.webp');
-        }, 'image/webp', 0.8);
+        var falla = function () { if (window.showToast) window.showToast('No se pudo generar la foto.', 'error'); };
+        try {
+            ctx.drawImage(canvas, 0, 0, c.width, c.height);
+            c.toBlob(function (blob) {
+                if (!blob) { falla(); return; }
+                var ext = blob.type === 'image/webp' ? '.webp' : (blob.type === 'image/jpeg' ? '.jpg' : '.png');
+                window.descargarBlob(blob, nombre + '_' + new Date().toISOString().slice(0, 10) + ext);
+            }, 'image/webp', 0.8);
+        } catch (e) { falla(); }   // p. ej. una foto de otro sitio sin permiso (canvas «contaminado»)
     };
 
     /**

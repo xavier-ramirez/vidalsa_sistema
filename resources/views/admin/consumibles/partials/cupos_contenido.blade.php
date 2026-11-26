@@ -37,7 +37,7 @@
                         <form class="cupos-cupo" data-accion="cupo">
                             <input type="hidden" name="patio" value="{{ $clave }}">
                             <label class="cupos-cupo-caja">
-                                <input type="text" name="litros" inputmode="decimal" required placeholder="Escriba el cupo" autocomplete="off"
+                                <input type="text" name="litros" inputmode="decimal" placeholder="Escriba el cupo" autocomplete="off"
                                     aria-label="Cupo mensual en litros" value="{{ $p['cupo'] !== null ? $lt($p['cupo']) : '' }}">
                                 <span>L</span>
                             </label>

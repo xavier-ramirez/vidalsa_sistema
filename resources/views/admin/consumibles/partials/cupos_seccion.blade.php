@@ -186,32 +186,59 @@
         }
         if (modal.dataset.abrir) abrir();
 
-        // Repinta el cuerpo (sin recargar la página). Las cisternas escritas y aún sin guardar se
-        // conservan (quitar una del historial o cambiar el cupo no las borra), salvo las del patio
-        // que se acaba de guardar.
+        // Repinta el cuerpo (sin recargar la página). Lo escrito y aún sin guardar se copia AL
+        // LLEGAR la respuesta (no antes: se puede seguir escribiendo mientras tanto) y se vuelve a
+        // poner: las cisternas (salvo las del patio que se acaba de guardar), un cupo cambiado y no
+        // enviado (se envía), y el cuadro donde estaba el cursor.
         function repintar(guardado) {
             var c = caja();
-            var pendientes = {};
-            c.querySelectorAll('[data-panel]').forEach(function (p) {
-                if (p.dataset.panel === guardado) return;
-                var filas = Array.prototype.map.call(p.querySelectorAll('[data-fila]'), function (tr) {
-                    return [tr.querySelector('[data-campo=fecha]').value, tr.querySelector('[data-campo=litros]').value];
-                }).filter(function (f) { return f[1].trim() !== ''; });
-                if (filas.length) pendientes[p.dataset.panel] = filas;
-            });
-            c.classList.add('cupos-ocupado');
             return window.apiFetch(URL_LISTA, { headers: JSON_H })
                 .then(function (r) { return r.ok ? r.text() : Promise.reject(); })
                 .then(function (html) {
+                    var pendientes = {}, cupos = {}, foco = null, act = document.activeElement;
+                    c.querySelectorAll('[data-panel]').forEach(function (p) {
+                        var patio = p.dataset.panel;
+                        var cupo = p.querySelector('.cupos-cupo input[name=litros]');
+                        if (cupo && cupo.value.trim() !== '' && !mismoCupo(cupo) && cupo.value !== cupo.dataset.enviado) cupos[patio] = cupo.value;
+                        if (cupo && act === cupo) foco = { patio: patio, cupo: true };
+                        if (patio === guardado) return;
+                        var trs = p.querySelectorAll('[data-fila]');
+                        Array.prototype.forEach.call(trs, function (tr, i) {
+                            var campo = act && tr.contains(act) && act.dataset.campo;
+                            if (campo) foco = { patio: patio, fila: i, campo: campo };
+                        });
+                        var filas = Array.prototype.map.call(trs, function (tr) {
+                            return [tr.querySelector('[data-campo=fecha]').value, tr.querySelector('[data-campo=litros]').value];
+                        }).filter(function (f) { return f[1].trim() !== ''; });
+                        if (filas.length) pendientes[patio] = filas;
+                    });
                     c.innerHTML = html;
                     mostrarPatio(window.__cuposPatio);
                     Object.keys(pendientes).forEach(function (patio) {
                         var tbody = c.querySelector('[data-panel="' + patio + '"] [data-filas]');
                         if (tbody) ponerFilas(tbody, pendientes[patio]);
                     });
+                    Object.keys(cupos).forEach(function (patio) {
+                        var cupo = c.querySelector('[data-panel="' + patio + '"] .cupos-cupo input[name=litros]');
+                        if (!cupo) return;
+                        cupo.value = cupos[patio];
+                        if (!(foco && foco.cupo && foco.patio === patio)) enviarForm(cupo.form);   // ya salió del cuadro
+                    });
+                    if (foco) {
+                        var p = c.querySelector('[data-panel="' + foco.patio + '"]');
+                        var el = !p ? null : foco.cupo ? p.querySelector('.cupos-cupo input[name=litros]')
+                            : (p.querySelectorAll('[data-fila]')[foco.fila] || p.querySelector('[data-fila]:last-child')).querySelector('[data-campo=' + foco.campo + ']');
+                        if (el) el.focus();
+                    }
                 })
-                .catch(function () { aviso('No se pudo actualizar. Revise la conexión.', 'error'); })
-                .finally(function () { c.classList.remove('cupos-ocupado'); });
+                .catch(function () { aviso('No se pudo actualizar. Revise la conexión.', 'error'); });
+        }
+        // El cupo escrito es el mismo que el guardado aunque cambie la forma («38000» = «38.000»).
+        function mismoCupo(input) { return numeroLitros(input.value) === numeroLitros(input.defaultValue); }
+        // requestSubmit no existe en Safari antes de iOS 16: ahí, el evento submit a mano.
+        function enviarForm(f) {
+            if (f.requestSubmit) f.requestSubmit();
+            else f.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         }
 
         function enviar(url, metodo, cuerpo) {
@@ -238,14 +265,16 @@
             var f = e.target.closest('form[data-accion]');
             if (!f) return;
             e.preventDefault();
-            // Un envío a la vez: Enter dos veces no guarda la misma cisterna dos veces.
+            // Un envío a la vez: Enter dos veces no guarda la misma cisterna dos veces. (Un cupo
+            // cambiado mientras tanto no se pierde: lo vuelve a enviar repintar.)
             if (f.dataset.enviando) return;
             var esCupo = f.dataset.accion === 'cupo';
-            if (esCupo) {
-                // El cuadro del cupo: sin cambios no se envía; vacío vuelve a lo que tenía.
-                var caja = f.querySelector('input[name=litros]');
-                if (caja.value.trim() === '') caja.value = caja.defaultValue;
-                if (caja.value.trim() === caja.defaultValue.trim()) return;
+            var cupo = esCupo ? f.querySelector('input[name=litros]') : null;
+            if (cupo) {
+                // Sin cambios no se envía; vacío vuelve a lo que tenía.
+                if (cupo.value.trim() === '') cupo.value = cupo.defaultValue;
+                if (mismoCupo(cupo)) return;
+                cupo.dataset.enviado = cupo.value;
             }
             f.dataset.enviando = '1';
             var datos = new FormData(f), filas = [];
@@ -269,6 +298,8 @@
             f.classList.add('cupos-ocupado');
             enviar(esCupo ? URL_CUPO : URL_CISTERNA, 'POST', datos)
                 .then(function (b) {
+                    // Ya guardado: si el repintado fallara, Escape no vuelve a un cupo que ya no es el guardado.
+                    if (cupo) cupo.defaultValue = cupo.dataset.enviado;
                     aviso(esCupo ? 'Cupo guardado.' : (b.guardadas === 1 ? 'Cisterna guardada.' : b.guardadas + ' cisternas guardadas.'), 'success');
                     return repintar(esCupo ? null : f.querySelector('[name=patio]').value);
                 })
@@ -328,6 +359,9 @@
                 tbody.appendChild(nueva);
             } else {
                 while (filas.length > 1 && vacia(filas[filas.length - 1]) && vacia(filas[filas.length - 2])) {
+                    // La fecha que se haya elegido en la que sobra pasa a la que queda.
+                    filas[filas.length - 2].querySelector('[data-campo=fecha]').value =
+                        filas[filas.length - 1].querySelector('[data-campo=fecha]').value;
                     filas[filas.length - 1].remove();
                     filas = tbody.querySelectorAll('[data-fila]');
                 }
@@ -392,7 +426,7 @@
             if (!e.target.matches) return;
             if (e.target.matches('[data-elegir-patio]')) mostrarPatio(e.target.value);
             // El cupo se guarda al salir del cuadro (o con Enter, que envía el formulario).
-            else if (e.target.matches('.cupos-cupo input[name=litros]')) e.target.form.requestSubmit();
+            else if (e.target.matches('.cupos-cupo input[name=litros]')) enviarForm(e.target.form);
         });
         // Enter en la fecha: a los litros de esa fila. Enter en los litros: a la fila siguiente.
         // Se guarda solo con el botón.
@@ -421,7 +455,12 @@
             if (typeof html2canvas === 'undefined') {
                 if (window.showPreloader) window.showPreloader();
                 window.cargarScriptUnaVez(@json(asset('js/html2canvas.min.js') . '?v=' . filemtime(public_path('js/html2canvas.min.js'))))
-                    .then(function () { if (window.hidePreloader) window.hidePreloader(); foto(); })
+                    .then(function () {
+                        if (window.hidePreloader) window.hidePreloader();
+                        // Cargó pero no trajo la librería (archivo dañado): avisar, no reintentar sin fin.
+                        if (typeof html2canvas === 'undefined') { aviso('No se pudo preparar la foto.', 'error'); return; }
+                        foto();
+                    })
                     .catch(function () { if (window.hidePreloader) window.hidePreloader(); aviso('No se pudo preparar la foto. Revise la conexión.', 'error'); });
                 return;
             }
@@ -442,7 +481,10 @@
                     p.style.padding = '12px';
                 },
             }).then(function (canvas) {
-                window.descargarFotoWebp(canvas, 'Cupo_Gasoil_' + nombre.replace(/\s+/g, '_'));
+                var archivo = 'Cupo_Gasoil_' + nombre.replace(/\s+/g, '_');
+                // Quien tenía la app abierta desde antes de descargarFotoWebp (dom_helpers.js) la baja en PNG.
+                if (window.descargarFotoWebp) window.descargarFotoWebp(canvas, archivo);
+                else window.descargarEnlace(canvas.toDataURL('image/png'), archivo + '_' + new Date().toISOString().slice(0, 10) + '.png');
             }).catch(function () { aviso('No se pudo sacar la foto.', 'error'); })
               .finally(function () { panel.removeAttribute('data-foto'); });
         }
