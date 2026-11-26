@@ -148,7 +148,7 @@
                          menor. Sale de los mismos datos de la gráfica de abajo (por_mes_frente),
                          con los colores del Top de productos. Con un rango de fechas
                          que no llega a este mes, se muestra el mes del extremo del rango. --}}
-                    <div class="cdash-card full"><h4><span>Proyecto de mayor consumo volumétrico · <span id="cdashMesActualLbl"></span></span><button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'proyecto-de-mayor-consumo-volumetrico')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
+                    <div class="cdash-card full"><h4><span>Proyecto con mayor volumen de material despachado · <span id="cdashMesActualLbl"></span></span><button type="button" class="cdash-chart-dl" onclick="window._cdashDescargarGrafico(this,'proyecto-con-mayor-volumen-despachado')" title="Descargar gráfico" aria-label="Descargar gráfico"><i class="material-icons">photo_camera</i></button></h4>
                         <div class="cdash-canvas-wrap" id="cdashMesActualWrap"><canvas id="cdashChartMesActual"></canvas></div>
                         <div id="cdashMesActualVacio" class="cdash-mesact-vacio" style="display:none;">Ningún proyecto ha consumido en este mes.</div></div>
                     {{-- Una barra por mes, apilada por PROYECTO (lo dice el título y lo enseña la
