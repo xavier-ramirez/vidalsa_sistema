@@ -759,6 +759,93 @@ class ConsumiblesController extends Controller
     }
 
     // ══════════════════════════════════════════════════════════════
+    // PRESENTACIÓN DE GASOIL — los datos del PowerPoint que arma Gráficos (consumibles_presentacion.js)
+    // ══════════════════════════════════════════════════════════════
+    /**
+     * Lámina 1: gasoil por proyecto en el período (todos los estados, como la lista). Lámina 2: un proyecto,
+     * sus 6 meses hasta el último del período y sus 4 equipos de mayor consumo en el período (solo los
+     * confirmados con equipo; el proyecto es el del surtido o, si no lo trae, el frente del equipo, como el
+     * Top 20). Sin fechas, el período es el último mes que tiene gasoil.
+     */
+    public function presentacionData(Request $request)
+    {
+        $request->validate([
+            'desde' => 'nullable|date', 'hasta' => 'nullable|date',
+            'id_proyecto' => 'nullable|integer', 'id_frente' => 'nullable|integer',
+        ]);
+        $gasoil = fn () => DB::table('consumibles')->where('consumibles.TIPO_CONSUMIBLE', 'GASOIL');
+
+        $hasta = $request->filled('hasta') ? \Carbon\Carbon::parse($request->hasta) : null;
+        if (!$hasta) {
+            $ultima = $gasoil()->max('FECHA');
+            if (!$ultima) {
+                return response()->json(['vacio' => true]);
+            }
+            $hasta = \Carbon\Carbon::parse($ultima)->endOfMonth();
+        }
+        $desde = $request->filled('desde') ? \Carbon\Carbon::parse($request->desde) : $hasta->copy()->startOfMonth();
+        $rango = [$desde->toDateString(), $hasta->toDateString()];
+
+        $filas = $gasoil()->whereBetween('FECHA', $rango)
+            ->selectRaw('ID_FRENTE as id, SUM(CANTIDAD) as litros')->groupBy('ID_FRENTE')->get();
+        $nombres = FrenteTrabajo::withTrashed()->whereIn('ID_FRENTE', $filas->pluck('id')->filter())->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+        $proyectos = $filas->filter(fn ($f) => $f->id)
+            ->map(fn ($f) => ['id' => (int) $f->id, 'nombre' => $nombres[$f->id] ?? 'Frente ' . $f->id, 'litros' => (float) $f->litros])
+            ->sortByDesc('litros')->values();
+        $sinFrente = (float) ($filas->firstWhere('id', null)->litros ?? 0);
+
+        $idProyecto = (int) ($request->input('id_proyecto') ?: $request->input('id_frente') ?: ($proyectos[0]['id'] ?? 0));
+        $proyecto = null;
+        if ($idProyecto) {
+            // Los 6 meses que terminan en el último del período.
+            $inicio = $hasta->copy()->startOfMonth()->subMonths(5);
+            $porMes = $gasoil()->where('ID_FRENTE', $idProyecto)->whereBetween('FECHA', [$inicio->toDateString(), $rango[1]])
+                ->selectRaw("DATE_FORMAT(FECHA, '%Y-%m') as mes, SUM(CANTIDAD) as litros")->groupBy('mes')->pluck('litros', 'mes');
+            $meses = [];
+            for ($m = $inicio->copy(); $m->lte($hasta); $m->addMonth()) {
+                $meses[] = ['mes' => mb_strtoupper($m->locale('es')->translatedFormat('F')), 'litros' => (float) ($porMes[$m->format('Y-m')] ?? 0)];
+            }
+
+            $frenteDelSurtido = DB::raw('COALESCE(consumibles.ID_FRENTE, equipos.ID_FRENTE_ACTUAL)');
+            $top = $gasoil()->join('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
+                ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
+                ->where('consumibles.ESTADO_EQUIPO', 'CONFIRMADO')
+                ->whereBetween('consumibles.FECHA', $rango)
+                ->where($frenteDelSurtido, $idProyecto)
+                ->select(
+                    'equipos.ID_EQUIPO', 'equipos.SERIAL_CHASIS', 'equipos.CODIGO_PATIO',
+                    DB::raw('(SELECT MAX(d.PLACA) FROM documentacion d WHERE d.ID_EQUIPO = equipos.ID_EQUIPO) as PLACA'),
+                    DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo"),
+                    DB::raw('SUM(consumibles.CANTIDAD) as litros'), DB::raw('COUNT(*) as despachos')
+                )
+                ->groupBy('equipos.ID_EQUIPO', 'equipos.SERIAL_CHASIS', 'equipos.CODIGO_PATIO', 'tipo_equipos.nombre')
+                ->orderByDesc('litros')->orderByDesc('despachos')->limit(4)->get()
+                ->map(function ($e) {
+                    // La placa; sin placa, el serial o el código (como la lista).
+                    $id = collect([$e->PLACA, $e->SERIAL_CHASIS, $e->CODIGO_PATIO])
+                        ->map(fn ($v) => trim((string) $v))->first(fn ($v) => preg_match('/[\p{L}\p{N}]/u', $v) === 1);
+                    return ['tipo' => mb_strtoupper($e->tipo), 'id' => $id ?? '—', 'litros' => (float) $e->litros, 'despachos' => (int) $e->despachos];
+                });
+
+            $proyecto = [
+                'id' => $idProyecto,
+                'nombre' => FrenteTrabajo::withTrashed()->where('ID_FRENTE', $idProyecto)->value('NOMBRE_FRENTE') ?? 'Frente ' . $idProyecto,
+                'meses' => $meses,
+                'top' => $top->values(),
+            ];
+        }
+
+        return response()->json([
+            'desde' => $desde->format('d/m/Y'),
+            'hasta' => $hasta->format('d/m/Y'),
+            'total' => (float) $proyectos->sum('litros') + $sinFrente,
+            'sin_frente' => $sinFrente,
+            'proyectos' => $proyectos,
+            'proyecto' => $proyecto,
+        ]);
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // EXPORTAR CSV — Descarga directa de datos confirmados
     // ══════════════════════════════════════════════════════════════
     public function exportarCsv(Request $request)

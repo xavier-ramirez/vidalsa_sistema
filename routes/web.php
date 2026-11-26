@@ -305,6 +305,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get ('consumibles/cargar',             [App\Http\Controllers\ConsumiblesController::class, 'cargar'])         ->name('consumibles.cargar');
             Route::get ('consumibles/graficos-data',      [App\Http\Controllers\ConsumiblesController::class, 'graficosData'])   ->name('consumibles.graficosData');
             Route::get ('consumibles/graficos',           [App\Http\Controllers\ConsumiblesController::class, 'graficos'])       ->name('consumibles.graficos');
+            Route::get ('consumibles/presentacion-data',  [App\Http\Controllers\ConsumiblesController::class, 'presentacionData'])->name('consumibles.presentacionData');
             // Ruta consumibles.auditoriaCatalogo removida: el panel de
             // "Auditoría de Catálogo" se elimino del modulo de graficos.
             // El historial de cambios sigue accesible desde /admin/catalogo

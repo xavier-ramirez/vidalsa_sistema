@@ -126,14 +126,14 @@
                     @include('admin.consumibles.partials.acciones_navegacion', ['actual' => 'graficos'])
                     {{-- Acciones Locales --}}
                     <a href="#"
-                        onclick="document.getElementById('splitDropdownMenu').style.display='none'; descargarExcel(); return false;"
+                        onclick="document.getElementById('splitDropdownMenu').style.display='none'; window.consumiblesExportar({ excel: descargarExcel, filtros: getParams, urlDatos: '{{ route('consumibles.presentacionData') }}' }); return false;"
                         class="dropdown-item-custom"
                         style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9; background: transparent;"
 >
                         <div style="background: #f1f5f9; padding: 6px; border-radius: 6px; display: flex;">
                             <i class="material-icons" style="font-size: 18px; color: #64748b;">download</i>
                         </div>
-                        <span style="font-size: 14px; font-weight: 500;">Exportación de Excel</span>
+                        <span style="font-size: 14px; font-weight: 500;">Exportar (Excel o PowerPoint)</span>
                     </a>
                 </div>
             </div>
@@ -956,6 +956,9 @@
     </script>
     <script
         src="{{ asset('js/maquinaria/consumibles_graficos.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_graficos.js')) }}"></script>
+    {{-- «Exportar»: pregunta Excel o PowerPoint; el PowerPoint lo arma este archivo con los datos del sistema. --}}
+    <script
+        src="{{ asset('js/maquinaria/consumibles_presentacion.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_presentacion.js')) }}"></script>
     <script>
         // Carga inicial de datos — se ejecuta tras cargar todos los scripts.
         // La bandera _graficosDataLoaded evita que ModuleManager (spa:contentLoaded)

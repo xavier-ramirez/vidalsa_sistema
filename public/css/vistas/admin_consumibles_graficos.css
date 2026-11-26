@@ -152,3 +152,23 @@
             }
         }
     
+
+/* «Exportar» (consumibles_presentacion.js): pregunta Excel o PowerPoint; con PowerPoint, el proyecto de la segunda lámina. */
+.cons-exp-fondo { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
+.cons-exp-caja { width: 100%; max-width: 440px; background: #fff; border-radius: 14px; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, .3); padding: 18px 20px 20px; }
+.cons-exp-cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.cons-exp-cab span { font-size: 17px; font-weight: 800; color: #0f172a; }
+.cons-exp-x { background: none; border: none; color: #94a3b8; cursor: pointer; padding: 2px; border-radius: 6px; line-height: 0; }
+.cons-exp-x:hover { background: #f1f5f9; color: #475569; }
+.cons-exp-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cons-exp-op { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 10px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: #f8fafc; cursor: pointer; font-family: inherit; transition: border-color .15s, background .15s; }
+.cons-exp-op:hover, .cons-exp-op.activo { border-color: #0067b1; background: #e1effa; }
+.cons-exp-op .material-icons { font-size: 30px; }
+.cons-exp-op b { font-size: 14px; color: #0f172a; }
+.cons-exp-op small { font-size: 11.5px; color: #64748b; }
+.cons-exp-ppt { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.cons-exp-ppt[hidden] { display: none; }
+.cons-exp-ppt label { font-size: 12px; font-weight: 700; color: #475569; }
+.cons-exp-ppt select { height: 40px; border: 1px solid #cbd5e0; border-radius: 8px; padding: 0 10px; font-size: 13px; font-family: inherit; background: #fbfcfd; }
+.cons-exp-nota { min-height: 16px; font-size: 12px; color: #64748b; }
+.cons-exp-bajar { display: flex; align-items: center; justify-content: center; gap: 6px; height: 42px; }
