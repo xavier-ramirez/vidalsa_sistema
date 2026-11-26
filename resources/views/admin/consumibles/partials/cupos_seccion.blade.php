@@ -186,8 +186,8 @@
 
         // Repinta el cuerpo (sin recargar la página). Lo escrito y aún sin guardar se copia AL
         // LLEGAR la respuesta (no antes: se puede seguir escribiendo mientras tanto) y se vuelve a
-        // poner: las cisternas (salvo las del patio que se acaba de guardar), un cupo cambiado y no
-        // enviado (se envía), y el cuadro donde estaba el cursor.
+        // poner: las cisternas con su foto elegida (salvo las del patio que se acaba de guardar),
+        // un cupo cambiado y no enviado (se envía), y el cuadro donde estaba el cursor.
         function repintar(guardado) {
             var c = caja();
             return window.apiFetch(URL_LISTA, { headers: JSON_H })
@@ -205,8 +205,9 @@
                             var campo = act && tr.contains(act) && act.dataset.campo;
                             if (campo) foco = { patio: patio, fila: i, campo: campo };
                         });
+                        // La foto viaja como el mismo campo (su archivo no se puede copiar a otro).
                         var filas = Array.prototype.map.call(trs, function (tr) {
-                            return [tr.querySelector('[data-campo=fecha]').value, tr.querySelector('[data-campo=litros]').value];
+                            return [tr.querySelector('[data-campo=fecha]').value, tr.querySelector('[data-campo=litros]').value, conFoto(tr)];
                         }).filter(function (f) { return f[1].trim() !== ''; });
                         if (filas.length) pendientes[patio] = filas;
                     });
@@ -361,27 +362,46 @@
                 nueva.querySelectorAll('.cupos-mal').forEach(function (i) { i.classList.remove('cupos-mal'); });
                 // La foto es de cada cisterna: la fila nueva empieza sin foto.
                 var fotoNueva = nueva.querySelector('[data-foto-fila]');
-                if (fotoNueva) { fotoNueva.value = ''; fotoNueva.closest('.cupos-foto-btn').classList.remove('cupos-foto-lista'); }
+                if (fotoNueva) { fotoNueva.value = ''; marcarFoto(fotoNueva); }
                 tbody.appendChild(nueva);
             } else {
                 while (filas.length > 1 && vacia(filas[filas.length - 1]) && vacia(filas[filas.length - 2])) {
-                    // La fecha que se haya elegido en la que sobra pasa a la que queda.
-                    filas[filas.length - 2].querySelector('[data-campo=fecha]').value =
-                        filas[filas.length - 1].querySelector('[data-campo=fecha]').value;
-                    filas[filas.length - 1].remove();
+                    // La fecha (y la foto) que se hayan elegido en la que sobra pasan a la que queda.
+                    var sobra = filas[filas.length - 1], queda = filas[filas.length - 2];
+                    queda.querySelector('[data-campo=fecha]').value = sobra.querySelector('[data-campo=fecha]').value;
+                    if (conFoto(sobra) && !conFoto(queda)) ponerFoto(queda, conFoto(sobra));
+                    sobra.remove();
                     filas = tbody.querySelectorAll('[data-fila]');
                 }
             }
             recalcular(tbody);
         }
-        // Vuelve a poner filas escritas ([[fecha, litros], ...]) en una tabla recién pintada.
+        // Vuelve a poner filas escritas ([[fecha, litros, campo de foto], ...]) en una tabla recién pintada.
         function ponerFilas(tbody, filas) {
             filas.forEach(function (f) {
                 var tr = tbody.querySelector('[data-fila]:last-child');
                 tr.querySelector('[data-campo=fecha]').value = f[0];
                 tr.querySelector('[data-campo=litros]').value = f[1];
+                if (f[2]) ponerFoto(tr, f[2]);
                 filaAlFinal(tbody);
             });
+        }
+        // El campo de foto de la fila si tiene una elegida; si no, null.
+        function conFoto(tr) {
+            var i = tr.querySelector('[data-foto-fila]');
+            return i && i.files && i.files[0] ? i : null;
+        }
+        // Pone en la fila el campo de foto (con su archivo) de otra.
+        function ponerFoto(tr, input) {
+            tr.querySelector('[data-foto-fila]').replaceWith(input);
+            marcarFoto(input);
+        }
+        // Con foto elegida el botón queda azul (se sube con Guardar) y dice cuál es.
+        function marcarFoto(input) {
+            var lista = !!(input.files && input.files[0]);
+            var btn = input.closest('.cupos-foto-btn');
+            btn.classList.toggle('cupos-foto-lista', lista);
+            btn.title = lista ? 'Foto: ' + input.files[0].name : 'Foto de la cisterna (opcional)';
         }
         // Quitar una fila llena (la vacía del final no tiene ×).
         function quitarFila(tr) {
@@ -420,12 +440,7 @@
             if (!e.target.matches) return;
             if (e.target.matches('[data-elegir-patio]')) mostrarPatio(e.target.value);
             // Foto elegida para una fila de la tablita: el botón queda azul (se sube con Guardar).
-            else if (e.target.matches('[data-foto-fila]')) {
-                var lista = !!(e.target.files && e.target.files[0]);
-                var btn = e.target.closest('.cupos-foto-btn');
-                btn.classList.toggle('cupos-foto-lista', lista);
-                btn.title = lista ? 'Foto: ' + e.target.files[0].name : 'Foto de la cisterna (opcional)';
-            }
+            else if (e.target.matches('[data-foto-fila]')) marcarFoto(e.target);
             // El cupo se guarda al salir del cuadro (o con Enter, que envía el formulario).
             else if (e.target.matches('.cupos-cupo input[name=litros]')) enviarForm(e.target.form);
         });
