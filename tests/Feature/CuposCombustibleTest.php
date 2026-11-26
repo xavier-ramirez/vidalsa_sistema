@@ -233,6 +233,9 @@ class CuposCombustibleTest extends MySqlTestCase
         // Maturín no tiene solicitudes en abril: su cronograma es el de marzo (la que llegó).
         $this->assertSame('MARZO', $d['patios'][1]['cronograma']['mes']);
         $this->assertTrue($d['patios'][1]['cronograma']['solicitudes'][0]['llego']);
+        // Sus litros van con la solicitud (la página los pone junto al camión); las que no llegaron, sin litros.
+        $this->assertEquals(45000, $d['patios'][1]['cronograma']['solicitudes'][0]['litros']);
+        $this->assertNull($t['cronograma']['solicitudes'][0]['litros']);
     }
 
     public function test_la_direccion_sola_abre_el_modal_en_cargar(): void

@@ -458,6 +458,7 @@ class CuposCombustibleController extends Controller
                     'primer_dia' => $mesCrono->dayOfWeekIso,   // 1 = lunes … 7 = domingo
                     'solicitudes' => $solicitudes->map(fn ($k) => [
                         'numero' => $k->NUMERO, 'dia' => $k->FECHA_PLAN->day, 'llego' => $k->llego(),
+                        'litros' => $k->llego() ? (float) $k->LITROS : null,   // la página los pone junto al camión
                     ])->values(),
                 ],
             ];

@@ -9,7 +9,7 @@
      vez); elegir una opción lo atiende cupos_seccion (data-elegir-patio / data-elegir-mes). --}}
 @php $mesActual = $mes->format('Y-m'); @endphp
 <div class="cupos-arriba">
-    <div class="custom-dropdown cupos-dd cupos-patio" data-elegir-patio data-valor="TIGRE">
+    <div class="custom-dropdown cupos-dd" data-elegir-patio data-valor="TIGRE">
         <div class="dropdown-trigger cupos-dd-boton" tabindex="0" aria-label="Patio">
             <i class="material-icons">location_on</i><span data-dd-texto>{{ $patios['TIGRE']['nombre'] ?? '' }}</span><i class="material-icons">arrow_drop_down</i>
         </div>
@@ -20,7 +20,7 @@
         </div>
     </div>
     {{-- El mes de la tabla: el actual para cargar; los anteriores son el historial; los que vienen, para programar. --}}
-    <div class="custom-dropdown cupos-dd cupos-mes" data-elegir-mes data-valor="{{ $mesActual }}">
+    <div class="custom-dropdown cupos-dd" data-elegir-mes data-valor="{{ $mesActual }}">
         <div class="dropdown-trigger cupos-dd-boton" tabindex="0" aria-label="Mes">
             <i class="material-icons">calendar_month</i><span data-dd-texto>{{ $meses[$mesActual] ?? '' }}</span><i class="material-icons">arrow_drop_down</i>
         </div>

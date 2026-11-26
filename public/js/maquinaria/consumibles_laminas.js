@@ -227,7 +227,9 @@
             }).join('') + '</div><div class="cb-base"></div>';
     }
     // sols: las filas de ESTA lámina; c.solicitudes: todas (para las guías hacia el camión de más abajo).
-    function cronograma(c, sols, arriba, cont) {
+    // conLitros (solo la página): la solicitud ya surtida lleva sus litros al lado del camión; en la
+    // presentación esos litros están en la lámina de fotos.
+    function cronograma(c, sols, arriba, cont, conLitros) {
         var dias = c.dias, sol = {}, g = '<span></span>', d;
         c.solicitudes.forEach(function (s) { sol[s.dia] = s.llego; });
         var letra = function (dia) { return SEM[(c.primer_dia - 1 + dia - 1) % 7]; };
@@ -239,7 +241,11 @@
             g += '<div class="cb-sol ' + est + '">SOLICITUD ' + (s.numero != null ? esc(s.numero) : '') + '</div>';
             for (var dd = 1; dd <= dias; dd++) {
                 var cl = 'cb-v ' + est + (dd === dias ? ' cb-ult' : '');
-                if (dd === s.dia) g += '<div class="' + cl + ' cb-cam"><i>' + CAMION + '</i></div>';
+                if (dd === s.dia) {
+                    // Al final del mes la cifra va a la izquierda del camión (si no, se saldría del cronograma).
+                    var lt = conLitros && s.llego && s.litros ? '<span class="gl-lt' + (dd > dias - 5 ? ' gl-lt-izq' : '') + '">' + mil(s.litros) + ' L</span>' : '';
+                    g += '<div class="' + cl + ' cb-cam"><i>' + CAMION + '</i>' + lt + '</div>';
+                }
                 else if ((dd in sol) && despues.some(function (o) { return o.dia === dd; })) g += '<div class="' + cl + ' cb-guia' + (sol[dd] ? ' cb-guia-listo' : '') + '"><i></i></div>';
                 else g += '<div class="' + cl + '"></div>';
             }
@@ -251,38 +257,30 @@
             (sols.length ? '' : '<p class="cb-sin-sol" style="top:' + (arriba ? 260 : 520) + 'px">Sin solicitudes programadas.</p>');
     }
     // Hasta 7 solicitudes van debajo del histórico (como el maestro); las demás, en láminas del cronograma solo (16 por lámina).
-    function historicoYCrono(p) {
+    function historicoYCrono(p, pagina) {
         var titulo = 'HISTÓRICO DE DESPACHO Y CRONOGRAMA<br>DE SOLICITUD DE GASOIL ' + may(p.nombre), c = p.cronograma, todas = c.solicitudes;
-        var salida = [lamina('cb', encabezado(titulo, true) + historico(p.historico) + cronograma(c, todas.slice(0, 7), false, false), 'grafico')];
+        var salida = [lamina('cb', encabezado(titulo, true) + historico(p.historico) + cronograma(c, todas.slice(0, 7), false, false, pagina), 'grafico')];
         for (var i = 7; i < todas.length; i += 16) {
-            salida.push(lamina('cb', encabezado(titulo, true) + cronograma(c, todas.slice(i, i + 16), true, true), 'grafico'));
+            salida.push(lamina('cb', encabezado(titulo, true) + cronograma(c, todas.slice(i, i + 16), true, true, pagina), 'grafico'));
         }
         return salida;
     }
 
-    // Solo para la página (en el PowerPoint esto es la lámina de fotos): los litros de cada cisterna que llegó en el mes.
-    function recibido(patio, mes) {
-        var cis = patio.recibidas, mx = Math.max.apply(null, cis.map(function (c) { return c.litros; }).concat([1]));
-        var mesSolo = may(String(mes).split(' ')[0]);
-        return lamina('cb', '<div class="cb-tit" style="left:0;width:1280px;text-align:center;top:150px">GASOIL RECIBIDO EN ' + mesSolo +
-            ' · ' + may(patio.nombre) + ' (LITROS)</div>' +
-            '<p class="gl-rec-total">' + mil(patio.total_recibido) + ' L <span>en ' + plural(cis.length, 'cisterna', 'cisternas') + '</span></p>' +
-            '<div class="cb-hist gl-rec" style="grid-template-columns:repeat(' + Math.max(cis.length, 4) + ',minmax(0,1fr))">' +
-            cis.map(function (c, k) {
-                return '<div class="cb-mes"><em>PEDIDO ' + (k + 1) + '</em><b>' + mil(c.litros) + '</b>' +
-                    '<i style="height:' + Math.round(c.litros / mx * 300) + 'px"></i><small>' + esc(String(c.fecha).slice(0, 5)) + '</small></div>';
-            }).join('') + '</div><div class="cb-base gl-rec-base"></div>', 'pagina');
-    }
-
-    // Todas las láminas, en el orden de la presentación. d = ConsumiblesController::presentacionData.
-    function armar(d) {
+    // Todas las láminas, en el orden de la presentación. d = ConsumiblesController::presentacionData; pagina = para
+    // la página de Gráficos (los litros en el cronograma). El cupo y el histórico con cronograma salen siempre, aunque
+    // aún no haya datos (los tanques dicen «SIN CARGAR», el cronograma «Sin solicitudes»): de El Tigre siempre; de
+    // los otros patios, si tienen cupo, cisternas o solicitudes.
+    function armar(d, pagina) {
         var cis = d.cisternas, l = [portada(cis.mes)];
         cis.patios.forEach(function (p) { if (p.recibidas.length) l = l.concat(suministro(p, cis.mes)); });
         l.push(proyectos(d));
         if (d.proyecto) l.push(unProyecto(d.proyecto));
-        if (cis.cupos.some(function (c) { return c.cupo !== null || c.consumido > 0; })) l.push(cupo(cis));
-        cis.patios.forEach(function (p) {
-            if (p.cronograma.solicitudes.length || p.historico.some(function (m) { return m.litros > 0; })) l = l.concat(historicoYCrono(p));
+        l.push(cupo(cis));
+        cis.patios.forEach(function (p, k) {
+            var conCupo = cis.cupos.some(function (c) { return c.clave === p.clave && c.cupo !== null; });
+            if (!k || conCupo || p.cronograma.solicitudes.length || p.historico.some(function (m) { return m.litros > 0; })) {
+                l = l.concat(historicoYCrono(p, pagina));
+            }
         });
         return l;
     }
@@ -311,11 +309,7 @@
 
     // ── En Gráficos: solo los gráficos (sin encabezado ni portada ni fotos), cada uno escalado al ancho ──
     function pintar(cont, d) {
-        var graf = armar(d).filter(function (l) { return l.tipo === 'grafico'; }), cis = d.cisternas;
-        // Lo recibido de cada patio va antes de sus gráficos de histórico (después del cupo).
-        var rec = cis.patios.filter(function (p) { return p.recibidas.length; }).map(function (p) { return recibido(p, cis.mes); });
-        var antesDe = graf.findIndex(function (l) { return /cb-hist/.test(l.html); });
-        graf.splice(antesDe < 0 ? graf.length : antesDe, 0, ...rec);
+        var graf = armar(d, true).filter(function (l) { return l.tipo === 'grafico'; });
         cont.innerHTML = '<div class="gl gl-vista">' + graf.map(function (l) {
             return '<div class="gl-hoja">' + l.html + '</div>';
         }).join('') + '</div>';
@@ -599,5 +593,5 @@
             });
     }
 
-    window.GasoilLaminas = { armar: armar, pintar: pintar, bajar: bajar, reparto: reparto };
+    window.GasoilLaminas = { pintar: pintar, bajar: bajar };
 })();
