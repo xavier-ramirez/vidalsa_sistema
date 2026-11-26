@@ -710,7 +710,7 @@
 
         function descargarRanking() {
             if (!_rankingData || !_rankingData.length) {
-                alert('No hay datos para descargar. Carga los gráficos primero.');
+                window.showToast('No hay datos para descargar. Carga los gráficos primero.', 'warning');
                 return;
             }
             capturaPanelHtml('panelRankingEquipos', 'top_equipos_consumo');
@@ -812,7 +812,7 @@
         function descargarPanelEspecFrente(nombre) {
             const body = document.getElementById('aceiteFrente-body');
             if (!body || !body.innerHTML) {
-                alert('No hay datos para descargar.'); return;
+                window.showToast('No hay datos para descargar.', 'warning'); return;
             }
             const card = body.closest('.g-card') || body.parentElement;
             capturaPanelHtml(card?.id || 'secEspecFrente', nombre);
@@ -901,7 +901,7 @@
         function descargarGrafico(canvasId, nombre) {
             const canvas = document.getElementById(canvasId);
             if (!canvas || canvas.style.display === 'none') {
-                alert('El gráfico no está visible aún. Aplica los filtros primero.');
+                window.showToast('El gráfico no está visible aún. Aplica los filtros primero.', 'warning');
                 return;
             }
             bajarFoto(canvas, nombre);
@@ -918,7 +918,7 @@
         function capturaPanelHtml(panelId, nombre, callbackClone) {
             const el = document.getElementById(panelId);
             if (!el || el.style.display === 'none') {
-                alert('El panel no está visible. Aplica los filtros primero.'); return;
+                window.showToast('El panel no está visible. Aplica los filtros primero.', 'warning'); return;
             }
             if (typeof html2canvas === 'undefined') {
                 if (window.showPreloader) window.showPreloader();
@@ -926,12 +926,12 @@
                     .then(function () {
                         if (window.hidePreloader) window.hidePreloader();
                         // Cargó pero no trajo la librería (archivo dañado): avisar, no volver a intentar sin fin.
-                        if (typeof html2canvas === 'undefined') { alert('Error al cargar la librería de captura.'); return; }
+                        if (typeof html2canvas === 'undefined') { window.showToast('Error al cargar la librería de captura.', 'warning'); return; }
                         capturaPanelHtml(panelId, nombre, callbackClone);
                     })
                     .catch(function () {
                         if (window.hidePreloader) window.hidePreloader();
-                        alert('Error al cargar la librería de captura. Revisa tu conexión.');
+                        window.showToast('Error al cargar la librería de captura. Revisa tu conexión.', 'warning');
                     });
                 return;
             }
@@ -944,7 +944,7 @@
                     if (callbackClone) callbackClone(clonedDoc);
                 }
             }).then(canvas => bajarFoto(canvas, nombre))
-              .catch(() => alert('No se pudo generar la imagen.'));
+              .catch(() => window.showToast('No se pudo generar la imagen.', 'warning'));
         }
 
         // ── Descargar "Tarjetas Resumen" como foto ─────────────────

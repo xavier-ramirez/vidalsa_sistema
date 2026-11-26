@@ -158,13 +158,15 @@
                 }
             }
 
-            /* Lista con la columna de contadores a la derecha, como Equipos. */
-            .cons-layout > .admin-card { margin: 0; min-width: 0; }
+            /* Lista con la columna de contadores a la derecha, como Equipos, pero angosta (250 px y
+               no 320): los 3 contadores caben y la tabla gana el ancho. */
+            .cons-layout { grid-template-columns: minmax(0, 1fr) 250px; }
+            .cons-layout > .admin-card { margin: 0; min-width: 0; padding: 14px !important; }
             .cons-sidebar { position: sticky; top: 20px; }
             .cons-consolidado { position: relative; overflow: hidden; background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%); border-radius: 12px; padding: 8px 12px; color: #fff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
             .cons-consolidado-icono { position: absolute; right: -15px; bottom: -15px; font-size: 72px; opacity: .1; transform: rotate(-15deg); }
             .cons-consolidado-titulo { position: relative; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 3px; }
-            .cons-consolidado-grid { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+            .cons-consolidado-grid { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
             .cons-blk { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 4px; border-radius: 8px; text-decoration: none; color: #fff; transition: filter .2s; }
             .cons-blk:hover { filter: brightness(1.2); }
             .cons-blk strong { font-size: 20px; font-weight: 800; line-height: 1; color: #fff; }

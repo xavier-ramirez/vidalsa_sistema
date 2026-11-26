@@ -112,15 +112,24 @@ class ConsumiblesController extends Controller
      */
     public function frentesDeTextos(Request $request)
     {
-        $request->validate(['textos' => 'required|array|max:500', 'textos.*' => 'nullable|string|max:191']);
+        $request->validate([
+            'textos'        => 'required|array|max:500', 'textos.*' => 'nullable|string|max:191',
+            // Identificadores de las filas: para las de proyecto sin reconocer se sugiere el frente
+            // donde está registrado su equipo.
+            'equipos'       => 'nullable|array|max:500', 'equipos.*' => 'nullable|string|max:191',
+        ]);
         $ident = new IdentificadorConsumo();
         $r = [];
         foreach (array_unique(array_filter(array_map('trim', $request->input('textos')))) as $t) {
             $id = $ident->resolverFrente(['proyecto' => $t])['id_frente'];
             $r[$t] = $id !== null ? ['id' => $id, 'nombre' => $ident->nombreFrente($id)] : null;
         }
+        $sug = [];
+        foreach (array_unique(array_filter(array_map('trim', $request->input('equipos', []) ?? []))) as $e) {
+            $sug[$e] = $ident->frenteSugerido($ident->resolverEquipo(['desc' => $e]));
+        }
 
-        return response()->json(['frentes' => (object) $r]);
+        return response()->json(['frentes' => (object) $r, 'sugeridos' => (object) array_filter($sug)]);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -165,6 +174,7 @@ class ConsumiblesController extends Controller
             // las dos se mira abajo: required_with con miles de filas tardaba más de 10 s.
             'filas.*.imp' => 'nullable|integer',
             'filas.*.ref' => 'nullable|integer|min:0',
+            'filas.*.sugerido' => 'nullable|in:1',
         ]);
         $validator->after(function ($v) use ($request) {
             $ids = collect($request->input('filas'))->pluck('id_frente')->filter()->map(fn ($id) => (int) $id)->unique();
@@ -212,8 +222,9 @@ class ConsumiblesController extends Controller
                 $sinFrente[$texto] = true;
             }
             // Elegido a mano para un texto que no se reconocía (o se reconocía como otro): queda
-            // aprendido para la tabla y el Excel.
-            if ($elegido !== null && $texto !== '' && $reconocido['id_frente'] !== $elegido) {
+            // aprendido para la tabla y el Excel. No si se tomó la sugerencia (el frente donde está
+            // el equipo de esa fila): vale para esa fila, no para todo lo que traiga ese texto.
+            if ($elegido !== null && $texto !== '' && $reconocido['id_frente'] !== $elegido && empty($fila['sugerido'])) {
                 $ensenar[$reconocido['clave'] !== '' ? $reconocido['clave'] : $texto] = $elegido;
             }
         }

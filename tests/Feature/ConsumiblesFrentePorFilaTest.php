@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Consumible;
+use App\Models\Equipo;
 use App\Models\FrenteTrabajo;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\MySqlTestCase;
 
@@ -100,6 +102,27 @@ class ConsumiblesFrentePorFilaTest extends MySqlTestCase
         // La próxima vez (tabla o Excel) ese texto ya se reconoce solo.
         $despues = $this->actingAs($u)->postJson(route('consumibles.frentesDeTextos'), ['textos' => [$texto, '']])->assertOk();
         $this->assertSame(['id' => $this->sur->ID_FRENTE, 'nombre' => $this->sur->NOMBRE_FRENTE], $despues->json('frentes')[$texto]);
+    }
+
+    public function test_sugiere_el_frente_del_equipo_y_tomarla_no_se_aprende(): void
+    {
+        $serial = 'TSTSUG' . random_int(1000000, 9999999);
+        $equipo = Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'SUGERIDO', 'ANIO' => 2020, 'SERIAL_CHASIS' => $serial,
+            'id_tipo_equipo' => DB::table('tipo_equipos')->value('id')]);
+        DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['ID_FRENTE_ACTUAL' => $this->sur->ID_FRENTE]);
+        $texto = 'PATIO DESCONOCIDO ' . $this->marca;
+        $u = $this->superAdminGlobal();
+
+        $r = $this->actingAs($u)->postJson(route('consumibles.frentesDeTextos'), ['textos' => [$texto], 'equipos' => [$serial, 'NADA ' . $this->marca]])->assertOk();
+        $this->assertNull($r->json('frentes')[$texto]);
+        $this->assertSame($this->sur->ID_FRENTE, $r->json('sugeridos')[$serial]['id'] ?? null);
+        $this->assertArrayNotHasKey('NADA ' . $this->marca, $r->json('sugeridos'));
+
+        // Tomada la sugerencia: la fila va a ese frente, pero el texto no queda aprendido.
+        $this->guardar([$this->fila($serial, $texto, $this->sur->ID_FRENTE) + ['sugerido' => '1']])->assertOk();
+        $this->assertSame($this->sur->ID_FRENTE, $this->frenteDe($serial));
+        $otra = $this->actingAs($u)->postJson(route('consumibles.frentesDeTextos'), ['textos' => [$texto]])->assertOk();
+        $this->assertNull($otra->json('frentes')[$texto]);
     }
 
     public function test_reconocer_textos_es_solo_para_super_admin(): void

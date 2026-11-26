@@ -3,29 +3,31 @@
 
 @section('content')
     <style>
-        /* ── ZONA DE PEGADO ── (aviso: el pegado real es Ctrl+V sobre la tabla) */
-        .paste-zone {
+        /* ── RESUMEN de lo que hay en la tabla (total y por frente) ── */
+        .resumen-carga {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 8px 15px;
+            gap: 6px 8px;
             margin-bottom: 12px;
-            border: 2px dashed #bfdbfe;
+            padding: 8px 12px;
+            border: 1px solid #dbeafe;
             border-radius: 8px;
-            background: #f0f9ff;
-            color: #1d4ed8;
-            text-align: center;
+            background: #f8fbff;
+            font-size: 12.5px;
+            color: #1e293b;
         }
 
-        .paste-zone i {
-            font-size: 20px;
-        }
+        .resumen-carga .rc-total { font-weight: 800; color: #0f3d7a; margin-right: 4px; }
+        .resumen-carga .rc-frente { background: #fff; border: 1px solid #cbd5e1; border-radius: 20px; padding: 2px 10px; white-space: nowrap; }
+        .resumen-carga .rc-frente b { color: #0067b1; }
+        .resumen-carga .rc-sin { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+        .resumen-carga .rc-sin b { color: #991b1b; }
 
-        .paste-zone span {
-            font-size: 13px;
-            font-weight: 600;
-        }
+        /* Sugerencia para una fila de proyecto sin reconocer: el frente donde está su equipo. */
+        .fila-sugerido { display: block; margin-top: 3px; padding: 2px 8px; border: 1px solid #93c5fd; border-radius: 6px;
+            background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 600; cursor: pointer; text-align: left; font-family: inherit; }
+        .fila-sugerido:hover { background: #dbeafe; }
 
         /* ── TABLA TIPO EXCEL ── */
         .tbl-wrap {
@@ -333,11 +335,8 @@
                     </div>
                 </div>
 
-                {{-- Instrucciones de Pegado Rápido --}}
-                <div class="paste-zone" id="pasteZone">
-                    <i class="material-icons">content_paste</i>
-                    <span>Elija el tipo y pegue filas de Excel con Ctrl+V: con encabezados, cada columna va a su lugar; sin ellos, en este orden: <span id="pasteOrden">fecha, placa/serial, nombre, C.I., cantidad, proyecto</span></span>
-                </div>
+                {{-- Total de lo que hay en la tabla y por frente (resumenCarga), antes de guardar. --}}
+                <div id="resumenCarga" class="resumen-carga" hidden></div>
 
                 <table id="tablaFilas">
                     <thead>
@@ -355,7 +354,7 @@
                     </thead>
                     <tbody id="cuerpoTabla"></tbody>
                 </table>
-                {{-- Filas del Excel subido que aún no se pintan: aparecen al bajar (consCargarFilasExcel). --}}
+                {{-- Filas del Excel subido que aún no se pintan: «Ver 200 filas más» (consCargarFilasExcel). --}}
                 <div id="excelMas" class="excel-mas" hidden></div>
                 {{-- Lista para elegir el frente de una fila: una sola, se coloca bajo la celda. --}}
                 <div id="frenteFilaDropdown"></div>
@@ -424,11 +423,6 @@
             const espec = necesitaEspec();
             const th = document.getElementById('thEspec');
 
-            // El orden del pegado sin encabezados (pasteLoteCargarHandler): con aceite o caucho, la
-            // viscosidad o el modelo va antes del proyecto.
-            const orden = document.getElementById('pasteOrden');
-            if (orden) orden.textContent = 'fecha, placa/serial, nombre, C.I., cantidad, '
-                + (espec ? (TIPOS_ACEITE.includes(tipo) ? 'viscosidad, ' : 'modelo del caucho, ') : '') + 'proyecto';
 
             // Cabecera de columna
             if (espec) {
@@ -490,6 +484,7 @@
                 badge.textContent = '✓ ' + nombre;
                 badge.style.display = 'block';
             }
+            programarResumen();
         };
 
         // ── Desplegables de la pantalla: solo uno abierto a la vez ──────────
@@ -527,7 +522,9 @@
         // frente que se le reconoce con las reglas del Excel de gasoil (frentesDeTextos →
         // IdentificadorConsumo). Lo que no se reconoce se elige en la fila y, al guardar, queda
         // aprendido. Una fila sin texto usa el frente de arriba.
-        function estadoFrenteFila(inp, id, nombre) {
+        // sug: el frente donde está registrado el equipo de la fila ({id, nombre, equipo}), para el
+        // proyecto que no se reconoce: se ofrece con un botón; no se aplica solo.
+        function estadoFrenteFila(inp, id, nombre, sug) {
             const td = inp.closest('td');
             const texto = inp.value.trim();
             td.querySelector('[name$="[id_frente]"]').value = texto && id ? id : '';
@@ -535,24 +532,38 @@
             // El texto que no se reconoció: al elegir su frente se vuelve a él (así se aprende).
             if (texto && !id) inp.dataset.sinReconocer = texto;
             else if (id) delete inp.dataset.sinReconocer;
+            // Elegido con la sugerencia (frente del equipo): vale solo para esta fila y no se aprende.
+            if (!id || !inp.dataset.porSugerencia) delete inp.dataset.porSugerencia;
             const est = td.querySelector('.fila-frente-estado');
             est.className = 'fila-frente-estado' + (!texto ? '' : (id ? ' ok' : ' mal'));
             est.textContent = !texto ? '' : (id ? '✓ ' + nombre : 'No reconocido: elige el frente');
+            if (texto && !id && sug && sug.id) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'fila-sugerido';
+                b.dataset.sugId = sug.id;
+                b.dataset.sugNombre = sug.nombre;
+                b.title = sug.equipo ? sug.equipo + ' está registrado en ' + sug.nombre : '';
+                b.textContent = 'Su equipo está en ' + sug.nombre + ' · usar';
+                est.appendChild(b);
+            }
+            programarResumen();
         }
         // Reconoce en el servidor los textos de las filas que aún no lo están.
         function resolverFrentesFilas() {
             const pend = [...document.querySelectorAll('#cuerpoTabla [data-fila-frente]')]
                 .filter(i => i.value.trim() && i.dataset.resuelto !== i.value.trim());
             if (!pend.length) return Promise.resolve(true);
+            const idDe = i => (i.closest('tr').querySelector('[name$="[identificador]"]').value || '').trim();
             return window.apiFetch(URL_FRENTES_DE_TEXTOS, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify({ textos: [...new Set(pend.map(i => i.value.trim()))] }),
+                body: JSON.stringify({ textos: [...new Set(pend.map(i => i.value.trim()))], equipos: [...new Set(pend.map(idDe).filter(Boolean))] }),
             }).then(r => r.ok ? r.json() : Promise.reject())
                 .then(b => {
                     pend.forEach(i => {
                         const f = (b.frentes || {})[i.value.trim()];
-                        estadoFrenteFila(i, f && f.id, f && f.nombre);
+                        estadoFrenteFila(i, f && f.id, f && f.nombre, (b.sugeridos || {})[idDe(i)]);
                     });
                     return true;
                 })
@@ -578,6 +589,47 @@
         function cerrarListaFrenteFila() {
             const dd = document.getElementById('frenteFilaDropdown');
             if (dd) { dd.style.display = 'none'; dd._inp = null; }
+        }
+
+        // ── Resumen de la tabla ───────────────────────────────────────────
+        // Filas, litros y litros por frente de todo lo que se va a guardar: lo que se ve y lo del
+        // Excel que aún no se pintó. Frente de una fila: el reconocido o elegido; sin texto, el de arriba.
+        var temporizadorResumen = null;
+        function programarResumen() {
+            clearTimeout(temporizadorResumen);
+            temporizadorResumen = setTimeout(resumenCarga, 150);
+        }
+        function resumenCarga() {
+            const caja = document.getElementById('resumenCarga');
+            if (!caja) return;
+            const arriba = document.getElementById('idFrenteHidden').value;
+            const nombres = {};
+            FRENTES.forEach(f => { nombres[f.id] = f.nombre; });
+            const porFrente = {};
+            let filas = 0, total = 0;
+            const sumar = (cant, texto, id) => {
+                const v = parseFloat(cant);
+                if (!(v > 0)) return;
+                filas++; total += v;
+                const k = id ? String(id) : (!texto && arriba ? String(arriba) : '');
+                porFrente[k] = porFrente[k] || { l: 0, n: 0 };
+                porFrente[k].l += v; porFrente[k].n++;
+            };
+            [...document.getElementById('cuerpoTabla').children].forEach(tr => {
+                const v = n => (tr.querySelector(`[name$="[${n}]"]`) || {}).value || '';
+                sumar(v('cantidad'), v('frente').trim(), v('id_frente'));
+            });
+            excelPorPintar.forEach(f => sumar(f.cantidad, f.frente, f.frente && f.id_frente ? f.id_frente : ''));
+            caja.hidden = !filas;
+            if (!filas) { caja.innerHTML = ''; return; }
+            const fmt = x => Number(x).toLocaleString('es-VE', { maximumFractionDigits: 2 });
+            const unidad = (document.getElementById('unidadSelect').value || 'LITROS') === 'LITROS' ? 'L' : document.getElementById('unidadSelect').value.toLowerCase();
+            const chips = Object.keys(porFrente).sort((a, b) => porFrente[b].l - porFrente[a].l).map(k => {
+                const g = porFrente[k];
+                const nombre = k ? (nombres[k] || 'Frente ' + k) : 'Sin frente';
+                return `<span class="rc-frente${k ? '' : ' rc-sin'}">${window.escapeHtml(nombre)}: <b>${fmt(g.l)} ${unidad}</b> (${fmt(g.n)})</span>`;
+            }).join('');
+            caja.innerHTML = `<span class="rc-total">${fmt(filas)} ${filas === 1 ? 'fila' : 'filas'} · ${fmt(total)} ${unidad}</span>` + chips;
         }
 
         // ── Gestión de filas ──────────────────────────────────────────────
@@ -616,7 +668,7 @@
                                                     </button></td>`;
             (destino || document.getElementById('cuerpoTabla')).appendChild(tr);
             // Del Excel subido el frente ya viene reconocido por el servidor: no se vuelve a pedir.
-            if (data.imp) estadoFrenteFila(tr.querySelector('[data-fila-frente]'), data.id_frente, data.nombre_frente);
+            if (data.imp) estadoFrenteFila(tr.querySelector('[data-fila-frente]'), data.id_frente, data.nombre_frente, data.sugerido);
             if (!destino) window.actualizarContador();
             if (filaCount === 1) { const f = tr.querySelector('input'); if (f) f.id = 'primerInput'; }
             return tr;
@@ -629,6 +681,7 @@
             const el = document.getElementById(`fila_${n}`);
             if (el) el.remove();
             window.actualizarContador();
+            programarResumen();
         };
 
 
@@ -819,7 +872,7 @@
             vaciarSiNoHayDatos();
 
             // Con encabezados, cada columna va a la suya por su nombre; sin ellos, por posición:
-            // el orden que dice #pasteOrden (con aceite o caucho, la viscosidad o el modelo).
+            // fecha, placa/serial, nombre, C.I., cantidad, [viscosidad o modelo del caucho,] proyecto.
             const espec = necesitaEspec();
             let insertadas = 0, sinFecha = 0;
             // Fecha en tres columnas (día | mes | año), como el reporte de ventas de Patio El Tigre:
@@ -858,13 +911,7 @@
                 window.showToast(sinFecha + (sinFecha === 1 ? ' fila trae una fecha que no se reconoce' : ' filas traen una fecha que no se reconoce') + ': complétala a mano.', 'warning');
             }
 
-            if (insertadas > 0) {
-                const pz = document.getElementById('pasteZone');
-                if (pz) {
-                    pz.style.borderColor = '#059669';
-                    setTimeout(() => { pz.style.borderColor = ''; }, 1000);
-                }
-            }
+            programarResumen();
         }
         document.removeEventListener('paste', window.pasteLoteCargarHandler);
         document.addEventListener('paste', window.pasteLoteCargarHandler);
@@ -874,7 +921,8 @@
         // Guardar. Cada fila lleva su carga y su lugar en ella (imp/ref): con eso el servidor
         // salta al guardar los que ya estaban cargados (ImportadorCombustible::aplicar).
         // Miles de filas con sus campos tardan segundos en acomodarse y congelan la página: se
-        // pintan por tandas al bajar (como el catálogo). Las que no se pintaron se guardan igual.
+        // pintan por tandas con «Ver 200 filas más» (no solas al bajar: el botón Guardar se alejaba
+        // cada vez que se acercaba). Las que no se pintaron se guardan igual.
         var excelPorPintar = [];
         var TANDA_EXCEL = 200;
         function pintarTandaExcel(n) {
@@ -884,13 +932,11 @@
             window.actualizarContador();
             const mas = document.getElementById('excelMas');
             mas.hidden = !excelPorPintar.length;
-            mas.textContent = excelPorPintar.length
-                ? Number(excelPorPintar.length).toLocaleString('es-VE') + ' filas más del Excel: aparecen al bajar. Al guardar van todas.'
+            mas.innerHTML = excelPorPintar.length
+                ? Number(excelPorPintar.length).toLocaleString('es-VE') + ' filas más del Excel (al guardar van todas). '
+                    + '<button type="button" class="btn-primary-maquinaria btn-secondary btn-compacto" data-ver-mas-excel>Ver ' + Math.min(TANDA_EXCEL, excelPorPintar.length) + ' filas más</button>'
                 : '';
-            // Bajó rápido y el aviso sigue a la vista: otra tanda (el observador avisa solo al entrar).
-            if (excelPorPintar.length && mas.getBoundingClientRect().top < window.innerHeight + 600) {
-                requestAnimationFrame(() => pintarTandaExcel());
-            }
+            programarResumen();
         }
         function filaExcelParaGuardar(f) {
             return {
@@ -914,9 +960,9 @@
             excelPorPintar = filas.filter(mal).concat(excelPorPintar, filas.filter(f => !mal(f)));
             pintarTandaExcel(Math.max(TANDA_EXCEL, nMal));
             const mas = document.getElementById('excelMas');
-            if (!mas._io && 'IntersectionObserver' in window) {
-                mas._io = new IntersectionObserver(e => { if (e[0].isIntersecting && excelPorPintar.length) pintarTandaExcel(); }, { rootMargin: '600px' });
-                mas._io.observe(mas);
+            if (!mas._listo) {
+                mas._listo = true;
+                mas.addEventListener('click', e => { if (e.target.closest('[data-ver-mas-excel]')) pintarTandaExcel(); });
             }
 
             const n = r.filas.length, cargados = r.cargados || 0, repetidos = r.repetidos || 0;
@@ -928,8 +974,7 @@
             if (partes.length) msj += ' ' + partes.join(' y ') + ': se saltan al guardar.';
             if (window.showToast) window.showToast(msj, 'success');
             if (r.avisos && r.avisos.length && window.showToast) window.showToast(r.avisos.join(' '), 'warning');
-            const pz = document.getElementById('pasteZone');
-            if (pz) pz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('resumenCarga').scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
 
         // ── Envío AJAX con spinner ────────────────────────────────────────
@@ -995,6 +1040,7 @@
                     filas: [...document.getElementById('cuerpoTabla').children].map(tr => {
                         const o = {};
                         campos.forEach(c => { const i = tr.querySelector(`[name$="[${c}]"]`); if (i) o[c] = i.value; });
+                        if ((tr.querySelector('[data-fila-frente]') || {}).dataset?.porSugerencia) o.sugerido = '1';
                         return o;
                     }).concat(excelPorPintar.map(filaExcelParaGuardar)),
                 };
@@ -1022,6 +1068,7 @@
                             excelPorPintar = [];
                             document.getElementById('excelMas').hidden = true;
                             for (var i = 0; i < 5; i++) agregarFila();
+                            programarResumen();
 
                             // 2. Resetear frente
                             document.getElementById('idFrenteHidden').value = '';
@@ -1085,6 +1132,16 @@
                         function (inp) { return inp.value.trim() !== ''; }
                     );
                     if (algunDato) window.agregarFila();
+                });
+                // Lo escrito cambia el resumen (litros y frentes).
+                tabla.addEventListener('input', programarResumen);
+                // Sugerencia del frente del equipo: solo esta fila, sin aprender el texto.
+                tabla.addEventListener('click', function (e) {
+                    var b = e.target.closest('.fila-sugerido');
+                    if (!b) return;
+                    var inp = b.closest('td').querySelector('[data-fila-frente]');
+                    inp.dataset.porSugerencia = '1';
+                    estadoFrenteFila(inp, Number(b.dataset.sugId), b.dataset.sugNombre);
                 });
                 // Columna FRENTE: al escribir, la lista de frentes; al salir, se reconoce lo escrito.
                 tabla.addEventListener('focusin', function (e) {

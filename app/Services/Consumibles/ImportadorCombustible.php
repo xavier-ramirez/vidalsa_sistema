@@ -222,6 +222,8 @@ class ImportadorCombustible
                 'frente'        => $r['frente']['clave'],
                 'id_frente'     => $id,
                 'nombre_frente' => $ident->nombreFrente($id),
+                // Proyecto sin reconocer: dónde está registrado su equipo, para elegirlo con un clic.
+                'sugerido'      => $id === null ? $ident->frenteSugerido($r['equipo']) : null,
             ];
         }
 

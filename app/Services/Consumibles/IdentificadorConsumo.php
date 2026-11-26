@@ -569,6 +569,24 @@ class IdentificadorConsumo
         return $fr > $p ? 'frente' : 'proyecto';
     }
 
+    /**
+     * Sugerencia para una fila cuyo proyecto no se reconoce: el frente donde está registrado el
+     * equipo de la fila (si se identifica y tiene frente). Lo elige el usuario; no se aplica solo.
+     * @param array $equipo lo que devolvió resolverEquipo()
+     * @return array{id:int, nombre:string, equipo:?string}|null
+     */
+    public function frenteSugerido(array $equipo): ?array
+    {
+        $id = match (true) {
+            !empty($equipo['id_equipo'])   => DB::table('equipos')->where('ID_EQUIPO', $equipo['id_equipo'])->value('ID_FRENTE_ACTUAL'),
+            !empty($equipo['id_auxiliar']) => DB::table('equipos_auxiliares')->where('ID_AUXILIAR', $equipo['id_auxiliar'])->value('ID_FRENTE_ACTUAL'),
+            default                        => null,
+        };
+        $nombre = $id !== null ? $this->nombreFrente((int) $id) : null;
+
+        return $nombre !== null ? ['id' => (int) $id, 'nombre' => $nombre, 'equipo' => $equipo['etiqueta'] ?? null] : null;
+    }
+
     public function nombreFrente(?int $id): ?string
     {
         return $id !== null ? ($this->nombresFrente[$id] ?? null) : null;
