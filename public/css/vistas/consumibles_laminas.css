@@ -147,24 +147,17 @@
 .gl .cb-sin-sol { position: absolute; left: 0; width: 1280px; margin: 0; text-align: center; font: 400 14px Arial, sans-serif; color: #4A5563; }
 
 /* Lámina «Consumo de gasoil por proyecto» (propia del sistema, no del maestro): tabla-gráfico a la izquierda
-   (puesto | proyecto | barra | litros), y a la derecha el total y las divisiones. */
+   (proyecto | barra | litros), y a la derecha el total y las divisiones. */
 .gl .gp-card { position: absolute; left: 40px; top: 146px; width: 820px; height: 548px; padding: 22px 26px 18px; background: #fff; border: 1px solid #DDE3EA; border-radius: 14px; box-shadow: 0 6px 18px rgba(20, 40, 70, .10); display: flex; flex-direction: column; }
 .gl .gp-tit { font: 700 20px/1 Arial, sans-serif; letter-spacing: .05em; color: #1F2A37; }
 .gl .gp-sub { margin-top: 7px; font: 700 11.5px/1 Arial, sans-serif; letter-spacing: .08em; color: #6B7684; }
-.gl .gp-cab, .gl .gp-fila { display: grid; grid-template-columns: 26px 230px minmax(0, 1fr) 100px; align-items: center; column-gap: 12px; }
-.gl .gp-cab { margin-top: 16px; padding-bottom: 8px; border-bottom: 1px solid #E3E7ED; font: 700 10.5px/1 Arial, sans-serif; letter-spacing: .08em; color: #6B7684; }
-.gl .gp-cab small, .gl .gp-cab b { font: inherit; }
-.gl .gp-cab span:first-child { text-align: center; }
-.gl .gp-cab b { text-align: right; }
-.gl .gp-filas { --pista: 18px; --nombre: 13px; --cifra: 16px; --pos: 22px; flex: 1; min-height: 0; padding: 6px 0; display: flex; flex-direction: column; justify-content: space-between; }
-.gl .gp-pos { justify-self: center; min-width: var(--pos); height: var(--pos); padding: 0 3px; border-radius: calc(var(--pos) / 2); background: #EEF2F6; font: 700 calc(var(--pos) * .5)/var(--pos) Arial, sans-serif; color: #2B3440; text-align: center; }
-.gl .gp-fila:nth-child(-n+4) .gp-pos { background: #C0392B; color: #fff; }
+.gl .gp-fila { display: grid; grid-template-columns: 290px minmax(0, 1fr) 80px; align-items: center; column-gap: 14px; }
+.gl .gp-filas { --pista: 18px; --nombre: 13px; --cifra: 16px; flex: 1; min-height: 0; margin-top: 14px; padding: 12px 0 8px; border-top: 1px solid #E3E7ED; display: flex; flex-direction: column; justify-content: space-between; }
 .gl .gp-fila small { font: 700 var(--nombre)/1.1 Arial, sans-serif; letter-spacing: .03em; color: #1F2A37; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gl .gp-pista { position: relative; height: var(--pista); border-radius: 0 4px 4px 0; background: #EEF2F6; }
 .gl .gp-pista i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; }
 .gl .gp-fila b { font: 700 var(--cifra)/1 Arial, sans-serif; color: #000; text-align: right; white-space: nowrap; }
 .gl .gp-otros small, .gl .gp-otros b { color: #4A5563; }
-.gl .gp-otros .gp-pos { visibility: hidden; }
 .gl .gp-ley { display: flex; justify-content: flex-end; gap: 22px; padding-top: 10px; border-top: 1px solid #E3E7ED; font: 700 11.5px/1 Arial, sans-serif; letter-spacing: .05em; color: #2B3440; }
 .gl .gp-ley span { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .gl .gp-ley i { width: 12px; height: 12px; border-radius: 3px; }

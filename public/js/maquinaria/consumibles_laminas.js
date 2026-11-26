@@ -86,11 +86,11 @@
     }
 
     // ── 3. Consumo por proyecto ──
-    // Tabla-gráfico ordenada: puesto, proyecto, barra sobre su pista (escala: el mayor = pista llena) y litros en
-    // columnas alineadas. Dos colores con sentido: los 4 de mayor consumo en azul (con su puesto en rojo) y los demás en
-    // gris (pasan a segundo plano); revisados con el validador de dataviz (se distinguen también con daltonismo).
-    // A la derecha: el total y el consumo por división, con su %.
-    var AZUL = '#2E75B6', GRIS = '#A3ACB9';
+    // Barras ordenadas: proyecto, barra sobre su pista (escala: el mayor = pista llena) y litros en columnas alineadas.
+    // Dos colores con sentido: los 4 de mayor consumo en rojo y los demás en gris (pasan a segundo plano); revisados con
+    // el validador de dataviz (se distinguen también con daltonismo; el gris lleva sus litros escritos al lado).
+    // A la derecha: el total y el consumo por división (en azul), con su %.
+    var ROJO = '#C0392B', GRIS = '#A3ACB9';
     var MESES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
     // Período de la lámina: un mes completo (del 1 al último día) sale con su nombre; si no, «DEL … AL …».
     function periodoDe(desde, hasta) {
@@ -101,7 +101,7 @@
         return 'DEL ' + desde + ' AL ' + hasta;
     }
     var MAX_FILAS = 25;   // con más proyectos, los últimos se suman en una fila «Otros» (más filas no se leen en la lámina)
-    var ALTO_FILAS = 372; // alto para las filas dentro de la tarjeta (sin título, encabezados ni leyenda)
+    var ALTO_FILAS = 400; // alto para las filas dentro de la tarjeta (sin título ni leyenda)
     function pct(parte, total) { return (total > 0 ? Math.round(parte / total * 1000) / 10 : 0).toFixed(1).replace('.', ',') + ' %'; }
     function proyectos(d) {
         var ps = d.proyectos.slice(0, d.proyectos.length > MAX_FILAS ? MAX_FILAS - 1 : MAX_FILAS), otros = d.proyectos.slice(ps.length);
@@ -110,23 +110,22 @@
         // Las filas llenan el alto de la tarjeta: con pocos proyectos, repartidas y más grandes; con muchos, más bajas.
         var n = ps.length + (otros.length ? 1 : 0), paso = ALTO_FILAS / Math.max(n, 1);
         var med = function (f, min, max) { return Math.max(min, Math.min(max, paso * f)).toFixed(1) + 'px'; };
-        var vars = '--pista:' + med(0.42, 5, 18) + ';--nombre:' + med(0.52, 8, 13) + ';--cifra:' + med(0.6, 9, 16) + ';--pos:' + med(0.8, 10, 22) +
+        var vars = '--pista:' + med(0.42, 5, 18) + ';--nombre:' + med(0.52, 8, 13) + ';--cifra:' + med(0.6, 9, 16) +
             (n <= 4 ? ';justify-content:center;gap:40px' : n < 13 ? ';justify-content:space-around' : '');
-        var fila = function (puesto, nombre, litros, ancho, color, clase) {
-            return '<div class="gp-fila' + (clase ? ' ' + clase : '') + '"><span class="gp-pos">' + puesto + '</span><small>' + nombre + '</small>' +
+        var fila = function (nombre, litros, ancho, color, clase) {
+            return '<div class="gp-fila' + (clase ? ' ' + clase : '') + '"><small>' + nombre + '</small>' +
                 '<div class="gp-pista">' + (ancho > 0 ? '<i style="width:' + ancho.toFixed(2) + '%;background:' + color + '"></i>' : '') + '</div>' +
                 '<b>' + mil(litros) + '</b></div>';
         };
-        var filas = ps.map(function (p, k) { return fila(k + 1, may(p.nombre), p.litros, 100 * p.litros / mayor, k < 4 ? AZUL : GRIS); }).join('');
-        if (otros.length) filas += fila('', 'OTROS ' + otros.length + ' PROYECTOS', suma(otros), 0, '', 'gp-otros');
+        var filas = ps.map(function (p, k) { return fila(may(p.nombre), p.litros, 100 * p.litros / mayor, k < 4 ? ROJO : GRIS); }).join('');
+        if (otros.length) filas += fila('OTROS ' + otros.length + ' PROYECTOS', suma(otros), 0, '', 'gp-otros');
         var periodo = periodoDe(d.desde, d.hasta);
         if (periodo) periodo = ' · ' + esc(periodo);
-        var ley = '<div class="gp-ley"><span><i style="background:' + AZUL + '"></i>' + (ps.length > 4 ? 'MAYOR CONSUMO' : 'PROYECTOS') + '</span>' +
+        var ley = '<div class="gp-ley"><span><i style="background:' + ROJO + '"></i>' + (ps.length > 4 ? 'MAYOR CONSUMO' : 'PROYECTOS') + '</span>' +
             (ps.length > 4 ? '<span><i style="background:' + GRIS + '"></i>MENOR CONSUMO</span>' : '') + '</div>';
         var izq = '<div class="gp-card"><div class="gp-tit">CONSUMO POR PROYECTO</div><div class="gp-sub">LITROS DE GASOIL' + periodo + '</div>' +
             (ps.length
-                ? '<div class="gp-cab"><span>#</span><small>PROYECTO</small><span></span><b>LITROS</b></div>' +
-                  '<div class="gp-filas" style="' + vars + '">' + filas + '</div>' + ley
+                ? '<div class="gp-filas" style="' + vars + '">' + filas + '</div>' + ley
                 : '<p class="gp-vacio">' + (d.total > 0 ? 'El gasoil del período se cargó sin proyecto.' : 'Sin gasoil en el período.') + '</p>') + '</div>';
 
         // Derecha: total y consumo por división. Los % y las barras, sobre el total (incluye lo cargado sin proyecto).
