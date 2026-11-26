@@ -17,51 +17,56 @@
         font-weight: 600; color: #64748b; cursor: pointer; font-family: inherit; transition: background .15s, color .15s; }
     .cupos-elegir button.activo { background: var(--color); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
 
-    .cupos-resumen { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
-    .cupos-resumen small { display: block; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .4px; }
-    .cupos-resumen b { font-size: 18px; color: #0f172a; }
-    .cupos-quedan { text-align: right; }
-    .cupos-quedan b { font-size: 24px; }
-    .cupos-cupo-ver { display: flex; align-items: center; gap: 6px; }
+    .cupos-cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+    .cupos-cifra { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; text-align: center;
+        min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+    .cupos-cifra small { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
+    .cupos-cifra b { font-size: 18px; color: #0f172a; white-space: nowrap; }
+    .cupos-cupo-ver { display: flex; align-items: center; justify-content: center; gap: 4px; }
     .cupos-cupo-ver[hidden] { display: none; }
     .cupos-lapiz { border: none; background: none; cursor: pointer; color: #0067b1; padding: 0; display: flex; }
     .cupos-lapiz i { font-size: 18px; }
-    .cupos-cupo-editar { display: flex; gap: 4px; align-items: center; margin-top: 2px; }
+    .cupos-cupo-editar { display: flex; gap: 4px; align-items: center; width: 100%; }
     .cupos-cupo-editar[hidden] { display: none; }
-    .cupos-cupo-editar input { width: 150px; height: 32px; border: 1px solid #0067b1; border-radius: 6px; padding: 0 8px;
+    .cupos-cupo-editar input { flex: 1; min-width: 0; width: 0; height: 32px; border: 1px solid #0067b1; border-radius: 6px; padding: 0 8px;
         font-size: 13px; font-family: inherit; outline: none; box-sizing: border-box; }
     .cupos-mini { border: none; border-radius: 6px; background: #0067b1; color: #fff; height: 32px; width: 32px; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
     .cupos-mini i { font-size: 18px; }
     .cupos-mini-gris { background: #e2e8f0; color: #475569; }
-    .cupos-barra { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+    .cupos-barra { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 10px; }
     .cupos-barra i { display: block; height: 100%; border-radius: 4px; }
 
-    .cupos-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 16px; padding: 10px;
+    .cupos-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center; margin-top: 16px; padding: 10px;
         background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
     .cupos-form input { height: 36px; border: 1px solid #cbd5e0; border-radius: 8px; background: #fff; padding: 0 10px;
-        font-size: 13px; font-family: inherit; outline: none; min-width: 0; box-sizing: border-box; flex: 1; }
+        font-size: 13px; font-family: inherit; outline: none; min-width: 0; width: 100%; box-sizing: border-box; }
     .cupos-form input:focus { border-color: #0067b1; }
-    .cupos-form .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; }
+    .cupos-form .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; height: 36px; justify-content: center; }
 
     /* Historial con el estilo de la tabla de la Lista de Consumibles; una fila por mes con su resumen. */
     .cupos-tbl-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid #e2e8f0; margin-top: 14px; }
-    .cupos-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .cupos-tbl { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
     .cupos-tbl th { background: #1e293b; color: #e2e8f0; font-weight: 700; padding: 8px; font-size: 11px; text-transform: uppercase;
         letter-spacing: .4px; white-space: nowrap; text-align: left; }
     .cupos-tbl td { padding: 7px 8px; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
     .cupos-tbl tr.cupos-mes td { background: #eef4fa; color: #475569; border-left: 4px solid var(--color); }
     .cupos-tbl tr.cupos-mes b { color: #0f172a; }
-    .cupos-tbl tr.cupos-mes span { float: right; }
-    .cupos-tbl .num { text-align: right; white-space: nowrap; }
+    .cupos-tbl tr.cupos-mes span { float: right; font-size: 11px; }
+    .cupos-tbl .num, .cupos-tbl th.num { text-align: right; white-space: nowrap; }
     .cupos-tbl .cupos-acc { width: 34px; text-align: center; }
-    .cupos-vacio { color: #94a3b8; font-style: italic; text-align: center; }
+    .cupos-vacio { color: #94a3b8; text-align: center; padding: 22px 8px !important; }
+    .cupos-vacio i { display: block; width: max-content; margin: 0 auto 4px; font-size: 30px; color: #cbd5e1; }
     .cupos-borrar { border: none; background: none; cursor: pointer; color: #94a3b8; padding: 2px; display: inline-flex; }
     .cupos-borrar:hover { color: #dc2626; }
     .cupos-borrar i { font-size: 18px; }
     .cupos-ocupado { opacity: .55; pointer-events: none; }
     @media (max-width: 600px) {
-        .cupos-form .btn-primary-maquinaria { flex: 1 1 100%; justify-content: center; }
+        .cupos-cifra { padding: 8px 6px; }
+        .cupos-cifra small { font-size: 10px; }
+        .cupos-cifra b { font-size: 14px; }
+        .cupos-form { grid-template-columns: 1fr 1fr; }
+        .cupos-form .btn-primary-maquinaria { grid-column: 1 / -1; }
         .cupos-tbl tr.cupos-mes span { float: none; display: block; }
     }
 </style>

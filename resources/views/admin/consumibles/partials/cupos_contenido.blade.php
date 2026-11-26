@@ -20,8 +20,9 @@
         $pct = $p['cupo'] ? min(100, $p['surtido'] / $p['cupo'] * 100) : ($p['surtido'] > 0 ? 100 : 0);
     @endphp
     <div class="cupos-panel" data-panel="{{ $clave }}" style="--color: {{ $colores[$clave] }};" hidden>
-        <div class="cupos-resumen">
-            <div>
+        {{-- Tres cifras del mismo tamaño: el cupo (se edita con el lápiz), lo surtido y lo que queda en el mes en curso. --}}
+        <div class="cupos-cifras">
+            <div class="cupos-cifra">
                 <small>Cupo mensual</small>
                 <span class="cupos-cupo-ver">
                     <b>{{ $p['cupo'] !== null ? $lt($p['cupo']) . ' L' : 'Sin cargar' }}</b>
@@ -32,15 +33,19 @@
                 @if ($puede)
                     <form class="cupos-cupo-editar" data-accion="cupo" hidden>
                         <input type="hidden" name="patio" value="{{ $clave }}">
-                        <input type="text" name="litros" inputmode="decimal" required placeholder="Litros por mes" autocomplete="off"
+                        <input type="text" name="litros" inputmode="decimal" required placeholder="Litros" autocomplete="off"
                             value="{{ $p['cupo'] !== null ? $lt($p['cupo']) : '' }}">
                         <button type="submit" class="cupos-mini" title="Guardar"><i class="material-icons">check</i></button>
                         <button type="button" class="cupos-mini cupos-mini-gris" data-cancelar-cupo title="Cancelar"><i class="material-icons">close</i></button>
                     </form>
                 @endif
             </div>
-            <div class="cupos-quedan">
-                <small>Quedan en {{ $nombreMes($hoy) }}</small>
+            <div class="cupos-cifra">
+                <small>Surtido del mes</small>
+                <b>{{ $lt($p['surtido']) }} L</b>
+            </div>
+            <div class="cupos-cifra">
+                <small>Quedan del mes</small>
                 <b style="color: {{ $pasado ? '#dc2626' : 'inherit' }};">{{ $p['cupo'] !== null ? $lt($p['quedan']) . ' L' : '—' }}</b>
             </div>
         </div>
@@ -58,6 +63,7 @@
 
         <div class="cupos-tbl-wrap">
             <table class="cupos-tbl">
+                <colgroup><col><col style="width: 30%;"><col style="width: 30%;">@if ($puede)<col style="width: 40px;">@endif</colgroup>
                 <thead><tr><th>Fecha</th><th class="num">Litros</th><th class="num">Quedan</th>@if ($puede)<th></th>@endif</tr></thead>
                 @forelse ($p['meses'] as $m)
                     <tbody>
@@ -86,7 +92,7 @@
                         @endforeach
                     </tbody>
                 @empty
-                    <tbody><tr><td colspan="{{ $puede ? 4 : 3 }}" class="cupos-vacio">Todavía no hay cisternas de {{ $p['nombre'] }}.</td></tr></tbody>
+                    <tbody><tr><td colspan="{{ $puede ? 4 : 3 }}" class="cupos-vacio"><i class="material-icons">local_shipping</i>Todavía no hay cisternas de {{ $p['nombre'] }}.</td></tr></tbody>
                 @endforelse
             </table>
         </div>
