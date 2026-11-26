@@ -114,6 +114,11 @@
                 border-bottom: 1px dashed #e2e8f0;
                 font-weight: 700;
             }
+            /* Buscador de placa/serial: más angosto que Frente y Tipo (a pedido); en el teléfono, lo que deje el botón de filtros. */
+            @media (max-width: 900px) { #consIdentWrap { flex: 1 1 150px !important; } }
+            /* Columna Equipo más angosta: el tipo pasa a dos líneas si no cabe. */
+            .cons-tbl-wrap .admin-table .cons-col-eq { width: 190px; max-width: 190px; }
+            .cons-tbl-wrap td.cons-col-eq { overflow-wrap: anywhere; }
             /* Columna de la X que borra la fila: solo lo que mide el botón. */
             .cons-tbl-wrap .admin-table .cons-col-del { width: 22px; padding: 0 3px !important; text-align: center; }
             .cons-tbl-wrap .cons-col-del .cons-btn-del { padding: 2px; }
@@ -295,7 +300,7 @@
                     </div>
 
                     <div id="consIdentWrap" data-cons-sync
-                        style="flex: 1; min-width: 150px; height: 42px; border-radius: 10px; display: flex; align-items: center; border: 1px solid {{ request('identificador') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('identificador') ? '#e1effa' : '#fbfcfd' }}; overflow: hidden;">
+                        style="flex: 0 1 210px; min-width: 150px; height: 42px; border-radius: 10px; display: flex; align-items: center; border: 1px solid {{ request('identificador') ? '#0067b1' : '#cbd5e0' }}; background: {{ request('identificador') ? '#e1effa' : '#fbfcfd' }}; overflow: hidden;">
                         <i class="material-icons"
                             style="padding: 0 8px; color: #94a3b8; font-size: 18px; flex-shrink: 0;">search</i>
                         <input type="text" name="identificador" value="{{ request('identificador') }}"
@@ -592,7 +597,7 @@
                             <th class="th-center" style="width:28px; padding:9px 2px;">#</th>
                             <th class="th-left">Fecha</th>
                             <th class="th-left">Tipo</th>
-                            <th class="th-left">Equipo <span style="font-weight:400;opacity:.7;">(placa / serial)</span></th>
+                            <th class="th-left cons-col-eq">Equipo <span style="font-weight:400;opacity:.7;">(placa / serial)</span></th>
                             <th class="th-left">Responsable</th>
                             <th class="th-right">Cantidad</th>
                             <th class="th-left">Frente <span style="font-weight:400;opacity:.7;">(proyecto)</span></th>
@@ -645,7 +650,7 @@
                                         $mostrado = \App\Models\Consumible::escritoSinDescripcion($c->IDENTIFICADOR, $c->DESC_EQUIPO) ?: '—';
                                     }
                                 @endphp
-                                <td style="line-height:1.5;"
+                                <td class="cons-col-eq" style="line-height:1.5;"
                                     id="id-cell-{{ $c->ID_CONSUMIBLE }}" data-original="{{ $c->IDENTIFICADOR }}" data-mostrado="{{ $mostrado }}">
                                     <div class="cons-equipo">
                                     @if($c->equipo)
