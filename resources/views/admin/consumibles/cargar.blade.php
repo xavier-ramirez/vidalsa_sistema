@@ -680,7 +680,8 @@
                 else if (/VISCOSIDAD|MEDIDA|ESPECIFICACION|MODELO (DEL )?CAUCHO/.test(h)) pon('espec', i);
                 else if (/PLACA|SERIAL|IDENTIFICADOR/.test(h)) pon('id', i);
                 else if (/RESPONSABLE|CHOFER|OPERADOR|CONDUCTOR/.test(h)) pon('nombre', i);
-                else if (/^(PROYECTO|FRENTE|OBRA)\b/.test(h)) pon('frente', i);
+                // ACTIVIDAD: el proyecto en el reporte de ventas de Patio El Tigre (igual que el lector).
+                else if (/^(PROYECTO|FRENTE|OBRA|ACTIVIDAD)\b/.test(h)) pon('frente', i);
                 else if (/DESCRIPCION|CARACTERISTICAS|VEHICULO ?\/ ?EQUIPO/.test(h) || h === 'EQUIPO' || h === 'VEHICULO') {
                     if (desc === undefined) desc = i;
                 } else if (h.indexOf('NOMBRE') !== -1) pon('nombre', i);
@@ -799,6 +800,15 @@
             // el orden que dice #pasteOrden (con aceite o caucho, la viscosidad o el modelo).
             const espec = necesitaEspec();
             let insertadas = 0, sinFecha = 0;
+            // Fecha en tres columnas (día | mes | año), como el reporte de ventas de Patio El Tigre:
+            // el encabezado FECHA ocupa una celda y las dos de al lado vienen vacías
+            // (LectorExcelCombustible::fechaPartida hace lo mismo con los Excel subidos).
+            const enc = mapa && desde > 0 ? filas[desde - 1] : null;
+            const fp = mapa ? mapa.fecha : undefined;
+            const fechaPartida = !!(enc && fp !== undefined && !enc[fp + 1] && !enc[fp + 2]);
+            const fechaDe = cols => fechaPartida && /^\d{1,2}$/.test(cols[fp + 1] || '') && /^\d{4}$/.test(cols[fp + 2] || '')
+                ? cols[fp] + '/' + cols[fp + 1] + '/' + cols[fp + 2]
+                : (mapa ? (fp !== undefined ? (cols[fp] || '') : '') : (cols[0] || ''));
             filas.slice(desde).forEach(cols => {
                 if (cols.some(c => /^(SUB ?)?TOTAL(ES)?\b/i.test(c))) return;   // fila de total
                 // Sin encabezado, las filas de títulos antes de los datos (texto, no fecha ni número).
@@ -808,8 +818,8 @@
                     : (cols[pos] || '');
                 // Sin litros no es despacho (la recarga del tanque); si no se supo cuál es la cantidad, sin fecha tampoco.
                 if (mapa && (mapa.cantidad !== undefined ? !col('cantidad') : !col('fecha'))) return;
-                const fecha = fechaISO(col('fecha', 0));
-                if (!fecha && col('fecha', 0)) sinFecha++;
+                const fecha = fechaISO(fechaDe(cols));
+                if (!fecha && fechaDe(cols)) sinFecha++;
                 agregarFila({
                     fecha: fecha,
                     id: col('id', 1) || (mapa ? col('desc') : ''),
