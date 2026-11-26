@@ -836,9 +836,16 @@
                 if (mapa) desde = i + 1;
             }
 
-            // Lo pegado va SIEMPRE a esta tabla (26-11, pedido del usuario), también el reporte de
-            // gasoil completo: con encabezados, cada columna a la suya. Los Excel subidos arriba
-            // caen aquí también (consCargarFilasExcel).
+            // Lo pegado va SIEMPRE a esta tabla (26-11, pedido del usuario). El reporte de gasoil
+            // con encabezados pasa antes por el lector, como un Excel subido (consImpPegar): así
+            // al guardar se saltan los despachos ya cargados (los reportes son acumulados) y sus
+            // miles de filas se pintan por tandas. Si el lector no lo entiende, se pega aquí.
+            if (mapa && tipoPegado === 'GASOIL' && window.consImpPegar) {
+                window.consImpPegar(text).then(ok => {
+                    if (!ok && document.getElementById('cuerpoTabla')) pegarFilas(filas, mapa, desde);
+                });
+                return;
+            }
 
             // Las reglas no reconocieron los encabezados: si lo pegado no encaja en el orden fijo
             // (más columnas de las que tiene la tabla, o una 1ª fila de títulos), se le pregunta a la
@@ -868,8 +875,16 @@
                 filaCount = 0;
             }
         }
+        // Más que esto pegado a mano congela la página: para más, el reporte con encabezados o el archivo.
+        var MAX_PEGADAS = 2000;
         function pegarFilas(filas, mapa, desde) {
+            if (filas.length - desde > MAX_PEGADAS) {
+                window.showModal({ type: 'warning', title: 'Demasiadas filas', message: 'Se pueden pegar hasta ' + MAX_PEGADAS.toLocaleString('es-VE')
+                    + ' filas así. Para más, copia el reporte con sus encabezados o súbelo con «Cargar Excel».', confirmText: 'Entendido', hideCancel: true });
+                return;
+            }
             vaciarSiNoHayDatos();
+            const frag = document.createDocumentFragment();
 
             // Con encabezados, cada columna va a la suya por su nombre; sin ellos, por posición:
             // fecha, placa/serial, nombre, C.I., cantidad, [viscosidad o modelo del caucho,] proyecto.
@@ -903,9 +918,11 @@
                     cantidad: numeroPegado(col('cantidad', 4)),
                     espec: (mapa || espec) ? col('espec', 5) : '',
                     frente: col('frente', espec ? 6 : 5),
-                });
+                }, null, frag);
                 insertadas++;
             });
+            // De una vez y al final de lo que ya hay (las filas del Excel aún sin pintar van detrás).
+            document.getElementById('cuerpoTabla').appendChild(frag);
             resolverFrentesFilas();
             if (sinFecha && window.showToast) {
                 window.showToast(sinFecha + (sinFecha === 1 ? ' fila trae una fecha que no se reconoce' : ' filas traen una fecha que no se reconoce') + ': complétala a mano.', 'warning');
@@ -1001,6 +1018,8 @@
                     if (algo && v('frente').trim() && !v('id_frente')) sinReconocer.push(tr.firstElementChild.textContent.trim());
                     if (algo && !v('frente').trim()) sinProyecto = true;
                 });
+                // Las del Excel aún sin pintar: el proyecto sin reconocer va siempre pintado; sin proyecto, no.
+                if (excelPorPintar.some(f => !String(f.frente || '').trim())) sinProyecto = true;
 
                 if (sinReconocer.length) {
                     window.showModal({ type: 'warning', title: 'Frente sin reconocer', message: 'No se reconoce el proyecto de ' + (sinReconocer.length === 1 ? 'la fila ' : 'las filas ') + sinReconocer.join(', ') + ': elige su frente en la columna FRENTE.', confirmText: 'Entendido', hideCancel: true });

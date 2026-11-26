@@ -1,7 +1,8 @@
 /*
  * Cargar consumibles → Excel de gasoil (partials/cargar_excel.blade.php): la subida, cuyos
  * despachos caen en la tabla de carga de abajo (window.consCargarFilasExcel, cargar.blade.php)
- * como lo pegado; las columnas de lo pegado con IA y deshacer una carga. La SPA no vuelve a
+ * como lo pegado; el reporte de gasoil pegado con encabezados (por el mismo lector), las
+ * columnas de lo pegado con IA y deshacer una carga. La SPA no vuelve a
  * ejecutar un <script src> ya cargado, así que la vista llama a window.consImpArrancar(CFG) en
  * CADA apertura; lo de la petición (rutas) viaja en CFG.
  */
@@ -43,24 +44,43 @@
 
     var leyendo = false;    // una lectura a la vez: la tabla recibiría las dos mezcladas
 
-    /** Manda a leer y pone los despachos en la tabla (se guardan con su Guardar). */
-    function leer(url, opts, siFalla) {
+    /**
+     * Manda a leer y pone los despachos en la tabla (se guardan con su Guardar). Resuelve true si
+     * llegaron a la tabla (o no hace falta más). sinAviso: quien llama se encarga si no se pudo.
+     */
+    function leer(url, opts, siFalla, sinAviso) {
         if (leyendo) {
             if (window.showToast) window.showToast('Espera: ya se está leyendo una carga.', 'warning');
-            return;
+            return Promise.resolve(true);
         }
         leyendo = true;
-        conEspera(pedir(url, opts)).then(function (r) {
+        return conEspera(pedir(url, opts)).then(function (r) {
             if (r.ok && Array.isArray(r.body.filas)) {
                 if (typeof window.consCargarFilasExcel === 'function') window.consCargarFilasExcel(r.body);
-                return;
+                return true;
             }
-            aviso('warning', 'No se pudo leer', mensajeDe(r.body, siFalla));
+            if (!sinAviso) aviso('warning', 'No se pudo leer', mensajeDe(r.body, siFalla));
+            return false;
         }).catch(function (e) {
-            if (e && e.message === 'Sesión expirada.') return;
-            aviso('error', 'Error', 'No se pudo enviar. Revisa la conexión e intenta de nuevo.');
+            if (e && e.message === 'Sesión expirada.') return true;
+            if (!sinAviso) aviso('error', 'Error', 'No se pudo enviar. Revisa la conexión e intenta de nuevo.');
+            return false;
         }).finally(function () { leyendo = false; });
     }
+
+    /**
+     * El reporte de gasoil pegado con encabezados: por el mismo lector que un archivo, para que al
+     * guardar se salten los despachos ya cargados (los reportes son acumulados). Resuelve true si
+     * llegó a la tabla; false si el lector no lo entendió (la página lo pega ella misma).
+     */
+    window.consImpPegar = function (texto) {
+        if (!CFG.pegar) return Promise.resolve(false);
+        return leer(CFG.pegar, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ texto: texto }),
+        }, '', true);
+    };
 
     /** Los Excel elegidos o soltados en la zona se leen enseguida (sin botón de por medio). */
     function subirArchivos(lista) {

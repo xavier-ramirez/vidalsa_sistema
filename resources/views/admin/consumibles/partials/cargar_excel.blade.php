@@ -63,7 +63,7 @@
 @endif
 
 <script>
-    window.CONS_IMP_CFG = { subir: @json(route('consumibles.importar.subir')), columnas: @json(route('consumibles.importar.columnas')) };
+    window.CONS_IMP_CFG = { subir: @json(route('consumibles.importar.subir')), columnas: @json(route('consumibles.importar.columnas')), pegar: @json(route('consumibles.importar.pegar')) };
 </script>
 <script src="{{ asset('js/maquinaria/consumibles_importar.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_importar.js')) }}"></script>
 <script>window.consImpArrancar(window.CONS_IMP_CFG);</script>

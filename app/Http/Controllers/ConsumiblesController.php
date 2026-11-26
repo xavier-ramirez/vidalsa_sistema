@@ -185,6 +185,10 @@ class ConsumiblesController extends Controller
             // de filas hacía una consulta por fila.
             'filas.*.id_frente' => 'nullable|integer',
             'filas.*.cantidad' => 'required|numeric|min:0.01',
+            // Los largos de sus columnas: más largo, la base lo rechazaba con un error crudo.
+            'filas.*.identificador' => 'nullable|string|max:100',
+            'filas.*.resp_nombre' => 'nullable|string|max:150',
+            'filas.*.resp_ci' => 'nullable|string|max:20',
             'filas.*.especificacion' => 'nullable|string|max:30',
             // Fila que vino de un Excel subido: su carga (borrador) y su lugar en ella. Que vengan
             // las dos se mira abajo: required_with con miles de filas tardaba más de 10 s.
@@ -316,7 +320,7 @@ class ConsumiblesController extends Controller
                 foreach ($deExcel as $idImp => $tabla) {
                     $imp = ConsumibleImportacion::find($idImp);
                     if (!$imp) {
-                        throw new \RuntimeException('La lectura del Excel ya no está (pasaron más de dos días o se guardó en otra pestaña). Vuelve a subir el archivo.');
+                        throw new \App\Services\Consumibles\CargaRechazada('La lectura del Excel ya no está (pasaron más de dos días o se guardó en otra pestaña). Vuelve a subir el archivo.');
                     }
                     $r = $importador->aplicar($imp, $tabla);
                     array_push($nuevos, ...$r['pendientes']);
@@ -332,7 +336,7 @@ class ConsumiblesController extends Controller
             @set_time_limit(180);
             // Con filas de Excel, de a una carga en todo el sistema (ImportadorCombustible::deUnoEnUno).
             [$nuevos, $insertados, $saltados] = $deExcel ? $importador->deUnoEnUno($guardar) : $guardar();
-        } catch (\RuntimeException $e) {
+        } catch (\App\Services\Consumibles\CargaRechazada $e) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => $e->getMessage()], 422);
             }

@@ -318,6 +318,7 @@ Route::middleware(['auth'])->group(function () {
             Route::middleware('can:super.admin')->controller(App\Http\Controllers\ConsumiblesImportacionController::class)->group(function () {
                 Route::post  ('consumibles/importar',                          'subir')       ->name('consumibles.importar.subir');
                 Route::post  ('consumibles/importar/columnas',                 'columnas')    ->name('consumibles.importar.columnas');
+                Route::post  ('consumibles/importar/pegar',                    'pegar')       ->name('consumibles.importar.pegar');
                 Route::post  ('consumibles/importar/{importacion}/deshacer',   'deshacer')    ->whereNumber('importacion')->name('consumibles.importar.deshacer');
             });
             // Cupos de gasoil de los patios (El Tigre, Maturín) y las cisternas surtidas que los consumen (modal de Cargar).

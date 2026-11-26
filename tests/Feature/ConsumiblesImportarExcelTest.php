@@ -242,6 +242,34 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
     }
 
     /**
+     * El reporte pegado con encabezados (Ctrl+V) pasa por el mismo lector: va a la tabla con sus
+     * huellas, así un reporte acumulado pegado otra vez (o subido después) no duplica nada.
+     */
+    public function test_el_reporte_pegado_salta_lo_ya_cargado(): void
+    {
+        [, $digitos] = $this->motoniveladora();
+        $u = $this->superAdminGlobal();
+        $texto = implode("
+", array_map(fn ($f) => implode("	", $f), [
+            ['FECHA', 'DESCRIPCION', 'PLACA', 'SALIDA', 'NOMBRE DEL RESPONSABLE', 'C.I.', 'PROYECTO'],
+            ['01/08/2026', 'PATROL ' . $digitos, '', '80', 'CHOFER UNO', '11111111', 'VELADERO'],
+            ['02/08/2026', 'PATROL ' . $digitos, '', '60', 'CHOFER UNO', '11111111', 'VELADERO'],
+            ['TOTAL', '', '', '140', '', '', ''],
+        ]));
+
+        $pegado = $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto])->assertOk();
+        $this->assertCount(2, $pegado->json('filas'), 'sin la fila de total');
+        $this->guardarTabla($pegado)->assertOk()->assertJson(['insertados' => 2, 'saltados' => 0]);
+
+        // El mismo reporte pegado de nuevo: a la tabla, pero al guardar se saltan.
+        $otra = $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto])->assertOk();
+        $this->assertSame(2, $otra->json('cargados'));
+        $this->guardarTabla($otra)->assertOk()->assertJson(['insertados' => 0, 'saltados' => 2]);
+
+        $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => ''])->assertStatus(422);
+    }
+
+    /**
      * Lo que se cambia en la tabla es lo que se guarda (litros, cédula); una fila borrada ahí no
      * entra ni hace «repetida» a su copia; y el Excel solo se guarda como gasoil.
      */

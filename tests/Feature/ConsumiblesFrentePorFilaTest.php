@@ -125,6 +125,14 @@ class ConsumiblesFrentePorFilaTest extends MySqlTestCase
         $this->assertNull($otra->json('frentes')[$texto]);
     }
 
+    public function test_un_texto_demasiado_largo_se_avisa_sin_error_de_la_base(): void
+    {
+        $r = $this->guardar([['fecha' => '2026-08-01', 'identificador' => str_repeat('X', 101), 'cantidad' => 50,
+            'frente' => null, 'id_frente' => null]], $this->norte->ID_FRENTE)->assertStatus(422);
+        $this->assertStringNotContainsString('SQLSTATE', $r->getContent());
+        $this->assertArrayHasKey('filas.0.identificador', $r->json('errors'));
+    }
+
     public function test_reconocer_textos_es_solo_para_super_admin(): void
     {
         $u = $this->superAdminGlobal();

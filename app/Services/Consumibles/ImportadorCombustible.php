@@ -9,7 +9,6 @@ use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 /**
  * Carga de Excel de gasoil: LEER (borrador con las filas y sus huellas) → las filas van a la
@@ -34,7 +33,7 @@ class ImportadorCombustible
 
     /**
      * @param UploadedFile[] $archivos
-     * @throws RuntimeException si ningún archivo trae despachos
+     * @throws CargaRechazada si ningún archivo trae despachos
      */
     public function crearBorrador(array $archivos, ?int $idUsuario): ConsumibleImportacion
     {
@@ -62,7 +61,7 @@ class ImportadorCombustible
         }
 
         if ($filas === []) {
-            throw new RuntimeException($errores ? implode(' ', $errores) : 'Los archivos no traen despachos de gasoil.');
+            throw new CargaRechazada($errores ? implode(' ', $errores) : 'Los archivos no traen despachos de gasoil.');
         }
 
         $this->ponerHuellas($filas, $ident);
@@ -358,7 +357,7 @@ class ImportadorCombustible
     {
         $imp = ConsumibleImportacion::whereKey($imp->getKey())->lockForUpdate()->firstOrFail();
         if ($imp->ESTADO !== ConsumibleImportacion::BORRADOR) {
-            throw new RuntimeException('Esa carga de Excel ya se guardó. Vuelve a subir el archivo.');
+            throw new CargaRechazada('Esa carga de Excel ya se guardó. Vuelve a subir el archivo.');
         }
         $rev = $this->revisar($imp, $tabla);
         $ahora = now();
@@ -459,7 +458,7 @@ class ImportadorCombustible
         return $this->deUnoEnUno(fn () => DB::transaction(function () use ($imp) {
             $imp = ConsumibleImportacion::whereKey($imp->getKey())->lockForUpdate()->firstOrFail();
             if ($imp->ESTADO !== ConsumibleImportacion::APLICADA) {
-                throw new RuntimeException('Solo se puede deshacer una carga aplicada.');
+                throw new CargaRechazada('Solo se puede deshacer una carga aplicada.');
             }
             $n = DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->delete();
             $imp->ESTADO = ConsumibleImportacion::DESHECHA;
@@ -481,7 +480,7 @@ class ImportadorCombustible
         try {
             return Cache::lock('consumibles:importar', 300)->block(60, $trabajo);
         } catch (LockTimeoutException) {
-            throw new RuntimeException('Otra carga de Excel se está guardando en este momento. Intenta de nuevo en un minuto.');
+            throw new CargaRechazada('Otra carga de Excel se está guardando en este momento. Intenta de nuevo en un minuto.');
         }
     }
 }
