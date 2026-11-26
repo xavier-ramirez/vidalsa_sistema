@@ -107,17 +107,18 @@
                 font-family: inherit !important;
             }
 
-            /* Equipo resuelto debajo de la placa/serial escrita, en la misma celda. */
+            /* Arriba el tipo del equipo (o lo que dice el Excel) y debajo su placa o serial, en la misma celda. */
             .cons-tbl-wrap .cons-equipo {
-                margin-top: 3px;
-                padding-top: 3px;
-                border-top: 1px dashed #e2e8f0;
+                margin-bottom: 3px;
+                padding-bottom: 3px;
+                border-bottom: 1px dashed #e2e8f0;
+                font-weight: 700;
             }
             /* Columna de la X que borra la fila: solo lo que mide el botón. */
             .cons-tbl-wrap .admin-table .cons-col-del { width: 22px; padding: 0 3px !important; text-align: center; }
             .cons-tbl-wrap .cons-col-del .cons-btn-del { padding: 2px; }
             .cons-tbl-wrap .cons-equipo span { display: block; }
-            .cons-tbl-wrap .cons-equipo .cons-nota { color: #94a3b8; font-style: italic; }
+            .cons-tbl-wrap .cons-equipo .cons-nota { color: #94a3b8; font-style: italic; font-weight: 400; }
 
             /* Botones de lápiz y papelera como los de la tabla de Cargar. */
             .cons-tbl-wrap .cons-btn-edit,
@@ -624,7 +625,7 @@
                                         <span style="display:block; color:#64748b; font-weight:600; margin-top:2px;">{{ $c->ESPECIFICACION }}</span>
                                     @endif
                                 </td>
-                                {{-- Un solo identificador en la tabla: el completo del equipo emparejado (la placa, y si
+                                {{-- Arriba el tipo; debajo un solo identificador: el del equipo emparejado (la placa, y si
                                      no tiene, el serial o el código); sin equipo, lo escrito. Lo escrito tal cual se ve
                                      al presionar el lápiz (data-original). --}}
                                 @php
@@ -646,18 +647,6 @@
                                 @endphp
                                 <td style="line-height:1.5;"
                                     id="id-cell-{{ $c->ID_CONSUMIBLE }}" data-original="{{ $c->IDENTIFICADOR }}" data-mostrado="{{ $mostrado }}">
-                                    <div class="cons-id-fila" style="display:flex; align-items:center; gap:5px;">
-                                        <span id="id-txt-{{ $c->ID_CONSUMIBLE }}"
-                                            style="flex:1; font-weight:700;">{{ $mostrado }}</span>
-                                        @can('equipos.edit')
-                                        <button
-                                            onclick="editarId({{ $c->ID_CONSUMIBLE }})"
-                                            class="cons-btn-edit"
-                                            title="Ver y editar lo escrito">
-                                            <i class="material-icons" style="font-size:14px;">edit</i>
-                                        </button>
-                                        @endcan
-                                    </div>
                                     <div class="cons-equipo">
                                     @if($c->equipo)
                                         {{-- Tipo --}}
@@ -679,6 +668,18 @@
                                     @else
                                         <span class="cons-nota">Sin resolver</span>
                                     @endif
+                                    </div>
+                                    <div class="cons-id-fila" style="display:flex; align-items:center; gap:5px;">
+                                        <span id="id-txt-{{ $c->ID_CONSUMIBLE }}"
+                                            style="flex:1; font-weight:600;">{{ $mostrado }}</span>
+                                        @can('equipos.edit')
+                                        <button
+                                            onclick="editarId({{ $c->ID_CONSUMIBLE }})"
+                                            class="cons-btn-edit"
+                                            title="Ver y editar lo escrito">
+                                            <i class="material-icons" style="font-size:14px;">edit</i>
+                                        </button>
+                                        @endcan
                                     </div>
                                 </td>
                                 <td>
