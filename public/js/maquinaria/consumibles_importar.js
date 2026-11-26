@@ -15,12 +15,6 @@
         window.showModal({ type: tipo, title: titulo, message: mensaje, confirmText: 'Entendido', hideCancel: true });
     }
 
-    function esc(s) {
-        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-        });
-    }
-
     function ir(url) {
         if (typeof window.navigateTo === 'function') window.navigateTo(url);
         else window.location.href = url;
@@ -36,8 +30,8 @@
     }
 
     function mensajeDe(body, siFalla) {
-        if (body && body.errors) return Object.values(body.errors).flat().join('<br>');
-        return (body && body.message) || siFalla;
+        if (body && body.errors) return Object.values(body.errors).flat().map(window.escapeHtml).join('<br>');
+        return window.escapeHtml((body && body.message) || siFalla);
     }
 
     function conEspera(promesa) {
@@ -78,7 +72,7 @@
             // Con Excel que leer, un aviso que no tapa la lectura.
             var msj = 'No son archivos de Excel y se dejan fuera: ' + rechazados.map(function (f) { return f.name; }).join(', ');
             if (archivos.length && window.showToast) window.showToast(msj, 'warning');
-            else aviso('warning', 'Solo Excel', esc(msj));
+            else aviso('warning', 'Solo Excel', window.escapeHtml(msj));
         }
         if (!archivos.length) return;
         var fd = new FormData();

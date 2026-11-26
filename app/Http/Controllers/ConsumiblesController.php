@@ -123,7 +123,8 @@ class ConsumiblesController extends Controller
     /**
      * POST consumibles/frentes-de-textos — el frente de cada texto de proyecto de la tabla de
      * Cargar consumibles (lo pegado trae uno por fila), con el reconocedor del Excel de gasoil
-     * (IdentificadorConsumo::resolverFrente). {texto: {id, nombre} | null}.
+     * (IdentificadorConsumo::resolverFrente). {frentes: {texto: {id, nombre} | null},
+     * sugeridos: {identificador: {id, nombre, equipo}}} — el frente donde está el equipo de la fila.
      */
     public function frentesDeTextos(Request $request)
     {

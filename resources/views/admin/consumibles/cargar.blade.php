@@ -203,9 +203,7 @@
     <form method="POST" action="{{ route('consumibles.guardarLote') }}" id="formLote">
         @csrf
 
-
-
-        {{-- Datalists para autocompletado en columna Espec --}}
+        {{-- Sugerencias de la columna VISCOSIDAD / MODELO CAUCHO (aceite y caucho). --}}
         <datalist id="listAceite">
             <option value="15W-40">
             <option value="10W-30">
@@ -239,12 +237,11 @@
         {{-- ═══ TABLA / ZONA DE PEGADO ═══ --}}
         <div class="admin-card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 25px; margin-bottom: 20px;">
 
-            {{-- Tabla envuelta con Selectores --}}
             <div class="tbl-wrap" style="padding: 15px; background: #fff;">
 
-                {{-- SELECTORES INTEGRADAMENTE DENTRO DEL CONTENEDOR --}}
+                {{-- Selectores, Cancelar/Guardar y Acciones, en una fila sobre la tabla. --}}
                 <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:end; margin-bottom: 20px;">
-                    {{-- FRENTE (primer filtro, a pedido del cliente) --}}
+                    {{-- FRENTE: el de las filas sin proyecto. --}}
                     <div style="flex: 1; min-width: 200px;">
                         <div style="position:relative;">
                             <div id="frenteCaja"
@@ -395,8 +392,12 @@
         var FRENTES = @json($frentes->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE]));
         var filaCount = 0;
         var URL_FRENTES_DE_TEXTOS = @json(route('consumibles.frentesDeTextos'));
+        // Nombre de cada frente para el resumen: los activos y los que llegan reconocidos o
+        // sugeridos aunque no estén activos (el del equipo, el del Excel).
+        var NOMBRE_FRENTE = {};
+        FRENTES.forEach(f => { NOMBRE_FRENTE[f.id] = f.nombre; });
 
-        // ── Tipo helper ──────────────────    ───────────────────────────────    ─────
+        // ── Tipo ──────────────────────────────────────────────────────────
         var TIPOS_ACEITE = ['ACEITE'];
         var TIPOS_CAUCHO = ['CAUCHO'];
         function tipoActual() { return document.getElementById('tipoSelect').value; }
@@ -419,16 +420,10 @@
             const nuevaUnidad = mapa[tipo] || 'LITROS';
             const nuevaLabel = labelMapa[tipo] || 'Litros';
 
-            // Check if the dropdown UI exists (using custom dropdowns)
-            if (document.getElementById('unidadDropdownCargar')) {
-                window.selectOption('unidadDropdownCargar', nuevaUnidad, nuevaLabel);
-            } else {
-                document.getElementById('unidadSelect').value = nuevaUnidad;
-            }
+            window.selectOption('unidadDropdownCargar', nuevaUnidad, nuevaLabel);
 
             const espec = necesitaEspec();
             const th = document.getElementById('thEspec');
-
 
             // Cabecera de columna
             if (espec) {
@@ -480,16 +475,10 @@
             renderDropdownFrente(window.FuzzySearch.filtrar(FRENTES, q, f => f.nombre));
         }
 
-        // Agregado window. prefix preventivo
         window.seleccionarFrente = function (id, nombre) {
             document.getElementById('idFrenteHidden').value = id;
             document.getElementById('frenteSearch').value = nombre;
             document.getElementById('frenteDropdown').style.display = 'none';
-            const badge = document.getElementById('frenteSeleccionado');
-            if (badge) {
-                badge.textContent = '✓ ' + nombre;
-                badge.style.display = 'block';
-            }
             programarResumen();
         };
 
@@ -533,6 +522,7 @@
         function estadoFrenteFila(inp, id, nombre, sug) {
             const td = inp.closest('td');
             const texto = inp.value.trim();
+            if (id && nombre) NOMBRE_FRENTE[id] = nombre;
             td.querySelector('[name$="[id_frente]"]').value = texto && id ? id : '';
             inp.dataset.resuelto = texto;
             // El texto que no se reconoció: al elegir su frente se vuelve a él (así se aprende).
@@ -609,8 +599,6 @@
             const caja = document.getElementById('resumenCarga');
             if (!caja) return;
             const arriba = document.getElementById('idFrenteHidden').value;
-            const nombres = {};
-            FRENTES.forEach(f => { nombres[f.id] = f.nombre; });
             const porFrente = {};
             let filas = 0, total = 0;
             const sumar = (cant, texto, id) => {
@@ -625,23 +613,25 @@
                 const v = n => (tr.querySelector(`[name$="[${n}]"]`) || {}).value || '';
                 sumar(v('cantidad'), v('frente').trim(), v('id_frente'));
             });
-            excelPorPintar.forEach(f => sumar(f.cantidad, f.frente, f.frente && f.id_frente ? f.id_frente : ''));
+            excelPorPintar.forEach(f => {
+                if (f.id_frente && f.nombre_frente) NOMBRE_FRENTE[f.id_frente] = f.nombre_frente;
+                sumar(f.cantidad, f.frente, f.frente && f.id_frente ? f.id_frente : '');
+            });
             caja.hidden = !filas;
             if (!filas) { caja.innerHTML = ''; return; }
             const fmt = x => Number(x).toLocaleString('es-VE', { maximumFractionDigits: 2 });
             const unidad = (document.getElementById('unidadSelect').value || 'LITROS') === 'LITROS' ? 'L' : document.getElementById('unidadSelect').value.toLowerCase();
             const chips = Object.keys(porFrente).sort((a, b) => porFrente[b].l - porFrente[a].l).map(k => {
                 const g = porFrente[k];
-                const nombre = k ? (nombres[k] || 'Frente ' + k) : 'Sin frente';
+                const nombre = k ? (NOMBRE_FRENTE[k] || 'Frente ' + k) : 'Sin frente';
                 return `<span class="rc-frente${k ? '' : ' rc-sin'}">${window.escapeHtml(nombre)}: <b>${fmt(g.l)} ${unidad}</b> (${fmt(g.n)})</span>`;
             }).join('');
             caja.innerHTML = `<span class="rc-total">${fmt(filas)} ${filas === 1 ? 'fila' : 'filas'} · ${fmt(total)} ${unidad}</span>` + chips;
         }
 
         // ── Gestión de filas ──────────────────────────────────────────────
-        // destino: dónde se pone la fila (por omisión, la tabla). El Excel subido arma miles de
-        // filas en un fragmento aparte y las mete de una vez: fila por fila en la tabla, la
-        // página quedaba congelada varios segundos.
+        // destino: dónde se pone la fila (por omisión, la tabla). El Excel subido arma sus filas en
+        // un fragmento aparte y las mete de una vez: fila por fila, la página se congelaba.
         window.agregarFila = function (data = {}, idx = null, destino = null) {
             filaCount++;
             const n = filaCount;
@@ -675,8 +665,6 @@
             (destino || document.getElementById('cuerpoTabla')).appendChild(tr);
             // Del Excel subido el frente ya viene reconocido por el servidor: no se vuelve a pedir.
             if (data.imp) estadoFrenteFila(tr.querySelector('[data-fila-frente]'), data.id_frente, data.nombre_frente, data.sugerido);
-            if (!destino) window.actualizarContador();
-            if (filaCount === 1) { const f = tr.querySelector('input'); if (f) f.id = 'primerInput'; }
             return tr;
         };
 
@@ -686,24 +674,13 @@
         window.eliminarFila = function (n) {
             const el = document.getElementById(`fila_${n}`);
             if (el) el.remove();
-            window.actualizarContador();
             programarResumen();
-        };
-
-
-        window.actualizarContador = function () {
-            const contador = document.getElementById('contadorFilas');
-            if (contador) {
-                const n = document.getElementById('cuerpoTabla').children.length;
-                contador.textContent = n + (n === 1 ? ' fila' : ' filas');
-            }
         };
 
         // ── Pegado: filas, encabezados, fechas y números como vienen del Excel ──
         /**
-         * Filas del texto que Excel pone en el portapapeles (TSV), como lo lee fgetcsv en
-         * ConsumiblesImportacionController::pegar: una celda entre comillas puede traer saltos de
-         * línea (Alt+Enter) y comillas dobladas (""). Espacios de cada celda colapsados.
+         * Filas del texto que Excel pone en el portapapeles (TSV): una celda entre comillas puede
+         * traer saltos de línea (Alt+Enter) y comillas dobladas (""). Espacios de cada celda colapsados.
          */
         function filasTSV(text) {
             const filas = [];
@@ -809,9 +786,9 @@
         window.pasteLoteCargarHandler = window.pasteLoteCargarHandler || function (e) {
             // El listener queda en document al salir por la SPA: fuera de esta pantalla, no toca nada.
             if (!document.getElementById('formLote')) return;
-            // Si el foco está en un input del lote de configuración → no interceptar
+            // Lo pegado en el buscador de frente va a ese campo, no a la tabla.
             const active = document.activeElement;
-            if (active && (active.id === 'frenteSearch' || active.id === 'tipoSelect' || active.id === 'unidadSelect')) return;
+            if (active && active.id === 'frenteSearch') return;
             // Ni lo pegado en el modal de Cupos de Gasoil (va a su campo, no a la tabla).
             if (active && active.closest && active.closest('#cuposModal')) return;
 
@@ -935,7 +912,6 @@
             const frag = document.createDocumentFragment();
             excelPorPintar.splice(0, n || TANDA_EXCEL).forEach(f => agregarFila(f, null, frag));
             document.getElementById('cuerpoTabla').appendChild(frag);
-            window.actualizarContador();
             const mas = document.getElementById('excelMas');
             mas.hidden = !excelPorPintar.length;
             mas.innerHTML = excelPorPintar.length
@@ -1018,9 +994,7 @@
                     return;
                 }
                 if (!tipo) {
-                    if (window.showModal) {
-                        window.showModal({ type: 'warning', title: 'Campo requerido', message: 'Selecciona el tipo de consumible.', confirmText: 'Entendido', hideCancel: true });
-                    } else { alert('Selecciona el tipo de consumible.'); }
+                    window.showModal({ type: 'warning', title: 'Campo requerido', message: 'Selecciona el tipo de consumible.', confirmText: 'Entendido', hideCancel: true });
                     return;
                 }
                 if (aMedias.length) {
@@ -1028,13 +1002,11 @@
                     return;
                 }
                 if (!filas && !excelPorPintar.length) {
-                    if (window.showModal) {
-                        window.showModal({ type: 'warning', title: 'Tabla vacía', message: 'Agrega al menos una fila con datos.', confirmText: 'Entendido', hideCancel: true });
-                    } else { alert('Agrega al menos una fila.'); }
+                    window.showModal({ type: 'warning', title: 'Tabla vacía', message: 'Agrega al menos una fila con datos.', confirmText: 'Entendido', hideCancel: true });
                     return;
                 }
 
-                if (window.showPreloader) window.showPreloader();
+                window.showPreloader();
 
                 // En JSON y no como formulario: PHP lee hasta 1000 campos (max_input_vars) y una
                 // tabla de más de ~140 filas perdía el resto sin avisar.
@@ -1056,15 +1028,12 @@
                     body: JSON.stringify(datos)
                 })
                     .then(async response => {
-                        // Los 401/419 los ataja el interceptor global de fetch
-                        // (estructura_base); esta rama no podía ejecutarse. Y la
-                        // comprobación de la URL final que la acompañaba tampoco: /login
-                        // redirige a /, así que esa URL nunca lo contiene.
+                        // Los 401/419 los ataja el interceptor global de fetch (estructura_base).
                         const data = await response.json().catch(() => ({}));
                         return { status: response.status, body: data };
                     })
                     .then(({ status, body }) => {
-                        if (window.hidePreloader) window.hidePreloader();
+                        window.hidePreloader();
 
                         if (status === 200 || status === 201) {
                             // ── Éxito: limpiar formulario y mostrar toast ────────
@@ -1079,39 +1048,23 @@
                             // 2. Resetear frente
                             document.getElementById('idFrenteHidden').value = '';
                             document.getElementById('frenteSearch').value = '';
-                            const badge = document.getElementById('frenteSeleccionado');
-                            if (badge) { badge.textContent = ''; badge.style.display = 'none'; }
 
-                            // 3. Toast de éxito (pequeño, no intrusivo)
-                            const n = body.insertados != null ? body.insertados : '?';
+                            // 3. Aviso de lo guardado
+                            const n = Number(body.insertados || 0).toLocaleString('es-VE');
                             const saltados = body.saltados ? ` · ${Number(body.saltados).toLocaleString('es-VE')} repetidos se saltaron` : '';
-                            if (window.showToast) {
-                                window.showToast(`✓ ${n} registros guardados${saltados}`, 'success');
-                            } else if (window.showModal) {
-                                window.showModal({
-                                    type: 'success',
-                                    title: '¡Guardado!',
-                                    message: body.message || `${n} registros guardados.`,
-                                    confirmText: 'Listo',
-                                    hideCancel: true,
-                                });
-                            }
+                            window.showToast(`✓ ${n} registros guardados${saltados}`, 'success');
 
                         } else if (status === 422 && body.errors) {
-                            const msgs = Object.values(body.errors).flat().join('\n');
-                            if (window.showModal) {
-                                window.showModal({ type: 'warning', title: 'Errores de validación', message: msgs, confirmText: 'Entendido', hideCancel: true });
-                            } else { alert(msgs); }
+                            const msgs = Object.values(body.errors).flat().map(window.escapeHtml).join('<br>');
+                            window.showModal({ type: 'warning', title: 'Errores de validación', message: msgs, confirmText: 'Entendido', hideCancel: true });
                         } else {
                             throw new Error(body.message || 'Error desconocido del servidor.');
                         }
                     })
                     .catch(err => {
-                        if (window.hidePreloader) window.hidePreloader();
+                        window.hidePreloader();
                         if (err.message === 'Sesión expirada.') return;
-                        if (window.showModal) {
-                            window.showModal({ type: 'error', title: 'Error', message: err.message || 'Ocurrió un error al guardar.', confirmText: 'Cerrar', hideCancel: true });
-                        } else { alert(err.message); }
+                        window.showModal({ type: 'error', title: 'Error', message: window.escapeHtml(err.message || 'Ocurrió un error al guardar.'), confirmText: 'Cerrar', hideCancel: true });
                     });
             });
         }
