@@ -306,10 +306,6 @@ Route::middleware(['auth'])->group(function () {
             Route::get ('consumibles/graficos-data',      [App\Http\Controllers\ConsumiblesController::class, 'graficosData'])   ->name('consumibles.graficosData');
             Route::get ('consumibles/graficos',           [App\Http\Controllers\ConsumiblesController::class, 'graficos'])       ->name('consumibles.graficos');
             Route::get ('consumibles/presentacion-data',  [App\Http\Controllers\ConsumiblesController::class, 'presentacionData'])->name('consumibles.presentacionData');
-            // Ruta consumibles.auditoriaCatalogo removida: el panel de
-            // "Auditoría de Catálogo" se elimino del modulo de graficos.
-            // El historial de cambios sigue accesible desde /admin/catalogo
-            // (cada modelo tiene su propio audit log).
             Route::get ('consumibles/exportar-csv',       [App\Http\Controllers\ConsumiblesController::class, 'exportarCsv'])    ->name('consumibles.exportarCsv');
             Route::post('consumibles/frentes-de-textos',  [App\Http\Controllers\ConsumiblesController::class, 'frentesDeTextos'])->middleware('can:super.admin')->name('consumibles.frentesDeTextos');
             Route::post('consumibles/guardar-lote',       [App\Http\Controllers\ConsumiblesController::class, 'guardarLote'])    ->middleware('can:super.admin')->name('consumibles.guardarLote');
@@ -331,12 +327,10 @@ Route::middleware(['auth'])->group(function () {
                 Route::post  ('consumibles/cupos/cisternas/{id}/foto', 'fotoCisterna') ->whereNumber('id')->name('consumibles.cupos.fotoCisterna');
             });
             // Rutas con wildcard {id} al final para no capturar segmentos estáticos.
-            // Cambiar, emparejar y borrar registros pide equipos.edit (antes cualquier usuario
-            // con sesión podía). Borrar NO pide user.delete: en mar-2026 se pidió quitarle la
-            // restricción de super.admin, y user.delete lo tienen solo dos usuarios.
-            Route::patch('consumibles/{id}/identificador',[App\Http\Controllers\ConsumiblesController::class, 'updateIdentificador'])->middleware('can:equipos.edit')->name('consumibles.updateIdentificador');
-            Route::patch('consumibles/{id}/frente',       [App\Http\Controllers\ConsumiblesController::class, 'updateFrente'])   ->middleware('can:equipos.edit')->name('consumibles.updateFrente');
-            Route::delete('consumibles/{id}',             [App\Http\Controllers\ConsumiblesController::class, 'destroy'])        ->middleware('can:equipos.edit')->name('consumibles.destroy');
+            // Cambiar y borrar registros pide equipos.edit (borrar NO pide super.admin ni user.delete).
+            Route::patch('consumibles/{id}/identificador',[App\Http\Controllers\ConsumiblesController::class, 'updateIdentificador'])->whereNumber('id')->middleware('can:equipos.edit')->name('consumibles.updateIdentificador');
+            Route::patch('consumibles/{id}/frente',       [App\Http\Controllers\ConsumiblesController::class, 'updateFrente'])   ->whereNumber('id')->middleware('can:equipos.edit')->name('consumibles.updateFrente');
+            Route::delete('consumibles/{id}',             [App\Http\Controllers\ConsumiblesController::class, 'destroy'])        ->whereNumber('id')->middleware('can:equipos.edit')->name('consumibles.destroy');
 
             // ── Equipos Auxiliares (maquinas de soldar, luminarias, compresores, etc) ──
             // Reemplaza el antiguo modulo "sub-activos" con logica de anclaje 1:N

@@ -472,10 +472,11 @@ window.selectOption = function (dropdownId, value, label, legacyType) {
 
     // Toggle clear button visibility
     if (clearBtn) {
-        clearBtn.style.display =
-            effectiveValue && effectiveValue !== "all" && effectiveValue !== ""
-                ? "block"
-                : "none";
+        const conValor = effectiveValue !== "" && effectiveValue !== "all";
+        clearBtn.style.display = conValor ? "block" : "none";
+        // La flecha (data-flecha), si la hay, va donde no está la X.
+        const flecha = dropdown.querySelector("[data-flecha]");
+        if (flecha) flecha.style.display = conValor ? "none" : "block";
     }
 
     // En movil, soltar el foco del input del dropdown para que el teclado

@@ -223,6 +223,8 @@ class ImportadorCombustible
                 'nombre_frente' => $ident->nombreFrente($id),
                 // Proyecto sin reconocer: dónde está registrado su equipo, para elegirlo con un clic.
                 'sugerido'      => $id === null ? $ident->frenteSugerido($r['equipo']) : null,
+                // Ya cargado o repetido en otro archivo: se ve en la tabla, pero al guardar se salta.
+                'saltar'        => $r['estado'] !== 'nuevo',
             ];
         }
 

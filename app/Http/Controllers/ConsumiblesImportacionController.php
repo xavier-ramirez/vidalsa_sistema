@@ -18,8 +18,8 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
  * Cargar consumibles → Excel de gasoil. Sube los reportes de los proyectos tal como llegan
  * (cualquiera de los formatos) y devuelve sus despachos para la tabla de Cargar consumibles,
  * donde se ven y se corrigen como lo pegado; al guardar la tabla (ConsumiblesController::
- * guardarLote) entran solo los que no estaban. Aquí, además, las columnas de lo pegado y
- * deshacer una carga. La lógica vive en App\Services\Consumibles; aquí solo HTTP. Todo pide
+ * guardarLote) entran solo los que no estaban. Aquí, además, el reporte pegado con sus
+ * encabezados (pegar), las columnas de lo pegado y deshacer una carga. La lógica vive en App\Services\Consumibles; aquí solo HTTP. Todo pide
  * super.admin (las rutas), igual que guardar lo pegado a mano.
  */
 class ConsumiblesImportacionController extends Controller
@@ -70,8 +70,8 @@ class ConsumiblesImportacionController extends Controller
                     return response()->json(['message' => 'Se pueden pegar hasta '
                         . number_format(self::MAX_FILAS_PEGADAS, 0, ',', '.') . ' filas. Para más, sube el archivo de Excel.'], 422);
                 }
-                // Hasta 60 columnas, como el lector con un archivo (LectorExcelCombustible::MAX_COLUMNAS).
-                foreach (array_slice($celdas, 0, 60) as $c => $v) {
+                // Las mismas columnas que el lector lee de un archivo.
+                foreach (array_slice($celdas, 0, \App\Services\Consumibles\LectorExcelCombustible::MAX_COLUMNAS) as $c => $v) {
                     $v = trim((string) $v);
                     if ($v !== '') {
                         $hoja->setCellValueExplicit(Coordinate::stringFromColumnIndex($c + 1) . $fila, $v, DataType::TYPE_STRING);

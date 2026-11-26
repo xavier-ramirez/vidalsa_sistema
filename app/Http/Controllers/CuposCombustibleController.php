@@ -48,7 +48,7 @@ class CuposCombustibleController extends Controller
         $patio = $request->query('patio');
         if ($patio && isset($datos['patios'][$patio])) {
             return view('admin.consumibles.partials.cupos_panel', [
-                'clave' => $patio, 'p' => $datos['patios'][$patio], 'mes' => $datos['mes'], 'meses' => $datos['meses'],
+                'clave' => $patio, 'p' => $datos['patios'][$patio], 'mes' => $datos['mes'],
             ]);
         }
 

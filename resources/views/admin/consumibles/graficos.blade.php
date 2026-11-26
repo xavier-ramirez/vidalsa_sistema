@@ -65,7 +65,7 @@
                         <input type="text" id="graficos_tipo_search" name="graficos_tipo_search" data-filter-search readonly
                             value="Gasoil"
                             style="width:100%; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%; cursor:pointer;"
-                            autocomplete="off" placeholder="Caucho">
+                            autocomplete="off">
                         <i class="material-icons"
                             style="padding:0 10px; color:var(--maquinaria-gray-text, #94a3b8); font-size:18px;">arrow_drop_down</i>
                     </div>
@@ -315,38 +315,26 @@
         </div>
     </div>
 
-    {{-- Auditoria de Catalogo removida: la auditoria de cambios en
-         CaracteristicaModelo se accede directamente desde /admin/catalogo
-         (cada modelo tiene su historial). El panel saturaba la vista de
-         graficos sin aportar contexto de consumo. --}}
-
     {{-- Nada de librerías como <script> estático en esta pantalla:
          · Chart.js + datalabels los pide window.ensureChartJS(). El UMD del plugin exige
-           que `Chart` exista AL EJECUTARSE, y en una carga completa este contenido corre
-           antes que los scripts del final del body (reventaba con "reading 'helpers'" y
-           las gráficas quedaban sin etiquetas); el cargador respeta ese orden.
-         · html2canvas (195 KB) lo pide capturaPanelHtml() al pulsar capturar, que para eso
-           ya traía su propio cargador — pero aquí había además un <script src> fijo que lo
-           bajaba SIEMPRE y dejaba ese cargador como código muerto. --}}
+           que `Chart` exista AL EJECUTARSE; el cargador respeta ese orden.
+         · html2canvas (195 KB) lo pide capturaPanelHtml() al pulsar capturar. --}}
     <script>
         // La gráfica viva de esta pantalla. Se guarda en window (y no en una var del
         // <script>) porque la SPA re-evalúa este bloque en cada visita y hay que poder
         // destruir la instancia anterior antes de crear la nueva.
         window.chartEqFrente = window.chartEqFrente || null;
-        // chartCauchoModelo declarado removido junto con el panel de Cauchos.
-        // window.COLORES y chartTipoEq removidos: ni la paleta ni esa gráfica existían
-        // ya en la pantalla, solo se declaraban y se copiaban a una var que nadie leía.
 
-        // Chart.js + el plugin de etiquetas se piden AQUÍ, al entrar a la pantalla.
-        // Antes el layout traía Chart en todas las páginas y esto era un setInterval
-        // esperándolo a ciegas ("el layout aún no lo cargó") con watchdog de 5 s; el
-        // cargador compartido resuelve descarga, registro del plugin e idempotencia,
-        // así que la espera se hace sobre una promesa concreta en vez de por sondeo.
+        // Chart.js + el plugin de etiquetas se piden al entrar a la pantalla; se espera esta promesa.
         window.chartListo = window.ensureChartJS();
 
+        // Todo texto de la base que va a innerHTML pasa por aquí (placas, frentes, viscosidades del Excel).
+        var escG = window.escapeHtml;
 
-        // Al entrar, los dos campos de mes muestran el mes en curso (el más actual): la presentación, el Top 4 y el
-        // Excel usan lo que se ve. Borrándolos se ve todo el historial. Una sola vez por pantalla (no pisa lo elegido).
+
+        // Al entrar, los dos campos de mes muestran el mes en curso: la presentación, el Top 4 y el Excel usan lo
+        // que se ve. Borrándolos, el Top 4 y el Excel toman todo el historial y la presentación el mes en curso
+        // (presentacionData sin fechas). Una sola vez por pantalla (no pisa lo elegido).
         (function () {
             var d = document.getElementById('fMesDesde'), h = document.getElementById('fMesHasta');
             if (!d || !h || d.dataset.mesPuesto) return;
@@ -364,7 +352,7 @@
             // Filtro por PERÍODO de meses (inputs type=month → "YYYY-MM"). Cada mes se traduce
             // a día para el backend (que espera desde/hasta): desde = primer día del mes inicial;
             // hasta = último día del mes final. Independientes: un solo mes = mismo valor en
-            // ambos (o solo uno); varios meses = meses distintos. Backend sin cambios.
+            // ambos (o solo uno); varios meses = meses distintos.
             var mDesde = document.getElementById('fMesDesde') ? document.getElementById('fMesDesde').value : '';
             var mHasta = document.getElementById('fMesHasta') ? document.getElementById('fMesHasta').value : '';
             if (frente) p.set('id_frente', frente);
@@ -386,7 +374,6 @@
 
         function show(id) { document.getElementById(id).style.display = ''; }
         function hide(id) { document.getElementById(id).style.display = 'none'; }
-        function canvas(id) { document.getElementById(id).style.display = 'block'; }
 
         window.cargarDatos = function () {
             if (window._cargarDatosTimer) clearTimeout(window._cargarDatosTimer);
@@ -396,14 +383,9 @@
         function _cargarDatosLocal() {
             // Se salió del módulo (SPA) antes de que corriera el temporizador: no hay nada que pintar.
             if (!document.getElementById('panelRankingEquipos')) return;
-            // Preloader global SIEMPRE durante la carga (inicial y subsecuente).
-            // Antes confiabamos en el spinner del SPA solo para la primera carga,
-            // pero el SPA spinner se apaga al recibir el HTML inicial — los
-            // gráficos (Chart.js) se renderizan despues, dejando ver canvas
-            // vacios y placeholders. showPreloader() es idempotente: si ya esta
-            // visible (del SPA) no causa flash; si no, lo enciende. hidePreloader()
-            // solo se llama en el finally cuando los charts ya estan pintados.
-            // Solo mostrar preloader global en recargas por filtro (no en la primera carga).
+            // Turno de esta carga: si se cambia el filtro antes de que llegue la respuesta, la vieja no pinta.
+            var turno = window._graficosTurno = (window._graficosTurno || 0) + 1;
+            // Preloader global solo en recargas por filtro (no en la primera carga).
             // La primera carga la maneja el SPA; si llamamos showPreloader() aqui tambien
             // provoca un doble-flash (spinner aparece, desaparece y vuelve a aparecer).
             if (window._graficosFirstRunDone && typeof window.showPreloader === 'function') {
@@ -412,8 +394,11 @@
             const params = getParams();
             window.cargarPresentacionGraficos();
 
-            // ── Loading: mostrar spinners de las secciones siempre visibles ──
-            ['loadingRanking', 'loadingInoperativos'].forEach(show);
+            // ── Loading: spinners de las secciones siempre visibles (un error anterior los había cambiado) ──
+            ['loadingRanking', 'loadingInoperativos'].forEach(function (id) {
+                document.getElementById(id).innerHTML = '<i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>';
+                show(id);
+            });
 
             // ── Ocultar contenido previo (prev carga) ────────────────────────
             ['rankingBody', 'inoperativosBody'].forEach(hide);
@@ -426,9 +411,10 @@
             hide('aceiteFrente-body');
             hide('aceiteEquipoBody');
 
-            window.apiFetch(`{{ route('consumibles.graficosData') }}?${params}`)
-                .then(r => r.json())
+            window.apiFetch(`{{ route('consumibles.graficosData') }}?${params}`, { headers: { 'Accept': 'application/json' } })
+                .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
                 .then(data => {
+                    if (turno !== window._graficosTurno) return;
                     // La respuesta llegó cuando ya se había ido a otro módulo: sus elementos no
                     // existen y pintarlos rompía («Cannot read properties of null»).
                     if (!document.getElementById('fFrente') || !document.getElementById('panelRankingEquipos')) return;
@@ -437,7 +423,7 @@
                     // Solo mostrar equipos×frente cuando hay un frente específico seleccionado
                     if (frenteSeleccionado) {
                         document.getElementById('secEqFrente').style.display = '';
-                        renderEquiposPorFrente(data.equipos_por_frente, frenteSeleccionado);
+                        renderEquiposPorFrente(data.equipos_por_frente);
                     } else {
                         document.getElementById('secEqFrente').style.display = 'none';
                     }
@@ -456,6 +442,7 @@
                     renderEspecEquipo(data.espec_equipo);
                 })
                 .catch(err => {
+                    if (turno !== window._graficosTurno) return;
                     console.error('Error cargando datos de gráficos:', err);
                     ['loadingRanking', 'loadingInoperativos'].forEach(id => {
                             const el = document.getElementById(id);
@@ -463,6 +450,7 @@
                         });
                 })
                 .finally(() => {
+                    if (turno !== window._graficosTurno) return;   // la carga nueva lo apagará
                     // Apagar preloader DESPUES de que charts y DOM esten pintados.
                     // Chart.js no expone un hook "termine de pintar" deterministico —
                     // 2x requestAnimationFrame era insuficiente con muchos canvas.
@@ -478,11 +466,8 @@
                 });
         }
 
-        // Exponer cargarDatos globalmente para el ModuleManager SPA
-        // window.cargarDatos = window.cargarDatos; (Ya asignado arriba)
-
         // ── Equipos individuales que surtieron en el frente seleccionado ────
-        function renderEquiposPorFrente(datos, frenteId) {
+        function renderEquiposPorFrente(datos) {
             const loadEl = document.getElementById('loadingEqFrente');
             const canvEl = document.getElementById('chartEqFrente');
 
@@ -518,10 +503,8 @@
                     equiposMap.set(key, {
                         tipo: d.tipo_equipo || 'S/T',   // ← label en el eje X
                         idLabel: idTooltip,                 // ← placa o serial (tooltip)
-                        modelo: d.MODELO || '',            // ← modelo (tooltip)
                         total: 0,
                         desp: 0,
-                        unidad: d.unidad,
                     });
                 }
                 const eq = equiposMap.get(key);
@@ -599,7 +582,6 @@
                                             const eq = equipos[ctx.dataIndex];
                                             return ` ⛽ ${eq.desp} despacho${eq.desp !== 1 ? 's' : ''}`;
                                         },
-                                        afterLabel: () => undefined,
                                     }
                                 }
                             },
@@ -639,14 +621,10 @@
                 let fotoHtml = '';
                 if (fotoRow) {
                     const driveId = fotoRow.replace(/^.*\/storage\/google\//, '').split('?')[0];
-                    fotoHtml = `<img src="/storage/google/${driveId}" style="width:100%;height:100%;object-fit:cover;">`;
+                    fotoHtml = `<img src="/storage/google/${escG(driveId)}" style="width:100%;height:100%;object-fit:cover;">`;
                 } else {
                     fotoHtml = `<i class="material-icons" style="color:#cbd5e0;font-size:32px;">directions_car</i>`;
                 }
-
-                const total = d.total ? parseFloat(d.total).toLocaleString('es-VE') : '0';
-                const despachos = d.despachos || 0;
-                const unidad = d.unidad || 'LITROS';
 
                 return `
                 <div class="eq-card" style="border-left:4px solid #ef4444; background-color:#f2f2f2; display:flex; flex-direction:column; gap:6px; padding:10px 12px;">
@@ -655,11 +633,11 @@
                             ${fotoHtml}
                         </div>
                         <div style="overflow:hidden; flex:1; min-width:0;">
-                            <div class="eq-tipo" style="font-size:11px;">${d.tipo}</div>
-                            <div class="eq-modelo" style="font-size:12px;">${placa}</div>
+                            <div class="eq-tipo" style="font-size:11px;">${escG(d.tipo)}</div>
+                            <div class="eq-modelo" style="font-size:12px;">${escG(placa)}</div>
                             <div style="font-size:10px; color:#475569; font-weight:600; margin-top:2px; display:flex; align-items:flex-start; gap:2px;">
                                 <i class="material-icons" style="font-size:11px; flex-shrink:0; margin-top:1px;">place</i>
-                                <span style="word-break:break-word; line-height:1.3;">${d.frente_nombre || frente}</span>
+                                <span style="word-break:break-word; line-height:1.3;">${escG(d.frente_nombre || frente)}</span>
                             </div>
                         </div>
                     </div>
@@ -680,12 +658,9 @@
 
 
         // ── TOP EQUIPOS — Grid de tarjetas compactas ───────────────────────
-        window._rankingData = window._rankingData || [];
-        var _rankingData = window._rankingData;
         function renderRanking(datos) {
             hide('loadingRanking');
-            window._rankingData = datos || [];
-            _rankingData = window._rankingData;
+            const _rankingData = window._rankingData = datos || [];
             const body = document.getElementById('rankingBody');
             body.style.display = 'block';
             if (!_rankingData.length) {
@@ -711,19 +686,16 @@
                 const idTexto = idEquipo(d);
                 return `
                 <div class="eq-card">
-                    <div class="eq-tipo">${escHtml(d.tipo || 'S/T')}</div>
-                    <div class="eq-modelo" title="${escHtml(idTexto)}">${escHtml(idTexto)}</div>
-                    <div class="eq-total">${total.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}<span class="eq-unidad">${escHtml(d.unidad)}</span></div>
+                    <div class="eq-tipo">${escG(d.tipo || 'S/T')}</div>
+                    <div class="eq-modelo" title="${escG(idTexto)}">${escG(idTexto)}</div>
+                    <div class="eq-total">${total.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}<span class="eq-unidad">${escG(d.unidad)}</span></div>
                     <div class="eq-desp">⛽ ${desp} despacho${desp !== 1 ? 's' : ''}</div>
                     <div class="eq-bar"><div class="eq-bar-fill" style="width:${pct.toFixed(1)}%; background:${barColor};"></div></div>
                 </div>`;
             };
 
-            // Nombres de frente, tipo y placa vienen de la base: se escapan (un «<» no rompe la tarjeta).
-            const escHtml = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => '&#' + c.charCodeAt(0) + ';');
-            // Agrupar por FRENTE: la ubicación pasa a ser la cabecera del grupo (fuera de las
-            // tarjetas), con su total + nº de equipos. Conserva el orden de mayor consumo del
-            // backend dentro de cada grupo (los datos ya vienen ordenados desc por total).
+            // Agrupar por FRENTE: el nombre del proyecto es la cabecera del grupo (fuera de las
+            // tarjetas). Conserva el orden de mayor consumo del backend dentro de cada grupo.
             const grupos = {};
             const orden = [];
             _rankingData.forEach((d) => {
@@ -739,7 +711,7 @@
                 return `
                 <div class="eq-frente-group">
                     <div class="eq-frente-head">
-                        <span class="eq-frente-name">📍 ${escHtml(fr)}</span>
+                        <span class="eq-frente-name">📍 ${escG(fr)}</span>
                     </div>
                     <div class="eq-col-cards">${g.items.map(tarjeta).join('')}</div>
                 </div>`;
@@ -747,7 +719,7 @@
         }
 
         function descargarRanking() {
-            if (!_rankingData || !_rankingData.length) {
+            if (!window._rankingData || !window._rankingData.length) {
                 window.showToast('No hay datos para descargar. Carga los gráficos primero.', 'warning');
                 return;
             }
@@ -791,7 +763,7 @@
                 const barSegs = filas.map(f => {
                     const pct = parseFloat(f.total) / tot * 100;
                     const color = PALETA[especs.indexOf(f.ESPECIFICACION) % PALETA.length];
-                    return `<div title="${f.ESPECIFICACION}: ${parseFloat(f.total).toFixed(0)} ${UNIDAD} (${pct.toFixed(0)}%)"
+                    return `<div title="${escG(f.ESPECIFICACION)}: ${parseFloat(f.total).toFixed(0)} ${UNIDAD} (${pct.toFixed(0)}%)"
                              style="width:${pct}%;background:${color};height:100%;"></div>`;
                 }).join('');
 
@@ -802,7 +774,7 @@
                             background:#f8fafc;color:#475569;border:1px solid #cbd5e1;border-radius:20px;
                             padding:2px 8px;font-size:10px;font-weight:600;white-space:nowrap;">
                             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};"></span>
-                            ${f.ESPECIFICACION}
+                            ${escG(f.ESPECIFICACION)}
                             <span style="background:#e2e8f0;color:#1e293b;border-radius:20px;padding:1px 5px;font-size:10px;font-weight:700;">${v}</span>
                         </span>`;
                 }).join('');
@@ -811,7 +783,7 @@
                 return `<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">
                 <div style="display:grid;grid-template-columns:24px 190px 1fr auto;align-items:center;gap:8px;">
                     <span style="font-size:11px;color:#94a3b8;font-weight:700;text-align:center;">#${i + 1}</span>
-                    <span style="font-weight:700;font-size:12px;color:#1e293b;word-break:break-word;line-height:1.3;">${frente}</span>
+                    <span style="font-weight:700;font-size:12px;color:#1e293b;word-break:break-word;line-height:1.3;">${escG(frente)}</span>
                     <div style="background:#f1f5f9;border-radius:20px;height:10px;overflow:hidden;">
                         <div style="display:flex;height:100%;width:${wb}%;">${barSegs}</div>
                     </div>
@@ -823,10 +795,7 @@
             </div>`;
             }).join('');
 
-            // ── Total global por viscosidad/modelo: badges sutiles uno al lado
-            // del otro (display:flex + flex-wrap). Antes cada badge venia
-            // envuelto en su propio <div> bloque, lo que los apilaba en columna
-            // perdiendo espacio horizontal y dificultando la comparacion visual.
+            // ── Total global por viscosidad: badges uno al lado del otro (flex-wrap).
             const totalBadges = especs.map((e, i) => {
                 const color = PALETA[i % PALETA.length];
                 const v = mapEspec[e].toLocaleString('es-VE', { maximumFractionDigits: 0 });
@@ -834,7 +803,7 @@
                 background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:20px;padding:4px 13px;
                 font-size:12px;font-weight:600;white-space:nowrap;">
                 <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};"></span>
-                ${e}
+                ${escG(e)}
                 <span style="background:#e2e8f0;color:#0f172a;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:2px;">${v} ${UNIDAD}</span>
             </span>`;
             }).join('');
@@ -907,7 +876,7 @@
 
             const thead = `<tr>
             <th>Equipo / Código</th><th>Tipo</th>
-            ${especs.map((e, i) => `<th style="text-align:right;color:${PALETA[i % PALETA.length]};">${e}</th>`).join('')}
+            ${especs.map((e, i) => `<th style="text-align:right;color:${PALETA[i % PALETA.length]};">${escG(e)}</th>`).join('')}
             <th style="text-align:right;">Total</th>
         </tr>`;
             const tbody = filas.map(f => {
@@ -919,10 +888,10 @@
                         : `<td style="text-align:right;color:#cbd5e0;">—</td>`;
                 }).join('');
                 return `<tr>
-                <td style="font-weight:700;font-family:monospace;font-size:12px;">${f.idTexto}
-                    <span style="display:block;color:#64748b;font-weight:400;font-size:10px;font-family:sans-serif;">${f.modelo || ''}</span>
+                <td style="font-weight:700;font-family:monospace;font-size:12px;">${escG(f.idTexto)}
+                    <span style="display:block;color:#64748b;font-weight:400;font-size:10px;font-family:sans-serif;">${escG(f.modelo || '')}</span>
                 </td>
-                <td style="font-size:11px;color:#64748b;">${f.tipo}</td>
+                <td style="font-size:11px;color:#64748b;">${escG(f.tipo)}</td>
                 ${cells}
                 <td style="text-align:right;font-weight:800;color:${COLOR_BASE};">${tot.toLocaleString('es-VE', { maximumFractionDigits: 0 })} ${UNIDAD}</td>
             </tr>`;
@@ -953,7 +922,7 @@
         }
 
         // ── Helper: capturar cualquier panel del DOM tal como se ve en pantalla ──────
-        function capturaPanelHtml(panelId, nombre, callbackClone) {
+        function capturaPanelHtml(panelId, nombre) {
             const el = document.getElementById(panelId);
             if (!el || el.style.display === 'none') {
                 window.showToast('El panel no está visible. Aplica los filtros primero.', 'warning'); return;
@@ -965,7 +934,7 @@
                         if (window.hidePreloader) window.hidePreloader();
                         // Cargó pero no trajo la librería (archivo dañado): avisar, no volver a intentar sin fin.
                         if (typeof html2canvas === 'undefined') { window.showToast('Error al cargar la librería de captura.', 'warning'); return; }
-                        capturaPanelHtml(panelId, nombre, callbackClone);
+                        capturaPanelHtml(panelId, nombre);
                     })
                     .catch(function () {
                         if (window.hidePreloader) window.hidePreloader();
@@ -978,9 +947,6 @@
                 useCORS: true,
                 backgroundColor: '#ffffff',
                 logging: false,
-                onclone: function (clonedDoc) {
-                    if (callbackClone) callbackClone(clonedDoc);
-                }
             }).then(canvas => bajarFoto(canvas, nombre))
               .catch(() => window.showToast('No se pudo generar la imagen.', 'warning'));
         }
@@ -1014,10 +980,5 @@
             window._graficosDataLoaded = true;
             window.cargarDatos();
         }
-
-        // El IIFE de Auditoria de Catalogo fue eliminado. Bash el guard
-        // if(false) anterior aun referenciaba route("consumibles.auditoriaCatalogo")
-        // dentro del fetch, y Blade resolvia ese helper a tiempo de compilacion
-        // ANTES de evaluar el if(false) JS — tirando RouteNotFoundException.
     </script>
 @endsection

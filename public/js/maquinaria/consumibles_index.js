@@ -119,7 +119,7 @@ if (typeof window.ModuleManager !== 'undefined') {
                 if (!fila) return;
                 fila.innerHTML =
                     '<div style="display:flex;align-items:center;gap:4px;flex:1;">' +
-                        '<input id="inp-id-' + id + '" type="text" value="' + esc(valorActual) + '" ' +
+                        '<input id="inp-id-' + id + '" type="text" maxlength="100" value="' + esc(valorActual) + '" ' +
                                'style="font-size:12px;padding:3px 6px;border:1px solid #0067b1;border-radius:6px;flex:1;min-width:0;outline:none;" ' +
                                'onkeydown="if(event.key===\'Enter\')guardarId(' + id + ');if(event.key===\'Escape\')cancelarId(' + id + ')">' +
                         '<button onclick="guardarId(' + id + ')" style="background:#0067b1;color:#fff;border:none;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:11px;font-weight:700;">✓</button>' +
@@ -136,9 +136,11 @@ if (typeof window.ModuleManager !== 'undefined') {
                 if (!nuevo) { inp.style.border = '1px solid #ef4444'; return; }
                 inp.disabled = true;
 
+                // Con Accept JSON: si el servidor lo rechaza responde 422 con el motivo (sin él,
+                // redirige a la página y el toast no decía nada).
                 window.apiFetch('/admin/consumibles/' + id + '/identificador', {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({ identificador: nuevo })
                 })
                 .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
@@ -158,6 +160,7 @@ if (typeof window.ModuleManager !== 'undefined') {
                 .catch(function() {
                     var inp2 = document.getElementById('inp-id-' + id);
                     if (inp2) { inp2.disabled = false; inp2.style.border = '1px solid #ef4444'; }
+                    window.toast('No se pudo guardar el identificador. Revisa la conexión.', 'error');
                 });
             };
 
@@ -182,6 +185,11 @@ if (typeof window.ModuleManager !== 'undefined') {
                 var opciones = frentesList.map(function(f) {
                     return '<option value="' + esc(f.id) + '"' + (f.id == idActual ? ' selected' : '') + '>' + esc(f.nombre) + '</option>';
                 }).join('');
+                // Sin frente (o con uno ya no activo): que pida elegir, no que muestre el primero
+                // de la lista como si fuera el suyo.
+                if (!frentesList.some(function(f) { return f.id == idActual; })) {
+                    opciones = '<option value="" disabled selected>— Elegir frente —</option>' + opciones;
+                }
 
                 celda.innerHTML =
                     '<div style="display:flex;flex-direction:column;gap:4px;">' +
@@ -197,11 +205,12 @@ if (typeof window.ModuleManager !== 'undefined') {
                 var sel = document.getElementById('sel-frente-' + id);
                 if (!sel) return;
                 var idFrente = sel.value;
+                if (!idFrente) { sel.style.border = '1px solid #ef4444'; return; }
                 sel.disabled = true;
 
                 window.apiFetch('/admin/consumibles/' + id + '/frente', {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({ id_frente: idFrente })
                 })
                 .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
@@ -219,7 +228,11 @@ if (typeof window.ModuleManager !== 'undefined') {
                     window.toast('Frente cambiado a ' + (data.nombre_frente || '—') + '.', 'success');
                     consumiblesRefrescar();
                 })
-                .catch(function() { if (sel) { sel.disabled = false; sel.style.border = '1px solid #ef4444'; } });
+                .catch(function() {
+                    sel.disabled = false;
+                    sel.style.border = '1px solid #ef4444';
+                    window.toast('No se pudo cambiar el frente. Revisa la conexión.', 'error');
+                });
             };
 
             window.cancelarFrente = function(id) {

@@ -2,7 +2,7 @@
      (número y plan de despacho); cuando la cisterna llega se le pone la llegada real, los litros y la
      foto, ahí mismo. La última fila (vacía) es para una solicitud nueva; al llenarla aparece otra.
      Solo las que llegaron cuentan en lo recibido. Se repinta sola (consumibles.cupos?parcial=1&patio=…).
-     Recibe $clave, $p (de CuposCombustibleController::datos), $mes y $meses. --}}
+     Recibe $clave, $p (de CuposCombustibleController::datos) y $mes. --}}
 @php
     $lt = fn ($n) => number_format((float) $n, fmod((float) $n, 1) ? 2 : 0, ',', '.');
     $puede = auth()->user()->can('super.admin');
@@ -13,7 +13,7 @@
     $ym = $mes->format('Y-m');
     $programadas = $p['filas']->count() - $p['recibidas'];
 @endphp
-<div class="cupos-panel" data-panel="{{ $clave }}" data-mes="{{ $ym }}" data-siguiente="{{ $p['siguiente'] }}"
+<div class="cupos-panel" data-panel="{{ $clave }}" data-mes="{{ $ym }}"
     style="--color: {{ $colores[$clave] ?? '#1F4E79' }};" hidden>
     <form class="cupos-bloque" data-accion="cisterna" novalidate>
         <input type="hidden" name="patio" value="{{ $clave }}">

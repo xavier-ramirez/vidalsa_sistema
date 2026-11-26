@@ -47,7 +47,7 @@ class LectorExcelCombustible
         'serial'   => ['SERIAL'],
     ];
 
-    private const MAX_COLUMNAS = 60;
+    public const MAX_COLUMNAS = 60;
     private const MAX_FILAS = 20000;
 
     /** Mes escrito (es/en) → número, para fechas de texto como «01-ago-26» (una tabla pegada). */

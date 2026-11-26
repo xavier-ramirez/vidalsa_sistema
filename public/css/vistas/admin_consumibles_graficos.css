@@ -85,7 +85,7 @@
             .g-title { font-size: 11px !important; }
         }
 
-        /* Ranking "Top 20" — BOARD horizontal: cada FRENTE es una COLUMNA (cabecera arriba
+        /* «Top 4 por proyecto» — BOARD horizontal: cada PROYECTO es una COLUMNA (cabecera arriba
            + sus equipos apilados debajo). Las columnas van lado a lado; si no caben, hay
            scroll horizontal. La ubicación del frente vive en la cabecera (.eq-frente-head),
            fuera de las tarjetas, que son compactas para que entren la mayor cantidad. */

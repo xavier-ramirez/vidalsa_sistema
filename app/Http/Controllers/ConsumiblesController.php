@@ -24,8 +24,7 @@ class ConsumiblesController extends Controller
      * clave que NO existe devuelve false y no la crea (comprobado con el driver
      * `database` de este proyecto). Como nadie creaba esta clave, la versión se quedaba
      * en el valor por defecto PARA SIEMPRE y los gráficos seguían mostrando datos viejos
-     * hasta que vencía su TTL de 30 minutos — justo lo contrario de lo que decía el
-     * comentario que había aquí.
+     * hasta que vencía su TTL de 30 minutos.
      */
     public const DATA_VER_KEY = 'consumibles_data_version';
 
@@ -45,9 +44,6 @@ class ConsumiblesController extends Controller
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
             ->orderBy('NOMBRE_FRENTE')->get();
 
-        // Sin 'suministro': la tabla suministros_origen esta VACIA y ningun consumible
-        // tiene ID_SUMINISTRO (el registro de consumible lo escribe siempre null), asi que
-        // era una consulta mas en cada carga para traer nada. Ninguna vista la lee.
         $query = Consumible::with(['equipo.frenteActual', 'equipo.tipo', 'equipo.documentacion', 'auxiliar', 'frente'])
             ->orderBy('FECHA', 'desc')
             ->orderBy('ID_CONSUMIBLE', 'desc');
@@ -427,7 +423,7 @@ class ConsumiblesController extends Controller
     // ══════════════════════════════════════════════════════════════
     public function destroy(Request $request, int $id)
     {
-        // Pide equipos.edit, como editar (la ruta); ya no super.admin, a pedido del usuario.
+        // Pide equipos.edit, como editar (la ruta).
         Consumible::findOrFail($id)->delete();
 
         // Invalidar caché de gráficos
@@ -456,12 +452,17 @@ class ConsumiblesController extends Controller
     // ══════════════════════════════════════════════════════════════
     public function graficosData(Request $request)
     {
+        // Un filtro mal formado (?desde=abc, ?desde[]=x) daba 500 o guardaba una clave basura en el caché.
+        $request->validate([
+            'desde' => 'nullable|date', 'hasta' => 'nullable|date', 'id_frente' => 'nullable|integer',
+            'tipo' => ['nullable', \Illuminate\Validation\Rule::in(array_keys(Consumible::tiposLabel()))],
+        ]);
         set_time_limit(120); // queries pesadas — evita timeout de 60s
 
-        $desde = $request->get('desde');
-        $hasta = $request->get('hasta');
-        $idFrente = $request->get('id_frente');
-        $tipo = $request->get('tipo');
+        $desde = $request->input('desde');
+        $hasta = $request->input('hasta');
+        $idFrente = $request->input('id_frente');
+        $tipo = $request->input('tipo');
 
         // ── Clave de caché única por combinación de filtros + versión de datos ──
         // La versión sube cada vez que se escriben datos → invalida todo el caché anterior.
@@ -494,10 +495,9 @@ class ConsumiblesController extends Controller
                 $q->where('consumibles.ESTADO_EQUIPO', 'CONFIRMADO');
             };
 
-            // ── 2. Top 4 equipos de mayor consumo DE CADA PROYECTO — solo CONFIRMADOS ──
+            // ── Top 4 equipos de mayor consumo DE CADA PROYECTO — solo CONFIRMADOS ──
             // El proyecto es el del SURTIDO (consumibles.ID_FRENTE); si el surtido no lo trae, el
-            // frente al que pertenece el equipo. Antes se agrupaba siempre por el frente ACTUAL del
-            // equipo y un surtido de Oleoducto salía bajo otro proyecto. Un equipo que surtió en
+            // frente al que pertenece el equipo. Un equipo que surtió en
             // dos proyectos sale en los dos, cada uno con sus litros y sus surtidos.
             // Orden: litros y, a igual litros, más surtidos primero.
             $proyecto = DB::raw('COALESCE(consumibles.ID_FRENTE, equipos.ID_FRENTE_ACTUAL)');
@@ -537,12 +537,12 @@ class ConsumiblesController extends Controller
                 ->orderBy('despachos', 'desc')
                 ->get()
                 // Los 4 de cada proyecto (ya vienen de mayor a menor); los proyectos, por su equipo de más
-                // consumo (el orden en que aparecen). Antes eran 20 en total y los proyectos chicos no salían.
+                // consumo (el orden en que aparecen).
                 ->groupBy(fn ($e) => (int) $e->id_proyecto)
                 ->flatMap(fn ($equipos) => $equipos->take(4))
                 ->values();
 
-            // ── 6. Equipos individuales × frente — solo CONFIRMADOS ──────────────────
+            // ── Equipos individuales × frente — solo CONFIRMADOS ──────────────────
             // Muestra qué equipos específicos (modelo + código) surtieron en cada frente.
             $equiposPorFrente = DB::table('consumibles')
                 ->join('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'consumibles.ID_FRENTE')
@@ -575,8 +575,8 @@ class ConsumiblesController extends Controller
                 ->orderBy('total', 'desc')
                 ->get();
 
-            // ── 7. Aceite por viscosidad — solo con el filtro ACEITE ───────
-            // (El desglose de cauchos por modelo se quitó a pedido.) Otro tipo → vacío → secciones ocultas.
+            // ── Aceite por viscosidad — solo con el filtro ACEITE ───────
+            // Otro tipo → vacío → secciones ocultas.
             $tipoEspec = $tipo === 'ACEITE' ? 'ACEITE' : null;
 
             if ($tipoEspec) {
@@ -641,75 +641,50 @@ class ConsumiblesController extends Controller
                 $especEquipo = collect();
             }
 
-            // ── 8. Equipos Inoperativos en el frente seleccionado ────────────
-            // (Bloque "Cauchos por Tipo de Equipo y Medida" removido a pedido —
-            // el panel se elimino del modulo de graficos.)
-            $inoperativos = [];
-            if ($idFrente) {
-                $inoperativos = DB::table('equipos')
-                    ->where('ESTADO_OPERATIVO', 'INOPERATIVO')
-                    ->where('ID_FRENTE_ACTUAL', $idFrente)
-                    ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
-                    ->leftJoin('documentacion', 'documentacion.ID_EQUIPO', '=', 'equipos.ID_EQUIPO')
-                    ->leftJoin('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'equipos.ID_FRENTE_ACTUAL')
-                    ->leftJoin('consumibles', function ($join) use ($desde, $hasta, $tipo) {
-                        $join->on('consumibles.ID_EQUIPO', '=', 'equipos.ID_EQUIPO');
-                        if ($desde)
-                            $join->where('consumibles.FECHA', '>=', $desde);
-                        if ($hasta)
-                            $join->where('consumibles.FECHA', '<=', $hasta);
-                        if ($tipo)
-                            $join->where('consumibles.TIPO_CONSUMIBLE', $tipo);
-                        $join->where('consumibles.ESTADO_EQUIPO', 'CONFIRMADO');
-                    })
-                    ->select(
-                        'equipos.ID_EQUIPO',
-                        'equipos.SERIAL_CHASIS',
-                        'frentes_trabajo.NOMBRE_FRENTE as frente_nombre',
-                        DB::raw("MAX(documentacion.PLACA) as PLACA"),
-                        DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo"),
-                        DB::raw('SUM(consumibles.CANTIDAD) as total'),
-                        DB::raw('COUNT(consumibles.ID_CONSUMIBLE) as despachos'),
-                        DB::raw('MAX(consumibles.UNIDAD) as unidad')
-                    )
-                    ->groupBy(
-                        'equipos.ID_EQUIPO',
-                        'equipos.SERIAL_CHASIS',
-                        'frentes_trabajo.NOMBRE_FRENTE',
-                        'tipo_equipos.nombre'
-                    )
-                    ->get();
-
-                // FOTO: la de toda la app (Equipo::fotoParaMostrar: color → modelo → propia),
-                // resuelta aquí y no en el navegador, que antes repetía la regla por su cuenta.
-                $fotos = \App\Models\Equipo::with(\App\Models\Equipo::conFoto())
-                    ->whereIn('ID_EQUIPO', $inoperativos->pluck('ID_EQUIPO'))
-                    ->get(['ID_EQUIPO', 'ID_ESPEC', 'COLOR', 'FOTO_EQUIPO'])
-                    ->mapWithKeys(fn ($e) => [$e->ID_EQUIPO => $e->fotoParaMostrar()]);
-                foreach ($inoperativos as $fila) {
-                    $fila->FOTO = $fotos[$fila->ID_EQUIPO] ?? null;
-                }
-            }
-
             return [
                 'equipos_por_frente' => $equiposPorFrente,
                 'top_equipos' => $topEquipos,
                 'espec_frente' => $especFrente,
                 'espec_equipo' => $especEquipo,
-                'inoperativos' => $inoperativos,
             ];
         }); // fin Cache::remember
 
+        // Inoperativos del frente FUERA del caché: dependen de la tabla equipos (estado, frente, foto),
+        // que no sube la versión de consumibles; cacheados, un equipo recién inoperativo tardaba 30 min.
+        $resultado['inoperativos'] = $idFrente ? self::inoperativosDe((int) $idFrente) : [];
 
         return response()->json($resultado);
     }
 
+    /** Equipos INOPERATIVOS que están hoy en el frente, con su placa y la foto de toda la app. */
+    private static function inoperativosDe(int $idFrente)
+    {
+        $inoperativos = DB::table('equipos')
+            ->where('ESTADO_OPERATIVO', 'INOPERATIVO')
+            ->where('ID_FRENTE_ACTUAL', $idFrente)
+            ->whereNull('equipos.deleted_at')
+            ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
+            ->leftJoin('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'equipos.ID_FRENTE_ACTUAL')
+            ->select(
+                'equipos.ID_EQUIPO',
+                'equipos.SERIAL_CHASIS',
+                'frentes_trabajo.NOMBRE_FRENTE as frente_nombre',
+                DB::raw('(SELECT MAX(d.PLACA) FROM documentacion d WHERE d.ID_EQUIPO = equipos.ID_EQUIPO) as PLACA'),
+                DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo")
+            )
+            ->get();
 
-    // auditoriaCatalogoData() removido: el panel "Auditoría de Catálogo"
-    // se elimino del modulo de graficos. La auditoria de cambios sigue
-    // accesible directamente desde /admin/catalogo (cada modelo expone
-    // su propio historial). Si en el futuro vuelve, restaurar este metodo
-    // junto a la ruta consumibles.auditoriaCatalogo y al panel Blade.
+        // FOTO: la de toda la app (Equipo::fotoParaMostrar: color → modelo → propia).
+        $fotos = \App\Models\Equipo::with(\App\Models\Equipo::conFoto())
+            ->whereIn('ID_EQUIPO', $inoperativos->pluck('ID_EQUIPO'))
+            ->get(['ID_EQUIPO', 'ID_ESPEC', 'COLOR', 'FOTO_EQUIPO'])
+            ->mapWithKeys(fn ($e) => [$e->ID_EQUIPO => $e->fotoParaMostrar()]);
+        foreach ($inoperativos as $fila) {
+            $fila->FOTO = $fotos[$fila->ID_EQUIPO] ?? null;
+        }
+
+        return $inoperativos;
+    }
 
     /**
      * Filtros de la URL mal formados se ignoran (?estado=FOO, ?tipo[]=x, ?identificador[]=x):
@@ -781,12 +756,6 @@ class ConsumiblesController extends Controller
     // PRESENTACIÓN DE GASOIL — los datos del PowerPoint que arma Gráficos (consumibles_presentacion.js)
     // ══════════════════════════════════════════════════════════════
     /**
-     * Lámina 1: gasoil por proyecto en el período (todos los estados, como la lista). Lámina 2: un proyecto,
-     * sus 6 meses hasta el último del período y sus 4 equipos de mayor consumo en el período (solo los
-     * confirmados con equipo, del proyecto del SURTIDO, igual que sus barras y sus meses, para que las cifras
-     * cuadren). Sin fechas, el período es el mes en curso.
-     */
-    /**
      * División de cada proyecto para la lámina de consumo (el maestro las trae a mano: Ayacucho y Carabobo).
      * El sistema no la guarda: se deduce del NOMBRE y la UBICACIÓN del frente con estas palabras (Carabobo se
      * mira primero). Con la base de hoy: Veladero, Agua Salada y lo de Morichal o «Carabobo» → Carabobo; lo de
@@ -812,6 +781,12 @@ class ConsumiblesController extends Controller
         return 'OTROS';
     }
 
+    /**
+     * Datos de las láminas: gasoil por proyecto en el período (todos los estados, como la lista) y por
+     * división; un proyecto con sus 6 meses hasta el último del período y sus 4 equipos de mayor consumo
+     * (solo confirmados, del proyecto del SURTIDO, para que cuadren con sus barras); y los cupos y
+     * cisternas (CuposCombustibleController::presentacion). Sin fechas, el período es el mes en curso.
+     */
     public function presentacionData(Request $request)
     {
         $request->validate([
@@ -896,19 +871,15 @@ class ConsumiblesController extends Controller
     }
 
     // ══════════════════════════════════════════════════════════════
-    // EXPORTAR CSV — Descarga directa de datos confirmados
+    // EXPORTAR EXCEL — la lista (o Gráficos) con sus filtros, todos los estados
     // ══════════════════════════════════════════════════════════════
     public function exportarCsv(Request $request)
     {
-        // Gráficos manda desde/hasta y id_frente=all; la lista, fecha_desde/fecha_hasta. Sin tipo
-        // (Gráficos con «todos») salen todos los tipos.
+        // Gráficos manda desde/hasta; la lista, fecha_desde/fecha_hasta. Sin tipo salen todos los tipos.
         $request->merge([
             'fecha_desde' => $request->input('fecha_desde') ?: $request->input('desde'),
             'fecha_hasta' => $request->input('fecha_hasta') ?: $request->input('hasta'),
         ]);
-        if ($request->input('id_frente') === 'all') {
-            $request->merge(['id_frente' => null]);
-        }
         self::limpiarFiltros($request);
         $idFrente = $request->input('id_frente');
         $tipo = $request->input('tipo');

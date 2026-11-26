@@ -116,8 +116,6 @@
             }
             /* Columna Equipo angosta (160 px): el tipo y el título pasan a dos líneas si no caben. */
             .cons-tbl-wrap .admin-table .cons-col-eq { width: 160px; max-width: 160px; }
-            /* la placa o serial en 12 px: un serial de 17 caracteres cabe en una línea */
-            .cons-tbl-wrap .cons-col-eq .cons-id-fila { font-size: 12px; }
             .cons-tbl-wrap .admin-table thead th.cons-col-eq { white-space: normal; }
             .cons-tbl-wrap td.cons-col-eq { overflow-wrap: anywhere; }
             /* Columna de la X que borra la fila: solo lo que mide el botón. */
@@ -213,12 +211,10 @@
         </div>
 
         <div class="page-layout-grid cons-layout">
-        <div class="admin-card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 25px;">
-            {{-- Filtros --}}
-            {{-- SIN onsubmit que encienda el spinner: el listener de más abajo hace
+        <div class="admin-card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            {{-- Filtros. SIN onsubmit que encienda el spinner: el listener de más abajo hace
                  preventDefault() y llama a submitConsumiblesFilters() → cargarConsumibles(),
-                 que ya lo enciende. Con los dos, el contador de referencias quedaba en 1 y el
-                 spinner no se iba. Mismo fallo que tenía el formulario de frentes. --}}
+                 que ya lo enciende (con los dos, el spinner no se iba). --}}
             <form method="GET" action="{{ route('consumibles.index') }}" id="filtrosForm">
                 <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom: 20px;">
 
@@ -238,7 +234,7 @@
                                     style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
                                     <i class="material-icons" style="font-size:18px;">search</i>
                                 </div>
-                                <input type="text" data-filter-search id="search_frentes"
+                                <input type="text" data-filter-search
                                     placeholder="{{ $currentFrente ? $currentFrente->NOMBRE_FRENTE : 'Todos los frentes' }}"
                                     style="width:100%; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%; font-family:inherit;"
                                     oninput="window.filterDropdownOptions(this)" autocomplete="off">
@@ -281,7 +277,7 @@
                                     style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
                                     <i class="material-icons" style="font-size:18px;">search</i>
                                 </div>
-                                <input type="text" data-filter-search id="search_tipos"
+                                <input type="text" data-filter-search
                                     placeholder="{{ $currentTipo ? $tiposList[$currentTipo] : 'Tipos' }}"
                                     style="width:100%; min-width:40px; border:none; background:transparent; padding:0 5px; font-size:13px; outline:none; height:100%; font-family:inherit;"
                                     oninput="window.filterDropdownOptions(this)" autocomplete="off">
@@ -323,7 +319,7 @@
                         </button>
 
                         <!-- Dynamic Filter Panel -->
-                        <div id="advancedFilterPanel" class="no-close-on-click"
+                        <div id="advancedFilterPanel"
                             style="display: none; position: absolute; top: 100%; right: 0; width: 300px; background: #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15); border: 1px solid #cbd5e1; z-index: 1000; margin-top: 10px; padding: 15px;">
                             <h4
                                 style="margin: 0 0 15px 0; font-size: 14px; font-weight: 700; color: #334155; display: flex; justify-content: space-between; align-items: center;">
@@ -337,12 +333,12 @@
                                     style="display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 5px;">Rango
                                     de Fechas</span>
                                 <div style="display: flex; gap: 8px;">
-                                    <input type="date" name="fecha_desde" class="native-date"
+                                    <input type="date" name="fecha_desde"
                                         value="{{ request('fecha_desde') }}" onchange="window.submitConsumiblesFilters()"
                                         title="Desde"
                                         style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;"
                                         onclick="try{this.showPicker()}catch(e){}">
-                                    <input type="date" name="fecha_hasta" class="native-date"
+                                    <input type="date" name="fecha_hasta"
                                         value="{{ request('fecha_hasta') }}" onchange="window.submitConsumiblesFilters()"
                                         title="Hasta"
                                         style="width: 100%; height: 36px; border-radius: 6px; border: 1px solid #cbd5e0; background: #fbfcfd; outline: none; padding: 0 12px; font-size:12px; color: #1e293b; cursor: pointer;"
@@ -369,7 +365,7 @@
                                             style="padding:0 8px; display:flex; align-items:center; color:{{ $currentEstado ? '#0067b1' : '#94a3b8' }};">
                                             <i class="material-icons" style="font-size:16px;">search</i>
                                         </div>
-                                        <input type="text" data-filter-search id="search_estados"
+                                        <input type="text" data-filter-search
                                             readonly
                                             placeholder="{{ $estadosList[$currentEstado] ?? 'Todos los estados' }}"
                                             value="{{ $estadosList[$currentEstado] ?? 'Todos los estados' }}"
@@ -378,7 +374,7 @@
                                         <i class="material-icons" data-clear-btn
                                             style="padding:0 5px; color:#94a3b8; font-size:16px; display:{{ $currentEstado ? 'block' : 'none' }}; cursor:pointer;"
                                             onclick="event.stopPropagation(); window.clearDropdownFilter('estadoFilterSelect'); window.submitConsumiblesFilters();">close</i>
-                                        <i class="material-icons"
+                                        <i class="material-icons" data-flecha
                                             style="padding:0 5px; color:#94a3b8; font-size:16px; display:{{ $currentEstado ? 'none' : 'block' }}; pointer-events:none;">expand_more</i>
                                     </div>
                                     <div class="dropdown-content"
@@ -596,13 +592,13 @@
                     <thead>
                         <tr>
                             <th class="th-center" style="width:28px; padding:9px 2px;">#</th>
-                            <th class="th-left">Fecha</th>
-                            <th class="th-left">Tipo</th>
-                            <th class="th-left cons-col-eq">Equipo <span style="font-weight:400;opacity:.7;white-space:nowrap;">(placa / serial)</span></th>
-                            <th class="th-left">Responsable</th>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th class="cons-col-eq">Equipo <span style="font-weight:400;opacity:.7;white-space:nowrap;">(placa / serial)</span></th>
+                            <th>Responsable</th>
                             <th class="th-right">Cantidad</th>
-                            <th class="th-left">Frente <span style="font-weight:400;opacity:.7;">(proyecto)</span></th>
-                            <th class="th-left">Estado</th>
+                            <th>Frente <span style="font-weight:400;opacity:.7;">(proyecto)</span></th>
+                            <th>Estado</th>
                             <th class="cons-col-del"></th>
                         </tr>
                     </thead>
@@ -655,7 +651,6 @@
                                     id="id-cell-{{ $c->ID_CONSUMIBLE }}" data-original="{{ $c->IDENTIFICADOR }}" data-mostrado="{{ $mostrado }}">
                                     <div class="cons-equipo">
                                     @if($c->equipo)
-                                        {{-- Tipo --}}
                                         {{-- Tipo y marca en una sola línea --}}
                                         <span>{{ trim(($c->equipo->tipo?->nombre ?? 'S/T') . ' ' . $c->equipo->MARCA) }}</span>
                                     @elseif($c->auxiliar)
@@ -746,7 +741,7 @@
                                 </td>
                                 <td class="cons-col-del">
                                     @can('equipos.edit')
-                                    <button type="button" data-consumible-id="{{ $c->ID_CONSUMIBLE }}"
+                                    <button type="button"
                                         onclick="window.borrarDirecto({{ $c->ID_CONSUMIBLE }}, '{{ route('consumibles.destroy', $c->ID_CONSUMIBLE) }}', this)"
                                         class="cons-btn-del"
                                         title="Eliminar">
@@ -760,7 +755,7 @@
                                 <td colspan="9" style="text-align:center; padding:40px; color:#94a3b8; font-weight:400;">
                                     <i class="material-icons"
                                         style="font-size:40px; display:block; margin-bottom:8px;">inbox</i>
-                                    @if(request()->hasAny(['id_frente', 'estado', 'fecha_desde', 'fecha_hasta', 'identificador']))
+                                    @if(request()->anyFilled(['id_frente', 'estado', 'fecha_desde', 'fecha_hasta', 'identificador']))
                                         Ningún consumible cumple con los filtros.
                                         <a href="{{ route('consumibles.index', ['tipo' => request('tipo')]) }}" style="color:#0067b1; font-weight:600;">Quitar filtros</a>
                                     @else
@@ -781,9 +776,9 @@
             </div>{{-- #consumiblesResultados --}}
         </div>
 
-        {{-- Columna derecha: contadores en una tarjeta como la de Equipos (a pedido del usuario). --}}
+        {{-- Columna derecha: contadores en una tarjeta como la de Equipos. --}}
         <div class="cons-sidebar">
-            <div id="consContadores" class="cons-consolidado">
+            <div class="cons-consolidado">
                 <i class="material-icons cons-consolidado-icono">local_gas_station</i>
                 <div class="cons-consolidado-titulo">Consumibles</div>
                 <div class="cons-consolidado-grid">
@@ -850,6 +845,6 @@
         </script>
 
     </div>
-{{-- JS de esta pantalla (solo lo usa ella; antes iba en el layout y lo bajaban todas). La SPA lo ejecuta una vez por pestaña. --}}
+{{-- JS de esta pantalla. La SPA lo ejecuta una vez por pestaña. --}}
 <script src="{{ asset('js/maquinaria/consumibles_index.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_index.js')) }}"></script>
 @endsection

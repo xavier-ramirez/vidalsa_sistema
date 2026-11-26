@@ -226,6 +226,9 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         // El mismo Excel otra vez: la tabla los muestra, pero al guardar se saltan todos.
         $otra = $this->subir($u, $ruta)->assertOk();
         $this->assertSame(5, $otra->json('cargados'));
+        // Cada fila dice si se salta: el resumen de la tabla no la suma.
+        $this->assertSame([true], array_values(array_unique(array_column($otra->json('filas'), 'saltar'))));
+        $this->assertSame([false], array_values(array_unique(array_column($subida->json('filas'), 'saltar'))));
         $antes = DB::table('consumibles')->count();
         $this->guardarTabla($otra)->assertOk()
             ->assertJson(['insertados' => 0, 'saltados' => 5])

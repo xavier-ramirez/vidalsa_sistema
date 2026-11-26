@@ -132,8 +132,6 @@
         .cupos-cupo-lado { flex: 1 1 100%; }
         .cupos-cupo-lado .cupos-cupo, .cupos-cupo-caja input { width: 100%; }
         .cupos-bloque { padding: 10px; }
-        .cupos-tbl-cab { flex-wrap: wrap; }
-        .cupos-botones { flex: 1 1 100%; }
         .cupos-pie .btn-primary-maquinaria { flex: 1 1 0; justify-content: center; }
         /* Cada cisterna, una tarjeta de dos renglones: N.º | Plan | Llegada | foto, y debajo Litros | quitar. */
         .cupos-tbl-marco { overflow: visible; border: none; }

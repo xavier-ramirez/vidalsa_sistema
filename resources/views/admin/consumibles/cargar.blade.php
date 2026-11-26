@@ -246,15 +246,15 @@
                         <div style="position:relative;">
                             <div id="frenteCaja"
                                 style="box-sizing:border-box; padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; position:relative;">
-                                <input type="text" id="frenteSearch" name="search_frente_cargar"
+                                <input type="text" id="frenteSearch"
                                     placeholder="Frente de Trabajo (filas sin proyecto)" autocomplete="off"
                                     style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; outline:none; height:100%; font-family:inherit;"
-                                    oninput="filtrarFrentes(this.value)" onfocus="mostrarTodosLosFrente()">
+                                    oninput="escribirFrente(this.value)" onfocus="mostrarTodosLosFrente()">
                                 <i class="material-icons"
                                     style="padding:0 10px; color:#94a3b8; font-size:18px; cursor:default;"
                                     onclick="document.getElementById('frenteSearch').focus()">arrow_drop_down</i>
                             </div>
-                            <input type="hidden" name="id_frente" id="idFrenteHidden" value="{{ old('id_frente') }}">
+                            <input type="hidden" name="id_frente" id="idFrenteHidden" value="">
                             <div id="frenteDropdown"
                                 style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #cbd5e0; border-radius:10px; box-shadow:0 8px 20px rgba(0,0,0,.12); z-index:200; max-height:240px; overflow-y:auto; margin-top:4px;">
                             </div>
@@ -264,13 +264,11 @@
                     {{-- TIPO CONSUMIBLE --}}
                     <div style="flex: 1; min-width: 160px; position:relative;">
                         <div class="custom-dropdown" id="tipoDropdownCargar" data-default-label="— Seleccionar —">
-                            <input type="hidden" name="tipo_consumible" id="tipoSelect" value="{{ old('tipo_consumible') }}"
-                                required>
+                            <input type="hidden" name="tipo_consumible" id="tipoSelect" value="">
                             <div class="dropdown-trigger"
                                 style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; cursor:default; position:relative;">
-                                <input type="text" data-filter-search id="search_tipo_cargar" name="search_tipo_cargar"
-                                    readonly
-                                    value="{{ old('tipo_consumible') ? (\App\Models\Consumible::tiposLabel()[old('tipo_consumible')] ?? '') : '' }}"
+                                <input type="text" data-filter-search id="search_tipo_cargar"
+                                    readonly value=""
                                     placeholder="Tipo de Consumible *"
                                     style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; outline:none; height:100%; cursor:default; font-family:inherit;"
                                     autocomplete="off">
@@ -281,7 +279,7 @@
                                 style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
                                 <div class="dropdown-item-list" style="max-height:250px; overflow-y:auto;">
                                     @foreach($tipos as $val => $label)
-                                        <div class="dropdown-item {{ old('tipo_consumible') == $val ? 'selected' : '' }}"
+                                        <div class="dropdown-item"
                                             data-value="{{ $val }}"
                                             onclick="window.selectOption('tipoDropdownCargar', '{{ $val }}', '{{ addslashes($label) }}'); window.actualizarUnidad();">
                                             {{ $label }}
@@ -295,13 +293,11 @@
                     {{-- UNIDAD --}}
                     <div style="flex: 1; min-width: 120px;">
                         <div class="custom-dropdown" id="unidadDropdownCargar" data-default-label="Litros">
-                            <input type="hidden" name="unidad" id="unidadSelect" value="{{ old('unidad', 'LITROS') }}"
-                                required>
+                            <input type="hidden" name="unidad" id="unidadSelect" value="LITROS">
                             <div class="dropdown-trigger"
                                 style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px; cursor:default; position:relative;">
-                                <input type="text" data-filter-search id="search_unidad_cargar" name="search_unidad_cargar"
-                                    readonly
-                                    value="{{ ['LITROS' => 'Litros', 'GALONES' => 'Galones', 'UNIDADES' => 'Unidades', 'KG' => 'Kg'][old('unidad', 'LITROS')] ?? 'Litros' }}"
+                                <input type="text" data-filter-search id="search_unidad_cargar"
+                                    readonly value="Litros"
                                     placeholder="Unidad *"
                                     style="width:100%; border:none; background:transparent; padding:0 14px; font-size:13px; outline:none; height:100%; cursor:default; font-family:inherit;"
                                     autocomplete="off">
@@ -312,7 +308,7 @@
                                 style="padding:5px; max-height:none; overflow:visible; z-index:1000;">
                                 <div class="dropdown-item-list" style="max-height:250px; overflow-y:auto;">
                                     @foreach($unidades as $val => $label)
-                                        <div class="dropdown-item {{ old('unidad', 'LITROS') == $val ? 'selected' : '' }}"
+                                        <div class="dropdown-item {{ $val === 'LITROS' ? 'selected' : '' }}"
                                             data-value="{{ $val }}"
                                             onclick="window.selectOption('unidadDropdownCargar', '{{ $val }}', '{{ addslashes($label) }}');">
                                             {{ $label }}
@@ -392,6 +388,8 @@
         var FRENTES = @json($frentes->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE]));
         var filaCount = 0;
         var URL_FRENTES_DE_TEXTOS = @json(route('consumibles.frentesDeTextos'));
+        // Reconocer frentes y guardar piden super.admin (sus rutas): sin él no se pregunta al servidor.
+        var PUEDE_GUARDAR = @json((bool) auth()->user()?->can('super.admin'));
         // Nombre de cada frente para el resumen: los activos y los que llegan reconocidos o
         // sugeridos aunque no estén activos (el del equipo, el del Excel).
         var NOMBRE_FRENTE = {};
@@ -476,6 +474,14 @@
             renderDropdownFrente(window.FuzzySearch.filtrar(FRENTES, q, f => f.nombre));
         }
 
+        // Escribir en el cuadro suelta el frente elegido: sin esto, borrar el texto (o escribir otro
+        // sin elegirlo) dejaba guardar las filas sin proyecto en el frente de antes.
+        function escribirFrente(q) {
+            document.getElementById('idFrenteHidden').value = '';
+            filtrarFrentes(q);
+            programarResumen();
+        }
+
         window.seleccionarFrente = function (id, nombre) {
             document.getElementById('idFrenteHidden').value = id;
             document.getElementById('frenteSearch').value = nombre;
@@ -549,19 +555,31 @@
         }
         // Reconoce en el servidor los textos de las filas que aún no lo están. Una petición a la
         // vez: la siguiente espera a la que va en curso (y ya no repite lo que ella resolvió).
+        // Por tandas de 500 filas: frentesDeTextos acepta hasta 500 textos y 500 placas.
         var reconociendo = null;
+        var TANDA_FRENTES = 500;
         function resolverFrentesFilas() {
+            if (!PUEDE_GUARDAR) return Promise.resolve(true);
             if (reconociendo) return reconociendo.then(() => resolverFrentesFilas());
             const placaDe = i => (i.closest('tr').querySelector('[name$="[identificador]"]').value || '').trim();
             const pend = [...document.querySelectorAll('#cuerpoTabla [data-fila-frente]')]
                 .filter(i => i.value.trim() && i.dataset.resuelto !== i.value.trim())
                 .map(i => ({ i, texto: i.value.trim(), placa: placaDe(i) }));
             if (!pend.length) return Promise.resolve(true);
-            reconociendo = window.apiFetch(URL_FRENTES_DE_TEXTOS, {
+            const pedir = trozo => window.apiFetch(URL_FRENTES_DE_TEXTOS, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify({ textos: [...new Set(pend.map(p => p.texto))], equipos: [...new Set(pend.map(p => p.placa).filter(Boolean))] }),
-            }).then(r => r.ok ? r.json() : Promise.reject())
+                body: JSON.stringify({ textos: [...new Set(trozo.map(p => p.texto))], equipos: [...new Set(trozo.map(p => p.placa).filter(Boolean))] }),
+            }).then(r => r.ok ? r.json() : Promise.reject());
+            let cadena = Promise.resolve({ frentes: {}, sugeridos: {} });
+            for (let k = 0; k < pend.length; k += TANDA_FRENTES) {
+                const trozo = pend.slice(k, k + TANDA_FRENTES);
+                cadena = cadena.then(acc => pedir(trozo).then(b => ({
+                    frentes: Object.assign(acc.frentes, b.frentes || {}),
+                    sugeridos: Object.assign(acc.sugeridos, b.sugeridos || {}),
+                })));
+            }
+            reconociendo = cadena
                 .then(b => {
                     pend.forEach(({ i, texto, placa }) => {
                         // Cambió el texto o la placa mientras tanto: la respuesta es vieja; queda pendiente.
@@ -606,7 +624,8 @@
 
         // ── Resumen de la tabla ───────────────────────────────────────────
         // Filas, litros y litros por frente de todo lo que se va a guardar: lo que se ve y lo del
-        // Excel que aún no se pintó. Frente de una fila: el reconocido o elegido; sin texto, el de arriba.
+        // Excel que aún no se pintó, sin los despachos del Excel ya cargados o repetidos (se saltan
+        // al guardar). Frente de una fila: el reconocido o elegido; sin texto, el de arriba.
         var temporizadorResumen = null;
         function programarResumen() {
             clearTimeout(temporizadorResumen);
@@ -627,10 +646,12 @@
                 porFrente[k].l += v; porFrente[k].n++;
             };
             [...document.getElementById('cuerpoTabla').children].forEach(tr => {
+                if (tr.dataset.saltar) return;
                 const v = n => (tr.querySelector(`[name$="[${n}]"]`) || {}).value || '';
                 sumar(v('cantidad'), v('frente').trim(), v('id_frente'));
             });
             excelPorPintar.forEach(f => {
+                if (f.saltar) return;
                 if (f.id_frente && f.nombre_frente) NOMBRE_FRENTE[f.id_frente] = f.nombre_frente;
                 sumar(f.cantidad, f.frente, f.frente && f.id_frente ? f.id_frente : '');
             });
@@ -656,6 +677,8 @@
             const dlId = espec ? datalistIdActual() : '';
             const tr = document.createElement('tr');
             tr.id = `fila_${n}`;
+            // Del Excel, ya cargado o repetido: se ve, pero al guardar se salta (no suma en el resumen).
+            if (data.saltar) { tr.dataset.saltar = '1'; tr.title = 'Ya cargado o repetido: se salta al guardar'; }
             tr.innerHTML = `
                                                 <td>${n}</td>
                                                 <td><input type="date"   name="filas[${n}][fecha]"         value="${limpiar(data.fecha)}"    tabindex="${n * 10 + 1}" class="native-date" style="cursor:pointer;"></td>
@@ -685,12 +708,15 @@
             return tr;
         };
 
-        // Helper central (dom_helpers.js): la copia de aqui no escapaba la comilla simple.
+        // Helper central (dom_helpers.js).
         var limpiar = window.escapeHtml;
 
         window.eliminarFila = function (n) {
             const el = document.getElementById(`fila_${n}`);
             if (el) el.remove();
+            // Las filas nuevas salen al escribir en la última: sin ninguna, ya no se podría escribir.
+            const cuerpo = document.getElementById('cuerpoTabla');
+            if (cuerpo && !cuerpo.children.length) agregarFila();
             programarResumen();
         };
 
@@ -836,7 +862,7 @@
                 if (mapa) desde = i + 1;
             }
 
-            // Lo pegado va SIEMPRE a esta tabla (26-11, pedido del usuario). El reporte de gasoil
+            // Lo pegado va SIEMPRE a esta tabla. El reporte de gasoil
             // con encabezados pasa antes por el lector, como un Excel subido (consImpPegar): así
             // al guardar se saltan los despachos ya cargados (los reportes son acumulados) y sus
             // miles de filas se pintan por tandas. Si el lector no lo entiende, se pega aquí.
@@ -956,7 +982,16 @@
 
         window.consCargarFilasExcel = function (r) {
             if (!document.getElementById('cuerpoTabla')) return;   // se fue a otra pantalla
-            if (tipoActual() !== 'GASOIL') {
+            // El Excel es de gasoil en litros. Con filas escritas de otro tipo o en otra unidad, cambiarlos
+            // las guardaba como gasoil (o mezclaba galones con los litros del Excel): primero esas filas.
+            const unidad = document.getElementById('unidadSelect').value;
+            if (tipoActual() !== 'GASOIL' || unidad !== 'LITROS') {
+                const conDatos = excelPorPintar.length || [...document.getElementById('cuerpoTabla').children]
+                    .some(tr => [...tr.querySelectorAll('input:not([type=hidden])')].some(i => i.value.trim()));
+                if (conDatos) {
+                    window.showModal({ type: 'warning', title: 'Otro tipo en la tabla', message: 'La tabla tiene filas de otro tipo o unidad. Guárdalas o bórralas y vuelve a subir el Excel de gasoil (va en litros).', confirmText: 'Entendido', hideCancel: true });
+                    return;
+                }
                 const item = document.querySelector('#tipoDropdownCargar .dropdown-item[data-value="GASOIL"]');
                 window.selectOption('tipoDropdownCargar', 'GASOIL', item ? item.textContent.trim() : 'Gasoil');
                 actualizarUnidad();
@@ -988,9 +1023,15 @@
 
         // ── Envío AJAX con spinner ────────────────────────────────────────
         if (document.getElementById('formLote')) {
+            // Un envío a la vez: un doble clic en Guardar mientras se reconocían los frentes guardaba dos veces.
             document.getElementById('formLote').addEventListener('submit', async function (e) {
                 e.preventDefault();
-
+                if (this.dataset.enviando) return;
+                this.dataset.enviando = '1';
+                try { await enviarLote(this); } finally { delete this.dataset.enviando; }
+            });
+        }
+        async function enviarLote(form) {
                 // Lo escrito en la columna FRENTE y aún sin reconocer, antes de revisar.
                 if (!(await resolverFrentesFilas())) return;
                 const frente = document.getElementById('idFrenteHidden').value;
@@ -1052,7 +1093,8 @@
                     }).concat(excelPorPintar.map(filaExcelParaGuardar)),
                 };
 
-                window.apiFetch(this.action, { headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                const conExcel = datos.filas.some(f => f.imp);
+                return window.apiFetch(form.action, { headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     method: 'POST',
                     body: JSON.stringify(datos)
                 })
@@ -1082,6 +1124,8 @@
                             const n = Number(body.insertados || 0).toLocaleString('es-VE');
                             const saltados = body.saltados ? ` · ${Number(body.saltados).toLocaleString('es-VE')} repetidos se saltaron` : '';
                             window.showToast(`✓ ${n} registros guardados${saltados}`, 'success');
+                            // La carga del Excel recién guardada sale en «Cargas anteriores» (para deshacerla).
+                            if (conExcel && typeof window.navigateTo === 'function') window.navigateTo(location.href);
 
                         } else if (status === 422 && body.errors) {
                             const msgs = Object.values(body.errors).flat().map(window.escapeHtml).join('<br>');
@@ -1095,7 +1139,6 @@
                         if (err.message === 'Sesión expirada.') return;
                         window.showModal({ type: 'error', title: 'Error', message: window.escapeHtml(err.message || 'Ocurrió un error al guardar.'), confirmText: 'Cerrar', hideCancel: true });
                     });
-            });
         }
 
 
@@ -1107,7 +1150,7 @@
                 for (var i = 0; i < 5; i++) agregarFila();
             }
             // Auto-agregar fila: al escribir en la ÚLTIMA fila aparece otra vacía debajo
-            // (estilo hoja de cálculo) — por eso ya no hace falta el botón "Agregar Fila".
+            // (estilo hoja de cálculo).
             // Delegado en el tbody (sobrevive al alta/baja de filas); guard para no duplicar
             // el listener si init corre de nuevo (navegación SPA).
             if (!tabla._autoRowBound) {
@@ -1207,7 +1250,7 @@
         if (document.readyState === 'loading') {
             window.addEventListener('DOMContentLoaded', initCargarConsumibles);
         } else {
-            // SPA Nav case
+            // Llegada por la SPA: el DOM ya está.
             setTimeout(initCargarConsumibles, 50);
         }
     </script>
