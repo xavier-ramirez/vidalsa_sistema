@@ -216,7 +216,7 @@
         <div class="g-card">
             <p class="g-title" style="justify-content:space-between;">
                 <span style="display:flex;align-items:center;gap:8px;">
-                    Top 20 Equipos Mayor Consumo <span class="g-subtitle">— por proyecto · litros y surtidos</span>
+                    Top 20 Equipos Mayor Consumo
                 </span>
                 <button onclick="descargarRanking()" title="Descargar imagen"
                     style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
@@ -690,9 +690,8 @@
             const orden = [];
             _rankingData.forEach((d) => {
                 const fr = (d.frente && d.frente.trim()) ? d.frente : 'Sin frente';
-                if (!grupos[fr]) { grupos[fr] = { items: [], total: 0, unidad: d.unidad }; orden.push(fr); }
+                if (!grupos[fr]) { grupos[fr] = { items: [] }; orden.push(fr); }
                 grupos[fr].items.push(d);
-                grupos[fr].total += parseFloat(d.total) || 0;
             });
 
             // Todas las cabeceras de frente usan el MISMO color (uniforme, vía CSS); no se
@@ -703,7 +702,6 @@
                 <div class="eq-frente-group">
                     <div class="eq-frente-head">
                         <span class="eq-frente-name">📍 ${fr}</span>
-                        <span class="eq-frente-meta">${g.total.toLocaleString('es-VE', { maximumFractionDigits: 1 })} ${g.unidad || ''} · ${g.items.length} equipo${g.items.length !== 1 ? 's' : ''}</span>
                     </div>
                     <div class="eq-col-cards">${g.items.map(tarjeta).join('')}</div>
                 </div>`;
