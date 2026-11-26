@@ -10,8 +10,9 @@ use Illuminate\Support\Str;
 use Tests\MySqlTestCase;
 
 /**
- * Lista y Gráficos de consumibles: filtros mal formados no dan 500, los inoperativos del frente
- * están al día aunque los gráficos sigan en caché, y la edición en la fila responde con el motivo.
+ * Lista y Gráficos de consumibles: filtros mal formados no dan 500, el Top 4 y los inoperativos
+ * están al día cuando cambia el equipo (sin tocar consumibles), y la edición en la fila responde
+ * con el motivo.
  * La transacción de cada caso lo revierte todo.
  */
 class ConsumiblesRevisionTest extends MySqlTestCase
@@ -25,22 +26,31 @@ class ConsumiblesRevisionTest extends MySqlTestCase
         $this->actingAs($u)->getJson(route('consumibles.graficosData', ['id_frente' => 'x']))->assertStatus(422);
     }
 
-    public function test_inoperativos_al_dia_con_los_graficos_en_cache(): void
+    public function test_top_e_inoperativos_al_dia_cuando_cambia_el_equipo(): void
     {
         $u = $this->superAdminGlobal();
         $frente = FrenteTrabajo::create(['NOMBRE_FRENTE' => 'PRUEBA INOPERATIVOS ' . strtoupper(Str::random(5))]);
+        [$tipoA, $tipoB] = DB::table('tipo_equipos')->orderBy('id')->limit(2)->pluck('nombre', 'id')->keys()->all();
         $equipo = Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'INO', 'ANIO' => 2020,
-            'SERIAL_CHASIS' => 'TSTINO' . random_int(100000, 999999), 'id_tipo_equipo' => DB::table('tipo_equipos')->value('id')]);
+            'SERIAL_CHASIS' => 'TSTINO' . random_int(100000, 999999), 'id_tipo_equipo' => $tipoA]);
         DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)
             ->update(['ID_FRENTE_ACTUAL' => $frente->ID_FRENTE, 'ESTADO_OPERATIVO' => 'OPERATIVO']);
+        Consumible::create(['FECHA' => '2031-01-10', 'IDENTIFICADOR' => $equipo->SERIAL_CHASIS, 'CANTIDAD' => 50,
+            'TIPO_CONSUMIBLE' => 'GASOIL', 'UNIDAD' => 'LITROS', 'ID_FRENTE' => $frente->ID_FRENTE,
+            'ID_EQUIPO' => $equipo->ID_EQUIPO, 'ESTADO_EQUIPO' => 'CONFIRMADO']);
         $pedir = fn () => $this->actingAs($u)
             ->getJson(route('consumibles.graficosData', ['id_frente' => $frente->ID_FRENTE, 'desde' => '2031-01-01', 'hasta' => '2031-01-31']))
-            ->assertOk()->json('inoperativos');
+            ->assertOk()->json();
+        $nombre = fn ($id) => DB::table('tipo_equipos')->where('id', $id)->value('nombre');
 
-        $this->assertSame([], $pedir());
-        // Pasa a inoperativo sin tocar consumibles: la versión del caché no sube y aun así sale.
-        DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['ESTADO_OPERATIVO' => 'INOPERATIVO']);
-        $this->assertSame([$equipo->ID_EQUIPO], array_column($pedir(), 'ID_EQUIPO'));
+        $r = $pedir();
+        $this->assertSame([], $r['inoperativos']);
+        $this->assertSame($nombre($tipoA), $r['top_equipos'][0]['tipo']);
+        // Cambia el equipo sin tocar consumibles (otro tipo, inoperativo): la siguiente carga ya lo dice.
+        DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)->update(['ESTADO_OPERATIVO' => 'INOPERATIVO', 'id_tipo_equipo' => $tipoB]);
+        $r = $pedir();
+        $this->assertSame([$equipo->ID_EQUIPO], array_column($r['inoperativos'], 'ID_EQUIPO'));
+        $this->assertSame($nombre($tipoB), $r['top_equipos'][0]['tipo']);
     }
 
     public function test_edicion_en_la_fila_responde_el_motivo_en_json(): void

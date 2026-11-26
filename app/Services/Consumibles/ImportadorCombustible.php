@@ -2,9 +2,7 @@
 
 namespace App\Services\Consumibles;
 
-use App\Http\Controllers\ConsumiblesController;
 use App\Models\ConsumibleImportacion;
-use App\Support\CacheVersion;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -465,7 +463,6 @@ class ImportadorCombustible
             $n = DB::table('consumibles')->where('ID_IMPORTACION', $imp->ID_IMPORTACION)->delete();
             $imp->ESTADO = ConsumibleImportacion::DESHECHA;
             $imp->save();
-            DB::afterCommit(fn () => CacheVersion::bump(ConsumiblesController::DATA_VER_KEY));
 
             return $n;
         }));

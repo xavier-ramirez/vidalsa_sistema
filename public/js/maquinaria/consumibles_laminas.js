@@ -8,6 +8,7 @@
  *     (formas, textos, fotos y dibujos, cada uno como su objeto): GasoilLaminas.bajar().
  * Así lo que se ve y lo que se baja no pueden salir distintos. Si el usuario cambia el diseño de su original,
  * se vuelve a copiar aquí (markup) y en consumibles_laminas.css (estilos); no se rediseña por separado.
+ * Excepción: «Consumo de gasoil por proyecto» es propia del sistema (no se copia del maestro).
  */
 (function () {
     'use strict';
@@ -17,7 +18,6 @@
     var FOTO_PORTADA = '/images/maquinaria/gasoil_portada.jpg';
     var LIB_PPTX = '/js/vendor/pptxgen-3.12.0.bundle.min.js';
     var LIB_IMG = '/js/vendor/html-to-image-1.11.11.min.js';
-    var ROJOS = ['8E1B1B', 'A72A26', 'C03930', 'D9483B'];
     var SEM = ['L', 'M', 'MI', 'J', 'V', 'S', 'D'];
     var CAMION = '<svg viewBox="0 0 20 14" aria-hidden="true"><path d="M1 2.5h10.5v7.5H1z M12.5 5h3.6l2.9 3v2H12.5z"/>' +
         '<circle cx="5" cy="11.2" r="1.9"/><circle cx="15.5" cy="11.2" r="1.9"/></svg>';
@@ -85,49 +85,66 @@
         });
     }
 
-    // ── 3. Consumo por proyecto (lámina 3 del maestro) ──
-    // Azul que se aclara del 173F66 al 9FBCDB para los que no son de los 4 mayores (como el maestro).
-    function azulDe(k, n) {
-        var a = [0x17, 0x3F, 0x66], b = [0x9F, 0xBC, 0xDB], t = n > 1 ? k / (n - 1) : 0;
-        return a.map(function (v, i) { return ('0' + Math.round(v + (b[i] - v) * t).toString(16)).slice(-2); }).join('').toUpperCase();
+    // ── 3. Consumo por proyecto ──
+    // Tabla-gráfico ordenada: puesto, proyecto, barra sobre su pista (escala: el mayor = pista llena) y litros en
+    // columnas alineadas. Dos colores con sentido: los 4 de mayor consumo en azul y los demás en gris (pasan a segundo
+    // plano); revisados con el validador de dataviz (se distinguen también con daltonismo). A la derecha: total, cuánto
+    // se llevan los 4 mayores y el consumo por división, con su %.
+    var AZUL = '#2E75B6', GRIS = '#A3ACB9';
+    var MESES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+    // Período de la lámina: un mes completo (del 1 al último día) sale con su nombre; si no, «DEL … AL …».
+    function periodoDe(desde, hasta) {
+        var a = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(desde || ''), b = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(hasta || '');
+        if (!a || !b) return '';
+        var ultimo = new Date(+b[3], +b[2], 0).getDate();
+        if (a[1] === '01' && a[2] === b[2] && a[3] === b[3] && +b[1] === ultimo) return MESES[+a[2] - 1] + ' ' + a[3];
+        return 'DEL ' + desde + ' AL ' + hasta;
     }
-    var MAX_FILAS = 35;   // con más proyectos, los últimos se suman en una nota (sus barras no se leerían)
+    var MAX_FILAS = 25;   // con más proyectos, los últimos se suman en una fila «Otros» (más filas no se leen en la lámina)
+    var ALTO_FILAS = 372; // alto para las filas dentro de la tarjeta (sin título, encabezados ni leyenda)
+    function pct(parte, total) { return (total > 0 ? Math.round(parte / total * 1000) / 10 : 0).toFixed(1).replace('.', ',') + ' %'; }
     function proyectos(d) {
         var ps = d.proyectos.slice(0, d.proyectos.length > MAX_FILAS ? MAX_FILAS - 1 : MAX_FILAS), otros = d.proyectos.slice(ps.length);
         var mayor = Math.max.apply(null, ps.map(function (p) { return p.litros; }).concat([1]));
-        // Las filas llenan SIEMPRE el alto de la tarjeta (372 px, abajo va la leyenda): con pocos proyectos, barras y
-        // letras más grandes y repartidas; con muchos, más bajas para que entren todas.
-        var n = ps.length + (otros.length ? 1 : 0), paso = 372 / Math.max(n, 1);
-        var vars = n >= 13
-            ? '--pista:' + Math.min(20, paso * 0.62).toFixed(1) + 'px;--nombre:' + Math.max(8, Math.min(13, paso * 0.42)).toFixed(1) +
-              'px;--cifra:' + Math.max(9, Math.min(17, paso * 0.55)).toFixed(1) + 'px'
-            : '--pista:' + Math.min(34, paso * 0.5).toFixed(1) + 'px;--nombre:13px' +   // el nombre, al tamaño del maestro (más grande no cabe «TRANSVERSALES CARABOBO»)
-              ';--cifra:' + Math.min(24, Math.max(17, paso * 0.38)).toFixed(1) + 'px;justify-content:space-around';
-        var filas = ps.map(function (p, k) {
-            var w = (70 * p.litros / mayor).toFixed(2), col = k < 4 ? ROJOS[k] : azulDe(k - 4, Math.max(1, ps.length - 4));
-            return '<div class="cb-fila"><small>' + may(p.nombre) + '</small>' +
-                '<div class="cb-pista"><i style="width:' + w + '%;background:#' + col + '"></i><b style="left:calc(' + w + '% + 10px)">' + mil(p.litros) + '</b></div></div>';
-        }).join('');
-        if (otros.length) {
-            filas += '<div class="cb-fila cb-otros"><small>OTROS ' + otros.length + ' PROYECTOS</small><div class="cb-pista"><b style="left:0">' +
-                mil(otros.reduce(function (s, p) { return s + p.litros; }, 0)) + '</b></div></div>';
-        }
-        var cuerpo = ps.length
-            ? '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy" style="' + vars + '">' + filas + '</div>' +
-              // La leyenda, dentro de la tarjeta de las barras, abajo a la derecha, sin cuadro (no la tapa ninguna barra).
-              '<div class="cb-ley gl-ley-proy"><span><i style="background:#A8261F"></i>PROYECTOS DE MAYOR CONSUMO</span>' +
-              '<span><i style="background:#1F4E79"></i>DEMÁS PROYECTOS</span></div>'
-            : '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy cb-proy-vacio"><p>' + (d.total > 0 ? 'El gasoil del período se cargó sin proyecto.' : 'Sin gasoil en el período.') + '</p></div>';
-        // Derecha, como el maestro: el consumo total y, debajo, el consumo por división (con su parte del total).
-        var divs = (d.divisiones || []).filter(function (v) { return v.litros > 0 || v.clave !== 'OTROS'; }), sumaDiv = divs.reduce(function (s, v) { return s + v.litros; }, 0);
-        var der = '<div class="cb-l3der"><div class="cb-total-l3"><small>CONSUMO TOTAL</small><b>' + mil(d.total) + ' L</b></div>' +
-            (d.sin_frente > 0 ? '<p class="cb-nota-l3">Incluye ' + mil(d.sin_frente) + ' L cargados sin proyecto</p>' : '') +
-            (ps.length && divs.length ? '<div class="cb-divs"><div class="cb-l3sub">CONSUMO POR DIVISIÓN</div>' + divs.map(function (v) {
-                return '<div class="cb-div"><small>' + may(v.nombre) + '</small><b>' + mil(v.litros) + ' L</b><span><i style="width:' +
-                    (sumaDiv ? v.litros / sumaDiv * 100 : 0).toFixed(2) + '%"></i></span></div>';
+        var suma = function (l) { return l.reduce(function (s, p) { return s + p.litros; }, 0); };
+        // Las filas llenan el alto de la tarjeta: con pocos proyectos, repartidas y más grandes; con muchos, más bajas.
+        var n = ps.length + (otros.length ? 1 : 0), paso = ALTO_FILAS / Math.max(n, 1);
+        var med = function (f, min, max) { return Math.max(min, Math.min(max, paso * f)).toFixed(1) + 'px'; };
+        var vars = '--pista:' + med(0.42, 5, 18) + ';--nombre:' + med(0.52, 8, 13) + ';--cifra:' + med(0.6, 9, 16) + ';--pos:' + med(0.8, 10, 22) +
+            (n <= 4 ? ';justify-content:center;gap:40px' : n < 13 ? ';justify-content:space-around' : '');
+        var fila = function (puesto, nombre, litros, ancho, color, clase) {
+            return '<div class="gp-fila' + (clase ? ' ' + clase : '') + '"><span class="gp-pos">' + puesto + '</span><small>' + nombre + '</small>' +
+                '<div class="gp-pista">' + (ancho > 0 ? '<i style="width:' + ancho.toFixed(2) + '%;background:' + color + '"></i>' : '') + '</div>' +
+                '<b>' + mil(litros) + '</b></div>';
+        };
+        var filas = ps.map(function (p, k) { return fila(k + 1, may(p.nombre), p.litros, 100 * p.litros / mayor, k < 4 ? AZUL : GRIS); }).join('');
+        if (otros.length) filas += fila('', 'OTROS ' + otros.length + ' PROYECTOS', suma(otros), 0, '', 'gp-otros');
+        var periodo = periodoDe(d.desde, d.hasta);
+        if (periodo) periodo = ' · ' + esc(periodo);
+        var ley = '<div class="gp-ley"><span><i style="background:' + AZUL + '"></i>' + (ps.length > 4 ? 'LOS 4 DE MAYOR CONSUMO' : 'PROYECTOS') + '</span>' +
+            (ps.length > 4 ? '<span><i style="background:' + GRIS + '"></i>DEMÁS PROYECTOS</span>' : '') + '</div>';
+        var izq = '<div class="gp-card"><div class="gp-tit">CONSUMO POR PROYECTO</div><div class="gp-sub">LITROS DE GASOIL' + periodo + '</div>' +
+            (ps.length
+                ? '<div class="gp-cab"><span>#</span><small>PROYECTO</small><span></span><b>LITROS</b></div>' +
+                  '<div class="gp-filas" style="' + vars + '">' + filas + '</div>' + ley
+                : '<p class="gp-vacio">' + (d.total > 0 ? 'El gasoil del período se cargó sin proyecto.' : 'Sin gasoil en el período.') + '</p>') + '</div>';
+
+        // Derecha: total; los 4 mayores (solo si hay más de 4); consumo por división.
+        var top4 = suma(ps.slice(0, 4)), resto = d.total - top4;
+        var divs = (d.divisiones || []).filter(function (v) { return v.litros > 0 || v.clave !== 'OTROS'; });
+        var der = '<div class="gp-der">' +
+            '<div class="gp-total"><i></i><small>CONSUMO TOTAL</small><b>' + mil(d.total) + ' L</b>' +
+            '<span>' + plural(d.proyectos.length, 'proyecto', 'proyectos') + (d.sin_frente > 0 ? ' · incluye ' + mil(d.sin_frente) + ' L sin proyecto' : '') + '</span></div>' +
+            (ps.length > 4 ? '<div class="gp-caja"><div class="gp-caja-tit">LOS 4 DE MAYOR CONSUMO</div>' +
+                '<div class="gp-dato"><b>' + mil(top4) + ' L</b><em>' + pct(top4, d.total) + '</em></div>' +
+                '<div class="gp-parte"><i style="width:' + (d.total > 0 ? top4 / d.total * 100 : 0).toFixed(2) + '%;background:' + AZUL + '"></i>' +
+                '<i style="flex:1;background:' + GRIS + '"></i></div>' +
+                '<div class="gp-nota">Demás proyectos: ' + mil(resto) + ' L</div></div>' : '') +
+            (ps.length && divs.length ? '<div class="gp-caja"><div class="gp-caja-tit">CONSUMO POR DIVISIÓN</div>' + divs.map(function (v) {
+                return '<div class="gp-div"><small>' + may(v.nombre) + '</small><b>' + mil(v.litros) + ' L</b><em>' + pct(v.litros, d.total) + '</em>' +
+                    '<span><i style="width:' + (d.total > 0 ? v.litros / d.total * 100 : 0).toFixed(2) + '%"></i></span></div>';
             }).join('') + '</div>' : '') + '</div>';
-        return lamina('cb', encabezado('CONSUMO DE GASOIL POR PROYECTO') + cuerpo +
-            '<div class="cb-sep" style="left:858px;top:170px;height:514px"></div>' + der, 'grafico');
+        return lamina('cb', encabezado('CONSUMO DE GASOIL POR PROYECTO') + izq + der, 'grafico');
     }
 
     // ── 4. Consumo de un proyecto: 6 meses y su TOP 4 de equipos ──

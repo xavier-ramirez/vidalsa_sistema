@@ -2,9 +2,7 @@
 
 namespace App\Services\Consumibles;
 
-use App\Http\Controllers\ConsumiblesController;
 use App\Models\Consumible;
-use App\Support\CacheVersion;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -92,10 +90,6 @@ class MatchConsumibles
             ->where('IDENTIFICADOR', '!=', '')
             ->get();
         if ($pendientes->isEmpty()) {
-            if ($sinIdentificador) {
-                CacheVersion::bump(ConsumiblesController::DATA_VER_KEY);
-            }
-
             return ['total' => 0, 'confirmados' => 0, 'sin_match' => $sinIdentificador];
         }
 
@@ -270,12 +264,6 @@ class MatchConsumibles
                 $comoSeLeyo($aSinMatch)->where('ESTADO_EQUIPO', 'PENDIENTE')->update(['ESTADO_EQUIPO' => 'SIN_MATCH']);
             }
         });
-
-        // Los gráficos tienen caché: el match cambia los equipos de los consumos. Si todo
-        // siguió POR IDENTIFICAR no cambió nada.
-        if ($confirmados || $sinIdentificador || $pendientes->merge($deExcel)->contains('ESTADO_EQUIPO', 'PENDIENTE')) {
-            CacheVersion::bump(ConsumiblesController::DATA_VER_KEY);
-        }
 
         if ($ids === null) {
             Cache::put(self::COMPLETA_RECIENTE, true, now()->addMinutes(5));   // la de la hora no la repite

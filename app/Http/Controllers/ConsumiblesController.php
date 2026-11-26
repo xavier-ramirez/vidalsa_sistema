@@ -9,25 +9,11 @@ use App\Services\Consumibles\IdentificadorConsumo;
 use App\Services\Consumibles\ImportadorCombustible;
 use App\Services\Consumibles\MatchConsumibles;
 use Illuminate\Http\Request;
-use App\Support\CacheVersion;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use App\Support\MensajeError;
 
 class ConsumiblesController extends Controller
 {
-    /**
-     * Versión de los datos de consumibles. Viaja DENTRO de la clave del caché de
-     * gráficos, así que subirla invalida de golpe todas las combinaciones de filtros.
-     *
-     * Va por CacheVersion y no por Cache::increment() suelto: increment() sobre una
-     * clave que NO existe devuelve false y no la crea (comprobado con el driver
-     * `database` de este proyecto). Como nadie creaba esta clave, la versión se quedaba
-     * en el valor por defecto PARA SIEMPRE y los gráficos seguían mostrando datos viejos
-     * hasta que vencía su TTL de 30 minutos.
-     */
-    public const DATA_VER_KEY = 'consumibles_data_version';
-
     use \App\Traits\ExcelLogoCorporativo;
 
     // ══════════════════════════════════════════════════════════════
@@ -357,7 +343,6 @@ class ConsumiblesController extends Controller
 
         // El equipo de cada fila lo identifica el servidor ya, sin botón.
         (new MatchConsumibles())->ejecutar($nuevos);
-        CacheVersion::bump(self::DATA_VER_KEY);
 
         $mensaje = "$insertados registros cargados exitosamente."
             . ($saltados ? ' ' . number_format($saltados, 0, ',', '.') . ($saltados === 1 ? ' se saltó porque ya estaba cargado o repetido en otro archivo.' : ' se saltaron porque ya estaban cargados o repetidos en otro archivo.') : '');
@@ -391,7 +376,6 @@ class ConsumiblesController extends Controller
             'ID_EQUIPO' => null,
             'ID_AUXILIAR' => null,
         ]);
-        // ejecutar() ya invalida la caché de la lista y los gráficos.
         (new MatchConsumibles())->ejecutar([$consumible->ID_CONSUMIBLE]);
 
         return response()->json(['ok' => true, 'identificador' => $consumible->IDENTIFICADOR]);
@@ -410,9 +394,6 @@ class ConsumiblesController extends Controller
 
         $consumible->update(['ID_FRENTE' => $request->id_frente]);
 
-        // Invalidar caché de gráficos
-        CacheVersion::bump(self::DATA_VER_KEY);
-
         $nombreFrente = FrenteTrabajo::find($request->id_frente)?->NOMBRE_FRENTE ?? '—';
 
         return response()->json(['ok' => true, 'nombre_frente' => $nombreFrente]);
@@ -425,9 +406,6 @@ class ConsumiblesController extends Controller
     {
         // Pide equipos.edit, como editar (la ruta).
         Consumible::findOrFail($id)->delete();
-
-        // Invalidar caché de gráficos
-        CacheVersion::bump(self::DATA_VER_KEY);
 
         if ($request->expectsJson()) {
             return response()->json(['ok' => true]);
@@ -464,18 +442,10 @@ class ConsumiblesController extends Controller
         $idFrente = $request->input('id_frente');
         $tipo = $request->input('tipo');
 
-        // ── Clave de caché única por combinación de filtros + versión de datos ──
-        // La versión sube cada vez que se escriben datos → invalida todo el caché anterior.
-        $version = CacheVersion::current(self::DATA_VER_KEY);
-        // "f6": el top es de 4 equipos POR PROYECTO (antes 20 en total); un valor guardado con la forma
-        // vieja no debe servirse.
-        $cacheKey = 'graficos_f6_v' . $version
-            . '_d' . ($desde ?? 'null')
-            . '_h' . ($hasta ?? 'null')
-            . '_f' . ($idFrente ?? 'all')
-            . '_t' . ($tipo ?? 'all');
-
-        $resultado = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($desde, $hasta, $idFrente, $tipo) {
+        // SIN caché: el Top 4 y los equipos por frente dependen también de la tabla equipos (tipo, placa,
+        // frente actual), que cambia por muchos caminos; cacheados, salían viejos hasta 30 min. Las
+        // consultas van por los índices de consumibles (FECHA, TIPO, ESTADO, ID_FRENTE, ID_EQUIPO).
+        $resultado = (function () use ($desde, $hasta, $idFrente, $tipo) {
 
             // ── Filtros base — SIN filtrar por estado (incluye SIN_MATCH y PENDIENTE) ──
             $filtrosTodos = function ($q) use ($desde, $hasta, $idFrente, $tipo) {
@@ -647,10 +617,8 @@ class ConsumiblesController extends Controller
                 'espec_frente' => $especFrente,
                 'espec_equipo' => $especEquipo,
             ];
-        }); // fin Cache::remember
+        })();
 
-        // Inoperativos del frente FUERA del caché: dependen de la tabla equipos (estado, frente, foto),
-        // que no sube la versión de consumibles; cacheados, un equipo recién inoperativo tardaba 30 min.
         $resultado['inoperativos'] = $idFrente ? self::inoperativosDe((int) $idFrente) : [];
 
         return response()->json($resultado);
