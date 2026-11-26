@@ -101,7 +101,7 @@
         return 'DEL ' + desde + ' AL ' + hasta;
     }
     var MAX_FILAS = 25;   // con más proyectos, los últimos se suman en una fila «Otros» (más filas no se leen en la lámina)
-    var ALTO_FILAS = 400; // alto para las filas dentro de la tarjeta (sin título ni leyenda)
+    var ALTO_FILAS = 432; // alto para las filas dentro de la tarjeta (sin el título)
     function pct(parte, total) { return (total > 0 ? Math.round(parte / total * 1000) / 10 : 0).toFixed(1).replace('.', ',') + ' %'; }
     function proyectos(d) {
         var ps = d.proyectos.slice(0, d.proyectos.length > MAX_FILAS ? MAX_FILAS - 1 : MAX_FILAS), otros = d.proyectos.slice(ps.length);
@@ -122,9 +122,11 @@
         if (periodo) periodo = ' · ' + esc(periodo);
         var ley = '<div class="gp-ley"><span><i style="background:' + ROJO + '"></i>' + (ps.length > 4 ? 'MAYOR CONSUMO' : 'PROYECTOS') + '</span>' +
             (ps.length > 4 ? '<span><i style="background:' + GRIS + '"></i>MENOR CONSUMO</span>' : '') + '</div>';
-        var izq = '<div class="gp-card"><div class="gp-tit">CONSUMO POR PROYECTO</div><div class="gp-sub">LITROS DE GASOIL' + periodo + '</div>' +
+        // La leyenda va arriba, a la derecha del título.
+        var izq = '<div class="gp-card"><div class="gp-cabeza"><div><div class="gp-tit">CONSUMO POR PROYECTO</div>' +
+            '<div class="gp-sub">LITROS DE GASOIL' + periodo + '</div></div>' + (ps.length ? ley : '') + '</div>' +
             (ps.length
-                ? '<div class="gp-filas" style="' + vars + '">' + filas + '</div>' + ley
+                ? '<div class="gp-filas" style="' + vars + '">' + filas + '</div>'
                 : '<p class="gp-vacio">' + (d.total > 0 ? 'El gasoil del período se cargó sin proyecto.' : 'Sin gasoil en el período.') + '</p>') + '</div>';
 
         // Derecha: total y consumo por división. Los % y las barras, sobre el total (incluye lo cargado sin proyecto).
