@@ -113,6 +113,9 @@
                 padding-top: 3px;
                 border-top: 1px dashed #e2e8f0;
             }
+            /* Columna de la X que borra la fila: solo lo que mide el botón. */
+            .cons-tbl-wrap .admin-table .cons-col-del { width: 22px; padding: 0 3px !important; text-align: center; }
+            .cons-tbl-wrap .cons-col-del .cons-btn-del { padding: 2px; }
             .cons-tbl-wrap .cons-equipo span { display: block; }
             .cons-tbl-wrap .cons-equipo .cons-nota { color: #94a3b8; font-style: italic; }
 
@@ -174,6 +177,20 @@
             .cons-blk-pend { background: rgba(245, 158, 11, 0.32); border: 1px solid rgba(245, 158, 11, 0.3); }
             .cons-blk-conf { background: rgba(34, 197, 94, 0.28); border: 1px solid rgba(34, 197, 94, 0.25); }
             .cons-blk-sin { background: rgba(239, 68, 68, 0.28); border: 1px solid rgba(239, 68, 68, 0.25); }
+            /* Gasoil por frente, debajo de los contadores: nombre y litros, y una barra contra el mayor. */
+            .cons-frentes { margin-top: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+            .cons-frentes-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding-bottom: 7px; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
+            .cons-frentes-cab span { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: #001a52; }
+            .cons-frentes-cab strong { font-size: 14px; font-weight: 800; color: #001a52; white-space: nowrap; }
+            .cons-frente-fila { padding: 5px 0; }
+            .cons-frente-dato { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 11.5px; }
+            .cons-frente-dato span { min-width: 0; line-height: 1.25; font-weight: 600; color: #1e293b; }
+            .cons-frente-dato b { flex-shrink: 0; font-weight: 800; color: #000; }
+            .cons-frente-fila i { display: block; height: 5px; margin-top: 3px; border-radius: 3px; background: #e2e8f0; }
+            .cons-frente-fila s { display: block; height: 100%; border-radius: 3px; background: #0a4a91; }
+            .cons-frente-sin .cons-frente-dato span { font-style: italic; color: #64748b; }
+            .cons-frente-sin s { background: #94a3b8; }
+            .cons-frentes-vacio { padding: 8px 0 2px; font-size: 12px; color: #94a3b8; text-align: center; }
             @media (max-width: 1024px) {
                 .cons-sidebar { position: static; order: -1; }
             }
@@ -510,6 +527,8 @@
                             var a = document.getElementById(id), n = doc.getElementById(id);
                             if (a && n) a.textContent = n.textContent;
                         });
+                        var gpf = document.getElementById('consPorFrente'), nGpf = doc.getElementById('consPorFrente');
+                        if (gpf && nGpf) gpf.innerHTML = nGpf.innerHTML;
                         // Lo de fuera de los resultados que depende de los filtros: el Excel.
                         var exp = document.getElementById('consumiblesExportar'), nExp = doc.getElementById('consumiblesExportar');
                         if (exp && nExp) exp.href = nExp.getAttribute('href');
@@ -577,7 +596,7 @@
                             <th class="th-right">Cantidad</th>
                             <th class="th-left">Frente <span style="font-weight:400;opacity:.7;">(proyecto)</span></th>
                             <th class="th-left">Estado</th>
-                            <th style="width:40px;"></th>
+                            <th class="cons-col-del"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -718,7 +737,7 @@
                                         <span class="badge-err">✖ Por identificar</span>
                                     @endif
                                 </td>
-                                <td>
+                                <td class="cons-col-del">
                                     @can('equipos.edit')
                                     <button type="button" data-consumible-id="{{ $c->ID_CONSUMIBLE }}"
                                         onclick="window.borrarDirecto({{ $c->ID_CONSUMIBLE }}, '{{ route('consumibles.destroy', $c->ID_CONSUMIBLE) }}', this)"
@@ -777,6 +796,31 @@
                         <span>Por identificar</span>
                     </a>
                 </div>
+            </div>
+
+            {{-- Gasoil por frente: los filtros de la lista menos el estado (ConsumiblesController::index).
+                 Se repinta al filtrar, junto con los contadores. --}}
+            @php
+                $gpfTotal = $gasoilPorFrente->sum('litros');
+                $gpfMayor = $gasoilPorFrente->whereNotNull('nombre')->max('litros') ?: 1;   // la barra se mide contra el mayor frente
+                $gpfLitros = fn ($l) => number_format($l, $l == floor($l) ? 0 : 1, ',', '.');
+            @endphp
+            <div id="consPorFrente" class="cons-frentes">
+                <div class="cons-frentes-cab">
+                    <span>Gasoil por frente</span>
+                    <strong>{{ $gpfLitros($gpfTotal) }} L</strong>
+                </div>
+                @forelse($gasoilPorFrente as $g)
+                    <div class="cons-frente-fila{{ $g['nombre'] === null ? ' cons-frente-sin' : '' }}">
+                        <div class="cons-frente-dato">
+                            <span title="{{ $g['nombre'] ?? 'Sin frente' }}">{{ $g['nombre'] ?? 'Sin frente' }}</span>
+                            <b>{{ $gpfLitros($g['litros']) }} L</b>
+                        </div>
+                        <i><s style="width:{{ min(100, round($g['litros'] / $gpfMayor * 100, 1)) }}%"></s></i>
+                    </div>
+                @empty
+                    <div class="cons-frentes-vacio">Sin gasoil con estos filtros.</div>
+                @endforelse
             </div>
         </div>
         </div>{{-- .cons-layout --}}

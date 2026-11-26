@@ -73,12 +73,27 @@ class ConsumiblesController extends Controller
         $sinMatch = (int) ($conteos->sinMatch ?? 0);
         $confirmados = (int) ($conteos->confirmados ?? 0);
 
+        // ── Gasoil por frente (debajo de los contadores) ────────────────────────
+        // Los mismos filtros que la lista menos el estado, y siempre gasoil (aunque la lista
+        // muestre otro tipo). De mayor a menor; lo cargado sin frente va aparte, al final.
+        $filtroGasoil = $request->duplicate();
+        $filtroGasoil->merge(['tipo' => 'GASOIL']);
+        $filas = tap(DB::table('consumibles'), fn ($q) => self::filtrar($q, $filtroGasoil, false))
+            ->selectRaw('consumibles.ID_FRENTE as id, SUM(consumibles.CANTIDAD) as litros')
+            ->groupBy('consumibles.ID_FRENTE')->get();
+        $nombres = FrenteTrabajo::whereIn('ID_FRENTE', $filas->pluck('id')->filter())->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+        $gasoilPorFrente = $filas->map(fn ($f) => [
+            'nombre' => $f->id ? ($nombres[$f->id] ?? 'Frente ' . $f->id) : null,
+            'litros' => (float) $f->litros,
+        ])->sortBy([fn ($a, $b) => ($a['nombre'] === null) <=> ($b['nombre'] === null), fn ($a, $b) => $b['litros'] <=> $a['litros']])->values();
+
         return view('admin.consumibles.index', compact(
             'consumibles',
             'frentes',
             'pendientes',
             'sinMatch',
-            'confirmados'
+            'confirmados',
+            'gasoilPorFrente'
         ));
     }
 
