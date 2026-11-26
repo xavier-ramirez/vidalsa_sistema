@@ -7,9 +7,11 @@
         background: #fff; margin: auto; max-height: 92vh; display: flex; flex-direction: column; text-align: left; }
     .cupos-modal-cab { background: var(--maquinaria-dark-blue); color: #fff; padding: 12px 18px; display: flex;
         justify-content: space-between; align-items: center; gap: 10px; }
-    .cupos-modal-cab h2 { margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .cupos-modal-cab { position: relative; justify-content: center; }
+    .cupos-modal-cab h2 { margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; }
     .cupos-modal:focus { outline: none; }
-    .cupos-modal-x { background: none; border: none; color: #fff; cursor: pointer; display: flex; padding: 0; }
+    .cupos-modal-x { background: none; border: none; color: #fff; cursor: pointer; display: flex; padding: 0;
+        position: absolute; right: 18px; top: 50%; transform: translateY(-50%); }
     #cuposContenido { padding: 16px 18px 18px; overflow-y: auto; }
 
     .cupos-patio { display: flex; align-items: center; gap: 10px; }
