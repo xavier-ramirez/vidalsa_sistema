@@ -15,9 +15,6 @@
             .tipo-caucho { color: #6b21a8; }
             .tipo-otro { color: #475569; }
 
-            /* La pantalla más angosta y centrada (a pedido del usuario): las columnas no quedan con aire de sobra. */
-            #consumiblesAppRoot { max-width: 1180px; margin: 0 auto; }
-
             /* Tabla de la lista con el mismo estilo que la de Cargar Consumibles:
                rejilla compacta, encabezado oscuro de 11 px, letra de 13 px y filas alternas. */
             .cons-tbl-wrap {
