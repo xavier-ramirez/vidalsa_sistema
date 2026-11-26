@@ -164,6 +164,7 @@
 .gl .gp-pista i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; }
 .gl .gp-fila b { font: 700 var(--cifra)/1 Arial, sans-serif; color: #000; text-align: right; white-space: nowrap; }
 .gl .gp-otros small, .gl .gp-otros b { color: #4A5563; }
+.gl .gp-otros .gp-pos { visibility: hidden; }
 .gl .gp-ley { display: flex; justify-content: flex-end; gap: 22px; padding-top: 10px; border-top: 1px solid #E3E7ED; font: 700 11.5px/1 Arial, sans-serif; letter-spacing: .05em; color: #2B3440; }
 .gl .gp-ley span { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .gl .gp-ley i { width: 12px; height: 12px; border-radius: 3px; }
@@ -179,7 +180,8 @@
 .gl .gp-dato { display: flex; align-items: baseline; justify-content: space-between; }
 .gl .gp-dato b { font: 700 30px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
 .gl .gp-dato em, .gl .gp-div em { font: 700 15px/1 Arial, sans-serif; font-style: normal; color: #4A5563; white-space: nowrap; }
-.gl .gp-parte { display: flex; gap: 2px; height: 10px; }
+.gl .gp-parte { display: flex; height: 10px; border-radius: 4px; background: #E3E8EF; }
+.gl .gp-parte i + i { border-left: 2px solid #F4F6F9; }
 .gl .gp-parte i:first-child { border-radius: 4px 0 0 4px; }
 .gl .gp-parte i:last-child { border-radius: 0 4px 4px 0; }
 .gl .gp-nota { font: 400 12.5px/1 Arial, sans-serif; color: #4A5563; }

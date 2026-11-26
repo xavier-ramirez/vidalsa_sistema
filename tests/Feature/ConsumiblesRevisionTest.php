@@ -30,7 +30,7 @@ class ConsumiblesRevisionTest extends MySqlTestCase
     {
         $u = $this->superAdminGlobal();
         $frente = FrenteTrabajo::create(['NOMBRE_FRENTE' => 'PRUEBA INOPERATIVOS ' . strtoupper(Str::random(5))]);
-        [$tipoA, $tipoB] = DB::table('tipo_equipos')->orderBy('id')->limit(2)->pluck('nombre', 'id')->keys()->all();
+        [$tipoA, $tipoB] = DB::table('tipo_equipos')->orderBy('id')->limit(2)->pluck('id')->all();
         $equipo = Equipo::create(['MARCA' => 'PRUEBA', 'MODELO' => 'INO', 'ANIO' => 2020,
             'SERIAL_CHASIS' => 'TSTINO' . random_int(100000, 999999), 'id_tipo_equipo' => $tipoA]);
         DB::table('equipos')->where('ID_EQUIPO', $equipo->ID_EQUIPO)

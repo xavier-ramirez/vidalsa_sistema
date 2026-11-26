@@ -129,20 +129,22 @@
                   '<div class="gp-filas" style="' + vars + '">' + filas + '</div>' + ley
                 : '<p class="gp-vacio">' + (d.total > 0 ? 'El gasoil del período se cargó sin proyecto.' : 'Sin gasoil en el período.') + '</p>') + '</div>';
 
-        // Derecha: total; los 4 mayores (solo si hay más de 4); consumo por división.
-        var top4 = suma(ps.slice(0, 4)), resto = d.total - top4;
+        // Derecha: total; los 4 mayores (solo si hay más de 4); consumo por división. Los % y las barras, sobre el total
+        // (que incluye lo cargado sin proyecto: esa parte queda como pista vacía, no se suma a «demás proyectos»).
+        var top4 = suma(ps.slice(0, 4)), resto = suma(d.proyectos) - top4;
+        var ancho = function (l) { return (d.total > 0 ? l / d.total * 100 : 0).toFixed(2) + '%'; };
         var divs = (d.divisiones || []).filter(function (v) { return v.litros > 0 || v.clave !== 'OTROS'; });
         var der = '<div class="gp-der">' +
             '<div class="gp-total"><i></i><small>CONSUMO TOTAL</small><b>' + mil(d.total) + ' L</b>' +
             '<span>' + plural(d.proyectos.length, 'proyecto', 'proyectos') + (d.sin_frente > 0 ? ' · incluye ' + mil(d.sin_frente) + ' L sin proyecto' : '') + '</span></div>' +
             (ps.length > 4 ? '<div class="gp-caja"><div class="gp-caja-tit">LOS 4 DE MAYOR CONSUMO</div>' +
                 '<div class="gp-dato"><b>' + mil(top4) + ' L</b><em>' + pct(top4, d.total) + '</em></div>' +
-                '<div class="gp-parte"><i style="width:' + (d.total > 0 ? top4 / d.total * 100 : 0).toFixed(2) + '%;background:' + AZUL + '"></i>' +
-                '<i style="flex:1;background:' + GRIS + '"></i></div>' +
+                '<div class="gp-parte"><i style="width:' + ancho(top4) + ';background:' + AZUL + '"></i>' +
+                '<i style="width:' + ancho(resto) + ';background:' + GRIS + '"></i></div>' +
                 '<div class="gp-nota">Demás proyectos: ' + mil(resto) + ' L</div></div>' : '') +
             (ps.length && divs.length ? '<div class="gp-caja"><div class="gp-caja-tit">CONSUMO POR DIVISIÓN</div>' + divs.map(function (v) {
                 return '<div class="gp-div"><small>' + may(v.nombre) + '</small><b>' + mil(v.litros) + ' L</b><em>' + pct(v.litros, d.total) + '</em>' +
-                    '<span><i style="width:' + (d.total > 0 ? v.litros / d.total * 100 : 0).toFixed(2) + '%"></i></span></div>';
+                    '<span><i style="width:' + ancho(v.litros) + '"></i></span></div>';
             }).join('') + '</div>' : '') + '</div>';
         return lamina('cb', encabezado('CONSUMO DE GASOIL POR PROYECTO') + izq + der, 'grafico');
     }

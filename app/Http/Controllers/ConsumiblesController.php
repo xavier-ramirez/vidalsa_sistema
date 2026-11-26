@@ -442,186 +442,181 @@ class ConsumiblesController extends Controller
         $idFrente = $request->input('id_frente');
         $tipo = $request->input('tipo');
 
-        // SIN caché: el Top 4 y los equipos por frente dependen también de la tabla equipos (tipo, placa,
-        // frente actual), que cambia por muchos caminos; cacheados, salían viejos hasta 30 min. Las
-        // consultas van por los índices de consumibles (FECHA, TIPO, ESTADO, ID_FRENTE, ID_EQUIPO).
-        $resultado = (function () use ($desde, $hasta, $idFrente, $tipo) {
+        // Sin caché: el Top 4, los equipos por frente y los inoperativos dependen también de la tabla
+        // equipos (tipo, placa, frente, estado), que cambia por muchos caminos. Las consultas van por los
+        // índices de consumibles (FECHA, TIPO, ESTADO, ID_FRENTE, ID_EQUIPO).
 
-            // ── Filtros base — SIN filtrar por estado (incluye SIN_MATCH y PENDIENTE) ──
-            $filtrosTodos = function ($q) use ($desde, $hasta, $idFrente, $tipo) {
-                if ($desde)
-                    $q->where('consumibles.FECHA', '>=', $desde);
-                if ($hasta)
-                    $q->where('consumibles.FECHA', '<=', $hasta);
-                if ($idFrente)
-                    $q->where('consumibles.ID_FRENTE', $idFrente);
-                if ($tipo)
-                    $q->where('consumibles.TIPO_CONSUMIBLE', $tipo);
-            };
+        // ── Filtros base — SIN filtrar por estado (incluye SIN_MATCH y PENDIENTE) ──
+        $filtrosTodos = function ($q) use ($desde, $hasta, $idFrente, $tipo) {
+            if ($desde)
+                $q->where('consumibles.FECHA', '>=', $desde);
+            if ($hasta)
+                $q->where('consumibles.FECHA', '<=', $hasta);
+            if ($idFrente)
+                $q->where('consumibles.ID_FRENTE', $idFrente);
+            if ($tipo)
+                $q->where('consumibles.TIPO_CONSUMIBLE', $tipo);
+        };
 
-            // ── Filtros para queries que requieren equipo identificado ────────────────
-            $filtrosConfirmados = function ($q) use ($filtrosTodos) {
-                $filtrosTodos($q);
-                $q->where('consumibles.ESTADO_EQUIPO', 'CONFIRMADO');
-            };
+        // ── Filtros para queries que requieren equipo identificado ────────────────
+        $filtrosConfirmados = function ($q) use ($filtrosTodos) {
+            $filtrosTodos($q);
+            $q->where('consumibles.ESTADO_EQUIPO', 'CONFIRMADO');
+        };
 
-            // ── Top 4 equipos de mayor consumo DE CADA PROYECTO — solo CONFIRMADOS ──
-            // El proyecto es el del SURTIDO (consumibles.ID_FRENTE); si el surtido no lo trae, el
-            // frente al que pertenece el equipo. Un equipo que surtió en
-            // dos proyectos sale en los dos, cada uno con sus litros y sus surtidos.
-            // Orden: litros y, a igual litros, más surtidos primero.
-            $proyecto = DB::raw('COALESCE(consumibles.ID_FRENTE, equipos.ID_FRENTE_ACTUAL)');
-            $topEquipos = DB::table('consumibles')
-                ->join('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
-                ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
-                ->leftJoin('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', $proyecto)
-                ->where(function ($q) use ($filtrosConfirmados) {
-                    $filtrosConfirmados($q);
-                })
-                ->select(
-                    'equipos.ID_EQUIPO',
-                    'equipos.CODIGO_PATIO',
-                    'equipos.MARCA',
-                    'equipos.MODELO',
-                    'equipos.SERIAL_CHASIS',
-                    DB::raw("(SELECT MAX(d.PLACA) FROM documentacion d WHERE d.ID_EQUIPO = equipos.ID_EQUIPO) as PLACA"),
-                    DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo"),
-                    DB::raw("MAX(frentes_trabajo.NOMBRE_FRENTE) as frente"),
-                    DB::raw('COALESCE(consumibles.ID_FRENTE, equipos.ID_FRENTE_ACTUAL) as id_proyecto'),
-                    'consumibles.TIPO_CONSUMIBLE',
-                    DB::raw('SUM(consumibles.CANTIDAD) as total'),
-                    DB::raw('COUNT(*) as despachos'),
-                    DB::raw('MAX(consumibles.UNIDAD) as unidad')
-                )
-                ->groupBy(
-                    'equipos.ID_EQUIPO',
-                    'equipos.CODIGO_PATIO',
-                    'equipos.MARCA',
-                    'equipos.MODELO',
-                    'equipos.SERIAL_CHASIS',
-                    'tipo_equipos.nombre',
-                    'consumibles.TIPO_CONSUMIBLE',
-                    $proyecto
-                )
-                ->orderBy('total', 'desc')
-                ->orderBy('despachos', 'desc')
-                ->get()
-                // Los 4 de cada proyecto (ya vienen de mayor a menor); los proyectos, por su equipo de más
-                // consumo (el orden en que aparecen).
-                ->groupBy(fn ($e) => (int) $e->id_proyecto)
-                ->flatMap(fn ($equipos) => $equipos->take(4))
-                ->values();
+        // ── Top 4 equipos de mayor consumo DE CADA PROYECTO — solo CONFIRMADOS ──
+        // El proyecto es el del SURTIDO (consumibles.ID_FRENTE); si el surtido no lo trae, el
+        // frente al que pertenece el equipo. Un equipo que surtió en
+        // dos proyectos sale en los dos, cada uno con sus litros y sus surtidos.
+        // Orden: litros y, a igual litros, más surtidos primero.
+        $proyecto = DB::raw('COALESCE(consumibles.ID_FRENTE, equipos.ID_FRENTE_ACTUAL)');
+        $topEquipos = DB::table('consumibles')
+            ->join('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
+            ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
+            ->leftJoin('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', $proyecto)
+            ->where(function ($q) use ($filtrosConfirmados) {
+                $filtrosConfirmados($q);
+            })
+            ->select(
+                'equipos.ID_EQUIPO',
+                'equipos.CODIGO_PATIO',
+                'equipos.MARCA',
+                'equipos.MODELO',
+                'equipos.SERIAL_CHASIS',
+                DB::raw("(SELECT MAX(d.PLACA) FROM documentacion d WHERE d.ID_EQUIPO = equipos.ID_EQUIPO) as PLACA"),
+                DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo"),
+                DB::raw("MAX(frentes_trabajo.NOMBRE_FRENTE) as frente"),
+                DB::raw('COALESCE(consumibles.ID_FRENTE, equipos.ID_FRENTE_ACTUAL) as id_proyecto'),
+                'consumibles.TIPO_CONSUMIBLE',
+                DB::raw('SUM(consumibles.CANTIDAD) as total'),
+                DB::raw('COUNT(*) as despachos'),
+                DB::raw('MAX(consumibles.UNIDAD) as unidad')
+            )
+            ->groupBy(
+                'equipos.ID_EQUIPO',
+                'equipos.CODIGO_PATIO',
+                'equipos.MARCA',
+                'equipos.MODELO',
+                'equipos.SERIAL_CHASIS',
+                'tipo_equipos.nombre',
+                'consumibles.TIPO_CONSUMIBLE',
+                $proyecto
+            )
+            ->orderBy('total', 'desc')
+            ->orderBy('despachos', 'desc')
+            ->get()
+            // Los 4 de cada proyecto (ya vienen de mayor a menor); los proyectos, por su equipo de más
+            // consumo (el orden en que aparecen).
+            ->groupBy(fn ($e) => (int) $e->id_proyecto)
+            ->flatMap(fn ($equipos) => $equipos->take(4))
+            ->values();
 
-            // ── Equipos individuales × frente — solo CONFIRMADOS ──────────────────
-            // Muestra qué equipos específicos (modelo + código) surtieron en cada frente.
-            $equiposPorFrente = DB::table('consumibles')
+        // ── Equipos individuales × frente — solo CONFIRMADOS ──────────────────
+        // Muestra qué equipos específicos (modelo + código) surtieron en cada frente.
+        $equiposPorFrente = DB::table('consumibles')
+            ->join('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'consumibles.ID_FRENTE')
+            ->join('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
+            ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
+            ->where(function ($q) use ($filtrosConfirmados) {
+                $filtrosConfirmados($q);
+            })
+            ->whereNotNull('consumibles.ID_EQUIPO')
+            ->select(
+                'equipos.ID_EQUIPO',
+                'frentes_trabajo.NOMBRE_FRENTE',
+                'equipos.MODELO',
+                'equipos.CODIGO_PATIO',
+                'equipos.SERIAL_CHASIS',
+                DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo_equipo"),
+                DB::raw('SUM(consumibles.CANTIDAD) as total'),
+                DB::raw('COUNT(*) as despachos'),
+                DB::raw('MAX(consumibles.UNIDAD) as unidad')
+            )
+            ->groupBy(
+                'equipos.ID_EQUIPO',
+                'frentes_trabajo.NOMBRE_FRENTE',
+                'equipos.MODELO',
+                'equipos.CODIGO_PATIO',
+                'equipos.SERIAL_CHASIS',
+                'tipo_equipos.nombre'
+            )
+            ->orderBy('frentes_trabajo.NOMBRE_FRENTE')
+            ->orderBy('total', 'desc')
+            ->get();
+
+        // ── Aceite por viscosidad — solo con el filtro ACEITE ───────
+        // Otro tipo → vacío → secciones ocultas.
+        $tipoEspec = $tipo === 'ACEITE' ? 'ACEITE' : null;
+
+        if ($tipoEspec) {
+            // Por frente × especificacion
+            $especFrente = DB::table('consumibles')
                 ->join('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'consumibles.ID_FRENTE')
-                ->join('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
-                ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
-                ->where(function ($q) use ($filtrosConfirmados) {
-                    $filtrosConfirmados($q);
-                })
-                ->whereNotNull('consumibles.ID_EQUIPO')
+                ->where('consumibles.TIPO_CONSUMIBLE', $tipoEspec)
+                ->whereNotNull('consumibles.ESPECIFICACION')
+                ->where('consumibles.ESPECIFICACION', '<>', '')
+                ->when($desde, fn($q) => $q->where('consumibles.FECHA', '>=', $desde))
+                ->when($hasta, fn($q) => $q->where('consumibles.FECHA', '<=', $hasta))
+                ->when($idFrente, fn($q) => $q->where('consumibles.ID_FRENTE', $idFrente))
                 ->select(
-                    'equipos.ID_EQUIPO',
                     'frentes_trabajo.NOMBRE_FRENTE',
-                    'equipos.MODELO',
-                    'equipos.CODIGO_PATIO',
-                    'equipos.SERIAL_CHASIS',
-                    DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo_equipo"),
+                    'consumibles.ESPECIFICACION',
                     DB::raw('SUM(consumibles.CANTIDAD) as total'),
-                    DB::raw('COUNT(*) as despachos'),
-                    DB::raw('MAX(consumibles.UNIDAD) as unidad')
+                    DB::raw('COUNT(*) as despachos')
                 )
-                ->groupBy(
-                    'equipos.ID_EQUIPO',
-                    'frentes_trabajo.NOMBRE_FRENTE',
-                    'equipos.MODELO',
-                    'equipos.CODIGO_PATIO',
-                    'equipos.SERIAL_CHASIS',
-                    'tipo_equipos.nombre'
-                )
+                ->groupBy('frentes_trabajo.NOMBRE_FRENTE', 'consumibles.ESPECIFICACION')
                 ->orderBy('frentes_trabajo.NOMBRE_FRENTE')
                 ->orderBy('total', 'desc')
                 ->get();
 
-            // ── Aceite por viscosidad — solo con el filtro ACEITE ───────
-            // Otro tipo → vacío → secciones ocultas.
-            $tipoEspec = $tipo === 'ACEITE' ? 'ACEITE' : null;
+            // Por equipo × especificacion — solo CONFIRMADOS
+            // Usa $filtrosConfirmados como base para respetar fecha, frente y tipo igual que el resto
+            $especEquipo = DB::table('consumibles')
+                ->join('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
+                ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
+                ->leftJoin('documentacion', 'documentacion.ID_EQUIPO', '=', 'equipos.ID_EQUIPO')
+                ->where(function ($q) use ($filtrosConfirmados) {
+                    $filtrosConfirmados($q);
+                })
+                ->where('consumibles.TIPO_CONSUMIBLE', $tipoEspec)
+                ->whereNotNull('consumibles.ESPECIFICACION')
+                ->where('consumibles.ESPECIFICACION', '<>', '')
+                ->whereNotNull('consumibles.ID_EQUIPO')
+                ->select(
+                    'equipos.ID_EQUIPO',
+                    'equipos.CODIGO_PATIO',
+                    'equipos.MODELO',
+                    'equipos.SERIAL_CHASIS',
+                    DB::raw("MAX(documentacion.PLACA) as PLACA"),
+                    DB::raw("MAX(consumibles.IDENTIFICADOR) as identificador"),
+                    DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo_equipo"),
+                    'consumibles.ESPECIFICACION',
+                    DB::raw('SUM(consumibles.CANTIDAD) as total'),
+                    DB::raw('COUNT(*) as despachos')
+                )
+                ->groupBy(
+                    'equipos.ID_EQUIPO',
+                    'equipos.CODIGO_PATIO',
+                    'equipos.MODELO',
+                    'equipos.SERIAL_CHASIS',
+                    'tipo_equipos.nombre',
+                    'consumibles.ESPECIFICACION'
+                )
+                ->orderBy('total', 'desc')
+                ->get();
 
-            if ($tipoEspec) {
-                // Por frente × especificacion
-                $especFrente = DB::table('consumibles')
-                    ->join('frentes_trabajo', 'frentes_trabajo.ID_FRENTE', '=', 'consumibles.ID_FRENTE')
-                    ->where('consumibles.TIPO_CONSUMIBLE', $tipoEspec)
-                    ->whereNotNull('consumibles.ESPECIFICACION')
-                    ->where('consumibles.ESPECIFICACION', '<>', '')
-                    ->when($desde, fn($q) => $q->where('consumibles.FECHA', '>=', $desde))
-                    ->when($hasta, fn($q) => $q->where('consumibles.FECHA', '<=', $hasta))
-                    ->when($idFrente, fn($q) => $q->where('consumibles.ID_FRENTE', $idFrente))
-                    ->select(
-                        'frentes_trabajo.NOMBRE_FRENTE',
-                        'consumibles.ESPECIFICACION',
-                        DB::raw('SUM(consumibles.CANTIDAD) as total'),
-                        DB::raw('COUNT(*) as despachos')
-                    )
-                    ->groupBy('frentes_trabajo.NOMBRE_FRENTE', 'consumibles.ESPECIFICACION')
-                    ->orderBy('frentes_trabajo.NOMBRE_FRENTE')
-                    ->orderBy('total', 'desc')
-                    ->get();
+        } else {
+            $especFrente = collect();
+            $especEquipo = collect();
+        }
 
-                // Por equipo × especificacion — solo CONFIRMADOS
-                // Usa $filtrosConfirmados como base para respetar fecha, frente y tipo igual que el resto
-                $especEquipo = DB::table('consumibles')
-                    ->join('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
-                    ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
-                    ->leftJoin('documentacion', 'documentacion.ID_EQUIPO', '=', 'equipos.ID_EQUIPO')
-                    ->where(function ($q) use ($filtrosConfirmados) {
-                        $filtrosConfirmados($q);
-                    })
-                    ->where('consumibles.TIPO_CONSUMIBLE', $tipoEspec)
-                    ->whereNotNull('consumibles.ESPECIFICACION')
-                    ->where('consumibles.ESPECIFICACION', '<>', '')
-                    ->whereNotNull('consumibles.ID_EQUIPO')
-                    ->select(
-                        'equipos.ID_EQUIPO',
-                        'equipos.CODIGO_PATIO',
-                        'equipos.MODELO',
-                        'equipos.SERIAL_CHASIS',
-                        DB::raw("MAX(documentacion.PLACA) as PLACA"),
-                        DB::raw("MAX(consumibles.IDENTIFICADOR) as identificador"),
-                        DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo_equipo"),
-                        'consumibles.ESPECIFICACION',
-                        DB::raw('SUM(consumibles.CANTIDAD) as total'),
-                        DB::raw('COUNT(*) as despachos')
-                    )
-                    ->groupBy(
-                        'equipos.ID_EQUIPO',
-                        'equipos.CODIGO_PATIO',
-                        'equipos.MODELO',
-                        'equipos.SERIAL_CHASIS',
-                        'tipo_equipos.nombre',
-                        'consumibles.ESPECIFICACION'
-                    )
-                    ->orderBy('total', 'desc')
-                    ->get();
-
-            } else {
-                $especFrente = collect();
-                $especEquipo = collect();
-            }
-
-            return [
-                'equipos_por_frente' => $equiposPorFrente,
-                'top_equipos' => $topEquipos,
-                'espec_frente' => $especFrente,
-                'espec_equipo' => $especEquipo,
-            ];
-        })();
-
-        $resultado['inoperativos'] = $idFrente ? self::inoperativosDe((int) $idFrente) : [];
-
-        return response()->json($resultado);
+        return response()->json([
+            'equipos_por_frente' => $equiposPorFrente,
+            'top_equipos' => $topEquipos,
+            'espec_frente' => $especFrente,
+            'espec_equipo' => $especEquipo,
+            'inoperativos' => $idFrente ? self::inoperativosDe((int) $idFrente) : [],
+        ]);
     }
 
     /** Equipos INOPERATIVOS que están hoy en el frente, con su placa y la foto de toda la app. */
