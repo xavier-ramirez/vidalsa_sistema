@@ -8,6 +8,7 @@ use App\Services\CorreccionNotaService;
 use App\Services\DevolucionService;
 use App\Services\InventarioService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 use App\Support\MensajeError;
 
@@ -67,9 +68,9 @@ class AjusteNotaController extends Controller
         // Por qué NO se puede cada cosa (null = sí se puede). El orden importa: primero lo que
         // es de la nota, después la clave del usuario.
         $noDevolver = $this->devoluciones->motivoNoDevolvible($filas)
-            ?? ($linea['pendiente'] <= InventarioService::EPS ? 'Ya se devolvió todo lo que se entregó de este producto.' : null)
+            ?? ($linea['pendiente'] <= InventarioService::EPS ? 'Ya no queda nada por devolver de este producto.' : null)
             ?? ($puedeDevolver ? null : 'Registrar una devolución pide la clave «almacen.movimiento».');
-        $noCorregir = $this->correcciones->motivoNoCorregible($salidas, $filas)
+        $noCorregir = $this->correcciones->motivoNoCorregible($filas)
             ?? ($puedeCorregir ? null : 'Corregir una nota pide la clave «almacen.nota.corregir».');
 
         return response()->json([
@@ -105,6 +106,7 @@ class AjusteNotaController extends Controller
             'lineas'               => 'required|array|min:1',
             'lineas.*.id_producto' => 'required|integer|distinct',
             'lineas.*.cantidad'    => 'required|numeric|gt:0',
+            'clave'                => 'nullable|string|max:64',
         ], [
             'lineas.required'               => 'Indica cuánto se devuelve de al menos un producto.',
             'lineas.*.id_producto.distinct' => 'Un producto aparece dos veces en la devolución.',
@@ -116,12 +118,16 @@ class AjusteNotaController extends Controller
             return $falta;
         }
 
+        if ($repetida = $this->tomarClave($data['clave'] ?? null)) {
+            return $repetida;
+        }
         try {
             $this->devoluciones->registrar($numero, $data['lineas'], [
                 'motivo'     => $data['motivo'] ?? null,
                 'id_usuario' => $request->user()->ID_USUARIO,
             ]);
         } catch (Throwable $e) {
+            $this->soltarClave($data['clave'] ?? null);
             return response()->json(['message' => MensajeError::para($e)], 422);
         }
 
@@ -137,6 +143,8 @@ class AjusteNotaController extends Controller
             'id_producto' => 'required|integer',
             'cantidad'    => 'required|numeric|gt:0',
             'motivo'      => 'required|string|max:150',
+            'entregado_visto' => 'nullable|numeric',
+            'clave'       => 'nullable|string|max:64',
         ], [
             'cantidad.gt'     => 'La cantidad corregida debe ser mayor que cero.',
             'motivo.required' => 'Escribe el motivo de la corrección: queda anotado en la nota original.',
@@ -147,16 +155,43 @@ class AjusteNotaController extends Controller
             return $falta;
         }
 
+        if ($repetida = $this->tomarClave($data['clave'] ?? null)) {
+            return $repetida;
+        }
         try {
             $this->correcciones->corregir($numero, (int) $data['id_producto'], (float) $data['cantidad'], [
-                'motivo'     => $data['motivo'],
-                'id_usuario' => $request->user()->ID_USUARIO,
+                'motivo'          => $data['motivo'],
+                'id_usuario'      => $request->user()->ID_USUARIO,
+                'entregado_visto' => $data['entregado_visto'] ?? null,
             ]);
         } catch (Throwable $e) {
-            return response()->json(['message' => MensajeError::para($e)], 422);
+            $this->soltarClave($data['clave'] ?? null);
+            $conflicto = $e->getCode() === CorreccionNotaService::CONFLICTO;
+            return response()->json(['message' => MensajeError::para($e)], $conflicto ? 409 : 422);
         }
 
         return response()->json(['message' => "Nota {$numero} corregida.", 'numero' => $numero], 201);
+    }
+
+    /**
+     * La clave del modal (una por apertura): si la respuesta de un guardado se perdió y el
+     * usuario vuelve a pulsar, la segunda petición llega con la MISMA clave y no se registra
+     * otra vez. Se toma ANTES de guardar (Cache::add es atómico: dos a la vez, pasa una) y se
+     * suelta si el guardado falla, para poder corregir y reintentar desde el mismo modal.
+     */
+    private function tomarClave(?string $clave)
+    {
+        if (!$clave || Cache::add('ajuste-nota:' . $clave, 1, now()->addDay())) {
+            return null;
+        }
+        return response()->json(['message' => 'Esto ya se registró: revisa la nota antes de volver a intentarlo.'], 409);
+    }
+
+    private function soltarClave(?string $clave): void
+    {
+        if ($clave) {
+            Cache::forget('ajuste-nota:' . $clave);
+        }
     }
 
     /** 404 si la nota no existe; aborta si su almacén no es visible para el usuario. */

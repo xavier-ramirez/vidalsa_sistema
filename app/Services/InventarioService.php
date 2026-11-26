@@ -213,7 +213,10 @@ class InventarioService
                 'id_almacen_contraparte'    => (int) $devolucion->ID_ALMACEN,
                 'id_movimiento_relacionado' => (int) $devolucion->ID_MOVIMIENTO,
                 'referencia'                => $devolucion->REFERENCIA,
-            ] + $opts + ['motivo' => 'Devolución de la Nota ' . $devolucion->REFERENCIA],
+                // Sin motivo escrito, el de siempre: $opts trae la clave 'motivo' aunque sea null,
+                // y en la unión de arrays gana la izquierda.
+                'motivo'                    => ($opts['motivo'] ?? null) ?: 'Devolución de la Nota ' . $devolucion->REFERENCIA,
+            ] + $opts,
         ));
     }
 

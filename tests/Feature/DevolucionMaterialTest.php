@@ -301,6 +301,8 @@ class DevolucionMaterialTest extends MySqlTestCase
         $this->assertSame((int) $destino->ID_ALMACEN, (int) $retorno->ID_ALMACEN);
         $this->assertSame((int) $origen->ID_ALMACEN, (int) $retorno->ID_ALMACEN_CONTRAPARTE);
         $this->assertNull($retorno->NUMERO_NOTA);
+        // Sin motivo escrito, el retorno lleva el de siempre (antes quedaba vacío).
+        $this->assertSame('Devolución de la Nota ' . $nota, $retorno->MOTIVO);
 
         // En pantalla: la nota de envío ofrece Modificar, y el retorno no es consumo del destino.
         $this->assertStringContainsString("almModificarNota('{$nota}', {$p->ID_PRODUCTO})",
@@ -473,7 +475,6 @@ class DevolucionMaterialTest extends MySqlTestCase
             ->assertJsonPath('message', '«' . $p->NOMBRE . '»: ' . DevolucionService::REPETIDO);
         $this->assertSame(DevolucionService::REPETIDO,
             app(CorreccionNotaService::class)->motivoNoCorregible(
-                MovimientoInventario::where('NUMERO_NOTA', $nota)->get(),
                 MovimientoInventario::where('NUMERO_NOTA', $nota)->get()));
         $this->assertSame(5.0, $this->saldo($origen->ID_ALMACEN, $p->ID_PRODUCTO));
         $this->assertSame(5.0, $this->saldo($destino->ID_ALMACEN, $p->ID_PRODUCTO));

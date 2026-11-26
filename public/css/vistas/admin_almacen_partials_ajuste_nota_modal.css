@@ -35,16 +35,16 @@
     #ajNotaModal .ajn-foto-sin { display:flex; align-items:center; justify-content:center; color:#cbd5e0; }
     #ajNotaModal .ajn-foto-sin .material-icons { font-size:26px; }
     #ajNotaModal .ajn-info { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
-    #ajNotaModal .ajn-codigo { display:block; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:10px; font-weight:700; letter-spacing:.9px; color:#64748b; line-height:1.2; }
-    #ajNotaModal .ajn-titulo { font-size:12px; font-weight:600; color:#1e293b; line-height:1.35; overflow-wrap:anywhere; }
-    #ajNotaModal .ajn-datos { font-size:12px; font-weight:500; }
-    /* Cantidad + unidad en el azul global, más grande que el texto que la rodea para que se
-       lea de un vistazo (pedido del cliente, 23-11-2026). */
-    #ajNotaModal .ajn-datos b { font-size:15px; font-weight:800; color:#0067b1; }
+    #ajNotaModal .ajn-codigo { display:block; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:10px; font-weight:700; letter-spacing:.9px; color:#0f172a; line-height:1.2; }
+    #ajNotaModal .ajn-titulo { font-size:12px; font-weight:600; color:#0f172a; line-height:1.35; overflow-wrap:anywhere; }
+    /* Todo el texto del producto en negro (pedido del cliente, 26-11-2026: nada en azul). */
+    #ajNotaModal .ajn-datos { font-size:12px; font-weight:500; color:#0f172a; }
+    /* Cantidad + unidad más grande que el texto que la rodea, para que se lea de un vistazo
+       (pedido del cliente, 23-11-2026). */
+    #ajNotaModal .ajn-datos b { font-size:15px; font-weight:800; color:#0f172a; }
 
     /* Campos: la misma caja para la cantidad y el motivo. */
-    #ajNotaModal label.ajn-label { display:block; font-size:12.5px; font-weight:600; }
-    #ajNotaModal label.ajn-label { margin-bottom:6px; }
+    #ajNotaModal label.ajn-label { display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; }
     #ajNotaModal .ajn-input { width:100%; box-sizing:border-box; height:34px; border:1.5px solid #cbd5e1; border-radius:8px; padding:0 12px; font:inherit; font-size:13px; color:#0f172a; background:#fff; outline:none; transition:border-color .15s; }
     #ajNotaModal .ajn-input:focus { border-color:#0067b1; }
     #ajNotaModal .ajn-input::placeholder { color:#94a3b8; }

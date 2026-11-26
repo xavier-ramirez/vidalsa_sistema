@@ -219,6 +219,62 @@ class CorreccionNotaTest extends MySqlTestCase
         }
     }
 
+    public function test_no_pisa_una_correccion_hecha_mientras_el_modal_estaba_abierto(): void
+    {
+        $alm = $this->almacen();
+        $p = $this->producto('ELECTRODO');
+        $this->inv->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 200);
+        $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p->ID_PRODUCTO => 10], null);
+        $this->corregir($nota, $p->ID_PRODUCTO, 8)->assertCreated();   // otro usuario, mientras
+
+        // Quien abrió el modal cuando decía 10 manda 12: se rechaza (409) y no cambia nada.
+        $this->actingAs($this->usuario())->postJson(route('almacen.correccion-nota.store'), [
+            'numero' => $nota, 'id_producto' => $p->ID_PRODUCTO, 'cantidad' => 12, 'motivo' => 'Eran 12',
+            'entregado_visto' => 10,
+        ])->assertStatus(409)->assertJsonPath('message', fn ($m) => str_contains($m, 'ahora dice 8'));
+        $this->assertSame(8.0, $this->enNota($nota, $p->ID_PRODUCTO));
+        $this->assertSame(1, CorreccionNota::where('NUMERO_NOTA', $nota)->count());
+
+        // Con lo que la nota dice ahora, entra.
+        $this->actingAs($this->usuario())->postJson(route('almacen.correccion-nota.store'), [
+            'numero' => $nota, 'id_producto' => $p->ID_PRODUCTO, 'cantidad' => 12, 'motivo' => 'Eran 12',
+            'entregado_visto' => 8,
+        ])->assertCreated();
+        $this->assertSame(12.0, $this->enNota($nota, $p->ID_PRODUCTO));
+    }
+
+    public function test_la_misma_clave_no_registra_dos_veces(): void
+    {
+        $alm = $this->almacen();
+        $p = $this->producto('ELECTRODO');
+        $this->inv->registrarEntrada($alm->ID_ALMACEN, $p->ID_PRODUCTO, 200);
+        $nota = $this->salidaConNota($alm->ID_ALMACEN, [$p->ID_PRODUCTO => 10], null);
+        $u = $this->usuario();
+        $devolver = fn ($clave) => $this->actingAs($u)->postJson(route('almacen.devolucion.store'), [
+            'numero' => $nota, 'clave' => $clave, 'lineas' => [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 3]],
+        ]);
+        $devueltas = fn () => (float) MovimientoInventario::where('TIPO', MovimientoInventario::TIPO_DEVOLUCION)
+            ->where('REFERENCIA', $nota)->sum('CANTIDAD');
+
+        // La respuesta se perdió y se vuelve a pulsar: la segunda llega con la misma clave.
+        $primera = $devolver('clave-prueba-' . $this->marca);
+        if ($primera->status() === 403) {
+            $this->markTestSkipped('El usuario de prueba no tiene almacen.movimiento.');
+        }
+        $primera->assertCreated();
+        $devolver('clave-prueba-' . $this->marca)->assertStatus(409);
+        $this->assertSame(3.0, $devueltas());
+
+        // Un guardado que falla suelta su clave: corregido el dato, se reintenta y entra.
+        $this->actingAs($u)->postJson(route('almacen.devolucion.store'), [
+            'numero' => $nota, 'clave' => 'otra-' . $this->marca, 'lineas' => [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 50]],
+        ])->assertStatus(422);
+        $this->actingAs($u)->postJson(route('almacen.devolucion.store'), [
+            'numero' => $nota, 'clave' => 'otra-' . $this->marca, 'lineas' => [['id_producto' => $p->ID_PRODUCTO, 'cantidad' => 2]],
+        ])->assertCreated();
+        $this->assertSame(5.0, $devueltas());
+    }
+
     public function test_reglas_y_permisos(): void
     {
         $alm = $this->almacen();

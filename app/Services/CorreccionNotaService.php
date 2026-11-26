@@ -25,6 +25,8 @@ use RuntimeException;
 class CorreccionNotaService
 {
     private const EPS = InventarioService::EPS;
+    /** Código de la excepción cuando la nota cambió desde que se abrió el modal (→ HTTP 409). */
+    public const CONFLICTO = 409;
 
     public function __construct(
         private InventarioService $inventario,
@@ -39,7 +41,7 @@ class CorreccionNotaService
      * - Si el producto va en VARIAS líneas impresas (distinto Nº de parte, proyecto o destino), la
      *   cantidad de "el producto" no dice cuál de ellas cambiar.
      */
-    public function motivoNoCorregible(Collection $salidas, Collection $filasProducto): ?string
+    public function motivoNoCorregible(Collection $filasProducto): ?string
     {
         if ($envio = $this->devoluciones->envio($filasProducto)) {
             if ($envio['traspaso']?->esCancelado()) {
@@ -107,7 +109,7 @@ class CorreccionNotaService
             if ($filas->isEmpty()) {
                 throw new InvalidArgumentException("Ese producto no está en la Nota {$numero}.");
             }
-            if ($motivo = $this->motivoNoCorregible($salidas, $filas)) {
+            if ($motivo = $this->motivoNoCorregible($filas)) {
                 throw new RuntimeException($motivo);
             }
 
@@ -115,6 +117,14 @@ class CorreccionNotaService
             $linea  = $this->devoluciones->lineas($filas)[0];
             $actual = $linea['entregado'];
             $um     = $linea['um'] ?? '';
+            // Lo que la nota decía cuando el usuario abrió el modal: si otro la corrigió
+            // mientras, no se pisa esa corrección (código 409: el modal se vuelve a cargar).
+            if (isset($datos['entregado_visto']) && abs((float) $datos['entregado_visto'] - $actual) > self::EPS) {
+                throw new RuntimeException(sprintf(
+                    'Otra persona modificó esta nota mientras la tenías abierta: ahora dice %s %s. Revisa y vuelve a intentarlo.',
+                    InventarioService::num($actual), $um
+                ), self::CONFLICTO);
+            }
             if (abs($nueva - $actual) <= self::EPS) {
                 throw new InvalidArgumentException('Es la misma cantidad que ya tiene la nota.');
             }
@@ -130,7 +140,7 @@ class CorreccionNotaService
             $this->inventario->bloquearSaldos((int) $filas->first()->ID_ALMACEN, [$idProducto]);
             $nuevas = $this->repartir($filas, $nueva - $actual);
             if ($envio = $this->devoluciones->envio($filas)) {
-                $nuevas += $this->ajustarEnvio($envio, $nueva, $linea['devuelto'], $um);
+                $nuevas += $this->ajustarEnvio($envio, $nueva, $linea['devuelto']);
             }
             $this->inventario->corregirCantidadesSalida($nuevas);
 
@@ -157,7 +167,7 @@ class CorreccionNotaService
      *    destino comprobado (corregirCantidadesSalida). Si SUBE, lo recibido no se inventa:
      *    queda como se contó y la línea marca el faltante.
      */
-    private function ajustarEnvio(array $envio, float $nueva, float $devuelto, string $um): array
+    private function ajustarEnvio(array $envio, float $nueva, float $devuelto): array
     {
         $linea = $envio['linea'];
         $devueltoAntes = round($devuelto - $envio['devuelto_destino'], 3);
@@ -167,13 +177,9 @@ class CorreccionNotaService
         $cambios = [];
         if ($linea->estaConfirmada()) {
             $recibida = (float) $linea->CANTIDAD_RECIBIDA;
+            // $enviada nunca queda por debajo de lo que el destino ya devolvió: corregir() exige
+            // nueva >= lo devuelto, y enviada = nueva − lo devuelto antes de recibir.
             if ($recibida > $enviada + self::EPS) {
-                if ($enviada < $envio['devuelto_destino'] - self::EPS) {
-                    throw new RuntimeException(sprintf(
-                        '%s ya devolvió %s %s de este envío: la nota no puede quedar por debajo de eso.',
-                        $envio['destino'], InventarioService::num($envio['devuelto_destino']), $um
-                    ));
-                }
                 $linea->CANTIDAD_RECIBIDA = $enviada;
                 if ($envio['entrada'] && (float) $envio['entrada']->CANTIDAD > $enviada + self::EPS) {
                     if ($enviada <= self::EPS) {

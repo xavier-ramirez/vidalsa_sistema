@@ -22,19 +22,27 @@
 
     var EPS = 0.0005;
     var SEP = ' <span class="ajn-sep">&middot;</span> ';
-    // Lo que cambia según la operación elegida. Una sola tabla: el campo, el motivo y el botón
-    // se pintan desde aquí y no hay dos ramas de código que se puedan desincronizar.
+    // Lo que cambia según la operación elegida. Una sola tabla: el campo y el motivo se rotulan
+    // desde aquí y no hay dos ramas de código que se puedan desincronizar. El botón dice
+    // «Aceptar» en las dos (BOTON).
     var OPS = {
         devolucion: {
             cant: 'Cantidad que vuelve', motivo: 'Motivo (opcional)', motivoEj: 'Ej.: sobró en la obra',
-            boton: 'Aceptar', motivoObligatorio: false,
+            motivoObligatorio: false,
         },
         correccion: {
             cant: 'Cantidad que de verdad salió', motivo: 'Motivo (obligatorio)', motivoEj: 'Ej.: salieron 100, se cargó 180 por error',
-            boton: 'Aceptar', motivoObligatorio: true,
+            motivoObligatorio: true,
         },
     };
-    var estado = { nota: null, op: null, guardando: false };
+    var BOTON = 'Aceptar';
+    // clave: una por apertura. Si la respuesta de un guardado se pierde (falla la red) y se
+    // vuelve a pulsar, el servidor reconoce la clave y no lo registra dos veces.
+    var estado = { nota: null, op: null, guardando: false, clave: null };
+    function claveNueva() {
+        return (w.crypto && w.crypto.randomUUID) ? w.crypto.randomUUID()
+            : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    }
 
     function $(id) { return document.getElementById(id); }
     function modal() { return $('ajNotaModal'); }
@@ -46,9 +54,10 @@
     // Se lee como la muestra num() (es-VE): "1.500" son mil quinientos, no 1,5 —antes
     // parseFloat se quedaba en 1.5 y la nota se corregía mil veces más chica—. Con un solo
     // separador que no sea de miles ("2.5", "2,5") es el decimal. Cualquier otra cosa: 0.
+    // Los miles no empiezan en 0: "0.250" es 0,25 (antes se leía 250).
     function cantidad() {
         var t = String($('ajNotaCant').value || '').trim().replace(/\s/g, '');
-        if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');
+        if (/^[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');
         else if (/^\d*[.,]?\d+$/.test(t)) t = t.replace(',', '.');
         else return 0;
         var n = parseFloat(t);
@@ -80,14 +89,17 @@
     // que llegue la respuesta del primero, esa respuesta tardía se descarta en vez de pintar
     // el producto equivocado (y que la corrección se mande para él).
     var aperturas = 0;
-    function abrir(numero, idProducto) {
+    // aviso: mensaje que queda a la vista cuando llegan los datos (al reabrir tras un rechazo).
+    function abrir(numero, idProducto, aviso) {
         var m = modal(); if (!m) return;
         var esta = ++aperturas;
         estado.nota = null;
         estado.op = null;
+        estado.clave = claveNueva();
         $('ajNotaContenido').hidden = true;
+        $('ajNotaMotivo').value = '';   // el de la apertura anterior no es de este producto
         $('ajNotaGuardar').disabled = true;
-        $('ajNotaGuardar').innerHTML = OPS.devolucion.boton;
+        $('ajNotaGuardar').innerHTML = BOTON;
         cabecera(numero, null, '');   // la fecha llega con los datos
         mensaje('Cargando la nota ' + esc(numero) + '…', 'info');
         m.classList.add('open');
@@ -99,6 +111,7 @@
                 if (!res.ok) { mensaje(esc(res.d.message || 'No se pudo cargar la nota.')); return; }
                 mensaje('');
                 pintar(res.d);
+                if (aviso) mensaje(aviso);
             })
             .catch(function () { if (esta === aperturas) mensaje('No se pudo contactar al servidor. Modificar una nota necesita conexión.'); });
     }
@@ -190,6 +203,8 @@
 
     // Elige la operación: marca su tarjeta y rotula el campo, el motivo y el botón.
     function elegir(op) {
+        // El motivo de una operación no sirve para la otra.
+        if (estado.op && op !== estado.op) $('ajNotaMotivo').value = '';
         estado.op = op;
         document.querySelectorAll('#ajNotaModal .ajn-opcion').forEach(function (b) {
             var activa = b.dataset.op === op;
@@ -206,7 +221,6 @@
         // Corregir parte de lo que dice la nota; devolver, de cero.
         $('ajNotaCant').placeholder = op === 'correccion' ? num(estado.nota.linea.entregado) : '0';
         $('ajNotaCant').value = '';
-        $('ajNotaGuardar').innerHTML = cfg.boton;
         mensaje('');
         actualizarBoton();
         $('ajNotaCant').focus();
@@ -256,10 +270,13 @@
         var url, cuerpo;
         if (op === 'devolucion') {
             url = m.dataset.urlDevolver;
-            cuerpo = { numero: nota.numero, motivo: motivo || null, lineas: [{ id_producto: nota.linea.id_producto, cantidad: cant }] };
+            cuerpo = { numero: nota.numero, motivo: motivo || null, clave: estado.clave, lineas: [{ id_producto: nota.linea.id_producto, cantidad: cant }] };
         } else {
             url = m.dataset.urlCorregir;
-            cuerpo = { numero: nota.numero, id_producto: nota.linea.id_producto, cantidad: cant, motivo: motivo };
+            // entregado_visto: lo que la nota decía al abrir. Si otro la corrigió mientras, el
+            // servidor lo rechaza en vez de pisar esa corrección.
+            cuerpo = { numero: nota.numero, id_producto: nota.linea.id_producto, cantidad: cant, motivo: motivo,
+                entregado_visto: nota.linea.entregado, clave: estado.clave };
         }
 
         estado.guardando = true;
@@ -275,7 +292,11 @@
         pedir(url, { method: 'POST', body: JSON.stringify(cuerpo) })
             .then(function (res) {
                 if (!res.ok) {
-                    if (vigente()) mensaje(esc(errorDe(res))); else w.toast(errorDe(res), 'error');
+                    if (!vigente()) { w.toast(errorDe(res), 'error'); return; }
+                    // 409: la nota cambió mientras estaba abierta. Se vuelve a pedir para no
+                    // seguir con cifras viejas, y el aviso queda a la vista.
+                    if (res.status === 409) abrir(nota.numero, nota.linea.id_producto, esc(errorDe(res)));
+                    else mensaje(esc(errorDe(res)));
                     return;
                 }
                 w.toast(res.d.message || 'Listo.', 'success');
