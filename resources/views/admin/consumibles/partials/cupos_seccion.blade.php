@@ -21,7 +21,8 @@
     /* Fila de arriba, una al lado de la otra: patio, mes y el cupo del patio. Las dos listas son las de la
        aplicación (custom-dropdown, como los filtros de Gráficos). */
     .cupos-arriba { display: flex; align-items: flex-end; gap: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; }
-    .cupos-dd { width: auto; flex: 1 1 0; min-width: 0; }
+    .cupos-campo { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0; }
+    .cupos-dd { width: 100%; }
     .cupos-dd .cupos-dd-boton { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 6px 0 10px; border: 1px solid #cbd5e0;
         border-radius: 10px; background: #fbfcfd; cursor: pointer; box-sizing: border-box; outline: none; }
     .cupos-dd .cupos-dd-boton:focus-visible { border-color: #0067b1; box-shadow: 0 0 0 3px rgba(0,103,177,.12); }
@@ -125,7 +126,7 @@
     @media (max-width: 600px) {
         #cuposContenido { padding: 10px; }
         .cupos-arriba { flex-wrap: wrap; }
-        .cupos-dd { flex: 1 1 calc(50% - 5px); }
+        .cupos-campo { flex: 1 1 calc(50% - 5px); }
         .cupos-dd [data-dd-texto] { font-size: 13px; }
         .cupos-dd .cupos-dd-boton { gap: 4px; padding-left: 8px; }
         .cupos-cupo-lado { flex: 1 1 100%; }
