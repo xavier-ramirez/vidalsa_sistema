@@ -559,10 +559,9 @@
         var enGrafico = {};
         meses.forEach(function (m) { enGrafico[m] = true; });
         var porProy = (data.por_mes_frente || []).filter(function (x) { return enGrafico[x.mes]; });
-        // COLORES de la pila. Los tres primeros puestos llevan los acentos calidos de siempre
-        // (lamina de UNIDADES INOPERATIVAS DE FLOTA PESADA): rojo, naranja y ambar; el rojo
+        // COLORES de la pila. Los tres primeros puestos: rojo, azul medio y ambar; el rojo
         // se lo queda el proyecto que MAS saco (aqui no significa "mal", como en el resto del
-        // sistema). Con el rojo y el naranja pegados, #8f1410 y #ef5f24 dan dE 19,1.
+        // sistema).
         //
         // Del cuarto en adelante, antes iba una escala de AZULES intercalada (oscuro, claro,
         // oscuro...). Con 18 proyectos eran 15 azules y el cliente veia "el azul repetido
@@ -574,13 +573,16 @@
         //
         // El ORDEN lo eligio scripts/validate_palette.js (skill dataviz): dos tramos PEGADOS,
         // y tambien los que quedan a uno de distancia, se separan siempre (vecinos dE >= 14,2
-        // con daltonismo, minimo 8; >= 19,1 a ojo normal, minimo 15; la pareja mas justa es
-        // naranja/ambar del podio). El marino, el ambar y los tonos claros quedan fuera de
+        // con daltonismo, minimo 8; >= 19,1 a ojo normal, minimo 15; medido con el orden
+        // anterior al cambio del 26-11, ver abajo). El marino, el ambar y los tonos claros quedan fuera de
         // la banda de luz del validador; se aceptan porque cada barra lleva su total escrito,
         // y la leyenda y el tooltip dicen quien es quien. Si se tocan estos hex o su orden,
         // hay que volver a validarlos.
-        var CD_PALETA = ['#8f1410', '#ef5f24', '#f2b53c', '#10335b', '#60c7fb', '#a16207', '#0e7490',
-            '#2dbbb4', '#fde68a', '#78716c', '#d6a96b', '#7c2d12', '#94a3b8', '#be123c', '#138be1',
+        // 26-11-2026: el 2.º puesto pasó del naranja (#ef5f24) al azul medio (#138be1), que
+        // bajó al 15.º: con rojo, naranja y ámbar en el podio la base de cada barra se veía
+        // toda naranja (pedido del cliente). Este cambio no pasó por el validador.
+        var CD_PALETA = ['#8f1410', '#138be1', '#f2b53c', '#10335b', '#60c7fb', '#a16207', '#0e7490',
+            '#2dbbb4', '#fde68a', '#78716c', '#d6a96b', '#7c2d12', '#94a3b8', '#be123c', '#ef5f24',
             '#a5dcfd', '#475569', '#fda4af', '#e11d48'];
         // Mas de 19 proyectos: se repite la lista desde el CUARTO color (#10335b). Los tres
         // acentos son solo del podio, y el ultimo (#e11d48) pegado al rojo se confundiria.

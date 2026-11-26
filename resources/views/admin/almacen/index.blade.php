@@ -818,7 +818,7 @@
                  La lista manda, pero el
                  input acepta texto porque (a) un almacén GENERAL no es un proyecto —BARCELONA,
                  ALMACÉN CENTRAL CARACAS— y (b) los almacenes que ya existen pueden llamarse
-                 distinto que sus frentes (PATIO EL TIGRE sirve a PATIO I EL TIGRE y a otros 5),
+                 distinto que sus frentes (el almacén PATIO EL TIGRE sirve al proyecto del mismo nombre y a otros 5),
                  y un selector estricto los dejaría sin nombre al editarlos.
                  Elegir un proyecto de la lista TAMBIÉN lo tilda abajo en "Frentes del
                  almacén": es el mismo dato dicho dos veces y pedirlo dos veces sobraba. --}}

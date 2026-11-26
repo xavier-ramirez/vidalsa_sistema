@@ -82,7 +82,7 @@ class IdentificadorConsumo
         ['/ORINOCO OIL/', 'ORINOCO OILS'],
         ['/CHUTO.*BATEA/', 'CHUTO + BATEA'],
         ['/ESTACION.*VALVULA/', 'ESTACION DE VALVULAS'],
-        ['/PATIO (1|I|UNO) EL TIGRE|PATIO EL TIGRE/', 'PATIO I EL TIGRE'],
+        ['/PATIO (1|I|UNO) EL TIGRE|PATIO EL TIGRE/', 'PATIO EL TIGRE'],
         ['/PATIO MATURIN/', 'PATIO MATURIN'],
         ['/OLEODUCTO .*30 ?X ?14/', 'OLEODUCTO DE 30X14'],
         ['/TRASEGADO/', 'TRASEGADO DE CRUDO'],
