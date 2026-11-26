@@ -392,6 +392,25 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
     }
 
     /**
+     * Sin columna de responsable, el CHOFER es quien recibe; con las dos (reporte de Ambiente) vale
+     * la del responsable. Los litros escritos con su unidad no pierden los miles.
+     */
+    public function test_chofer_como_responsable_y_litros_con_unidad(): void
+    {
+        $u = $this->superAdminGlobal();
+        $this->subir($u, $this->tabla("FECHA\tPLACA\tCHOFER\tC.I.\tLITROS\n"
+            . "05/08/2026\tZZ96TST\tJUAN CHOFER\t111\t1.200 LTS\n06/08/2026\tZZ96TST\tJUAN CHOFER\t111\t40,5 L"))->assertOk();
+        $filas = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail()->filas();
+        $this->assertSame(['JUAN CHOFER', 'JUAN CHOFER'], array_column($filas, 'resp'));
+        $this->assertEquals([1200, 40.5], array_column($filas, 'litros'));
+
+        $this->subir($u, $this->tabla("FECHA\tCHOFER\tPLACA\tNOMBRE DEL RESPONSABLE\tLITROS\n"
+            . "07/08/2026\tEL DE LA CISTERNA\tZZ96TST\tQUIEN RECIBE\t55"))->assertOk();
+        $filas = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail()->filas();
+        $this->assertSame(['QUIEN RECIBE'], array_column($filas, 'resp'));
+    }
+
+    /**
      * Una celda con salto de línea (Alt+Enter) sigue siendo UNA celda, y la fecha escrita como
      * texto (con hora, con el mes escrito o año primero) se lee igual.
      */

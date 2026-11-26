@@ -462,7 +462,15 @@
             var quitar = e.target.closest('[data-quitar-fila]');
             if (quitar) {
                 var tr = quitar.closest('[data-fila]'), tbody = tr.parentNode, form = tr.closest('form');
-                tr.remove();
+                var nuevas = tbody.querySelectorAll('[data-nueva]');
+                // La vacía del final no se quita (sin ella ya no se podía cargar otra): se limpia.
+                if (tr === nuevas[nuevas.length - 1]) {
+                    tr.classList.remove('cupos-llego', 'cupos-programada', 'cupos-cambiada');
+                    tr.querySelectorAll('input').forEach(function (i) { i.classList.remove('cupos-mal'); i.value = ''; });
+                    marcarFoto(tr.querySelector('[data-foto-fila]'));
+                } else {
+                    tr.remove();
+                }
                 filaAlFinal(tbody);
                 contarCambios(form);
                 return;

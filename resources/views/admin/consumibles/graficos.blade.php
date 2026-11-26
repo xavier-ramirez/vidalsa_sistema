@@ -388,9 +388,10 @@
             // Preloader global solo en recargas por filtro (no en la primera carga).
             // La primera carga la maneja el SPA; si llamamos showPreloader() aqui tambien
             // provoca un doble-flash (spinner aparece, desaparece y vuelve a aparecer).
-            if (window._graficosFirstRunDone && typeof window.showPreloader === 'function') {
-                window.showPreloader();
-            }
+            // Cada carga que lo enciende lo apaga una vez (el spinner cuenta referencias): si llega
+            // una más nueva, esta suelta la suya sin esperar, o la capa blanca quedaba puesta.
+            var conSpinner = !!(window._graficosFirstRunDone && typeof window.showPreloader === 'function');
+            if (conSpinner) window.showPreloader();
             const params = getParams();
             window.cargarPresentacionGraficos();
 
@@ -450,7 +451,7 @@
                         });
                 })
                 .finally(() => {
-                    if (turno !== window._graficosTurno) return;   // la carga nueva lo apagará
+                    if (turno !== window._graficosTurno) { if (conSpinner) window.hidePreloader(); return; }
                     // Apagar preloader DESPUES de que charts y DOM esten pintados.
                     // Chart.js no expone un hook "termine de pintar" deterministico —
                     // 2x requestAnimationFrame era insuficiente con muchos canvas.

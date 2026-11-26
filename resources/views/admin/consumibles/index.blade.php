@@ -3,7 +3,7 @@
 
 @section('content')
     <div id="consumiblesAppRoot"
-        data-frentes='@json($frentes->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE]))'>
+        data-frentes="{{ json_encode($frentes->map(fn($f) => ['id' => $f->ID_FRENTE, 'nombre' => $f->NOMBRE_FRENTE])) }}">
         <style>
             /* Estado y tipo: solo la letra de color, sin caja alrededor. */
             .badge-pen { color: #92400e; font-weight: 700; }
@@ -521,6 +521,9 @@
                         // Llego otro pedido despues: este no pinta nada, pero SI suelta su
                         // referencia del spinner (es un contador; sin esto quedaba puesto).
                         if (pedido !== window._consumiblesPedido) { if (spin) window.hidePreloader(); return; }
+                        // Un aviso que llega con un lápiz abierto (se abrió mientras se pedía): no
+                        // se repinta, que se perdería lo escrito; queda pendiente para cuando termine.
+                        if (silencioso && typeof window.consumiblesEditando === 'function' && window.consumiblesEditando()) { window.__consumiblesPendiente = true; return; }
                         var doc = new DOMParser().parseFromString(html, 'text/html');
                         var nuevo = doc.getElementById('consumiblesResultados');
                         var actual = document.getElementById('consumiblesResultados');

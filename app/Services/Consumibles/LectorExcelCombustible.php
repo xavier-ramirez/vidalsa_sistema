@@ -296,7 +296,9 @@ class LectorExcelCombustible
             $ident = $this->texto($g('ident'));
             $serial = $this->texto($g('serial'));
             $cod = $this->texto($g('cod'));
-            $resp = $this->texto($g('resp'));
+            // Sin columna de responsable, el CHOFER es quien recibe (con las dos, como en el reporte
+            // de Ambiente, el chofer es otro y no se toma).
+            $resp = $this->texto($g(isset($mapa['resp']) ? 'resp' : 'chofer'));
             $ci = TextoConsumo::digitos($g('ci') ?? '');
             if ($desc === null && $placa !== null && $ident === null) {
                 $desc = $placa;   // Patio El Tigre: la descripción y la placa vienen en la misma celda
@@ -707,7 +709,8 @@ class LectorExcelCombustible
         if (is_int($v) || is_float($v)) {
             return (float) $v;
         }
-        $s = str_replace(' ', '', (string) $v);
+        // La unidad detrás («1.200 LTS», «40,5 L») no cuenta: sin ella, los miles se leían como decimales.
+        $s = preg_replace('/^(-?[\d.,]+).*$/s', '$1', str_replace(' ', '', (string) $v));
         // Con punto y coma, el último es el decimal: «1.234,50» y también «1,234.50» (Excel en
         // inglés, lo que llega al pegar el reporte).
         if (preg_match('/^\d{1,3}(,\d{3})+\.\d+$/', $s)) {
