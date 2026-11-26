@@ -56,7 +56,8 @@
         </div>
         <div class="cupos-barra"><i style="width: {{ round($pct, 1) }}%; background: {{ $p['cupo'] !== null && $p['quedan'] < 0 ? '#dc2626' : $colores[$clave] }};"></i></div>
 
-        @if ($puede)<form class="cupos-tabla" data-accion="cisterna"><input type="hidden" name="patio" value="{{ $clave }}">
+        {{-- novalidate: las filas vacías no cuentan y no deben frenar el guardado; valida el servidor, fila por fila. --}}
+        @if ($puede)<form class="cupos-tabla" data-accion="cisterna" novalidate><input type="hidden" name="patio" value="{{ $clave }}">
         @else<div class="cupos-tabla">@endif
             <table class="cupos-tbl">
                 <colgroup><col><col style="width: 30%;"><col style="width: 30%;">@if ($puede)<col style="width: 40px;">@endif</colgroup>

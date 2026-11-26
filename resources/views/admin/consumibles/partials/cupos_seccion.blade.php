@@ -115,10 +115,9 @@
 <script>
     (function () {
         var URL_LISTA = @json(route('consumibles.cupos', ['parcial' => 1]));
-        var URL_CARGAR = @json(route('consumibles.cargar'));
         var URL_CUPO = @json(route('consumibles.cupos.guardar'));
         var URL_CISTERNA = @json(route('consumibles.cupos.cisterna'));
-        var URL_BORRAR = @json(url('admin/consumibles/cupos/cisternas')) + '/';
+        var URL_BORRAR = @json(route('consumibles.cupos.borrarCisterna', ['id' => '__ID__']));
         var JSON_H = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
         var modal = document.getElementById('cuposModal');
         if (!modal) return;
@@ -138,17 +137,38 @@
 
         // Al abrir, el foco entra al modal (Escape lo cierra sin tocar antes con el ratón).
         function abrir() { modal.classList.add('active'); modal.querySelector('.cupos-modal').focus(); }
-        // Al cerrar, la dirección vuelve a Cargar sola: recargar no lo abre de nuevo.
-        function cerrar() { modal.classList.remove('active'); history.replaceState(history.state, '', URL_CARGAR); }
+        // Al cerrar se quita ?cupos de la dirección (recargar no lo abre de nuevo); lo demás queda igual.
+        function cerrar() {
+            modal.classList.remove('active');
+            var u = new URL(location.href);
+            if (u.searchParams.has('cupos')) { u.searchParams.delete('cupos'); history.replaceState(history.state, '', u.toString()); }
+        }
         if (modal.dataset.abrir) abrir();
 
-        // Repinta el cuerpo (sin recargar la página).
-        function repintar() {
+        // Repinta el cuerpo (sin recargar la página). Las cisternas escritas y aún sin guardar se
+        // conservan (quitar una del historial o cambiar el cupo no las borra), salvo las del patio
+        // que se acaba de guardar.
+        function repintar(guardado) {
             var c = caja();
+            var pendientes = {};
+            c.querySelectorAll('[data-panel]').forEach(function (p) {
+                if (p.dataset.panel === guardado) return;
+                var filas = Array.prototype.map.call(p.querySelectorAll('[data-fila]'), function (tr) {
+                    return [tr.querySelector('[data-campo=fecha]').value, tr.querySelector('[data-campo=litros]').value];
+                }).filter(function (f) { return f[1].trim() !== ''; });
+                if (filas.length) pendientes[p.dataset.panel] = filas;
+            });
             c.classList.add('cupos-ocupado');
             return window.apiFetch(URL_LISTA, { headers: JSON_H })
                 .then(function (r) { return r.ok ? r.text() : Promise.reject(); })
-                .then(function (html) { c.innerHTML = html; mostrarPatio(window.__cuposPatio); })
+                .then(function (html) {
+                    c.innerHTML = html;
+                    mostrarPatio(window.__cuposPatio);
+                    Object.keys(pendientes).forEach(function (patio) {
+                        var tbody = c.querySelector('[data-panel="' + patio + '"] [data-filas]');
+                        if (tbody) ponerFilas(tbody, pendientes[patio]);
+                    });
+                })
                 .catch(function () { aviso('No se pudo actualizar. Revise la conexión.', 'error'); })
                 .finally(function () { c.classList.remove('cupos-ocupado'); });
         }
@@ -203,7 +223,7 @@
             enviar(esCupo ? URL_CUPO : URL_CISTERNA, 'POST', datos)
                 .then(function (b) {
                     aviso(esCupo ? 'Cupo guardado.' : (b.guardadas === 1 ? 'Cisterna guardada.' : b.guardadas + ' cisternas guardadas.'), 'success');
-                    return repintar();
+                    return repintar(esCupo ? null : f.querySelector('[name=patio]').value);
                 })
                 .catch(function (m) {
                     // Marca en rojo la fila y el campo que fallaron (cisternas.N.campo) y dice la primera.
@@ -243,7 +263,7 @@
                 message: 'Se quitará: <b>' + b.dataset.texto.replace(/</g, '&lt;') + '</b>',
                 confirmText: 'Quitar', type: 'warning',
             }, function () {
-                enviar(URL_BORRAR + b.dataset.borrar, 'DELETE')
+                enviar(URL_BORRAR.replace('__ID__', b.dataset.borrar), 'DELETE')
                     .then(function () { aviso('Cisterna quitada.', 'success'); return repintar(); })
                     .catch(function (m) { aviso(m && m.mensaje ? m.mensaje : 'No se pudo quitar.', 'error'); });
             });
@@ -260,6 +280,16 @@
             tbody.appendChild(nueva);
             recalcular(tbody);
             nueva.querySelector('[data-campo=litros]').focus();
+        }
+        // Vuelve a poner filas escritas ([[fecha, litros], ...]) en una tabla recién pintada.
+        function ponerFilas(tbody, filas) {
+            filas.forEach(function (f, i) {
+                if (i > 0) otraFila(tbody);
+                var tr = tbody.querySelector('[data-fila]:last-child');
+                tr.querySelector('[data-campo=fecha]').value = f[0];
+                tr.querySelector('[data-campo=litros]').value = f[1];
+            });
+            recalcular(tbody);
         }
         // Quitar la fila; si es la única, solo se limpia.
         function quitarFila(tr) {
@@ -288,9 +318,9 @@
                 var v = numeroLitros(tr.querySelector('[data-campo=litros]').value);
                 var previo = tr.querySelector('[data-previo]');
                 var delMes = tr.querySelector('[data-campo=fecha]').value.slice(0, 7) === panel.dataset.mes;
-                if (v > 0) { n++; suma += v; }
+                if (v > 0) { n++; suma = Math.round((suma + v) * 100) / 100; }
                 if (v > 0 && delMes && queda !== null) {
-                    queda -= v;
+                    queda = Math.round((queda - v) * 100) / 100;
                     previo.textContent = litrosTexto(queda);
                     previo.classList.toggle('cupos-pasado', queda < 0);
                 } else {
@@ -310,10 +340,12 @@
         modal.addEventListener('change', function (e) {
             if (e.target.matches && e.target.matches('[data-elegir-patio]')) mostrarPatio(e.target.value);
         });
-        // Enter en los litros: pasa a la fila siguiente (o crea otra); se guarda con el botón.
+        // Enter en la fecha: a los litros de esa fila. Enter en los litros: a la fila siguiente (o crea
+        // otra). Se guarda solo con el botón.
         modal.addEventListener('keydown', function (e) {
-            if (e.key !== 'Enter' || !e.target.matches || !e.target.matches('[data-campo=litros]')) return;
+            if (e.key !== 'Enter' || !e.target.matches || !e.target.matches('[data-campo]')) return;
             e.preventDefault();
+            if (e.target.dataset.campo === 'fecha') { e.target.closest('[data-fila]').querySelector('[data-campo=litros]').focus(); return; }
             if (e.target.value.trim() === '') return;
             var tr = e.target.closest('[data-fila]');
             var sig = tr.nextElementSibling;
