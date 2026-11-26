@@ -3,6 +3,7 @@
 
 @section('content')
     <link rel="stylesheet" href="{{ asset('css/vistas/admin_consumibles_graficos.css') }}?v={{ @filemtime(public_path('css/vistas/admin_consumibles_graficos.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/vistas/consumibles_laminas.css') }}?v={{ @filemtime(public_path('css/vistas/consumibles_laminas.css')) }}">
 
     {{-- HEADER --}}
     <div class="graficos-layout" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
@@ -141,8 +142,10 @@
         </div>
     </div>
     <script>
+        // Un desplegable a la vez: sin stopPropagation, el clic llega a document y uicomponents.js cierra
+        // Frente/Tipo; el listener de abajo cierra Acciones/Filtros al tocar fuera.
         window.toggleAdvancedFilterGraficos = function(event) {
-            if(event) { event.preventDefault(); event.stopPropagation(); }
+            if(event) { event.preventDefault(); }
             const ap = document.getElementById('advancedFilterPanel');
             const am = document.getElementById('splitDropdownMenu');
             if (am && am.style.display === 'block') {
@@ -154,7 +157,7 @@
         };
 
         window.toggleAccionesMenuGraficos = function(event) {
-            if(event) { event.preventDefault(); event.stopPropagation(); }
+            if(event) { event.preventDefault(); }
             const am = document.getElementById('splitDropdownMenu');
             const ap = document.getElementById('advancedFilterPanel');
             if (ap && ap.style.display === 'block') {
@@ -182,6 +185,16 @@
                         advMenu.style.display = 'none';
                     }
                 }
+            });
+            // Con el foco sin clic (Tab / «siguiente» del teclado del teléfono): lo mismo. Al entrar a Acciones o
+            // Filtros se cierran Frente/Tipo; al salir de ellos, se cierran ellos.
+            document.addEventListener('focusin', function (e) {
+                if (!e.target.closest || !document.getElementById('panelRankingEquipos')) return;
+                const enAcciones = e.target.closest('.acciones-wrapper'), enFiltros = e.target.closest('#advancedFilterPanel, #btnAdvancedFilter');
+                const am = document.getElementById('splitDropdownMenu'), ap = document.getElementById('advancedFilterPanel');
+                if (!enAcciones && am) am.style.display = 'none';
+                if (!enFiltros && ap) ap.style.display = 'none';
+                if ((enAcciones || enFiltros) && typeof window.closeAllDropdowns === 'function') window.closeAllDropdowns(null);
             });
         }
     </script>
@@ -292,22 +305,18 @@
     </div>
 
 
-    {{-- PRESENTACIÓN DE GASOIL: las mismas láminas del PowerPoint, dibujadas aquí con los filtros de la
-         pantalla (consumibles_presentacion.js · consumiblesVistaPrevia), para verlas sin descargarlo. --}}
+    {{-- PRESENTACIÓN DE GASOIL: solo sus gráficos (proyectos, proyecto, cupo, histórico y cronograma), con los
+         filtros de la pantalla. Es el mismo dibujo que baja «Acciones → Exportar → PowerPoint» (ahí sí con
+         portada, encabezados y fotos, y preguntando el proyecto): consumibles_laminas.js. --}}
     <div class="g-grid-1" id="secPresentacion">
         <div class="g-card">
-            <p class="g-title cons-pres-tit">
+            <p class="g-title">
                 <span style="display:flex;align-items:center;gap:8px;min-width:0;">
                     <i class="material-icons" style="color:#F26A21;">slideshow</i>
                     <span>Presentación de gasoil <span class="g-subtitle" id="presPeriodo"></span></span>
                 </span>
-                <span class="cons-pres-acc">
-                    <select id="presProyecto" title="Proyecto de la lámina de detalle" disabled></select>
-                    <button type="button" class="btn-primary-maquinaria btn-compacto" id="presBajar" disabled
-                        title="Descargar estas láminas en PowerPoint"><i class="material-icons">download</i> PowerPoint</button>
-                </span>
             </p>
-            <div id="presLaminas" class="cons-pres-laminas"><p class="cons-pres-nota">Cargando láminas…</p></div>
+            <div id="presLaminas" class="cons-pres-laminas"><p class="cons-pres-nota">Cargando gráficos…</p></div>
         </div>
     </div>
 
@@ -394,7 +403,7 @@
                 window.showPreloader();
             }
             const params = getParams();
-            window.cargarPresentacionGraficos(true);
+            window.cargarPresentacionGraficos();
 
             // ── Loading: mostrar spinners de las secciones siempre visibles ──
             ['loadingRanking', 'loadingInoperativos'].forEach(show);
@@ -967,54 +976,22 @@
               .catch(() => window.showToast('No se pudo generar la imagen.', 'warning'));
         }
 
-        // ── Presentación de gasoil (láminas en la página) ─────────
-        // nuevaBusqueda: cambiaron los filtros → el proyecto de la lámina de detalle vuelve a elegirse solo
-        // (el del frente filtrado o el de mayor consumo).
-        window.cargarPresentacionGraficos = function (nuevaBusqueda) {
-            var cont = document.getElementById('presLaminas'), sel = document.getElementById('presProyecto');
-            if (!cont || typeof window.consumiblesVistaPrevia !== 'function') return;
-            var bajar = document.getElementById('presBajar');
-            if (nuevaBusqueda) sel.value = '';
-            cont.style.opacity = '.5';
-            window.consumiblesVistaPrevia(cont, '{{ route('consumibles.presentacionData') }}', sel.value, getParams).then(function (d) {
-                cont.style.opacity = '';
-                if (!d || !document.getElementById('presLaminas')) return;
-                if (d.vacio) {
-                    cont.innerHTML = '<p class="cons-pres-nota">No hay gasoil cargado en el período.</p>';
-                    sel.innerHTML = ''; sel.disabled = true; bajar.disabled = true;
-                    document.getElementById('presPeriodo').textContent = '';
-                    return;
-                }
-                sel.innerHTML = d.proyectos.map(function (p) {
-                    return '<option value="' + p.id + '"' + (d.proyecto && d.proyecto.id === p.id ? ' selected' : '') + '>' +
-                        window.escapeHtml(p.nombre) + '</option>';
-                }).join('');
-                sel.disabled = !d.proyectos.length; bajar.disabled = false;
-                document.getElementById('presPeriodo').textContent = '— del ' + d.desde + ' al ' + d.hasta;
-            }).catch(function (e) {
-                cont.style.opacity = '';
-                cont.innerHTML = '<p class="cons-pres-nota">' + window.escapeHtml(e.message || 'No se pudieron armar las láminas.') + '</p>';
+        // ── Presentación de gasoil: sus gráficos con los mismos filtros de la pantalla ──
+        window.cargarPresentacionGraficos = function () {
+            var cont = document.getElementById('presLaminas');
+            if (!cont || typeof window.consumiblesGraficosPresentacion !== 'function') return;
+            window.consumiblesGraficosPresentacion(cont, '{{ route('consumibles.presentacionData') }}', getParams).then(function (d) {
+                var t = document.getElementById('presPeriodo');
+                if (t) t.textContent = d && !d.vacio ? '— ' + d.cisternas.mes.toLowerCase() + ' (gasoil del ' + d.desde + ' al ' + d.hasta + ')' : '';
             });
         };
-        document.getElementById('presProyecto').addEventListener('change', function () { window.cargarPresentacionGraficos(false); });
-        document.getElementById('presBajar').addEventListener('click', function () {
-            var b = this;
-            b.disabled = true;
-            window.consumiblesDescargarPowerPoint('{{ route('consumibles.presentacionData') }}', document.getElementById('presProyecto').value)
-                .catch(function (e) { if (window.showToast) window.showToast(e.message || 'No se pudo armar la presentación.', 'error'); })
-                .then(function () { b.disabled = false; });
-        });
-
-        // ── Descargar "Tarjetas Resumen" como foto ─────────────────
-
-
-
-
-
     </script>
     <script
         src="{{ asset('js/maquinaria/consumibles_graficos.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_graficos.js')) }}"></script>
-    {{-- «Exportar»: pregunta Excel o PowerPoint; el PowerPoint lo arma este archivo con los datos del sistema. --}}
+    {{-- Presentación de gasoil: las láminas (consumibles_laminas.js, diseño del maestro del usuario) y la pantalla
+         («Exportar» y la tarjeta de gráficos: consumibles_presentacion.js). --}}
+    <script
+        src="{{ asset('js/maquinaria/consumibles_laminas.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_laminas.js')) }}"></script>
     <script
         src="{{ asset('js/maquinaria/consumibles_presentacion.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_presentacion.js')) }}"></script>
     <script>

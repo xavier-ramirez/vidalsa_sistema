@@ -1,0 +1,190 @@
+/* Láminas de la presentación de gasoil — COPIA del maestro del usuario
+   (Downloads/PRESENTACIONES/presentacion_gasoil/Presentacion_Combustible_Vidalsa.html, 26-11), con cada regla
+   bajo .gl para no chocar con el sistema. NO rediseñar aquí: si el usuario cambia su original, se vuelve a copiar.
+   Lo único propio del sistema va al final (marcado). Las arma consumibles_laminas.js; el mismo dibujo se ve en
+   Gráficos y se convierte al PowerPoint. */
+.gl { --navy: #1F4E79; --noche: #222A35; --texto: #000; --letra: Calibri, Carlito, 'Segoe UI', Arial, sans-serif;
+  --enc: 126px; --construccion: #F57935; --ambiente: #4E8A3E; font-family: var(--letra); color: var(--texto); }
+.gl, .gl * { box-sizing: border-box; }
+.gl * { box-sizing: border-box; }
+.gl .lamina { position: relative; width: 1280px; height: 720px; overflow: hidden; background: #fff; }
+.gl .pt-ola { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; fill: var(--navy); }
+.gl .pt-banda { position: absolute; left: 0; top: 248.88px; width: 818.67px; height: 262.67px; background: linear-gradient(120deg, rgba(238, 47, 44, .92) 16%, rgba(249, 147, 3, .82) 100%); }
+.gl .pt-titulo { position: absolute; left: 8px; top: 284px; width: 700px; height: 116px; margin: 0; white-space: nowrap; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font: 700 46px/1.22 var(--letra); color: #fff; text-shadow: 2.83px 2.83px 4px rgba(0, 0, 0, .43); }
+.gl .pt-titulo > span { display: block; }
+.gl .pt-logo { position: absolute; left: 22.3px; top: 25.8px; width: 215px; }
+.gl .enc { position: absolute; left: 0; top: 0; width: 1280px; height: var(--enc); background: var(--navy); }
+.gl .enc-logo { position: absolute; left: 0; top: 0; width: 166px; height: calc(var(--enc) + 1.5px); background: #fff; }
+.gl .enc-logo img { position: absolute; left: 11px; top: 18px; width: 144px; }
+.gl .enc h2 { position: absolute; right: 48.6px; top: 40px; margin: 0; white-space: nowrap; font: 400 30.67px/normal 'Arial Black', 'Arial Bold', Arial, sans-serif; font-kerning: none; color: #fff; -webkit-text-stroke: 1px #000; }
+.gl .cb-port .pt-banda { width: 740px; }
+.gl .cb-port .pt-titulo { left: 0; top: 304px; width: 640px; font-size: 36px; line-height: 1.3; }
+.gl .cb-foto-portada { position: absolute; left: 750px; top: 229px; width: 520px; height: 302px; object-fit: cover; }
+.gl .pt-sello { position: absolute; left: 640px; top: 280px; width: 200px; height: 200px; border-radius: 50%; background: var(--noche); box-shadow: 0 16px 36px rgba(20, 40, 70, .32); }
+.gl .pt-sello::before { content: ''; position: absolute; inset: 22px; border-radius: 50%; background: #F26A21; box-shadow: 2px 3px 8px rgba(0, 0, 0, .4); }
+.gl .pt-sello::after { content: ''; position: absolute; inset: 9px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .18); }
+.gl .pt-sello svg { position: absolute; inset: 0; margin: auto; width: 88px; height: 88px; fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.gl .cb-fecha { position: absolute; left: 0; top: 426px; width: 640px; margin: 0; padding-left: .22em; text-align: center; font: 700 20px Arial, sans-serif; letter-spacing: .22em; color: #fff; text-shadow: 1px 1px 3px rgba(0, 0, 0, .35); }
+.gl .enc h2.dos { top: 22px; font-size: 28px; line-height: 1.3; text-align: right; }
+.gl .cb { font-family: Arial, Helvetica, sans-serif; color: #000; }
+.gl .cb-tit { position: absolute; font: 700 16px/1 Arial, sans-serif; letter-spacing: .05em; color: #000; white-space: nowrap; }
+.gl .cb-sep { position: absolute; width: 1px; background: #D9DEE5; }
+.gl .cb-pedidos { position: absolute; left: 24px; top: 140px; width: 1232px; height: 562px; display: grid; grid-template-columns: repeat(var(--cols), var(--w)); grid-auto-rows: var(--h); justify-content: center; align-content: center; gap: 16px; }
+.gl .cb-total { position: relative; border-radius: 12px; background: #1F4E79; box-shadow: 0 8px 22px rgba(20, 40, 70, .22); padding: 0 30px; display: flex; flex-direction: column; justify-content: center; gap: 12px; overflow: hidden; }
+.gl .cb-total::before { content: ''; position: absolute; left: 0; top: 0; width: 8px; height: 100%; background: #F26A21; }
+.gl .cb-total small { font: 700 13px/1 Arial, sans-serif; letter-spacing: .1em; color: #fff; }
+.gl .cb-total b { font: 700 54px/1 Arial, sans-serif; color: #fff; white-space: nowrap; }
+.gl .cb-total span { font: 400 20px/1 Arial, sans-serif; color: #fff; }
+.gl .cb-ped { position: relative; width: var(--w); height: var(--h); border-radius: 12px; box-shadow: 0 8px 22px rgba(20, 40, 70, .18); }
+.gl .cb-ped img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
+.gl .cb-num { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #F26A21; font: 700 15px/1 Arial, sans-serif; color: #fff; flex: none; }
+.gl .cb-pie { position: absolute; left: 0; right: 0; bottom: 0; height: 58px; border-radius: 0 0 12px 12px; background: rgba(16, 44, 74, .86); pointer-events: none; display: grid; grid-template-columns: 30px 1fr auto; column-gap: 12px; align-content: center; align-items: center; padding: 0 16px; }
+.gl .cb-pie small { font: 700 12px/1 Arial, sans-serif; letter-spacing: .06em; color: #fff; white-space: nowrap; }
+.gl .cb-pie strong { font: 700 26px/1 Arial, sans-serif; color: #fff; white-space: nowrap; }
+.gl .cb-vacio { display: grid; place-items: center; border: 2px dashed #D3D8DF; border-radius: 10px; }
+.gl .cb-vacio p { margin: 0; font: 400 16px Arial, sans-serif; color: #000; }
+.gl .cb-proy { position: absolute; left: 40px; top: 170px; width: 796px; height: 514px; box-sizing: border-box; padding: 76px 24px 20px 14px; background: #FFFFFF; border: 1px solid #DDE3EA; border-radius: 14px; box-shadow: 0 6px 18px rgba(20, 40, 70, .12); display: flex; flex-direction: column; justify-content: space-between; }
+.gl .cb-fila { display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: center; gap: 14px; }
+.gl .cb-fila small { font: 700 13px/1 Arial, sans-serif; letter-spacing: .04em; color: #2B3440; text-align: right; white-space: nowrap; }
+.gl .cb-pista { position: relative; height: 20px; }
+.gl .cb-pista i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 10px; box-shadow: 0 2px 5px rgba(20, 40, 70, .18); }
+.gl .cb-pista b { position: absolute; top: 50%; transform: translateY(-50%); font: 700 17px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
+.gl .pm-tit { top: 172px !important; border-left: 0 !important; padding-left: 0 !important; }
+.gl .pm-graf { position: absolute; left: 40px; top: 250px; width: 780px; height: 380px; display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 2px solid #2B3440; }
+.gl .pm-col { position: relative; width: 96px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.gl .pm-col i { width: 100%; border-radius: 8px 8px 0 0; background: #1F4E79; }
+.gl .pm-col b { margin-bottom: 8px; font: 700 18px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
+.gl .pm-col small { position: absolute; top: calc(100% + 12px); font: 700 15px/1 Arial, sans-serif; letter-spacing: .04em; color: #000; white-space: nowrap; }
+.gl .pm-col.pm-mes i { background: #F26A21; }
+.gl .pm-col.pm-mes b { color: #F26A21; font-size: 22px; }
+.gl .pm-der { position: absolute; left: 878px; top: 172px; width: 378px; display: flex; flex-direction: column; gap: 14px; }
+.gl .pm-sub { margin: 0; }
+.gl .pm-top { display: flex; flex-direction: column; gap: 10px; }
+.gl .pm-eq { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; column-gap: 12px; row-gap: 10px; padding: 14px 16px 12px; border-radius: 12px; background: #F2F4F7; border-left: 4px solid #1F4E79; }
+.gl .pm-eq:first-child { border-left-color: #F26A21; }
+.gl .pm-eq span { width: 34px; height: 34px; border-radius: 50%; background: #1F4E79; color: #fff; font: 700 15px/34px Arial, sans-serif; text-align: center; }
+.gl .pm-eq:first-child span { background: #F26A21; }
+.gl .pm-eq-dato { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.gl .pm-eq small { font: 700 12.5px/1.1 Arial, sans-serif; letter-spacing: .03em; color: #000; }
+.gl .pm-eq em { font: 700 12px/1.1 Arial, sans-serif; font-style: normal; color: #4D4D4D; }
+.gl .pm-eq u { font: 400 11.5px/1.1 Arial, sans-serif; text-decoration: none; color: #4D4D4D; }
+.gl .pm-eq b { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; font: 700 24px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
+.gl .pm-eq b i { font: 700 10px/1 Arial, sans-serif; font-style: normal; letter-spacing: .08em; color: #4D4D4D; }
+.gl .pm-eq p { grid-column: 1 / -1; margin: 0; position: relative; height: 6px; border-radius: 3px; background: #DCE2EA; }
+.gl .pm-eq p s { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: #1F4E79; }
+.gl .pm-eq:first-child p s { background: #F26A21; }
+.gl .cb-g-ayacucho { --g: #2B3440; }
+.gl .cb-g-carabobo { --g: #2B3440; }
+.gl .cb-l3der { position: absolute; left: 878px; top: 170px; width: 378px; height: 514px; display: flex; flex-direction: column; justify-content: center; gap: 26px; }
+.gl .cb-ley { position: absolute; z-index: 2; left: 556px; top: 580px; padding: 13px 16px; border-radius: 10px; background: #F5F7FA; border: 1px solid #E3E7ED; display: flex; flex-direction: column; gap: 10px; font: 700 13px/1 Arial, sans-serif; letter-spacing: .04em; color: #2B3440; }
+.gl .cb-ley span { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.gl .cb-ley i { width: 14px; height: 14px; border-radius: 4px; }
+.gl .cb-divs { display: flex; flex-direction: column; gap: 10px; }
+.gl .cb-divs .cb-div { padding: 14px 22px; row-gap: 10px; }
+.gl .cb-divs .cb-div b { font-size: 30px; }
+.gl .cb-divs .cb-div small { font-size: 14px; }
+.gl .cb-divs .cb-l3sub { margin: 0 0 2px; }
+.gl .cb-total-l3 { flex: 0 0 auto; justify-content: center; padding: 18px 26px; border-radius: 12px; background: #1F4E79; display: flex; flex-direction: column; gap: 8px; }
+.gl .cb-total-l3 small { font: 700 12px/1 Arial, sans-serif; letter-spacing: .1em; color: #fff; }
+.gl .cb-total-l3 b { font: 700 52px/1 Arial, sans-serif; color: #fff; white-space: nowrap; }
+.gl .cb-l3tit, .gl .cb-l3sub { font: 700 15px/1 Arial, sans-serif; letter-spacing: .04em; color: #000; padding: 0 0 9px 12px; border-left: 4px solid #F26A21; border-bottom: 1px solid #D5DBE3; }
+.gl .cb-l3tit { position: absolute; left: 24px; top: 190px; width: 800px; }
+.gl .cb-l3tit:not(.pm-tit) { z-index: 2; border: 0; border-bottom: 1px solid #E3E7ED; padding: 0 0 14px; font-size: 21px; letter-spacing: .06em; color: #1F2A37; top: 194px; left: 70px; width: 736px; text-align: center; }
+.gl .cb-l3sub:not(.pm-sub) { border: 0; padding: 0; font-size: 17px; }
+.gl .cb-l3sub { margin: 12px 0 0; }
+.gl .cb-div { display: grid; grid-template-columns: 1fr auto; align-items: baseline; row-gap: 7px; padding: 10px 18px 11px; border-radius: 10px; background: #F2F4F7; border-left: 6px solid var(--g); }
+.gl .cb-div small { font: 700 12.5px/1 Arial, sans-serif; letter-spacing: .06em; color: #2B3440; }
+.gl .cb-div b { font: 700 24px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
+.gl .cb-div span { grid-column: 1 / -1; position: relative; height: 7px; border-radius: 4px; background: #DCE2EA; }
+.gl .cb-div span i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--g); }
+.gl .cb-patio { position: absolute; top: 150px; width: 380px; height: 550px; box-sizing: border-box; padding-top: 38px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+.gl .cb-patio > .cb-ptit { font: 700 18px/1 Arial, sans-serif; letter-spacing: .06em; color: #000; }
+.gl .cb-placa { margin: 14px 0 12px; padding: 9px 22px; border-radius: 8px; background: #2B3440; display: flex; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(20, 40, 70, .2); }
+.gl .cb-placa small { font: 700 10.5px/1 Arial, sans-serif; letter-spacing: .1em; color: #fff; }
+.gl .cb-placa b { font: 700 22px/1 Arial, sans-serif; color: #fff; white-space: nowrap; }
+.gl .cb-tanque { position: relative; left: -15px; width: 290px; height: 372px; flex: none; }
+.gl .cb-dibujo { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 8px 14px rgba(20, 40, 70, .22)); }
+.gl .cb-regla { position: absolute; left: 0; top: 48px; width: 26px; height: 282px; }
+.gl .cb-regla i { position: absolute; right: 0; width: 8px; height: 2px; margin-bottom: -1px; background: #8E9AA8; }
+.gl .cb-regla small { position: absolute; right: 11px; margin-bottom: -5px; font: 700 9.5px/1 Arial, sans-serif; color: #5B6775; white-space: nowrap; }
+.gl .cb-casco { position: absolute; left: 60px; top: 48px; width: 200px; height: 282px; }
+.gl .cb-hueco, .gl .cb-lleno { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; text-align: center; }
+.gl .cb-hueco { top: 0; }
+.gl .cb-hueco small, .gl .cb-debajo small { font: 700 11.5px/1 Arial, sans-serif; letter-spacing: .04em; color: #000; }
+.gl .cb-hueco small, .gl .cb-hueco b { text-shadow: 0 0 3px #fff, 0 0 6px rgba(255, 255, 255, .9); }
+.gl .cb-hueco b, .gl .cb-debajo b { font: 700 30px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
+.gl .cb-hueco.cb-justo { gap: 4px; }
+.gl .cb-hueco.cb-justo b { font-size: 24px; }
+.gl .cb-lleno { bottom: 0; }
+.gl .cb-lleno b { font: 700 16px/1 Arial, sans-serif; color: #fff; }
+.gl .cb-lleno small { font: 700 10px/1 Arial, sans-serif; letter-spacing: .03em; color: #fff; }
+.gl .cb-lleno em { font: 700 36px/1 Arial, sans-serif; font-style: normal; color: #fff; white-space: nowrap; }
+.gl .cb-lleno.cb-bajo { justify-content: flex-end; }
+.gl .cb-lleno.cb-bajo b, .gl .cb-lleno.cb-bajo small, .gl .cb-lleno.cb-bajo em { color: #C2500F; }
+.gl .cb-debajo { margin: 10px 0 0; display: flex; align-items: center; gap: 10px; }
+.gl .cb-centro { position: absolute; left: 464px; top: 150px; width: 352px; height: 550px; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+.gl .cb-suma { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 16px 13px; border-radius: 10px; background: #F2F4F7; border-left: 6px solid #A9B3BF; text-align: center; }
+.gl .cb-suma > small { font: 700 12px/1.2 Arial, sans-serif; letter-spacing: .06em; color: #000; }
+.gl .cb-suma > b { font: 700 32px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
+.gl .cb-suma > em { font: 700 10.5px/1 Arial, sans-serif; font-style: normal; letter-spacing: .06em; color: #F26A21; }
+.gl .cb-suma.cb-s-cupo > em { color: #F9A266; }
+.gl .cb-suma.cb-s-cupo { background: #2B3440; border-left-color: #8E9AA8; }
+.gl .cb-suma.cb-s-cupo > small, .gl .cb-suma.cb-s-cupo > b { color: #fff; }
+.gl .cb-suma.cb-s-desp { border-left-color: #F26A21; }
+.gl .cb-hist { position: absolute; left: 90px; top: 166px; width: 1100px; height: 214px; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); align-items: end; }
+.gl .cb-mes { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.gl .cb-mes em { font: 400 10.5px/1 Arial, sans-serif; font-style: normal; color: #000; letter-spacing: .04em; }
+.gl .cb-mes b { font: 700 13px/1 Arial, sans-serif; color: #000; }
+.gl .cb-mes i { width: 64px; border-radius: 4px 4px 0 0; background: var(--navy); margin-top: 2px; }
+.gl .cb-mes i.cb-hoy { background: var(--construccion); }
+.gl .cb-mes small { font: 700 10.5px/1 Arial, sans-serif; letter-spacing: .05em; color: #000; margin-top: 4px; }
+.gl .cb-base { position: absolute; left: 90px; top: 364px; width: 1100px; height: 1px; background: #AEB6C2; }
+.gl .cb-crono { position: absolute; left: 90px; top: 446px; width: 1100px; display: grid; row-gap: 4px; column-gap: 2px; align-items: stretch; }
+.gl .cb-crono > small { height: 17px; display: grid; place-items: center; font: 700 10px/1 Arial, sans-serif; color: #000; background: #E3E8EF; border-radius: 3px; }
+.gl .cb-crono > small.cb-fin { background: #F2F2F2; color: #5B6575; }
+.gl .cb-crono > b { height: 20px; display: grid; place-items: center; font: 700 11px/1 Arial, sans-serif; color: #fff; background: var(--noche); border-radius: 3px; }
+.gl .cb-crono > b.cb-dia { background: #C00000; }
+.gl .cb-crono > b.cb-dia.cb-listo { background: var(--ambiente); }
+.gl .cb-crono > .cb-sol { display: flex; align-items: center; height: 24px; padding-left: 10px; margin-right: -2px; font: 700 11.5px/1 Arial, sans-serif; letter-spacing: .03em; color: #000; border-radius: 4px 0 0 4px; }
+.gl .cb-crono > .cb-v { margin-right: -2px; }
+.gl .cb-crono > .cb-hecha, .gl .cb-crono > .cb-prog { background: #F2F4F7; }
+.gl .cb-crono > .cb-cam.cb-hecha { background: #CFE5C8; }
+.gl .cb-crono > .cb-cam.cb-prog { background: #F6C9C4; }
+.gl .cb-crono > .cb-sol.cb-prog { color: #C00000; }
+.gl .cb-crono > .cb-v.cb-ult { margin-right: 0; border-radius: 0 4px 4px 0; }
+.gl .cb-crono > .cb-cam, .gl .cb-crono > .cb-guia { display: grid; place-items: center; }
+.gl .cb-guia i { width: 2px; height: 100%; background: #E06666; }
+.gl .cb-guia.cb-guia-listo i { background: var(--ambiente); }
+.gl .cb-cam i { width: 26px; height: 19px; border-radius: 4px; display: grid; place-items: center; box-sizing: border-box; }
+.gl .cb-cam svg { width: 18px; height: 13px; }
+.gl .cb-cam.cb-hecha i { background: var(--ambiente); }
+.gl .cb-cam.cb-hecha svg { fill: #fff; }
+.gl .cb-cam.cb-prog i { background: #C00000; }
+.gl .cb-cam.cb-prog svg { fill: #fff; }
+
+/* ═══ Propio del sistema (no está en el maestro) ═══ */
+/* Muchos proyectos: filas más bajas para que entren todos en la tarjeta (consumibles_laminas.js pone las variables;
+   hasta 13 proyectos quedan las medidas del maestro: 20 / 13 / 17 px). */
+.gl .cb-proy { --pista: 20px; --nombre: 13px; --cifra: 17px; }
+.gl .cb-fila small { font-size: var(--nombre); }
+.gl .cb-pista { height: var(--pista); }
+.gl .cb-pista i { border-radius: calc(var(--pista) / 2); }
+.gl .cb-pista b { font-size: var(--cifra); }
+.gl .cb-otros small { color: #4A5563; }
+.gl .cb-proy-vacio { display: grid; place-items: center; padding: 0; }
+.gl .cb-proy-vacio p { margin: 0; font: 400 16px Arial, sans-serif; color: #4A5563; }
+/* la leyenda en la columna derecha (cuando una barra llegaba hasta ella) */
+.gl .cb-ley.cb-ley-der { position: static; align-self: flex-start; }
+.gl .cb-nota-l3 { margin: 0; font: 400 13px/1.3 Arial, sans-serif; color: #4A5563; text-align: center; }
+/* cisterna sin foto cargada */
+.gl .cb-sinfoto { width: 100%; height: 100%; border-radius: 12px; background: #F2F4F7; border: 1px solid #DCE2EA;
+  display: flex; align-items: center; justify-content: center; padding-bottom: 58px; font: 400 16px Arial, sans-serif; color: #8A94A3; }
+.gl .pm-vacio { padding: 18px 16px; border-radius: 12px; background: #F2F4F7; font: 400 13px Arial, sans-serif; color: #4D4D4D; }
+.gl .cb-sin-sol { position: absolute; left: 0; width: 1280px; margin: 0; text-align: center; font: 400 14px Arial, sans-serif; color: #4A5563; }
+
+/* En Gráficos: solo el gráfico (de la lámina se muestra lo que va bajo el encabezado, y = 126..720), escalado al ancho. */
+.gl-vista { display: flex; flex-direction: column; gap: 18px; }
+.gl-hoja { position: relative; width: 100%; aspect-ratio: 1280 / 594; overflow: hidden; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; }
+.gl-hoja > .lamina { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform: scale(var(--k, 1)) translateY(-126px); }
+/* Para el PowerPoint: las láminas completas, a tamaño real, fuera de la vista. */
+.gl-armando { position: fixed; left: -20000px; top: 0; width: 1280px; pointer-events: none; }

@@ -68,6 +68,10 @@ class ConsumiblesPresentacionTest extends MySqlTestCase
         $this->assertStringContainsString('consumibles_presentacion.js', $html);
         // Las láminas también se ven en la página, sin descargar el PowerPoint.
         $this->assertStringContainsString('id="presLaminas"', $html);
-        $this->assertStringContainsString('window.consumiblesVistaPrevia(', $html);
+        $this->assertStringContainsString('window.consumiblesGraficosPresentacion(', $html);
+        $this->assertStringContainsString('consumibles_laminas.js', $html);
+        // La tarjeta ya no trae lista de proyectos ni botón: el proyecto se pregunta al exportar.
+        $this->assertStringNotContainsString('id="presProyecto"', $html);
+        $this->assertStringNotContainsString('id="presBajar"', $html);
     }
 }
