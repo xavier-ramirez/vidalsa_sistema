@@ -81,7 +81,7 @@ class ConsumiblesController extends Controller
         $filas = tap(DB::table('consumibles'), fn ($q) => self::filtrar($q, $filtroGasoil, false))
             ->selectRaw('consumibles.ID_FRENTE as id, SUM(consumibles.CANTIDAD) as litros')
             ->groupBy('consumibles.ID_FRENTE')->get();
-        $nombres = FrenteTrabajo::whereIn('ID_FRENTE', $filas->pluck('id')->filter())->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+        $nombres = FrenteTrabajo::withTrashed()->whereIn('ID_FRENTE', $filas->pluck('id')->filter())->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
         $gasoilPorFrente = $filas->map(fn ($f) => [
             'nombre' => $f->id ? ($nombres[$f->id] ?? 'Frente ' . $f->id) : null,
             'litros' => (float) $f->litros,
