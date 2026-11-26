@@ -806,9 +806,6 @@
             const enc = mapa && desde > 0 ? filas[desde - 1] : null;
             const fp = mapa ? mapa.fecha : undefined;
             const fechaPartida = !!(enc && fp !== undefined && !enc[fp + 1] && !enc[fp + 2]);
-            const fechaDe = cols => fechaPartida && /^\d{1,2}$/.test(cols[fp + 1] || '') && /^\d{4}$/.test(cols[fp + 2] || '')
-                ? cols[fp] + '/' + cols[fp + 1] + '/' + cols[fp + 2]
-                : (mapa ? (fp !== undefined ? (cols[fp] || '') : '') : (cols[0] || ''));
             filas.slice(desde).forEach(cols => {
                 if (cols.some(c => /^(SUB ?)?TOTAL(ES)?\b/i.test(c))) return;   // fila de total
                 // Sin encabezado, las filas de títulos antes de los datos (texto, no fecha ni número).
@@ -818,8 +815,11 @@
                     : (cols[pos] || '');
                 // Sin litros no es despacho (la recarga del tanque); si no se supo cuál es la cantidad, sin fecha tampoco.
                 if (mapa && (mapa.cantidad !== undefined ? !col('cantidad') : !col('fecha'))) return;
-                const fecha = fechaISO(fechaDe(cols));
-                if (!fecha && fechaDe(cols)) sinFecha++;
+                const textoFecha = fechaPartida && /^\d{1,2}$/.test(cols[fp + 1] || '') && /^\d{4}$/.test(cols[fp + 2] || '')
+                    ? cols[fp] + '/' + cols[fp + 1] + '/' + cols[fp + 2]
+                    : col('fecha', 0);
+                const fecha = fechaISO(textoFecha);
+                if (!fecha && textoFecha) sinFecha++;
                 agregarFila({
                     fecha: fecha,
                     id: col('id', 1) || (mapa ? col('desc') : ''),
