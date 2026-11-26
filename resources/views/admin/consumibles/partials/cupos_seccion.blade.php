@@ -209,7 +209,12 @@
         modal.querySelectorAll('[data-panel]').forEach(function (p) { prepararPanel(p); });
 
         // Al abrir, el foco entra al modal (Escape lo cierra sin tocar antes con el ratón).
-        function abrir() { modal.classList.add('active'); modal.querySelector('.cupos-modal').focus(); }
+        function abrir() {
+            modal.classList.add('active');
+            modal.querySelector('.cupos-modal').focus();
+            // Una tabla que se guardó y no se pudo repintar, se repinta ahora.
+            modal.querySelectorAll('form[data-guardada]').forEach(function (f) { repintarPanel(f.closest('[data-panel]').dataset.panel); });
+        }
         // Al cerrar se quita ?cupos de la dirección (recargar no lo abre de nuevo).
         function cerrar() {
             modal.classList.remove('active');
@@ -232,8 +237,9 @@
                     viejo.replaceWith(nuevo);
                     prepararPanel(nuevo);
                     mostrarPatio(window.__cuposPatio);
+                    return true;
                 })
-                .catch(function () { aviso('No se pudo actualizar. Revise la conexión.', 'error'); });
+                .catch(function () { aviso('No se pudo actualizar. Revise la conexión.', 'error'); return false; });
         }
 
         function enviar(url, metodo, cuerpo) {
@@ -388,7 +394,10 @@
                         + (otros.length ? ' Quedó en ' + otros.join(', ') + '.' : ''), 'success');
                     delete f.dataset.enviando;
                     f.dataset.guardada = '1';      // hasta que llegue la tabla nueva no se vuelve a enviar
-                    return repintarPanel(patio);
+                    return repintarPanel(patio).then(function (llego) {
+                        // Sin la tabla nueva, la vieja queda bloqueada (lo escrito ya está guardado); al reabrir, se repinta.
+                        if (!llego) aviso('Se guardó, pero la tabla no se actualizó. Cierre y vuelva a abrir Cupos.', 'warning');
+                    });
                 })
                 .catch(function (m) {
                     // Marca en rojo el campo que falló (cisternas.N.campo) y dice el primero.
@@ -404,7 +413,7 @@
                     });
                     aviso(primero || (m && m.mensaje) || 'No se pudo guardar.', 'error');
                 })
-                .finally(function () { delete f.dataset.enviando; f.classList.remove('cupos-ocupado'); });
+                .finally(function () { delete f.dataset.enviando; if (!f.dataset.guardada) f.classList.remove('cupos-ocupado'); });
         });
 
         function guardarCupo(f, patio) {

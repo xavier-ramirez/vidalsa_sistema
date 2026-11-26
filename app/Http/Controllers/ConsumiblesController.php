@@ -794,7 +794,7 @@ class ConsumiblesController extends Controller
      * Lo que no cae en ninguna sale como «Otros proyectos».
      */
     public const DIVISIONES = [
-        'AYACUCHO' => ['AYACUCHO', 'ANZOATEGUI', 'ANZOÁTEGUI', 'ANACO', 'BARCELONA', 'EL TIGRE', 'ECOINNOVA', 'ECO-INNOVA', 'ORINOCO'],
+        'AYACUCHO' => ['AYACUCHO', 'ANZOATEGUI', 'ANZOÁTEGUI', 'ANACO', 'BARCELONA', 'EL TIGRE', 'ECOINNOVA', 'ECO-INNOVA'],
         'CARABOBO' => ['CARABOBO', 'MORICHAL', 'VELADERO', 'AGUA SALADA', 'SINOVENSA'],
     ];
 
@@ -803,7 +803,8 @@ class ConsumiblesController extends Controller
         $texto = mb_strtoupper($nombre . ' ' . $ubicacion);
         foreach (['CARABOBO', 'AYACUCHO'] as $dv) {
             foreach (self::DIVISIONES[$dv] as $palabra) {
-                if (str_contains($texto, $palabra)) {
+                // Palabra completa: «ANACO» no cuenta dentro de otra palabra.
+                if (preg_match('/(?<![\p{L}\p{N}])' . preg_quote($palabra, '/') . '(?![\p{L}\p{N}])/u', $texto)) {
                     return $dv;
                 }
             }

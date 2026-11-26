@@ -345,6 +345,18 @@
         window.chartListo = window.ensureChartJS();
 
 
+        // Al entrar, los dos campos de mes muestran el mes en curso (el más actual): la presentación, el Top 4 y el
+        // Excel usan lo que se ve. Borrándolos se ve todo el historial. Una sola vez por pantalla (no pisa lo elegido).
+        (function () {
+            var d = document.getElementById('fMesDesde'), h = document.getElementById('fMesHasta');
+            if (!d || !h || d.dataset.mesPuesto) return;
+            d.dataset.mesPuesto = '1';
+            if (!d.value && !h.value) {
+                var hoy = new Date();
+                d.value = h.value = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+            }
+        })();
+
         function getParams() {
             var p = new URLSearchParams();
             var frente = document.getElementById('fFrente') ? document.getElementById('fFrente').value : '';
@@ -357,12 +369,6 @@
             var mHasta = document.getElementById('fMesHasta') ? document.getElementById('fMesHasta').value : '';
             if (frente) p.set('id_frente', frente);
             if (tipo) p.set('tipo', tipo);
-            // Sin mes elegido: el mes en curso (el más actual), para todo lo de la pantalla: la presentación y el
-            // Top 4 muestran así el mismo período. Otro mes o un rango se eligen con los filtros.
-            if (!mDesde && !mHasta) {
-                var hoy = new Date();
-                mDesde = mHasta = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
-            }
             if (mDesde) p.set('desde', mDesde + '-01');
             if (mHasta) {
                 var ph = mHasta.split('-');                        // [YYYY, MM]

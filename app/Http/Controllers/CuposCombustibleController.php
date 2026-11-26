@@ -303,6 +303,7 @@ class CuposCombustibleController extends Controller
         // Si algo falla después, las que ya subieron van a la papelera de Drive (no quedan sueltas).
         $fotos = [];
         $viejas = [];
+        self::numerosRepetidos($v['cisternas'], $patio, $ids);   // antes de subir fotos; se repite bajo bloqueo
         try {
             foreach ($v['cisternas'] as $i => $f) {
                 if (!empty($f['foto'])) {
@@ -327,6 +328,21 @@ class CuposCombustibleController extends Controller
         return response()->json(['ok' => true, 'guardadas' => count($v['cisternas']), 'meses' => $meses]);
     }
 
+    /** El número no se repite en el patio (salvo en la misma cisterna o en otra de esta tabla): 422 si se repite. */
+    private static function numerosRepetidos(array $filas, string $patio, $ids): void
+    {
+        $errores = [];
+        foreach ($filas as $i => $f) {
+            if (!empty($f['numero']) && CisternaCupo::where('PATIO', $patio)->where('NUMERO', $f['numero'])
+                    ->whereNotIn('ID_CISTERNA', $ids)->exists()) {
+                $errores["cisternas.$i.numero"] = 'La solicitud ' . $f['numero'] . ' ya existe en ' . CupoCombustible::PATIOS[$patio] . '.';
+            }
+        }
+        if ($errores) {
+            throw ValidationException::withMessages($errores);
+        }
+    }
+
     /** Las filas de guardarCisternas, todas o ninguna. Las fotos que se reemplazan quedan en $viejas. */
     private function guardarFilas(array $filas, string $patio, array $fotos, $existentes, $ids, array &$viejas): void
     {
@@ -334,17 +350,7 @@ class CuposCombustibleController extends Controller
             // Bloquea las cisternas del patio: dos guardados a la vez no sacan ni repiten el mismo número.
             $siguiente = max((int) CisternaCupo::where('PATIO', $patio)->lockForUpdate()->max('NUMERO'),
                 (int) collect($filas)->max('numero')) + 1;
-            // El número no se repite en el patio (salvo en la misma cisterna o en otra de esta tabla).
-            $errores = [];
-            foreach ($filas as $i => $f) {
-                if (!empty($f['numero']) && CisternaCupo::where('PATIO', $patio)->where('NUMERO', $f['numero'])
-                        ->whereNotIn('ID_CISTERNA', $ids)->exists()) {
-                    $errores["cisternas.$i.numero"] = 'La solicitud ' . $f['numero'] . ' ya existe en ' . CupoCombustible::PATIOS[$patio] . '.';
-                }
-            }
-            if ($errores) {
-                throw ValidationException::withMessages($errores);
-            }
+            self::numerosRepetidos($filas, $patio, $ids);
             foreach ($filas as $i => $f) {
                 if (empty($f['id']) && empty($f['numero'])) {
                     $f['numero'] = $siguiente++;

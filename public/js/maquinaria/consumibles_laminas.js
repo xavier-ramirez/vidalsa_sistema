@@ -239,7 +239,8 @@
     // presentación esos litros están en la lámina de fotos.
     function cronograma(c, sols, arriba, cont, conLitros) {
         var dias = c.dias, sol = {}, g = '<span></span>', d;
-        c.solicitudes.forEach(function (s) { sol[s.dia] = s.llego; });
+        // sol[día] = true solo si TODAS las de ese día llegaron (con una pendiente, el día va en rojo).
+        c.solicitudes.forEach(function (s) { sol[s.dia] = (sol[s.dia] !== false) && !!s.llego; });
         var letra = function (dia) { return SEM[(c.primer_dia - 1 + dia - 1) % 7]; };
         for (d = 1; d <= dias; d++) g += '<small' + (/^(S|D)$/.test(letra(d)) ? ' class="cb-fin"' : '') + '>' + letra(d) + '</small>';
         g += '<span></span>';
@@ -254,7 +255,11 @@
                     var lt = conLitros && s.llego && s.litros ? '<span class="gl-lt' + (dd > dias - 5 ? ' gl-lt-izq' : '') + '">' + mil(s.litros) + ' L</span>' : '';
                     g += '<div class="' + cl + ' cb-cam"><i>' + CAMION + '</i>' + lt + '</div>';
                 }
-                else if ((dd in sol) && despues.some(function (o) { return o.dia === dd; })) g += '<div class="' + cl + ' cb-guia' + (sol[dd] ? ' cb-guia-listo' : '') + '"><i></i></div>';
+                else if ((dd in sol) && despues.some(function (o) { return o.dia === dd; })) {
+                    // La guía baja hacia las de más abajo ese día: verde si todas esas llegaron.
+                    var listo = despues.every(function (o) { return o.dia !== dd || o.llego; });
+                    g += '<div class="' + cl + ' cb-guia' + (listo ? ' cb-guia-listo' : '') + '"><i></i></div>';
+                }
                 else g += '<div class="' + cl + '"></div>';
             }
         });
