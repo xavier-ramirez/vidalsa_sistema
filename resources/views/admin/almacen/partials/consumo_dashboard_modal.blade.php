@@ -678,7 +678,7 @@
             }
         });
 
-        // COLORES de los rankings (Top productos y Proyecto que más consume), los de las
+        // COLORES de los rankings (Top productos y Proyecto con mayor volumen de material despachado), los de las
         // diapositivas de la empresa: los TRES primeros en rojo, del más oscuro al más claro
         // (pedido del cliente, 25-11-2026: todo azul no destacaba nada, y una sola barra roja
         // se leía como alerta), y del cuarto para abajo una escala del azul marino del
@@ -701,7 +701,7 @@
             return out;
         }
 
-        // ── 1b) Proyecto que más consume en el MES ACTUAL (barras horizontales) ──
+        // ── 1b) Proyecto con mayor volumen de material despachado en el MES ACTUAL (barras horizontales) ──
         // Mes en curso según el servidor, acotado al rango del filtro: con un "Hasta" anterior,
         // el mes de ese "Hasta"; con un "Desde" posterior, el de ese "Desde". Si ese mes no sale
         // en la gráfica de pilas (sin consumo, o antes del corte de junio), aviso de vacío: así
