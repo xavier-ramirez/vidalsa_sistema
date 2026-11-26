@@ -8,7 +8,8 @@
  *   un proyecto (se elige aquí: 6 meses y sus 4 equipos de mayor consumo); consumo del cupo de los
  *   dos patios; e histórico de despacho y cronograma de solicitudes de cada patio. Las cisternas,
  *   cupos y solicitudes salen del modal «Cupos de Gasoil» (CuposCombustibleController::presentacion).
- * Los gráficos de proyectos van como gráficos de PowerPoint (se pueden editar). PptxGenJS se carga solo al usarlo.
+ * Las barras van como figuras (para que se vean como en la presentación original); el gráfico de meses
+ * del proyecto, como gráfico de PowerPoint. PptxGenJS se carga solo al usarlo.
  */
 (function () {
     'use strict';
@@ -62,36 +63,70 @@
             color: 'FFFFFF' });
     }
 
+    // Lámina 3, como la del original (26-11): tarjeta blanca con sombra y el título dentro; de mayor a
+    // menor, nombre a la izquierda y barra redondeada con los litros en negrita al final. Los 4 de
+    // mayor consumo en rojos (de vino a rojo vivo); los demás en azul que se aclara. Leyenda abajo a la
+    // derecha (donde las barras son cortas) y, a la derecha, el consumo total.
+    var ROJOS = ['8E1B1B', 'A72A26', 'C03930', 'D9483B'];
+    function azulDe(k, n) {
+        var a = [0x17, 0x3F, 0x66], b = [0x9F, 0xBC, 0xDB], t = n > 1 ? k / (n - 1) : 0;
+        return a.map(function (v, i) { return ('0' + Math.round(v + (b[i] - v) * t).toString(16)).slice(-2); }).join('').toUpperCase();
+    }
+    // Nueva en cada figura: PptxGenJS cambia el objeto de la sombra al usarlo (si se repite, crece sin fin).
+    function sombra() { return { type: 'outer', color: '142846', opacity: 0.18, blur: 4, offset: 1.5, angle: 90 }; }
     function laminaProyectos(pptx, d, logo) {
         var lam = pptx.addSlide();
         encabezado(pptx, lam, 'CONSUMO DE GASOIL POR PROYECTO', logo);
-        lam.addText('Del ' + d.desde + ' al ' + d.hasta, { x: 0.4, y: 1.4, w: 8, h: 0.35, fontFace: 'Arial', fontSize: 11, color: '4A5563' });
-        lam.addText('CONSUMO POR PROYECTO (LITROS)', { x: 0.4, y: 1.8, w: 8.3, h: 0.45, align: 'center', fontFace: 'Arial', fontSize: 17, bold: true, color: '000000' });
+        lam.addShape(pptx.ShapeType.roundRect, { x: 0.42, y: 1.77, w: 8.29, h: 5.35, fill: { color: 'FFFFFF' }, line: { color: 'DDE3EA', width: 0.75 },
+            rectRadius: 0.15, shadow: { type: 'outer', color: '142846', opacity: 0.12, blur: 12, offset: 4, angle: 90 } });
+        lam.addText('CONSUMO POR PROYECTO (LITROS)', T({ x: 0.73, y: 1.98, w: 7.67, h: 0.36, align: 'center', valign: 'middle', fontSize: 16,
+            bold: true, color: '1F2A37', charSpacing: 1.5 }));
+        lam.addShape(pptx.ShapeType.line, { x: 0.73, y: 2.42, w: 7.67, h: 0, line: { color: 'E3E7ED', width: 0.75 } });
+        lam.addText('Del ' + d.desde + ' al ' + d.hasta, T({ x: 0.73, y: 2.46, w: 7.67, h: 0.22, align: 'center', fontSize: 8, color: '8A94A3' }));
 
-        var ps = d.proyectos.slice(0, 15);
+        // Hasta 15 barras: si hay más proyectos, los últimos se nombran juntos en una nota al pie (no
+        // como barra: su suma desordenaría el gráfico).
+        var ps = d.proyectos.slice(0, d.proyectos.length > 15 ? 14 : 15), otros = d.proyectos.slice(ps.length);
         if (ps.length) {
-            // Dos series superpuestas (una en 0 donde va la otra) para el color: los 4 de mayor consumo en rojo, el resto en azul.
-            var nombres = ps.map(function (p) { return p.nombre; });
-            lam.addChart(pptx.ChartType.bar, [
-                { name: 'Mayor consumo', labels: nombres, values: ps.map(function (p, k) { return k < 4 ? p.litros : 0; }) },
-                { name: 'Resto', labels: nombres, values: ps.map(function (p, k) { return k < 4 ? 0 : p.litros; }) }
-            ], {
-                x: 0.4, y: 2.3, w: 8.3, h: 4.95, barDir: 'bar', barGrouping: 'clustered', barOverlapPct: 100, barGapWidthPct: 45,
-                chartColors: [ROJO, AZUL], catAxisOrientation: 'maxMin', catAxisLabelFontFace: 'Arial', catAxisLabelFontSize: 10,
-                catAxisLabelColor: TINTA, catAxisLineShow: false, valAxisHidden: true, valGridLine: { style: 'none' },
-                showValue: true, dataLabelFormatCode: '#,##0;;;', dataLabelFontFace: 'Arial', dataLabelFontSize: 10, dataLabelFontBold: true,
-                dataLabelColor: '000000', dataLabelPosition: 'outEnd', showLegend: false
+            var mayor = Math.max.apply(null, ps.map(function (p) { return p.litros; }).concat([1]));
+            var y0 = 2.78, y1 = otros.length ? 6.62 : 6.92, paso = Math.min(0.42, (y1 - y0) / ps.length), alto = Math.min(0.21, paso * 0.55);
+            var azules = Math.max(0, ps.length - 4), finMax = 0;
+            ps.forEach(function (p, k) {
+                var yc = y0 + paso * k + paso / 2, w = Math.max(alto, 5.46 * 0.7 * p.litros / mayor);
+                var col = k < 4 ? ROJOS[k] : azulDe(k - 4, azules);
+                lam.addText(String(p.nombre).toUpperCase(), T({ x: 0.55, y: yc - 0.15, w: 2.3, h: 0.3, align: 'right', valign: 'middle',
+                    fontSize: 9.5, bold: true, color: TINTA, charSpacing: 0.5, fit: 'shrink' }));
+                lam.addShape(pptx.ShapeType.roundRect, { x: 3.0, y: yc - alto / 2, w: w, h: alto, fill: { color: col }, line: { color: col, width: 0 },
+                    rectRadius: alto / 2, shadow: sombra() });
+                lam.addText(mil(p.litros), T({ x: 3.0 + w + 0.1, y: yc - 0.15, w: 1.3, h: 0.3, valign: 'middle', fontSize: 13, bold: true, color: '000000' }));
+                // Lo que ocupa cada fila que cae a la altura de la leyenda (barra + cifra).
+                if (yc + 0.15 > 6.0) finMax = Math.max(finMax, 3.0 + w + 0.1 + 0.12 * mil(p.litros).length);
+            });
+            if (otros.length) {
+                lam.addText('Otros ' + otros.length + ' proyectos: ' + mil(otros.reduce(function (s, p) { return s + p.litros; }, 0)) + ' L',
+                    T({ x: 0.55, y: 6.66, w: 5.0, h: 0.26, valign: 'middle', fontSize: 9, bold: true, color: '4A5563' }));
+            }
+            // La leyenda abajo a la derecha de la tarjeta (donde las barras son cortas); si alguna llega
+            // hasta ahí, va en la columna derecha, debajo del total.
+            var adentro = finMax < 5.6, lx = adentro ? 5.6 : 9.2, ly = adentro ? 6.04 : 5.45;
+            lam.addShape(pptx.ShapeType.roundRect, { x: lx, y: ly, w: 2.45, h: 0.62, fill: { color: 'F5F7FA' }, line: { color: 'E3E7ED', width: 0.75 }, rectRadius: 0.1 });
+            [['A8261F', 'ROJO: MAYOR CONSUMO'], [AZUL, 'AZUL: RESTO DE PROYECTOS']].forEach(function (l, i) {
+                var y = ly + 0.09 + i * 0.24;
+                lam.addShape(pptx.ShapeType.roundRect, { x: lx + 0.16, y: y + 0.03, w: 0.15, h: 0.15, fill: { color: l[0] }, line: { color: l[0] }, rectRadius: 0.04 });
+                lam.addText(l[1], T({ x: lx + 0.38, y: y, w: 2.02, h: 0.21, valign: 'middle', fontSize: 8, bold: true, color: TINTA, charSpacing: 0.5 }));
             });
         } else {
-            lam.addText('Sin gasoil en el período.', { x: 0.4, y: 3.8, w: 8.3, h: 0.5, align: 'center', fontFace: 'Arial', fontSize: 14, color: '4A5563' });
+            lam.addText('Sin gasoil en el período.', T({ x: 0.42, y: 4.0, w: 8.29, h: 0.5, align: 'center', fontSize: 14, color: '4A5563' }));
         }
 
-        lam.addShape(pptx.ShapeType.line, { x: 8.95, y: 1.6, w: 0, h: 5.6, line: { color: 'D5DBE3', width: 0.75 } });
-        lam.addShape(pptx.ShapeType.roundRect, { x: 9.25, y: 3.0, w: 3.7, h: 1.25, fill: { color: AZUL }, line: { color: AZUL }, rectRadius: 0.12 });
-        lam.addText('CONSUMO TOTAL', { x: 9.45, y: 3.1, w: 3.3, h: 0.35, fontFace: 'Arial', fontSize: 11, bold: true, color: 'FFFFFF', charSpacing: 1 });
-        lam.addText(mil(d.total) + ' L', { x: 9.45, y: 3.45, w: 3.3, h: 0.7, fontFace: 'Arial', fontSize: 32, bold: true, color: 'FFFFFF' });
+        lam.addShape(pptx.ShapeType.line, { x: 8.94, y: 1.77, w: 0, h: 5.35, line: { color: 'D5DBE3', width: 0.75 } });
+        lam.addShape(pptx.ShapeType.roundRect, { x: 9.2, y: 3.6, w: 3.85, h: 1.35, fill: { color: AZUL }, line: { color: AZUL }, rectRadius: 0.12 });
+        lam.addText([
+            { text: 'CONSUMO TOTAL', options: { fontSize: 9, bold: true, color: 'FFFFFF', charSpacing: 1.5, breakLine: true } },
+            { text: mil(d.total) + ' L', options: { fontSize: 36, bold: true, color: 'FFFFFF' } }
+        ], T({ x: 9.45, y: 3.6, w: 3.45, h: 1.35, valign: 'middle', fit: 'shrink' }));
         if (d.sin_frente > 0) {
-            lam.addText('Incluye ' + mil(d.sin_frente) + ' L cargados sin proyecto.', { x: 9.25, y: 4.35, w: 3.7, h: 0.4, fontFace: 'Arial', fontSize: 10, color: '4A5563' });
+            lam.addText('Incluye ' + mil(d.sin_frente) + ' L cargados sin proyecto.', T({ x: 9.2, y: 5.05, w: 3.85, h: 0.3, fontSize: 9, color: '4A5563' }));
         }
     }
 
