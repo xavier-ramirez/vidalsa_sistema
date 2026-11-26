@@ -316,7 +316,6 @@ Route::middleware(['auth'])->group(function () {
             // como guardar lo pegado a mano. La subida y las cargas anteriores salen en consumibles.cargar.
             Route::middleware('can:super.admin')->controller(App\Http\Controllers\ConsumiblesImportacionController::class)->group(function () {
                 Route::post  ('consumibles/importar',                          'subir')       ->name('consumibles.importar.subir');
-                Route::post  ('consumibles/importar/pegado',                   'pegar')       ->name('consumibles.importar.pegar');
                 Route::post  ('consumibles/importar/columnas',                 'columnas')    ->name('consumibles.importar.columnas');
                 Route::get   ('consumibles/importar/buscar-equipo',            'buscarEquipo')->name('consumibles.importar.buscarEquipo');
                 Route::get   ('consumibles/importar/{importacion}',            'revisar')     ->whereNumber('importacion')->name('consumibles.importar.revisar');

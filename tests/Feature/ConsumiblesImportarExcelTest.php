@@ -9,6 +9,7 @@ use App\Services\Consumibles\IdentificadorConsumo;
 use App\Services\Consumibles\LectorExcelCombustible;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -69,6 +70,29 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $h->setCellValueExplicit('E10', '=SUM(E4:E7)', DataType::TYPE_FORMULA);
 
         $ruta = tempnam(sys_get_temp_dir(), 'gasoil') . '.xlsx';
+        (new Xlsx($libro))->save($ruta);
+        $this->temporales[] = $ruta;
+
+        return $ruta;
+    }
+
+    /** La tabla (texto con tabuladores) en un Excel con todas las celdas como texto. */
+    private function tabla(string $texto): string
+    {
+        $libro = new Spreadsheet();
+        $hoja = $libro->getActiveSheet();
+        $tsv = fopen('php://temp', 'r+');
+        fwrite($tsv, $texto);
+        rewind($tsv);
+        for ($f = 1; ($celdas = fgetcsv($tsv, 0, "\t", '"', '')) !== false; $f++) {
+            foreach ($celdas as $c => $v) {
+                if (trim((string) $v) !== '') {
+                    $hoja->setCellValueExplicit(Coordinate::stringFromColumnIndex($c + 1) . $f, trim($v), DataType::TYPE_STRING);
+                }
+            }
+        }
+        fclose($tsv);
+        $ruta = tempnam(sys_get_temp_dir(), 'tabla') . '.xlsx';
         (new Xlsx($libro))->save($ruta);
         $this->temporales[] = $ruta;
 
@@ -177,11 +201,11 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
     }
 
     /**
-     * Copiar la tabla completa del Excel y pegarla (Ctrl+V) es lo mismo que subir el archivo:
-     * columnas por su encabezado, aunque vengan en otro orden y con otras de más; la que no
-     * es despacho (la recarga) fuera, y la misma tabla otra vez no repite lo ya cargado.
+     * Un reporte con las columnas en otro orden y con otras de más: cada una por su encabezado;
+     * la que no es despacho (la recarga) fuera, y el mismo archivo otra vez no repite lo ya cargado.
+     * (Lo pegado con Ctrl+V ya no va al lector: va a la tabla de Cargar, 26-11.)
      */
-    public function test_pegar_la_tabla_completa_es_como_subir_el_archivo(): void
+    public function test_columnas_en_otro_orden_y_de_mas(): void
     {
         [$equipo, $digitos] = $this->motoniveladora();
         $u = $this->superAdminGlobal();
@@ -195,7 +219,7 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
             "4\t=SUM(A1)\t06/08/2026\t40\tCAMION DESCONOCIDO ZZ99TST\t22222222\tCHOFER DOS\t\tVELADERO\t",
         ]);
 
-        $r = $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto])->assertOk();
+        $r = $this->subir($u, $this->tabla($texto))->assertOk();
         $imp = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
         $this->get($r->json('url'))->assertOk()->assertSee('Revisar carga de Excel');
 
@@ -206,17 +230,13 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertCount(2, $filas->where('ID_EQUIPO', $equipo->ID_EQUIPO));
         $this->assertSame('11111111', $filas->first()->RESP_CI);
 
-        // Pegar lo mismo otra vez: nada nuevo.
-        $this->postJson(route('consumibles.importar.pegar'), ['texto' => $texto])->assertOk();
+        // El mismo archivo otra vez: nada nuevo.
+        $this->subir($u, $this->tabla($texto))->assertOk();
         $otra = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail();
         $this->assertSame(0, app(\App\Services\Consumibles\ImportadorCombustible::class)->revisar($otra)['resumen']['totales']['nuevo'][0]);
 
-        // Sin encabezado reconocible, lo dice (la pantalla ni lo manda: lo toma la tabla de abajo).
-        $this->postJson(route('consumibles.importar.pegar'), ['texto' => "01/08/2026\tABC123\t40"])->assertStatus(422);
-
-        // Más filas de las que se leen pegadas: se avisa, no se corta en silencio.
-        $this->postJson(route('consumibles.importar.pegar'), ['texto' => str_repeat("x\n", 20001)])
-            ->assertStatus(422)->assertJsonFragment(['message' => 'Se pueden pegar hasta 20.000 filas. Para más, sube el archivo de Excel.']);
+        // Sin encabezado reconocible, lo dice.
+        $this->subir($u, $this->tabla("01/08/2026\tABC123\t40"))->assertStatus(422);
     }
 
     /**
@@ -230,7 +250,7 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
             . "05/08/2026\tCAMION OTRO NOMBRE\tZZ96TST\t\t70\tCHOFER TRES\t33333333\tVELADERO\n"
             . "06/08/2026\tCISTERNA\t\t3000\t\t\t\tVELADERO";
 
-        $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto])->assertOk();
+        $this->subir($u, $this->tabla($texto))->assertOk();
         $filas = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail()->filas();
 
         $this->assertCount(1, $filas, 'la recarga (ENTRADA) no es un despacho');
@@ -241,20 +261,19 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertSame('ZZ96TST', $filas[0]['placa']);
 
         // El despachador y la hora de salida no son los litros.
-        $this->postJson(route('consumibles.importar.pegar'), ['texto' => "FECHA\tDESPACHADOR\tHORA DE SALIDA\tPLACA\tLITROS\n07/08/2026\tLUIS\t07:30\tZZ96TST\t55"])->assertOk();
+        $this->subir($u, $this->tabla("FECHA\tDESPACHADOR\tHORA DE SALIDA\tPLACA\tLITROS\n07/08/2026\tLUIS\t07:30\tZZ96TST\t55"))->assertOk();
         $filas = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail()->filas();
         $this->assertEquals([55], array_column($filas, 'litros'));
 
         // Una hoja de resumen «FECHA | LITROS» (sin equipo ni SALIDA) no es de despachos.
-        $this->postJson(route('consumibles.importar.pegar'), ['texto' => "FECHA\tLITROS\n07/08/2026\t5000"])->assertStatus(422);
+        $this->subir($u, $this->tabla("FECHA\tLITROS\n07/08/2026\t5000"))->assertStatus(422);
     }
 
     /**
-     * Lo que Excel pone en el portapapeles: una celda con salto de línea (Alt+Enter) va entre
-     * comillas y sigue siendo UNA celda; y la fecha llega como se ve (con hora, con el mes
-     * escrito o año primero), no como número de serie.
+     * Una celda con salto de línea (Alt+Enter) sigue siendo UNA celda, y la fecha escrita como
+     * texto (con hora, con el mes escrito o año primero) se lee igual.
      */
-    public function test_pegar_celdas_con_salto_de_linea_y_fechas_como_se_ven(): void
+    public function test_celdas_con_salto_de_linea_y_fechas_escritas(): void
     {
         $u = $this->superAdminGlobal();
         $texto = "FECHA\tDESCRIPCION\tSALIDA\tPROYECTO\n"
@@ -263,7 +282,7 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
             . "3 de agosto de 2026\tCAMION PEGADO\t13\tVELADERO\n"
             . "2026-08-04\tCAMION PEGADO\t14\tVELADERO";
 
-        $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto])->assertOk();
+        $this->subir($u, $this->tabla($texto))->assertOk();
         $filas = ConsumibleImportacion::latest('ID_IMPORTACION')->firstOrFail()->filas();
 
         $this->assertSame(['2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04'], array_column($filas, 'fecha'));
@@ -347,6 +366,5 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $html = $this->actingAs($u)->get(route('consumibles.cargar'))->assertOk()->getContent();
         $this->assertStringNotContainsString('id="impArchivos"', $html);
         $this->subir($u, $this->excel('1234567'))->assertForbidden();
-        $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => "FECHA\tSALIDA\n01/08/2026\t10"])->assertForbidden();
     }
 }

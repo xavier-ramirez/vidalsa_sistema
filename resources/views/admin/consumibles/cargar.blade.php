@@ -660,19 +660,16 @@
          * Columna de cada campo de la tabla según la fila de encabezados pegada, con las variantes
          * de nombre de los reportes (las de LectorExcelCombustible::campoDe). null si la fila no
          * trae FECHA y la cantidad: entonces no es encabezado. La cantidad es la SALIDA/VOLUMEN si
-         * la hay (no la hora ni el km de salida, ni la ENTRADA del tanque). reporte: lo que
-         * LectorExcelCombustible::esEncabezadoDeDespachos toma por la tabla de un reporte de gasoil.
+         * la hay (no la hora ni el km de salida, ni la ENTRADA del tanque).
          */
         function mapaEncabezado(cols) {
             const m = {};
-            let desc, salida, otraCantidad, fechaPura = false, equipo = false;
+            let desc, salida, otraCantidad;
             const pon = (k, i) => { if (m[k] === undefined) m[k] = i; };
             cols.map(normEncabezado).forEach((h, i) => {
                 if (!h || h.indexOf('ENTRADA') !== -1 || /^(HORA|KM|KILOMETRAJE|ODOMETRO)\b/.test(h)) return;
-                if (h.indexOf('FECHA') === 0) {
-                    pon('fecha', i);
-                    if (!/SALIDA|VOLUMEN/.test(h)) fechaPura = true;
-                } else if (/SALIDA|VOLUMEN/.test(h)) {
+                if (h.indexOf('FECHA') === 0) pon('fecha', i);
+                else if (/SALIDA|VOLUMEN/.test(h)) {
                     if (salida === undefined) salida = i;
                 } else if (/CANTIDAD|LITROS (DESPACHADOS|SURTIDOS)/.test(h) || EXACTO_LITROS.indexOf(h) !== -1) {
                     if (otraCantidad === undefined) otraCantidad = i;
@@ -681,18 +678,16 @@
                 // «PLACA CISTERNA» no se tome por la del vehículo.
                 else if (/ORIGEN|SUMINISTRO|CISTERNA|GUIA/.test(h)) return;
                 else if (/VISCOSIDAD|MEDIDA|ESPECIFICACION|MODELO (DEL )?CAUCHO/.test(h)) pon('espec', i);
-                else if (/PLACA|SERIAL|IDENTIFICADOR/.test(h)) { pon('id', i); equipo = true; }
+                else if (/PLACA|SERIAL|IDENTIFICADOR/.test(h)) pon('id', i);
                 else if (/RESPONSABLE|CHOFER|OPERADOR|CONDUCTOR/.test(h)) pon('nombre', i);
                 else if (/^(PROYECTO|FRENTE|OBRA)\b/.test(h)) pon('frente', i);
                 else if (/DESCRIPCION|CARACTERISTICAS|VEHICULO ?\/ ?EQUIPO/.test(h) || h === 'EQUIPO' || h === 'VEHICULO') {
                     if (desc === undefined) desc = i;
-                    equipo = true;
                 } else if (h.indexOf('NOMBRE') !== -1) pon('nombre', i);
             });
             m.cantidad = salida !== undefined ? salida : otraCantidad;
-            if (m.id === undefined && desc !== undefined) m.id = desc;   // sin placa/serial, la descripción
+            m.desc = desc;   // la descripción del equipo: va cuando la fila no trae placa/serial
             if (m.fecha === undefined || m.cantidad === undefined) return null;
-            m.reporte = fechaPura && (salida !== undefined || equipo);
             return m;
         }
         var MESES = { ENE: 1, JAN: 1, FEB: 2, MAR: 3, ABR: 4, APR: 4, MAY: 5, JUN: 6, JUL: 7, AGO: 8, AUG: 8, SEP: 9, SET: 9, OCT: 10, NOV: 11, DIC: 12, DEC: 12 };
@@ -769,10 +764,9 @@
                 if (mapa) desde = i + 1;
             }
 
-            // La tabla completa de un reporte de gasoil (con sus encabezados) va al mismo lector que
-            // un Excel subido arriba (consumibles_importar.js): columnas por nombre, repetidos fuera,
-            // revisión y deshacer. Lo demás, a la tabla.
-            if (tipoPegado === 'GASOIL' && mapa && mapa.reporte && window.consImpPegar && window.consImpPegar(text)) return;
+            // Lo pegado va SIEMPRE a esta tabla (26-11, pedido del usuario), también el reporte de
+            // gasoil completo: con encabezados, cada columna a la suya. Los Excel subidos arriba son
+            // los que pasan por la revisión (repetidos fuera, equipos sin identificar).
 
             // Las reglas no reconocieron los encabezados: si lo pegado no encaja en el orden fijo
             // (más columnas de las que tiene la tabla, o una 1ª fila de títulos), se le pregunta a la
@@ -812,12 +806,13 @@
                 const col = (campo, pos) => mapa
                     ? (mapa[campo] !== undefined ? (cols[mapa[campo]] || '') : '')
                     : (cols[pos] || '');
-                if (mapa && !col('fecha') && !col('cantidad')) return;   // fila sin despacho
+                // Sin litros no es despacho (la recarga del tanque); si no se supo cuál es la cantidad, sin fecha tampoco.
+                if (mapa && (mapa.cantidad !== undefined ? !col('cantidad') : !col('fecha'))) return;
                 const fecha = fechaISO(col('fecha', 0));
                 if (!fecha && col('fecha', 0)) sinFecha++;
                 agregarFila({
                     fecha: fecha,
-                    id: col('id', 1),
+                    id: col('id', 1) || (mapa ? col('desc') : ''),
                     nombre: col('nombre', 2),
                     ci: col('ci', 3),
                     cantidad: numeroPegado(col('cantidad', 4)),

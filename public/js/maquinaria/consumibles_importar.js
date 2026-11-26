@@ -86,19 +86,6 @@
     }
 
     /**
-     * La llama el Ctrl+V de Cargar consumibles con el reporte de gasoil completo (cargar.blade:
-     * mapaEncabezado().reporte). Devuelve true si se encargó (la manda al mismo
-     * lector que un Excel subido); false sin permiso para esta carga.
-     */
-    window.consImpPegar = function (texto) {
-        if (!CFG.pegar || !document.getElementById('impZona')) return false;
-        var fd = new FormData();
-        fd.append('texto', texto);
-        leer(CFG.pegar, { method: 'POST', body: fd }, 'No se pudo leer la tabla pegada.');
-        return true;
-    };
-
-    /**
      * Columnas de unas filas pegadas que las reglas no reconocieron, preguntadas a la IA
      * (ConsumiblesImportacionController::columnas). Resuelve {fila, mapa} (índices desde 0) o
      * null si no se pudo: quien llama pega entonces por posición, como siempre.
