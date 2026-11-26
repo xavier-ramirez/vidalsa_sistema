@@ -164,11 +164,10 @@
 .gl .gp-ley i { width: 12px; height: 12px; border-radius: 3px; }
 .gl .gp-vacio { margin: auto 0; text-align: center; font: 400 16px Arial, sans-serif; color: #4A5563; }
 .gl .gp-der { position: absolute; left: 884px; top: 146px; width: 356px; height: 548px; display: flex; flex-direction: column; gap: 14px; }
-.gl .gp-total { position: relative; overflow: hidden; padding: 22px 24px 20px 30px; border-radius: 14px; background: #1F4E79; box-shadow: 0 8px 22px rgba(20, 40, 70, .22); display: flex; flex-direction: column; gap: 10px; }
+.gl .gp-total { position: relative; overflow: hidden; padding: 22px 24px 20px 30px; border-radius: 14px; background: #4A5563; box-shadow: 0 8px 22px rgba(20, 40, 70, .22); display: flex; flex-direction: column; gap: 10px; }
 .gl .gp-total i { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; background: #F26A21; }
 .gl .gp-total small { font: 700 12px/1 Arial, sans-serif; letter-spacing: .12em; color: #fff; }
 .gl .gp-total b { font: 700 50px/1 Arial, sans-serif; color: #fff; white-space: nowrap; }
-.gl .gp-total span { font: 400 13px/1.3 Arial, sans-serif; color: #DCE6F2; }
 .gl .gp-caja { padding: 16px 20px; border-radius: 14px; background: #F4F6F9; border: 1px solid #E3E7ED; display: flex; flex-direction: column; gap: 10px; }
 .gl .gp-caja-tit { font: 700 12px/1 Arial, sans-serif; letter-spacing: .1em; color: #2B3440; }
 .gl .gp-div { display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; column-gap: 12px; row-gap: 8px; padding: 10px 0 2px; border-top: 1px solid #E3E7ED; }

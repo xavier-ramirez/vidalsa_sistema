@@ -133,8 +133,7 @@
         var parteDe = function (l) { return (d.total > 0 ? l / d.total * 100 : 0).toFixed(2) + '%'; };
         var divs = (d.divisiones || []).filter(function (v) { return v.litros > 0 || v.clave !== 'OTROS'; });
         var der = '<div class="gp-der">' +
-            '<div class="gp-total"><i></i><small>CONSUMO TOTAL · ' + plural(d.proyectos.length, 'PROYECTO', 'PROYECTOS') + '</small><b>' + mil(d.total) + ' L</b>' +
-            (d.sin_frente > 0 ? '<span>Incluye ' + mil(d.sin_frente) + ' L sin proyecto</span>' : '') + '</div>' +
+            '<div class="gp-total"><i></i><small>CONSUMO TOTAL · ' + plural(d.proyectos.length, 'PROYECTO', 'PROYECTOS') + '</small><b>' + mil(d.total) + ' L</b></div>' +
             (ps.length && divs.length ? '<div class="gp-caja"><div class="gp-caja-tit">CONSUMO POR DIVISIÓN</div>' + divs.map(function (v) {
                 return '<div class="gp-div"><small>' + may(v.nombre) + '</small><b>' + mil(v.litros) + ' L</b><em>' + pct(v.litros, d.total) + '</em>' +
                     '<span><i style="width:' + parteDe(v.litros) + '"></i></span></div>';
