@@ -168,9 +168,9 @@
                 }
             }
 
-            /* Lista con la columna de contadores a la derecha, como Equipos, pero angosta (250 px y
-               no 320): los 3 contadores caben y la tabla gana el ancho. */
-            .cons-layout { grid-template-columns: minmax(0, 1fr) 250px; }
+            /* Lista con la columna de la derecha (contadores y gasoil por frente) de 330 px, como
+               Equipos: la tabla se angosta y los nombres de los frentes caben. */
+            .cons-layout { grid-template-columns: minmax(0, 1fr) 330px; }
             .cons-layout > .admin-card { margin: 0; min-width: 0; padding: 14px !important; }
             .cons-sidebar { position: sticky; top: 20px; }
             .cons-consolidado { position: relative; overflow: hidden; background: linear-gradient(135deg, #001a52 0%, #0a4a91 100%); border-radius: 12px; padding: 8px 12px; color: #fff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
@@ -691,7 +691,7 @@
                                 <td>
                                     {{ $c->RESP_NOMBRE ?? '—' }}
                                     @if($c->RESP_CI)
-                                        <span style="color:#94a3b8;"> · {{ $c->RESP_CI }}</span>
+                                        <span style="display:block; color:#94a3b8; font-size:11.5px;">C.I. {{ $c->RESP_CI }}</span>
                                     @endif
                                 </td>
                                 <td style="font-weight:700; text-align:right; white-space:nowrap;">
