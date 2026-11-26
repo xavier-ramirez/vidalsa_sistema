@@ -185,10 +185,6 @@ class ConsumiblesController extends Controller
             // de filas hacía una consulta por fila.
             'filas.*.id_frente' => 'nullable|integer',
             'filas.*.cantidad' => 'required|numeric|min:0.01',
-            // Los largos de sus columnas: más largo, la base lo rechazaba con un error crudo.
-            'filas.*.identificador' => 'nullable|string|max:100',
-            'filas.*.resp_nombre' => 'nullable|string|max:150',
-            'filas.*.resp_ci' => 'nullable|string|max:20',
             'filas.*.especificacion' => 'nullable|string|max:30',
             // Fila que vino de un Excel subido: su carga (borrador) y su lugar en ella. Que vengan
             // las dos se mira abajo: required_with con miles de filas tardaba más de 10 s.
@@ -197,6 +193,20 @@ class ConsumiblesController extends Controller
             'filas.*.sugerido' => 'nullable|in:1',
         ]);
         $validator->after(function ($v) use ($request) {
+            // Los largos de sus columnas, en las filas escritas a mano: más largo, la base lo
+            // rechazaba con un error crudo. Las del Excel no: aplicar() las recorta, y una celda
+            // larga de un reporte de miles de filas no debe tumbar todo el guardado.
+            $largos = ['identificador' => [100, 'La placa/serial'], 'resp_nombre' => [150, 'El nombre del responsable'], 'resp_ci' => [20, 'La C.I.']];
+            foreach ($request->input('filas') as $i => $f) {
+                if (!empty($f['imp'])) {
+                    continue;
+                }
+                foreach ($largos as $campo => [$max, $nombre]) {
+                    if (mb_strlen(trim((string) ($f[$campo] ?? ''))) > $max) {
+                        $v->errors()->add("filas.$i.$campo", "$nombre de una fila pasa de $max caracteres: acórtala.");
+                    }
+                }
+            }
             $ids = collect($request->input('filas'))->pluck('id_frente')->filter()->map(fn ($id) => (int) $id)->unique();
             if ($ids->isNotEmpty() && DB::table('frentes_trabajo')->whereIn('ID_FRENTE', $ids)->whereNull('deleted_at')->count() !== $ids->count()) {
                 $v->errors()->add('id_frente', 'Una de las filas tiene un frente que ya no existe: elígelo de nuevo.');

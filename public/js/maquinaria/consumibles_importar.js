@@ -26,7 +26,7 @@
         opts = opts || {};
         opts.headers = Object.assign({ 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, opts.headers || {});
         return window.apiFetch(url, opts).then(function (r) {
-            return r.json().catch(function () { return {}; }).then(function (body) { return { ok: r.ok, body: body }; });
+            return r.json().catch(function () { return {}; }).then(function (body) { return { ok: r.ok, status: r.status, body: body }; });
         });
     }
 
@@ -59,7 +59,8 @@
                 if (typeof window.consCargarFilasExcel === 'function') window.consCargarFilasExcel(r.body);
                 return true;
             }
-            if (!sinAviso) aviso('warning', 'No se pudo leer', mensajeDe(r.body, siFalla));
+            // Con sinAviso, un rechazo con motivo (422) se muestra igual: pegarlo en la página no lo arregla.
+            if (!sinAviso || r.status === 422) { aviso('warning', 'No se pudo leer', mensajeDe(r.body, siFalla)); return true; }
             return false;
         }).catch(function (e) {
             if (e && e.message === 'Sesión expirada.') return true;
@@ -71,7 +72,8 @@
     /**
      * El reporte de gasoil pegado con encabezados: por el mismo lector que un archivo, para que al
      * guardar se salten los despachos ya cargados (los reportes son acumulados). Resuelve true si
-     * llegó a la tabla; false si el lector no lo entendió (la página lo pega ella misma).
+     * llegó a la tabla o el servidor dio su motivo; false si no hubo respuesta útil (la página lo
+     * pega ella misma).
      */
     window.consImpPegar = function (texto) {
         if (!CFG.pegar) return Promise.resolve(false);

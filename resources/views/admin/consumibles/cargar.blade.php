@@ -783,9 +783,9 @@
             return a + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
         }
         /**
-         * Cantidad del Excel → «1234.5». Con punto y coma, el último es el decimal («1.234,5»,
-         * «1,234.5»). Con uno solo de los dos, una vez es el decimal («3.785», «40,5») y repetido,
-         * de miles («1.234.567»).
+         * Cantidad del Excel → «1234.5», con la misma regla que el lector del servidor
+         * (LectorExcelCombustible::numero): con punto y coma, el último es el decimal («1.234,5»,
+         * «1,234.5»); el punto de miles («1.000», «1.234.567») se quita; la coma sola es decimal («40,5»).
          */
         function numeroPegado(s) {
             const t = String(s || '').replace(/\s/g, '');
@@ -793,8 +793,8 @@
             if (coma !== -1 && punto !== -1) {
                 return coma > punto ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
             }
-            const sep = coma !== -1 ? ',' : '.';
-            if (t.split(sep).length > 2) return t.split(sep).join('');
+            if (/^\d{1,3}(\.\d{3})+$/.test(t)) return t.replace(/\./g, '');
+            if (t.split(',').length > 2) return t.split(',').join('');
             return t.replace(',', '.');
         }
 
@@ -875,14 +875,7 @@
                 filaCount = 0;
             }
         }
-        // Más que esto pegado a mano congela la página: para más, el reporte con encabezados o el archivo.
-        var MAX_PEGADAS = 2000;
         function pegarFilas(filas, mapa, desde) {
-            if (filas.length - desde > MAX_PEGADAS) {
-                window.showModal({ type: 'warning', title: 'Demasiadas filas', message: 'Se pueden pegar hasta ' + MAX_PEGADAS.toLocaleString('es-VE')
-                    + ' filas así. Para más, copia el reporte con sus encabezados o súbelo con «Cargar Excel».', confirmText: 'Entendido', hideCancel: true });
-                return;
-            }
             vaciarSiNoHayDatos();
             const frag = document.createDocumentFragment();
 

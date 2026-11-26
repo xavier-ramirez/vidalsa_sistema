@@ -269,6 +269,31 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => ''])->assertStatus(422);
     }
 
+    /** Lo pegado de un Excel en inglés («1,234.50») y en español («1.000») da los litros bien. */
+    public function test_el_reporte_pegado_lee_los_numeros_de_los_dos_formatos(): void
+    {
+        $texto = "FECHA	PLACA	SALIDA	PROYECTO
+01/08/2026	ZZ97TST	1,234.50	VELADERO
+02/08/2026	ZZ97TST	1.000	VELADERO";
+        $r = $this->actingAs($this->superAdminGlobal())->postJson(route('consumibles.importar.pegar'), ['texto' => $texto])->assertOk();
+        $this->assertEquals([1234.5, 1000.0], array_map('floatval', array_column($r->json('filas'), 'cantidad')));
+    }
+
+    /** Una celda larga del Excel (dos cédulas en una) no tumba el guardado: se recorta. */
+    public function test_una_celda_larga_del_excel_se_recorta_y_se_guarda(): void
+    {
+        [, $digitos] = $this->motoniveladora();
+        $subida = $this->subir($this->superAdminGlobal(), $this->excel($digitos))->assertOk();
+        $this->guardarTabla($subida, function ($f, $i) {
+            if ($i === 0) {
+                $f['resp_ci'] = 'V-12.345.678 / V-9.876.543';
+                $f['identificador'] = str_repeat('PATROL ', 20);
+            }
+            return $f;
+        })->assertOk()->assertJson(['insertados' => 5]);
+        $this->assertSame(20, mb_strlen((string) DB::table('consumibles')->where('ID_IMPORTACION', $subida->json('importacion'))->orderBy('ID_CONSUMIBLE')->value('RESP_CI')));
+    }
+
     /**
      * Lo que se cambia en la tabla es lo que se guarda (litros, cédula); una fila borrada ahí no
      * entra ni hace «repetida» a su copia; y el Excel solo se guarda como gasoil.

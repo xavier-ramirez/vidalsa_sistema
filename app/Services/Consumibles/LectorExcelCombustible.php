@@ -708,7 +708,11 @@ class LectorExcelCombustible
             return (float) $v;
         }
         $s = str_replace(' ', '', (string) $v);
-        if (preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $s)) {
+        // Con punto y coma, el último es el decimal: «1.234,50» y también «1,234.50» (Excel en
+        // inglés, lo que llega al pegar el reporte).
+        if (preg_match('/^\d{1,3}(,\d{3})+\.\d+$/', $s)) {
+            $s = str_replace(',', '', $s);
+        } elseif (preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $s)) {
             $s = str_replace(['.', ','], ['', '.'], $s);
         }
         $s = str_replace(',', '.', $s);
