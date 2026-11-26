@@ -448,6 +448,7 @@
                     inp.setAttribute('list', dlId);   // el valor se queda: el servidor lo ignora si el tipo no lo usa
                 }
             });
+            programarResumen();   // la unidad del resumen
         }
 
 
@@ -526,8 +527,9 @@
             td.querySelector('[name$="[id_frente]"]').value = texto && id ? id : '';
             inp.dataset.resuelto = texto;
             // El texto que no se reconoció: al elegir su frente se vuelve a él (así se aprende).
+            // Con la sugerencia tomada sigue siendo el no reconocido: elegir luego en la lista lo aprende.
             if (texto && !id) inp.dataset.sinReconocer = texto;
-            else if (id) delete inp.dataset.sinReconocer;
+            else if (id && !inp.dataset.porSugerencia) delete inp.dataset.sinReconocer;
             // Elegido con la sugerencia (frente del equipo): vale solo para esta fila y no se aprende.
             if (!id || !inp.dataset.porSugerencia) delete inp.dataset.porSugerencia;
             const est = td.querySelector('.fila-frente-estado');
@@ -1102,6 +1104,24 @@
                     inp.dataset.porSugerencia = '1';
                     estadoFrenteFila(inp, Number(b.dataset.sugId), b.dataset.sugNombre);
                 });
+                // Otra placa/serial en una fila de proyecto sin reconocer: la sugerencia era del equipo
+                // anterior (también la ya tomada). Se quita y se vuelve a pedir al salir de la celda.
+                tabla.addEventListener('input', function (e) {
+                    if (!e.target.matches('[name$="[identificador]"]')) return;
+                    var f = e.target.closest('tr').querySelector('[data-fila-frente]');
+                    if (!f.dataset.sinReconocer) return;
+                    var td = f.closest('td');
+                    if (td.querySelector('[name$="[id_frente]"]').value && !f.dataset.porSugerencia) return;   // elegido en la lista: se queda
+                    delete f.dataset.porSugerencia;
+                    f.dataset.resuelto = '';
+                    td.querySelector('[name$="[id_frente]"]').value = '';
+                    var est = td.querySelector('.fila-frente-estado');
+                    est.className = 'fila-frente-estado mal';
+                    est.textContent = 'No reconocido: elige el frente';
+                });
+                tabla.addEventListener('focusout', function (e) {
+                    if (e.target.matches('[name$="[identificador]"]')) resolverFrentesFilas();
+                });
                 // Columna FRENTE: al escribir, la lista de frentes; al salir, se reconoce lo escrito.
                 tabla.addEventListener('focusin', function (e) {
                     if (e.target.matches('[data-fila-frente]')) listaFrenteFila(e.target);
@@ -1135,10 +1155,12 @@
                     var original = inp.dataset.sinReconocer || '';
                     var filas = original
                         ? [].filter.call(document.querySelectorAll('#cuerpoTabla [data-fila-frente]'), function (i) {
-                            return i === inp || (i.value.trim() === original && !i.closest('td').querySelector('[name$="[id_frente]"]').value);
+                            return i === inp || (i.value.trim() === original
+                                && (!i.closest('td').querySelector('[name$="[id_frente]"]').value || i.dataset.porSugerencia));
                         })
                         : [inp];
                     filas.forEach(function (i) {
+                        delete i.dataset.porSugerencia;   // elegido en la lista: se aprende
                         i.value = original || nombre;
                         estadoFrenteFila(i, id, nombre);
                     });

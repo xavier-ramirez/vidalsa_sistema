@@ -136,7 +136,7 @@ class IdentificadorConsumo
             ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
             ->whereNull('equipos.deleted_at')
             ->select('equipos.ID_EQUIPO', 'equipos.CODIGO_PATIO', 'equipos.NUMERO_ETIQUETA', 'equipos.SERIAL_CHASIS',
-                'equipos.SERIAL_DE_MOTOR', 'equipos.MARCA', 'equipos.MODELO', 'tipo_equipos.nombre as tipo')
+                'equipos.SERIAL_DE_MOTOR', 'equipos.MARCA', 'equipos.MODELO', 'equipos.ID_FRENTE_ACTUAL', 'tipo_equipos.nombre as tipo')
             ->get();
         foreach ($equipos as $e) {
             $ref = 'E:' . $e->ID_EQUIPO;
@@ -147,6 +147,7 @@ class IdentificadorConsumo
             $this->unidades[$ref] = [
                 'tipo' => TextoConsumo::norm($e->tipo),
                 'aux' => false,
+                'frente' => $e->ID_FRENTE_ACTUAL !== null ? (int) $e->ID_FRENTE_ACTUAL : null,
                 'etiqueta' => trim(implode(' · ', array_filter([
                     TextoConsumo::norm($e->tipo), trim($e->MARCA . ' ' . $e->MODELO), $placa ?: $e->SERIAL_CHASIS ?: $e->CODIGO_PATIO,
                 ]))),
@@ -169,12 +170,13 @@ class IdentificadorConsumo
         }
 
         $aux = DB::table('equipos_auxiliares')->whereNull('deleted_at')
-            ->select('ID_AUXILIAR', 'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO')->get();
+            ->select('ID_AUXILIAR', 'TIPO', 'MARCA', 'MODELO', 'SERIAL', 'CODIGO_INTERNO', 'ID_FRENTE_ACTUAL')->get();
         foreach ($aux as $a) {
             $ref = 'A:' . $a->ID_AUXILIAR;
             $this->unidades[$ref] = [
                 'tipo' => TextoConsumo::norm($a->TIPO),
                 'aux' => true,
+                'frente' => $a->ID_FRENTE_ACTUAL !== null ? (int) $a->ID_FRENTE_ACTUAL : null,
                 'etiqueta' => trim(implode(' · ', array_filter([
                     str_replace('_', ' ', (string) $a->TIPO), trim($a->MARCA . ' ' . $a->MODELO), $a->CODIGO_INTERNO ?: $a->SERIAL,
                 ]))),
@@ -572,19 +574,21 @@ class IdentificadorConsumo
     /**
      * Sugerencia para una fila cuyo proyecto no se reconoce: el frente donde está registrado el
      * equipo de la fila (si se identifica y tiene frente). Lo elige el usuario; no se aplica solo.
+     * Sale del índice cargado al empezar: sin una consulta por fila.
      * @param array $equipo lo que devolvió resolverEquipo()
      * @return array{id:int, nombre:string, equipo:?string}|null
      */
     public function frenteSugerido(array $equipo): ?array
     {
-        $id = match (true) {
-            !empty($equipo['id_equipo'])   => DB::table('equipos')->where('ID_EQUIPO', $equipo['id_equipo'])->value('ID_FRENTE_ACTUAL'),
-            !empty($equipo['id_auxiliar']) => DB::table('equipos_auxiliares')->where('ID_AUXILIAR', $equipo['id_auxiliar'])->value('ID_FRENTE_ACTUAL'),
+        $ref = match (true) {
+            !empty($equipo['id_equipo'])   => 'E:' . $equipo['id_equipo'],
+            !empty($equipo['id_auxiliar']) => 'A:' . $equipo['id_auxiliar'],
             default                        => null,
         };
-        $nombre = $id !== null ? $this->nombreFrente((int) $id) : null;
+        $id = $ref !== null ? ($this->unidades[$ref]['frente'] ?? null) : null;
+        $nombre = $this->nombreFrente($id);
 
-        return $nombre !== null ? ['id' => (int) $id, 'nombre' => $nombre, 'equipo' => $equipo['etiqueta'] ?? null] : null;
+        return $nombre !== null ? ['id' => $id, 'nombre' => $nombre, 'equipo' => $equipo['etiqueta'] ?? null] : null;
     }
 
     public function nombreFrente(?int $id): ?string
