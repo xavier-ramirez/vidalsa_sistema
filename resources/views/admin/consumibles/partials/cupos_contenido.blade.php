@@ -1,7 +1,6 @@
 {{-- Cuerpo del modal Cupos de Gasoil (se repinta solo tras guardar). Arriba el patio (desplegable);
-     del patio elegido, tres bloques: el resumen del mes (el cupo en un cuadro de texto, quedan y la
-     barra de lo surtido), la tablita de cisternas nuevas (fecha y litros; «Quedan» se calcula al
-     escribir) y el historial mes a mes. --}}
+     del patio elegido, tres bloques: el cupo mensual (un cuadro de texto, sin barra ni «quedan»: a
+     pedido), la tablita de cisternas nuevas (fecha, litros y foto) y el historial mes a mes. --}}
 @php
     $lt = fn ($n) => number_format((float) $n, fmod((float) $n, 1) ? 2 : 0, ',', '.');
     $colores = ['TIGRE' => '#1F4E79', 'MATURIN' => '#5B9BD5'];
@@ -20,14 +19,9 @@
 </div>
 
 @foreach ($patios as $clave => $p)
-    @php
-        $pct = $p['cupo'] ? min(100, $p['surtido'] / $p['cupo'] * 100) : ($p['surtido'] > 0 ? 100 : 0);
-        $pasado = $p['cupo'] !== null && $p['quedan'] < 0;
-    @endphp
-    <div class="cupos-panel" data-panel="{{ $clave }}" style="--color: {{ $colores[$clave] }};" hidden
-        data-mes="{{ $hoy->format('Y-m') }}" data-quedan="{{ $p['quedan'] ?? '' }}">
+    <div class="cupos-panel" data-panel="{{ $clave }}" style="--color: {{ $colores[$clave] }};" hidden>
 
-        {{-- Resumen del mes en curso. --}}
+        {{-- El cupo mensual del patio. --}}
         <section class="cupos-resumen">
             <div class="cupos-resumen-fila">
                 <div class="cupos-dato">
@@ -48,19 +42,6 @@
                         <b class="cupos-tenue">Sin cargar</b>
                     @endif
                 </div>
-                <div class="cupos-dato cupos-dato-der">
-                    <small>Quedan · {{ $nombreMes($hoy) }}</small>
-                    @if ($p['cupo'] !== null)
-                        <b class="cupos-quedan{{ $rojo($p['quedan']) }}">{{ $lt($p['quedan']) }} L</b>
-                    @else
-                        <b class="cupos-tenue">—</b>
-                    @endif
-                </div>
-            </div>
-            <div class="cupos-barra"><i style="width: {{ round($pct, 1) }}%; background: {{ $pasado ? '#dc2626' : $colores[$clave] }};"></i></div>
-            <div class="cupos-surtido">
-                Surtido <b>{{ $lt($p['surtido']) }} L</b>
-                @if ($p['cupo'] !== null) de {{ $lt($p['cupo']) }} L · {{ round($pct) }} % @else · cargue el cupo para ver cuánto queda @endif
             </div>
         </section>
 
@@ -72,13 +53,12 @@
                 <input type="hidden" name="patio" value="{{ $clave }}">
                 <h3>Registrar cisternas</h3>
                 <table class="cupos-tbl">
-                    <thead><tr><th>Fecha</th><th class="num">Litros</th><th class="num cupos-col-queda">Quedan</th><th title="Foto de la cisterna (opcional)">Foto</th><th></th></tr></thead>
+                    <thead><tr><th>Fecha</th><th class="num">Litros</th><th title="Foto de la cisterna (opcional)">Foto</th><th></th></tr></thead>
                     <tbody data-filas>
                         <tr data-fila>
                             <td><input type="date" data-campo="fecha" required value="{{ now()->toDateString() }}" aria-label="Fecha"
                                 min="{{ \App\Http\Controllers\CuposCombustibleController::desde()->toDateString() }}" max="{{ now()->toDateString() }}"></td>
                             <td><input type="text" data-campo="litros" class="num" inputmode="decimal" placeholder="Litros" autocomplete="off" aria-label="Litros"></td>
-                            <td class="num cupos-previo cupos-col-queda" data-previo></td>
                             {{-- Foto opcional de ESTA cisterna (sale con el Guardar). --}}
                             <td class="cupos-acc"><label class="cupos-foto-btn" title="Foto de la cisterna (opcional)"><input type="file" accept="image/*" data-foto-fila hidden><i class="material-icons">photo_camera</i></label></td>
                             <td class="cupos-acc"><button type="button" class="cupos-borrar" data-quitar-fila title="Quitar fila"><i class="material-icons">close</i></button></td>

@@ -33,10 +33,8 @@
     .cupos-resumen { border-left: 4px solid var(--color); }
     .cupos-resumen-fila { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
     .cupos-dato { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .cupos-dato-der { align-items: flex-end; text-align: right; }
     .cupos-dato small { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
     .cupos-dato b { font-size: 22px; line-height: 1.2; color: #0f172a; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .cupos-quedan { color: var(--color) !important; }
     .cupos-tenue { color: #94a3b8 !important; font-weight: 600; }
     .cupos-pasado { color: #dc2626 !important; }
     /* Cupo: un cuadro de texto simple con su «L» (se guarda con Enter o al salir). */
@@ -48,21 +46,16 @@
     .cupos-cupo-caja input::placeholder { font-size: 14px; font-weight: 500; color: #94a3b8; }
     .cupos-cupo-caja input:focus { border-color: #0067b1; box-shadow: 0 0 0 3px rgba(0,103,177,.12); }
     .cupos-cupo-caja span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 14px; color: #94a3b8; pointer-events: none; }
-    .cupos-barra { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin: 12px 0 6px; }
-    .cupos-barra i { display: block; height: 100%; border-radius: 4px; }
-    .cupos-surtido { font-size: 12px; color: #64748b; }
-    .cupos-surtido b { color: #0f172a; }
 
-    /* Tablita de cisternas: fecha | litros | quedan | quitar. La última fila siempre está vacía
+    /* Tablita de cisternas: fecha | litros | foto | quitar. La última fila siempre está vacía
        (al llenarla aparece otra); esa no lleva la ×. */
     .cupos-tbl { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-variant-numeric: tabular-nums;
         border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-    .cupos-tbl th:nth-child(4) { width: 44px; text-align: center; }
-    .cupos-tbl th:nth-child(5) { width: 36px; }
+    .cupos-tbl th:nth-child(3) { width: 52px; text-align: center; }
+    .cupos-tbl th:nth-child(4) { width: 36px; }
     .cupos-tbl th { background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
         text-align: left; padding: 7px 8px; border-bottom: 1px solid #e2e8f0; }
     .cupos-tbl th.num, .cupos-tbl td.num { text-align: right; }
-    .cupos-tbl th.cupos-col-queda { width: 120px; }
     .cupos-tbl td { padding: 0; border-bottom: 1px solid #eef2f6; }
     .cupos-tbl tr:last-child td { border-bottom: none; }
     .cupos-tbl td + td { border-left: 1px solid #eef2f6; }
@@ -71,7 +64,6 @@
     .cupos-tbl input.num { text-align: right; }
     .cupos-tbl input:focus { background: #f5f9fd; box-shadow: inset 0 0 0 2px #0067b1; }
     .cupos-tbl input.cupos-mal { background: #fef2f2; box-shadow: inset 0 0 0 2px #dc2626; }
-    .cupos-previo { font-size: 12px; color: #64748b; padding: 0 8px !important; white-space: nowrap; }
     .cupos-acc { text-align: center; }
     .cupos-tbl tr:last-child .cupos-borrar { visibility: hidden; }
     /* Foto de cada cisterna: gris sin foto, azul con foto elegida o guardada. */
@@ -123,7 +115,6 @@
         .cupos-resumen, .cupos-bloque { padding: 12px; }
         .cupos-dato b { font-size: 18px; }
         .cupos-cupo-caja input { width: 140px; font-size: 16px; }
-        .cupos-col-queda { display: none; }
         .cupos-tbl input { padding: 0 6px; font-size: 13px; }
         .cupos-pie { flex-wrap: wrap; }
         .cupos-lote-total { flex: 1 1 auto; }
@@ -409,24 +400,12 @@
             return isNaN(n) ? 0 : n;
         }
         function litrosTexto(n) { return n.toLocaleString('es-VE', { maximumFractionDigits: 2 }) + ' L'; }
-        // El total de lo escrito y, fila por fila, lo que quedaría del cupo de este mes (las de otro mes: nada).
+        // El total de lo escrito (cuántas cisternas y cuántos litros).
         function recalcular(tbody) {
-            var panel = tbody.closest('[data-panel]');
-            var queda = panel.dataset.quedan === '' ? null : parseFloat(panel.dataset.quedan);
             var n = 0, suma = 0;
             tbody.querySelectorAll('[data-fila]').forEach(function (tr) {
                 var v = numeroLitros(tr.querySelector('[data-campo=litros]').value);
-                var previo = tr.querySelector('[data-previo]');
-                var delMes = tr.querySelector('[data-campo=fecha]').value.slice(0, 7) === panel.dataset.mes;
                 if (v > 0) { n++; suma = Math.round((suma + v) * 100) / 100; }
-                if (v > 0 && delMes && queda !== null) {
-                    queda = Math.round((queda - v) * 100) / 100;
-                    previo.textContent = 'quedan ' + litrosTexto(queda);
-                    previo.classList.toggle('cupos-pasado', queda < 0);
-                } else {
-                    previo.textContent = '';
-                    previo.classList.remove('cupos-pasado');
-                }
             });
             tbody.closest('form').querySelector('[data-lote-total]').textContent =
                 n ? n + (n === 1 ? ' cisterna · ' : ' cisternas · ') + litrosTexto(suma) : '';

@@ -62,11 +62,11 @@ class CuposCombustibleTest extends MySqlTestCase
         Carbon::setTestNow('2031-05-10 10:00:00');
         $this->cupo('TIGRE', 100000)->assertOk();
         $this->assertSame(1, CupoCombustible::where('PATIO', 'TIGRE')->where('MES', '>=', '2031-01-01')->count());
-        $this->modal()->assertSee('100.000 L');
+        $this->modal()->assertSee('value="100.000"', false);   // el cupo, en su cuadro
 
         // Cambiarlo en mayo rige desde mayo; marzo conserva el suyo en el historial.
         $this->cupo('TIGRE', 120000)->assertOk();
-        $this->modal()->assertSee('120.000 L')->assertSee('Marzo 2031')->assertSee('Cupo 100.000 L · 1 cisterna · Surtido 30.000 L');   // otro cupo: se dice
+        $this->modal()->assertSee('value="120.000"', false)->assertSee('Marzo 2031')->assertSee('Cupo 100.000 L · 1 cisterna · Surtido 30.000 L');   // otro cupo: se dice
     }
 
     public function test_las_cisternas_consumen_el_cupo_de_su_patio(): void
