@@ -776,6 +776,31 @@ class ConsumiblesController extends Controller
      * confirmados con equipo, del proyecto del SURTIDO, igual que sus barras y sus meses, para que las cifras
      * cuadren). Sin fechas, el período es el mes en curso.
      */
+    /**
+     * División de cada proyecto para la lámina de consumo (el maestro las trae a mano: Ayacucho y Carabobo).
+     * El sistema no la guarda: se deduce del NOMBRE y la UBICACIÓN del frente con estas palabras (Carabobo se
+     * mira primero). Con la base de hoy: Veladero, Agua Salada y lo de Morichal o «Carabobo» → Carabobo; lo de
+     * Anzoátegui (Anaco, Barcelona, El Tigre…) y Eco-Innova → Ayacucho, igual que en la presentación del 8800.
+     * Lo que no cae en ninguna sale como «Otros proyectos».
+     */
+    public const DIVISIONES = [
+        'AYACUCHO' => ['AYACUCHO', 'ANZOATEGUI', 'ANZOÁTEGUI', 'ANACO', 'BARCELONA', 'EL TIGRE', 'ECOINNOVA', 'ECO-INNOVA', 'ORINOCO'],
+        'CARABOBO' => ['CARABOBO', 'MORICHAL', 'VELADERO', 'AGUA SALADA', 'SINOVENSA'],
+    ];
+
+    public static function division(string $nombre, ?string $ubicacion): string
+    {
+        $texto = mb_strtoupper($nombre . ' ' . $ubicacion);
+        foreach (['CARABOBO', 'AYACUCHO'] as $dv) {
+            foreach (self::DIVISIONES[$dv] as $palabra) {
+                if (str_contains($texto, $palabra)) {
+                    return $dv;
+                }
+            }
+        }
+        return 'OTROS';
+    }
+
     public function presentacionData(Request $request)
     {
         $request->validate([
@@ -794,11 +819,17 @@ class ConsumiblesController extends Controller
 
         $filas = $gasoil()->whereBetween('FECHA', $rango)
             ->selectRaw('ID_FRENTE as id, SUM(CANTIDAD) as litros')->groupBy('ID_FRENTE')->get();
-        $nombres = FrenteTrabajo::withTrashed()->whereIn('ID_FRENTE', $filas->pluck('id')->filter())->pluck('NOMBRE_FRENTE', 'ID_FRENTE');
+        $frentes = FrenteTrabajo::withTrashed()->whereIn('ID_FRENTE', $filas->pluck('id')->filter())->get(['ID_FRENTE', 'NOMBRE_FRENTE', 'UBICACION'])->keyBy('ID_FRENTE');
         $proyectos = $filas->filter(fn ($f) => $f->id)
-            ->map(fn ($f) => ['id' => (int) $f->id, 'nombre' => $nombres[$f->id] ?? 'Frente ' . $f->id, 'litros' => (float) $f->litros])
+            ->map(fn ($f) => ['id' => (int) $f->id, 'nombre' => $frentes[$f->id]->NOMBRE_FRENTE ?? 'Frente ' . $f->id, 'litros' => (float) $f->litros,
+                'division' => self::division($frentes[$f->id]->NOMBRE_FRENTE ?? '', $frentes[$f->id]->UBICACION ?? null)])
             ->sortByDesc('litros')->values();
         $sinFrente = (float) ($filas->firstWhere('id', null)->litros ?? 0);
+        // Consumo por división (como la lámina del maestro): Ayacucho y Carabobo; lo que no es de ninguna, aparte.
+        $divisiones = collect(self::DIVISIONES)->keys()->push('OTROS')
+            ->map(fn ($dv) => ['clave' => $dv, 'nombre' => $dv === 'OTROS' ? 'OTROS PROYECTOS' : 'DIVISIÓN ' . $dv,
+                'litros' => (float) $proyectos->where('division', $dv)->sum('litros')])
+            ->filter(fn ($dv) => $dv['clave'] !== 'OTROS' || $dv['litros'] > 0)->values();
 
         $idProyecto = (int) ($request->input('id_proyecto') ?: $request->input('id_frente') ?: ($proyectos[0]['id'] ?? 0));
         $proyecto = null;
@@ -846,6 +877,7 @@ class ConsumiblesController extends Controller
             'total' => (float) $proyectos->sum('litros') + $sinFrente,
             'sin_frente' => $sinFrente,
             'proyectos' => $proyectos,
+            'divisiones' => $divisiones,
             'proyecto' => $proyecto,
             // Cisternas, cupos, histórico y cronograma del mes del período (modal Cupos de Gasoil).
             'cisternas' => CuposCombustibleController::presentacion($hasta),

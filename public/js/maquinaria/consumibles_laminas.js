@@ -95,13 +95,14 @@
     function proyectos(d) {
         var ps = d.proyectos.slice(0, d.proyectos.length > MAX_FILAS ? MAX_FILAS - 1 : MAX_FILAS), otros = d.proyectos.slice(ps.length);
         var mayor = Math.max.apply(null, ps.map(function (p) { return p.litros; }).concat([1]));
-        // Hasta 13 filas, las medidas del maestro; con más, filas más bajas para que entren todas en la tarjeta.
-        var paso = 418 / Math.max(13, ps.length + (otros.length ? 1 : 0));
-        var vars = '--pista:' + Math.min(20, paso * 0.62).toFixed(1) + 'px;--nombre:' + Math.max(8, Math.min(13, paso * 0.42)).toFixed(1) +
-            'px;--cifra:' + Math.max(9, Math.min(17, paso * 0.55)).toFixed(1) + 'px' +
-            // Con menos de 13 el maestro las repartiría por todo el alto (una arriba y otra abajo): van arriba, con
-            // la misma separación que tienen 13 filas.
-            (ps.length < 13 ? ';justify-content:flex-start;gap:' + ((418 - 13 * 20) / 12).toFixed(2) + 'px' : '');
+        // Las filas llenan SIEMPRE el alto de la tarjeta (384 px, abajo va la leyenda): con pocos proyectos, barras y
+        // letras más grandes y repartidas; con muchos, más bajas para que entren todas.
+        var n = ps.length + (otros.length ? 1 : 0), paso = 384 / Math.max(n, 1);
+        var vars = n >= 13
+            ? '--pista:' + Math.min(20, paso * 0.62).toFixed(1) + 'px;--nombre:' + Math.max(8, Math.min(13, paso * 0.42)).toFixed(1) +
+              'px;--cifra:' + Math.max(9, Math.min(17, paso * 0.55)).toFixed(1) + 'px'
+            : '--pista:' + Math.min(34, paso * 0.5).toFixed(1) + 'px;--nombre:13px' +   // el nombre, al tamaño del maestro (más grande no cabe «TRANSVERSALES CARABOBO»)
+              ';--cifra:' + Math.min(24, Math.max(17, paso * 0.38)).toFixed(1) + 'px;justify-content:space-around';
         var filas = ps.map(function (p, k) {
             var w = (70 * p.litros / mayor).toFixed(2), col = k < 4 ? ROJOS[k] : azulDe(k - 4, Math.max(1, ps.length - 4));
             return '<div class="cb-fila"><small>' + may(p.nombre) + '</small>' +
@@ -112,14 +113,19 @@
                 mil(otros.reduce(function (s, p) { return s + p.litros; }, 0)) + '</b></div></div>';
         }
         var cuerpo = ps.length
-            ? '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy" style="' + vars + '">' + filas + '</div>'
+            ? '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy" style="' + vars + '">' + filas + '</div>' +
+              // La leyenda, dentro de la tarjeta de las barras, abajo a la derecha, sin cuadro (no la tapa ninguna barra).
+              '<div class="cb-ley gl-ley-proy"><span><i style="background:#A8261F"></i>ROJO: MAYOR CONSUMO</span>' +
+              '<span><i style="background:#1F4E79"></i>AZUL: RESTO DE PROYECTOS</span></div>'
             : '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy cb-proy-vacio"><p>' + (d.total > 0 ? 'El gasoil del período se cargó sin proyecto.' : 'Sin gasoil en el período.') + '</p></div>';
-        // Derecha: el consumo total (el sistema no tiene «división» de los proyectos: no se inventa) y, debajo, la
-        // leyenda suelta, fuera de la tarjeta de las barras y sin cuadro (así ninguna barra la tapa).
+        // Derecha, como el maestro: el consumo total y, debajo, el consumo por división (con su parte del total).
+        var divs = (d.divisiones || []).filter(function (v) { return v.litros > 0 || v.clave !== 'OTROS'; }), sumaDiv = divs.reduce(function (s, v) { return s + v.litros; }, 0);
         var der = '<div class="cb-l3der"><div class="cb-total-l3"><small>CONSUMO TOTAL</small><b>' + mil(d.total) + ' L</b></div>' +
             (d.sin_frente > 0 ? '<p class="cb-nota-l3">Incluye ' + mil(d.sin_frente) + ' L cargados sin proyecto</p>' : '') +
-            (ps.length ? '<div class="cb-ley cb-ley-der"><span><i style="background:#A8261F"></i>ROJO: MAYOR CONSUMO</span>' +
-                '<span><i style="background:#1F4E79"></i>AZUL: RESTO DE PROYECTOS</span></div>' : '') + '</div>';
+            (ps.length && divs.length ? '<div class="cb-divs"><div class="cb-l3sub">CONSUMO POR DIVISIÓN</div>' + divs.map(function (v) {
+                return '<div class="cb-div"><small>' + may(v.nombre) + '</small><b>' + mil(v.litros) + ' L</b><span><i style="width:' +
+                    (sumaDiv ? v.litros / sumaDiv * 100 : 0).toFixed(2) + '%"></i></span></div>';
+            }).join('') + '</div>' : '') + '</div>';
         return lamina('cb', encabezado('CONSUMO DE GASOIL POR PROYECTO') + cuerpo +
             '<div class="cb-sep" style="left:858px;top:170px;height:514px"></div>' + der, 'grafico');
     }

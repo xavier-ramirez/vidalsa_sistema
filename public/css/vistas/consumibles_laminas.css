@@ -158,8 +158,18 @@
 .gl .cb-otros small { color: #4A5563; }
 .gl .cb-proy.cb-proy-vacio { display: flex; align-items: center; justify-content: center; }
 .gl .cb-proy-vacio p { margin: 0; width: 100%; text-align: center; font: 400 16px Arial, sans-serif; color: #4A5563; }
-/* la leyenda va en la columna derecha, debajo del total, suelta (sin cuadro): pedido del usuario 26-11 */
-.gl .cb-ley.cb-ley-der { position: static; align-self: flex-start; padding: 0 4px; background: none; border: none; border-radius: 0; }
+/* La leyenda: dentro de la tarjeta de las barras, abajo a la derecha, en una línea y sin cuadro; las filas dejan
+   ese espacio libre (padding de abajo). Pedido del usuario 26-11. */
+.gl .cb-proy:not(.cb-proy-vacio) { padding-bottom: 54px; }
+.gl .cb-ley.gl-ley-proy { left: auto; right: 468px; top: 646px; flex-direction: row; gap: 22px; padding: 0; background: none; border: none; border-radius: 0; }
+/* Consumo por división (copia del maestro: .cb-divs / .cb-div) */
+.gl .cb-divs { display: flex; flex-direction: column; gap: 10px; }
+.gl .cb-div { display: grid; grid-template-columns: 1fr auto; align-items: baseline; row-gap: 10px; padding: 14px 22px; border-radius: 10px; background: #F2F4F7; border-left: 6px solid #2B3440; }
+.gl .cb-div small { font: 700 14px/1 Arial, sans-serif; letter-spacing: .06em; color: #2B3440; }
+.gl .cb-div b { font: 700 30px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
+.gl .cb-div span { grid-column: 1 / -1; position: relative; height: 7px; border-radius: 4px; background: #DCE2EA; }
+.gl .cb-div span i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #2B3440; }
+.gl .cb-divs .cb-l3sub { margin: 0 0 2px; }
 /* solicitud ejecutada (la cisterna llegó): su nombre en verde; las que faltan siguen en rojo */
 .gl .cb-crono > .cb-sol.cb-hecha { color: var(--ambiente); }
 /* solo en la página: los litros de la solicitud surtida, al lado de su camión */

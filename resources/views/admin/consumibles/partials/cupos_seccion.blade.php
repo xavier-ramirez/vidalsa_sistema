@@ -20,7 +20,7 @@
 
     /* Fila de arriba, una al lado de la otra: patio, mes y el cupo del patio. Las dos listas son las de la
        aplicación (custom-dropdown, como los filtros de Gráficos). */
-    .cupos-arriba { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; }
+    .cupos-arriba { display: flex; align-items: flex-end; gap: 10px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; }
     .cupos-dd { width: auto; flex: 1 1 0; min-width: 0; }
     .cupos-dd .cupos-dd-boton { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 6px 0 10px; border: 1px solid #cbd5e0;
         border-radius: 10px; background: #fbfcfd; cursor: pointer; box-sizing: border-box; outline: none; }
@@ -40,7 +40,7 @@
     .cupos-tenue { color: #94a3b8 !important; font-weight: 600; }
     .cupos-cupo { margin: 0; }
     .cupos-cupo-caja { position: relative; display: block; margin: 0; }
-    .cupos-cupo-caja input { width: 160px; height: 34px; border: 1px solid #cbd5e0; border-radius: 10px; background: #fff; padding: 0 26px 0 10px;
+    .cupos-cupo-caja input { width: 160px; height: 40px; border: 1px solid #cbd5e0; border-radius: 10px; background: #fff; padding: 0 26px 0 10px;
         font-size: 17px; font-weight: 700; color: #0f172a; font-family: inherit; outline: none; box-sizing: border-box; text-align: right;
         font-variant-numeric: tabular-nums; }
     .cupos-cupo-caja input::placeholder { font-size: 13px; font-weight: 500; color: #94a3b8; }

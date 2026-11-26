@@ -52,6 +52,9 @@ class ConsumiblesPresentacionTest extends MySqlTestCase
         $this->assertEquals([0, 0, 0, 800, 0, 1500], array_column($r['proyecto']['meses'], 'litros'));
         $this->assertEquals([500, 400, 300, 200], array_column($r['proyecto']['top'], 'litros'));
         $this->assertSame($equipos[0]->SERIAL_CHASIS, $r['proyecto']['top'][0]['id']);   // sin placa, el serial
+        // Por división: estos dos frentes no son de Ayacucho ni de Carabobo → «Otros proyectos».
+        $this->assertSame(['AYACUCHO', 'CARABOBO', 'OTROS'], array_column($r['divisiones'], 'clave'));
+        $this->assertEquals(1750, $r['divisiones'][2]['litros']);
 
         // Otro proyecto elegido en el diálogo.
         $r = $this->actingAs($this->superAdminGlobal())
@@ -65,6 +68,17 @@ class ConsumiblesPresentacionTest extends MySqlTestCase
             ->getJson(route('consumibles.graficosData', ['desde' => '2031-06-01', 'hasta' => '2031-06-30', 'tipo' => 'GASOIL']))
             ->assertOk()->json('top_equipos');
         $this->assertEquals([500, 400, 300, 200], array_map('floatval', array_column($top, 'total')));
+    }
+
+    public function test_division_de_cada_proyecto(): void
+    {
+        $dv = fn ($n, $u = null) => \App\Http\Controllers\ConsumiblesController::division($n, $u);
+        $this->assertSame('AYACUCHO', $dv('TRANSVERSALES AYACUCHO'));
+        $this->assertSame('AYACUCHO', $dv('OLEODUCTO DE 42', 'ANACO'));
+        $this->assertSame('CARABOBO', $dv("TUBERÍA DE 30'' VELADERO TRAMO I"));
+        $this->assertSame('CARABOBO', $dv('COMOR FASE III', 'MORICHAL, MUNICIPIO MATURÍN'));
+        $this->assertSame('CARABOBO', $dv('LOGÍSTICA DIVISION CARABOBO', 'EL TIGRE'));   // Carabobo se mira primero
+        $this->assertSame('OTROS', $dv('CARACAS', 'DISTRITO FEDERAL'));
     }
 
     public function test_sin_fechas_es_el_mes_en_curso(): void
