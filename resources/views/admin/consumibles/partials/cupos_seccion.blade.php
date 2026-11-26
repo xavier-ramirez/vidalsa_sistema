@@ -8,11 +8,14 @@
     .cupos-modal { width: 96%; max-width: 760px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden;
         background: #f8fafc; margin: auto; max-height: 92vh; display: flex; flex-direction: column; text-align: left; }
     .cupos-modal:focus { outline: none; }
-    .cupos-modal-cab { position: relative; background: var(--maquinaria-dark-blue); color: #fff; padding: 14px 48px; text-align: center; flex-shrink: 0; }
+    .cupos-modal-cab { position: relative; background: var(--maquinaria-dark-blue); color: #fff; padding: 14px 88px; text-align: center; flex-shrink: 0; }
     .cupos-modal-cab h2 { margin: 0; font-size: 15px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
-    .cupos-modal-x { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none;
-        color: #fff; cursor: pointer; display: flex; padding: 2px; border-radius: 6px; }
-    .cupos-modal-x:hover { background: rgba(255,255,255,.12); }
+    /* A la derecha del encabezado, como en los otros modales: descargar (Excel del patio elegido) y cerrar. */
+    .cupos-modal-acc { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: flex; gap: 6px; }
+    .cupos-modal-x { width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.15);
+        color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; transition: all .2s ease; }
+    .cupos-modal-x:hover { background: rgba(255,255,255,.28); border-color: rgba(255,255,255,.45); }
+    .cupos-modal-x .material-icons { font-size: 18px; }
     #cuposContenido { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 
     /* Fila de arriba: el patio (izquierda) y su cupo (derecha). */
@@ -41,17 +44,12 @@
     .cupos-bloque h3 { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #0f172a; }
     .cupos-bloque h3 i { font-size: 18px; color: var(--color); }
 
-    /* Cabecera de la tabla: título, mes y Excel. */
+    /* Cabecera de la tabla: título y mes. */
     .cupos-tbl-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
     .cupos-tbl-cab h3 { margin-right: auto; }
     .cupos-mes-sel { height: 32px; border: 1px solid #cbd5e0; border-radius: 8px; background: #fff; padding: 0 8px; font-size: 13px;
         font-weight: 600; color: #0f172a; font-family: inherit; cursor: pointer; outline: none; }
     .cupos-mes-sel:focus { border-color: #0067b1; }
-    .cupos-hist-btn { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px; border-radius: 8px;
-        border: 1px solid #cbd5e0; background: #fff; color: #0f172a; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
-    .cupos-hist-btn i { font-size: 18px; }
-    .cupos-hist-excel { border-color: #16a34a; color: #15803d; }
-    .cupos-hist-excel:hover { background: #f0fdf4; }
 
     /* La tabla: N.º | Plan | Llegada | Litros | Foto | quitar. */
     .cupos-tbl-marco { border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; }
@@ -93,7 +91,10 @@
     .cupos-resumen-mes { flex: 1 1 auto; font-size: 12px; color: #475569; }
     .cupos-resumen-mes b { color: #0f172a; }
     .cupos-cambios { font-size: 12px; font-weight: 600; color: #b45309; }
+    .cupos-botones { display: flex; gap: 8px; margin-left: auto; }
     .cupos-pie .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; height: 36px; }
+    .cupos-pie .cupos-cancelar { background: #e2e8f0; color: #475569; box-shadow: none; }
+    .cupos-pie .cupos-cancelar:hover { background: #cbd5e1; }
     .cupos-pie .btn-primary-maquinaria:disabled { opacity: .45; cursor: default; }
     .cupos-ocupado { opacity: .55; pointer-events: none; }
 
@@ -111,7 +112,8 @@
         .cupos-cupo-lado { flex: 1 1 100%; justify-content: space-between; }
         .cupos-bloque { padding: 10px; }
         .cupos-tbl-cab { flex-wrap: wrap; }
-        .cupos-pie .btn-primary-maquinaria { flex: 1 1 100%; justify-content: center; }
+        .cupos-botones { flex: 1 1 100%; }
+        .cupos-pie .btn-primary-maquinaria { flex: 1 1 0; justify-content: center; }
         /* Cada cisterna, una tarjeta de dos renglones: N.º | Plan | Llegada | foto, y debajo Litros | quitar. */
         .cupos-tbl-marco { overflow: visible; border: none; }
         .cupos-tbl { min-width: 0; display: block; }
@@ -139,7 +141,10 @@
     <div class="modal-content cupos-modal" role="dialog" aria-labelledby="cuposModalTitulo" tabindex="-1">
         <div class="cupos-modal-cab">
             <h2 id="cuposModalTitulo"><i class="material-icons">local_gas_station</i> Cupos de Gasoil</h2>
-            <button type="button" class="cupos-modal-x" data-cerrar-modal title="Cerrar"><i class="material-icons">close</i></button>
+            <div class="cupos-modal-acc">
+                <button type="button" class="cupos-modal-x" data-excel-cupos title="Descargar en Excel las cisternas del patio"><i class="material-icons">download</i></button>
+                <button type="button" class="cupos-modal-x" data-cerrar-modal title="Cerrar"><i class="material-icons">close</i></button>
+            </div>
         </div>
         <div id="cuposContenido">
             @include('admin.consumibles.partials.cupos_contenido')
@@ -407,10 +412,20 @@
                 contarCambios(form);
                 return;
             }
-            var xl = e.target.closest('[data-excel-historial]');
-            if (xl) {
-                window.descargarArchivo(URL_EXCEL + '?patio=' + encodeURIComponent(xl.dataset.excelHistorial), null,
-                    xl.dataset.nombre, 'No se pudo descargar el Excel.');
+            // Descargar (encabezado): el Excel de todas las cisternas del patio que se está viendo.
+            if (e.target.closest('[data-excel-cupos]')) {
+                var patio = window.__cuposPatio || 'TIGRE', sel = modal.querySelector('[data-elegir-patio]');
+                var nombre = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent.trim() : patio;
+                window.descargarArchivo(URL_EXCEL + '?patio=' + encodeURIComponent(patio), null,
+                    'Cisternas_Cupo_Gasoil_' + nombre.replace(/\s+/g, '_') + '.xlsx', 'No se pudo descargar el Excel.');
+                return;
+            }
+            // Cancelar: lo escrito sin guardar se deja (la tabla vuelve a lo guardado) y se cierra.
+            var cancelar = e.target.closest('[data-cancelar]');
+            if (cancelar) {
+                var pc = cancelar.closest('[data-panel]');
+                if (sinGuardar(pc.dataset.panel)) repintarPanel(pc.dataset.panel);
+                cerrar();
                 return;
             }
             var b = e.target.closest('[data-borrar]');

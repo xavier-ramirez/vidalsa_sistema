@@ -19,16 +19,13 @@
         <input type="hidden" name="patio" value="{{ $clave }}">
         <div class="cupos-tbl-cab">
             <h3><i class="material-icons">local_shipping</i> Cisternas</h3>
-            {{-- El mes: el actual para cargar; los anteriores son el historial; los que vienen, para programar. --}}
+            {{-- El mes: el actual para cargar; los anteriores son el historial; los que vienen, para programar.
+                 (El Excel del patio se baja con el ícono de descarga del encabezado del modal.) --}}
             <select class="cupos-mes-sel" data-elegir-mes aria-label="Mes">
                 @foreach ($meses as $clMes => $nombreMes)
                     <option value="{{ $clMes }}" @selected($clMes === $ym)>{{ $nombreMes }}</option>
                 @endforeach
             </select>
-            <button type="button" class="cupos-hist-btn cupos-hist-excel" data-excel-historial="{{ $clave }}"
-                data-nombre="Cisternas_Cupo_Gasoil_{{ str_replace(' ', '_', $p['nombre']) }}.xlsx" title="Todas las cisternas del patio, mes a mes, en Excel">
-                <i class="material-icons">download</i> Excel
-            </button>
         </div>
 
         <div class="cupos-tbl-marco">
@@ -100,7 +97,11 @@
             </span>
             @if ($puede)
                 <span class="cupos-cambios" data-cambios></span>
-                <button type="submit" class="btn-primary-maquinaria btn-compacto" data-guardar disabled><i class="material-icons">save</i> Guardar</button>
+                <div class="cupos-botones">
+                    {{-- Cancelar: deja lo escrito sin guardar y cierra el modal. --}}
+                    <button type="button" class="btn-primary-maquinaria btn-compacto cupos-cancelar" data-cancelar>Cancelar</button>
+                    <button type="submit" class="btn-primary-maquinaria btn-compacto" data-guardar disabled><i class="material-icons">save</i> Guardar</button>
+                </div>
             @endif
         </div>
     </form>

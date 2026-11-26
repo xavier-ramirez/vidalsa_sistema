@@ -137,18 +137,36 @@
     
 
 /* «Exportar» (consumibles_presentacion.js): pregunta Excel o PowerPoint; con PowerPoint, el proyecto de la segunda lámina. */
-.cons-exp-fondo { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
-.cons-exp-caja { width: 100%; max-width: 440px; background: #fff; border-radius: 14px; box-shadow: 0 20px 40px -10px rgba(0, 0, 0, .3); padding: 18px 20px 20px; }
-.cons-exp-cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-.cons-exp-cab span { font-size: 17px; font-weight: 800; color: #0f172a; }
-.cons-exp-x { background: none; border: none; color: #94a3b8; cursor: pointer; padding: 2px; border-radius: 6px; line-height: 0; }
-.cons-exp-x:hover { background: #f1f5f9; color: #475569; }
-.cons-exp-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.cons-exp-op { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 10px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: #f8fafc; cursor: pointer; font-family: inherit; transition: border-color .15s, background .15s; }
-.cons-exp-op:hover, .cons-exp-op.activo { border-color: #0067b1; background: #e1effa; }
-.cons-exp-op .material-icons { font-size: 30px; }
-.cons-exp-op b { font-size: 14px; color: #0f172a; }
-.cons-exp-op small { font-size: 11.5px; color: #64748b; }
+/* Modal «Exportar»: igual a «Descargar reporte» del menú (menu.css · .formato-modal-*): fondo con
+   desenfoque, tarjeta angosta, encabezado oscuro con el título centrado y la ✕ a la derecha, la
+   pregunta y las dos opciones (rectángulos con ícono y nombre). */
+.cons-exp-fondo { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(15, 23, 42, .55); backdrop-filter: blur(3px); animation: consExpFondo .2s ease-out; }
+.cons-exp-caja { width: 100%; max-width: 320px; background: #fff; border-radius: 14px; box-shadow: 0 18px 40px -12px rgba(0, 0, 0, .32);
+  overflow: hidden; animation: consExpEntra .22s cubic-bezier(.16, 1, .3, 1); }
+@keyframes consExpFondo { from { opacity: 0; } to { opacity: 1; } }
+@keyframes consExpEntra { from { transform: translateY(14px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.cons-exp-cab { position: relative; display: flex; align-items: center; justify-content: center; padding: 12px 16px; background: #1e293b; color: #fff; }
+.cons-exp-cab span { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 800; letter-spacing: .2px; }
+.cons-exp-cab span .material-icons { font-size: 20px; }
+.cons-exp-x { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, .2); background: rgba(255, 255, 255, .15); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all .2s ease; }
+.cons-exp-x:hover { background: rgba(255, 255, 255, .28); border-color: rgba(255, 255, 255, .45); }
+.cons-exp-x .material-icons { font-size: 16px; }
+.cons-exp-cuerpo { padding: 18px 20px 22px; }
+.cons-exp-texto { margin: 0 0 16px; text-align: center; font-size: 14px; color: #64748b; }
+.cons-exp-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cons-exp-op { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 10px 12px; background: #fff;
+  border: 1.5px solid #e2e8f0; border-radius: 0; cursor: pointer; text-align: center; font-family: inherit;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.cons-exp-op:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -12px rgba(15, 23, 42, .35); }
+.cons-exp-op .material-icons { font-size: 28px; margin-bottom: 2px; }
+.cons-exp-op b { font-size: 15px; font-weight: 800; color: #0f172a; }
+.cons-exp-op--excel .material-icons { color: #16a34a; }
+.cons-exp-op--excel:hover, .cons-exp-op--excel.activo { border-color: #86efac; }
+.cons-exp-op--ppt .material-icons { color: #F26A21; }
+.cons-exp-op--ppt:hover, .cons-exp-op--ppt.activo { border-color: #fdba74; }
 .cons-exp-ppt { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
 .cons-exp-ppt[hidden] { display: none; }
 .cons-exp-ppt label { font-size: 12px; font-weight: 700; color: #475569; }

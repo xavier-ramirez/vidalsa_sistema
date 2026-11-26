@@ -163,12 +163,15 @@ class CuposCombustibleTest extends MySqlTestCase
         $this->filas('TIGRE', [['llegada' => '2031-02-10', 'litros' => 60000], ['llegada' => '2031-03-02', 'litros' => 30000],
             ['llegada' => '2031-03-09', 'litros' => 80000], ['plan' => '2031-03-28']])->assertOk();
 
-        // Una sola tabla (sin «Registrar cisternas» ni lista aparte), con su mes y su Excel.
+        // Una sola tabla (sin «Registrar cisternas» ni lista aparte), con su mes.
         $html = $this->modal()->getContent();
         $this->assertStringNotContainsString('Registrar cisternas', $html);
         $this->assertStringNotContainsString('data-ver-historial', $html);
         $this->assertStringContainsString('data-elegir-mes', $html);
-        $this->assertStringContainsString('data-excel-historial="TIGRE"', $html);
+        $this->assertStringContainsString('data-cancelar', $html);   // Guardar o Cancelar al pie
+        // El Excel se baja con el ícono de descarga del encabezado (al lado de la ✕), no con un botón en la tabla.
+        $this->assertStringNotContainsString('data-excel-historial', $html);
+        $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cargar'))->assertOk()->assertSee('data-excel-cupos', false);
         $this->assertStringContainsString('data-cupo-de="MATURIN"', $html);
 
         $r = $this->get(route('consumibles.cupos.excel', ['patio' => 'TIGRE']))->assertOk();

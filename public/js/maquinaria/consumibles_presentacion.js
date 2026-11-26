@@ -426,18 +426,20 @@
         m.className = 'cons-exp-fondo';
         m.innerHTML =
             '<div class="cons-exp-caja" role="dialog" aria-modal="true" aria-labelledby="consExpTitulo">' +
-            '<div class="cons-exp-cab"><span id="consExpTitulo">Exportar</span>' +
+            // Como «Descargar reporte» del menú: encabezado oscuro con el título centrado y la ✕ a la derecha.
+            '<div class="cons-exp-cab"><span id="consExpTitulo"><i class="material-icons">download</i> Exportar</span>' +
             '<button type="button" class="cons-exp-x" data-cerrar title="Cerrar"><i class="material-icons">close</i></button></div>' +
+            '<div class="cons-exp-cuerpo"><p class="cons-exp-texto">¿En qué formato lo quieres?</p>' +
             '<div class="cons-exp-opciones">' +
-            '<button type="button" class="cons-exp-op" data-excel><i class="material-icons" style="color:#16a34a;">table_view</i><b>Excel</b><small>Los datos en una hoja</small></button>' +
-            '<button type="button" class="cons-exp-op" data-ppt><i class="material-icons" style="color:#F26A21;">slideshow</i><b>PowerPoint</b><small>Presentación de gasoil</small></button>' +
+            '<button type="button" class="cons-exp-op cons-exp-op--excel" data-excel><i class="material-icons">table_chart</i><b>Excel</b></button>' +
+            '<button type="button" class="cons-exp-op cons-exp-op--ppt" data-ppt><i class="material-icons">slideshow</i><b>PowerPoint</b></button>' +
             '</div>' +
             '<div class="cons-exp-ppt" hidden>' +
             '<label for="consExpProyecto">Proyecto para la lámina de detalle</label>' +
             '<select id="consExpProyecto" disabled><option>Cargando…</option></select>' +
             '<div class="cons-exp-nota" data-nota></div>' +
             '<button type="button" class="btn-primary-maquinaria cons-exp-bajar" data-bajar disabled><i class="material-icons">download</i> Descargar PowerPoint</button>' +
-            '</div></div>';
+            '</div></div></div>';
         document.body.appendChild(m);
 
         var cerrar = function () { m.remove(); document.removeEventListener('keydown', tecla); };
