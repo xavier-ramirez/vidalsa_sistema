@@ -253,7 +253,7 @@
                                 style="padding:0; display:flex; align-items:center; background:#fbfcfd; overflow:hidden; border:1px solid #cbd5e0; border-radius:10px; height:42px;">
                                 <div
                                     style="padding:0 10px; display:flex; align-items:center; color:var(--maquinaria-gray-text, #94a3b8);">
-                                    <i class="material-icons" style="font-size:18px;">category</i>
+                                    <i class="material-icons" style="font-size:18px;">search</i>
                                 </div>
                                 <input type="text" data-filter-search id="search_tipos"
                                     placeholder="{{ $currentTipo ? $tiposList[$currentTipo] : 'Tipos' }}"
@@ -341,7 +341,7 @@
                                         style="padding:0; display:flex; align-items:center; background:{{ $currentEstado ? '#e1effa' : 'white' }}; border:1px solid {{ $currentEstado ? '#0067b1' : '#e2e8f0' }}; border-radius:6px; height:36px; cursor: default;">
                                         <div
                                             style="padding:0 8px; display:flex; align-items:center; color:{{ $currentEstado ? '#0067b1' : '#94a3b8' }};">
-                                            <i class="material-icons" style="font-size:16px;">flag</i>
+                                            <i class="material-icons" style="font-size:16px;">search</i>
                                         </div>
                                         <input type="text" data-filter-search id="search_estados"
                                             readonly
