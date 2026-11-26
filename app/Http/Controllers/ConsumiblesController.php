@@ -115,7 +115,7 @@ class ConsumiblesController extends Controller
                 ->orderByDesc('ID_IMPORTACION')->limit(30)->get()
             : collect();
 
-        // Modal «Cupos de Gasoil» (CuposCombustibleController): $patios.
+        // Modal «Cupos de Gasoil» (CuposCombustibleController): $mes, $meses y $patios.
         return view('admin.consumibles.cargar', compact('frentes', 'tipos', 'unidades', 'cargas')
             + \App\Http\Controllers\CuposCombustibleController::datos());
     }
@@ -842,6 +842,8 @@ class ConsumiblesController extends Controller
             'sin_frente' => $sinFrente,
             'proyectos' => $proyectos,
             'proyecto' => $proyecto,
+            // Cisternas, cupos, histórico y cronograma del mes del período (modal Cupos de Gasoil).
+            'cisternas' => CuposCombustibleController::presentacion($hasta),
         ]);
     }
 

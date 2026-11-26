@@ -325,7 +325,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('consumibles/cupos/excel', [App\Http\Controllers\CuposCombustibleController::class, 'excel'])->name('consumibles.cupos.excel');
             Route::middleware('can:super.admin')->controller(App\Http\Controllers\CuposCombustibleController::class)->group(function () {
                 Route::post  ('consumibles/cupos',                 'guardarCupo')    ->name('consumibles.cupos.guardar');
-                Route::post  ('consumibles/cupos/cisternas',       'agregarCisternas')->name('consumibles.cupos.cisterna');
+                Route::post  ('consumibles/cupos/cisternas',       'guardarCisternas')->name('consumibles.cupos.cisterna');
                 Route::delete('consumibles/cupos/cisternas/{id}',  'borrarCisterna') ->whereNumber('id')->name('consumibles.cupos.borrarCisterna');
                 Route::post  ('consumibles/cupos/cisternas/{id}/foto', 'fotoCisterna') ->whereNumber('id')->name('consumibles.cupos.fotoCisterna');
             });

@@ -2,13 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\CuposCombustibleController;
 use App\Models\CisternaCupo;
 use App\Models\CupoCombustible;
 use Illuminate\Support\Carbon;
 use Tests\MySqlTestCase;
 
 /**
- * Cupo fijo de gasoil por patio y las cisternas surtidas que lo consumen, con su historial por mes.
+ * Cupo fijo de gasoil por patio y sus cisternas: cada una empieza como solicitud (número y plan de
+ * despacho) y, al llegar, lleva fecha de llegada, litros y foto; solo las que llegaron consumen el cupo.
  * El «hoy» se fija en 2031 para no mezclarse con datos reales; la transacción lo revierte todo.
  */
 class CuposCombustibleTest extends MySqlTestCase
@@ -34,23 +36,23 @@ class CuposCombustibleTest extends MySqlTestCase
             ->postJson(route('consumibles.cupos.guardar'), ['patio' => $patio, 'litros' => $litros]);
     }
 
-    private function cisterna(string $patio, string $fecha, $litros)
+    /** Una cisterna que ya llegó (fecha de llegada y litros). */
+    private function cisterna(string $patio, string $llegada, $litros)
     {
-        return $this->cisternas($patio, [[$fecha, $litros]]);
+        return $this->filas($patio, [['llegada' => $llegada, 'litros' => $litros]]);
     }
 
-    /** Varias filas de la tabla en un solo guardado: [[fecha, litros], ...]. */
-    private function cisternas(string $patio, array $filas)
+    /** Filas de la tabla en un solo guardado: [['id'?, 'numero'?, 'plan'?, 'llegada'?, 'litros'?], ...]. */
+    private function filas(string $patio, array $filas)
     {
         return $this->actingAs($this->superAdminGlobal())->postJson(route('consumibles.cupos.cisterna'), [
-            'patio' => $patio,
-            'cisternas' => array_map(fn ($f) => ['fecha' => $f[0], 'litros' => $f[1]], $filas),
+            'patio' => $patio, 'cisternas' => $filas,
         ]);
     }
 
-    private function modal(): \Illuminate\Testing\TestResponse
+    private function modal(array $q = []): \Illuminate\Testing\TestResponse
     {
-        return $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cupos', ['parcial' => 1]))->assertOk();
+        return $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cupos', ['parcial' => 1] + $q))->assertOk();
     }
 
     public function test_el_cupo_es_fijo_y_si_cambia_rige_desde_ese_mes(): void
@@ -64,35 +66,56 @@ class CuposCombustibleTest extends MySqlTestCase
         $this->assertSame(1, CupoCombustible::where('PATIO', 'TIGRE')->where('MES', '>=', '2031-01-01')->count());
         $this->modal()->assertSee('value="100.000"', false);   // el cupo, en su cuadro
 
-        // Cambiarlo en mayo rige desde mayo; marzo conserva el suyo en el historial.
+        // Cambiarlo en mayo rige desde mayo; marzo conserva el suyo (se dice al ver marzo).
         $this->cupo('TIGRE', 120000)->assertOk();
-        $this->modal()->assertSee('value="120.000"', false)->assertSee('Marzo 2031')->assertSee('Cupo 100.000 L · 1 cisterna · Surtido 30.000 L');   // otro cupo: se dice
+        $this->modal()->assertSee('value="120.000"', false);
+        $this->modal(['patio' => 'TIGRE', 'mes' => '2031-03'])->assertSee('1 recibida · 30.000 L')->assertSee('cupo de ese mes 100.000 L');
     }
 
-    public function test_las_cisternas_consumen_el_cupo_de_su_patio(): void
+    public function test_plan_de_despacho_y_luego_la_llegada(): void
     {
-        $this->cupo('TIGRE', 100000)->assertOk();
-        $this->cupo('MATURIN', 500)->assertOk();
-        $this->cisterna('TIGRE', '2031-03-02', 38000)->assertOk();
-        $this->cisterna('TIGRE', '2031-03-15', 38000)->assertOk();
-        $this->cisterna('MATURIN', '2031-03-05', 1000)->assertOk();
+        // Primero el plan (sin número: toma el que sigue); el plan puede ser futuro.
+        $this->filas('TIGRE', [['plan' => '2031-03-25'], ['numero' => 40, 'plan' => '2031-04-02']])->assertOk()
+            ->assertJsonPath('meses.2031-04', 'Abril 2031');
+        $marzo = CisternaCupo::where('FECHA_PLAN', '2031-03-25')->first();
+        $this->assertSame(41, $marzo->NUMERO);   // después del mayor de la tabla (40)
+        $this->assertFalse($marzo->llego());
+        $this->modal()->assertSee('0 recibidas · 0 L')->assertSee('1 programada')->assertSee('cupos-programada', false);
 
-        $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cargar'))->assertOk()
-            ->assertSee('data-abrir-cupos', false)->assertSee('Cupos de Gasoil')
-            ->assertSee('2 cisternas · Surtido 76.000 L')->assertSee('24.000 L')   // El Tigre: quedan 24.000
-            ->assertSee('02/03/2031')->assertSee('-500 L');              // Maturín se pasó
+        // Llegó antes de lo planeado (otro día): se cambia la fecha y se ponen los litros.
+        Carbon::setTestNow('2031-03-28 10:00:00');
+        $this->filas('TIGRE', [['id' => $marzo->ID_CISTERNA, 'numero' => 41, 'plan' => '2031-03-25', 'llegada' => '2031-03-27', 'litros' => '38.000']])->assertOk();
+        $marzo->refresh();
+        $this->assertTrue($marzo->llego());
+        $this->assertSame('2031-03-27', $marzo->FECHA->toDateString());
+        $this->assertSame('2031-03-25', $marzo->FECHA_PLAN->toDateString());   // el plan queda
+        $this->modal()->assertSee('1 recibida · 38.000 L')->assertDontSee('programada</');
+
+        // Abril (por venir) tiene la 40 programada.
+        $this->modal(['patio' => 'TIGRE', 'mes' => '2031-04'])->assertSee('value="40"', false)->assertSee('1 programada');
     }
 
-    public function test_la_cisterna_pide_patio_y_fecha_no_futura(): void
+    public function test_reglas_de_cada_fila(): void
     {
-        $this->cisterna('MATURIN', '2031-03-21', 1000)->assertStatus(422)->assertJsonValidationErrors('cisternas.0.fecha');
+        $this->cisterna('MATURIN', '2031-03-21', 1000)->assertStatus(422)->assertJsonValidationErrors('cisternas.0.llegada');   // llegada futura
+        $this->filas('MATURIN', [['plan' => '2031-08-01']])->assertStatus(422)->assertJsonValidationErrors('cisternas.0.plan');  // más de 3 meses
         $this->cisterna('OTRO', '2031-03-05', 1000)->assertStatus(422)->assertJsonValidationErrors('patio');
         $this->cisterna('MATURIN', '2031-03-05', 0)->assertStatus(422)->assertJsonValidationErrors('cisternas.0.litros');
-        $this->cisternas('MATURIN', [])->assertStatus(422)->assertJsonValidationErrors('cisternas');
-        $this->cisterna('MATURIN', '2031-01-05', 1000)->assertOk();   // de un mes anterior: va a su mes
-        // El cupo cargado después también cuenta para ese mes (es fijo).
-        $this->cupo('MATURIN', 5000)->assertOk();
-        $this->modal()->assertSee('Enero 2031')->assertSee('1 cisterna · Surtido 1.000 L · Quedó <b class="">4.000 L', false);
+        $this->filas('MATURIN', [['llegada' => '2031-03-05']])->assertStatus(422)->assertJsonValidationErrors('cisternas.0.litros');
+        $this->filas('MATURIN', [['plan' => '2031-03-05', 'litros' => 100]])->assertStatus(422)->assertJsonValidationErrors('cisternas.0.llegada');
+        $this->filas('MATURIN', [['numero' => 7]])->assertStatus(422)->assertJsonValidationErrors('cisternas.0.plan');
+        $this->filas('MATURIN', [])->assertStatus(422)->assertJsonValidationErrors('cisternas');
+        $this->filas('MATURIN', [['numero' => 5, 'plan' => '2031-03-05'], ['numero' => 5, 'plan' => '2031-03-06']])
+            ->assertStatus(422)->assertJsonValidationErrors('cisternas.1.numero');
+
+        // El número no se repite en el patio (en el otro sí puede).
+        $this->filas('MATURIN', [['numero' => 5, 'plan' => '2031-03-05']])->assertOk();
+        $this->filas('MATURIN', [['numero' => 5, 'plan' => '2031-03-09']])->assertStatus(422)->assertJsonValidationErrors('cisternas.0.numero');
+        $this->filas('TIGRE', [['numero' => 5, 'plan' => '2031-03-09']])->assertOk();
+
+        // Una de otro patio no se edita desde este.
+        $otra = CisternaCupo::where('PATIO', 'TIGRE')->value('ID_CISTERNA');
+        $this->filas('MATURIN', [['id' => $otra, 'plan' => '2031-03-10']])->assertStatus(422)->assertJsonValidationErrors('cisternas.0.plan');
     }
 
     public function test_litros_escritos_como_se_muestran(): void
@@ -105,70 +128,94 @@ class CuposCombustibleTest extends MySqlTestCase
         $this->assertEquals([38000, 1250.5, 10.5], CisternaCupo::orderBy('FECHA')->pluck('LITROS')->map(fn ($l) => (float) $l)->all());
     }
 
-    public function test_varias_cisternas_de_una_vez_todas_o_ninguna(): void
+    public function test_varias_filas_de_una_vez_todas_o_ninguna(): void
     {
-        $this->cisternas('TIGRE', [['2031-03-02', '38.000'], ['2031-03-02', '38.000'], ['2031-03-09', '20000']])
-            ->assertOk()->assertJson(['guardadas' => 3]);
-        $this->assertSame(3, CisternaCupo::where('PATIO', 'TIGRE')->count());
+        $this->filas('TIGRE', [['llegada' => '2031-03-02', 'litros' => '38.000'], ['llegada' => '2031-03-02', 'litros' => '38.000'],
+            ['plan' => '2031-03-30']])->assertOk()->assertJson(['guardadas' => 3]);
+        $this->assertSame([1, 2, 3], CisternaCupo::where('PATIO', 'TIGRE')->orderBy('NUMERO')->pluck('NUMERO')->all());
 
-        // Una fila mala (la 2.ª, fecha futura): no se guarda ninguna y se dice cuál falló.
-        $this->cisternas('TIGRE', [['2031-03-10', 1000], ['2031-04-01', 1000]])
-            ->assertStatus(422)->assertJsonValidationErrors('cisternas.1.fecha')->assertJsonMissingValidationErrors('cisternas.0.fecha');
+        // Una fila mala (la 2.ª, llegada futura): no se guarda ninguna y se dice cuál falló.
+        $this->filas('TIGRE', [['llegada' => '2031-03-10', 'litros' => 1000], ['llegada' => '2031-04-01', 'litros' => 1000]])
+            ->assertStatus(422)->assertJsonValidationErrors('cisternas.1.llegada')->assertJsonMissingValidationErrors('cisternas.0.llegada');
         $this->assertSame(3, CisternaCupo::where('PATIO', 'TIGRE')->count());
-        $this->modal()->assertSee('3 cisternas · Surtido 96.000 L')->assertSee('data-elegir-patio', false);
+        $this->modal()->assertSee('2 recibidas · 76.000 L')->assertSee('1 programada')->assertSee('data-elegir-patio', false);
     }
 
-    public function test_cisterna_fuera_del_historial_no_se_guarda(): void
+    public function test_cisterna_fuera_de_los_meses_no_se_guarda(): void
     {
-        // El historial va de abril 2030 a marzo 2031: una de antes no se vería ni se podría quitar.
-        $this->cisterna('TIGRE', '2030-03-31', 1000)->assertStatus(422)->assertJsonValidationErrors('cisternas.0.fecha');
+        // Se ven de abril 2030 a junio 2031: una de antes no se vería ni se podría quitar.
+        $this->cisterna('TIGRE', '2030-03-31', 1000)->assertStatus(422)->assertJsonValidationErrors('cisternas.0.llegada');
         $this->cisterna('TIGRE', '2030-04-01', 1000)->assertOk();
-    }
-
-    public function test_justo_el_cupo_no_sale_pasado(): void
-    {
-        $this->cupo('TIGRE', '1000,3')->assertOk();
-        $this->cisterna('TIGRE', '2031-03-02', '1000,1')->assertOk();
-        $this->cisterna('TIGRE', '2031-03-03', '0,2')->assertOk();
-        $this->modal()->assertDontSee('-0,00')->assertSee('Quedó <b class="">0 L', false);
+        $this->modal(['patio' => 'TIGRE', 'mes' => '2029-01'])->assertSee('value="2031-03" selected', false);   // mes fuera: el actual
     }
 
     public function test_quitar_una_cisterna(): void
     {
-        $k = CisternaCupo::create(['PATIO' => 'TIGRE', 'FECHA' => '2031-03-03', 'LITROS' => 200]);
+        $k = CisternaCupo::create(['PATIO' => 'TIGRE', 'FECHA_PLAN' => '2031-03-03', 'FECHA' => '2031-03-03', 'LITROS' => 200]);
 
         $this->actingAs($this->superAdminGlobal())->deleteJson(route('consumibles.cupos.borrarCisterna', $k->ID_CISTERNA))->assertOk();
         $this->assertNull(CisternaCupo::find($k->ID_CISTERNA));
     }
 
-    public function test_historial_con_botones_y_en_excel(): void
+    public function test_una_tabla_con_mes_y_excel(): void
     {
         $this->cupo('TIGRE', 100000)->assertOk();
-        $this->cisternas('TIGRE', [['2031-02-10', 60000], ['2031-03-02', 30000], ['2031-03-09', 80000]])->assertOk();
+        $this->filas('TIGRE', [['llegada' => '2031-02-10', 'litros' => 60000], ['llegada' => '2031-03-02', 'litros' => 30000],
+            ['llegada' => '2031-03-09', 'litros' => 80000], ['plan' => '2031-03-28']])->assertOk();
 
-        // La lista empieza cerrada, con «Ver historial» y «Excel» (sin cisternas, Excel apagado).
+        // Una sola tabla (sin «Registrar cisternas» ni lista aparte), con su mes y su Excel.
         $html = $this->modal()->getContent();
-        $this->assertStringContainsString('data-ver-historial', $html);
-        $this->assertStringContainsString('data-lista-historial hidden', $html);
-        $this->assertMatchesRegularExpression('/data-excel-historial="MATURIN"[^>]*disabled/', $html);
+        $this->assertStringNotContainsString('Registrar cisternas', $html);
+        $this->assertStringNotContainsString('data-ver-historial', $html);
+        $this->assertStringContainsString('data-elegir-mes', $html);
+        $this->assertStringContainsString('data-excel-historial="TIGRE"', $html);
+        $this->assertStringContainsString('data-cupo-de="MATURIN"', $html);
 
         $r = $this->get(route('consumibles.cupos.excel', ['patio' => 'TIGRE']))->assertOk();
-        $this->assertStringContainsString('Historial_Cupo_Gasoil_Patio_El_Tigre_', $r->headers->get('Content-Disposition'));
+        $this->assertStringContainsString('Cisternas_Cupo_Gasoil_Patio_El_Tigre_', $r->headers->get('Content-Disposition'));
         $ruta = tempnam(sys_get_temp_dir(), 'cupo') . '.xlsx';
         file_put_contents($ruta, $r->streamedContent());
         $hoja = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta)->getActiveSheet();
         @unlink($ruta);
 
-        // Marzo arriba: 30.000 (quedan 70.000), 80.000 (quedan −10.000), total; luego febrero.
-        $fila = fn ($n) => array_map(fn ($c) => $hoja->getCell($c . $n)->getValue(), ['B', 'C', 'D', 'E', 'F']);
-        $this->assertSame('02/03/2031', \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($hoja->getCell('A6')->getValue())->format('d/m/Y'));
-        $this->assertEquals(['Marzo 2031', 100000, 30000, 30000, 70000], $fila(6));
-        $this->assertEquals(['Marzo 2031', 100000, 80000, 110000, -10000], $fila(7));
-        $this->assertStringStartsWith('TOTAL MARZO 2031 (2 cisternas)', $hoja->getCell('A8')->getValue());
-        $this->assertEquals([100000, 110000, 110000, -10000], array_slice($fila(8), 1));
-        $this->assertEquals(['Febrero 2031', 100000, 60000, 60000, 40000], $fila(9));
+        // Marzo arriba: 1 (30.000, quedan 70.000), 2 (80.000, quedan −10.000), 4 programada, total; luego febrero.
+        $fila = fn ($n) => array_map(fn ($c) => $hoja->getCell($c . $n)->getValue(), ['A', 'D', 'E', 'F', 'G', 'H']);
+        $fecha = fn ($c) => \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($hoja->getCell($c)->getValue())->format('d/m/Y');
+        $this->assertSame('02/03/2031', $fecha('C6'));
+        $this->assertEquals([2, 'Recibida', 30000, 100000, 30000, 70000], $fila(6));
+        $this->assertEquals([3, 'Recibida', 80000, 100000, 110000, -10000], $fila(7));
+        $this->assertEquals([4, 'Programada', null, 100000, null, null], $fila(8));
+        $this->assertSame('28/03/2031', $fecha('B8'));
+        $this->assertStringStartsWith('TOTAL MARZO 2031 (2 recibidas)', $hoja->getCell('A9')->getValue());
+        $this->assertEquals([110000, 100000, 110000, -10000], array_slice($fila(9), 2));
+        $this->assertEquals([1, 'Recibida', 60000, 100000, 60000, 40000], $fila(10));
 
         $this->get(route('consumibles.cupos.excel', ['patio' => 'OTRO']))->assertStatus(302);
+    }
+
+    public function test_datos_para_el_powerpoint(): void
+    {
+        $this->cupo('TIGRE', 100000)->assertOk();
+        $this->cupo('MATURIN', 50000)->assertOk();
+        $this->filas('TIGRE', [['llegada' => '2031-02-10', 'litros' => 60000], ['llegada' => '2031-03-02', 'litros' => 30000],
+            ['llegada' => '2031-03-09', 'litros' => 20000], ['plan' => '2031-04-03'], ['plan' => '2031-04-17']])->assertOk();
+        $this->cisterna('MATURIN', '2031-03-05', 45000)->assertOk();
+
+        $d = CuposCombustibleController::presentacion(Carbon::parse('2031-03-01'));
+        $this->assertSame('MARZO 2031', $d['mes']);
+        $this->assertEquals(['clave' => 'TIGRE', 'nombre' => 'Patio El Tigre', 'cupo' => 100000, 'consumido' => 50000, 'por_consumir' => 50000], $d['cupos'][0]);
+        $this->assertEquals(5000, $d['cupos'][1]['por_consumir']);
+        $t = $d['patios'][0];
+        $this->assertCount(2, $t['recibidas']);
+        $this->assertEquals(50000, $t['total_recibido']);
+        $this->assertCount(8, $t['historico']);
+        $this->assertEquals(['mes' => 'MARZO', 'litros' => 50000, 'cisternas' => 2], end($t['historico']));
+        $this->assertEquals(['mes' => 'FEBRERO', 'litros' => 60000, 'cisternas' => 1], $t['historico'][6]);
+        $this->assertSame('ABRIL', $t['cronograma']['mes']);   // las solicitudes del mes siguiente
+        $this->assertSame([3, 17], array_column($t['cronograma']['solicitudes']->all(), 'dia'));
+        // Maturín no tiene solicitudes en abril: su cronograma es el de marzo (la que llegó).
+        $this->assertSame('MARZO', $d['patios'][1]['cronograma']['mes']);
+        $this->assertTrue($d['patios'][1]['cronograma']['solicitudes'][0]['llego']);
     }
 
     public function test_la_direccion_sola_abre_el_modal_en_cargar(): void
@@ -176,6 +223,6 @@ class CuposCombustibleTest extends MySqlTestCase
         $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cupos'))
             ->assertRedirect(route('consumibles.cargar', ['cupos' => 1]));
         $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cargar', ['cupos' => 1]))
-            ->assertOk()->assertSee('data-abrir="1"', false);
+            ->assertOk()->assertSee('data-abrir="1"', false)->assertSee('data-abrir-cupos', false);
     }
 }

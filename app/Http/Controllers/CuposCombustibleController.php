@@ -6,15 +6,19 @@ use App\Models\CisternaCupo;
 use App\Models\CupoCombustible;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
- * Cupos de gasoil (modal de Cargar consumibles). Se elige el patio y se ve su cupo fijo (se edita ahí),
- * se cargan las cisternas surtidas (fecha y litros), que son lo que consume el cupo, y su historial
- * mes a mes. Si el cupo cambia, rige desde el mes en curso. Ver lo puede cualquiera con sesión;
- * cargar y borrar, super.admin (las rutas).
+ * Cupos de gasoil (modal de Cargar consumibles). Arriba el patio y su cupo fijo (se edita ahí); debajo,
+ * UNA tabla con las cisternas del mes elegido: cada una es una solicitud (número y fecha del plan de
+ * despacho) a la que, al llegar, se le pone la fecha real de llegada, los litros y la foto. Solo las
+ * que llegaron consumen el cupo. Si el cupo cambia, rige desde el mes en curso. Ver lo puede
+ * cualquiera con sesión; cargar y borrar, super.admin (las rutas). Los mismos datos arman las láminas
+ * de cisternas, cupo, histórico y cronograma del PowerPoint de Gráficos (presentacion()).
  */
 class CuposCombustibleController extends Controller
 {
@@ -24,130 +28,182 @@ class CuposCombustibleController extends Controller
     /** Ancho tope (px) de la foto de una cisterna: alcanza para leer la guía o el contador. */
     private const FOTO_ANCHO = 1600;
 
-    /** Meses de historial que se muestran por patio. */
+    /** Meses hacia atrás que se pueden ver y cargar (con el actual). */
     private const MESES = 12;
 
+    /** Meses hacia adelante para programar solicitudes. */
+    private const ADELANTE = 3;
+
     /**
-     * GET consumibles/cupos?parcial=1 — el contenido del modal (se repinta tras guardar). El modal vive
-     * en Cargar consumibles: sin parcial, se va allá y se abre solo.
+     * GET consumibles/cupos?parcial=1[&mes=YYYY-MM][&patio=X] — el contenido del modal; con patio, solo
+     * el panel de ese patio (se repinta tras guardar sin tocar lo escrito en el otro). Sin parcial, se va
+     * a Cargar consumibles y el modal se abre solo.
      */
     public function index(Request $request)
     {
         if (!$request->boolean('parcial')) {
             return redirect()->route('consumibles.cargar', ['cupos' => 1]);
         }
+        $datos = self::datos($request->query('mes'));
+        $patio = $request->query('patio');
+        if ($patio && isset($datos['patios'][$patio])) {
+            return view('admin.consumibles.partials.cupos_panel', [
+                'clave' => $patio, 'p' => $datos['patios'][$patio], 'mes' => $datos['mes'], 'meses' => $datos['meses'],
+            ]);
+        }
 
-        return view('admin.consumibles.partials.cupos_contenido', self::datos());
+        return view('admin.consumibles.partials.cupos_contenido', $datos);
     }
 
     /**
-     * Por patio: el cupo vigente y el historial de los últimos meses con cisternas (cada mes con su
-     * cupo, lo surtido, lo que quedó y sus cisternas por fecha).
+     * Para el mes pedido (por defecto el actual): por patio, el cupo vigente hoy, el del mes, las
+     * cisternas del mes (por plan; las que llegaron, por su llegada), lo recibido y el número que sigue.
      */
-    public static function datos(): array
+    public static function datos(?string $mes = null): array
     {
+        $mes = self::mesValido($mes);
         $hoy = now()->startOfMonth()->startOfDay();
-        $desde = self::desde();
         $cupos = CupoCombustible::orderByDesc('MES')->get();
-        $cisternas = CisternaCupo::where('FECHA', '>=', $desde->toDateString())
-            ->orderBy('FECHA')->orderBy('ID_CISTERNA')->get();
+        $delMes = self::delMes($mes)->get();
 
         $patios = [];
         foreach (CupoCombustible::PATIOS as $clave => $nombre) {
-            // El que regía ese mes; antes del primero que se cargó, ese primero (el cupo es fijo).
-            $suyos = $cupos->where('PATIO', $clave);
-            $cupoDe = fn (Carbon $mes) => optional($suyos->first(fn ($c) => $c->MES->lte($mes)) ?? $suyos->last())->LITROS;
-
-            $meses = [];
-            foreach ($cisternas->where('PATIO', $clave)->groupBy(fn ($k) => $k->FECHA->format('Y-m')) as $ym => $suyas) {
-                $mes = Carbon::createFromFormat('!Y-m', $ym);
-                $cupo = ($c = $cupoDe($mes)) !== null ? (float) $c : null;
-                $surtido = 0.0;
-                $filas = $suyas->values()->map(function ($k) use (&$surtido, $cupo) {
-                    $surtido = round($surtido + (float) $k->LITROS, 2);
-
-                    return ['cisterna' => $k, 'quedan' => $cupo !== null ? round($cupo - $surtido, 2) : null];
-                });
-                $meses[$ym] = ['mes' => $mes, 'cupo' => $cupo, 'surtido' => $surtido, 'filas' => $filas,
-                    'quedan' => $cupo !== null ? round($cupo - $surtido, 2) : null];
-            }
-            krsort($meses);   // el mes más reciente arriba
-
+            $suyas = $delMes->where('PATIO', $clave)->values();
+            $recibidas = $suyas->filter->llego();
             $patios[$clave] = [
-                'nombre' => $nombre,
-                'cupo'   => ($c = $cupoDe($hoy)) !== null ? (float) $c : null,
-                'meses'  => $meses,
+                'nombre'    => $nombre,
+                'cupo'      => self::cupoDe($cupos, $clave, $hoy),
+                'cupo_mes'  => self::cupoDe($cupos, $clave, $mes),
+                'filas'     => $suyas,
+                'recibido'  => round((float) $recibidas->sum('LITROS'), 2),
+                'recibidas' => $recibidas->count(),
+                'siguiente' => (int) CisternaCupo::where('PATIO', $clave)->max('NUMERO') + 1,
             ];
         }
 
-        return ['patios' => $patios];
+        return ['mes' => $mes, 'meses' => self::meses(), 'patios' => $patios];
+    }
+
+    /** Las cisternas de un mes: las que llegaron por su llegada; las que no, por su plan. En orden de plan. */
+    private static function delMes(Carbon $mes)
+    {
+        $rango = [$mes->toDateString(), $mes->copy()->endOfMonth()->toDateString()];
+
+        return CisternaCupo::where(fn ($q) => $q->whereBetween('FECHA', $rango)
+                ->orWhere(fn ($q) => $q->whereNull('FECHA')->whereBetween('FECHA_PLAN', $rango)))
+            ->orderByRaw('COALESCE(FECHA_PLAN, FECHA)')->orderBy('NUMERO')->orderBy('ID_CISTERNA');
+    }
+
+    /** El cupo que regía ese mes; antes del primero que se cargó, ese primero (el cupo es fijo). */
+    private static function cupoDe(Collection $cupos, string $patio, Carbon $mes): ?float
+    {
+        $suyos = $cupos->where('PATIO', $patio);
+        $c = optional($suyos->first(fn ($c) => $c->MES->lte($mes)) ?? $suyos->last())->LITROS;
+
+        return $c !== null ? (float) $c : null;
+    }
+
+    /** Los meses que se pueden elegir: del más nuevo (los de solicitudes por venir) al más viejo. */
+    public static function meses(): array
+    {
+        $meses = [];
+        for ($m = now()->startOfMonth()->addMonths(self::ADELANTE); $m->gte(self::desde()); $m->subMonth()) {
+            $meses[$m->format('Y-m')] = self::nombreMes($m);
+        }
+
+        return $meses;
+    }
+
+    private static function mesValido(?string $mes): Carbon
+    {
+        if ($mes && preg_match('/^\d{4}-\d{2}$/', $mes)) {
+            $m = Carbon::createFromFormat('!Y-m', $mes);
+            if ($m->gte(self::desde()) && $m->lte(now()->startOfMonth()->addMonths(self::ADELANTE))) {
+                return $m;
+            }
+        }
+
+        return now()->startOfMonth()->startOfDay();
     }
 
     /**
-     * GET consumibles/cupos/excel?patio=TIGRE — el historial de un patio en Excel: lo mismo que el
-     * modal (mes a mes, del más reciente al más viejo; cada cisterna con lo que quedaba del cupo
-     * tras surtirla y, al cierre de cada mes, su total).
+     * GET consumibles/cupos/excel?patio=TIGRE — todas las cisternas del patio, mes a mes del más reciente
+     * al más viejo: solicitud, plan, llegada, litros, lo recibido en el mes y lo que quedaba del cupo
+     * (solo cuentan las que llegaron); al cierre de cada mes, su total.
      */
     public function excel(Request $request)
     {
         $patio = $request->validate(['patio' => ['required', Rule::in(array_keys(CupoCombustible::PATIOS))]])['patio'];
-        $p = self::datos()['patios'][$patio];
+        $nombrePatio = CupoCombustible::PATIOS[$patio];
+        $cupos = CupoCombustible::orderByDesc('MES')->get();
+        $todas = CisternaCupo::where('PATIO', $patio)
+            ->where(fn ($q) => $q->where('FECHA', '>=', self::desde()->toDateString())
+                ->orWhere(fn ($q) => $q->whereNull('FECHA')->where('FECHA_PLAN', '>=', self::desde()->toDateString())))
+            ->orderByRaw('COALESCE(FECHA_PLAN, FECHA)')->orderBy('NUMERO')->get()
+            ->groupBy(fn ($k) => $k->dia()->format('Y-m'))->sortKeysDesc();
 
         $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $libro->getProperties()->setCreator('Sistema VIDALSA')->setTitle('Historial de cupo de gasoil')
+        $libro->getProperties()->setCreator('Sistema VIDALSA')->setTitle('Cisternas y cupo de gasoil')
             ->setCompany('Constructora Vidalsa 27, C.A.');
         $libro->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
         $hoja = $libro->getActiveSheet();
-        $hoja->setTitle('Historial');
-        foreach (['A' => 14, 'B' => 16, 'C' => 18, 'D' => 18, 'E' => 18, 'F' => 18] as $col => $ancho) {
+        $hoja->setTitle('Cisternas');
+        foreach (['A' => 12, 'B' => 16, 'C' => 16, 'D' => 14, 'E' => 16, 'F' => 18, 'G' => 18, 'H' => 18] as $col => $ancho) {
             $hoja->getColumnDimension($col)->setWidth($ancho);
         }
-        $this->encabezadoCorporativo($hoja, "HISTORIAL DE CUPO DE GASOIL\n" . mb_strtoupper($p['nombre']), 'D', 'E', 'F');
-        $this->cabeceraTablaCorporativa($hoja, ['FECHA', 'MES', 'CUPO DEL MES (L)', 'LITROS (L)', 'SURTIDO EN EL MES (L)', 'QUEDAN DEL CUPO (L)']);
+        $this->encabezadoCorporativo($hoja, "CISTERNAS Y CUPO DE GASOIL\n" . mb_strtoupper($nombrePatio), 'F', 'G', 'H');
+        $this->cabeceraTablaCorporativa($hoja, ['SOLICITUD', 'PLAN DE DESPACHO', 'LLEGADA', 'ESTADO', 'LITROS (L)',
+            'CUPO DEL MES (L)', 'RECIBIDO EN EL MES (L)', 'QUEDAN DEL CUPO (L)']);
 
+        $xlFecha = fn ($f) => $f ? \PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel($f->copy()->startOfDay()) : null;
         $f = 6;
         $totales = [];
-        foreach ($p['meses'] as $m) {
-            $surtido = 0.0;
-            foreach ($m['filas'] as $fila) {
-                $k = $fila['cisterna'];
-                $surtido = round($surtido + (float) $k->LITROS, 2);
-                $hoja->fromArray([\PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel($k->FECHA->copy()->startOfDay()), self::nombreMes($m['mes']),
-                    $m['cupo'], (float) $k->LITROS, $surtido, $fila['quedan']], null, 'A' . $f, true);
+        foreach ($todas as $ym => $suyas) {
+            $mes = Carbon::createFromFormat('!Y-m', $ym);
+            $cupo = self::cupoDe($cupos, $patio, $mes);
+            $recibido = 0.0;
+            foreach ($suyas as $k) {
+                $llego = $k->llego();
+                if ($llego) {
+                    $recibido = round($recibido + (float) $k->LITROS, 2);
+                }
+                $hoja->fromArray([$k->NUMERO, $xlFecha($k->FECHA_PLAN), $xlFecha($k->FECHA), $llego ? 'Recibida' : 'Programada',
+                    $llego ? (float) $k->LITROS : null, $cupo, $llego ? $recibido : null,
+                    $llego && $cupo !== null ? round($cupo - $recibido, 2) : null], null, 'A' . $f, true);
                 $f++;
             }
-            $n = $m['filas']->count();
-            $hoja->fromArray(['TOTAL ' . mb_strtoupper(self::nombreMes($m['mes'])) . ' (' . ($n === 1 ? '1 cisterna' : $n . ' cisternas') . ')',
-                null, $m['cupo'], $m['surtido'], $m['surtido'], $m['quedan']], null, 'A' . $f, true);
-            $hoja->mergeCells("A{$f}:B{$f}");
+            $n = $suyas->filter->llego()->count();
+            $hoja->fromArray(['TOTAL ' . mb_strtoupper(self::nombreMes($mes)) . ' (' . ($n === 1 ? '1 recibida' : $n . ' recibidas') . ')',
+                null, null, null, $recibido, $cupo, $recibido, $cupo !== null ? round($cupo - $recibido, 2) : null], null, 'A' . $f, true);
+            $hoja->mergeCells("A{$f}:D{$f}");
             $totales[] = $f;
             $f++;
         }
         if ($f === 6) {
-            $hoja->setCellValue('A6', 'Todavía no hay cisternas de ' . $p['nombre'] . '.');
-            $hoja->mergeCells('A6:F6');
+            $hoja->setCellValue('A6', 'Todavía no hay cisternas de ' . $nombrePatio . '.');
+            $hoja->mergeCells('A6:H6');
             $f = 7;
         }
         $ultima = $f - 1;
 
-        $this->rellenarFilas($hoja, $totales, 'F', 'FFE2E8F0');   // antes de alinear (copia el estilo entero)
+        $this->rellenarFilas($hoja, $totales, 'H', 'FFE2E8F0');   // antes de alinear (copia el estilo entero)
         foreach ($totales as $t) {
-            $hoja->getStyle("A{$t}:F{$t}")->getFont()->setBold(true);
+            $hoja->getStyle("A{$t}:H{$t}")->getFont()->setBold(true);
         }
-        $hoja->getStyle("A6:F{$ultima}")->applyFromArray(self::bordeFinoCorporativo());
-        $hoja->getStyle("A6:F{$ultima}")->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $hoja->getStyle("A6:B{$ultima}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $hoja->getStyle("A6:A{$ultima}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
-        $hoja->getStyle("C6:F{$ultima}")->getNumberFormat()->setFormatCode('#,##0.##');
+        $hoja->getStyle("A6:H{$ultima}")->applyFromArray(self::bordeFinoCorporativo());
+        $hoja->getStyle("A6:H{$ultima}")->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $hoja->getStyle("A6:D{$ultima}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $hoja->getStyle("B6:C{$ultima}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+        $hoja->getStyle("E6:H{$ultima}")->getNumberFormat()->setFormatCode('#,##0.##');
         // Lo pasado del cupo, en rojo (como en el modal).
         $rojo = new \PhpOffice\PhpSpreadsheet\Style\Conditional();
         $rojo->setConditionType(\PhpOffice\PhpSpreadsheet\Style\Conditional::CONDITION_CELLIS)
             ->setOperatorType(\PhpOffice\PhpSpreadsheet\Style\Conditional::OPERATOR_LESSTHAN)->addCondition('0');
         $rojo->getStyle()->getFont()->getColor()->setARGB('FFDC2626');
-        $hoja->getStyle("F6:F{$ultima}")->setConditionalStyles([$rojo]);
+        $hoja->getStyle("H6:H{$ultima}")->setConditionalStyles([$rojo]);
         $hoja->freezePane('A6');
 
-        $nombre = 'Historial_Cupo_Gasoil_' . str_replace(' ', '_', $p['nombre']) . '_' . date('Y-m-d') . '.xlsx';
+        $nombre = 'Cisternas_Cupo_Gasoil_' . str_replace(' ', '_', $nombrePatio) . '_' . date('Y-m-d') . '.xlsx';
         $escritor = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($libro);
 
         return response()->streamDownload(fn () => $escritor->save('php://output'), $nombre, [
@@ -178,10 +234,12 @@ class CuposCombustibleController extends Controller
     }
 
     /**
-     * POST consumibles/cupos/cisternas — las cisternas surtidas de un patio (la tabla del modal):
-     * patio y cisternas[] con fecha (no futura, dentro del historial) y litros. Todas o ninguna.
+     * POST consumibles/cupos/cisternas — las filas nuevas y cambiadas de la tabla de un patio: patio y
+     * cisternas[] con id (si ya existe), numero, plan (fecha del plan de despacho), llegada (fecha real),
+     * litros y foto. Una fila necesita el plan o la llegada; llegada y litros van juntos (la llegada no
+     * puede ser futura; el plan sí). Todas o ninguna.
      */
-    public function agregarCisternas(Request $request)
+    public function guardarCisternas(Request $request)
     {
         $filas = $request->input('cisternas');
         if (is_array($filas)) {
@@ -190,33 +248,92 @@ class CuposCombustibleController extends Controller
                 $filas
             )]);
         }
+        $desde = self::desde()->toDateString();
+        $tope = now()->startOfMonth()->addMonths(self::ADELANTE)->endOfMonth()->toDateString();
         $v = $request->validate([
-            'patio'              => ['required', Rule::in(array_keys(CupoCombustible::PATIOS))],
-            'cisternas'          => ['required', 'array', 'min:1', 'max:50'],
-            // Dentro del historial que se ve (si no, quedaría guardada sin poder verse ni quitarse).
-            'cisternas.*.fecha'  => ['required', 'date_format:Y-m-d', 'before_or_equal:today', 'after_or_equal:' . self::desde()->toDateString()],
-            'cisternas.*.litros' => ['required', 'numeric', 'gt:0', 'max:9999999999'],
-            'cisternas.*.foto'   => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:12288'],
-        ], [], ['cisternas.*.fecha' => 'fecha', 'cisternas.*.litros' => 'litros', 'cisternas.*.foto' => 'foto']);
+            'patio'               => ['required', Rule::in(array_keys(CupoCombustible::PATIOS))],
+            'cisternas'           => ['required', 'array', 'min:1', 'max:60'],
+            'cisternas.*.id'      => ['nullable', 'integer'],
+            'cisternas.*.numero'  => ['nullable', 'integer', 'min:1', 'max:999999', 'distinct'],
+            // Dentro de los meses que se ven (si no, quedaría guardada sin poder verse ni quitarse).
+            'cisternas.*.plan'    => ['nullable', 'required_without:cisternas.*.llegada', 'date_format:Y-m-d', 'after_or_equal:' . $desde, 'before_or_equal:' . $tope],
+            'cisternas.*.llegada' => ['nullable', 'required_with:cisternas.*.litros', 'date_format:Y-m-d', 'after_or_equal:' . $desde, 'before_or_equal:today'],
+            'cisternas.*.litros'  => ['nullable', 'required_with:cisternas.*.llegada', 'numeric', 'gt:0', 'max:9999999999'],
+            'cisternas.*.foto'    => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:12288'],
+        ], [
+            'cisternas.*.plan.required_without'    => 'Ponga la fecha del plan de despacho (o la de llegada).',
+            'cisternas.*.llegada.required_with'    => 'Ponga la fecha en que llegó.',
+            'cisternas.*.litros.required_with'     => 'Ponga los litros que llegaron.',
+            'cisternas.*.llegada.before_or_equal'  => 'La llegada no puede ser una fecha futura.',
+            'cisternas.*.numero.distinct'          => 'Ese número de solicitud está repetido en la tabla.',
+        ], ['cisternas.*.plan' => 'plan', 'cisternas.*.llegada' => 'llegada', 'cisternas.*.litros' => 'litros',
+            'cisternas.*.foto' => 'foto', 'cisternas.*.numero' => 'solicitud']);
+
+        // validate() arma las filas campo por campo (primero las que tienen plan): en el orden de la tabla.
+        ksort($v['cisternas']);
+        $patio = $v['patio'];
+        $ids = collect($v['cisternas'])->pluck('id')->filter()->map(fn ($i) => (int) $i);
+        $existentes = CisternaCupo::where('PATIO', $patio)->whereIn('ID_CISTERNA', $ids)->get()->keyBy('ID_CISTERNA');
+        $errores = [];
+        foreach ($v['cisternas'] as $i => $f) {
+            if (!empty($f['id']) && !$existentes->has((int) $f['id'])) {
+                $errores["cisternas.$i.plan"] = 'Esa cisterna ya no existe; actualice la tabla.';
+            }
+            // El número no se repite en el patio (salvo en la misma cisterna o en otra de esta tabla).
+            if (!empty($f['numero']) && CisternaCupo::where('PATIO', $patio)->where('NUMERO', $f['numero'])
+                    ->whereNotIn('ID_CISTERNA', $ids)->exists()) {
+                $errores["cisternas.$i.numero"] = 'La solicitud ' . $f['numero'] . ' ya existe en ' . CupoCombustible::PATIOS[$patio] . '.';
+            }
+        }
+        if ($errores) {
+            throw ValidationException::withMessages($errores);
+        }
 
         // Las fotos se suben ANTES de la transacción (Drive no va dentro: una caída de red tumbaría el guardado).
         $fotos = [];
         foreach ($v['cisternas'] as $i => $f) {
             if (!empty($f['foto'])) {
-                $fotos[$i] = $this->subirFoto($f['foto'], $v['patio']);
+                $fotos[$i] = $this->subirFoto($f['foto'], $patio);
             }
         }
 
-        DB::transaction(function () use ($v, $fotos) {
+        $viejas = [];
+        DB::transaction(function () use ($v, $patio, $fotos, $existentes, &$viejas) {
+            // Una solicitud nueva sin número toma el que sigue (después del mayor del patio y de la tabla).
+            $siguiente = max((int) CisternaCupo::where('PATIO', $patio)->lockForUpdate()->max('NUMERO'),
+                (int) collect($v['cisternas'])->max('numero')) + 1;
             foreach ($v['cisternas'] as $i => $f) {
-                CisternaCupo::create([
-                    'PATIO' => $v['patio'], 'FECHA' => $f['fecha'], 'LITROS' => $f['litros'],
-                    'FOTO' => $fotos[$i] ?? null, 'ID_USUARIO' => auth()->id(),
-                ]);
+                if (empty($f['id']) && empty($f['numero'])) {
+                    $f['numero'] = $siguiente++;
+                }
+                $datos = [
+                    // Sin plan (se cargó ya llegada): el plan es la llegada (así sale en el cronograma).
+                    'NUMERO' => $f['numero'] ?? null, 'FECHA_PLAN' => ($f['plan'] ?? null) ?: $f['llegada'],
+                    'FECHA' => $f['llegada'] ?? null, 'LITROS' => $f['litros'] ?? null,
+                ];
+                if (isset($fotos[$i])) {
+                    $datos['FOTO'] = $fotos[$i];
+                }
+                $k = !empty($f['id']) ? $existentes[(int) $f['id']] : null;
+                if ($k) {
+                    if (isset($fotos[$i]) && $k->FOTO) {
+                        $viejas[] = $k->FOTO;
+                    }
+                    $k->update($datos);
+                } else {
+                    CisternaCupo::create($datos + ['PATIO' => $patio, 'ID_USUARIO' => auth()->id()]);
+                }
             }
         });
+        foreach ($viejas as $foto) {
+            self::fotoAPapelera($foto);
+        }
 
-        return response()->json(['ok' => true, 'guardadas' => count($v['cisternas'])]);
+        // Los meses donde quedaron (la pantalla avisa si alguna no es del mes que se está viendo).
+        $meses = collect($v['cisternas'])->map(fn ($f) => substr($f['llegada'] ?? $f['plan'], 0, 7))->unique()
+            ->mapWithKeys(fn ($m) => [$m => self::nombreMes(Carbon::createFromFormat('!Y-m', $m))]);
+
+        return response()->json(['ok' => true, 'guardadas' => count($v['cisternas']), 'meses' => $meses]);
     }
 
     /** POST consumibles/cupos/cisternas/{id}/foto — pone o cambia la foto de una cisterna ya guardada. */
@@ -235,6 +352,84 @@ class CuposCombustibleController extends Controller
         self::fotoAPapelera($anterior);
 
         return response()->json(['ok' => true, 'foto' => $cisterna->FOTO]);
+    }
+
+    /** DELETE consumibles/cupos/cisternas/{id} */
+    public function borrarCisterna(int $id)
+    {
+        $cisterna = CisternaCupo::findOrFail($id);
+        $cisterna->delete();
+        self::fotoAPapelera($cisterna->FOTO);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Lo que el PowerPoint de Gráficos necesita de las cisternas en un mes:
+     * - cupos: por patio, cupo del mes, lo consumido (lo recibido) y lo que queda por consumir;
+     * - patios: por patio, las cisternas que llegaron en el mes (con su foto) y su total; el histórico
+     *   de los 8 meses que terminan en el mes (litros y cuántas); y el cronograma: las solicitudes del
+     *   mes siguiente (si no hay, las del mismo mes), con el día del plan y si ya llegaron.
+     * Sirve para cualquier cantidad de cisternas: la presentación reparte las fotos en las láminas que haga falta.
+     */
+    public static function presentacion(\Carbon\CarbonInterface $mes): array
+    {
+        $mes = Carbon::instance($mes)->startOfMonth()->startOfDay();
+        $cupos = CupoCombustible::orderByDesc('MES')->get();
+        $rango = fn (Carbon $m) => [$m->toDateString(), $m->copy()->endOfMonth()->toDateString()];
+        // Las que llegaron, de los 8 meses del histórico (una sola consulta).
+        $inicio = $mes->copy()->subMonths(7);
+        $llegadas = CisternaCupo::whereNotNull('LITROS')->whereBetween('FECHA', [$inicio->toDateString(), $rango($mes)[1]])
+            ->orderBy('FECHA')->orderBy('NUMERO')->get();
+        $mesSig = $mes->copy()->addMonth();
+        $planes = CisternaCupo::whereBetween('FECHA_PLAN', [$mes->toDateString(), $rango($mesSig)[1]])
+            ->orderBy('FECHA_PLAN')->orderBy('NUMERO')->get();
+        $mayus = fn (Carbon $m, string $f) => mb_strtoupper($m->locale('es')->translatedFormat($f));
+
+        $resumen = [];
+        $patios = [];
+        foreach (CupoCombustible::PATIOS as $clave => $nombre) {
+            $suyas = $llegadas->where('PATIO', $clave);
+            $delMes = $suyas->filter(fn ($k) => $k->FECHA->format('Y-m') === $mes->format('Y-m'))->values();
+            $cupo = self::cupoDe($cupos, $clave, $mes);
+            $consumido = round((float) $delMes->sum('LITROS'), 2);
+            $resumen[] = ['clave' => $clave, 'nombre' => $nombre, 'cupo' => $cupo, 'consumido' => $consumido,
+                'por_consumir' => $cupo !== null ? round($cupo - $consumido, 2) : null];
+
+            $historico = [];
+            for ($m = $inicio->copy(); $m->lte($mes); $m->addMonth()) {
+                $deEse = $suyas->filter(fn ($k) => $k->FECHA->format('Y-m') === $m->format('Y-m'));
+                $historico[] = ['mes' => $mayus($m, 'F'), 'litros' => round((float) $deEse->sum('LITROS'), 2), 'cisternas' => $deEse->count()];
+            }
+
+            $mesCrono = $mesSig;
+            $solicitudes = $planes->where('PATIO', $clave)->filter(fn ($k) => $k->FECHA_PLAN->format('Y-m') === $mesSig->format('Y-m'));
+            if ($solicitudes->isEmpty()) {
+                $mesCrono = $mes;
+                $solicitudes = $planes->where('PATIO', $clave)->filter(fn ($k) => $k->FECHA_PLAN->format('Y-m') === $mes->format('Y-m'));
+            }
+
+            $patios[] = [
+                'clave' => $clave,
+                'nombre' => $nombre,
+                'recibidas' => $delMes->map(fn ($k) => [
+                    'numero' => $k->NUMERO, 'fecha' => $k->FECHA->format('d/m/Y'), 'litros' => (float) $k->LITROS, 'foto' => $k->FOTO,
+                ])->values(),
+                'total_recibido' => $consumido,
+                'historico' => $historico,
+                'cronograma' => [
+                    'mes' => $mayus($mesCrono, 'F'),
+                    'anio' => (int) $mesCrono->year,
+                    'dias' => $mesCrono->daysInMonth,
+                    'primer_dia' => $mesCrono->dayOfWeekIso,   // 1 = lunes … 7 = domingo
+                    'solicitudes' => $solicitudes->map(fn ($k) => [
+                        'numero' => $k->NUMERO, 'dia' => $k->FECHA_PLAN->day, 'llego' => $k->llego(),
+                    ])->values(),
+                ],
+            ];
+        }
+
+        return ['mes' => $mayus($mes, 'F Y'), 'cupos' => $resumen, 'patios' => $patios];
     }
 
     /**
@@ -281,17 +476,7 @@ class CuposCombustibleController extends Controller
         }
     }
 
-    /** DELETE consumibles/cupos/cisternas/{id} */
-    public function borrarCisterna(int $id)
-    {
-        $cisterna = CisternaCupo::findOrFail($id);
-        $cisterna->delete();
-        self::fotoAPapelera($cisterna->FOTO);
-
-        return response()->json(['ok' => true]);
-    }
-
-    /** El primer día del historial: el día 1 de hace MESES − 1 meses. */
+    /** El primer día que se puede ver y cargar: el día 1 de hace MESES − 1 meses. */
     public static function desde(): Carbon
     {
         return now()->startOfMonth()->startOfDay()->subMonths(self::MESES - 1);
@@ -307,6 +492,9 @@ class CuposCombustibleController extends Controller
             return $t;
         }
         $t = str_replace(' ', '', trim($t));
+        if ($t === '') {
+            return null;
+        }
         $coma = strrpos($t, ',');
         $punto = strrpos($t, '.');
         if ($coma !== false && $punto !== false) {

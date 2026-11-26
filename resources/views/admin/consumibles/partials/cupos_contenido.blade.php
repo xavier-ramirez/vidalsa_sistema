@@ -1,128 +1,42 @@
-{{-- Cuerpo del modal Cupos de Gasoil (se repinta solo tras guardar). Arriba el patio (desplegable);
-     del patio elegido, tres bloques: el cupo mensual (un cuadro de texto, sin barra ni «quedan»: a
-     pedido), la tablita de cisternas nuevas (fecha, litros y foto) y el historial mes a mes. --}}
+{{-- Cuerpo del modal Cupos de Gasoil. Arriba, en una fila, el patio y su cupo mensual; debajo, por
+     patio, UNA tabla con las cisternas del mes elegido (cupos_panel: se repinta sola, por patio). --}}
 @php
     $lt = fn ($n) => number_format((float) $n, fmod((float) $n, 1) ? 2 : 0, ',', '.');
-    $colores = ['TIGRE' => '#1F4E79', 'MATURIN' => '#5B9BD5'];
     $puede = auth()->user()->can('super.admin');
-    $nombreMes = fn ($m) => \App\Http\Controllers\CuposCombustibleController::nombreMes($m);
-    $rojo = fn ($n) => $n !== null && $n < 0 ? ' cupos-pasado' : '';
 @endphp
 
-<div class="cupos-patio">
-    <i class="material-icons">location_on</i>
-    <select data-elegir-patio aria-label="Patio">
-        @foreach ($patios as $clave => $p)
-            <option value="{{ $clave }}">{{ $p['nombre'] }}</option>
-        @endforeach
-    </select>
+<div class="cupos-arriba">
+    <div class="cupos-patio">
+        <i class="material-icons">location_on</i>
+        <select data-elegir-patio aria-label="Patio">
+            @foreach ($patios as $clave => $p)
+                <option value="{{ $clave }}">{{ $p['nombre'] }}</option>
+            @endforeach
+        </select>
+    </div>
+    {{-- El cupo del patio elegido, al lado (un cuadro por patio; se ve el del elegido). Se guarda con
+         Enter o al salir del cuadro. --}}
+    @foreach ($patios as $clave => $p)
+        <div class="cupos-cupo-lado" data-cupo-de="{{ $clave }}" hidden>
+            <span class="cupos-cupo-titulo">Cupo mensual</span>
+            @if ($puede)
+                <form class="cupos-cupo" data-accion="cupo">
+                    <input type="hidden" name="patio" value="{{ $clave }}">
+                    <label class="cupos-cupo-caja">
+                        <input type="text" name="litros" inputmode="decimal" placeholder="Escriba el cupo" autocomplete="off"
+                            aria-label="Cupo mensual de {{ $p['nombre'] }} en litros" value="{{ $p['cupo'] !== null ? $lt($p['cupo']) : '' }}">
+                        <span>L</span>
+                    </label>
+                </form>
+            @elseif ($p['cupo'] !== null)
+                <b class="cupos-cupo-valor">{{ $lt($p['cupo']) }} L</b>
+            @else
+                <b class="cupos-cupo-valor cupos-tenue">Sin cargar</b>
+            @endif
+        </div>
+    @endforeach
 </div>
 
 @foreach ($patios as $clave => $p)
-    <div class="cupos-panel" data-panel="{{ $clave }}" style="--color: {{ $colores[$clave] }};" hidden>
-
-        {{-- El cupo mensual del patio: título a la izquierda y el cuadro a la derecha, en una línea. --}}
-        <section class="cupos-bloque cupos-resumen">
-            <div class="cupos-cupo-fila">
-                <h3><i class="material-icons">speed</i> Cupo mensual</h3>
-                {{-- Un cuadro de texto, sin botones: se guarda al pulsar Enter o al salir del cuadro. --}}
-                @if ($puede)
-                    <form class="cupos-cupo" data-accion="cupo">
-                        <input type="hidden" name="patio" value="{{ $clave }}">
-                        <label class="cupos-cupo-caja">
-                            <input type="text" name="litros" inputmode="decimal" placeholder="Escriba el cupo" autocomplete="off"
-                                aria-label="Cupo mensual en litros" value="{{ $p['cupo'] !== null ? $lt($p['cupo']) : '' }}">
-                            <span>L</span>
-                        </label>
-                    </form>
-                @elseif ($p['cupo'] !== null)
-                    <b class="cupos-cupo-valor">{{ $lt($p['cupo']) }} L</b>
-                @else
-                    <b class="cupos-cupo-valor cupos-tenue">Sin cargar</b>
-                @endif
-            </div>
-        </section>
-
-        {{-- Cisternas nuevas: una tablita; al llenar los litros de la última fila aparece otra vacía
-             debajo, y se guardan todas juntas. novalidate: la fila vacía del final no cuenta ni frena
-             el guardado; valida el servidor, fila por fila. --}}
-        @if ($puede)
-            <form class="cupos-bloque" data-accion="cisterna" novalidate>
-                <input type="hidden" name="patio" value="{{ $clave }}">
-                <h3><i class="material-icons">local_shipping</i> Registrar cisternas</h3>
-                <table class="cupos-tbl">
-                    <thead><tr><th>Fecha</th><th class="num">Litros</th><th title="Foto de la cisterna (opcional)">Foto</th><th></th></tr></thead>
-                    <tbody data-filas>
-                        <tr data-fila>
-                            <td><input type="date" data-campo="fecha" required value="{{ now()->toDateString() }}" aria-label="Fecha"
-                                min="{{ \App\Http\Controllers\CuposCombustibleController::desde()->toDateString() }}" max="{{ now()->toDateString() }}"></td>
-                            <td><input type="text" data-campo="litros" class="num" inputmode="decimal" placeholder="Litros" autocomplete="off" aria-label="Litros"></td>
-                            {{-- Foto opcional de ESTA cisterna (sale con el Guardar). --}}
-                            <td class="cupos-acc"><label class="cupos-foto-btn" title="Foto de la cisterna (opcional)"><input type="file" accept="image/*" data-foto-fila hidden><i class="material-icons">photo_camera</i></label></td>
-                            <td class="cupos-acc"><button type="button" class="cupos-borrar" data-quitar-fila title="Quitar fila"><i class="material-icons">close</i></button></td>
-                        </tr>
-                    </tbody>
-                </table>
-                <div class="cupos-pie">
-                    <span class="cupos-lote-total" data-lote-total></span>
-                    <button type="submit" class="btn-primary-maquinaria btn-compacto"><i class="material-icons">save</i> Guardar</button>
-                </div>
-            </form>
-        @endif
-
-        {{-- Historial: empieza cerrado («Ver historial» lo abre; queda abierto al repintar) y se
-             descarga en Excel. Un bloque por mes con su resumen y sus cisternas. --}}
-        <section class="cupos-bloque">
-            <div class="cupos-hist-cab">
-                <h3><i class="material-icons">history</i> Historial</h3>
-                <button type="button" class="cupos-hist-btn" data-ver-historial aria-expanded="false"
-                    @if (!$p['meses']) disabled title="Todavía no hay cisternas" @endif>
-                    <i class="material-icons">visibility</i> <span>Ver historial</span>
-                </button>
-                <button type="button" class="cupos-hist-btn cupos-hist-excel" data-excel-historial="{{ $clave }}"
-                    data-nombre="Historial_Cupo_Gasoil_{{ str_replace(' ', '_', $p['nombre']) }}.xlsx"
-                    @if (!$p['meses']) disabled title="Todavía no hay cisternas" @endif>
-                    <i class="material-icons">download</i> Excel
-                </button>
-            </div>
-            <div class="cupos-hist-lista" data-lista-historial hidden>
-            @forelse ($p['meses'] as $m)
-                <div class="cupos-mes">
-                    <div class="cupos-mes-cab">
-                        <b>{{ $nombreMes($m['mes']) }}</b>
-                        <span>@if ($m['cupo'] !== $p['cupo'])Cupo {{ $m['cupo'] !== null ? $lt($m['cupo']) . ' L' : '—' }} · @endif{{ $m['filas']->count() === 1 ? '1 cisterna' : $m['filas']->count() . ' cisternas' }} · Surtido {{ $lt($m['surtido']) }} L · Quedó <b class="{{ $rojo($m['quedan']) }}">{{ $m['quedan'] !== null ? $lt($m['quedan']) . ' L' : '—' }}</b></span>
-                    </div>
-                    @foreach ($m['filas'] as $f)
-                        @php $k = $f['cisterna']; @endphp
-                        <div class="cupos-hist">
-                            <span class="cupos-hist-fecha">{{ $k->FECHA->format('d/m/Y') }}</span>
-                            <span class="cupos-hist-litros">{{ $lt($k->LITROS) }} L</span>
-                            <span class="cupos-hist-queda{{ $rojo($f['quedan']) }}">@if ($f['quedan'] !== null)<small>quedan</small> {{ $lt($f['quedan']) }} L @endif</span>
-                            {{-- Foto de la cisterna: si tiene, se ve; si no, se carga (super.admin). --}}
-                            @if ($k->FOTO)
-                                <button type="button" class="cupos-foto-btn cupos-foto-tiene" title="Ver la foto" data-ver-foto="{{ $k->FOTO }}"
-                                    data-texto="{{ $p['nombre'] }} · {{ $k->FECHA->format('d/m/Y') }} · {{ $lt($k->LITROS) }} L"><i class="material-icons">image</i></button>
-                            @elseif ($puede)
-                                <button type="button" class="cupos-foto-btn" title="Cargar la foto de esta cisterna" data-cargar-foto="{{ $k->ID_CISTERNA }}"><i class="material-icons">photo_camera</i></button>
-                            @else
-                                <span class="cupos-foto-vacia"></span>
-                            @endif
-                            @if ($puede)
-                                <button type="button" class="cupos-borrar" title="Quitar" data-borrar="{{ $k->ID_CISTERNA }}"
-                                    data-texto="{{ $p['nombre'] }} · {{ $k->FECHA->format('d/m/Y') }} · {{ $lt($k->LITROS) }} L">
-                                    <i class="material-icons">delete_outline</i>
-                                </button>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
-            @empty
-                <div class="cupos-vacio">
-                    <i class="material-icons">local_shipping</i>
-                    Todavía no hay cisternas de {{ $p['nombre'] }}.
-                </div>
-            @endforelse
-            </div>
-        </section>
-    </div>
+    @include('admin.consumibles.partials.cupos_panel')
 @endforeach

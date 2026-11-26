@@ -1,11 +1,11 @@
-{{-- Cargar consumibles → modal «Cupos de Gasoil»: se elige el patio y de él se ve el cupo (se edita
-     ahí), se cargan las cisternas surtidas (fecha y litros) y se ve su historial mes a mes. Lo abre
-     «Cupos de gasoil» del menú Acciones; con ?cupos=1 en la dirección se abre solo (desde las otras
-     pantallas). El cuerpo se repinta solo (consumibles.cupos?parcial=1). --}}
+{{-- Cargar consumibles → modal «Cupos de Gasoil»: arriba el patio y su cupo mensual (se edita ahí);
+     debajo, una sola tabla con las cisternas del mes elegido. Cada cisterna empieza como solicitud
+     (número y plan de despacho) y, al llegar, se le pone la llegada real, los litros y la foto en la
+     misma fila. Los meses anteriores son el historial; Excel baja todo el patio. Lo abre «Cupos de
+     gasoil» del menú Acciones; con ?cupos=1 en la dirección se abre solo. --}}
 <style>
-    /* Modal en tres bloques: resumen del mes, carga de cisternas e historial.
-       Colores del sistema: azul #0067b1 para acciones, grises pizarra; --color = el del patio. */
-    .cupos-modal { width: 94%; max-width: 560px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden;
+    /* Colores del sistema: azul #0067b1 para acciones, grises pizarra; --color = el del patio. */
+    .cupos-modal { width: 96%; max-width: 760px; box-sizing: border-box; padding: 0; border-radius: 16px; overflow: hidden;
         background: #f8fafc; margin: auto; max-height: 92vh; display: flex; flex-direction: column; text-align: left; }
     .cupos-modal:focus { outline: none; }
     .cupos-modal-cab { position: relative; background: var(--maquinaria-dark-blue); color: #fff; padding: 14px 48px; text-align: center; flex-shrink: 0; }
@@ -15,115 +15,123 @@
     .cupos-modal-x:hover { background: rgba(255,255,255,.12); }
     #cuposContenido { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 
-    /* Patio */
-    .cupos-patio { position: relative; }
-    .cupos-patio > i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 20px; color: #0067b1; pointer-events: none; }
-    .cupos-patio select { width: 100%; height: 44px; border: 1px solid #cbd5e0; border-radius: 12px; background-color: #fff;
-        padding: 0 12px 0 40px; font-size: 15px; font-weight: 700; color: #0f172a; font-family: inherit; cursor: pointer; outline: none; }
+    /* Fila de arriba: el patio (izquierda) y su cupo (derecha). */
+    .cupos-arriba { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; }
+    .cupos-patio { position: relative; flex: 1 1 auto; min-width: 0; }
+    .cupos-patio > i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 20px; color: #0067b1; pointer-events: none; }
+    .cupos-patio select { width: 100%; height: 40px; border: 1px solid #cbd5e0; border-radius: 10px; background-color: #fff;
+        padding: 0 10px 0 36px; font-size: 15px; font-weight: 700; color: #0f172a; font-family: inherit; cursor: pointer; outline: none; }
     .cupos-patio select:focus { border-color: #0067b1; box-shadow: 0 0 0 3px rgba(0,103,177,.12); }
-
-    .cupos-panel { display: flex; flex-direction: column; gap: 12px; }
-    .cupos-panel[hidden] { display: none; }
-
-    /* Bloques blancos */
-    .cupos-resumen, .cupos-bloque { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; }
-    /* Títulos de los tres bloques iguales: ícono del color del patio y texto oscuro. */
-    .cupos-bloque h3 { margin: 0 0 10px; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #0f172a; }
-    .cupos-bloque h3 i { font-size: 18px; color: var(--color); }
-
-    /* Cupo mensual: título y cuadro en una sola línea; el borde con el color del patio. */
-    .cupos-resumen { border-left: 4px solid var(--color); }
-    .cupos-cupo-fila { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-    .cupos-cupo-fila h3 { margin: 0; }
-    .cupos-cupo-valor { font-size: 20px; color: #0f172a; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .cupos-cupo-lado { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .cupos-cupo-lado[hidden] { display: none; }
+    .cupos-cupo-titulo { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
+    .cupos-cupo-valor { font-size: 18px; color: #0f172a; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .cupos-tenue { color: #94a3b8 !important; font-weight: 600; }
-    .cupos-pasado { color: #dc2626 !important; }
-    /* Cupo: un cuadro de texto simple con su «L» (se guarda con Enter o al salir). */
     .cupos-cupo { margin: 0; }
     .cupos-cupo-caja { position: relative; display: block; margin: 0; }
-    .cupos-cupo-caja input { width: 170px; height: 38px; border: 1px solid #cbd5e0; border-radius: 8px; background: #fff; padding: 0 28px 0 10px;
-        font-size: 18px; font-weight: 700; color: #0f172a; font-family: inherit; outline: none; box-sizing: border-box; text-align: right;
+    .cupos-cupo-caja input { width: 160px; height: 40px; border: 1px solid #cbd5e0; border-radius: 10px; background: #fff; padding: 0 26px 0 10px;
+        font-size: 17px; font-weight: 700; color: #0f172a; font-family: inherit; outline: none; box-sizing: border-box; text-align: right;
         font-variant-numeric: tabular-nums; }
-    .cupos-cupo-caja input::placeholder { font-size: 14px; font-weight: 500; color: #94a3b8; }
+    .cupos-cupo-caja input::placeholder { font-size: 13px; font-weight: 500; color: #94a3b8; }
     .cupos-cupo-caja input:focus { border-color: #0067b1; box-shadow: 0 0 0 3px rgba(0,103,177,.12); }
-    .cupos-cupo-caja span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 14px; color: #94a3b8; pointer-events: none; }
+    .cupos-cupo-caja span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; color: #94a3b8; pointer-events: none; }
 
-    /* Tablita de cisternas: fecha | litros | foto | quitar. La última fila siempre está vacía
-       (al llenarla aparece otra); esa no lleva la ×. */
-    .cupos-tbl { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-variant-numeric: tabular-nums;
-        border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-    .cupos-tbl th:nth-child(3) { width: 52px; text-align: center; }
-    .cupos-tbl th:nth-child(4) { width: 36px; }
+    .cupos-panel[hidden] { display: none; }
+    .cupos-bloque { background: #fff; border: 1px solid #e2e8f0; border-top: 3px solid var(--color); border-radius: 12px; padding: 12px 14px; margin: 0; }
+    .cupos-bloque h3 { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #0f172a; }
+    .cupos-bloque h3 i { font-size: 18px; color: var(--color); }
+
+    /* Cabecera de la tabla: título, mes y Excel. */
+    .cupos-tbl-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .cupos-tbl-cab h3 { margin-right: auto; }
+    .cupos-mes-sel { height: 32px; border: 1px solid #cbd5e0; border-radius: 8px; background: #fff; padding: 0 8px; font-size: 13px;
+        font-weight: 600; color: #0f172a; font-family: inherit; cursor: pointer; outline: none; }
+    .cupos-mes-sel:focus { border-color: #0067b1; }
+    .cupos-hist-btn { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px; border-radius: 8px;
+        border: 1px solid #cbd5e0; background: #fff; color: #0f172a; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
+    .cupos-hist-btn i { font-size: 18px; }
+    .cupos-hist-excel { border-color: #16a34a; color: #15803d; }
+    .cupos-hist-excel:hover { background: #f0fdf4; }
+
+    /* La tabla: N.º | Plan | Llegada | Litros | Foto | quitar. */
+    .cupos-tbl-marco { border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; }
+    .cupos-tbl { width: 100%; min-width: 600px; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
     .cupos-tbl th { background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
-        text-align: left; padding: 7px 8px; border-bottom: 1px solid #e2e8f0; }
+        text-align: left; padding: 7px 8px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
     .cupos-tbl th.num, .cupos-tbl td.num { text-align: right; }
-    .cupos-tbl td { padding: 0; border-bottom: 1px solid #eef2f6; }
+    .cupos-tbl .cupos-c-num { width: 84px; }
+    .cupos-tbl .cupos-c-acc { width: 44px; text-align: center; }
+    .cupos-tbl td { padding: 0; border-bottom: 1px solid #eef2f6; height: 38px; }
     .cupos-tbl tr:last-child td { border-bottom: none; }
     .cupos-tbl td + td { border-left: 1px solid #eef2f6; }
-    .cupos-tbl input { height: 36px; width: 100%; box-sizing: border-box; border: none; background: transparent; padding: 0 8px;
+    .cupos-tbl td.cupos-txt { padding: 0 8px; font-size: 14px; color: #0f172a; }
+    .cupos-tbl td.cupos-c-num { position: relative; padding-left: 14px; font-size: 14px; font-weight: 700; color: #0f172a; }
+    .cupos-tbl input { height: 37px; width: 100%; box-sizing: border-box; border: none; background: transparent; padding: 0 8px;
         font-size: 14px; font-family: inherit; color: #0f172a; outline: none; }
+    .cupos-tbl input[data-campo=numero] { font-weight: 700; padding-left: 2px; }
     .cupos-tbl input.num { text-align: right; }
     .cupos-tbl input:focus { background: #f5f9fd; box-shadow: inset 0 0 0 2px #0067b1; }
-    .cupos-tbl input.cupos-mal { background: #fef2f2; box-shadow: inset 0 0 0 2px #dc2626; }
-    .cupos-acc { text-align: center; }
-    .cupos-tbl tr:last-child .cupos-borrar { visibility: hidden; }
-    /* Foto de cada cisterna: gris sin foto, azul con foto elegida o guardada. */
+    .cupos-tbl input.cupos-mal, .cupos-foto-btn.cupos-mal { background: #fef2f2; box-shadow: inset 0 0 0 2px #dc2626; }
+    .cupos-tbl tr.cupos-cambiada td { background: #fffbeb; }
+    /* Estado de cada solicitud: verde = llegó; rojo = programada (como el cronograma). */
+    .cupos-estado { position: absolute; left: 5px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: transparent; }
+    .cupos-llego .cupos-estado { background: #16a34a; }
+    .cupos-programada .cupos-estado { background: #dc2626; }
+    .cupos-tbl tr[data-nueva]:last-child .cupos-borrar { visibility: hidden; }
     .cupos-foto-btn { border: none; background: none; cursor: pointer; color: #94a3b8; padding: 4px; display: inline-flex; justify-content: center;
         border-radius: 6px; margin: 0; }
     .cupos-foto-btn:hover { color: #0067b1; background: #e1effa; }
     .cupos-foto-btn i { font-size: 18px; }
     .cupos-foto-btn.cupos-foto-lista, .cupos-foto-tiene { color: #0067b1; }
-    .cupos-foto-visor { position: fixed; inset: 0; z-index: 100000; background: rgba(15,23,42,.85); display: flex; flex-direction: column;
-        align-items: center; justify-content: center; gap: 10px; padding: 16px; box-sizing: border-box; cursor: zoom-out; }
-    .cupos-foto-visor img { max-width: 100%; max-height: calc(100% - 40px); border-radius: 8px; background: #fff; object-fit: contain; }
-    .cupos-foto-visor span { color: #fff; font-size: 13px; font-weight: 600; }
-    .cupos-pie { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
-    .cupos-lote-total { flex: 1; text-align: right; font-size: 12px; color: #475569; font-weight: 600; }
-    .cupos-pie .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; height: 36px; }
-
-    /* Historial */
-    /* Cabecera del historial: título y, a la derecha, «Ver historial» y «Excel». */
-    .cupos-hist-cab { display: flex; align-items: center; gap: 8px; }
-    .cupos-hist-cab h3 { margin: 0 auto 0 0; }
-    .cupos-hist-btn { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px; border-radius: 8px;
-        border: 1px solid #cbd5e0; background: #fff; color: #0f172a; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
-    .cupos-hist-btn i { font-size: 18px; }
-    .cupos-hist-btn:hover:not(:disabled) { background: #f1f5f9; }
-    .cupos-hist-excel { border-color: #16a34a; color: #15803d; }
-    .cupos-hist-excel:hover:not(:disabled) { background: #f0fdf4; }
-    .cupos-hist-btn:disabled { opacity: .45; cursor: default; }
-    .cupos-hist-lista { margin-top: 10px; }
-    .cupos-mes + .cupos-mes { margin-top: 12px; }
-    .cupos-mes-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap;
-        background: #f1f5f9; border-radius: 8px; padding: 8px 10px; font-size: 12px; color: #475569; box-shadow: inset 3px 0 0 var(--color); }
-    .cupos-mes-cab > b { color: #0f172a; font-size: 13px; }
-    .cupos-mes-cab span b { color: #0f172a; }
-    .cupos-hist { display: grid; grid-template-columns: 1fr 1fr 1.2fr 32px 32px; gap: 8px; align-items: center; padding: 6px 0 6px 10px;
-        border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #1e293b; font-variant-numeric: tabular-nums; }
-    .cupos-hist:last-child { border-bottom: none; }
-    .cupos-hist-litros { text-align: right; font-weight: 600; }
-    .cupos-hist-queda { text-align: right; color: #475569; white-space: nowrap; }
-    .cupos-hist-queda small { color: #94a3b8; font-size: 11px; }
-    .cupos-vacio { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #94a3b8; font-size: 13px; padding: 14px 8px; text-align: center; }
-    .cupos-vacio i { font-size: 32px; color: #cbd5e0; }
     .cupos-borrar { border: none; background: none; cursor: pointer; color: #94a3b8; padding: 4px; display: inline-flex; justify-content: center; border-radius: 6px; }
     .cupos-borrar:hover { color: #dc2626; background: #fef2f2; }
     .cupos-borrar i { font-size: 18px; }
+    .cupos-vacio { text-align: center; color: #94a3b8; font-size: 13px; padding: 16px 8px !important; height: auto !important; }
+    .cupos-vacio i { display: block; font-size: 30px; color: #cbd5e0; margin: 0 auto 4px; }
+
+    .cupos-pie { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    .cupos-resumen-mes { flex: 1 1 auto; font-size: 12px; color: #475569; }
+    .cupos-resumen-mes b { color: #0f172a; }
+    .cupos-cambios { font-size: 12px; font-weight: 600; color: #b45309; }
+    .cupos-pie .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; height: 36px; }
+    .cupos-pie .btn-primary-maquinaria:disabled { opacity: .45; cursor: default; }
     .cupos-ocupado { opacity: .55; pointer-events: none; }
 
+    .cupos-foto-visor { position: fixed; inset: 0; z-index: 100000; background: rgba(15,23,42,.85); display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 10px; padding: 16px; box-sizing: border-box; cursor: zoom-out; }
+    .cupos-foto-visor img { max-width: 100%; max-height: calc(100% - 80px); border-radius: 8px; background: #fff; object-fit: contain; }
+    .cupos-foto-visor span { color: #fff; font-size: 13px; font-weight: 600; text-align: center; }
+    .cupos-foto-visor button { cursor: pointer; border: none; border-radius: 8px; background: #fff; color: #0f172a; font: 600 13px inherit;
+        font-family: inherit; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; }
+
     @media (max-width: 600px) {
-        #cuposContenido { padding: 12px; }
-        .cupos-resumen, .cupos-bloque { padding: 12px; }
-        .cupos-cupo-valor { font-size: 18px; }
-        .cupos-cupo-caja input { width: 150px; font-size: 16px; }
-        .cupos-tbl input { padding: 0 6px; font-size: 13px; }
-        .cupos-pie { flex-wrap: wrap; }
-        .cupos-lote-total { flex: 1 1 auto; }
+        #cuposContenido { padding: 10px; }
+        .cupos-arriba { flex-wrap: wrap; }
+        .cupos-patio { flex-basis: 100%; }
+        .cupos-cupo-lado { flex: 1 1 100%; justify-content: space-between; }
+        .cupos-bloque { padding: 10px; }
+        .cupos-tbl-cab { flex-wrap: wrap; }
         .cupos-pie .btn-primary-maquinaria { flex: 1 1 100%; justify-content: center; }
-        .cupos-hist { grid-template-columns: 1fr 1fr 28px 28px; padding-left: 6px; }
-        .cupos-hist-queda { grid-column: 1 / 3; grid-row: 2; text-align: left; font-size: 12px; }
-        .cupos-hist .cupos-foto-btn, .cupos-hist .cupos-foto-vacia { grid-row: 1 / 3; grid-column: 3; }
-        .cupos-hist .cupos-borrar { grid-row: 1 / 3; grid-column: 4; }
+        /* Cada cisterna, una tarjeta de dos renglones: N.º | Plan | Llegada | foto, y debajo Litros | quitar. */
+        .cupos-tbl-marco { overflow: visible; border: none; }
+        .cupos-tbl { min-width: 0; display: block; }
+        .cupos-tbl thead { display: none; }
+        .cupos-tbl tbody { display: flex; flex-direction: column; gap: 8px; }
+        .cupos-tbl tr { display: grid; grid-template-columns: 52px 1fr 1fr 40px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fff; }
+        .cupos-tbl td { height: auto; border: none !important; position: relative; }
+        .cupos-tbl td[data-l] { padding-top: 14px; }
+        .cupos-tbl td[data-l]::before { content: attr(data-l); position: absolute; left: 8px; top: 3px; font-size: 9px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .3px; color: #94a3b8; }
+        .cupos-tbl td.cupos-txt[data-l] { padding-top: 16px; padding-bottom: 6px; }
+        .cupos-tbl td:nth-child(1) { grid-row: 1 / 3; grid-column: 1; display: flex; align-items: center; border-right: 1px solid #eef2f6 !important; }
+        .cupos-tbl td:nth-child(2) { grid-row: 1; grid-column: 2; }
+        .cupos-tbl td:nth-child(3) { grid-row: 1; grid-column: 3; border-left: 1px solid #eef2f6 !important; }
+        .cupos-tbl td:nth-child(4) { grid-row: 2; grid-column: 2 / 4; border-top: 1px solid #eef2f6 !important; }
+        .cupos-tbl td:nth-child(4) input { text-align: left; }
+        .cupos-tbl td:nth-child(5) { grid-row: 1; grid-column: 4; display: flex; align-items: center; justify-content: center; }
+        .cupos-tbl td:nth-child(6) { grid-row: 2; grid-column: 4; display: flex; align-items: center; justify-content: center; border-top: 1px solid #eef2f6 !important; }
+        .cupos-tbl input { height: 30px; font-size: 13px; padding: 0 6px; }
+        .cupos-tbl td.cupos-vacio { grid-column: 1 / -1; grid-row: auto; display: block; }
     }
 </style>
 
@@ -141,43 +149,35 @@
 
 <script>
     (function () {
-        var URL_LISTA = @json(route('consumibles.cupos', ['parcial' => 1]));
+        var URL_PANEL = @json(route('consumibles.cupos', ['parcial' => 1]));
         var URL_CUPO = @json(route('consumibles.cupos.guardar'));
         var URL_CISTERNA = @json(route('consumibles.cupos.cisterna'));
         var URL_BORRAR = @json(route('consumibles.cupos.borrarCisterna', ['id' => '__ID__']));
         var URL_EXCEL = @json(route('consumibles.cupos.excel'));
         var URL_FOTO = @json(route('consumibles.cupos.fotoCisterna', ['id' => '__ID__']));
         var JSON_H = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+        var CAMPOS = ['numero', 'plan', 'llegada', 'litros'];
         var modal = document.getElementById('cuposModal');
         if (!modal) return;
 
-        function caja() { return document.getElementById('cuposContenido'); }
         function aviso(msg, tipo) { if (window.showToast) window.showToast(msg, tipo); else console.log(msg); }
+        function panelDe(patio) { return modal.querySelector('[data-panel="' + patio + '"]'); }
 
-        // El patio elegido se mantiene al repintar y al volver a abrir.
+        // El patio elegido (su tabla y, arriba, su cupo) se mantiene al repintar y al volver a abrir.
         function mostrarPatio(patio) {
-            if (!modal.querySelector('[data-panel="' + patio + '"]')) patio = 'TIGRE';
+            if (!panelDe(patio)) patio = 'TIGRE';
             window.__cuposPatio = patio;
             var sel = modal.querySelector('[data-elegir-patio]');
             if (sel) sel.value = patio;
             modal.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = p.dataset.panel !== patio; });
-            verHistorial(!!window.__cuposHistorial);
-        }
-        // «Ver historial» abre o cierra la lista (en los dos patios: queda igual al cambiar de patio y al repintar).
-        function verHistorial(abierto) {
-            window.__cuposHistorial = abierto;
-            modal.querySelectorAll('[data-lista-historial]').forEach(function (l) { l.hidden = !abierto; });
-            modal.querySelectorAll('[data-ver-historial]').forEach(function (b) {
-                b.setAttribute('aria-expanded', abierto ? 'true' : 'false');
-                b.querySelector('i').textContent = abierto ? 'visibility_off' : 'visibility';
-                b.querySelector('span').textContent = abierto ? 'Ocultar historial' : 'Ver historial';
-            });
+            modal.querySelectorAll('[data-cupo-de]').forEach(function (c) { c.hidden = c.dataset.cupoDe !== patio; });
         }
         mostrarPatio(window.__cuposPatio || 'TIGRE');
+        modal.querySelectorAll('[data-panel]').forEach(function (p) { prepararPanel(p); });
 
         // Al abrir, el foco entra al modal (Escape lo cierra sin tocar antes con el ratón).
         function abrir() { modal.classList.add('active'); modal.querySelector('.cupos-modal').focus(); }
-        // Al cerrar se quita ?cupos de la dirección (recargar no lo abre de nuevo); lo demás queda igual.
+        // Al cerrar se quita ?cupos de la dirección (recargar no lo abre de nuevo).
         function cerrar() {
             modal.classList.remove('active');
             var u = new URL(location.href);
@@ -185,60 +185,22 @@
         }
         if (modal.dataset.abrir) abrir();
 
-        // Repinta el cuerpo (sin recargar la página). Lo escrito y aún sin guardar se copia AL
-        // LLEGAR la respuesta (no antes: se puede seguir escribiendo mientras tanto) y se vuelve a
-        // poner: las cisternas con su foto elegida (salvo las del patio que se acaba de guardar),
-        // un cupo cambiado y no enviado (se envía), y el cuadro donde estaba el cursor.
-        function repintar(guardado) {
-            var c = caja();
-            return window.apiFetch(URL_LISTA, { headers: JSON_H })
+        // Repinta la tabla de UN patio (con el mes dado); la del otro patio, con lo que tenga escrito, no se toca.
+        function repintarPanel(patio, mes) {
+            var viejo = panelDe(patio);
+            var url = URL_PANEL + '&patio=' + encodeURIComponent(patio) + '&mes=' + encodeURIComponent(mes || viejo.dataset.mes);
+            return window.apiFetch(url, { headers: JSON_H })
                 .then(function (r) { return r.ok ? r.text() : Promise.reject(); })
                 .then(function (html) {
-                    var pendientes = {}, cupos = {}, foco = null, act = document.activeElement;
-                    c.querySelectorAll('[data-panel]').forEach(function (p) {
-                        var patio = p.dataset.panel;
-                        var cupo = p.querySelector('.cupos-cupo input[name=litros]');
-                        if (cupo && cupo.value.trim() !== '' && !mismoCupo(cupo) && cupo.value !== cupo.dataset.enviado) cupos[patio] = cupo.value;
-                        if (cupo && act === cupo) foco = { patio: patio, cupo: true };
-                        if (patio === guardado) return;
-                        var trs = p.querySelectorAll('[data-fila]');
-                        Array.prototype.forEach.call(trs, function (tr, i) {
-                            var campo = act && tr.contains(act) && act.dataset.campo;
-                            if (campo) foco = { patio: patio, fila: i, campo: campo };
-                        });
-                        // La foto viaja como el mismo campo (su archivo no se puede copiar a otro).
-                        var filas = Array.prototype.map.call(trs, function (tr) {
-                            return [tr.querySelector('[data-campo=fecha]').value, tr.querySelector('[data-campo=litros]').value, conFoto(tr)];
-                        }).filter(function (f) { return f[1].trim() !== ''; });
-                        if (filas.length) pendientes[patio] = filas;
-                    });
-                    c.innerHTML = html;
+                    var t = document.createElement('template');
+                    t.innerHTML = html.trim();
+                    var nuevo = t.content.querySelector('[data-panel]');
+                    if (!nuevo || !viejo.isConnected) return;
+                    viejo.replaceWith(nuevo);
+                    prepararPanel(nuevo);
                     mostrarPatio(window.__cuposPatio);
-                    Object.keys(pendientes).forEach(function (patio) {
-                        var tbody = c.querySelector('[data-panel="' + patio + '"] [data-filas]');
-                        if (tbody) ponerFilas(tbody, pendientes[patio]);
-                    });
-                    Object.keys(cupos).forEach(function (patio) {
-                        var cupo = c.querySelector('[data-panel="' + patio + '"] .cupos-cupo input[name=litros]');
-                        if (!cupo) return;
-                        cupo.value = cupos[patio];
-                        if (!(foco && foco.cupo && foco.patio === patio)) enviarForm(cupo.form);   // ya salió del cuadro
-                    });
-                    if (foco) {
-                        var p = c.querySelector('[data-panel="' + foco.patio + '"]');
-                        var el = !p ? null : foco.cupo ? p.querySelector('.cupos-cupo input[name=litros]')
-                            : (p.querySelectorAll('[data-fila]')[foco.fila] || p.querySelector('[data-fila]:last-child')).querySelector('[data-campo=' + foco.campo + ']');
-                        if (el) el.focus();
-                    }
                 })
                 .catch(function () { aviso('No se pudo actualizar. Revise la conexión.', 'error'); });
-        }
-        // El cupo escrito es el mismo que el guardado aunque cambie la forma («38000» = «38.000»).
-        function mismoCupo(input) { return numeroLitros(input.value) === numeroLitros(input.defaultValue); }
-        // requestSubmit no existe en Safari antes de iOS 16: ahí, el evento submit a mano.
-        function enviarForm(f) {
-            if (f.requestSubmit) f.requestSubmit();
-            else f.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         }
 
         function enviar(url, metodo, cuerpo) {
@@ -249,6 +211,11 @@
                         return b;
                     });
                 });
+        }
+        // requestSubmit no existe en Safari antes de iOS 16: ahí, el evento submit a mano.
+        function enviarForm(f) {
+            if (f.requestSubmit) f.requestSubmit();
+            else f.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         }
 
         // «Cupos de gasoil» del menú Acciones: abre el modal y cierra el menú.
@@ -261,63 +228,169 @@
             });
         });
 
+        // ── Filas ──
+        function campo(tr, c) { return tr.querySelector('[data-campo=' + c + ']'); }
+        function conFoto(tr) {
+            var i = tr.querySelector('[data-foto-fila]');
+            return !!(i && i.files && i.files[0]);
+        }
+        // Una fila nueva cuenta si tiene algo escrito o una foto; una guardada, si algo cambió.
+        function llena(tr) {
+            return conFoto(tr) || CAMPOS.some(function (c) { var i = campo(tr, c); return i && i.value.trim() !== ''; });
+        }
+        function cambiada(tr) {
+            if (tr.hasAttribute('data-nueva')) return llena(tr);
+            return conFoto(tr) || CAMPOS.some(function (c) { var i = campo(tr, c); return i && i.value !== i.defaultValue; });
+        }
+        // El punto de estado sigue a lo escrito: verde con llegada y litros; rojo si no.
+        function marcarEstado(tr) {
+            var llego = campo(tr, 'llegada') && campo(tr, 'llegada').value && numeroLitros(campo(tr, 'litros').value) > 0;
+            tr.classList.toggle('cupos-llego', !!llego);
+            tr.classList.toggle('cupos-programada', !llego && llena(tr));
+        }
+        // La última fila nueva siempre está vacía: al llenarla aparece otra (con el número siguiente de
+        // sugerencia); si sobran vacías al final, se quitan.
+        function filaAlFinal(tbody) {
+            var nuevas = tbody.querySelectorAll('[data-nueva]');
+            var ultima = nuevas[nuevas.length - 1];
+            if (!ultima) return;
+            if (llena(ultima)) {
+                var otra = ultima.cloneNode(true);
+                otra.classList.remove('cupos-llego', 'cupos-programada', 'cupos-cambiada');
+                otra.querySelectorAll('input').forEach(function (i) {
+                    i.classList.remove('cupos-mal');
+                    i.value = '';
+                });
+                var n = campo(otra, 'numero'), previo = parseInt(campo(ultima, 'numero').value || campo(ultima, 'numero').placeholder, 10);
+                if (!isNaN(previo)) n.placeholder = previo + 1;
+                marcarFoto(otra.querySelector('[data-foto-fila]'));
+                tbody.appendChild(otra);
+            } else {
+                while (nuevas.length > 1 && !llena(nuevas[nuevas.length - 1]) && !llena(nuevas[nuevas.length - 2])) {
+                    nuevas[nuevas.length - 1].remove();
+                    nuevas = tbody.querySelectorAll('[data-nueva]');
+                }
+            }
+        }
+        // Cuántas filas cambiaron: se avisa y Guardar se enciende.
+        function contarCambios(form) {
+            var n = Array.prototype.filter.call(form.querySelectorAll('[data-fila]'), function (tr) {
+                var c = cambiada(tr);
+                tr.classList.toggle('cupos-cambiada', c);
+                return c;
+            }).length;
+            var t = form.querySelector('[data-cambios]'), g = form.querySelector('[data-guardar]');
+            if (t) t.textContent = n ? (n === 1 ? '1 fila sin guardar' : n + ' filas sin guardar') : '';
+            if (g) g.disabled = !n;
+            return n;
+        }
+        function prepararPanel(p) {
+            var tbody = p.querySelector('[data-filas]');
+            if (tbody) filaAlFinal(tbody);
+            var f = p.querySelector('form[data-accion=cisterna]');
+            if (f) contarCambios(f);
+        }
+        function marcarFoto(input) {
+            if (!input) return;
+            var lista = !!(input.files && input.files[0]);
+            var btn = input.closest('.cupos-foto-btn');
+            btn.classList.toggle('cupos-foto-lista', lista);
+            btn.classList.remove('cupos-mal');
+            btn.title = lista ? 'Foto: ' + input.files[0].name + ' (sale con Guardar)' : 'Foto de la cisterna (sale con Guardar)';
+        }
+        // Los litros como en el servidor: «38.000» = 38000, «1.250,5» = 1250.5.
+        function numeroLitros(t) {
+            t = String(t || '').replace(/\s/g, '');
+            var coma = t.lastIndexOf(','), punto = t.lastIndexOf('.');
+            if (coma !== -1 && punto !== -1) t = coma > punto ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
+            else if (coma !== -1) t = t.split(',').length > 2 ? t.replace(/,/g, '') : t.replace(',', '.');
+            else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+            var n = parseFloat(t);
+            return isNaN(n) ? 0 : n;
+        }
+        function mismoCupo(input) { return numeroLitros(input.value) === numeroLitros(input.defaultValue); }
+        function sinGuardar(patio) {
+            var f = panelDe(patio) && panelDe(patio).querySelector('form[data-accion=cisterna]');
+            return f ? contarCambios(f) : 0;
+        }
+        // Si hay filas sin guardar, pregunta antes de perderlas.
+        function siPuedePerder(patio, hacer) {
+            if (!sinGuardar(patio)) { hacer(); return; }
+            window.confirmarAccion({
+                title: 'Filas sin guardar',
+                message: 'Hay cambios en la tabla que no se han guardado. ¿Dejarlos?',
+                confirmText: 'Dejarlos', type: 'warning',
+            }, hacer);
+        }
+
         modal.addEventListener('submit', function (e) {
             var f = e.target.closest('form[data-accion]');
             if (!f) return;
             e.preventDefault();
-            // Un envío a la vez: Enter dos veces no guarda la misma cisterna dos veces. (Un cupo
-            // cambiado mientras tanto no se pierde: lo vuelve a enviar repintar.)
-            if (f.dataset.enviando) return;
-            var esCupo = f.dataset.accion === 'cupo';
-            var cupo = esCupo ? f.querySelector('input[name=litros]') : null;
-            if (cupo) {
-                // Sin cambios no se envía; vacío vuelve a lo que tenía.
-                if (cupo.value.trim() === '') cupo.value = cupo.defaultValue;
-                if (mismoCupo(cupo)) return;
-                cupo.dataset.enviado = cupo.value;
-            }
+            if (f.dataset.enviando) return;   // un envío a la vez (Enter dos veces no guarda dos veces)
+            var patio = f.querySelector('[name=patio]').value;
+            if (f.dataset.accion === 'cupo') { guardarCupo(f, patio); return; }
+
+            var filas = Array.prototype.filter.call(f.querySelectorAll('[data-fila]'), cambiada);
+            if (!filas.length) return;
+            var datos = new FormData();
+            datos.append('patio', patio);
+            filas.forEach(function (tr, i) {
+                var k = 'cisternas[' + i + ']';
+                if (tr.dataset.id) datos.append(k + '[id]', tr.dataset.id);
+                CAMPOS.forEach(function (c) { datos.append(k + '[' + c + ']', campo(tr, c).value.trim()); });
+                var foto = tr.querySelector('[data-foto-fila]');
+                if (foto && foto.files && foto.files[0]) datos.append(k + '[foto]', foto.files[0]);
+            });
+            f.querySelectorAll('.cupos-mal').forEach(function (i) { i.classList.remove('cupos-mal'); });
             f.dataset.enviando = '1';
-            var datos = new FormData(f), filas = [];
-            if (!esCupo) {
-                // Solo las filas con litros (las vacías no cuentan); cada una con su número para marcar errores.
-                filas = Array.prototype.filter.call(f.querySelectorAll('[data-fila]'), function (tr) {
-                    return tr.querySelector('[data-campo=litros]').value.trim() !== '';
-                });
-                if (!filas.length) {
-                    delete f.dataset.enviando;
-                    aviso('Escriba los litros de al menos una cisterna.', 'error');
-                    f.querySelector('[data-campo=litros]').focus();
-                    return;
-                }
-                filas.forEach(function (tr, i) {
-                    datos.append('cisternas[' + i + '][fecha]', tr.querySelector('[data-campo=fecha]').value);
-                    datos.append('cisternas[' + i + '][litros]', tr.querySelector('[data-campo=litros]').value);
-                    var foto = tr.querySelector('[data-foto-fila]');
-                    if (foto && foto.files && foto.files[0]) datos.append('cisternas[' + i + '][foto]', foto.files[0]);
-                });
-                f.querySelectorAll('.cupos-mal').forEach(function (i) { i.classList.remove('cupos-mal'); });
-            }
             f.classList.add('cupos-ocupado');
-            enviar(esCupo ? URL_CUPO : URL_CISTERNA, 'POST', datos)
+            enviar(URL_CISTERNA, 'POST', datos)
                 .then(function (b) {
-                    // Ya guardado: si el repintado fallara, Escape no vuelve a un cupo que ya no es el guardado.
-                    if (cupo) cupo.defaultValue = cupo.dataset.enviado;
-                    aviso(esCupo ? 'Cupo guardado.' : (b.guardadas === 1 ? 'Cisterna guardada.' : b.guardadas + ' cisternas guardadas.'), 'success');
-                    return repintar(esCupo ? null : f.querySelector('[name=patio]').value);
+                    var mes = f.closest('[data-panel]').dataset.mes, otros = [];
+                    Object.keys(b.meses || {}).forEach(function (m) { if (m !== mes) otros.push(b.meses[m]); });
+                    aviso((b.guardadas === 1 ? 'Cisterna guardada.' : b.guardadas + ' cisternas guardadas.')
+                        + (otros.length ? ' Quedó en ' + otros.join(', ') + '.' : ''), 'success');
+                    delete f.dataset.enviando;
+                    return repintarPanel(patio);
                 })
                 .catch(function (m) {
-                    // Marca en rojo la fila y el campo que fallaron (cisternas.N.campo) y dice la primera.
+                    // Marca en rojo el campo que falló (cisternas.N.campo) y dice el primero.
                     var errores = (m && m.errores) || {}, primero = '';
                     Object.keys(errores).forEach(function (k) {
                         var p = k.split('.');
                         if (p[0] !== 'cisternas' || !filas[p[1]]) return;
-                        filas[p[1]].querySelector('[data-campo=' + p[2] + ']').classList.add('cupos-mal');
-                        if (!primero) primero = 'Fila ' + (+p[1] + 1) + ': ' + errores[k][0];
+                        var tr = filas[p[1]];
+                        var el = p[2] === 'foto' ? tr.querySelector('.cupos-foto-btn') : campo(tr, p[2]);
+                        if (el) el.classList.add('cupos-mal');
+                        var n = campo(tr, 'numero');
+                        if (!primero) primero = 'Solicitud ' + (n.value || n.placeholder || (+p[1] + 1)) + ': ' + errores[k][0];
                     });
                     aviso(primero || (m && m.mensaje) || 'No se pudo guardar.', 'error');
                 })
                 .finally(function () { delete f.dataset.enviando; f.classList.remove('cupos-ocupado'); });
         });
+
+        function guardarCupo(f, patio) {
+            var cupo = f.querySelector('input[name=litros]');
+            if (cupo.value.trim() === '') cupo.value = cupo.defaultValue;   // vacío vuelve a lo que tenía
+            if (mismoCupo(cupo)) return;
+            var valor = cupo.value;
+            f.dataset.enviando = '1';
+            enviar(URL_CUPO, 'POST', new FormData(f))
+                .then(function () {
+                    cupo.defaultValue = valor;
+                    aviso('Cupo guardado.', 'success');
+                    // La nota «cupo de ese mes» de la tabla, al día (si no hay filas sin guardar).
+                    if (!sinGuardar(patio)) repintarPanel(patio);
+                })
+                .catch(function (m) { aviso((m && m.mensaje) || 'No se pudo guardar el cupo.', 'error'); })
+                .finally(function () {
+                    delete f.dataset.enviando;
+                    // Cambiado otra vez mientras se guardaba: se envía lo último.
+                    if (cupo.value !== valor && !mismoCupo(cupo) && document.activeElement !== cupo) enviarForm(f);
+                });
+        }
 
         // Se cierra al tocar fuera solo si el toque EMPEZÓ fuera (no al soltar ahí una selección de texto).
         var abajoEnFondo = false;
@@ -325,12 +398,15 @@
         modal.addEventListener('click', function (e) {
             if ((e.target === modal && abajoEnFondo) || e.target.closest('[data-cerrar-modal]')) { cerrar(); return; }
             var ver = e.target.closest('[data-ver-foto]');
-            if (ver) { verFoto(ver.dataset.verFoto, ver.dataset.texto); return; }
-            var cargar = e.target.closest('[data-cargar-foto]');
-            if (cargar) { elegirFoto(cargar.dataset.cargarFoto); return; }
+            if (ver) { verFoto(ver); return; }
             var quitar = e.target.closest('[data-quitar-fila]');
-            if (quitar) { quitarFila(quitar.closest('[data-fila]')); return; }
-            if (e.target.closest('[data-ver-historial]')) { verHistorial(!window.__cuposHistorial); return; }
+            if (quitar) {
+                var tr = quitar.closest('[data-fila]'), tbody = tr.parentNode, form = tr.closest('form');
+                tr.remove();
+                filaAlFinal(tbody);
+                contarCambios(form);
+                return;
+            }
             var xl = e.target.closest('[data-excel-historial]');
             if (xl) {
                 window.descargarArchivo(URL_EXCEL + '?patio=' + encodeURIComponent(xl.dataset.excelHistorial), null,
@@ -344,118 +420,57 @@
                 message: 'Se quitará: <b>' + b.dataset.texto.replace(/</g, '&lt;') + '</b>',
                 confirmText: 'Quitar', type: 'warning',
             }, function () {
+                var fila = b.closest('[data-fila]'), panel = b.closest('[data-panel]');
                 enviar(URL_BORRAR.replace('__ID__', b.dataset.borrar), 'DELETE')
-                    .then(function () { aviso('Cisterna quitada.', 'success'); return repintar(); })
+                    .then(function () {
+                        aviso('Cisterna quitada.', 'success');
+                        // Con filas sin guardar en la tabla, solo se quita esa (lo escrito no se pierde).
+                        fila.remove();
+                        if (!sinGuardar(panel.dataset.panel)) repintarPanel(panel.dataset.panel);
+                    })
                     .catch(function (m) { aviso(m && m.mensaje ? m.mensaje : 'No se pudo quitar.', 'error'); });
             });
         });
 
-        // ── Tablita de cisternas: filas ──
-        // La última fila siempre está vacía: al llenar sus litros aparece otra debajo (con la misma
-        // fecha: las cisternas de un día suelen ir juntas); si quedan dos vacías al final, sobra una.
-        function vacia(tr) { return tr.querySelector('[data-campo=litros]').value.trim() === ''; }
-        function filaAlFinal(tbody) {
-            var filas = tbody.querySelectorAll('[data-fila]');
-            var ultima = filas[filas.length - 1];
-            if (!vacia(ultima)) {
-                var nueva = ultima.cloneNode(true);
-                nueva.querySelector('[data-campo=litros]').value = '';
-                nueva.querySelectorAll('.cupos-mal').forEach(function (i) { i.classList.remove('cupos-mal'); });
-                // La foto es de cada cisterna: la fila nueva empieza sin foto.
-                var fotoNueva = nueva.querySelector('[data-foto-fila]');
-                if (fotoNueva) { fotoNueva.value = ''; marcarFoto(fotoNueva); }
-                tbody.appendChild(nueva);
-            } else {
-                while (filas.length > 1 && vacia(filas[filas.length - 1]) && vacia(filas[filas.length - 2])) {
-                    // La fecha (y la foto) que se hayan elegido en la que sobra pasan a la que queda.
-                    var sobra = filas[filas.length - 1], queda = filas[filas.length - 2];
-                    queda.querySelector('[data-campo=fecha]').value = sobra.querySelector('[data-campo=fecha]').value;
-                    if (conFoto(sobra) && !conFoto(queda)) ponerFoto(queda, conFoto(sobra));
-                    sobra.remove();
-                    filas = tbody.querySelectorAll('[data-fila]');
-                }
-            }
-            recalcular(tbody);
-        }
-        // Vuelve a poner filas escritas ([[fecha, litros, campo de foto], ...]) en una tabla recién pintada.
-        function ponerFilas(tbody, filas) {
-            filas.forEach(function (f) {
-                var tr = tbody.querySelector('[data-fila]:last-child');
-                tr.querySelector('[data-campo=fecha]').value = f[0];
-                tr.querySelector('[data-campo=litros]').value = f[1];
-                if (f[2]) ponerFoto(tr, f[2]);
-                filaAlFinal(tbody);
-            });
-        }
-        // El campo de foto de la fila si tiene una elegida; si no, null.
-        function conFoto(tr) {
-            var i = tr.querySelector('[data-foto-fila]');
-            return i && i.files && i.files[0] ? i : null;
-        }
-        // Pone en la fila el campo de foto (con su archivo) de otra.
-        function ponerFoto(tr, input) {
-            tr.querySelector('[data-foto-fila]').replaceWith(input);
-            marcarFoto(input);
-        }
-        // Con foto elegida el botón queda azul (se sube con Guardar) y dice cuál es.
-        function marcarFoto(input) {
-            var lista = !!(input.files && input.files[0]);
-            var btn = input.closest('.cupos-foto-btn');
-            btn.classList.toggle('cupos-foto-lista', lista);
-            btn.title = lista ? 'Foto: ' + input.files[0].name : 'Foto de la cisterna (opcional)';
-        }
-        // Quitar una fila llena (la vacía del final no tiene ×).
-        function quitarFila(tr) {
-            var tbody = tr.parentNode;
-            if (tbody.querySelectorAll('[data-fila]').length > 1) tr.remove();
-            filaAlFinal(tbody);
-        }
-        // Los litros como en el servidor: «38.000» = 38000, «1.250,5» = 1250.5.
-        function numeroLitros(t) {
-            t = String(t || '').replace(/\s/g, '');
-            var coma = t.lastIndexOf(','), punto = t.lastIndexOf('.');
-            if (coma !== -1 && punto !== -1) t = coma > punto ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
-            else if (coma !== -1) t = t.split(',').length > 2 ? t.replace(/,/g, '') : t.replace(',', '.');
-            else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
-            var n = parseFloat(t);
-            return isNaN(n) ? 0 : n;
-        }
-        function litrosTexto(n) { return n.toLocaleString('es-VE', { maximumFractionDigits: 2 }) + ' L'; }
-        // El total de lo escrito (cuántas cisternas y cuántos litros).
-        function recalcular(tbody) {
-            var n = 0, suma = 0;
-            tbody.querySelectorAll('[data-fila]').forEach(function (tr) {
-                var v = numeroLitros(tr.querySelector('[data-campo=litros]').value);
-                if (v > 0) { n++; suma = Math.round((suma + v) * 100) / 100; }
-            });
-            tbody.closest('form').querySelector('[data-lote-total]').textContent =
-                n ? n + (n === 1 ? ' cisterna · ' : ' cisternas · ') + litrosTexto(suma) : '';
-        }
         modal.addEventListener('input', function (e) {
-            if (e.target.matches && e.target.matches('[data-campo]')) {
-                e.target.classList.remove('cupos-mal');
-                filaAlFinal(e.target.closest('[data-filas]'));
-            }
+            var tr = e.target.closest && e.target.closest('[data-fila]');
+            if (!tr) return;
+            e.target.classList.remove('cupos-mal');
+            marcarEstado(tr);
+            filaAlFinal(tr.parentNode);
+            contarCambios(tr.closest('form'));
         });
         modal.addEventListener('change', function (e) {
             if (!e.target.matches) return;
-            if (e.target.matches('[data-elegir-patio]')) mostrarPatio(e.target.value);
-            // Foto elegida para una fila de la tablita: el botón queda azul (se sube con Guardar).
-            else if (e.target.matches('[data-foto-fila]')) marcarFoto(e.target);
-            // El cupo se guarda al salir del cuadro (o con Enter, que envía el formulario).
-            else if (e.target.matches('.cupos-cupo input[name=litros]')) enviarForm(e.target.form);
+            if (e.target.matches('[data-elegir-patio]')) { mostrarPatio(e.target.value); return; }
+            if (e.target.matches('[data-elegir-mes]')) {
+                // El mes queda como estaba hasta que se pinte el elegido (si se cancela, no cambia).
+                var sel = e.target, panel = sel.closest('[data-panel]'), elegido = sel.value;
+                sel.value = panel.dataset.mes;
+                siPuedePerder(panel.dataset.panel, function () { repintarPanel(panel.dataset.panel, elegido); });
+                return;
+            }
+            if (e.target.matches('[data-foto-fila]')) {
+                var tr = e.target.closest('[data-fila]');
+                marcarFoto(e.target);
+                filaAlFinal(tr.parentNode);
+                contarCambios(tr.closest('form'));
+                return;
+            }
+            // El cupo se guarda al salir del cuadro (o con Enter, que envía su formulario).
+            if (e.target.matches('.cupos-cupo input[name=litros]')) enviarForm(e.target.form);
         });
-        // Enter en la fecha: a los litros de esa fila. Enter en los litros: a la fila siguiente.
-        // Se guarda solo con el botón.
+        // Enter en la tabla: al cuadro siguiente de la fila y, al final, a la fila de abajo. Se guarda
+        // solo con el botón.
         modal.addEventListener('keydown', function (e) {
             if (e.key !== 'Enter' || !e.target.matches || !e.target.matches('[data-campo]')) return;
             e.preventDefault();
-            if (e.target.dataset.campo === 'fecha') { e.target.closest('[data-fila]').querySelector('[data-campo=litros]').focus(); return; }
-            var sig = e.target.closest('[data-fila]').nextElementSibling;
-            if (sig && e.target.value.trim() !== '') sig.querySelector('[data-campo=litros]').focus();
+            var tr = e.target.closest('[data-fila]');
+            var i = CAMPOS.indexOf(e.target.dataset.campo);
+            var sig = i < CAMPOS.length - 1 ? campo(tr, CAMPOS[i + 1]) : (tr.nextElementSibling && campo(tr.nextElementSibling, 'numero'));
+            if (sig) sig.focus();
         });
-
-        // Escape: en el cuadro del cupo deshace lo escrito sin guardar; si no, cierra el modal.
+        // Escape: en el cupo deshace lo escrito; si no, cierra el modal.
         modal.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape' || !modal.classList.contains('active')) return;
             e.stopPropagation();
@@ -464,8 +479,34 @@
             cerrar();
         });
 
-        // Foto de una cisterna ya guardada: se elige y se sube de una vez.
-        function elegirFoto(id) {
+        // La foto de una cisterna, encima del modal; un toque o Escape la cierra. Quien puede cargar,
+        // la cambia desde ahí (se sube de una vez).
+        function verFoto(btn) {
+            var v = document.createElement('div');
+            v.className = 'cupos-foto-visor';
+            var img = document.createElement('img');
+            img.src = btn.dataset.verFoto; img.alt = 'Foto de la cisterna';
+            var t = document.createElement('span');
+            t.textContent = btn.dataset.texto || '';
+            v.appendChild(img); v.appendChild(t);
+            if (btn.dataset.idFoto) {
+                var cambiar = document.createElement('button');
+                cambiar.type = 'button';
+                cambiar.innerHTML = '<i class="material-icons">photo_camera</i> Cambiar foto';
+                cambiar.addEventListener('click', function (e) { e.stopPropagation(); cerrarVisor(e); cambiarFoto(btn); });
+                v.appendChild(cambiar);
+            }
+            function cerrarVisor(e) {
+                if (e.type === 'keydown' && e.key !== 'Escape') return;
+                e.stopPropagation();
+                v.remove();
+                document.removeEventListener('keydown', cerrarVisor, true);
+            }
+            v.addEventListener('click', cerrarVisor);
+            document.addEventListener('keydown', cerrarVisor, true);
+            document.body.appendChild(v);
+        }
+        function cambiarFoto(btn) {
             var input = document.createElement('input');
             input.type = 'file'; input.accept = 'image/*'; input.hidden = true;
             modal.appendChild(input);
@@ -476,32 +517,13 @@
                 var datos = new FormData();
                 datos.append('foto', archivo);
                 if (window.showPreloader) window.showPreloader();
-                enviar(URL_FOTO.replace('__ID__', id), 'POST', datos)
-                    .then(function () { aviso('Foto guardada.', 'success'); return repintar(); })
+                enviar(URL_FOTO.replace('__ID__', btn.dataset.idFoto), 'POST', datos)
+                    .then(function (b) { if (b.foto) btn.dataset.verFoto = b.foto; aviso('Foto cambiada.', 'success'); })
                     .catch(function (m) { aviso((m && m.mensaje) || 'No se pudo guardar la foto.', 'error'); })
                     .finally(function () { if (window.hidePreloader) window.hidePreloader(); });
             });
             input.addEventListener('cancel', function () { input.remove(); });
             input.click();
-        }
-        // La foto de una cisterna, encima del modal; un toque o Escape la cierra.
-        function verFoto(url, texto) {
-            var v = document.createElement('div');
-            v.className = 'cupos-foto-visor';
-            var img = document.createElement('img');
-            img.src = url; img.alt = 'Foto de la cisterna';
-            var t = document.createElement('span');
-            t.textContent = texto || '';
-            v.appendChild(img); v.appendChild(t);
-            function cerrarVisor(e) {
-                if (e.type === 'keydown' && e.key !== 'Escape') return;
-                e.stopPropagation();
-                v.remove();
-                document.removeEventListener('keydown', cerrarVisor, true);
-            }
-            v.addEventListener('click', cerrarVisor);
-            document.addEventListener('keydown', cerrarVisor, true);
-            document.body.appendChild(v);
         }
     })();
 </script>
