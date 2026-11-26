@@ -547,28 +547,43 @@
             }
             programarResumen();
         }
-        // Reconoce en el servidor los textos de las filas que aún no lo están.
+        // Reconoce en el servidor los textos de las filas que aún no lo están. Una petición a la
+        // vez: la siguiente espera a la que va en curso (y ya no repite lo que ella resolvió).
+        var reconociendo = null;
         function resolverFrentesFilas() {
+            if (reconociendo) return reconociendo.then(() => resolverFrentesFilas());
+            const placaDe = i => (i.closest('tr').querySelector('[name$="[identificador]"]').value || '').trim();
             const pend = [...document.querySelectorAll('#cuerpoTabla [data-fila-frente]')]
-                .filter(i => i.value.trim() && i.dataset.resuelto !== i.value.trim());
+                .filter(i => i.value.trim() && i.dataset.resuelto !== i.value.trim())
+                .map(i => ({ i, texto: i.value.trim(), placa: placaDe(i) }));
             if (!pend.length) return Promise.resolve(true);
-            const idDe = i => (i.closest('tr').querySelector('[name$="[identificador]"]').value || '').trim();
-            return window.apiFetch(URL_FRENTES_DE_TEXTOS, {
+            reconociendo = window.apiFetch(URL_FRENTES_DE_TEXTOS, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify({ textos: [...new Set(pend.map(i => i.value.trim()))], equipos: [...new Set(pend.map(idDe).filter(Boolean))] }),
+                body: JSON.stringify({ textos: [...new Set(pend.map(p => p.texto))], equipos: [...new Set(pend.map(p => p.placa).filter(Boolean))] }),
             }).then(r => r.ok ? r.json() : Promise.reject())
                 .then(b => {
-                    pend.forEach(i => {
-                        const f = (b.frentes || {})[i.value.trim()];
-                        estadoFrenteFila(i, f && f.id, f && f.nombre, (b.sugeridos || {})[idDe(i)]);
+                    pend.forEach(({ i, texto, placa }) => {
+                        // Cambió el texto o la placa mientras tanto: la respuesta es vieja; queda pendiente.
+                        if (!i.isConnected || i.value.trim() !== texto || placaDe(i) !== placa) return;
+                        const f = (b.frentes || {})[texto];
+                        const sug = (b.sugeridos || {})[placa];
+                        const td = i.closest('td');
+                        // La sugerencia ya tomada sigue valiendo si el equipo está en el mismo frente.
+                        if (!f && i.dataset.porSugerencia && sug && String(sug.id) === td.querySelector('[name$="[id_frente]"]').value) {
+                            estadoFrenteFila(i, sug.id, sug.nombre);
+                        } else {
+                            estadoFrenteFila(i, f && f.id, f && f.nombre, sug);
+                        }
                     });
                     return true;
                 })
                 .catch(() => {
                     if (window.showToast) window.showToast('No se pudieron reconocer los frentes de las filas. Intenta de nuevo.', 'warning');
                     return false;
-                });
+                })
+                .finally(() => { reconociendo = null; });
+            return reconociendo;
         }
         function listaFrenteFila(inp) {
             const dd = document.getElementById('frenteFilaDropdown');
@@ -1105,19 +1120,17 @@
                     estadoFrenteFila(inp, Number(b.dataset.sugId), b.dataset.sugNombre);
                 });
                 // Otra placa/serial en una fila de proyecto sin reconocer: la sugerencia era del equipo
-                // anterior (también la ya tomada). Se quita y se vuelve a pedir al salir de la celda.
+                // anterior. Se quita su botón y se vuelve a pedir al salir de la celda; la ya tomada se
+                // conserva hasta la respuesta (si el equipo nuevo está en otro frente, se pide elegir).
                 tabla.addEventListener('input', function (e) {
                     if (!e.target.matches('[name$="[identificador]"]')) return;
                     var f = e.target.closest('tr').querySelector('[data-fila-frente]');
-                    if (!f.dataset.sinReconocer) return;
+                    if (!f.value.trim() || f.value.trim() !== f.dataset.sinReconocer) return;
                     var td = f.closest('td');
                     if (td.querySelector('[name$="[id_frente]"]').value && !f.dataset.porSugerencia) return;   // elegido en la lista: se queda
-                    delete f.dataset.porSugerencia;
                     f.dataset.resuelto = '';
-                    td.querySelector('[name$="[id_frente]"]').value = '';
-                    var est = td.querySelector('.fila-frente-estado');
-                    est.className = 'fila-frente-estado mal';
-                    est.textContent = 'No reconocido: elige el frente';
+                    var b = td.querySelector('.fila-sugerido');
+                    if (b) b.remove();
                 });
                 tabla.addEventListener('focusout', function (e) {
                     if (e.target.matches('[name$="[identificador]"]')) resolverFrentesFilas();
@@ -1133,6 +1146,7 @@
                     td.querySelector('[name$="[id_frente]"]').value = '';
                     td.querySelector('.fila-frente-estado').textContent = '';
                     e.target.dataset.resuelto = '';
+                    delete e.target.dataset.porSugerencia;
                     listaFrenteFila(e.target);
                 });
                 tabla.addEventListener('focusout', function (e) {
@@ -1155,12 +1169,12 @@
                     var original = inp.dataset.sinReconocer || '';
                     var filas = original
                         ? [].filter.call(document.querySelectorAll('#cuerpoTabla [data-fila-frente]'), function (i) {
-                            return i === inp || (i.value.trim() === original
-                                && (!i.closest('td').querySelector('[name$="[id_frente]"]').value || i.dataset.porSugerencia));
+                            return i === inp || (i.value.trim() === original && !i.closest('td').querySelector('[name$="[id_frente]"]').value);
                         })
                         : [inp];
+                    // Elegido en la lista: se aprende. Las que tomaron la sugerencia de su equipo se quedan con ella.
+                    delete inp.dataset.porSugerencia;
                     filas.forEach(function (i) {
-                        delete i.dataset.porSugerencia;   // elegido en la lista: se aprende
                         i.value = original || nombre;
                         estadoFrenteFila(i, id, nombre);
                     });
