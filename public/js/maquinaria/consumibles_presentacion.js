@@ -108,25 +108,27 @@
             }
             // La leyenda abajo a la derecha de la tarjeta (donde las barras son cortas); si alguna llega
             // hasta ahí, va en la columna derecha, debajo del total.
-            var adentro = finMax < 5.6, lx = adentro ? 5.6 : 9.2, ly = adentro ? 6.04 : 5.45;
-            lam.addShape(pptx.ShapeType.roundRect, { x: lx, y: ly, w: 2.45, h: 0.62, fill: { color: 'F5F7FA' }, line: { color: 'E3E7ED', width: 0.75 }, rectRadius: 0.1 });
+            // Medidas del original (1280×720 → pulgadas): left 556, top 580; cuadritos de 14 px, letra de 13 px.
+            var adentro = finMax < 5.75, lx = adentro ? 5.79 : 9.2, ly = adentro ? 6.04 : 5.6;
+            lam.addShape(pptx.ShapeType.roundRect, { x: lx, y: ly, w: 2.75, h: 0.66, fill: { color: 'F5F7FA' }, line: { color: 'E3E7ED', width: 0.75 }, rectRadius: 0.1 });
             [['A8261F', 'ROJO: MAYOR CONSUMO'], [AZUL, 'AZUL: RESTO DE PROYECTOS']].forEach(function (l, i) {
-                var y = ly + 0.09 + i * 0.24;
+                var y = ly + 0.1 + i * 0.25;
                 lam.addShape(pptx.ShapeType.roundRect, { x: lx + 0.16, y: y + 0.03, w: 0.15, h: 0.15, fill: { color: l[0] }, line: { color: l[0] }, rectRadius: 0.04 });
-                lam.addText(l[1], T({ x: lx + 0.38, y: y, w: 2.02, h: 0.21, valign: 'middle', fontSize: 8, bold: true, color: TINTA, charSpacing: 0.5 }));
+                lam.addText(l[1], T({ x: lx + 0.38, y: y, w: 2.32, h: 0.21, valign: 'middle', fontSize: 9.75, bold: true, color: TINTA, charSpacing: 0.5 }));
             });
         } else {
             lam.addText('Sin gasoil en el período.', T({ x: 0.42, y: 4.0, w: 8.29, h: 0.5, align: 'center', fontSize: 14, color: '4A5563' }));
         }
 
         lam.addShape(pptx.ShapeType.line, { x: 8.94, y: 1.77, w: 0, h: 5.35, line: { color: 'D5DBE3', width: 0.75 } });
-        lam.addShape(pptx.ShapeType.roundRect, { x: 9.2, y: 3.6, w: 3.85, h: 1.35, fill: { color: AZUL }, line: { color: AZUL }, rectRadius: 0.12 });
+        // Columna derecha (left 878, top 170, alto 514): el total centrado en lo alto.
+        lam.addShape(pptx.ShapeType.roundRect, { x: 9.2, y: 3.78, w: 3.85, h: 1.35, fill: { color: AZUL }, line: { color: AZUL }, rectRadius: 0.12 });
         lam.addText([
             { text: 'CONSUMO TOTAL', options: { fontSize: 9, bold: true, color: 'FFFFFF', charSpacing: 1.5, breakLine: true } },
-            { text: mil(d.total) + ' L', options: { fontSize: 36, bold: true, color: 'FFFFFF' } }
-        ], T({ x: 9.45, y: 3.6, w: 3.45, h: 1.35, valign: 'middle', fit: 'shrink' }));
+            { text: mil(d.total) + ' L', options: { fontSize: 39, bold: true, color: 'FFFFFF' } }
+        ], T({ x: 9.45, y: 3.78, w: 3.45, h: 1.35, valign: 'middle', fit: 'shrink' }));
         if (d.sin_frente > 0) {
-            lam.addText('Incluye ' + mil(d.sin_frente) + ' L cargados sin proyecto.', T({ x: 9.2, y: 5.05, w: 3.85, h: 0.3, fontSize: 9, color: '4A5563' }));
+            lam.addText('Incluye ' + mil(d.sin_frente) + ' L cargados sin proyecto.', T({ x: 9.2, y: 5.2, w: 3.85, h: 0.3, fontSize: 9, color: '4A5563' }));
         }
     }
 
