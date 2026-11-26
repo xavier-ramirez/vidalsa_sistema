@@ -87,10 +87,10 @@
 
     // ── 3. Consumo por proyecto ──
     // Barras ordenadas: proyecto, barra sobre su pista (escala: el mayor = pista llena) y litros en columnas alineadas.
-    // Dos colores con sentido: los 4 de mayor consumo en rojo y los demás en gris (pasan a segundo plano); revisados con
-    // el validador de dataviz (se distinguen también con daltonismo; el gris lleva sus litros escritos al lado).
-    // A la derecha: el total y el consumo por división (en azul), con su %.
-    var ROJO = '#C0392B', GRIS = '#A3ACB9';
+    // Tres colores con sentido: los 4 de mayor consumo en rojo; del resto, la mitad de más consumo en azul y la otra
+    // mitad en gris. Revisados con el validador de dataviz (se distinguen también con daltonismo; el gris lleva sus litros
+    // escritos al lado). A la derecha: el total y el consumo por división (en azul), con su %.
+    var ROJO = '#C0392B', AZUL = '#2E75B6', GRIS = '#A3ACB9';
     var MESES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
     // Período de la lámina: un mes completo (del 1 al último día) sale con su nombre; si no, «DEL … AL …».
     function periodoDe(desde, hasta) {
@@ -106,22 +106,27 @@
     function proyectos(d) {
         var ps = d.proyectos.slice(0, d.proyectos.length > MAX_FILAS ? MAX_FILAS - 1 : MAX_FILAS), otros = d.proyectos.slice(ps.length);
         var mayor = Math.max.apply(null, ps.map(function (p) { return p.litros; }).concat([1]));
-        // Las filas llenan el alto de la tarjeta: con pocos proyectos, repartidas y más grandes; con muchos, más bajas.
+        // Con muchos proyectos las filas llenan el alto de la tarjeta y se achican; con pocos, son más grandes.
         var n = ps.length + (otros.length ? 1 : 0), paso = ALTO_FILAS / Math.max(n, 1);
         var med = function (f, min, max) { return Math.max(min, Math.min(max, paso * f)).toFixed(1) + 'px'; };
-        var vars = '--pista:' + med(0.42, 5, 18) + ';--nombre:' + med(0.52, 8, 13) + ';--cifra:' + med(0.6, 9, 16) +
-            (n <= 4 ? ';justify-content:center;gap:40px' : n < 13 ? ';justify-content:space-around' : '');
+        var vars = '--pista:' + med(0.6, 5, 22) + ';--nombre:' + med(0.5, 8, 12) + ';--cifra:' + med(0.55, 9, 14) +
+            // con pocas filas, centradas y con separación tope (no se reparten por toda la tarjeta)
+            (n < 13 ? ';justify-content:center;gap:' + Math.min(26, (ALTO_FILAS - n * 24) / Math.max(n - 1, 1)).toFixed(1) + 'px' : '');
         var fila = function (nombre, litros, ancho, color, clase) {
             return '<div class="gp-fila' + (clase ? ' ' + clase : '') + '"><small>' + nombre + '</small>' +
                 '<div class="gp-pista">' + (ancho > 0 ? '<i style="width:' + ancho.toFixed(2) + '%;background:' + color + '"></i>' : '') + '</div>' +
                 '<b>' + mil(litros) + '</b></div>';
         };
-        var filas = ps.map(function (p, k) { return fila(may(p.nombre), p.litros, 100 * p.litros / mayor, k < 4 ? ROJO : GRIS); }).join('');
+        var medios = Math.ceil((ps.length - 4) / 2);   // del resto, los de más consumo van en azul
+        var filas = ps.map(function (p, k) {
+            return fila(may(p.nombre), p.litros, 100 * p.litros / mayor, k < 4 ? ROJO : k < 4 + medios ? AZUL : GRIS);
+        }).join('');
         if (otros.length) filas += fila('OTROS ' + otros.length + ' PROYECTOS', otros.reduce(function (s, p) { return s + p.litros; }, 0), 0, '', 'gp-otros');
         var periodo = periodoDe(d.desde, d.hasta);
         if (periodo) periodo = ' · ' + esc(periodo);
         var ley = '<div class="gp-ley"><span><i style="background:' + ROJO + '"></i>' + (ps.length > 4 ? 'MAYOR CONSUMO' : 'PROYECTOS') + '</span>' +
-            (ps.length > 4 ? '<span><i style="background:' + GRIS + '"></i>MENOR CONSUMO</span>' : '') + '</div>';
+            (medios > 0 ? '<span><i style="background:' + AZUL + '"></i>CONSUMO MEDIO</span>' : '') +
+            (ps.length > 4 + medios ? '<span><i style="background:' + GRIS + '"></i>MENOR CONSUMO</span>' : '') + '</div>';
         // La leyenda va arriba, a la derecha del título.
         var izq = '<div class="gp-card"><div class="gp-cabeza"><div><div class="gp-tit">CONSUMO POR PROYECTO</div>' +
             '<div class="gp-sub">LITROS DE GASOIL' + periodo + '</div></div>' + (ps.length ? ley : '') + '</div>' +

@@ -148,18 +148,18 @@
 
 /* Lámina «Consumo de gasoil por proyecto» (propia del sistema, no del maestro): barras a la izquierda
    (proyecto | barra | litros), y a la derecha el total y las divisiones. */
-.gl .gp-card { position: absolute; left: 40px; top: 146px; width: 820px; height: 548px; padding: 22px 26px 18px; background: #fff; border: 1px solid #DDE3EA; border-radius: 14px; box-shadow: 0 6px 18px rgba(20, 40, 70, .10); display: flex; flex-direction: column; }
+.gl .gp-card { position: absolute; left: 40px; top: 146px; width: 830px; height: 548px; padding: 22px 26px 18px; background: #fff; border: 1px solid #DDE3EA; border-radius: 14px; box-shadow: 0 6px 18px rgba(20, 40, 70, .10); display: flex; flex-direction: column; }
 .gl .gp-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.gl .gp-tit { font: 700 20px/1 Arial, sans-serif; letter-spacing: .05em; color: #1F2A37; }
+.gl .gp-tit { font: 700 18px/1 Arial, sans-serif; letter-spacing: .05em; color: #1F2A37; }
 .gl .gp-sub { margin-top: 7px; font: 700 11.5px/1 Arial, sans-serif; letter-spacing: .08em; color: #6B7684; }
 .gl .gp-fila { display: grid; grid-template-columns: 290px minmax(0, 1fr) 80px; align-items: center; column-gap: 14px; }
-.gl .gp-filas { --pista: 18px; --nombre: 13px; --cifra: 16px; flex: 1; min-height: 0; margin-top: 14px; padding: 12px 0 8px; border-top: 1px solid #E3E7ED; display: flex; flex-direction: column; justify-content: space-between; }
+.gl .gp-filas { --pista: 22px; --nombre: 12px; --cifra: 14px; flex: 1; min-height: 0; margin-top: 14px; padding: 12px 0 8px; border-top: 1px solid #E3E7ED; display: flex; flex-direction: column; justify-content: space-between; }
 .gl .gp-fila small { font: 700 var(--nombre)/1.1 Arial, sans-serif; letter-spacing: .03em; color: #1F2A37; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gl .gp-pista { position: relative; height: var(--pista); border-radius: 0 4px 4px 0; background: #EEF2F6; }
 .gl .gp-pista i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; }
 .gl .gp-fila b { font: 700 var(--cifra)/1 Arial, sans-serif; color: #000; text-align: right; white-space: nowrap; }
 .gl .gp-otros small, .gl .gp-otros b { color: #4A5563; }
-.gl .gp-ley { display: flex; gap: 22px; font: 700 11.5px/1 Arial, sans-serif; letter-spacing: .05em; color: #2B3440; }
+.gl .gp-ley { display: flex; gap: 16px; font: 700 10.5px/1 Arial, sans-serif; letter-spacing: .05em; color: #2B3440; }
 .gl .gp-ley span { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .gl .gp-ley i { width: 12px; height: 12px; border-radius: 3px; }
 .gl .gp-vacio { margin: auto 0; text-align: center; font: 400 16px Arial, sans-serif; color: #4A5563; }
@@ -167,14 +167,14 @@
 .gl .gp-total { position: relative; overflow: hidden; padding: 22px 24px 20px 30px; border-radius: 14px; background: #4A5563; box-shadow: 0 8px 22px rgba(20, 40, 70, .22); display: flex; flex-direction: column; gap: 10px; }
 .gl .gp-total i { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; background: #F26A21; }
 .gl .gp-total small { font: 700 12px/1 Arial, sans-serif; letter-spacing: .12em; color: #fff; }
-.gl .gp-total b { font: 700 50px/1 Arial, sans-serif; color: #fff; white-space: nowrap; }
+.gl .gp-total b { font: 700 40px/1 Arial, sans-serif; color: #fff; white-space: nowrap; }
 .gl .gp-caja { padding: 16px 20px; border-radius: 14px; background: #F4F6F9; border: 1px solid #E3E7ED; display: flex; flex-direction: column; gap: 10px; }
 .gl .gp-caja-tit { font: 700 12px/1 Arial, sans-serif; letter-spacing: .1em; color: #2B3440; }
 .gl .gp-div { display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; column-gap: 12px; row-gap: 8px; padding: 10px 0 2px; border-top: 1px solid #E3E7ED; }
 .gl .gp-caja-tit + .gp-div { border-top: 0; padding-top: 2px; }
 .gl .gp-div small { font: 700 12.5px/1 Arial, sans-serif; letter-spacing: .05em; color: #2B3440; white-space: nowrap; }
-.gl .gp-div b { font: 700 22px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
-.gl .gp-div em { font: 700 15px/1 Arial, sans-serif; font-style: normal; color: #4A5563; white-space: nowrap; }
+.gl .gp-div b { font: 700 18px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
+.gl .gp-div em { font: 700 13px/1 Arial, sans-serif; font-style: normal; color: #4A5563; white-space: nowrap; }
 .gl .gp-div span { grid-column: 1 / -1; position: relative; height: 8px; border-radius: 0 4px 4px 0; background: #E3E8EF; }
 .gl .gp-div span i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; background: #2E75B6; }
 
