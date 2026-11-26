@@ -106,7 +106,6 @@
     function proyectos(d) {
         var ps = d.proyectos.slice(0, d.proyectos.length > MAX_FILAS ? MAX_FILAS - 1 : MAX_FILAS), otros = d.proyectos.slice(ps.length);
         var mayor = Math.max.apply(null, ps.map(function (p) { return p.litros; }).concat([1]));
-        var suma = function (l) { return l.reduce(function (s, p) { return s + p.litros; }, 0); };
         // Las filas llenan el alto de la tarjeta: con pocos proyectos, repartidas y más grandes; con muchos, más bajas.
         var n = ps.length + (otros.length ? 1 : 0), paso = ALTO_FILAS / Math.max(n, 1);
         var med = function (f, min, max) { return Math.max(min, Math.min(max, paso * f)).toFixed(1) + 'px'; };
@@ -118,7 +117,7 @@
                 '<b>' + mil(litros) + '</b></div>';
         };
         var filas = ps.map(function (p, k) { return fila(may(p.nombre), p.litros, 100 * p.litros / mayor, k < 4 ? ROJO : GRIS); }).join('');
-        if (otros.length) filas += fila('OTROS ' + otros.length + ' PROYECTOS', suma(otros), 0, '', 'gp-otros');
+        if (otros.length) filas += fila('OTROS ' + otros.length + ' PROYECTOS', otros.reduce(function (s, p) { return s + p.litros; }, 0), 0, '', 'gp-otros');
         var periodo = periodoDe(d.desde, d.hasta);
         if (periodo) periodo = ' · ' + esc(periodo);
         var ley = '<div class="gp-ley"><span><i style="background:' + ROJO + '"></i>' + (ps.length > 4 ? 'MAYOR CONSUMO' : 'PROYECTOS') + '</span>' +
@@ -129,14 +128,14 @@
                 : '<p class="gp-vacio">' + (d.total > 0 ? 'El gasoil del período se cargó sin proyecto.' : 'Sin gasoil en el período.') + '</p>') + '</div>';
 
         // Derecha: total y consumo por división. Los % y las barras, sobre el total (incluye lo cargado sin proyecto).
-        var ancho = function (l) { return (d.total > 0 ? l / d.total * 100 : 0).toFixed(2) + '%'; };
+        var parteDe = function (l) { return (d.total > 0 ? l / d.total * 100 : 0).toFixed(2) + '%'; };
         var divs = (d.divisiones || []).filter(function (v) { return v.litros > 0 || v.clave !== 'OTROS'; });
         var der = '<div class="gp-der">' +
             '<div class="gp-total"><i></i><small>CONSUMO TOTAL · ' + plural(d.proyectos.length, 'PROYECTO', 'PROYECTOS') + '</small><b>' + mil(d.total) + ' L</b>' +
             (d.sin_frente > 0 ? '<span>Incluye ' + mil(d.sin_frente) + ' L sin proyecto</span>' : '') + '</div>' +
             (ps.length && divs.length ? '<div class="gp-caja"><div class="gp-caja-tit">CONSUMO POR DIVISIÓN</div>' + divs.map(function (v) {
                 return '<div class="gp-div"><small>' + may(v.nombre) + '</small><b>' + mil(v.litros) + ' L</b><em>' + pct(v.litros, d.total) + '</em>' +
-                    '<span><i style="width:' + ancho(v.litros) + '"></i></span></div>';
+                    '<span><i style="width:' + parteDe(v.litros) + '"></i></span></div>';
             }).join('') + '</div>' : '') + '</div>';
         return lamina('cb', encabezado('CONSUMO DE GASOIL POR PROYECTO') + izq + der, 'grafico');
     }
