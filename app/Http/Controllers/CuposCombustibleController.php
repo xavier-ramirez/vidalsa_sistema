@@ -41,8 +41,8 @@ class CuposCombustibleController extends Controller
     }
 
     /**
-     * Por patio: el cupo vigente, lo que queda este mes y el historial de los últimos meses con
-     * cisternas (cada mes con su cupo, lo surtido, lo que quedó y sus cisternas por fecha).
+     * Por patio: el cupo vigente y el historial de los últimos meses con cisternas (cada mes con su
+     * cupo, lo surtido, lo que quedó y sus cisternas por fecha).
      */
     public static function datos(): array
     {
@@ -73,18 +73,14 @@ class CuposCombustibleController extends Controller
             }
             krsort($meses);   // el mes más reciente arriba
 
-            $cupo = ($c = $cupoDe($hoy)) !== null ? (float) $c : null;
-            $surtidoMes = $meses[$hoy->format('Y-m')]['surtido'] ?? 0.0;
             $patios[$clave] = [
-                'nombre'  => $nombre,
-                'cupo'    => $cupo,
-                'surtido' => $surtidoMes,
-                'quedan'  => $cupo !== null ? round($cupo - $surtidoMes, 2) : null,
-                'meses'   => $meses,
+                'nombre' => $nombre,
+                'cupo'   => ($c = $cupoDe($hoy)) !== null ? (float) $c : null,
+                'meses'  => $meses,
             ];
         }
 
-        return ['hoy' => $hoy, 'patios' => $patios];
+        return ['patios' => $patios];
     }
 
     /**

@@ -100,7 +100,7 @@ class ConsumiblesController extends Controller
                 ->orderByDesc('ID_IMPORTACION')->limit(30)->get()
             : collect();
 
-        // Modal «Cupos de Gasoil» (CuposCombustibleController): $hoy y $patios.
+        // Modal «Cupos de Gasoil» (CuposCombustibleController): $patios.
         return view('admin.consumibles.cargar', compact('frentes', 'tipos', 'unidades', 'cargas')
             + \App\Http\Controllers\CuposCombustibleController::datos());
     }
