@@ -108,8 +108,12 @@
         var mayor = Math.max.apply(null, ps.map(function (p) { return p.litros; }).concat([1]));
         // Con muchos proyectos las filas llenan el alto de la tarjeta y se achican; con pocos, son más grandes.
         var n = ps.length + (otros.length ? 1 : 0), paso = ALTO_FILAS / Math.max(n, 1);
-        var med = function (f, min, max) { return Math.max(min, Math.min(max, paso * f)).toFixed(1) + 'px'; };
-        var vars = '--pista:' + med(0.4, 5, 14) + ';--nombre:' + med(0.5, 8, 12) + ';--cifra:' + med(0.5, 9, 13) +
+        var med = function (f, min, max) { return Math.max(min, Math.min(max, paso * f)); };
+        // La columna de nombres mide lo que ocupa el más largo (mayúsculas en negrita ≈ 0,64 de la letra por carácter),
+        // con tope: así la barra empieza cerca del nombre aunque los nombres sean cortos.
+        var largo = Math.max.apply(null, ps.map(function (p) { return String(p.nombre || '').length; }).concat([otros.length ? 17 : 0]));
+        var vars = '--pista:' + med(0.4, 5, 14).toFixed(1) + 'px;--nombre:' + med(0.5, 8, 12).toFixed(1) + 'px;--cifra:' + med(0.5, 9, 13).toFixed(1) + 'px' +
+            ';--col-nombre:' + Math.min(290, Math.ceil(largo * med(0.5, 8, 12) * 0.64)) + 'px' +
             // con pocas filas, centradas y con separación tope (no se reparten por toda la tarjeta)
             (n < 13 ? ';justify-content:center;gap:' + Math.min(26, (ALTO_FILAS - n * 24) / Math.max(n - 1, 1)).toFixed(1) + 'px' : '');
         var fila = function (nombre, litros, ancho, color, clase) {

@@ -152,7 +152,7 @@
 .gl .gp-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .gl .gp-tit { font: 700 18px/1 Arial, sans-serif; letter-spacing: .05em; color: #1F2A37; }
 .gl .gp-sub { margin-top: 7px; font: 700 11.5px/1 Arial, sans-serif; letter-spacing: .08em; color: #6B7684; }
-.gl .gp-fila { display: grid; grid-template-columns: 290px minmax(0, 1fr) 80px; align-items: center; column-gap: 14px; }
+.gl .gp-fila { display: grid; grid-template-columns: var(--col-nombre, 290px) minmax(0, 1fr) 70px; align-items: center; column-gap: 10px; }
 .gl .gp-filas { --pista: 14px; --nombre: 12px; --cifra: 13px; flex: 1; min-height: 0; margin-top: 14px; padding: 12px 0 8px; border-top: 1px solid #E3E7ED; display: flex; flex-direction: column; justify-content: space-between; }
 .gl .gp-fila small { font: 700 var(--nombre)/1.1 Arial, sans-serif; letter-spacing: .03em; color: #1F2A37; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gl .gp-pista { position: relative; height: var(--pista); border-radius: calc(var(--pista) / 2); background: #EEF2F6; }
