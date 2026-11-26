@@ -425,9 +425,9 @@ class ConsumiblesController extends Controller
         // ── Clave de caché única por combinación de filtros + versión de datos ──
         // La versión sube cada vez que se escriben datos → invalida todo el caché anterior.
         $version = CacheVersion::current(self::DATA_VER_KEY);
-        // "f4": el Top 20 se agrupa por el proyecto del surtido (antes, el frente actual del equipo);
+        // "f5": sin el resumen de tarjetas (se quitó a pedido); el Top 20 va por proyecto del surtido;
         // un valor guardado con la forma vieja no debe servirse.
-        $cacheKey = 'graficos_f4_v' . $version
+        $cacheKey = 'graficos_f5_v' . $version
             . '_d' . ($desde ?? 'null')
             . '_h' . ($hasta ?? 'null')
             . '_f' . ($idFrente ?? 'all')
@@ -494,22 +494,6 @@ class ConsumiblesController extends Controller
                 ->orderBy('total', 'desc')
                 ->orderBy('despachos', 'desc')
                 ->limit(20)
-                ->get();
-
-            // ── 3. Resumen general (tarjetas) — TODOS los registros ──────────────────
-            $resumen = DB::table('consumibles')
-                ->where(function ($q) use ($filtrosTodos) {
-                    $filtrosTodos($q);
-                })
-                ->select(
-                    'TIPO_CONSUMIBLE',
-                    DB::raw('SUM(CANTIDAD) as total'),
-                    DB::raw('COUNT(*) as registros'),
-                    DB::raw('COUNT(DISTINCT ID_EQUIPO) as equipos_distintos'),
-                    DB::raw('COUNT(DISTINCT ID_FRENTE) as frentes_tipo'), // frentes con ESTE tipo
-                    DB::raw('MAX(UNIDAD) as unidad')
-                )
-                ->groupBy('TIPO_CONSUMIBLE')
                 ->get();
 
             // ── 6. Equipos individuales × frente — solo CONFIRMADOS ──────────────────
@@ -664,7 +648,6 @@ class ConsumiblesController extends Controller
             return [
                 'equipos_por_frente' => $equiposPorFrente,
                 'top_equipos' => $topEquipos,
-                'resumen' => $resumen,
                 'espec_frente' => $especFrente,
                 'espec_equipo' => $especEquipo,
                 'inoperativos' => $inoperativos,

@@ -186,12 +186,6 @@
         }
     </script>
 
-    {{-- TARJETAS RESUMEN --}}
-    <div class="resumen-grid" id="resumenGrid">
-        <div class="loading-overlay" style="width:100%;">
-            <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i> Cargando...
-        </div>
-    </div>
 
     {{-- EQUIPOS QUE SURTIERON POR FRENTE (solo con frente seleccionado) --}}
     <div class="g-grid-1" id="secEqFrente" style="display:none;">
@@ -312,11 +306,6 @@
            ya traía su propio cargador — pero aquí había además un <script src> fijo que lo
            bajaba SIEMPRE y dejaba ese cargador como código muerto. --}}
     <script>
-        window.TIPO_LABEL = window.TIPO_LABEL || {
-            'GASOIL': 'Gasoil', 'GASOLINA': 'Gasolina', 'ACEITE': 'Aceite',
-            'CAUCHO': 'Caucho'
-        };
-
         // La gráfica viva de esta pantalla. Se guarda en window (y no en una var del
         // <script>) porque la SPA re-evalúa este bloque en cada visita y hay que poder
         // destruir la instancia anterior antes de crear la nueva.
@@ -332,7 +321,6 @@
         // así que la espera se hace sobre una promesa concreta en vez de por sondeo.
         window.chartListo = window.ensureChartJS();
 
-        var TIPO_LABEL = window.TIPO_LABEL;
 
         function getParams() {
             var p = new URLSearchParams();
@@ -372,7 +360,7 @@
 
         function _cargarDatosLocal() {
             // Se salió del módulo (SPA) antes de que corriera el temporizador: no hay nada que pintar.
-            if (!document.getElementById('resumenGrid')) return;
+            if (!document.getElementById('panelRankingEquipos')) return;
             // Preloader global SIEMPRE durante la carga (inicial y subsecuente).
             // Antes confiabamos en el spinner del SPA solo para la primera carga,
             // pero el SPA spinner se apaga al recibir el HTML inicial — los
@@ -402,18 +390,13 @@
             hide('aceiteFrente-body');
             hide('aceiteEquipoBody');
 
-            document.getElementById('resumenGrid').innerHTML =
-                '<div class="loading-overlay" style="width:100%;"><i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i> Cargando...</div>';
-
             window.apiFetch(`{{ route('consumibles.graficosData') }}?${params}`)
                 .then(r => r.json())
                 .then(data => {
                     // La respuesta llegó cuando ya se había ido a otro módulo: sus elementos no
                     // existen y pintarlos rompía («Cannot read properties of null»).
-                    if (!document.getElementById('fFrente') || !document.getElementById('resumenGrid')) return;
+                    if (!document.getElementById('fFrente') || !document.getElementById('panelRankingEquipos')) return;
                     const frenteSeleccionado = document.getElementById('fFrente').value;
-
-                    renderResumen(data.resumen);
 
                     // Solo mostrar equipos×frente cuando hay un frente específico seleccionado
                     if (frenteSeleccionado) {
@@ -461,37 +444,6 @@
 
         // Exponer cargarDatos globalmente para el ModuleManager SPA
         // window.cargarDatos = window.cargarDatos; (Ya asignado arriba)
-
-        // ── Tarjetas resumen ───────────────────────────────────────────────
-        function renderResumen(datos) {
-            const grid = document.getElementById('resumenGrid');
-            if (!datos || datos.length === 0) {
-                grid.innerHTML = '<p style="color:#94a3b8;font-size:13px;padding:10px;">Sin datos con los filtros aplicados.</p>';
-                return;
-            }
-            grid.innerHTML = datos.map(d => {
-                return `
-            <div class="resumen-card" style="position:relative; padding-right:40px;">
-                <button onclick="descargarPanelResumen('resumen_general')" title="Descargar imagen"
-                    style="position:absolute; top:8px; right:8px; border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px;border-radius:8px;transition:background .2s;"
-                    onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
-                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
-                </button>
-                <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; line-height:1.2;">
-                    <span style="font-size:28px; font-weight:800; color:#fff;">
-                        ${parseFloat(d.total).toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}
-                    </span>
-                    <span style="font-size:12px; font-weight:700; color:#fff; text-transform:uppercase; letter-spacing:.5px;">
-                        ${d.unidad} · ${TIPO_LABEL[d.TIPO_CONSUMIBLE] || d.TIPO_CONSUMIBLE}
-                    </span>
-                </div>
-                <div style="font-size:11px; color:#fff; margin-top:6px;">
-                    ${d.registros} despachos · ${d.equipos_distintos} eq
-                </div>
-            </div>`;
-            }).join('');
-        }
-
 
         // ── Equipos individuales que surtieron en el frente seleccionado ────
         function renderEquiposPorFrente(datos, frenteId) {
@@ -998,9 +950,6 @@
         }
 
         // ── Descargar "Tarjetas Resumen" como foto ─────────────────
-        function descargarPanelResumen(nombre) {
-            capturaPanelHtml('resumenGrid', nombre || 'resumen_general');
-        }
 
 
 

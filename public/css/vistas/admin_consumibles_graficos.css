@@ -100,25 +100,6 @@
             .g-title { font-size: 11px !important; }
         }
 
-        /* Tarjetas resumen */
-        .resumen-grid {
-            display: flex;
-            gap: 14px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
-        }
-
-        .resumen-card {
-            flex: 1;
-            min-width: 150px;
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            border-radius: 14px;
-            padding: 16px 18px;
-            color: #fff;
-        }
-
-        /* Tarjetas resumen — estilos internos manejados por JS */
-
         /* Ranking "Top 20" — BOARD horizontal: cada FRENTE es una COLUMNA (cabecera arriba
            + sus equipos apilados debajo). Las columnas van lado a lado; si no caben, hay
            scroll horizontal. La ubicación del frente vive en la cabecera (.eq-frente-head),

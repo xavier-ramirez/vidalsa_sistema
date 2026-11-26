@@ -11,7 +11,7 @@
  */
 if (typeof window.ModuleManager !== 'undefined') {
     window.ModuleManager.register('consumibles_graficos',
-        () => document.getElementById('resumenGrid') !== null,
+        () => document.getElementById('panelRankingEquipos') !== null,
         () => {
             // Si el script inline ya cargó los datos en esta navegación, omitir.
             if (window._graficosDataLoaded) {
