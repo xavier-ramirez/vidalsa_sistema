@@ -66,7 +66,7 @@ class CuposCombustibleTest extends MySqlTestCase
 
         // Cambiarlo en mayo rige desde mayo; marzo conserva el suyo en el historial.
         $this->cupo('TIGRE', 120000)->assertOk();
-        $this->modal()->assertSee('120.000 L')->assertSee('Marzo 2031')->assertSee('Cupo 100.000 L · Surtido 30.000 L (1)');
+        $this->modal()->assertSee('120.000 L')->assertSee('Marzo 2031')->assertSee('Cupo 100.000 L · 1 cisterna · Surtido 30.000 L');   // otro cupo: se dice
     }
 
     public function test_las_cisternas_consumen_el_cupo_de_su_patio(): void
@@ -79,7 +79,7 @@ class CuposCombustibleTest extends MySqlTestCase
 
         $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cargar'))->assertOk()
             ->assertSee('data-abrir-cupos', false)->assertSee('Cupos de Gasoil')
-            ->assertSee('Surtido 76.000 L (2)')->assertSee('24.000 L')   // El Tigre: quedan 24.000
+            ->assertSee('2 cisternas · Surtido 76.000 L')->assertSee('24.000 L')   // El Tigre: quedan 24.000
             ->assertSee('02/03/2031')->assertSee('-500 L');              // Maturín se pasó
     }
 
@@ -92,7 +92,7 @@ class CuposCombustibleTest extends MySqlTestCase
         $this->cisterna('MATURIN', '2031-01-05', 1000)->assertOk();   // de un mes anterior: va a su mes
         // El cupo cargado después también cuenta para ese mes (es fijo).
         $this->cupo('MATURIN', 5000)->assertOk();
-        $this->modal()->assertSee('Enero 2031')->assertSee('Cupo 5.000 L · Surtido 1.000 L (1)');
+        $this->modal()->assertSee('Enero 2031')->assertSee('1 cisterna · Surtido 1.000 L · Quedó <b class="">4.000 L', false);
     }
 
     public function test_litros_escritos_como_se_muestran(): void
@@ -115,7 +115,7 @@ class CuposCombustibleTest extends MySqlTestCase
         $this->cisternas('TIGRE', [['2031-03-10', 1000], ['2031-04-01', 1000]])
             ->assertStatus(422)->assertJsonValidationErrors('cisternas.1.fecha')->assertJsonMissingValidationErrors('cisternas.0.fecha');
         $this->assertSame(3, CisternaCupo::where('PATIO', 'TIGRE')->count());
-        $this->modal()->assertSee('Surtido 96.000 L (3)')->assertSee('data-elegir-patio', false);
+        $this->modal()->assertSee('3 cisternas · Surtido 96.000 L')->assertSee('data-elegir-patio', false);
     }
 
     public function test_cisterna_fuera_del_historial_no_se_guarda(): void
@@ -130,7 +130,7 @@ class CuposCombustibleTest extends MySqlTestCase
         $this->cupo('TIGRE', '1000,3')->assertOk();
         $this->cisterna('TIGRE', '2031-03-02', '1000,1')->assertOk();
         $this->cisterna('TIGRE', '2031-03-03', '0,2')->assertOk();
-        $this->modal()->assertDontSee('-0,00')->assertSee('Quedó <b style="color: inherit;">0 L', false);
+        $this->modal()->assertDontSee('-0,00')->assertSee('Quedó <b class="">0 L', false);
     }
 
     public function test_quitar_una_cisterna(): void
