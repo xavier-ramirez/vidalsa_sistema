@@ -17,6 +17,8 @@ use Illuminate\Validation\Rule;
  */
 class CuposCombustibleController extends Controller
 {
+    use \App\Traits\ExcelLogoCorporativo;
+
     /** Meses de historial que se muestran por patio. */
     private const MESES = 12;
 
@@ -78,6 +80,79 @@ class CuposCombustibleController extends Controller
         }
 
         return ['hoy' => $hoy, 'patios' => $patios];
+    }
+
+    /**
+     * GET consumibles/cupos/excel?patio=TIGRE — el historial de un patio en Excel: lo mismo que el
+     * modal (mes a mes, del más reciente al más viejo; cada cisterna con lo que quedaba del cupo
+     * tras surtirla y, al cierre de cada mes, su total).
+     */
+    public function excel(Request $request)
+    {
+        $patio = $request->validate(['patio' => ['required', Rule::in(array_keys(CupoCombustible::PATIOS))]])['patio'];
+        $p = self::datos()['patios'][$patio];
+
+        $libro = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $libro->getProperties()->setCreator('Sistema VIDALSA')->setTitle('Historial de cupo de gasoil')
+            ->setCompany('Constructora Vidalsa 27, C.A.');
+        $libro->getDefaultStyle()->getFont()->setName('Arial')->setSize(10);
+        $hoja = $libro->getActiveSheet();
+        $hoja->setTitle('Historial');
+        foreach (['A' => 14, 'B' => 16, 'C' => 18, 'D' => 18, 'E' => 18, 'F' => 18] as $col => $ancho) {
+            $hoja->getColumnDimension($col)->setWidth($ancho);
+        }
+        $this->encabezadoCorporativo($hoja, "HISTORIAL DE CUPO DE GASOIL\n" . mb_strtoupper($p['nombre']), 'D', 'E', 'F');
+        $this->cabeceraTablaCorporativa($hoja, ['FECHA', 'MES', 'CUPO DEL MES (L)', 'LITROS (L)', 'SURTIDO EN EL MES (L)', 'QUEDAN DEL CUPO (L)']);
+
+        $f = 6;
+        $totales = [];
+        foreach ($p['meses'] as $m) {
+            $surtido = 0.0;
+            foreach ($m['filas'] as $fila) {
+                $k = $fila['cisterna'];
+                $surtido = round($surtido + (float) $k->LITROS, 2);
+                $hoja->fromArray([\PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel($k->FECHA->copy()->startOfDay()), self::nombreMes($m['mes']),
+                    $m['cupo'], (float) $k->LITROS, $surtido, $fila['quedan']], null, 'A' . $f, true);
+                $f++;
+            }
+            $n = $m['filas']->count();
+            $hoja->fromArray(['TOTAL ' . mb_strtoupper(self::nombreMes($m['mes'])) . ' (' . ($n === 1 ? '1 cisterna' : $n . ' cisternas') . ')',
+                null, $m['cupo'], $m['surtido'], $m['surtido'], $m['quedan']], null, 'A' . $f, true);
+            $hoja->mergeCells("A{$f}:B{$f}");
+            $totales[] = $f;
+            $f++;
+        }
+        if ($f === 6) {
+            $hoja->setCellValue('A6', 'Todavía no hay cisternas de ' . $p['nombre'] . '.');
+            $hoja->mergeCells('A6:F6');
+            $f = 7;
+        }
+        $ultima = $f - 1;
+
+        $this->rellenarFilas($hoja, $totales, 'F', 'FFE2E8F0');   // antes de alinear (copia el estilo entero)
+        foreach ($totales as $t) {
+            $hoja->getStyle("A{$t}:F{$t}")->getFont()->setBold(true);
+        }
+        $hoja->getStyle("A6:F{$ultima}")->applyFromArray(self::bordeFinoCorporativo());
+        $hoja->getStyle("A6:F{$ultima}")->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $hoja->getStyle("A6:B{$ultima}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $hoja->getStyle("A6:A{$ultima}")->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+        $hoja->getStyle("C6:F{$ultima}")->getNumberFormat()->setFormatCode('#,##0.##');
+        // Lo pasado del cupo, en rojo (como en el modal).
+        $rojo = new \PhpOffice\PhpSpreadsheet\Style\Conditional();
+        $rojo->setConditionType(\PhpOffice\PhpSpreadsheet\Style\Conditional::CONDITION_CELLIS)
+            ->setOperatorType(\PhpOffice\PhpSpreadsheet\Style\Conditional::OPERATOR_LESSTHAN)->addCondition('0');
+        $rojo->getStyle()->getFont()->getColor()->setARGB('FFDC2626');
+        $hoja->getStyle("F6:F{$ultima}")->setConditionalStyles([$rojo]);
+        $hoja->freezePane('A6');
+
+        $nombre = 'Historial_Cupo_Gasoil_' . str_replace(' ', '_', $p['nombre']) . '_' . date('Y-m-d') . '.xlsx';
+        $escritor = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($libro);
+
+        return response()->streamDownload(fn () => $escritor->save('php://output'), $nombre, [
+            'Content-Type'  => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+        ]);
     }
 
     /** POST consumibles/cupos — el cupo de un patio (patio, litros); si cambia, rige desde el mes en curso. */

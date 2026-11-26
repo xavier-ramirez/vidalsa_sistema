@@ -141,6 +141,36 @@ class CuposCombustibleTest extends MySqlTestCase
         $this->assertNull(CisternaCupo::find($k->ID_CISTERNA));
     }
 
+    public function test_historial_con_botones_y_en_excel(): void
+    {
+        $this->cupo('TIGRE', 100000)->assertOk();
+        $this->cisternas('TIGRE', [['2031-02-10', 60000], ['2031-03-02', 30000], ['2031-03-09', 80000]])->assertOk();
+
+        // La lista empieza cerrada, con «Ver historial» y «Excel» (sin cisternas, Excel apagado).
+        $html = $this->modal()->getContent();
+        $this->assertStringContainsString('data-ver-historial', $html);
+        $this->assertStringContainsString('data-lista-historial hidden', $html);
+        $this->assertMatchesRegularExpression('/data-excel-historial="MATURIN"[^>]*disabled/', $html);
+
+        $r = $this->get(route('consumibles.cupos.excel', ['patio' => 'TIGRE']))->assertOk();
+        $this->assertStringContainsString('Historial_Cupo_Gasoil_Patio_El_Tigre_', $r->headers->get('Content-Disposition'));
+        $ruta = tempnam(sys_get_temp_dir(), 'cupo') . '.xlsx';
+        file_put_contents($ruta, $r->streamedContent());
+        $hoja = \PhpOffice\PhpSpreadsheet\IOFactory::load($ruta)->getActiveSheet();
+        @unlink($ruta);
+
+        // Marzo arriba: 30.000 (quedan 70.000), 80.000 (quedan −10.000), total; luego febrero.
+        $fila = fn ($n) => array_map(fn ($c) => $hoja->getCell($c . $n)->getValue(), ['B', 'C', 'D', 'E', 'F']);
+        $this->assertSame('02/03/2031', \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($hoja->getCell('A6')->getValue())->format('d/m/Y'));
+        $this->assertEquals(['Marzo 2031', 100000, 30000, 30000, 70000], $fila(6));
+        $this->assertEquals(['Marzo 2031', 100000, 80000, 110000, -10000], $fila(7));
+        $this->assertStringStartsWith('TOTAL MARZO 2031 (2 cisternas)', $hoja->getCell('A8')->getValue());
+        $this->assertEquals([100000, 110000, 110000, -10000], array_slice($fila(8), 1));
+        $this->assertEquals(['Febrero 2031', 100000, 60000, 60000, 40000], $fila(9));
+
+        $this->get(route('consumibles.cupos.excel', ['patio' => 'OTRO']))->assertStatus(302);
+    }
+
     public function test_la_direccion_sola_abre_el_modal_en_cargar(): void
     {
         $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cupos'))

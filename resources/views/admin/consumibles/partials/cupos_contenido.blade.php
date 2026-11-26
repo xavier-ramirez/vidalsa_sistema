@@ -97,9 +97,21 @@
             </form>
         @endif
 
-        {{-- Historial: un bloque por mes con su resumen y sus cisternas. --}}
+        {{-- Historial: empieza cerrado («Ver historial» lo abre; queda abierto al repintar) y se
+             descarga en Excel. Un bloque por mes con su resumen y sus cisternas. --}}
         <section class="cupos-bloque">
-            <h3>Historial</h3>
+            <div class="cupos-hist-cab">
+                <h3>Historial</h3>
+                <button type="button" class="cupos-hist-btn" data-ver-historial aria-expanded="false">
+                    <i class="material-icons">visibility</i> <span>Ver historial</span>
+                </button>
+                <button type="button" class="cupos-hist-btn cupos-hist-excel" data-excel-historial="{{ $clave }}"
+                    data-nombre="Historial_Cupo_Gasoil_{{ str_replace(' ', '_', $p['nombre']) }}.xlsx"
+                    @if (!$p['meses']) disabled title="Todavía no hay cisternas" @endif>
+                    <i class="material-icons">download</i> Excel
+                </button>
+            </div>
+            <div class="cupos-hist-lista" data-lista-historial hidden>
             @forelse ($p['meses'] as $m)
                 <div class="cupos-mes">
                     <div class="cupos-mes-cab">
@@ -127,6 +139,7 @@
                     Todavía no hay cisternas de {{ $p['nombre'] }}.
                 </div>
             @endforelse
+            </div>
         </section>
     </div>
 @endforeach

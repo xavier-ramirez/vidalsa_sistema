@@ -81,6 +81,17 @@
     .cupos-pie .btn-primary-maquinaria { margin-left: 0; white-space: nowrap; height: 36px; }
 
     /* Historial */
+    /* Cabecera del historial: título y, a la derecha, «Ver historial» y «Excel». */
+    .cupos-hist-cab { display: flex; align-items: center; gap: 8px; }
+    .cupos-hist-cab h3 { margin: 0 auto 0 0; }
+    .cupos-hist-btn { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px; border-radius: 8px;
+        border: 1px solid #cbd5e0; background: #fff; color: #0f172a; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; }
+    .cupos-hist-btn i { font-size: 18px; }
+    .cupos-hist-btn:hover:not(:disabled) { background: #f1f5f9; }
+    .cupos-hist-excel { border-color: #16a34a; color: #15803d; }
+    .cupos-hist-excel:hover:not(:disabled) { background: #f0fdf4; }
+    .cupos-hist-btn:disabled { opacity: .45; cursor: default; }
+    .cupos-hist-lista { margin-top: 10px; }
     .cupos-mes + .cupos-mes { margin-top: 12px; }
     .cupos-mes-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap;
         background: #f1f5f9; border-radius: 8px; padding: 8px 10px; font-size: 12px; color: #475569; box-shadow: inset 3px 0 0 var(--color); }
@@ -133,6 +144,7 @@
         var URL_CUPO = @json(route('consumibles.cupos.guardar'));
         var URL_CISTERNA = @json(route('consumibles.cupos.cisterna'));
         var URL_BORRAR = @json(route('consumibles.cupos.borrarCisterna', ['id' => '__ID__']));
+        var URL_EXCEL = @json(route('consumibles.cupos.excel'));
         var JSON_H = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
         var modal = document.getElementById('cuposModal');
         if (!modal) return;
@@ -147,6 +159,17 @@
             var sel = modal.querySelector('[data-elegir-patio]');
             if (sel) sel.value = patio;
             modal.querySelectorAll('[data-panel]').forEach(function (p) { p.hidden = p.dataset.panel !== patio; });
+            verHistorial(!!window.__cuposHistorial);
+        }
+        // «Ver historial» abre o cierra la lista (en los dos patios: queda igual al cambiar de patio y al repintar).
+        function verHistorial(abierto) {
+            window.__cuposHistorial = abierto;
+            modal.querySelectorAll('[data-lista-historial]').forEach(function (l) { l.hidden = !abierto; });
+            modal.querySelectorAll('[data-ver-historial]').forEach(function (b) {
+                b.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+                b.querySelector('i').textContent = abierto ? 'visibility_off' : 'visibility';
+                b.querySelector('span').textContent = abierto ? 'Ocultar historial' : 'Ver historial';
+            });
         }
         mostrarPatio(window.__cuposPatio || 'TIGRE');
 
@@ -271,6 +294,13 @@
                 return;
             }
             if (e.target.closest('[data-cancelar-cupo]')) { cancelarCupo(panel); return; }
+            if (e.target.closest('[data-ver-historial]')) { verHistorial(!window.__cuposHistorial); return; }
+            var xl = e.target.closest('[data-excel-historial]');
+            if (xl) {
+                window.descargarArchivo(URL_EXCEL + '?patio=' + encodeURIComponent(xl.dataset.excelHistorial), null,
+                    xl.dataset.nombre, 'No se pudo descargar el Excel.');
+                return;
+            }
             var b = e.target.closest('[data-borrar]');
             if (!b) return;
             window.confirmarAccion({
