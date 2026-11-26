@@ -160,8 +160,10 @@
 .gl .cb-proy-vacio p { margin: 0; width: 100%; text-align: center; font: 400 16px Arial, sans-serif; color: #4A5563; }
 /* La leyenda: dentro de la tarjeta de las barras, abajo a la derecha, en una línea y sin cuadro; las filas dejan
    ese espacio libre (padding de abajo). Pedido del usuario 26-11. */
-.gl .cb-proy:not(.cb-proy-vacio) { padding-bottom: 54px; }
-.gl .cb-ley.gl-ley-proy { left: auto; right: 468px; top: 646px; flex-direction: row; gap: 22px; padding: 0; background: none; border: none; border-radius: 0; }
+.gl .cb-proy:not(.cb-proy-vacio) { padding-bottom: 66px; }
+.gl .cb-ley.gl-ley-proy { left: auto; right: 468px; top: 622px; flex-direction: column; gap: 9px; padding: 0; background: none; border: none; border-radius: 0; }
+/* Sin la raya entre el título «CONSUMO POR PROYECTO (LITROS)» y las barras (pedido del usuario 26-11). */
+.gl .cb-l3tit:not(.pm-tit) { border-bottom: 0; }
 /* Consumo por división (copia del maestro: .cb-divs / .cb-div) */
 .gl .cb-divs { display: flex; flex-direction: column; gap: 10px; }
 .gl .cb-div { display: grid; grid-template-columns: 1fr auto; align-items: baseline; row-gap: 10px; padding: 14px 22px; border-radius: 10px; background: #F2F4F7; border-left: 6px solid #2B3440; }

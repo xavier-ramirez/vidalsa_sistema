@@ -95,9 +95,9 @@
     function proyectos(d) {
         var ps = d.proyectos.slice(0, d.proyectos.length > MAX_FILAS ? MAX_FILAS - 1 : MAX_FILAS), otros = d.proyectos.slice(ps.length);
         var mayor = Math.max.apply(null, ps.map(function (p) { return p.litros; }).concat([1]));
-        // Las filas llenan SIEMPRE el alto de la tarjeta (384 px, abajo va la leyenda): con pocos proyectos, barras y
+        // Las filas llenan SIEMPRE el alto de la tarjeta (372 px, abajo va la leyenda): con pocos proyectos, barras y
         // letras más grandes y repartidas; con muchos, más bajas para que entren todas.
-        var n = ps.length + (otros.length ? 1 : 0), paso = 384 / Math.max(n, 1);
+        var n = ps.length + (otros.length ? 1 : 0), paso = 372 / Math.max(n, 1);
         var vars = n >= 13
             ? '--pista:' + Math.min(20, paso * 0.62).toFixed(1) + 'px;--nombre:' + Math.max(8, Math.min(13, paso * 0.42)).toFixed(1) +
               'px;--cifra:' + Math.max(9, Math.min(17, paso * 0.55)).toFixed(1) + 'px'
@@ -115,8 +115,8 @@
         var cuerpo = ps.length
             ? '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy" style="' + vars + '">' + filas + '</div>' +
               // La leyenda, dentro de la tarjeta de las barras, abajo a la derecha, sin cuadro (no la tapa ninguna barra).
-              '<div class="cb-ley gl-ley-proy"><span><i style="background:#A8261F"></i>ROJO: MAYOR CONSUMO</span>' +
-              '<span><i style="background:#1F4E79"></i>AZUL: RESTO DE PROYECTOS</span></div>'
+              '<div class="cb-ley gl-ley-proy"><span><i style="background:#A8261F"></i>PROYECTOS DE MAYOR CONSUMO</span>' +
+              '<span><i style="background:#1F4E79"></i>DEMÁS PROYECTOS</span></div>'
             : '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy cb-proy-vacio"><p>' + (d.total > 0 ? 'El gasoil del período se cargó sin proyecto.' : 'Sin gasoil en el período.') + '</p></div>';
         // Derecha, como el maestro: el consumo total y, debajo, el consumo por división (con su parte del total).
         var divs = (d.divisiones || []).filter(function (v) { return v.litros > 0 || v.clave !== 'OTROS'; }), sumaDiv = divs.reduce(function (s, v) { return s + v.litros; }, 0);
