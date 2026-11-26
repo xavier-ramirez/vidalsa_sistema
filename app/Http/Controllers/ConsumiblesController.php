@@ -507,6 +507,7 @@ class ConsumiblesController extends Controller
                     DB::raw("(SELECT MAX(d.PLACA) FROM documentacion d WHERE d.ID_EQUIPO = equipos.ID_EQUIPO) as PLACA"),
                     DB::raw("COALESCE(tipo_equipos.nombre, 'S/T') as tipo"),
                     DB::raw("MAX(frentes_trabajo.NOMBRE_FRENTE) as frente"),
+                    DB::raw('COALESCE(consumibles.ID_FRENTE, equipos.ID_FRENTE_ACTUAL) as id_proyecto'),
                     'consumibles.TIPO_CONSUMIBLE',
                     DB::raw('SUM(consumibles.CANTIDAD) as total'),
                     DB::raw('COUNT(*) as despachos'),
@@ -527,7 +528,7 @@ class ConsumiblesController extends Controller
                 ->get()
                 // Los 4 de cada proyecto (ya vienen de mayor a menor); los proyectos, por su equipo de más
                 // consumo (el orden en que aparecen). Antes eran 20 en total y los proyectos chicos no salían.
-                ->groupBy(fn ($e) => $e->frente ?? '')
+                ->groupBy(fn ($e) => (int) $e->id_proyecto)
                 ->flatMap(fn ($equipos) => $equipos->take(4))
                 ->values();
 
@@ -772,8 +773,8 @@ class ConsumiblesController extends Controller
     /**
      * Lámina 1: gasoil por proyecto en el período (todos los estados, como la lista). Lámina 2: un proyecto,
      * sus 6 meses hasta el último del período y sus 4 equipos de mayor consumo en el período (solo los
-     * confirmados con equipo; el proyecto es el del surtido o, si no lo trae, el frente del equipo, como el
-     * Top 4 de Gráficos). Sin fechas, el período es el mes en curso.
+     * confirmados con equipo, del proyecto del SURTIDO, igual que sus barras y sus meses, para que las cifras
+     * cuadren). Sin fechas, el período es el mes en curso.
      */
     public function presentacionData(Request $request)
     {
@@ -811,12 +812,11 @@ class ConsumiblesController extends Controller
                 $meses[] = ['mes' => mb_strtoupper($m->locale('es')->translatedFormat('F')), 'litros' => (float) ($porMes[$m->format('Y-m')] ?? 0)];
             }
 
-            $frenteDelSurtido = DB::raw('COALESCE(consumibles.ID_FRENTE, equipos.ID_FRENTE_ACTUAL)');
             $top = $gasoil()->join('equipos', 'equipos.ID_EQUIPO', '=', 'consumibles.ID_EQUIPO')
                 ->leftJoin('tipo_equipos', 'tipo_equipos.id', '=', 'equipos.id_tipo_equipo')
                 ->where('consumibles.ESTADO_EQUIPO', 'CONFIRMADO')
                 ->whereBetween('consumibles.FECHA', $rango)
-                ->where($frenteDelSurtido, $idProyecto)
+                ->where('consumibles.ID_FRENTE', $idProyecto)
                 ->select(
                     'equipos.ID_EQUIPO', 'equipos.SERIAL_CHASIS', 'equipos.CODIGO_PATIO',
                     DB::raw('(SELECT MAX(d.PLACA) FROM documentacion d WHERE d.ID_EQUIPO = equipos.ID_EQUIPO) as PLACA'),

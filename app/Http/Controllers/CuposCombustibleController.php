@@ -32,7 +32,7 @@ class CuposCombustibleController extends Controller
     private const MESES = 12;
 
     /** Meses hacia adelante para programar solicitudes. */
-    private const ADELANTE = 3;
+    public const ADELANTE = 3;
 
     /**
      * GET consumibles/cupos?parcial=1[&mes=YYYY-MM][&patio=X] — el contenido del modal; con patio, solo
@@ -413,12 +413,21 @@ class CuposCombustibleController extends Controller
         $rango = fn (Carbon $m) => [$m->toDateString(), $m->copy()->endOfMonth()->toDateString()];
         // Las que llegaron, de los 8 meses del histórico (una sola consulta).
         $inicio = $mes->copy()->subMonths(7);
+        $mayus = fn (Carbon $m, string $f) => mb_strtoupper($m->locale('es')->translatedFormat($f));
         $llegadas = CisternaCupo::whereNotNull('LITROS')->whereBetween('FECHA', [$inicio->toDateString(), $rango($mes)[1]])
             ->orderBy('FECHA')->orderBy('NUMERO')->get();
         $mesSig = $mes->copy()->addMonth();
         $planes = CisternaCupo::whereBetween('FECHA_PLAN', [$mes->toDateString(), $rango($mesSig)[1]])
             ->orderBy('FECHA_PLAN')->orderBy('NUMERO')->get();
-        $mayus = fn (Carbon $m, string $f) => mb_strtoupper($m->locale('es')->translatedFormat($f));
+        $cronograma = fn (Carbon $m, $sols) => [
+            'mes' => $mayus($m, 'F'),
+            'dias' => $m->daysInMonth,
+            'primer_dia' => $m->dayOfWeekIso,   // 1 = lunes … 7 = domingo
+            'solicitudes' => $sols->map(fn ($k) => [
+                'numero' => $k->NUMERO, 'dia' => $k->FECHA_PLAN->day, 'llego' => $k->llego(),
+                'litros' => $k->llego() ? (float) $k->LITROS : null,   // la página los pone junto al camión
+            ])->values(),
+        ];
 
         $resumen = [];
         $patios = [];
@@ -436,12 +445,9 @@ class CuposCombustibleController extends Controller
                 $historico[] = ['mes' => $mayus($m, 'F'), 'litros' => round((float) $deEse->sum('LITROS'), 2), 'cisternas' => $deEse->count()];
             }
 
-            $mesCrono = $mesSig;
-            $solicitudes = $planes->where('PATIO', $clave)->filter(fn ($k) => $k->FECHA_PLAN->format('Y-m') === $mesSig->format('Y-m'));
-            if ($solicitudes->isEmpty()) {
-                $mesCrono = $mes;
-                $solicitudes = $planes->where('PATIO', $clave)->filter(fn ($k) => $k->FECHA_PLAN->format('Y-m') === $mes->format('Y-m'));
-            }
+            $delPatio = $planes->where('PATIO', $clave);
+            $solsMes = $delPatio->filter(fn ($k) => $k->FECHA_PLAN->format('Y-m') === $mes->format('Y-m'));
+            $solsSig = $delPatio->filter(fn ($k) => $k->FECHA_PLAN->format('Y-m') === $mesSig->format('Y-m'));
 
             $patios[] = [
                 'clave' => $clave,
@@ -451,16 +457,9 @@ class CuposCombustibleController extends Controller
                 ])->values(),
                 'total_recibido' => $consumido,
                 'historico' => $historico,
-                'cronograma' => [
-                    'mes' => $mayus($mesCrono, 'F'),
-                    'anio' => (int) $mesCrono->year,
-                    'dias' => $mesCrono->daysInMonth,
-                    'primer_dia' => $mesCrono->dayOfWeekIso,   // 1 = lunes … 7 = domingo
-                    'solicitudes' => $solicitudes->map(fn ($k) => [
-                        'numero' => $k->NUMERO, 'dia' => $k->FECHA_PLAN->day, 'llego' => $k->llego(),
-                        'litros' => $k->llego() ? (float) $k->LITROS : null,   // la página los pone junto al camión
-                    ])->values(),
-                ],
+                // PowerPoint: el del mes siguiente (lo programado) o, si aún no hay, el del mes. Página: el del mes.
+                'cronograma' => $solsSig->isNotEmpty() ? $cronograma($mesSig, $solsSig) : $cronograma($mes, $solsMes),
+                'cronograma_mes' => $cronograma($mes, $solsMes),
             ];
         }
 

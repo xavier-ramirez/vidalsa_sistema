@@ -31,14 +31,16 @@
         font-size: 14px; font-weight: 700; color: #0f172a; }
     .cupos-dd .dropdown-content { max-height: 260px; overflow-y: auto; }
     .cupos-dd .dropdown-item { cursor: pointer; padding: 9px 12px; font-size: 13.5px; }
-    .cupos-cupo-lado { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .cupos-dd .dropdown-item.cupos-dd-foco { background: #e1effa; }
+    /* El cupo: su etiqueta arriba del cuadro, en letra pequeña. */
+    .cupos-cupo-lado { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; flex-shrink: 0; }
     .cupos-cupo-lado[hidden] { display: none; }
-    .cupos-cupo-titulo { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
+    .cupos-cupo-titulo { font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; padding-left: 2px; }
     .cupos-cupo-valor { font-size: 18px; color: #0f172a; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .cupos-tenue { color: #94a3b8 !important; font-weight: 600; }
     .cupos-cupo { margin: 0; }
     .cupos-cupo-caja { position: relative; display: block; margin: 0; }
-    .cupos-cupo-caja input { width: 160px; height: 40px; border: 1px solid #cbd5e0; border-radius: 10px; background: #fff; padding: 0 26px 0 10px;
+    .cupos-cupo-caja input { width: 160px; height: 34px; border: 1px solid #cbd5e0; border-radius: 10px; background: #fff; padding: 0 26px 0 10px;
         font-size: 17px; font-weight: 700; color: #0f172a; font-family: inherit; outline: none; box-sizing: border-box; text-align: right;
         font-variant-numeric: tabular-nums; }
     .cupos-cupo-caja input::placeholder { font-size: 13px; font-weight: 500; color: #94a3b8; }
@@ -51,7 +53,7 @@
     .cupos-bloque h3 i { font-size: 18px; color: var(--color); }
 
     /* Cabecera de la tabla: el título con el mes que se ve. */
-    .cupos-tbl-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .cupos-tbl-cab { display: flex; align-items: center; gap: 6px 12px; margin-bottom: 10px; flex-wrap: wrap; }
     .cupos-tbl-mes { color: #475569; font-weight: 600; }
 
     /* La tabla: N.º | Plan | Llegada | Litros | Foto | quitar. */
@@ -94,7 +96,7 @@
 
     /* Pie: el resumen del mes y, debajo, Cancelar y Guardar centrados. */
     .cupos-pie { display: flex; align-items: center; justify-content: center; gap: 8px 10px; margin-top: 10px; flex-wrap: wrap; }
-    .cupos-resumen-mes { flex: 1 1 auto; font-size: 12px; color: #475569; }
+    .cupos-resumen-mes { font-size: 12px; color: #475569; }
     .cupos-resumen-mes b { color: #0f172a; }
     .cupos-cambios { font-size: 12px; font-weight: 600; color: #b45309; }
     .cupos-botones { flex: 1 1 100%; display: flex; justify-content: center; gap: 10px; }
@@ -104,12 +106,21 @@
     .cupos-pie .btn-primary-maquinaria:disabled { opacity: .45; cursor: default; }
     .cupos-ocupado { opacity: .55; pointer-events: none; }
 
-    .cupos-foto-visor { position: fixed; inset: 0; z-index: 100000; background: rgba(15,23,42,.85); display: flex; flex-direction: column;
-        align-items: center; justify-content: center; gap: 10px; padding: 16px; box-sizing: border-box; cursor: zoom-out; }
-    .cupos-foto-visor img { max-width: 100%; max-height: calc(100% - 80px); border-radius: 8px; background: #fff; object-fit: contain; }
-    .cupos-foto-visor span { color: #fff; font-size: 13px; font-weight: 600; text-align: center; }
-    .cupos-foto-visor button { cursor: pointer; border: none; border-radius: 8px; background: #fff; color: #0f172a; font: 600 13px inherit;
-        font-family: inherit; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; }
+    /* Visor de la foto: el mismo del Inventario (.alm-visor-foto): caja blanca centrada y, quien puede cargar,
+       al pasar el mouse un velo con la cámara y «Cambiar foto» (tocar la foto = elegir otra). */
+    .cupos-foto-visor { position: fixed; inset: 0; z-index: 100000; background: rgba(15,23,42,.8); display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 12px; padding: 24px; box-sizing: border-box; cursor: zoom-out; }
+    .cupos-visor-caja { position: relative; display: inline-flex; border-radius: 12px; overflow: hidden; background: #fff;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,.5); cursor: default; }
+    .cupos-visor-caja.editable { cursor: pointer; }
+    .cupos-visor-caja img { display: block; max-width: min(92vw, 900px); max-height: calc(86vh - 40px); background: #fff; object-fit: contain; }
+    .cupos-visor-velo { position: absolute; inset: 0; background: rgba(15,23,42,.55); color: #fff; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 8px; opacity: 0; transition: opacity .18s ease; font-size: 14px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .5px; pointer-events: none; }
+    .cupos-visor-velo .material-icons { font-size: 44px; }
+    .cupos-visor-caja.editable:hover .cupos-visor-velo, .cupos-visor-caja.editable:focus-visible .cupos-visor-velo { opacity: 1; }
+    .cupos-foto-visor .cupos-visor-x { position: absolute; top: 14px; right: 18px; color: #fff; font-size: 30px; cursor: pointer; }
+    .cupos-foto-visor > span { color: #fff; font-size: 13px; font-weight: 600; text-align: center; }
 
     @media (max-width: 600px) {
         #cuposContenido { padding: 10px; }
@@ -117,7 +128,8 @@
         .cupos-dd { flex: 1 1 calc(50% - 5px); }
         .cupos-dd [data-dd-texto] { font-size: 13px; }
         .cupos-dd .cupos-dd-boton { gap: 4px; padding-left: 8px; }
-        .cupos-cupo-lado { flex: 1 1 100%; justify-content: space-between; }
+        .cupos-cupo-lado { flex: 1 1 100%; }
+        .cupos-cupo-lado .cupos-cupo, .cupos-cupo-caja input { width: 100%; }
         .cupos-bloque { padding: 10px; }
         .cupos-tbl-cab { flex-wrap: wrap; }
         .cupos-botones { flex: 1 1 100%; }
@@ -512,9 +524,27 @@
             var sig = i < CAMPOS.length - 1 ? campo(tr, CAMPOS[i + 1]) : (tr.nextElementSibling && campo(tr.nextElementSibling, 'numero'));
             if (sig) sig.focus();
         });
-        // Las listas de patio y mes con el teclado: Enter o espacio la abre (como un clic).
+        // Las listas de patio y mes con el teclado: Enter o espacio la abre; abierta, las flechas marcan una
+        // opción y Enter (o espacio) la elige.
         modal.addEventListener('keydown', function (e) {
-            if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.cupos-dd-boton')) { e.preventDefault(); e.target.click(); }
+            if (!e.target.matches || !e.target.matches('.cupos-dd-boton')) return;
+            var dd = e.target.closest('.cupos-dd'), items = [].slice.call(dd.querySelectorAll('.dropdown-item'));
+            var foco = dd.querySelector('.dropdown-item.cupos-dd-foco');
+            if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && items.length) {
+                e.preventDefault();
+                if (!dd.classList.contains('active')) e.target.click();
+                // Desde la marcada; si no hay, desde la elegida (o desde un extremo).
+                var k = items.indexOf(foco || dd.querySelector('.dropdown-item.selected'));
+                if (k < 0) k = e.key === 'ArrowDown' ? -1 : items.length;
+                k = Math.min(items.length - 1, Math.max(0, k + (e.key === 'ArrowDown' ? 1 : -1)));
+                items.forEach(function (it, i) { it.classList.toggle('cupos-dd-foco', i === k); });
+                items[k].scrollIntoView({ block: 'nearest' });
+                return;
+            }
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            if (dd.classList.contains('active') && foco) { foco.classList.remove('cupos-dd-foco'); foco.click(); return; }
+            e.target.click();
         });
         // Escape: con una lista abierta, la cierra; en el cupo deshace lo escrito; si no, cierra el modal.
         modal.addEventListener('keydown', function (e) {
@@ -532,21 +562,33 @@
         function verFoto(btn) {
             var v = document.createElement('div');
             v.className = 'cupos-foto-visor';
+            var x = document.createElement('i');
+            x.className = 'material-icons cupos-visor-x'; x.title = 'Cerrar'; x.textContent = 'close';
+            var caja = document.createElement('div');
+            caja.className = 'cupos-visor-caja';
             var img = document.createElement('img');
             img.src = btn.dataset.verFoto; img.alt = 'Foto de la cisterna';
+            caja.appendChild(img);
             var t = document.createElement('span');
             t.textContent = btn.dataset.texto || '';
-            v.appendChild(img); v.appendChild(t);
+            v.appendChild(x); v.appendChild(caja); v.appendChild(t);
             if (btn.dataset.idFoto) {
-                var cambiar = document.createElement('button');
-                cambiar.type = 'button';
-                cambiar.innerHTML = '<i class="material-icons">photo_camera</i> Cambiar foto';
-                cambiar.addEventListener('click', function (e) { e.stopPropagation(); cerrarVisor(e); cambiarFoto(btn); });
-                v.appendChild(cambiar);
+                // Como en el Inventario: al pasar el mouse, el velo «Cambiar foto»; tocar la foto la cambia.
+                caja.classList.add('editable');
+                caja.title = 'Cambiar foto'; caja.tabIndex = 0;
+                caja.insertAdjacentHTML('beforeend', '<div class="cupos-visor-velo"><i class="material-icons">photo_camera</i><span>Cambiar foto</span></div>');
+                var cambiar = function (e) { e.stopPropagation(); quitar(); cambiarFoto(btn); };
+                caja.addEventListener('click', cambiar);
+                caja.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cambiar(e); } });
+            } else {
+                caja.addEventListener('click', function (e) { e.stopPropagation(); });
             }
             function cerrarVisor(e) {
                 if (e.type === 'keydown' && e.key !== 'Escape') return;
                 e.stopPropagation();
+                quitar();
+            }
+            function quitar() {
                 v.remove();
                 document.removeEventListener('keydown', cerrarVisor, true);
             }

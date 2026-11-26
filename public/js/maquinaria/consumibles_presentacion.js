@@ -2,7 +2,7 @@
  * Presentación de gasoil en Gráficos de consumibles. Las láminas las dibuja consumibles_laminas.js (el mismo diseño
  * del maestro del usuario); aquí va lo de la pantalla:
  *   - consumiblesGraficosPresentacion: la tarjeta de Gráficos, con SOLO los gráficos de la presentación
- *     (proyectos, proyecto, cupo, histórico y cronograma) y los MISMOS filtros de la pantalla (mes / frente);
+ *     (proyectos, cupo, histórico y cronograma) y el mes de los filtros de la pantalla (sin mes: el en curso);
  *   - consumiblesExportar: «Exportar» → Excel o PowerPoint. El PowerPoint pregunta el proyecto de la lámina de
  *     detalle y baja la presentación completa (portada, encabezados, fotos) con los filtros de la pantalla.
  * Los datos: ConsumiblesController::presentacionData (+ CuposCombustibleController::presentacion).
@@ -77,7 +77,14 @@
             m.querySelector('.cons-exp-ppt').hidden = false;
             m.querySelectorAll('.cons-exp-op').forEach(function (b) { b.classList.toggle('activo', b.hasAttribute('data-ppt')); });
             pedirDatos(opc.urlDatos, opc.filtros).then(function (d) {
-                if (d.vacio || !d.proyectos.length) { sel.innerHTML = '<option>Sin gasoil en el período</option>'; nota.textContent = ''; return; }
+                if (d.vacio) { sel.innerHTML = '<option>Sin gasoil cargado</option>'; nota.textContent = ''; return; }
+                if (!d.proyectos.length) {
+                    // Sin proyectos en el período igual baja: portada, fotos, cupo e histórico con cronograma.
+                    sel.innerHTML = '<option value="">Sin gasoil con proyecto en el período</option>';
+                    bajar.disabled = false;
+                    nota.textContent = 'Presentación de ' + d.cisternas.mes.toLowerCase() + '.';
+                    return;
+                }
                 sel.innerHTML = d.proyectos.map(function (p) {
                     return '<option value="' + p.id + '"' + (d.proyecto && d.proyecto.id === p.id ? ' selected' : '') + '>' +
                         esc(p.nombre) + ' · ' + mil(p.litros) + ' L</option>';
@@ -91,7 +98,7 @@
             bajar.disabled = true; sel.disabled = true;
             nota.textContent = 'Armando la presentación…';
             pedirDatos(opc.urlDatos, opc.filtros, { id_proyecto: sel.value }).then(function (d) {
-                if (d.vacio) throw new Error('No hay gasoil cargado.');
+                if (d.vacio) throw new Error('No hay gasoil cargado.');   // (el botón no se activa en ese caso)
                 return window.GasoilLaminas.bajar(d, 'Gestion_Combustible_' + d.cisternas.mes.replace(/\s+/g, '_') + '.pptx');
             }).then(cerrar).catch(function (e) {
                 bajar.disabled = false; sel.disabled = false;

@@ -6,7 +6,6 @@
 .gl { --navy: #1F4E79; --noche: #222A35; --texto: #000; --letra: Calibri, Carlito, 'Segoe UI', Arial, sans-serif;
   --enc: 126px; --construccion: #F57935; --ambiente: #4E8A3E; font-family: var(--letra); color: var(--texto); }
 .gl, .gl * { box-sizing: border-box; }
-.gl * { box-sizing: border-box; }
 .gl .lamina { position: relative; width: 1280px; height: 720px; overflow: hidden; background: #fff; }
 .gl .pt-ola { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; fill: var(--navy); }
 .gl .pt-banda { position: absolute; left: 0; top: 248.88px; width: 818.67px; height: 262.67px; background: linear-gradient(120deg, rgba(238, 47, 44, .92) 16%, rgba(249, 147, 3, .82) 100%); }
@@ -181,3 +180,5 @@
 .gl-hoja > .lamina { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform: scale(var(--k, 1)) translateY(-126px); }
 /* Para el PowerPoint: las láminas completas, a tamaño real, fuera de la vista. */
 .gl-armando { position: fixed; left: -20000px; top: 0; width: 1280px; pointer-events: none; }
+/* nombres de proyecto muy largos: se cortan con «…» en vez de montarse sobre la barra */
+.gl .cb-fila small { overflow: hidden; text-overflow: ellipsis; }

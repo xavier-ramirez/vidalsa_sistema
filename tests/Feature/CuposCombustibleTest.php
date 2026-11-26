@@ -229,6 +229,7 @@ class CuposCombustibleTest extends MySqlTestCase
         $this->assertEquals(['mes' => 'MARZO', 'litros' => 50000, 'cisternas' => 2], end($t['historico']));
         $this->assertEquals(['mes' => 'FEBRERO', 'litros' => 60000, 'cisternas' => 1], $t['historico'][6]);
         $this->assertSame('ABRIL', $t['cronograma']['mes']);   // las solicitudes del mes siguiente
+        $this->assertSame('MARZO', $t['cronograma_mes']['mes']);   // la página: el del mes, con lo recibido
         $this->assertSame([3, 17], array_column($t['cronograma']['solicitudes']->all(), 'dia'));
         // Maturín no tiene solicitudes en abril: su cronograma es el de marzo (la que llegó).
         $this->assertSame('MARZO', $d['patios'][1]['cronograma']['mes']);

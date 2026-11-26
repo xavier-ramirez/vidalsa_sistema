@@ -9,7 +9,7 @@
     $colores = ['TIGRE' => '#1F4E79', 'MATURIN' => '#5B9BD5'];
     $desde = \App\Http\Controllers\CuposCombustibleController::desde()->toDateString();
     $hoy = now()->toDateString();
-    $tope = now()->startOfMonth()->addMonths(3)->endOfMonth()->toDateString();
+    $tope = now()->startOfMonth()->addMonths(\App\Http\Controllers\CuposCombustibleController::ADELANTE)->endOfMonth()->toDateString();
     $ym = $mes->format('Y-m');
     $programadas = $p['filas']->count() - $p['recibidas'];
 @endphp
@@ -19,6 +19,12 @@
         <input type="hidden" name="patio" value="{{ $clave }}">
         <div class="cupos-tbl-cab">
             <h3><i class="material-icons">local_shipping</i> Cisternas · <span class="cupos-tbl-mes">{{ \App\Http\Controllers\CuposCombustibleController::nombreMes($mes) }}</span></h3>
+            {{-- Al lado del título: lo recibido y lo programado en ese mes. --}}
+            <span class="cupos-resumen-mes">
+                <b>{{ $p['recibidas'] === 1 ? '1 recibida' : $p['recibidas'] . ' recibidas' }} · {{ $lt($p['recibido']) }} L</b>
+                @if ($programadas > 0) · {{ $programadas === 1 ? '1 programada' : $programadas . ' programadas' }}@endif
+                @if ($p['cupo_mes'] !== null && $p['cupo_mes'] !== $p['cupo']) · cupo de ese mes {{ $lt($p['cupo_mes']) }} L @endif
+            </span>
         </div>
 
         <div class="cupos-tbl-marco">
@@ -82,20 +88,15 @@
             </table>
         </div>
 
+        @if ($puede)
         <div class="cupos-pie">
-            <span class="cupos-resumen-mes" data-resumen-mes>
-                <b>{{ $p['recibidas'] === 1 ? '1 recibida' : $p['recibidas'] . ' recibidas' }} · {{ $lt($p['recibido']) }} L</b>
-                @if ($programadas > 0) · {{ $programadas === 1 ? '1 programada' : $programadas . ' programadas' }}@endif
-                @if ($p['cupo_mes'] !== null && $p['cupo_mes'] !== $p['cupo']) · cupo de ese mes {{ $lt($p['cupo_mes']) }} L @endif
-            </span>
-            @if ($puede)
                 <span class="cupos-cambios" data-cambios></span>
                 <div class="cupos-botones">
                     {{-- Cancelar: deja lo escrito sin guardar y cierra el modal. --}}
                     <button type="button" class="btn-primary-maquinaria btn-compacto cupos-cancelar" data-cancelar>Cancelar</button>
                     <button type="submit" class="btn-primary-maquinaria btn-compacto" data-guardar disabled><i class="material-icons">save</i> Guardar</button>
                 </div>
-            @endif
         </div>
+        @endif
     </form>
 </div>

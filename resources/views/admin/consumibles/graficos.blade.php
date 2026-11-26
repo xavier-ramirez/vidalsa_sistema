@@ -134,7 +134,7 @@
                         <div style="background: #f1f5f9; padding: 6px; border-radius: 6px; display: flex;">
                             <i class="material-icons" style="font-size: 18px; color: #64748b;">download</i>
                         </div>
-                        <span style="font-size: 14px; font-weight: 500;">Exportar (Excel o PowerPoint)</span>
+                        <span style="font-size: 14px; font-weight: 500;">Exportar</span>
                     </a>
                 </div>
             </div>
@@ -200,8 +200,8 @@
     </script>
 
 
-    {{-- PRESENTACIÓN DE GASOIL, lo primero de la pantalla y sin título: sus gráficos (proyectos, cupo, lo recibido,
-         histórico y cronograma) con los filtros de la pantalla. Es el mismo dibujo que baja «Acciones → Exportar →
+    {{-- PRESENTACIÓN DE GASOIL, lo primero de la pantalla y sin título: sus gráficos (proyectos, cupo, histórico y
+         cronograma con los litros de cada solicitud surtida) con los filtros de la pantalla. Es el mismo dibujo que baja «Acciones → Exportar →
          PowerPoint» (ahí sí con portada, encabezados, fotos y la lámina del proyecto que se elige):
          consumibles_laminas.js. El Top 4 de equipos por proyecto va al final. --}}
     <div class="g-grid-1" id="secPresentacion">
@@ -357,6 +357,12 @@
             var mHasta = document.getElementById('fMesHasta') ? document.getElementById('fMesHasta').value : '';
             if (frente) p.set('id_frente', frente);
             if (tipo) p.set('tipo', tipo);
+            // Sin mes elegido: el mes en curso (el más actual), para todo lo de la pantalla: la presentación y el
+            // Top 4 muestran así el mismo período. Otro mes o un rango se eligen con los filtros.
+            if (!mDesde && !mHasta) {
+                var hoy = new Date();
+                mDesde = mHasta = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+            }
             if (mDesde) p.set('desde', mDesde + '-01');
             if (mHasta) {
                 var ph = mHasta.split('-');                        // [YYYY, MM]
@@ -699,14 +705,16 @@
                 const idTexto = idEquipo(d);
                 return `
                 <div class="eq-card">
-                    <div class="eq-tipo">${d.tipo || 'S/T'}</div>
-                    <div class="eq-modelo" title="${idTexto}">${idTexto}</div>
-                    <div class="eq-total">${total.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}<span class="eq-unidad">${d.unidad}</span></div>
+                    <div class="eq-tipo">${escHtml(d.tipo || 'S/T')}</div>
+                    <div class="eq-modelo" title="${escHtml(idTexto)}">${escHtml(idTexto)}</div>
+                    <div class="eq-total">${total.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}<span class="eq-unidad">${escHtml(d.unidad)}</span></div>
                     <div class="eq-desp">⛽ ${desp} despacho${desp !== 1 ? 's' : ''}</div>
                     <div class="eq-bar"><div class="eq-bar-fill" style="width:${pct.toFixed(1)}%; background:${barColor};"></div></div>
                 </div>`;
             };
 
+            // Nombres de frente, tipo y placa vienen de la base: se escapan (un «<» no rompe la tarjeta).
+            const escHtml = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => '&#' + c.charCodeAt(0) + ';');
             // Agrupar por FRENTE: la ubicación pasa a ser la cabecera del grupo (fuera de las
             // tarjetas), con su total + nº de equipos. Conserva el orden de mayor consumo del
             // backend dentro de cada grupo (los datos ya vienen ordenados desc por total).
@@ -725,7 +733,7 @@
                 return `
                 <div class="eq-frente-group">
                     <div class="eq-frente-head">
-                        <span class="eq-frente-name">📍 ${fr}</span>
+                        <span class="eq-frente-name">📍 ${escHtml(fr)}</span>
                     </div>
                     <div class="eq-col-cards">${g.items.map(tarjeta).join('')}</div>
                 </div>`;

@@ -113,7 +113,7 @@
         }
         var cuerpo = ps.length
             ? '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy" style="' + vars + '">' + filas + '</div>'
-            : '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy cb-proy-vacio"><p>Sin gasoil en el período.</p></div>';
+            : '<div class="cb-l3tit">CONSUMO POR PROYECTO (LITROS)</div><div class="cb-proy cb-proy-vacio"><p>' + (d.total > 0 ? 'El gasoil del período se cargó sin proyecto.' : 'Sin gasoil en el período.') + '</p></div>';
         // Derecha: el consumo total (el sistema no tiene «división» de los proyectos: no se inventa) y, debajo, la
         // leyenda suelta, fuera de la tarjeta de las barras y sin cuadro (así ninguna barra la tapa).
         var der = '<div class="cb-l3der"><div class="cb-total-l3"><small>CONSUMO TOTAL</small><b>' + mil(d.total) + ' L</b></div>' +
@@ -215,9 +215,11 @@
     }
 
     // ── 6. Histórico de despacho y cronograma de solicitudes de un patio (armar_historico y armar_crono) ──
-    function historico(h) {
+    // patio (solo la página): su nombre va en el título, porque ahí no se ve el encabezado de la lámina.
+    function historico(h, patio) {
         var mx = Math.max.apply(null, h.map(function (m) { return m.litros; }).concat([1]));
-        return '<div class="cb-tit" style="left:0;width:1280px;text-align:center;top:146px">HISTÓRICO DE DESPACHO DIESEL (LITROS)</div>' +
+        return '<div class="cb-tit" style="left:0;width:1280px;text-align:center;top:146px">HISTÓRICO DE DESPACHO DIESEL (LITROS)' +
+            (patio ? ' · ' + may(patio) : '') + '</div>' +
             '<div class="cb-hist" style="grid-template-columns:repeat(' + h.length + ',minmax(0,1fr))">' +
             h.map(function (m, k) {
                 return '<div class="cb-mes"><em>' + (m.cisternas ? plural(m.cisternas, 'CISTERNA', 'CISTERNAS') : '&nbsp;') + '</em>' +
@@ -258,8 +260,10 @@
     }
     // Hasta 7 solicitudes van debajo del histórico (como el maestro); las demás, en láminas del cronograma solo (16 por lámina).
     function historicoYCrono(p, pagina) {
-        var titulo = 'HISTÓRICO DE DESPACHO Y CRONOGRAMA<br>DE SOLICITUD DE GASOIL ' + may(p.nombre), c = p.cronograma, todas = c.solicitudes;
-        var salida = [lamina('cb', encabezado(titulo, true) + historico(p.historico) + cronograma(c, todas.slice(0, 7), false, false, pagina), 'grafico')];
+        // La página usa el cronograma del MES (con sus litros); el PowerPoint, el del mes siguiente si ya hay solicitudes.
+        var titulo = 'HISTÓRICO DE DESPACHO Y CRONOGRAMA<br>DE SOLICITUD DE GASOIL ' + may(p.nombre),
+            c = pagina && p.cronograma_mes ? p.cronograma_mes : p.cronograma, todas = c.solicitudes;
+        var salida = [lamina('cb', encabezado(titulo, true) + historico(p.historico, pagina && p.nombre) + cronograma(c, todas.slice(0, 7), false, false, pagina), 'grafico')];
         for (var i = 7; i < todas.length; i += 16) {
             salida.push(lamina('cb', encabezado(titulo, true) + cronograma(c, todas.slice(i, i + 16), true, true, pagina), 'grafico'));
         }
@@ -268,20 +272,16 @@
 
     // Todas las láminas, en el orden de la presentación. d = ConsumiblesController::presentacionData; pagina = para
     // la página de Gráficos (los litros en el cronograma). El cupo y el histórico con cronograma salen siempre, aunque
-    // aún no haya datos (los tanques dicen «SIN CARGAR», el cronograma «Sin solicitudes»): de El Tigre siempre; de
-    // los otros patios, si tienen cupo, cisternas o solicitudes.
+    // aún no haya datos (los tanques dicen «SIN CARGAR», el cronograma «Sin solicitudes»). El histórico y el
+    // cronograma (y las fotos del suministro) son SOLO de Patio El Tigre: Maturín no lo controla la empresa (pedido del usuario 26-11); de
+    // Maturín queda su tanque en la lámina del cupo.
     function armar(d, pagina) {
         var cis = d.cisternas, l = [portada(cis.mes)];
-        cis.patios.forEach(function (p) { if (p.recibidas.length) l = l.concat(suministro(p, cis.mes)); });
+        cis.patios.forEach(function (p) { if (p.clave === 'TIGRE' && p.recibidas.length) l = l.concat(suministro(p, cis.mes)); });
         l.push(proyectos(d));
         if (d.proyecto) l.push(unProyecto(d.proyecto));
         l.push(cupo(cis));
-        cis.patios.forEach(function (p, k) {
-            var conCupo = cis.cupos.some(function (c) { return c.clave === p.clave && c.cupo !== null; });
-            if (!k || conCupo || p.cronograma.solicitudes.length || p.historico.some(function (m) { return m.litros > 0; })) {
-                l = l.concat(historicoYCrono(p, pagina));
-            }
-        });
+        cis.patios.forEach(function (p) { if (p.clave === 'TIGRE') l = l.concat(historicoYCrono(p, pagina)); });
         return l;
     }
 
