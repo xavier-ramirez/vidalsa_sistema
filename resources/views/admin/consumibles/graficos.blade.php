@@ -200,6 +200,16 @@
     </script>
 
 
+    {{-- PRESENTACIÓN DE GASOIL, lo primero de la pantalla y sin título: sus gráficos (proyectos, cupo, lo recibido,
+         histórico y cronograma) con los filtros de la pantalla. Es el mismo dibujo que baja «Acciones → Exportar →
+         PowerPoint» (ahí sí con portada, encabezados, fotos y la lámina del proyecto que se elige):
+         consumibles_laminas.js. El Top 4 de equipos por proyecto va al final. --}}
+    <div class="g-grid-1" id="secPresentacion">
+        <div class="g-card">
+            <div id="presLaminas" class="cons-pres-laminas"><p class="cons-pres-nota">Cargando gráficos…</p></div>
+        </div>
+    </div>
+
     {{-- EQUIPOS QUE SURTIERON POR FRENTE (solo con frente seleccionado) --}}
     <div class="g-grid-1" id="secEqFrente" style="display:none;">
         <div class="g-card" id="panelEqFrente">
@@ -221,26 +231,6 @@
             <div style="position: relative; height:320px; width:100%;">
                 <canvas id="chartEqFrente" style="display:none;"></canvas>
             </div>
-        </div>
-    </div>
-
-    {{-- TOP EQUIPOS — GRID DE TARJETAS --}}
-    <div class="g-grid-1" id="panelRankingEquipos">
-        <div class="g-card">
-            <p class="g-title" style="justify-content:space-between;">
-                <span style="display:flex;align-items:center;gap:8px;">
-                    Top 20 Equipos Mayor Consumo
-                </span>
-                <button onclick="descargarRanking()" title="Descargar imagen"
-                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
-                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
-                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
-                </button>
-            </p>
-            <div id="loadingRanking" class="loading-overlay">
-                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
-            </div>
-            <div id="rankingBody" style="display:none;"></div>
         </div>
     </div>
 
@@ -305,18 +295,23 @@
     </div>
 
 
-    {{-- PRESENTACIÓN DE GASOIL: solo sus gráficos (proyectos, proyecto, cupo, histórico y cronograma), con los
-         filtros de la pantalla. Es el mismo dibujo que baja «Acciones → Exportar → PowerPoint» (ahí sí con
-         portada, encabezados y fotos, y preguntando el proyecto): consumibles_laminas.js. --}}
-    <div class="g-grid-1" id="secPresentacion">
+    {{-- TOP EQUIPOS — GRID DE TARJETAS --}}
+    <div class="g-grid-1" id="panelRankingEquipos">
         <div class="g-card">
-            <p class="g-title">
-                <span style="display:flex;align-items:center;gap:8px;min-width:0;">
-                    <i class="material-icons" style="color:#F26A21;">slideshow</i>
-                    <span>Presentación de gasoil <span class="g-subtitle" id="presPeriodo"></span></span>
+            <p class="g-title" style="justify-content:space-between;">
+                <span style="display:flex;align-items:center;gap:8px;">
+                    Top 4 Equipos de Mayor Consumo por Proyecto
                 </span>
+                <button onclick="descargarRanking()" title="Descargar imagen"
+                    style="border:none;background:transparent;cursor:pointer;color:#94a3b8;display:flex;align-items:center;padding:4px 8px;border-radius:8px;transition:background .2s;"
+                    onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                    <i class="material-icons" style="font-size:17px;">photo_camera</i>
+                </button>
             </p>
-            <div id="presLaminas" class="cons-pres-laminas"><p class="cons-pres-nota">Cargando gráficos…</p></div>
+            <div id="loadingRanking" class="loading-overlay">
+                <i class="material-icons" style="animation:spin 1s linear infinite;">refresh</i>
+            </div>
+            <div id="rankingBody" style="display:none;"></div>
         </div>
     </div>
 
@@ -980,10 +975,7 @@
         window.cargarPresentacionGraficos = function () {
             var cont = document.getElementById('presLaminas');
             if (!cont || typeof window.consumiblesGraficosPresentacion !== 'function') return;
-            window.consumiblesGraficosPresentacion(cont, '{{ route('consumibles.presentacionData') }}', getParams).then(function (d) {
-                var t = document.getElementById('presPeriodo');
-                if (t) t.textContent = d && !d.vacio ? '— ' + d.cisternas.mes.toLowerCase() + ' (gasoil del ' + d.desde + ' al ' + d.hasta + ')' : '';
-            });
+            window.consumiblesGraficosPresentacion(cont, '{{ route('consumibles.presentacionData') }}', getParams);
         };
     </script>
     <script

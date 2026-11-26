@@ -456,9 +456,9 @@ class ConsumiblesController extends Controller
         // ── Clave de caché única por combinación de filtros + versión de datos ──
         // La versión sube cada vez que se escriben datos → invalida todo el caché anterior.
         $version = CacheVersion::current(self::DATA_VER_KEY);
-        // "f5": sin el resumen de tarjetas (se quitó a pedido); el Top 20 va por proyecto del surtido;
-        // un valor guardado con la forma vieja no debe servirse.
-        $cacheKey = 'graficos_f5_v' . $version
+        // "f6": el top es de 4 equipos POR PROYECTO (antes 20 en total); un valor guardado con la forma
+        // vieja no debe servirse.
+        $cacheKey = 'graficos_f6_v' . $version
             . '_d' . ($desde ?? 'null')
             . '_h' . ($hasta ?? 'null')
             . '_f' . ($idFrente ?? 'all')
@@ -484,7 +484,7 @@ class ConsumiblesController extends Controller
                 $q->where('consumibles.ESTADO_EQUIPO', 'CONFIRMADO');
             };
 
-            // ── 2. Top 20 equipos de mayor consumo POR PROYECTO — solo CONFIRMADOS ──
+            // ── 2. Top 4 equipos de mayor consumo DE CADA PROYECTO — solo CONFIRMADOS ──
             // El proyecto es el del SURTIDO (consumibles.ID_FRENTE); si el surtido no lo trae, el
             // frente al que pertenece el equipo. Antes se agrupaba siempre por el frente ACTUAL del
             // equipo y un surtido de Oleoducto salía bajo otro proyecto. Un equipo que surtió en
@@ -524,8 +524,12 @@ class ConsumiblesController extends Controller
                 )
                 ->orderBy('total', 'desc')
                 ->orderBy('despachos', 'desc')
-                ->limit(20)
-                ->get();
+                ->get()
+                // Los 4 de cada proyecto (ya vienen de mayor a menor); los proyectos, por su equipo de más
+                // consumo (el orden en que aparecen). Antes eran 20 en total y los proyectos chicos no salían.
+                ->groupBy(fn ($e) => $e->frente ?? '')
+                ->flatMap(fn ($equipos) => $equipos->take(4))
+                ->values();
 
             // ── 6. Equipos individuales × frente — solo CONFIRMADOS ──────────────────
             // Muestra qué equipos específicos (modelo + código) surtieron en cada frente.
@@ -769,7 +773,7 @@ class ConsumiblesController extends Controller
      * Lámina 1: gasoil por proyecto en el período (todos los estados, como la lista). Lámina 2: un proyecto,
      * sus 6 meses hasta el último del período y sus 4 equipos de mayor consumo en el período (solo los
      * confirmados con equipo; el proyecto es el del surtido o, si no lo trae, el frente del equipo, como el
-     * Top 20). Sin fechas, el período es el último mes que tiene gasoil.
+     * Top 4 de Gráficos). Sin fechas, el período es el mes en curso.
      */
     public function presentacionData(Request $request)
     {
@@ -779,14 +783,11 @@ class ConsumiblesController extends Controller
         ]);
         $gasoil = fn () => DB::table('consumibles')->where('consumibles.TIPO_CONSUMIBLE', 'GASOIL');
 
-        $hasta = $request->filled('hasta') ? \Carbon\Carbon::parse($request->hasta) : null;
-        if (!$hasta) {
-            $ultima = $gasoil()->max('FECHA');
-            if (!$ultima) {
-                return response()->json(['vacio' => true]);
-            }
-            $hasta = \Carbon\Carbon::parse($ultima)->endOfMonth();
+        if (!$gasoil()->exists()) {
+            return response()->json(['vacio' => true]);
         }
+        // Sin filtro de fechas: el mes en curso (el más actual, como Cupos); otro mes se elige con los filtros.
+        $hasta = $request->filled('hasta') ? \Carbon\Carbon::parse($request->hasta) : now()->endOfMonth();
         $desde = $request->filled('desde') ? \Carbon\Carbon::parse($request->desde) : $hasta->copy()->startOfMonth();
         $rango = [$desde->toDateString(), $hasta->toDateString()];
 

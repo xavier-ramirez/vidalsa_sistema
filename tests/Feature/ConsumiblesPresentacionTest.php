@@ -59,6 +59,22 @@ class ConsumiblesPresentacionTest extends MySqlTestCase
             ->assertOk()->json();
         $this->assertSame($sur->ID_FRENTE, $r['proyecto']['id']);
         $this->assertSame([], $r['proyecto']['top']);                  // sus consumos no tienen equipo confirmado
+
+        // Gráficos: el top es de 4 equipos POR proyecto (el norte tiene 5: sale sin el quinto).
+        $top = $this->actingAs($this->superAdminGlobal())
+            ->getJson(route('consumibles.graficosData', ['desde' => '2031-06-01', 'hasta' => '2031-06-30', 'tipo' => 'GASOIL']))
+            ->assertOk()->json('top_equipos');
+        $this->assertEquals([500, 400, 300, 200], array_map('floatval', array_column($top, 'total')));
+    }
+
+    public function test_sin_fechas_es_el_mes_en_curso(): void
+    {
+        $r = $this->actingAs($this->superAdminGlobal())->getJson(route('consumibles.presentacionData'))->assertOk()->json();
+        if (!empty($r['vacio'])) {
+            $this->markTestSkipped('La base no tiene gasoil.');
+        }
+        $this->assertSame(now()->startOfMonth()->format('d/m/Y'), $r['desde']);
+        $this->assertSame(now()->endOfMonth()->format('d/m/Y'), $r['hasta']);
     }
 
     public function test_pantalla_de_graficos_trae_el_boton_de_exportar(): void

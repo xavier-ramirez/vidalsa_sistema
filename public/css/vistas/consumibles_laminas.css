@@ -171,8 +171,8 @@
 .gl .cb-pista i { border-radius: calc(var(--pista) / 2); }
 .gl .cb-pista b { font-size: var(--cifra); }
 .gl .cb-otros small { color: #4A5563; }
-.gl .cb-proy-vacio { display: grid; place-items: center; padding: 0; }
-.gl .cb-proy-vacio p { margin: 0; font: 400 16px Arial, sans-serif; color: #4A5563; }
+.gl .cb-proy.cb-proy-vacio { display: flex; align-items: center; justify-content: center; }
+.gl .cb-proy-vacio p { margin: 0; width: 100%; text-align: center; font: 400 16px Arial, sans-serif; color: #4A5563; }
 /* la leyenda va en la columna derecha, debajo del total, suelta (sin cuadro): pedido del usuario 26-11 */
 .gl .cb-ley.cb-ley-der { position: static; align-self: flex-start; padding: 0 4px; background: none; border: none; border-radius: 0; }
 /* solicitud ejecutada (la cisterna llegó): su nombre en verde; las que faltan siguen en rojo */

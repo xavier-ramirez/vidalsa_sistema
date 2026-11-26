@@ -179,7 +179,11 @@
     function patioTanque(c, izq) {
         var cupo = c.cupo, desp = c.consumido || 0, falta = cupo !== null ? Math.max(cupo - desp, 0) : null;
         var porc = cupo ? Math.min(desp / cupo * 100, 100) : 0;
-        var libre = (100 - porc) / 100 * (TQ_Y1 - TQ_Y0) - 2 * TQ_RY, bajo = porc < 32, lleno = libre < 34;
+        var libre = (100 - porc) / 100 * (TQ_Y1 - TQ_Y0) - 2 * TQ_RY, bajo = porc < 32;
+        // Con poco líquido su etiqueta va ENCIMA del nivel (dentro del hueco): «por consumir» usa solo lo que queda
+        // arriba de ella. En el maestro las dos se encimaban entre ~10 % y 32 %.
+        if (bajo) libre -= 84;
+        var lleno = libre < 34;
         var regla = [0, 25, 50, 75, 100].map(function (k) { return '<i style="bottom:' + k + '%"></i><small style="bottom:' + k + '%">' + k + ' %</small>'; }).join('');
         var faltaTxt = falta !== null ? mil(falta) + ' L' : '—';
         var hueco = lleno ? '' : '<div class="cb-hueco' + (libre < 60 ? ' cb-justo' : '') + '" style="top:' + TQ_RY + 'px;height:' + libre.toFixed(1) + 'px">' +
