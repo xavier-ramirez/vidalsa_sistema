@@ -1,5 +1,5 @@
 {{-- Menú «Acciones» de Consumibles: las otras pantallas del módulo (sin la actual: $actual =
-     'lista' | 'graficos' | 'cargar') y «Cupos de gasoil» (el modal de Cargar), con el estilo del menú de Equipos. Las acciones propias de
+     'lista' | 'graficos' | 'cargar') y «Cupos de gasoil» (el modal de Cargar; no en Gráficos), con el estilo del menú de Equipos. Las acciones propias de
      cada pantalla van debajo, en su vista. Cargar se oculta en el teléfono (.hide-on-mobile): su
      tabla no se usa ahí. --}}
 @php
@@ -13,6 +13,8 @@
 @endphp
 @foreach ($pantallas as $clave => $p)
     @continue($clave === $actual)
+    {{-- En Gráficos no va Cupos de gasoil. --}}
+    @continue($clave === 'cupos' && $actual === 'graficos')
     <a href="{{ route($p['ruta'], $p['params'] ?? []) }}" class="dropdown-item-custom{{ $p['movil'] ? '' : ' hide-on-mobile' }}"
         @if ($clave === 'cupos' && $actual === 'cargar') data-abrir-cupos @endif
         style="display: flex; align-items: center; gap: 10px; padding: 12px 15px; color: #475569; text-decoration: none; transition: all 0.2s; border-bottom: 1px solid #f1f5f9;">

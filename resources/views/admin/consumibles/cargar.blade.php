@@ -18,6 +18,9 @@
             color: #1e293b;
         }
 
+        /* Vacía no se ve (display:flex le ganaba al atributo hidden). */
+        .resumen-carga[hidden] { display: none; }
+
         .resumen-carga .rc-total { font-weight: 800; color: #0f3d7a; margin-right: 4px; }
         .resumen-carga .rc-frente { background: #fff; border: 1px solid #cbd5e1; border-radius: 20px; padding: 2px 10px; white-space: nowrap; }
         .resumen-carga .rc-frente b { color: #0067b1; }
@@ -160,17 +163,24 @@
             padding: 0 14px !important;
         }
 
+        /* Cancelar y Guardar, en la fila de los filtros y del mismo alto. */
         .con-acciones {
             display: flex;
-            gap: 10px;
-            justify-content: center;
+            gap: 8px;
             align-items: center;
-            margin-top: 18px;
+            flex: 0 0 auto;
         }
 
         .con-acciones .btn-primary-maquinaria {
             margin-left: 0;
+            height: 42px;
+            padding: 0 15px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
+
+        .con-solo-admin { font-size: 12px; color: #94a3b8; padding: 8px 12px; border: 1px dashed #cbd5e1; border-radius: 8px; }
 
     </style>
 
@@ -316,6 +326,20 @@
                         </div>
                     </div>
 
+                    {{-- Cancelar y Guardar al lado de los filtros, a la vista sin bajar hasta el final.
+                         "Guardar" solo con permiso super.admin (el middleware del POST /consumibles/guardar-lote). --}}
+                    <div class="con-acciones">
+                        <a href="{{ route('consumibles.index') }}" class="btn-primary-maquinaria btn-secondary">Cancelar</a>
+                        @can('super.admin')
+                            <button type="submit" class="btn-primary-maquinaria">
+                                <i class="material-icons">save</i>
+                                Guardar
+                            </button>
+                        @else
+                            <span class="con-solo-admin">Solo un Super Admin puede guardar.</span>
+                        @endcan
+                    </div>
+
                     {{-- ACCIONES --}}
                     <div style="position:relative; flex: 0 0 auto; margin-top: auto;">
                         <button type="button" id="btnAcciones" class="btn-primary-maquinaria"
@@ -360,24 +384,6 @@
                 <div id="frenteFilaDropdown"></div>
             </div>
 
-            {{-- ACCIONES, al pie de la tarjeta y compactas (como en Usuarios/Frentes).
-                 "Guardar" solo visible con permiso super.admin
-                 (coincide con el middleware del POST /consumibles/guardar-lote). --}}
-            <div class="con-acciones">
-                <a href="{{ route('consumibles.index') }}" class="btn-primary-maquinaria btn-secondary btn-compacto">
-                    Cancelar
-                </a>
-                @can('super.admin')
-                    <button type="submit" class="btn-primary-maquinaria btn-compacto">
-                        <i class="material-icons">save</i>
-                        Guardar
-                    </button>
-                @else
-                    <span style="font-size:12px; color:#94a3b8; padding:8px 14px; border:1px dashed #cbd5e1; border-radius:8px;">
-                        Solo un Super Admin puede guardar.
-                    </span>
-                @endcan
-            </div>
         </div>
 
     </form>
