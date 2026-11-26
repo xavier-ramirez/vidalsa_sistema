@@ -131,8 +131,7 @@ class SeguridadHuellaPapeleraFallasTest extends MySqlTestCase
         $this->actingAs($sin)->deleteJson("/admin/consumibles/{$id}")->assertForbidden();
         $this->assertDatabaseHas('consumibles', ['ID_CONSUMIBLE' => $id]);
 
-        // Con el permiso pasa la puerta y llega a la validación (vacío → 422). Sin guardar
-        // de verdad: eso subiría la versión de la caché de gráficos, que no se revierte.
+        // Con el permiso pasa la puerta y llega a la validación (vacío → 422), sin guardar nada.
         $this->actingAs($this->usuario('equipos.edit'))->patchJson("/admin/consumibles/{$id}/identificador", ['identificador' => ''])->assertStatus(422);
         // Borrar pide lo mismo que editar (no user.delete): con equipos.edit pasa la puerta y
         // llega al registro; con un id que no existe responde 404 sin borrar nada.

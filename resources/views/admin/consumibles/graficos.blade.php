@@ -960,7 +960,7 @@
     </script>
     <script
         src="{{ asset('js/maquinaria/consumibles_graficos.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_graficos.js')) }}"></script>
-    {{-- Presentación de gasoil: las láminas (consumibles_laminas.js, diseño del maestro del usuario) y la pantalla
+    {{-- Presentación de gasoil: las láminas (consumibles_laminas.js) y la pantalla
          («Exportar» y la tarjeta de gráficos: consumibles_presentacion.js). --}}
     <script
         src="{{ asset('js/maquinaria/consumibles_laminas.js') }}?v={{ @filemtime(public_path('js/maquinaria/consumibles_laminas.js')) }}"></script>
