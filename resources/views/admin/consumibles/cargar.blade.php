@@ -667,11 +667,13 @@
             clearTimeout(temporizadorResumen);
             temporizadorResumen = setTimeout(resumenCarga, 150);
         }
-        // Grupo de una fila: 'saltar', 'mal' (texto sin reconocer), 'sin' (sin proyecto) o el id del frente.
+        // Grupo de una fila: 'saltar', 'mal:TEXTO' (proyecto sin reconocer, uno por cada texto del
+        // Excel: así se ve qué escribieron distinto), 'sin' (sin proyecto) o el id del frente.
+        // El filtro 'mal' abarca todos los no reconocidos.
         function grupoFila(texto, id, saltar) {
             if (saltar) return 'saltar';
             if (id) return String(id);
-            if (texto) return 'mal';
+            if (texto) return 'mal:' + texto.toUpperCase().replace(/\s+/g, ' ');
             const arriba = document.getElementById('idFrenteHidden').value;
             return arriba ? String(arriba) : 'sin';
         }
@@ -683,11 +685,21 @@
             if (!algo) return '';
             return grupoFila(v('frente').trim(), v('id_frente'), !!tr.dataset.saltar);
         }
+        function entraEnFiltro(grupo, filtro) {
+            return grupo === filtro || (filtro === 'mal' && grupo.startsWith('mal:'));
+        }
+        function nombreGrupo(k) {
+            if (k === 'mal') return 'Todos los no reconocidos';
+            if (k.startsWith('mal:')) return 'No reconocido «' + k.slice(4) + '»';
+            if (k === 'sin') return 'Sin proyecto';
+            if (k === 'saltar') return 'Ya cargadas (se saltan)';
+            return NOMBRE_FRENTE[k] || 'Frente ' + k;
+        }
         // Oculta las filas de otro grupo. Corre al elegir el grupo y al pintar filas nuevas, no al
         // escribir: la fila que se está corrigiendo no desaparece de golpe.
         function aplicarFiltroFrente(trs) {
             (trs || [...document.getElementById('cuerpoTabla').children]).forEach(tr => {
-                tr.classList.toggle('fila-filtrada', filtroFrente !== null && grupoDeTr(tr) !== filtroFrente);
+                tr.classList.toggle('fila-filtrada', filtroFrente !== null && !entraEnFiltro(grupoDeTr(tr), filtroFrente));
             });
         }
         function filtrarPorFrente(k) {
@@ -723,17 +735,20 @@
             const fmt = x => Number(x).toLocaleString('es-VE', { maximumFractionDigits: 2 });
             const unidad = (document.getElementById('unidadSelect').value || 'LITROS') === 'LITROS' ? 'L' : document.getElementById('unidadSelect').value.toLowerCase();
             // Primero lo que pide atención; luego los frentes de mayor a menor; al final lo que se salta.
-            const peso = k => k === 'mal' ? 0 : k === 'sin' ? 1 : k === 'saltar' ? 3 : 2;
+            // Con más de un texto sin reconocer, además un botón para verlos todos juntos.
+            const males = Object.keys(porFrente).filter(k => k.startsWith('mal:'));
+            if (males.length > 1) porFrente.mal = males.reduce((a, k) => ({ l: a.l + porFrente[k].l, n: a.n + porFrente[k].n }), { l: 0, n: 0 });
+            const peso = k => k === 'mal' ? 0 : k.startsWith('mal:') ? 1 : k === 'sin' ? 2 : k === 'saltar' ? 4 : 3;
             const claves = Object.keys(porFrente).sort((a, b) => peso(a) - peso(b) || porFrente[b].l - porFrente[a].l);
             const chips = claves.map(k => {
                 const g = porFrente[k];
-                const nombre = k === 'mal' ? 'Frente no reconocido' : k === 'sin' ? 'Sin proyecto' : k === 'saltar' ? 'Ya cargadas (se saltan)' : (NOMBRE_FRENTE[k] || 'Frente ' + k);
-                const clase = k === 'mal' || k === 'sin' ? ' rc-sin' : k === 'saltar' ? ' rc-saltar' : '';
+                const nombre = nombreGrupo(k);
+                const clase = k === 'mal' || k.startsWith('mal:') || k === 'sin' ? ' rc-sin' : k === 'saltar' ? ' rc-saltar' : '';
                 return `<button type="button" class="rc-frente${clase}${filtroFrente === k ? ' activo' : ''}" data-grupo="${window.escapeHtml(k)}" title="Ver solo estas filas">`
                     + `${window.escapeHtml(nombre)}: <b>${fmt(g.l)} ${unidad}</b> (${fmt(g.n)})</button>`;
             }).join('');
             const ayuda = filtroFrente !== null
-                ? `<span class="rc-ayuda">Viendo solo «${window.escapeHtml(filtroFrente === 'mal' ? 'Frente no reconocido' : filtroFrente === 'sin' ? 'Sin proyecto' : filtroFrente === 'saltar' ? 'Ya cargadas' : (NOMBRE_FRENTE[filtroFrente] || 'Frente ' + filtroFrente))}». <button type="button" class="rc-todas" data-grupo-todas>Ver todas las filas</button></span>`
+                ? `<span class="rc-ayuda">Viendo solo: ${window.escapeHtml(nombreGrupo(filtroFrente))}. <button type="button" class="rc-todas" data-grupo-todas>Ver todas las filas</button></span>`
                 : (claves.length > 1 ? '<span class="rc-ayuda">Toca un frente para ver solo sus filas en la tabla.</span>' : '');
             caja.innerHTML = `<span class="rc-total">${fmt(filas)} ${filas === 1 ? 'fila' : 'filas'} · ${fmt(total)} ${unidad}</span>` + chips + ayuda;
         }

@@ -174,38 +174,93 @@ if (typeof window.ModuleManager !== 'undefined') {
             // volver a pedir la pagina entera.
             var celdaOriginal = {};
 
+            // Se escribe y la lista sugiere (FuzzySearch, el buscador de todo el sistema); elegir un
+            // frente lo guarda al momento. Sin botones: Esc o salir del campo deja la celda como estaba.
+            function listaFrentes() {
+                var l = document.getElementById('consFrenteLista');
+                if (!l) {
+                    l = document.createElement('div');
+                    l.id = 'consFrenteLista';
+                    l.className = 'cons-frente-lista';
+                    document.body.appendChild(l);
+                    // mousedown: gana al blur del campo (si no, se cerraba antes de elegir).
+                    l.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        var op = e.target.closest('[data-frente-id]');
+                        if (op && l._id) guardarFrente(l._id, op.dataset.frenteId, op.textContent);
+                    });
+                    // La lista es fija en la pantalla: al desplazar algo (que no sea ella) se cierra.
+                    window.addEventListener('scroll', function(e) { if (e.target !== l) l.style.display = 'none'; }, { passive: true, capture: true });
+                    window.addEventListener('resize', function() { l.style.display = 'none'; });
+                }
+                return l;
+            }
+            function pintarListaFrentes(inp, id) {
+                var l = listaFrentes(), q = inp.value.trim(), todos = [];
+                try { todos = JSON.parse(appRoot.dataset.frentes || '[]'); } catch(e) {}
+                var lista = !q ? todos : window.FuzzySearch
+                    ? window.FuzzySearch.filtrar(todos, q, function(f) { return f.nombre; })
+                    : todos.filter(function(f) { return f.nombre.toUpperCase().indexOf(q.toUpperCase()) >= 0; });
+                l._id = id;
+                l._marcado = 0;
+                l.innerHTML = lista.length
+                    ? lista.map(function(f, k) {
+                        return '<div data-frente-id="' + esc(f.id) + '"' + (k === 0 ? ' class="marcado"' : '') + '>' + esc(f.nombre) + '</div>';
+                    }).join('')
+                    : '<div class="vacio">Ningún frente se parece a «' + esc(q) + '»</div>';
+                var r = inp.getBoundingClientRect();
+                l.style.left = r.left + 'px';
+                l.style.width = Math.max(r.width, 260) + 'px';
+                l.style.display = 'block';
+                l.scrollTop = 0;
+                // Hacia abajo; si no cabe, encima del campo.
+                var alto = Math.min(l.scrollHeight, 260);
+                l.style.top = (r.bottom + alto + 4 > window.innerHeight ? Math.max(4, r.top - alto - 2) : r.bottom + 2) + 'px';
+            }
+            function marcarEnLista(paso) {
+                var l = listaFrentes(), ops = l.querySelectorAll('[data-frente-id]');
+                if (!ops.length) return;
+                l._marcado = (l._marcado + paso + ops.length) % ops.length;
+                ops.forEach(function(o, k) { o.classList.toggle('marcado', k === l._marcado); });
+                ops[l._marcado].scrollIntoView({ block: 'nearest' });
+            }
+
             window.editarFrente = function(id, idActual) {
                 var celda = document.getElementById('frente-cell-' + id);
                 if (!celda) return;
-                // Se guarda lo que muestra AHORA, salvo que ya este editandose (el select).
+                // Se guarda lo que muestra AHORA, salvo que ya esté editándose.
                 if (!celda.querySelector('#sel-frente-' + id)) celdaOriginal[id] = celda.innerHTML;
-                var frentesList = [];
-                try { frentesList = JSON.parse(appRoot.dataset.frentes || '[]'); } catch(e) {}
-
-                var opciones = frentesList.map(function(f) {
-                    return '<option value="' + esc(f.id) + '"' + (f.id == idActual ? ' selected' : '') + '>' + esc(f.nombre) + '</option>';
-                }).join('');
-                // Sin frente (o con uno ya no activo): que pida elegir, no que muestre el primero
-                // de la lista como si fuera el suyo.
-                if (!frentesList.some(function(f) { return f.id == idActual; })) {
-                    opciones = '<option value="" disabled selected>— Elegir frente —</option>' + opciones;
-                }
-
-                celda.innerHTML =
-                    '<div style="display:flex;flex-direction:column;gap:4px;">' +
-                        '<select id="sel-frente-' + id + '" style="font-size:12px;padding:4px 6px;border:1px solid #0067b1;border-radius:6px;width:100%;">' + opciones + '</select>' +
-                        '<div style="display:flex;gap:4px;">' +
-                            '<button onclick="guardarFrente(' + id + ')" style="flex:1;background:#0067b1;color:#fff;border:none;border-radius:6px;padding:4px;cursor:pointer;font-size:11px;font-weight:700;">✓ Guardar</button>' +
-                            '<button onclick="cancelarFrente(' + id + ')" style="flex:1;background:#f1f5f9;color:#475569;border:1px solid #cbd5e0;border-radius:6px;padding:4px;cursor:pointer;font-size:11px;">✕</button>' +
-                        '</div>' +
-                    '</div>';
+                var actual = ((document.getElementById('frente-txt-' + id) || {}).textContent || '').trim();
+                if (actual === '—') actual = '';
+                celda.innerHTML = '<input id="sel-frente-' + id + '" class="cons-frente-input" type="text" autocomplete="off"'
+                    + ' placeholder="' + esc(actual || 'Escribe el frente…') + '"'
+                    + ' title="Escribe y elige el frente: se guarda al elegirlo. Esc: dejarlo como estaba.">';
+                var inp = document.getElementById('sel-frente-' + id);
+                inp.dataset.actual = idActual == null ? '' : String(idActual);
+                inp.addEventListener('input', function() { pintarListaFrentes(inp, id); });
+                inp.addEventListener('keydown', function(e) {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); marcarEnLista(e.key === 'ArrowDown' ? 1 : -1); }
+                    else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        var l = listaFrentes(), op = l.querySelectorAll('[data-frente-id]')[l._marcado || 0];
+                        if (op) guardarFrente(id, op.dataset.frenteId, op.textContent);
+                    } else if (e.key === 'Escape') { e.preventDefault(); cancelarFrente(id); }
+                });
+                // Salir del campo sin elegir: queda como estaba (no mientras se guarda).
+                inp.addEventListener('blur', function() {
+                    setTimeout(function() { if (inp.isConnected && !inp.disabled) cancelarFrente(id); }, 150);
+                });
+                inp.focus();
+                pintarListaFrentes(inp, id);
             };
 
-            window.guardarFrente = function(id) {
+            window.guardarFrente = function(id, idFrente, nombre) {
                 var sel = document.getElementById('sel-frente-' + id);
-                if (!sel) return;
-                var idFrente = sel.value;
-                if (!idFrente) { sel.style.border = '1px solid #ef4444'; return; }
+                listaFrentes().style.display = 'none';
+                if (!sel || !idFrente) return;
+                // El mismo que ya tenía: nada que guardar.
+                if (String(idFrente) === sel.dataset.actual) { cancelarFrente(id); return; }
+                sel.value = nombre || '';
                 sel.disabled = true;
 
                 window.apiFetch('/admin/consumibles/' + id + '/frente', {
@@ -218,7 +273,8 @@ if (typeof window.ModuleManager !== 'undefined') {
                     var data = res.data || {};
                     if (!res.ok || !data.ok) {
                         sel.disabled = false;
-                        sel.style.border = '1px solid #ef4444';
+                        sel.classList.add('error');
+                        sel.focus();
                         window.toast(data.message || 'No se pudo cambiar el frente', 'error');
                         return;
                     }
@@ -230,12 +286,15 @@ if (typeof window.ModuleManager !== 'undefined') {
                 })
                 .catch(function() {
                     sel.disabled = false;
-                    sel.style.border = '1px solid #ef4444';
+                    sel.classList.add('error');
+                    sel.focus();
                     window.toast('No se pudo cambiar el frente. Revisa la conexión.', 'error');
                 });
             };
 
             window.cancelarFrente = function(id) {
+                var l = document.getElementById('consFrenteLista');
+                if (l && l._id === id) l.style.display = 'none';
                 var celda = document.getElementById('frente-cell-' + id);
                 if (celda && id in celdaOriginal) {
                     celda.innerHTML = celdaOriginal[id];

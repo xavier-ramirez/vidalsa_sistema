@@ -165,6 +165,17 @@
                 transition: all .2s;
             }
 
+            /* Frente de una fila: se escribe y la lista sugiere; elegir lo guarda (consumibles_index.js). */
+            .cons-tbl-wrap .cons-frente-input { width: 100%; box-sizing: border-box; padding: 5px 8px; border: 1px solid #0067b1;
+                border-radius: 6px; outline: none; background: #fff; }
+            .cons-tbl-wrap .cons-frente-input:disabled { background: #f1f5f9; color: #64748b; }
+            .cons-tbl-wrap .cons-frente-input.error { border-color: #ef4444; }
+            .cons-frente-lista { display: none; position: fixed; z-index: 1200; max-height: 260px; overflow-y: auto; background: #fff;
+                border: 1px solid #cbd5e0; border-radius: 10px; box-shadow: 0 8px 20px rgba(0,0,0,.12); }
+            .cons-frente-lista div { padding: 8px 12px; font-size: 12.5px; color: #1e293b; cursor: pointer; }
+            .cons-frente-lista div:hover, .cons-frente-lista div.marcado { background: #eff6ff; color: #0067b1; }
+            .cons-frente-lista div.vacio { color: #94a3b8; cursor: default; background: none; }
+
             .cons-tbl-wrap .cons-btn-edit:hover {
                 background: #eff6ff;
                 color: #0067b1;
