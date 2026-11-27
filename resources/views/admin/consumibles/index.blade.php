@@ -235,6 +235,8 @@
             .cons-frente-sin .cons-frente-dato span { font-style: italic; color: #64748b; }
             .cons-frente-sin s { background: #94a3b8; }
             .cons-frentes-vacio { padding: 8px 0 2px; font-size: 12px; color: #94a3b8; text-align: center; }
+            /* Filtros: la regla global gira TODO icono de la lista abierta; aquí solo la flecha (data-flecha). */
+            #filtrosForm .custom-dropdown.active .dropdown-trigger i:not([data-flecha]) { transform: none; }
             @media (max-width: 1024px) {
                 .cons-sidebar { position: static; order: -1; }
             }

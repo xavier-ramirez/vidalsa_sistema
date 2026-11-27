@@ -17,51 +17,7 @@
     <input type="file" id="impArchivos" multiple accept=".xlsx,.xlsm,.xls" hidden>
 </div>
 
-{{-- Solo si hay alguna: las cargas guardadas, para borrar una entera (todo lo que entró con ese Excel). --}}
-@if ($cargas->isNotEmpty())
-<div class="admin-card imp-card">
-    <h3 class="imp-titulo">Cargas de Excel</h3>
-    <p class="imp-ayuda">Para quitar un Excel que ya guardaste, usa <b>Borrar carga</b> en su fila: se borran todos los consumos que entraron con él y puedes volver a subirlo.</p>
-    <div class="imp-tabla-wrap">
-        <table class="imp-tabla">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Usuario</th>
-                    <th>Archivos</th>
-                    <th class="num">Consumos</th>
-                    <th class="num">Litros</th>
-                    <th>Estado</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($cargas as $c)
-                    @php $nombres = collect($c->ARCHIVOS['hojas'] ?? [])->pluck('archivo')->unique(); @endphp
-                    <tr>
-                        <td>{{ $c->created_at?->format('d/m/Y H:i') }}</td>
-                        <td>{{ $c->usuario?->NOMBRE_COMPLETO ?? '—' }}</td>
-                        <td class="imp-archivos">{{ $nombres->implode(', ') }}</td>
-                        <td class="num">{{ number_format($c->INSERTADOS, 0, ',', '.') }}</td>
-                        <td class="num">{{ number_format((float) $c->LITROS, 0, ',', '.') }}</td>
-                        <td>
-                            <span class="imp-estado imp-estado-{{ strtolower($c->ESTADO) }}">
-                                {{ $c->ESTADO === 'APLICADA' ? 'Cargada' : 'Borrada' }}
-                            </span>
-                        </td>
-                        <td class="imp-acciones-fila">
-                            @if ($c->ESTADO === 'APLICADA')
-                                <button type="button" class="imp-link imp-link-rojo" title="Borra todos los consumos que entraron con este Excel"
-                                    onclick="window.consImpDeshacer('{{ route('consumibles.importar.deshacer', $c) }}', {{ (int) $c->INSERTADOS }}, {{ json_encode($nombres->implode(', '), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) }})"><i class="material-icons">delete</i> Borrar carga</button>
-                            @endif
-                        </td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-    </div>
-</div>
-@endif
+{{-- Los Excel ya guardados (para borrar uno entero) están en el modal «Excel cargados» del menú Acciones (partials/excel_cargados). --}}
 
 <script>
     window.CONS_IMP_CFG = { subir: @json(route('consumibles.importar.subir')), columnas: @json(route('consumibles.importar.columnas')), pegar: @json(route('consumibles.importar.pegar')) };

@@ -89,16 +89,9 @@ class ConsumiblesController extends Controller
 
         $tipos = Consumible::tiposLabel();
         $unidades = ['LITROS' => 'Litros', 'GALONES' => 'Galones', 'UNIDADES' => 'Unidades', 'KG' => 'Kg'];
-        // Las cargas de Excel de gasoil guardadas (para deshacerlas): solo las ve super.admin. Un
-        // borrador es un Excel subido a la tabla y aún sin guardar: no se lista.
-        $cargas = auth()->user()->can('super.admin')
-            ? ConsumibleImportacion::with('usuario:ID_USUARIO,NOMBRE_COMPLETO')
-                ->where('ESTADO', '!=', ConsumibleImportacion::BORRADOR)
-                ->orderByDesc('ID_IMPORTACION')->limit(30)->get()
-            : collect();
 
         // Modal «Cupos de Gasoil» (CuposCombustibleController): $mes, $meses y $patios.
-        return view('admin.consumibles.cargar', compact('frentes', 'tipos', 'unidades', 'cargas')
+        return view('admin.consumibles.cargar', compact('frentes', 'tipos', 'unidades')
             + \App\Http\Controllers\CuposCombustibleController::datos());
     }
 

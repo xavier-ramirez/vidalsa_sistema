@@ -546,11 +546,27 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
     {
         $html = $this->actingAs($this->superAdminGlobal())->get(route('consumibles.cargar'))->assertOk()->getContent();
         $this->assertStringContainsString('id="impArchivos"', $html);
-        // La tarjeta de cargas solo sale si hay alguna guardada (para deshacerla); lo subido y
-        // sin guardar no se lista.
-        $this->assertSame(ConsumibleImportacion::where('ESTADO', '!=', ConsumibleImportacion::BORRADOR)->exists(), str_contains($html, 'Cargas de Excel'));
+        // Los Excel guardados no van en la pantalla: los muestra el modal «Excel cargados» de Acciones.
+        $this->assertStringNotContainsString('Cargas de Excel', $html);
+        $this->assertStringContainsString('id="excelCargadosModal"', $html);
+        $this->assertStringContainsString('data-abrir-excel-cargados', $html);
         $this->assertStringNotContainsString('importar_revision', $html);
         $this->assertStringContainsString('id="formLote"', $html, 'Y la tabla para pegar, debajo.');
+    }
+
+    public function test_el_modal_lista_solo_los_excel_cargados(): void
+    {
+        $u = $this->superAdminGlobal();
+        $viva = ConsumibleImportacion::create(['ESTADO' => ConsumibleImportacion::APLICADA, 'ARCHIVOS' => ['hojas' => [['archivo' => 'VIVO.xlsx']]],
+            'FILAS' => '[]', 'INSERTADOS' => 3, 'LITROS' => 120, 'ID_USUARIO' => $u->ID_USUARIO]);
+        $borrada = ConsumibleImportacion::create(['ESTADO' => ConsumibleImportacion::DESHECHA, 'ARCHIVOS' => ['hojas' => [['archivo' => 'BORRADO.xlsx']]],
+            'FILAS' => '[]', 'INSERTADOS' => 0, 'LITROS' => 0, 'ID_USUARIO' => $u->ID_USUARIO]);
+        $r = $this->actingAs($u)->getJson(route('consumibles.importar.cargas'))->assertOk();
+        $archivos = collect($r->json('cargas'))->pluck('archivos');
+        $this->assertContains('VIVO.xlsx', $archivos);
+        $this->assertNotContains('BORRADO.xlsx', $archivos, 'Uno ya borrado no se lista.');
+        $this->assertSame(route('consumibles.importar.deshacer', $viva), collect($r->json('cargas'))->firstWhere('archivos', 'VIVO.xlsx')['borrar']);
+        $viva->delete(); $borrada->delete();
     }
 
     public function test_solo_super_admin(): void

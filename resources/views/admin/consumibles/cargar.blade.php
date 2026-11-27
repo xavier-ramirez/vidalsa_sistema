@@ -410,6 +410,9 @@
     </form>
 
     @include('admin.consumibles.partials.cupos_seccion')
+    @can('super.admin')
+        @include('admin.consumibles.partials.excel_cargados')
+    @endcan
 
     {{-- ═══ JAVASCRIPT ═══ --}}
     <script>

@@ -141,6 +141,27 @@ class ConsumiblesImportacionController extends Controller
         return response()->json($r ?? ['fila' => null, 'mapa' => null]);
     }
 
+    /**
+     * GET — los Excel guardados que siguen cargados, para el modal «Excel cargados» de Cargar
+     * consumibles (borrar uno se lleva todos sus consumos). Se piden al abrir: siempre al día.
+     */
+    public function cargas(): JsonResponse
+    {
+        $cargas = ConsumibleImportacion::with('usuario:ID_USUARIO,NOMBRE_COMPLETO')
+            ->where('ESTADO', ConsumibleImportacion::APLICADA)
+            ->orderByDesc('ID_IMPORTACION')->limit(100)->get()
+            ->map(fn (ConsumibleImportacion $c) => [
+                'fecha'    => $c->created_at?->format('d/m/Y H:i'),
+                'usuario'  => $c->usuario?->NOMBRE_COMPLETO ?? '—',
+                'archivos' => collect($c->ARCHIVOS['hojas'] ?? [])->pluck('archivo')->unique()->implode(', '),
+                'consumos' => (int) $c->INSERTADOS,
+                'litros'   => (float) $c->LITROS,
+                'borrar'   => route('consumibles.importar.deshacer', $c),
+            ]);
+
+        return response()->json(['cargas' => $cargas])->header('Cache-Control', 'no-store');
+    }
+
     public function deshacer(ConsumibleImportacion $importacion, ImportadorCombustible $importador): JsonResponse
     {
         try {

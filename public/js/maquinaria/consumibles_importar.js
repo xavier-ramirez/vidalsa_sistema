@@ -134,9 +134,10 @@
         zona.addEventListener('drop', function (e) { subirArchivos(e.dataTransfer && e.dataTransfer.files); });
     }
 
-    // ── Borrar una carga entera (lista «Cargas de Excel», botón «Borrar carga») ──
+    // ── Borrar una carga entera (modal «Excel cargados», botón «Borrar») ──
 
-    window.consImpDeshacer = function (url, n, archivos) {
+    // alTerminar: quien llama repinta lo suyo (el modal «Excel cargados» vuelve a pedir su lista).
+    window.consImpDeshacer = function (url, n, archivos, alTerminar) {
         var esc = window.escapeHtml || function (t) { return String(t).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); };
         window.confirmarAccion({
             type: 'error',
@@ -148,7 +149,7 @@
             conEspera(pedir(url, { method: 'POST' })).then(function (r) {
                 if (!r.ok) { aviso('warning', 'No se borró', mensajeDe(r.body, 'Intenta de nuevo.')); return; }
                 if (window.showToast) window.showToast(r.body.message, 'success');
-                ir(window.location.href);
+                if (typeof alTerminar === 'function') alTerminar(); else ir(window.location.href);
             }).catch(function (e) {
                 if (e && e.message === 'Sesión expirada.') return;   // apiFetch ya llevó al login
                 aviso('error', 'No se borró', (e && e.message) || 'Revisa la conexión e intenta de nuevo. No se borró nada.');
