@@ -741,7 +741,7 @@ class ConsumiblesController extends Controller
      * El sistema no la guarda: se deduce del NOMBRE y la UBICACIÓN del frente con estas palabras (Carabobo se
      * mira primero). Con la base de hoy: Veladero, Agua Salada y lo de Morichal o «Carabobo» → Carabobo; lo de
      * Anzoátegui (Anaco, Barcelona, El Tigre…) y Eco-Innova → Ayacucho, igual que en la presentación del 8800.
-     * Lo que no cae en ninguna sale como «Otros proyectos».
+     * Lo que no cae en ninguna no sale en el consumo por división.
      */
     public const DIVISIONES = [
         'AYACUCHO' => ['AYACUCHO', 'ANZOATEGUI', 'ANZOÁTEGUI', 'ANACO', 'BARCELONA', 'EL TIGRE', 'ECOINNOVA', 'ECO-INNOVA'],
@@ -792,11 +792,11 @@ class ConsumiblesController extends Controller
                 'division' => self::division($frentes[$f->id]->NOMBRE_FRENTE ?? '', $frentes[$f->id]->UBICACION ?? null)])
             ->sortByDesc('litros')->values();
         $sinFrente = (float) ($filas->firstWhere('id', null)->litros ?? 0);
-        // Consumo por división (como la lámina del maestro): Ayacucho y Carabobo; lo que no es de ninguna, aparte.
-        $divisiones = collect(self::DIVISIONES)->keys()->push('OTROS')
-            ->map(fn ($dv) => ['clave' => $dv, 'nombre' => $dv === 'OTROS' ? 'OTROS PROYECTOS' : 'DIVISIÓN ' . $dv,
-                'litros' => (float) $proyectos->where('division', $dv)->sum('litros')])
-            ->filter(fn ($dv) => $dv['clave'] !== 'OTROS' || $dv['litros'] > 0)->values();
+        // Consumo por división (como la lámina del maestro): solo Ayacucho y Carabobo. Lo que no es de ninguna
+        // no sale como «Otros proyectos» (pedido del usuario 27-11); sigue en el total y en las barras.
+        $divisiones = collect(self::DIVISIONES)->keys()
+            ->map(fn ($dv) => ['clave' => $dv, 'nombre' => 'DIVISIÓN ' . $dv,
+                'litros' => (float) $proyectos->where('division', $dv)->sum('litros')])->values();
 
         $idProyecto = (int) ($request->input('id_proyecto') ?: $request->input('id_frente') ?: ($proyectos[0]['id'] ?? 0));
         $proyecto = null;

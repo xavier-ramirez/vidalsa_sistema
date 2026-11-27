@@ -138,13 +138,14 @@
                 ? '<div class="gp-filas" style="' + vars + '">' + filas + '</div>'
                 : '<p class="gp-vacio">' + (d.total > 0 ? 'El gasoil del período se cargó sin proyecto.' : 'Sin gasoil en el período.') + '</p>') + '</div>';
 
-        // Derecha: total y consumo por división. El % y la barra de cada división, sobre la suma de las divisiones (así
-        // suman 100 %; el total de arriba incluye además lo cargado sin proyecto, que no es de ninguna división).
-        var divs = (d.divisiones || []).filter(function (v) { return v.litros > 0 || v.clave !== 'OTROS'; });
+        // Derecha: total y consumo por división (Ayacucho y Carabobo). El % y la barra de cada división, sobre la suma de
+        // las divisiones (así suman 100 %; el total de arriba incluye además lo que no es de ninguna división).
+        var divs = d.divisiones || [];
         var sumaDiv = divs.reduce(function (s, v) { return s + v.litros; }, 0);
         var der = '<div class="gp-der">' +
             '<div class="gp-caja gp-total"><small>CONSUMO TOTAL · ' + plural(d.proyectos.length, 'PROYECTO', 'PROYECTOS') + '</small><b>' + mil(d.total) + ' L</b></div>' +
-            (ps.length && divs.length ? '<div class="gp-caja"><div class="gp-caja-tit">CONSUMO POR DIVISIÓN</div>' + divs.map(function (v) {
+            // Sin gasoil de Ayacucho ni de Carabobo en el período la tarjeta no sale (serían dos filas en cero).
+            (ps.length && sumaDiv > 0 ? '<div class="gp-caja"><div class="gp-caja-tit">CONSUMO POR DIVISIÓN</div>' + divs.map(function (v) {
                 return '<div class="gp-div"><small>' + may(v.nombre) + '</small><b>' + mil(v.litros) + ' L</b><em>' + pct(v.litros, sumaDiv) + '</em>' +
                     '<span><i style="width:' + (sumaDiv > 0 ? v.litros / sumaDiv * 100 : 0).toFixed(2) + '%"></i></span></div>';
             }).join('') + '</div>' : '') + '</div>';

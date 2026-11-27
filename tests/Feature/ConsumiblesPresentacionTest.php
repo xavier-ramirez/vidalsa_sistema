@@ -52,9 +52,9 @@ class ConsumiblesPresentacionTest extends MySqlTestCase
         $this->assertEquals([0, 0, 0, 800, 0, 1500], array_column($r['proyecto']['meses'], 'litros'));
         $this->assertEquals([500, 400, 300, 200], array_column($r['proyecto']['top'], 'litros'));
         $this->assertSame($equipos[0]->SERIAL_CHASIS, $r['proyecto']['top'][0]['id']);   // sin placa, el serial
-        // Por división: estos dos frentes no son de Ayacucho ni de Carabobo → «Otros proyectos».
-        $this->assertSame(['AYACUCHO', 'CARABOBO', 'OTROS'], array_column($r['divisiones'], 'clave'));
-        $this->assertEquals(1750, $r['divisiones'][2]['litros']);
+        // Por división: estos dos frentes no son de Ayacucho ni de Carabobo → no salen (sin «Otros proyectos»).
+        $this->assertSame(['AYACUCHO', 'CARABOBO'], array_column($r['divisiones'], 'clave'));
+        $this->assertEquals([0, 0], array_column($r['divisiones'], 'litros'));
 
         // Otro proyecto elegido en el diálogo.
         $r = $this->actingAs($this->superAdminGlobal())
