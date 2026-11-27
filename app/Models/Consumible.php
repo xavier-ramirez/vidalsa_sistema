@@ -71,9 +71,7 @@ class Consumible extends Model
      */
     public static function observacionDe(?string $desc): ?string
     {
-        $partes = self::partirDescripcion($desc);
-
-        return $partes[1];
+        return self::partirDescripcion($desc)[1];
     }
 
     /** La descripción del vehículo sin su observación (la de arriba). */
