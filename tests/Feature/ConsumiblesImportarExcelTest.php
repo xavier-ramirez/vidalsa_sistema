@@ -272,6 +272,31 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => ''])->assertStatus(422);
     }
 
+    /**
+     * Fecha corregida en la tabla antes de guardar (31/08 → 01/09): un reporte posterior que solo
+     * trae agosto reconoce ese despacho como ya cargado (antes no lo veía y chocaba con la huella
+     * guardada: error 500 y no se guardaba nada).
+     */
+    public function test_fecha_corregida_en_la_tabla_sigue_contando_como_cargada(): void
+    {
+        [, $digitos] = $this->motoniveladora();
+        $u = $this->superAdminGlobal();
+        $enc = ['FECHA', 'DESCRIPCION', 'PLACA', 'SALIDA', 'NOMBRE DEL RESPONSABLE', 'C.I.', 'PROYECTO'];
+        $fila = ['31/08/2026', 'PATROL ' . $digitos, '', '77', 'CHOFER UNO', '11111111', 'VELADERO'];
+        $texto = fn (array ...$f) => implode("\n", array_map(fn ($x) => implode("\t", $x), [$enc, ...$f]));
+
+        $pegado = $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto($fila)])->assertOk();
+        $this->guardarTabla($pegado, function ($f) {
+            $f['fecha'] = '2026-09-01';
+
+            return $f;
+        })->assertOk()->assertJson(['insertados' => 1]);
+
+        $otra = $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto($fila, ['30/08/2026', 'PATROL ' . $digitos, '', '20', 'CHOFER UNO', '11111111', 'VELADERO'])])->assertOk();
+        $this->assertSame(1, $otra->json('cargados'));
+        $this->guardarTabla($otra)->assertOk()->assertJson(['insertados' => 1, 'saltados' => 1]);
+    }
+
     /** Lo pegado de un Excel en inglés («1,234.50») y en español («1.000») da los litros bien. */
     public function test_el_reporte_pegado_lee_los_numeros_de_los_dos_formatos(): void
     {

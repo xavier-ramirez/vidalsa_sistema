@@ -269,8 +269,16 @@ class ImportadorCombustible
         if ($fechas === []) {
             return [$hay, $ocupadas];
         }
+        // Además de su FECHA, por la fecha de sus huellas (la del Excel): si en la tabla se corrigió la
+        // fecha antes de guardar, el despacho queda fuera del rango pero su huella sigue ocupada, y
+        // sin verla salía «nuevo» y el INSERT chocaba con el UNIQUE (500, nada se guardaba).
+        // Cota de arriba: el día siguiente (exclusivo), que ordena igual en cualquier intercalación.
+        [$min, $max] = [min($fechas), max($fechas)];
+        $tras = \Carbon\Carbon::parse($max)->addDay()->toDateString();
         $q = DB::table('consumibles')->where('TIPO_CONSUMIBLE', 'GASOIL')
-            ->whereBetween('FECHA', [min($fechas), max($fechas)])
+            ->where(fn ($w) => $w->whereBetween('FECHA', [$min, $max])
+                ->orWhere(fn ($h) => $h->where('HUELLA_CI', '>=', "C|{$min}")->where('HUELLA_CI', '<', "C|{$tras}"))
+                ->orWhere(fn ($h) => $h->where('HUELLA_EQ', '>=', "E|{$min}")->where('HUELLA_EQ', '<', "E|{$tras}")))
             ->orderBy('ID_CONSUMIBLE')
             ->select('FECHA', 'CANTIDAD', 'RESP_CI', 'IDENTIFICADOR', 'ID_FRENTE', 'ID_IMPORTACION', 'HUELLA_CI', 'HUELLA_EQ', 'HUELLA_DESC');
         $vistas = [];

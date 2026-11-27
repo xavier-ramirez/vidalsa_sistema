@@ -332,9 +332,8 @@
         var escG = window.escapeHtml;
 
 
-        // Al entrar, los dos campos de mes muestran el mes en curso: la presentación, el Top 4 y el Excel usan lo
-        // que se ve. Borrándolos, el Top 4 y el Excel toman todo el historial y la presentación el mes en curso
-        // (presentacionData sin fechas). Una sola vez por pantalla (no pisa lo elegido).
+        // Al entrar, los dos campos de mes muestran el mes en curso. La presentación, el Top 4, los demás
+        // gráficos y el Excel usan SIEMPRE el mismo período (getParams). Una sola vez por pantalla (no pisa lo elegido).
         (function () {
             var d = document.getElementById('fMesDesde'), h = document.getElementById('fMesHasta');
             if (!d || !h || d.dataset.mesPuesto) return;
@@ -355,14 +354,20 @@
             // ambos (o solo uno); varios meses = meses distintos.
             var mDesde = document.getElementById('fMesDesde') ? document.getElementById('fMesDesde').value : '';
             var mHasta = document.getElementById('fMesHasta') ? document.getElementById('fMesHasta').value : '';
+            // Siempre un período, el mismo para todo (antes, sin mes, el Top 4 y el Excel sumaban todo el
+            // historial y la presentación solo el mes en curso): sin meses, el mes en curso; con uno solo,
+            // ese mes hasta el otro extremo (sin «hasta», el mes en curso); al revés, se dan vuelta.
+            var hoy = new Date(), mesHoy = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+            if (!mDesde && !mHasta) mDesde = mHasta = mesHoy;
+            else if (!mDesde) mDesde = mHasta;
+            else if (!mHasta) mHasta = mDesde > mesHoy ? mDesde : mesHoy;
+            if (mDesde > mHasta) { var t = mDesde; mDesde = mHasta; mHasta = t; }
             if (frente) p.set('id_frente', frente);
             if (tipo) p.set('tipo', tipo);
-            if (mDesde) p.set('desde', mDesde + '-01');
-            if (mHasta) {
-                var ph = mHasta.split('-');                        // [YYYY, MM]
-                var ult = new Date(parseInt(ph[0], 10), parseInt(ph[1], 10), 0).getDate();
-                p.set('hasta', mHasta + '-' + (ult < 10 ? '0' + ult : ult));
-            }
+            p.set('desde', mDesde + '-01');
+            var ph = mHasta.split('-');                            // [YYYY, MM]
+            var ult = new Date(parseInt(ph[0], 10), parseInt(ph[1], 10), 0).getDate();
+            p.set('hasta', mHasta + '-' + (ult < 10 ? '0' + ult : ult));
             return p;
         }
 
