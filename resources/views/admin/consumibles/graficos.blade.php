@@ -991,11 +991,16 @@
                 var d = document.getElementById('fMesDesde'), h = document.getElementById('fMesHasta');
                 var auto = d && d.dataset.mesAuto;
                 if (!auto || d.value !== auto || h.value !== auto) { window.cargarDatos(); return; }
-                fetch(@json(route('consumibles.graficosUltimoMes')), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin', cache: 'no-store' })
+                // Con la red lenta no se espera más de 3 s: se carga con el mes en curso.
+                var corte = typeof AbortController === 'function' ? new AbortController() : null;
+                var tope = setTimeout(function () { if (corte) corte.abort(); }, 3000);
+                fetch(@json(route('consumibles.graficosUltimoMes')), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin', cache: 'no-store', signal: corte ? corte.signal : undefined })
                     .then(function (r) { return r.ok ? r.json() : null; })
                     .catch(function () { return null; })
                     .then(function (j) {
-                        if (j && /^\d{4}-\d{2}$/.test(j.mes || '') && d.isConnected && d.value === auto && h.value === auto) {
+                        clearTimeout(tope);
+                        if (!d.isConnected) return;   // se salió de Gráficos: la pantalla nueva carga lo suyo
+                        if (j && /^\d{4}-\d{2}$/.test(j.mes || '') && d.value === auto && h.value === auto) {
                             d.value = h.value = d.dataset.mesAuto = j.mes;
                         }
                         window.cargarDatos();

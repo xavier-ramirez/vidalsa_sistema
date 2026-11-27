@@ -378,7 +378,8 @@ class ImportadorCombustible
         $sinFrente = [];
         foreach ($rev['res'] as $i => $r) {
             if ($r['estado'] === 'nuevo' && empty($tabla[$i]['id_frente'])) {
-                $sinFrente[(string) ($r['frente']['clave'] ?? '')] = true;
+                // El texto como quedó en la tabla (si se borró, es «sin proyecto»), no el del Excel.
+                $sinFrente[(string) ($tabla[$i]['frente'] ?? ($r['frente']['clave'] ?? ''))] = true;
             }
         }
         if ($sinFrente) {

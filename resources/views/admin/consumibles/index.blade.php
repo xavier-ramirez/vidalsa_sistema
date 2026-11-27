@@ -21,7 +21,35 @@
                 overflow-x: auto;
                 border-radius: 10px;
                 border: 1px solid #e2e8f0;
+                container-type: inline-size;   /* el aviso de tabla vacía mide lo que se ve de la caja (cqw) */
             }
+
+            /* Tabla vacía: el icono y el texto centrados en lo que se ve de la caja (en el teléfono la
+               tabla es más ancha que la pantalla). La celda es la primera de su fila: sin esta clase
+               tomaba el estilo de la columna del número (letra de 10 px, icono a la izquierda). */
+            .cons-tbl-wrap .admin-table tbody tr td.cons-vacio:first-child {   /* gana a la de td:first-child */
+                padding: 0;
+                background: #fff !important;
+                border-right: none;
+            }
+
+            .cons-vacio-caja {
+                position: sticky;
+                left: 0;
+                width: min(100%, 100cqw);   /* en la PC, el ancho de la celda; en el teléfono, lo visible */
+                box-sizing: border-box;
+                padding: 40px 16px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+                text-align: center;
+                color: #94a3b8;
+                font-weight: 400;
+            }
+
+            .cons-tbl-wrap .cons-vacio-caja .material-icons { font-size: 40px; color: #cbd5e1; }
+            .cons-tbl-wrap .cons-vacio-caja a { color: #0067b1; font-weight: 600; }
 
             .cons-tbl-wrap .admin-table {
                 border-collapse: collapse;
@@ -755,17 +783,17 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" style="text-align:center; padding:40px; color:#94a3b8; font-weight:400;">
-                                    <i class="material-icons"
-                                        style="font-size:40px; display:block; margin-bottom:8px;">inbox</i>
-                                    @if(request()->anyFilled(['id_frente', 'estado', 'fecha_desde', 'fecha_hasta', 'identificador']))
-                                        Ningún consumible cumple con los filtros.
-                                        <a href="{{ route('consumibles.index', ['tipo' => request('tipo')]) }}" style="color:#0067b1; font-weight:600;">Quitar filtros</a>
-                                    @else
-                                        No hay registros de {{ strtolower($tiposList[$currentTipo] ?? 'consumibles') }} todavía.
-                                        <a href="{{ route('consumibles.cargar') }}" style="color:#0067b1; font-weight:600;">Cargar
-                                            el primer lote →</a>
-                                    @endif
+                                <td colspan="9" class="cons-vacio">
+                                    <div class="cons-vacio-caja">
+                                        <i class="material-icons">inbox</i>
+                                        @if(request()->anyFilled(['id_frente', 'estado', 'fecha_desde', 'fecha_hasta', 'identificador']))
+                                            <span>Ningún consumible cumple con los filtros.
+                                                <a href="{{ route('consumibles.index', ['tipo' => request('tipo')]) }}">Quitar filtros</a></span>
+                                        @else
+                                            <span>No hay registros de {{ strtolower($tiposList[$currentTipo] ?? 'consumibles') }} todavía.
+                                                <a href="{{ route('consumibles.cargar') }}">Cargar el primer lote →</a></span>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                         @endforelse

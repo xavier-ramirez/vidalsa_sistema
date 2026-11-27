@@ -272,6 +272,7 @@ class ConsumiblesController extends Controller
                     'resp_ci'       => $fila['resp_ci'] ?? null,
                     'cantidad'      => $fila['cantidad'],
                     'id_frente'     => $frentes[$i],
+                    'frente'        => trim((string) ($fila['frente'] ?? '')),   // para nombrarlo si falta su frente
                 ];
             }
         }

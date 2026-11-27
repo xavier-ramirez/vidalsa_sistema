@@ -63,6 +63,10 @@
             grid-template-columns: 36px 150px minmax(140px, 1.3fr) minmax(140px, 1.3fr) 120px 110px minmax(200px, 1.4fr) 40px;
         }
         /* Aceite y caucho: con la columna de viscosidad / modelo. */
+        /* La tabla mide al menos lo que suman las columnas: content-visibility recorta lo que se sale
+           de la fila, y en un teléfono la columna FRENTE y la X quedaban sin dibujar. */
+        #tablaFilas { min-width: 936px; }
+        #tablaFilas:has(#thEspec:not([style*="none"])) { min-width: 1016px; }
         #tablaFilas:has(#thEspec:not([style*="none"])) tr {
             grid-template-columns: 36px 150px minmax(130px, 1.2fr) minmax(130px, 1.2fr) 110px 100px minmax(130px, 1fr) minmax(190px, 1.3fr) 40px;
         }
@@ -558,7 +562,7 @@
             inp.dataset.resuelto = texto;
             // El texto que no se reconoció: al elegir su frente se vuelve a él (así se aprende).
             // Con la sugerencia tomada sigue siendo el no reconocido: elegir luego en la lista lo aprende.
-            if (texto && !id) inp.dataset.sinReconocer = texto;
+            if (texto && !id) inp.dataset.sinReconocer = inp.dataset.textoNoReconocido = texto;
             else if (id && !inp.dataset.porSugerencia) delete inp.dataset.sinReconocer;
             // Elegido con la sugerencia (frente del equipo): vale solo para esta fila y no se aprende.
             if (!id || !inp.dataset.porSugerencia) delete inp.dataset.porSugerencia;
@@ -632,7 +636,7 @@
             // El texto del Excel que no se reconoció no se parece a ningún frente («Sin resultados»):
             // con él en la celda se ofrecen todos; al escribir otra cosa, se busca lo escrito.
             const q = inp.value.trim();
-            const lista = q && q !== inp.dataset.sinReconocer ? window.FuzzySearch.filtrar(FRENTES, q, f => f.nombre) : FRENTES;
+            const lista = q && q !== inp.dataset.textoNoReconocido ? window.FuzzySearch.filtrar(FRENTES, q, f => f.nombre) : FRENTES;
             dd.innerHTML = lista.length
                 ? lista.map(f => `<div data-frente-id="${Number(f.id)}">${window.escapeHtml(f.nombre)}</div>`).join('')
                 : '<div style="color:#94a3b8; cursor:default;">Sin resultados</div>';
@@ -673,7 +677,10 @@
         }
         function grupoDeTr(tr) {
             const v = n => (tr.querySelector(`[name$="[${n}]"]`) || {}).value || '';
-            if (!(parseFloat(v('cantidad')) > 0)) return '';
+            // Sin nada escrito no es de ningún grupo; con algo escrito sí, aunque le falte la cantidad
+            // (si no, el aviso de Guardar la nombraba y el filtro la escondía).
+            const algo = [...tr.querySelectorAll('input:not([type=hidden])')].some(i => i.value.trim() !== '' && !i.closest('[data-espec-cell][style*="none"]'));
+            if (!algo) return '';
             return grupoFila(v('frente').trim(), v('id_frente'), !!tr.dataset.saltar);
         }
         // Oculta las filas de otro grupo. Corre al elegir el grupo y al pintar filas nuevas, no al
@@ -967,6 +974,7 @@
         }
         function pegarFilas(filas, mapa, desde) {
             vaciarSiNoHayDatos();
+            if (filtroFrente !== null) filtrarPorFrente(null);   // lo pegado se ve entero
             const frag = document.createDocumentFragment();
 
             // Con encabezados, cada columna va a la suya por su nombre; sin ellos, por posición:
@@ -1034,8 +1042,10 @@
             const cuerpo = document.getElementById('cuerpoTabla');
             if (!cuerpo || !excelPorPintar.length) { pintandoExcel = false; return; }
             const paso = cuadroAnterior ? ahora - cuadroAnterior : 0;
-            if (paso > 60) tandaExcel = Math.max(10, Math.round(tandaExcel * 0.6));
-            else if (paso && paso < 35) tandaExcel = Math.min(300, Math.round(tandaExcel * 1.3));
+            // Cada cuadro tiene además un costo fijo que crece con la tabla: tandas muy chicas suman
+            // más cuadros y tardan más en total. Se apunta a cuadros de ~0,1–0,2 s.
+            if (paso > 220) tandaExcel = Math.max(40, Math.round(tandaExcel * 0.7));
+            else if (paso && paso < 110) tandaExcel = Math.min(400, Math.round(tandaExcel * 1.4));
             cuadroAnterior = ahora;
             const frag = document.createDocumentFragment();
             const nuevas = excelPorPintar.splice(0, tandaExcel).map(f => agregarFila(f, null, frag));
@@ -1079,7 +1089,15 @@
             // Primero las que piden atención (proyecto sin reconocer): quedan arriba en la tabla.
             const filas = r.filas.map(f => Object.assign({ imp: r.importacion }, f));
             const mal = f => f.frente && !f.id_frente;
-            excelPorPintar = filas.filter(mal).concat(excelPorPintar, filas.filter(f => !mal(f)));
+            if (filtroFrente !== null) filtrarPorFrente(null);
+            // Las de proyecto sin reconocer se pintan YA, todas (arriba): su frente se elige en la
+            // tabla y vale para todas las del mismo texto, así que tienen que estar todas en ella.
+            const frag = document.createDocumentFragment();
+            filas.filter(mal).forEach(f => agregarFila(f, null, frag));
+            const cuerpo = document.getElementById('cuerpoTabla');
+            cuerpo.insertBefore(frag, cuerpo.firstChild);
+            excelPorPintar = excelPorPintar.concat(filas.filter(f => !mal(f)));
+            programarResumen();
             pintarExcelPendiente();
 
             const n = r.filas.length, cargados = r.cargados || 0, repetidos = r.repetidos || 0;

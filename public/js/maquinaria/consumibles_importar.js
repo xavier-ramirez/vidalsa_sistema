@@ -137,7 +137,7 @@
     // ── Borrar una carga entera (lista «Cargas de Excel», botón «Borrar carga») ──
 
     window.consImpDeshacer = function (url, n, archivos) {
-        var esc = window.escapeHtml || function (t) { return String(t); };
+        var esc = window.escapeHtml || function (t) { return String(t).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); };
         window.confirmarAccion({
             type: 'error',
             title: 'Borrar la carga de Excel',
