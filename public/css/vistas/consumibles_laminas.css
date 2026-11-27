@@ -51,8 +51,9 @@
 .gl .pm-der { position: absolute; left: 878px; top: 172px; width: 378px; display: flex; flex-direction: column; gap: 14px; }
 .gl .pm-sub { margin: 0; }
 .gl .pm-top { display: flex; flex-direction: column; gap: 10px; }
-.gl .pm-eq { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; column-gap: 12px; row-gap: 10px; padding: 14px 16px 12px; border-radius: 12px; background: #F2F4F7; border-left: 4px solid #1F4E79; }
-.gl .pm-eq:first-child { border-left-color: #F26A21; }
+/* Top 4 de equipos: el primero en tono naranja, los demás en tono azul (antes, gris). */
+.gl .pm-eq { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; column-gap: 12px; row-gap: 10px; padding: 14px 16px 12px; border-radius: 12px; background: #EAF2FA; border-left: 4px solid #1F4E79; }
+.gl .pm-eq:first-child { background: #FFF1E6; border-left-color: #F26A21; }
 .gl .pm-eq span { width: 34px; height: 34px; border-radius: 50%; background: #1F4E79; color: #fff; font: 700 15px/34px Arial, sans-serif; text-align: center; }
 .gl .pm-eq:first-child span { background: #F26A21; }
 .gl .pm-eq-dato { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -97,10 +98,18 @@
 .gl .cb-suma > small { font: 700 12px/1.2 Arial, sans-serif; letter-spacing: .06em; color: #000; }
 .gl .cb-suma > b { font: 700 32px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
 .gl .cb-suma > em { font: 700 10.5px/1 Arial, sans-serif; font-style: normal; letter-spacing: .06em; color: #F26A21; }
-.gl .cb-suma.cb-s-cupo > em { color: #F9A266; }
-.gl .cb-suma.cb-s-cupo { background: #2B3440; border-left-color: #8E9AA8; }
-.gl .cb-suma.cb-s-cupo > small, .gl .cb-suma.cb-s-cupo > b { color: #fff; }
-.gl .cb-suma.cb-s-desp { border-left-color: #F26A21; }
+/* Las tres tarjetas del cupo, cada una con su color (pedido del usuario 27-11): cupo = azul de la marca,
+   consumido = naranja (oscurecido para que el texto blanco se lea), por consumir = verde. Letra blanca. */
+.gl .cb-suma.cb-s-cupo, .gl .cb-suma.cb-s-desp, .gl .cb-suma.cb-s-falta { box-shadow: 0 6px 16px rgba(20, 40, 70, .18); }
+.gl .cb-suma.cb-s-cupo > small, .gl .cb-suma.cb-s-cupo > b,
+.gl .cb-suma.cb-s-desp > small, .gl .cb-suma.cb-s-desp > b,
+.gl .cb-suma.cb-s-falta > small, .gl .cb-suma.cb-s-falta > b { color: #fff; }
+.gl .cb-suma.cb-s-cupo { background: #1F4E79; border-left-color: #0F2D4A; }
+.gl .cb-suma.cb-s-cupo > em { color: #BFD7ED; }
+.gl .cb-suma.cb-s-desp { background: #C2410C; border-left-color: #7C2D12; }
+.gl .cb-suma.cb-s-desp > em { color: #FED7AA; }
+.gl .cb-suma.cb-s-falta { background: #2E7D32; border-left-color: #1B4D1E; }
+.gl .cb-suma.cb-s-falta > em { color: #C8E6C9; }
 .gl .cb-hist { position: absolute; left: 90px; top: 166px; width: 1100px; height: 214px; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); align-items: end; }
 .gl .cb-mes { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .gl .cb-mes em { font: 400 10.5px/1 Arial, sans-serif; font-style: normal; color: #000; letter-spacing: .04em; }
@@ -164,10 +173,12 @@
 .gl .gp-ley i { width: 12px; height: 12px; border-radius: 3px; }
 .gl .gp-vacio { margin: auto 0; text-align: center; font: 400 16px Arial, sans-serif; color: #4A5563; }
 .gl .gp-der { position: absolute; left: 884px; top: 146px; width: 356px; height: 548px; display: flex; flex-direction: column; gap: 14px; }
-.gl .gp-caja.gp-total { background: #4A5563; border-color: #4A5563; box-shadow: 0 8px 22px rgba(20, 40, 70, .18); }
+/* Consumo total: azul de la marca con la franja naranja a la izquierda, como «Gasoil recibido en el mes». */
+.gl .gp-caja.gp-total { position: relative; overflow: hidden; background: #1F4E79; border-color: #1F4E79; box-shadow: 0 8px 22px rgba(20, 40, 70, .18); }
+.gl .gp-caja.gp-total::before { content: ''; position: absolute; left: 0; top: 0; width: 8px; height: 100%; background: #F26A21; }
 .gl .gp-total small { font: 700 12px/1 Arial, sans-serif; letter-spacing: .1em; color: #fff; }
 .gl .gp-total b { font: 700 30px/1 Arial, sans-serif; color: #fff; white-space: nowrap; }
-.gl .gp-caja { padding: 16px 20px; border-radius: 14px; background: #F4F6F9; border: 2px solid #B7C1CD; display: flex; flex-direction: column; gap: 10px; }
+.gl .gp-caja { padding: 16px 20px; border-radius: 14px; background: #EAF2FA; border: 2px solid #9EC2E6; display: flex; flex-direction: column; gap: 10px; }
 .gl .gp-caja-tit { font: 700 12px/1 Arial, sans-serif; letter-spacing: .1em; color: #2B3440; }
 .gl .gp-div { display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; column-gap: 12px; row-gap: 8px; padding: 10px 0 2px; border-top: 1px solid #E3E7ED; }
 .gl .gp-caja-tit + .gp-div { border-top: 0; padding-top: 2px; }

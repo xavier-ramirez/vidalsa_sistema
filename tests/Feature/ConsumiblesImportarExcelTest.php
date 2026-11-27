@@ -191,6 +191,38 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->assertSame('C0MPRES0R750CFM', $ident->identidad(['desc' => 'COMPRESOR 750 CFM']));
     }
 
+    public function test_la_observacion_junto_al_vehiculo_se_guarda_aparte(): void
+    {
+        $libro = new Spreadsheet();
+        $h = $libro->getActiveSheet();
+        $h->fromArray(['FECHA', 'VEHICULO / EQUIPO', 'PLACA', 'ENTRADA', 'SALIDA', 'NOMBRE DEL RESPONSABLE', 'C.I.', 'PROYECTO'], null, 'A1');
+        $h->fromArray([
+            ['10/08/2026', 'MACK VACUUM -    Apoyo a  ECOINNOVA, C.A - ', 'ZZ97TST', '', 150, 'CHOFER TRES', '33333333', 'VELADERO'],
+            ['11/08/2026', 'RETROEXCAVADORA - 310J N°1', 'ZZ96TST', '', 70, 'CHOFER TRES', '33333333', 'VELADERO'],
+        ], null, 'A2');
+        $ruta = tempnam(sys_get_temp_dir(), 'obs') . '.xlsx';
+        (new Xlsx($libro))->save($ruta);
+        $this->temporales[] = $ruta;
+
+        $u = $this->superAdminGlobal();
+        $subida = $this->subir($u, $ruta)->assertOk();
+        $porFecha = collect($subida->json('filas'))->keyBy('fecha');
+        $this->assertSame('Apoyo a ECOINNOVA, C.A', $porFecha['2026-08-10']['obs'], 'la tabla de Cargar la muestra');
+        $this->assertNull($porFecha['2026-08-11']['obs'], 'el guion de un modelo no es observación');
+
+        $this->guardarTabla($subida)->assertOk()->assertJson(['insertados' => 2]);
+
+        $g = DB::table('consumibles')->whereIn('FECHA', ['2026-08-10', '2026-08-11'])
+            ->where('RESP_NOMBRE', 'CHOFER TRES')->get()->keyBy(fn ($c) => substr($c->FECHA, 0, 10));
+        $this->assertSame('Apoyo a ECOINNOVA, C.A', $g['2026-08-10']->OBSERVACION);
+        $this->assertStringContainsString('ECOINNOVA', $g['2026-08-10']->DESC_EQUIPO, 'la descripción del Excel queda como vino');
+        $this->assertNull($g['2026-08-11']->OBSERVACION);
+
+        // La Lista la muestra (aunque el equipo no se reconozca, sin repetirla en la descripción).
+        $html = $this->actingAs($u)->get(route('consumibles.index', ['tipo' => 'GASOIL', 'desde' => '2026-08-10', 'hasta' => '2026-08-11']))->assertOk()->getContent();
+        $this->assertStringContainsString('class="cons-obs"', $html);
+    }
+
     public function test_subir_a_la_tabla_guardar_saltar_repetidos_y_deshacer(): void
     {
         [$equipo, $digitos] = $this->motoniveladora();
