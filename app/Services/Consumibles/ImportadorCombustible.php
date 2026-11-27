@@ -2,6 +2,7 @@
 
 namespace App\Services\Consumibles;
 
+use App\Models\Consumible;
 use App\Models\ConsumibleImportacion;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\UploadedFile;
@@ -216,6 +217,8 @@ class ImportadorCombustible
                 'nombre'        => (string) $f['resp'],
                 'ci'            => (string) $f['ci'],
                 'cantidad'      => $f['litros'],
+                // La nota del Excel junto al vehículo («Apoyo a ECOINNOVA, C.A»): se ve bajo la placa.
+                'obs'           => Consumible::observacionDe($f['desc'] ?? null),
                 'frente'        => $r['frente']['clave'],
                 'id_frente'     => $id,
                 'nombre_frente' => $ident->nombreFrente($id),
@@ -419,6 +422,8 @@ class ImportadorCombustible
                 'FECHA'           => $t['fecha'],
                 'IDENTIFICADOR'   => $escrito,
                 'DESC_EQUIPO'     => $this->descEquipo($f),
+                // Siempre la clave (null sin nota): el insert por tandas pide las mismas en cada fila.
+                'OBSERVACION'     => Consumible::observacionDe($f['desc'] ?? null),
                 'RESP_NOMBRE'     => $texto($t['resp_nombre'] ?? '', 150),
                 'RESP_CI'         => $texto($t['resp_ci'] ?? '', 20),
                 'CANTIDAD'        => $t['cantidad'],

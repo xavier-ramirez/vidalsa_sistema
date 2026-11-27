@@ -139,6 +139,8 @@
 
         /* Frente de la fila: lo reconocido sale debajo (verde) o «no reconocido» (rojo). */
         .fila-frente-estado { font-size: 11px; padding: 0 8px 5px; line-height: 1.25; }
+        /* Observación del Excel junto al vehículo («Apoyo a ECOINNOVA, C.A»): una línea, se guarda con la fila. */
+        .fila-obs { font-size: 11px; padding: 0 8px 4px; line-height: 1.25; color: #b45309; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
         .fila-frente-estado:empty { display: none; }
         .fila-frente-estado.ok { color: #059669; }
         .fila-frente-estado.mal { color: #dc2626; font-weight: 600; }
@@ -776,7 +778,7 @@
             tr.innerHTML = `
                                                 <td>${n}</td>
                                                 <td><input type="date"   name="filas[${n}][fecha]"         value="${limpiar(data.fecha)}"    tabindex="${n * 10 + 1}" class="native-date" style="cursor:pointer;"></td>
-                                                <td><input type="text"   name="filas[${n}][identificador]" value="${limpiar(data.id)}"       tabindex="${n * 10 + 2}" placeholder="placa / serial"></td>
+                                                <td><input type="text"   name="filas[${n}][identificador]" value="${limpiar(data.id)}"       tabindex="${n * 10 + 2}" placeholder="placa / serial">${data.obs ? `<div class="fila-obs" title="Observación del Excel: ${limpiar(data.obs)}">${limpiar(data.obs)}</div>` : ''}</td>
                                                 <td><input type="text"   name="filas[${n}][resp_nombre]"   value="${limpiar(data.nombre)}"   tabindex="${n * 10 + 3}" placeholder="Nombre responsable"></td>
                                                 <td><input type="text"   name="filas[${n}][resp_ci]"       value="${limpiar(data.ci)}"       tabindex="${n * 10 + 4}" placeholder="C.I."></td>
                                                 <td><input type="number" name="filas[${n}][cantidad]"      value="${limpiar(data.cantidad)}" tabindex="${n * 10 + 5}" placeholder="0" step="0.01" min="0" style="max-width:100px;"></td>

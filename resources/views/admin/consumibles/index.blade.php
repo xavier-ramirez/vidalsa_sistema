@@ -151,6 +151,8 @@
             .cons-tbl-wrap .cons-col-del .cons-btn-del { padding: 2px; }
             .cons-tbl-wrap .cons-equipo span { display: block; }
             .cons-tbl-wrap .cons-equipo .cons-nota { color: #94a3b8; font-style: italic; font-weight: 400; }
+            /* La observación del Excel («Apoyo a ECOINNOVA, C.A»): siempre visible, aunque el equipo se reconozca. */
+            .cons-tbl-wrap .cons-equipo .cons-obs { color: #b45309; font-size: 0.85em; font-weight: 500; }
 
             /* Botones de lápiz y papelera como los de la tabla de Cargar. */
             .cons-tbl-wrap .cons-btn-edit,
@@ -704,15 +706,18 @@
                                     @elseif($c->ESTADO_EQUIPO === 'CONFIRMADO')
                                         {{-- Confirmado sin equipo: se enseñó que no es de ningún equipo. --}}
                                         @if($c->DESC_EQUIPO)
-                                            <span title="Así lo describe el Excel">{{ $c->DESC_EQUIPO }}</span>
+                                            <span title="Así lo describe el Excel">{{ $c->OBSERVACION ? \App\Models\Consumible::descSinObservacion($c->DESC_EQUIPO) : $c->DESC_EQUIPO }}</span>
                                         @endif
                                         <span class="cons-nota">Sin equipo</span>
                                     @elseif($c->DESC_EQUIPO)
                                         {{-- Sin equipo asociado: lo que dice el Excel del vehículo (tipo y marca). --}}
-                                        <span title="Así lo describe el Excel; todavía sin equipo asociado">{{ $c->DESC_EQUIPO }}</span>
+                                        <span title="Así lo describe el Excel; todavía sin equipo asociado">{{ $c->OBSERVACION ? \App\Models\Consumible::descSinObservacion($c->DESC_EQUIPO) : $c->DESC_EQUIPO }}</span>
                                         <span class="cons-nota">Sin asociar</span>
                                     @else
                                         <span class="cons-nota">Sin resolver</span>
+                                    @endif
+                                    @if($c->OBSERVACION)
+                                        <span class="cons-obs" title="Observación del Excel">{{ $c->OBSERVACION }}</span>
                                     @endif
                                     </div>
                                     <div class="cons-id-fila" style="display:flex; align-items:center; gap:5px;">
