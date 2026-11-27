@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Consumible;
 use App\Models\ConsumibleImportacion;
 use App\Models\Equipo;
+use App\Models\FrenteTrabajo;
 use App\Models\Usuario;
 use App\Services\Consumibles\IdentificadorConsumo;
 use App\Services\Consumibles\LectorExcelCombustible;
@@ -295,6 +297,43 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $otra = $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto($fila, ['30/08/2026', 'PATROL ' . $digitos, '', '20', 'CHOFER UNO', '11111111', 'VELADERO'])])->assertOk();
         $this->assertSame(1, $otra->json('cargados'));
         $this->guardarTabla($otra)->assertOk()->assertJson(['insertados' => 1, 'saltados' => 1]);
+    }
+
+    /**
+     * Un despacho que se pasó a otro frente (en la Lista, o eligiendo otro en la tabla al cargar)
+     * sigue contando como cargado al volver a subir el mismo reporte: no entra duplicado.
+     */
+    public function test_el_despacho_movido_de_frente_no_se_duplica(): void
+    {
+        [, $digitos] = $this->motoniveladora();
+        $u = $this->superAdminGlobal();
+        $otro = FrenteTrabajo::create(['NOMBRE_FRENTE' => 'PRUEBA MOVIDO ' . $digitos]);
+        $enc = ['FECHA', 'DESCRIPCION', 'PLACA', 'SALIDA', 'NOMBRE DEL RESPONSABLE', 'C.I.', 'PROYECTO'];
+        $texto = fn (array $f) => implode("\n", array_map(fn ($x) => implode("\t", $x), [$enc, $f]));
+        $uno =['10/08/2026', 'PATROL ' . $digitos, '', '55', 'CHOFER UNO', '11111111', 'VELADERO'];
+        $dos = ['11/08/2026', 'PATROL ' . $digitos, '', '66', 'CHOFER UNO', '11111111', 'VELADERO'];
+
+        // 1) Se carga en Veladero y luego se mueve en la Lista.
+        $pegado = $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto($uno)])->assertOk();
+        $veladero = (int) $pegado->json('filas.0.id_frente');
+        $this->assertGreaterThan(0, $veladero, 'VELADERO debe reconocerse.');
+        $this->guardarTabla($pegado)->assertOk()->assertJson(['insertados' => 1]);
+        $c = Consumible::where('HUELLA_CI', 'like', 'C|2026-08-10|%')->where('ID_FRENTE', $veladero)->latest('ID_CONSUMIBLE')->firstOrFail();
+        $this->assertNull($c->ID_FRENTE_ORIGINAL);
+        $this->actingAs($u)->patchJson(route('consumibles.updateFrente', $c->ID_CONSUMIBLE), ['id_frente' => $otro->ID_FRENTE])->assertOk();
+        $this->assertSame(1, $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto($uno)])->assertOk()->json('cargados'));
+
+        // 2) Al cargar se elige otro frente en la tabla: se guarda también el del reporte.
+        $pegado = $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto($dos)])->assertOk();
+        $this->guardarTabla($pegado, function ($f) use ($otro) {
+            $f['id_frente'] = (string) $otro->ID_FRENTE;
+            $f['frente'] = $otro->NOMBRE_FRENTE;
+
+            return $f;
+        })->assertOk()->assertJson(['insertados' => 1]);
+        $d = Consumible::where('HUELLA_CI', 'like', 'C|2026-08-11|%')->latest('ID_CONSUMIBLE')->firstOrFail();
+        $this->assertSame([$otro->ID_FRENTE, $veladero], [(int) $d->ID_FRENTE, (int) $d->ID_FRENTE_ORIGINAL]);
+        $this->assertSame(1, $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto($dos)])->assertOk()->json('cargados'));
     }
 
     /**

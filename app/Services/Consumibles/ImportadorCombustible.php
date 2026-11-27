@@ -232,7 +232,13 @@ class ImportadorCombustible
     /** ¿La fila coincide con algo de $hay (C|E|D → huella → [['fr','ci'], …])? Ver revisar(). */
     private function yaEsta(array $f, array $yo, array $hay): bool
     {
-        $mismoProyecto = fn (array $o) => $o['fr'] === 0 || $yo['fr'] === 0 || $o['fr'] === $yo['fr'];
+        // 'fr' del de la base: su frente de ahora y, si se cambió, con el que se cargó (ID_FRENTE_ORIGINAL).
+        // Mover un despacho a otro frente no lo vuelve «nuevo» al subir otra vez el mismo Excel.
+        // (Los de la misma carga traen uno solo.)
+        $mismoProyecto = function (array $o) use ($yo) {
+            $frs = (array) $o['fr'];
+            return $yo['fr'] === 0 || in_array(0, $frs, true) || in_array($yo['fr'], $frs, true);
+        };
         foreach (['C' => $f['huella_ci'], 'E' => $f['huella_eq']] as $t => $h) {
             foreach ($h !== null ? ($hay[$t][$h] ?? []) : [] as $o) {
                 if ($mismoProyecto($o)) {
@@ -280,10 +286,11 @@ class ImportadorCombustible
                 ->orWhere(fn ($h) => $h->where('HUELLA_CI', '>=', "C|{$min}")->where('HUELLA_CI', '<', "C|{$tras}"))
                 ->orWhere(fn ($h) => $h->where('HUELLA_EQ', '>=', "E|{$min}")->where('HUELLA_EQ', '<', "E|{$tras}")))
             ->orderBy('ID_CONSUMIBLE')
-            ->select('FECHA', 'CANTIDAD', 'RESP_CI', 'IDENTIFICADOR', 'ID_FRENTE', 'ID_IMPORTACION', 'HUELLA_CI', 'HUELLA_EQ', 'HUELLA_DESC');
+            ->select('FECHA', 'CANTIDAD', 'RESP_CI', 'IDENTIFICADOR', 'ID_FRENTE', 'ID_FRENTE_ORIGINAL', 'ID_IMPORTACION', 'HUELLA_CI', 'HUELLA_EQ', 'HUELLA_DESC');
         $vistas = [];
         foreach ($q->cursor() as $c) {
-            $o = ['fr' => (int) $c->ID_FRENTE, 'ci' => TextoConsumo::digitos($c->RESP_CI ?? '')];
+            $o = ['fr' => array_values(array_unique([(int) $c->ID_FRENTE, (int) ($c->ID_FRENTE_ORIGINAL ?? $c->ID_FRENTE)])),
+                'ci' => TextoConsumo::digitos($c->RESP_CI ?? '')];
             if ($c->ID_IMPORTACION !== null) {
                 foreach (['C' => $c->HUELLA_CI, 'E' => $c->HUELLA_EQ, 'D' => $c->HUELLA_DESC] as $t => $h) {
                     if ($h === null) {
@@ -420,6 +427,10 @@ class ImportadorCombustible
                 'TIPO_CONSUMIBLE' => 'GASOIL',
                 'UNIDAD'          => 'LITROS',
                 'ID_FRENTE'       => $t['id_frente'],
+                // El frente que dice el Excel, si en la tabla se eligió otro: la Lista lo muestra
+                // («Cargado en: …») y volver a subir el archivo lo reconoce como ya cargado.
+                'ID_FRENTE_ORIGINAL' => ($r['frente']['id_frente'] ?? null) && (int) $r['frente']['id_frente'] !== (int) $t['id_frente']
+                    ? (int) $r['frente']['id_frente'] : null,
                 'ID_EQUIPO'       => $resuelto ? $e['id_equipo'] : null,
                 'ID_AUXILIAR'     => $resuelto ? $e['id_auxiliar'] : null,
                 'ESTADO_EQUIPO'   => $resuelto ? 'CONFIRMADO' : 'PENDIENTE',
