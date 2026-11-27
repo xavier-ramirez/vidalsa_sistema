@@ -297,6 +297,52 @@ class ConsumiblesImportarExcelTest extends MySqlTestCase
         $this->guardarTabla($otra)->assertOk()->assertJson(['insertados' => 1, 'saltados' => 1]);
     }
 
+    /**
+     * La fila del Excel ya cargada se salta al guardar: no pide frente. La nueva sí, y el aviso
+     * nombra su proyecto (sin guardar nada); con su frente elegido entra solo ella.
+     */
+    public function test_la_fila_que_se_salta_no_pide_frente(): void
+    {
+        [, $digitos] = $this->motoniveladora();
+        $u = $this->superAdminGlobal();
+        $enc = ['FECHA', 'DESCRIPCION', 'PLACA', 'SALIDA', 'NOMBRE DEL RESPONSABLE', 'C.I.', 'PROYECTO'];
+        $vieja = ['31/08/2026', 'PATROL ' . $digitos, '', '77', 'CHOFER UNO', '11111111', 'VELADERO'];
+        $nueva = ['01/09/2026', 'PATROL ' . $digitos, '', '40', 'CHOFER UNO', '11111111', 'ZZ PROYECTO INEXISTENTE'];
+        $texto = fn (array ...$f) => implode("\n", array_map(fn ($x) => implode("\t", $x), [$enc, ...$f]));
+
+        $primera = $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto($vieja)])->assertOk();
+        $idVeladero = (string) $primera->json('filas.0.id_frente');
+        $this->guardarTabla($primera)->assertOk()->assertJson(['insertados' => 1]);
+
+        $otra = $this->actingAs($u)->postJson(route('consumibles.importar.pegar'), ['texto' => $texto($vieja, $nueva)])->assertOk();
+        $this->assertSame([true, false], array_column($otra->json('filas'), 'saltar'));
+        $sinFrente = function ($f) { $f['frente'] = 'OTRO TEXTO SIN FRENTE'; $f['id_frente'] = ''; return $f; };
+        $antes = DB::table('consumibles')->count();
+
+        $r = $this->guardarTabla($otra, fn ($f, $i) => $i === 0 ? $sinFrente($f) : $f)->assertStatus(422);
+        $this->assertStringContainsString('ZZ PROYECTO INEXISTENTE', $r->json('message'));
+        $this->assertStringNotContainsString('OTRO TEXTO SIN FRENTE', $r->json('message'));
+        $this->assertSame($antes, DB::table('consumibles')->count());
+
+        $this->guardarTabla($otra, function ($f, $i) use ($sinFrente, $idVeladero) {
+            if ($i === 0) return $sinFrente($f);
+            $f['id_frente'] = $idVeladero;
+            return $f;
+        })->assertOk()->assertJson(['insertados' => 1, 'saltados' => 1]);
+    }
+
+    /** Gráficos abre en el último mes con gasoil cargado, sin contar fechas futuras. */
+    public function test_graficos_abre_en_el_ultimo_mes_cargado(): void
+    {
+        $u = $this->superAdminGlobal();
+        $hoy = now();
+        DB::table('consumibles')->insert([
+            ['FECHA' => $hoy->toDateString(), 'TIPO_CONSUMIBLE' => 'GASOIL', 'UNIDAD' => 'LITROS', 'CANTIDAD' => 10, 'ESTADO_EQUIPO' => 'SIN_MATCH', 'created_at' => $hoy, 'updated_at' => $hoy],
+            ['FECHA' => $hoy->copy()->addYear()->toDateString(), 'TIPO_CONSUMIBLE' => 'GASOIL', 'UNIDAD' => 'LITROS', 'CANTIDAD' => 10, 'ESTADO_EQUIPO' => 'SIN_MATCH', 'created_at' => $hoy, 'updated_at' => $hoy],
+        ]);
+        $this->actingAs($u)->getJson(route('consumibles.graficosUltimoMes'))->assertOk()->assertJson(['mes' => $hoy->format('Y-m')]);
+    }
+
     /** Lo pegado de un Excel en inglés («1,234.50») y en español («1.000») da los litros bien. */
     public function test_el_reporte_pegado_lee_los_numeros_de_los_dos_formatos(): void
     {

@@ -17,10 +17,11 @@
     <input type="file" id="impArchivos" multiple accept=".xlsx,.xlsm,.xls" hidden>
 </div>
 
-{{-- Solo si hay alguna: las cargas guardadas, para deshacer una entera. --}}
+{{-- Solo si hay alguna: las cargas guardadas, para borrar una entera (todo lo que entró con ese Excel). --}}
 @if ($cargas->isNotEmpty())
 <div class="admin-card imp-card">
     <h3 class="imp-titulo">Cargas de Excel</h3>
+    <p class="imp-ayuda">Para quitar un Excel que ya guardaste, usa <b>Borrar carga</b> en su fila: se borran todos los consumos que entraron con él y puedes volver a subirlo.</p>
     <div class="imp-tabla-wrap">
         <table class="imp-tabla">
             <thead>
@@ -45,13 +46,13 @@
                         <td class="num">{{ number_format((float) $c->LITROS, 0, ',', '.') }}</td>
                         <td>
                             <span class="imp-estado imp-estado-{{ strtolower($c->ESTADO) }}">
-                                {{ $c->ESTADO === 'APLICADA' ? 'Cargada' : 'Deshecha' }}
+                                {{ $c->ESTADO === 'APLICADA' ? 'Cargada' : 'Borrada' }}
                             </span>
                         </td>
                         <td class="imp-acciones-fila">
                             @if ($c->ESTADO === 'APLICADA')
-                                <button type="button" class="imp-link imp-link-rojo"
-                                    onclick="window.consImpDeshacer('{{ route('consumibles.importar.deshacer', $c) }}', {{ (int) $c->INSERTADOS }})">Deshacer</button>
+                                <button type="button" class="imp-link imp-link-rojo" title="Borra todos los consumos que entraron con este Excel"
+                                    onclick="window.consImpDeshacer('{{ route('consumibles.importar.deshacer', $c) }}', {{ (int) $c->INSERTADOS }}, {{ json_encode($nombres->implode(', '), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) }})"><i class="material-icons">delete</i> Borrar carga</button>
                             @endif
                         </td>
                     </tr>

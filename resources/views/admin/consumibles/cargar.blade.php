@@ -26,6 +26,16 @@
         .resumen-carga .rc-frente b { color: #0067b1; }
         .resumen-carga .rc-sin { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
         .resumen-carga .rc-sin b { color: #991b1b; }
+        .resumen-carga .rc-saltar { border-style: dashed; color: #64748b; }
+        .resumen-carga .rc-saltar b { color: #64748b; }
+        /* Cada frente es un botón: muestra en la tabla solo sus filas (otro clic, todas). */
+        .resumen-carga button.rc-frente { font: inherit; color: inherit; cursor: pointer; }
+        .resumen-carga button.rc-frente:hover { border-color: #0067b1; }
+        .resumen-carga button.rc-frente.activo { background: #0067b1; border-color: #0067b1; color: #fff; }
+        .resumen-carga button.rc-frente.activo b { color: #fff; }
+        .resumen-carga .rc-ayuda { flex-basis: 100%; font-size: 11.5px; color: #64748b; }
+        .resumen-carga .rc-todas { font: inherit; font-weight: 700; color: #0067b1; background: none; border: 0; cursor: pointer; text-decoration: underline; }
+        #cuerpoTabla tr.fila-filtrada { display: none; }
 
         /* Sugerencia para una fila de proyecto sin reconocer: el frente donde está su equipo. */
         .fila-sugerido { display: block; margin-top: 3px; padding: 2px 8px; border: 1px solid #93c5fd; border-radius: 6px;
@@ -39,15 +49,28 @@
             border: 1px solid #e2e8f0;
         }
 
-        .excel-mas {
-            margin-top: 10px;
-            padding: 10px;
-            text-align: center;
-            font-size: 12.5px;
-            color: #64748b;
-            border: 1px dashed #cbd5e1;
-            border-radius: 8px;
+        /* La tabla baja dentro de su caja (con el encabezado fijo): miles de filas del Excel no
+           alejan el botón Guardar. */
+        .tabla-scroll { max-height: 70vh; overflow: auto; border-radius: 8px; }
+        /* Cada fila es su propia rejilla (mismas columnas), no una tabla: al sumar filas el
+           navegador no vuelve a acomodar las miles de antes, y las que no se ven no se dibujan
+           (content-visibility). Medido con 2.600 filas: de ~16 s a ~3,6 s, y sin congelar la
+           página. El encabezado queda fijo arriba de la caja. */
+        #tablaFilas, #tablaFilas thead, #tablaFilas tbody { display: block; }
+        #tablaFilas thead { position: sticky; top: 0; z-index: 2; }
+        #tablaFilas tr {
+            display: grid;
+            grid-template-columns: 36px 150px minmax(140px, 1.3fr) minmax(140px, 1.3fr) 120px 110px minmax(200px, 1.4fr) 40px;
         }
+        /* Aceite y caucho: con la columna de viscosidad / modelo. */
+        #tablaFilas:has(#thEspec:not([style*="none"])) tr {
+            grid-template-columns: 36px 150px minmax(130px, 1.2fr) minmax(130px, 1.2fr) 110px 100px minmax(130px, 1fr) minmax(190px, 1.3fr) 40px;
+        }
+        #cuerpoTabla tr { content-visibility: auto; contain-intrinsic-size: auto 40px; }
+        #tablaFilas td { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+        /* El ancho lo da la rejilla (el width de la tabla vieja, más el relleno, la corría). */
+        #tablaFilas thead th { width: auto !important; min-width: 0; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; }
+        #tablaFilas td:first-child, #tablaFilas td:last-child { align-items: center; }
 
         #tablaFilas {
             width: 100%;
@@ -125,6 +148,7 @@
         #tablaFilas td input[type=date],
         #tablaFilas td input[type=number] {
             width: 100%;
+            box-sizing: border-box;   /* con el relleno no se sale de su columna (las filas son rejillas) */
             border: none;
             background: transparent;
             outline: none;
@@ -355,6 +379,7 @@
                 {{-- Total de lo que hay en la tabla y por frente (resumenCarga), antes de guardar. --}}
                 <div id="resumenCarga" class="resumen-carga" hidden></div>
 
+                <div id="tablaScroll" class="tabla-scroll">
                 <table id="tablaFilas">
                     <thead>
                         <tr>
@@ -371,8 +396,7 @@
                     </thead>
                     <tbody id="cuerpoTabla"></tbody>
                 </table>
-                {{-- Filas del Excel subido que aún no se pintan: «Ver 200 filas más» (consCargarFilasExcel). --}}
-                <div id="excelMas" class="excel-mas" hidden></div>
+                </div>
                 {{-- Lista para elegir el frente de una fila: una sola, se coloca bajo la celda. --}}
                 <div id="frenteFilaDropdown"></div>
             </div>
@@ -605,8 +629,10 @@
         }
         function listaFrenteFila(inp) {
             const dd = document.getElementById('frenteFilaDropdown');
+            // El texto del Excel que no se reconoció no se parece a ningún frente («Sin resultados»):
+            // con él en la celda se ofrecen todos; al escribir otra cosa, se busca lo escrito.
             const q = inp.value.trim();
-            const lista = q ? window.FuzzySearch.filtrar(FRENTES, q, f => f.nombre) : FRENTES;
+            const lista = q && q !== inp.dataset.sinReconocer ? window.FuzzySearch.filtrar(FRENTES, q, f => f.nombre) : FRENTES;
             dd.innerHTML = lista.length
                 ? lista.map(f => `<div data-frente-id="${Number(f.id)}">${window.escapeHtml(f.nombre)}</div>`).join('')
                 : '<div style="color:#94a3b8; cursor:default;">Sin resultados</div>';
@@ -624,47 +650,85 @@
 
         // ── Resumen de la tabla ───────────────────────────────────────────
         // Filas, litros y litros por frente de todo lo que se va a guardar: lo que se ve y lo del
-        // Excel que aún no se pintó, sin los despachos del Excel ya cargados o repetidos (se saltan
-        // al guardar). Frente de una fila: el reconocido o elegido; sin texto, el de arriba.
+        // Excel que aún no se pintó. Frente de una fila: el reconocido o elegido; sin texto, el de
+        // arriba. Aparte: «Frente no reconocido» (hay que elegirlo), «Sin proyecto» (sin texto ni
+        // frente arriba) y los ya cargados o repetidos (se saltan al guardar, no suman).
+        // Cada grupo es un botón: la tabla muestra solo sus filas (filtroFrente); otro clic, todas.
         var temporizadorResumen = null;
+        var filtroFrente = null;
         function programarResumen() {
+            // Mientras se pintan las filas del Excel no se recuenta en cada cuadro (recorrer miles de
+            // filas cada vez lo volvía lento): ya se contó al empezar y se cuenta al terminar.
+            if (pintandoExcel) return;
             clearTimeout(temporizadorResumen);
             temporizadorResumen = setTimeout(resumenCarga, 150);
+        }
+        // Grupo de una fila: 'saltar', 'mal' (texto sin reconocer), 'sin' (sin proyecto) o el id del frente.
+        function grupoFila(texto, id, saltar) {
+            if (saltar) return 'saltar';
+            if (id) return String(id);
+            if (texto) return 'mal';
+            const arriba = document.getElementById('idFrenteHidden').value;
+            return arriba ? String(arriba) : 'sin';
+        }
+        function grupoDeTr(tr) {
+            const v = n => (tr.querySelector(`[name$="[${n}]"]`) || {}).value || '';
+            if (!(parseFloat(v('cantidad')) > 0)) return '';
+            return grupoFila(v('frente').trim(), v('id_frente'), !!tr.dataset.saltar);
+        }
+        // Oculta las filas de otro grupo. Corre al elegir el grupo y al pintar filas nuevas, no al
+        // escribir: la fila que se está corrigiendo no desaparece de golpe.
+        function aplicarFiltroFrente(trs) {
+            (trs || [...document.getElementById('cuerpoTabla').children]).forEach(tr => {
+                tr.classList.toggle('fila-filtrada', filtroFrente !== null && grupoDeTr(tr) !== filtroFrente);
+            });
+        }
+        function filtrarPorFrente(k) {
+            filtroFrente = k === null || k === filtroFrente ? null : k;
+            aplicarFiltroFrente();
+            resumenCarga();
+            const caja = document.getElementById('tablaScroll');
+            if (caja) caja.scrollTop = 0;
         }
         function resumenCarga() {
             const caja = document.getElementById('resumenCarga');
             if (!caja) return;
-            const arriba = document.getElementById('idFrenteHidden').value;
             const porFrente = {};
             let filas = 0, total = 0;
-            const sumar = (cant, texto, id) => {
+            const sumar = (cant, texto, id, saltar) => {
                 const v = parseFloat(cant);
                 if (!(v > 0)) return;
-                filas++; total += v;
-                const k = id ? String(id) : (!texto && arriba ? String(arriba) : '');
+                const k = grupoFila(texto, id, saltar);
+                if (k !== 'saltar') { filas++; total += v; }
                 porFrente[k] = porFrente[k] || { l: 0, n: 0 };
                 porFrente[k].l += v; porFrente[k].n++;
             };
             [...document.getElementById('cuerpoTabla').children].forEach(tr => {
-                if (tr.dataset.saltar) return;
                 const v = n => (tr.querySelector(`[name$="[${n}]"]`) || {}).value || '';
-                sumar(v('cantidad'), v('frente').trim(), v('id_frente'));
+                sumar(v('cantidad'), v('frente').trim(), v('id_frente'), !!tr.dataset.saltar);
             });
             excelPorPintar.forEach(f => {
-                if (f.saltar) return;
                 if (f.id_frente && f.nombre_frente) NOMBRE_FRENTE[f.id_frente] = f.nombre_frente;
-                sumar(f.cantidad, f.frente, f.frente && f.id_frente ? f.id_frente : '');
+                sumar(f.cantidad, String(f.frente || '').trim(), f.frente && f.id_frente ? f.id_frente : '', !!f.saltar);
             });
-            caja.hidden = !filas;
-            if (!filas) { caja.innerHTML = ''; return; }
+            caja.hidden = !filas && !porFrente.saltar && filtroFrente === null;
+            if (caja.hidden) { caja.innerHTML = ''; return; }
             const fmt = x => Number(x).toLocaleString('es-VE', { maximumFractionDigits: 2 });
             const unidad = (document.getElementById('unidadSelect').value || 'LITROS') === 'LITROS' ? 'L' : document.getElementById('unidadSelect').value.toLowerCase();
-            const chips = Object.keys(porFrente).sort((a, b) => porFrente[b].l - porFrente[a].l).map(k => {
+            // Primero lo que pide atención; luego los frentes de mayor a menor; al final lo que se salta.
+            const peso = k => k === 'mal' ? 0 : k === 'sin' ? 1 : k === 'saltar' ? 3 : 2;
+            const claves = Object.keys(porFrente).sort((a, b) => peso(a) - peso(b) || porFrente[b].l - porFrente[a].l);
+            const chips = claves.map(k => {
                 const g = porFrente[k];
-                const nombre = k ? (NOMBRE_FRENTE[k] || 'Frente ' + k) : 'Sin frente';
-                return `<span class="rc-frente${k ? '' : ' rc-sin'}">${window.escapeHtml(nombre)}: <b>${fmt(g.l)} ${unidad}</b> (${fmt(g.n)})</span>`;
+                const nombre = k === 'mal' ? 'Frente no reconocido' : k === 'sin' ? 'Sin proyecto' : k === 'saltar' ? 'Ya cargadas (se saltan)' : (NOMBRE_FRENTE[k] || 'Frente ' + k);
+                const clase = k === 'mal' || k === 'sin' ? ' rc-sin' : k === 'saltar' ? ' rc-saltar' : '';
+                return `<button type="button" class="rc-frente${clase}${filtroFrente === k ? ' activo' : ''}" data-grupo="${window.escapeHtml(k)}" title="Ver solo estas filas">`
+                    + `${window.escapeHtml(nombre)}: <b>${fmt(g.l)} ${unidad}</b> (${fmt(g.n)})</button>`;
             }).join('');
-            caja.innerHTML = `<span class="rc-total">${fmt(filas)} ${filas === 1 ? 'fila' : 'filas'} · ${fmt(total)} ${unidad}</span>` + chips;
+            const ayuda = filtroFrente !== null
+                ? `<span class="rc-ayuda">Viendo solo «${window.escapeHtml(filtroFrente === 'mal' ? 'Frente no reconocido' : filtroFrente === 'sin' ? 'Sin proyecto' : filtroFrente === 'saltar' ? 'Ya cargadas' : (NOMBRE_FRENTE[filtroFrente] || 'Frente ' + filtroFrente))}». <button type="button" class="rc-todas" data-grupo-todas>Ver todas las filas</button></span>`
+                : (claves.length > 1 ? '<span class="rc-ayuda">Toca un frente para ver solo sus filas en la tabla.</span>' : '');
+            caja.innerHTML = `<span class="rc-total">${fmt(filas)} ${filas === 1 ? 'fila' : 'filas'} · ${fmt(total)} ${unidad}</span>` + chips + ayuda;
         }
 
         // ── Gestión de filas ──────────────────────────────────────────────
@@ -956,22 +1020,37 @@
         // Sus despachos caen en esta misma tabla, como lo pegado, y se guardan con el mismo
         // Guardar. Cada fila lleva su carga y su lugar en ella (imp/ref): con eso el servidor
         // salta al guardar los que ya estaban cargados (ImportadorCombustible::aplicar).
-        // Miles de filas con sus campos tardan segundos en acomodarse y congelan la página: se
-        // pintan por tandas con «Ver 200 filas más» (no solas al bajar: el botón Guardar se alejaba
-        // cada vez que se acercaba). Las que no se pintaron se guardan igual.
+        // Miles de filas con sus campos, de una vez, congelan la página: se pintan TODAS solas, por
+        // tandas, una tanda por cuadro, y la página sigue respondiendo mientras tanto. Lo caro es
+        // acomodarlas en pantalla (~1 ms por fila, medido; un ancho fijo de columnas no lo baja), así
+        // que la tanda se ajusta a la PC: si el cuadro anterior tardó, la siguiente es más chica. La
+        // tabla baja dentro de su propia caja (.tabla-scroll), así el botón Guardar no se aleja. Lo
+        // que aún no se pintó está en excelPorPintar y se guarda igual.
         var excelPorPintar = [];
-        var TANDA_EXCEL = 200;
-        function pintarTandaExcel(n) {
+        var tandaExcel = 40;
+        var pintando = null, cuadroAnterior = 0, pintandoExcel = false;
+        function pintarTandaExcel(ahora) {
+            pintando = null;
+            const cuerpo = document.getElementById('cuerpoTabla');
+            if (!cuerpo || !excelPorPintar.length) { pintandoExcel = false; return; }
+            const paso = cuadroAnterior ? ahora - cuadroAnterior : 0;
+            if (paso > 60) tandaExcel = Math.max(10, Math.round(tandaExcel * 0.6));
+            else if (paso && paso < 35) tandaExcel = Math.min(300, Math.round(tandaExcel * 1.3));
+            cuadroAnterior = ahora;
             const frag = document.createDocumentFragment();
-            excelPorPintar.splice(0, n || TANDA_EXCEL).forEach(f => agregarFila(f, null, frag));
-            document.getElementById('cuerpoTabla').appendChild(frag);
-            const mas = document.getElementById('excelMas');
-            mas.hidden = !excelPorPintar.length;
-            mas.innerHTML = excelPorPintar.length
-                ? Number(excelPorPintar.length).toLocaleString('es-VE') + ' filas más del Excel (al guardar van todas). '
-                    + '<button type="button" class="btn-primary-maquinaria btn-secondary btn-compacto" data-ver-mas-excel>Ver ' + Math.min(TANDA_EXCEL, excelPorPintar.length) + ' filas más</button>'
-                : '';
-            programarResumen();
+            const nuevas = excelPorPintar.splice(0, tandaExcel).map(f => agregarFila(f, null, frag));
+            cuerpo.appendChild(frag);
+            if (filtroFrente !== null) aplicarFiltroFrente(nuevas);
+            if (excelPorPintar.length) { pintando = requestAnimationFrame(pintarTandaExcel); return; }
+            pintandoExcel = false;
+            resumenCarga();
+        }
+        function pintarExcelPendiente() {
+            if (pintando !== null || !excelPorPintar.length) return;
+            resumenCarga();   // lo de la cola ya cuenta: el resumen sale completo desde el principio
+            pintandoExcel = true;
+            cuadroAnterior = 0;
+            pintando = requestAnimationFrame(pintarTandaExcel);
         }
         function filaExcelParaGuardar(f) {
             return {
@@ -997,17 +1076,11 @@
                 actualizarUnidad();
             }
             vaciarSiNoHayDatos();
-            // Primero las que piden atención (proyecto sin reconocer): se pintan todas de entrada.
+            // Primero las que piden atención (proyecto sin reconocer): quedan arriba en la tabla.
             const filas = r.filas.map(f => Object.assign({ imp: r.importacion }, f));
             const mal = f => f.frente && !f.id_frente;
-            const nMal = filas.filter(mal).length;
             excelPorPintar = filas.filter(mal).concat(excelPorPintar, filas.filter(f => !mal(f)));
-            pintarTandaExcel(Math.max(TANDA_EXCEL, nMal));
-            const mas = document.getElementById('excelMas');
-            if (!mas._listo) {
-                mas._listo = true;
-                mas.addEventListener('click', e => { if (e.target.closest('[data-ver-mas-excel]')) pintarTandaExcel(); });
-            }
+            pintarExcelPendiente();
 
             const n = r.filas.length, cargados = r.cargados || 0, repetidos = r.repetidos || 0;
             const fmt = x => Number(x).toLocaleString('es-VE');
@@ -1049,14 +1122,19 @@
                     // El número es el de la columna «#» (tras borrar filas no coincide con la posición).
                     if (algo && (!v('fecha') || !(parseFloat(v('cantidad')) > 0))) aMedias.push(tr.firstElementChild.textContent.trim());
                     // Frente: el reconocido o elegido en la fila; sin texto, el de arriba.
+                    // La ya cargada o repetida se salta al guardar: no necesita frente.
+                    if (tr.dataset.saltar) return;
                     if (algo && v('frente').trim() && !v('id_frente')) sinReconocer.push(tr.firstElementChild.textContent.trim());
                     if (algo && !v('frente').trim()) sinProyecto = true;
                 });
-                // Las del Excel aún sin pintar: el proyecto sin reconocer va siempre pintado; sin proyecto, no.
-                if (excelPorPintar.some(f => !String(f.frente || '').trim())) sinProyecto = true;
+                // Las del Excel aún sin pintar (el proyecto sin reconocer va primero, ya pintado).
+                if (excelPorPintar.some(f => !f.saltar && !String(f.frente || '').trim())) sinProyecto = true;
 
                 if (sinReconocer.length) {
-                    window.showModal({ type: 'warning', title: 'Frente sin reconocer', message: 'No se reconoce el proyecto de ' + (sinReconocer.length === 1 ? 'la fila ' : 'las filas ') + sinReconocer.join(', ') + ': elige su frente en la columna FRENTE.', confirmText: 'Entendido', hideCancel: true });
+                    // Con muchas, la lista de números no se lee: se muestran en la tabla solo esas filas.
+                    const lista = sinReconocer.length > 12 ? sinReconocer.slice(0, 12).join(', ') + ' y ' + (sinReconocer.length - 12).toLocaleString('es-VE') + ' más' : sinReconocer.join(', ');
+                    filtroFrente = 'mal'; aplicarFiltroFrente(); resumenCarga();
+                    window.showModal({ type: 'warning', title: 'Frente sin reconocer', message: 'No se reconoce el proyecto de ' + (sinReconocer.length === 1 ? 'la fila ' : 'las filas ') + lista + ': elige su frente en la columna FRENTE. En la tabla quedan solo esas filas.', confirmText: 'Entendido', hideCancel: true });
                     return;
                 }
                 if (sinProyecto && !frente) {
@@ -1112,7 +1190,7 @@
                             document.getElementById('cuerpoTabla').innerHTML = '';
                             filaCount = 0;
                             excelPorPintar = [];
-                            document.getElementById('excelMas').hidden = true;
+                            filtroFrente = null;
                             for (var i = 0; i < 5; i++) agregarFila();
                             programarResumen();
 
@@ -1237,6 +1315,13 @@
                 });
                 // La lista es fija en la pantalla: al desplazar la tabla o la página se cierra.
                 document.getElementById('tablaFilas').closest('.tbl-wrap').addEventListener('scroll', cerrarListaFrenteFila, { passive: true });
+                document.getElementById('tablaScroll').addEventListener('scroll', cerrarListaFrenteFila, { passive: true });
+                // Resumen: un grupo muestra solo sus filas; «Ver todas las filas», todas.
+                document.getElementById('resumenCarga').addEventListener('click', function (e) {
+                    if (e.target.closest('[data-grupo-todas]')) { filtrarPorFrente(null); return; }
+                    var b = e.target.closest('[data-grupo]');
+                    if (b) filtrarPorFrente(b.dataset.grupo);
+                });
             }
             if (!window.__cargarFrenteScroll) {
                 window.__cargarFrenteScroll = true;

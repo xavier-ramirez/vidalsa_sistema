@@ -134,22 +134,24 @@
         zona.addEventListener('drop', function (e) { subirArchivos(e.dataTransfer && e.dataTransfer.files); });
     }
 
-    // ── Deshacer una carga (lista «Cargas de Excel») ───────────────────────
+    // ── Borrar una carga entera (lista «Cargas de Excel», botón «Borrar carga») ──
 
-    window.consImpDeshacer = function (url, n) {
+    window.consImpDeshacer = function (url, n, archivos) {
+        var esc = window.escapeHtml || function (t) { return String(t); };
         window.confirmarAccion({
             type: 'error',
-            title: 'Deshacer la carga',
-            message: 'Se borrarán los <b>' + Number(n).toLocaleString('es-VE') + '</b> consumos que entraron con esta carga. Lo aprendido (equipos y proyectos) se conserva.',
-            confirmText: 'Deshacer',
+            title: 'Borrar la carga de Excel',
+            message: 'Se borrarán los <b>' + Number(n).toLocaleString('es-VE') + '</b> consumos que entraron con '
+                + (archivos ? '<b>' + esc(archivos) + '</b>' : 'esta carga') + '. Después puedes volver a subir el archivo. Lo aprendido (equipos y proyectos) se conserva.',
+            confirmText: 'Borrar carga',
         }, function () {
             conEspera(pedir(url, { method: 'POST' })).then(function (r) {
-                if (!r.ok) { aviso('warning', 'No se deshizo', mensajeDe(r.body, 'Intenta de nuevo.')); return; }
+                if (!r.ok) { aviso('warning', 'No se borró', mensajeDe(r.body, 'Intenta de nuevo.')); return; }
                 if (window.showToast) window.showToast(r.body.message, 'success');
                 ir(window.location.href);
             }).catch(function (e) {
                 if (e && e.message === 'Sesión expirada.') return;   // apiFetch ya llevó al login
-                aviso('error', 'No se deshizo', (e && e.message) || 'Revisa la conexión e intenta de nuevo. No se borró nada.');
+                aviso('error', 'No se borró', (e && e.message) || 'Revisa la conexión e intenta de nuevo. No se borró nada.');
             });
         });
     };

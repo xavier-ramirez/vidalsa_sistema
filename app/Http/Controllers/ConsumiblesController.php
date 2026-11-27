@@ -230,7 +230,9 @@ class ConsumiblesController extends Controller
                 $reconocido = $ident->resolverFrente(['proyecto' => $texto]);
             }
             $frentes[$i] = $elegido ?? $reconocido['id_frente'] ?? ($texto === '' && $request->id_frente ? (int) $request->id_frente : null);
-            if ($frentes[$i] === null) {
+            // Del Excel subido, sin frente: lo pide aplicar() solo si la fila se va a guardar (la ya
+            // cargada o repetida se salta y no necesita frente).
+            if ($frentes[$i] === null && empty($fila['imp'])) {
                 $sinFrente[$texto] = true;
             }
             // Elegido a mano para un texto que no se reconocía (o se reconocía como otro): queda
@@ -423,6 +425,22 @@ class ConsumiblesController extends Controller
             ->orderBy('NOMBRE_FRENTE')->get();
 
         return view('admin.consumibles.graficos', compact('frentes'));
+    }
+
+    /**
+     * El último mes con consumos cargados («YYYY-MM»): Gráficos abre en él (no en el mes en curso, que
+     * al empezar el mes aún no tiene nada). Primero el gasoil (la presentación es de gasoil); si no hay,
+     * cualquier tipo. Sin fechas futuras (una fecha mal escrita no lo adelanta). Se pide al abrir y
+     * no va en la vista: la pantalla guardada en la PC no sabe lo que se cargó después.
+     */
+    public function graficosUltimoMes()
+    {
+        $hoy = now()->toDateString();
+        $max = Consumible::where('TIPO_CONSUMIBLE', 'GASOIL')->where('FECHA', '<=', $hoy)->max('FECHA')
+            ?? Consumible::where('FECHA', '<=', $hoy)->max('FECHA');
+
+        return response()->json(['mes' => $max ? substr((string) $max, 0, 7) : null])
+            ->header('Cache-Control', 'no-store');
     }
 
     // ══════════════════════════════════════════════════════════════

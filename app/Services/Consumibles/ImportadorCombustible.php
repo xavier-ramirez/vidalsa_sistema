@@ -374,6 +374,22 @@ class ImportadorCombustible
         $litros = 0.0;
         $texto = fn ($v, int $largo) => ($v = trim((string) $v)) !== '' ? mb_substr($v, 0, $largo) : null;
 
+        // Frente: solo lo piden las filas que se van a guardar (las ya cargadas o repetidas se saltan).
+        $sinFrente = [];
+        foreach ($rev['res'] as $i => $r) {
+            if ($r['estado'] === 'nuevo' && empty($tabla[$i]['id_frente'])) {
+                $sinFrente[(string) ($r['frente']['clave'] ?? '')] = true;
+            }
+        }
+        if ($sinFrente) {
+            $sinTexto = isset($sinFrente['']);
+            unset($sinFrente['']);
+            throw new CargaRechazada(trim(
+                ($sinFrente ? 'No se reconoce el proyecto ' . implode(', ', array_map(fn ($t) => '«' . $t . '»', array_keys($sinFrente))) . ': elige su frente en la fila. ' : '')
+                . ($sinTexto ? 'Hay filas sin proyecto: elige el frente de arriba o escríbelo en la fila.' : '')
+            ));
+        }
+
         foreach ($rev['res'] as $i => $r) {
             if ($r['estado'] !== 'nuevo') {
                 $saltados++;

@@ -21,6 +21,8 @@
     .imp-acciones-fila { white-space:nowrap; }
     .imp-link { background:none; border:none; padding:0 6px; color:#0067b1; font-weight:600; font-size:13px; cursor:pointer; text-decoration:none; font-family:inherit; }
     .imp-link-rojo { color:#dc2626; }
+    .imp-link .material-icons { font-size:16px; vertical-align:-3px; }
+    .imp-ayuda { margin:0 0 10px; color:#64748b; font-size:12.5px; }
     .imp-estado { border-radius:20px; padding:2px 10px; font-size:12px; font-weight:700; white-space:nowrap; }
     .imp-estado-aplicada { background:#d1fae5; color:#065f46; }
     .imp-estado-deshecha { background:#f1f5f9; color:#64748b; }

@@ -332,7 +332,8 @@
         var escG = window.escapeHtml;
 
 
-        // Al entrar, los dos campos de mes muestran el mes en curso. La presentación, el Top 4, los demás
+        // Al entrar, los dos campos de mes muestran el ÚLTIMO MES CARGADO (graficosUltimoMes, al montar);
+        // mientras llega, y si no hay nada cargado, el mes en curso. La presentación, el Top 4, los demás
         // gráficos y el Excel usan SIEMPRE el mismo período (getParams). Una sola vez por pantalla (no pisa lo elegido).
         (function () {
             var d = document.getElementById('fMesDesde'), h = document.getElementById('fMesHasta');
@@ -340,7 +341,7 @@
             d.dataset.mesPuesto = '1';
             if (!d.value && !h.value) {
                 var hoy = new Date();
-                d.value = h.value = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+                d.value = h.value = d.dataset.mesAuto = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
             }
         })();
 
@@ -984,7 +985,22 @@
         window._graficosFirstRunDone = false;
         if (typeof window.cargarDatos === 'function') {
             window._graficosDataLoaded = true;
-            window.cargarDatos();
+            // Primero el último mes cargado; si nadie tocó los meses mientras tanto, se ponen en él.
+            // Si falla (sin red), queda el mes en curso. Sea como sea, después se cargan los datos.
+            (function () {
+                var d = document.getElementById('fMesDesde'), h = document.getElementById('fMesHasta');
+                var auto = d && d.dataset.mesAuto;
+                if (!auto || d.value !== auto || h.value !== auto) { window.cargarDatos(); return; }
+                fetch(@json(route('consumibles.graficosUltimoMes')), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin', cache: 'no-store' })
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .catch(function () { return null; })
+                    .then(function (j) {
+                        if (j && /^\d{4}-\d{2}$/.test(j.mes || '') && d.isConnected && d.value === auto && h.value === auto) {
+                            d.value = h.value = d.dataset.mesAuto = j.mes;
+                        }
+                        window.cargarDatos();
+                    });
+            })();
         }
     </script>
 @endsection

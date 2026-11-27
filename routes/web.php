@@ -305,6 +305,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get ('consumibles/cargar',             [App\Http\Controllers\ConsumiblesController::class, 'cargar'])         ->name('consumibles.cargar');
             Route::get ('consumibles/graficos-data',      [App\Http\Controllers\ConsumiblesController::class, 'graficosData'])   ->name('consumibles.graficosData');
             Route::get ('consumibles/graficos',           [App\Http\Controllers\ConsumiblesController::class, 'graficos'])       ->name('consumibles.graficos');
+            Route::get ('consumibles/graficos-ultimo-mes',[App\Http\Controllers\ConsumiblesController::class, 'graficosUltimoMes'])->name('consumibles.graficosUltimoMes');
             Route::get ('consumibles/presentacion-data',  [App\Http\Controllers\ConsumiblesController::class, 'presentacionData'])->name('consumibles.presentacionData');
             Route::get ('consumibles/exportar-csv',       [App\Http\Controllers\ConsumiblesController::class, 'exportarCsv'])    ->name('consumibles.exportarCsv');
             Route::post('consumibles/frentes-de-textos',  [App\Http\Controllers\ConsumiblesController::class, 'frentesDeTextos'])->middleware('can:super.admin')->name('consumibles.frentesDeTextos');
