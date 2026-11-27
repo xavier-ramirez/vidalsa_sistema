@@ -25,7 +25,7 @@ function elemento(id) {
         focus() {}, getAttribute() { return null; },
     };
 }
-const ids = ['entLineasTbody', 'entSearch', 'entSuggest', 'entSelectedBadge', 'entSelectedCod', 'entSelectedNom',
+const ids = ['entLineasTbody', 'entSearch', 'entSuggest', 'entSelectedBadge', 'entSelectedFoto', 'entSelectedCod', 'entSelectedNom',
     'entUm', 'entUmSuggest', 'entCant', 'entError', 'entDocError', 'entDocOverlay', 'entAlmacen', 'entResLineas',
     'entResUm', 'entEmpty', 'entFecha', 'entNotaEntrega', 'entProveedor', 'entSubmit'];
 let dom = {};
@@ -56,6 +56,8 @@ window.toast = (m, t) => { toasts.push([t || 'success', m]); return true; };
 window.hoyISO = () => '2026-11-23';
 window.confirmarAccion = (o, si) => si();
 window.RecepcionDespacho = { montar: () => ({ abrir() {}, reiniciar() {} }) };
+window.addEventListener = () => {};
+eval(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'maquinaria', 'almacen_foto.js'), 'utf8'));   // miniatura de cada línea
 
 const CATALOGO = [
     { ID_PRODUCTO: 1, CODIGO: '000001', NOMBRE: 'TUBO PVC 1/2"', UM: 'UND', CATEGORIA: 'TUBERIA' },

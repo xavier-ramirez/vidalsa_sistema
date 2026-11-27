@@ -305,7 +305,6 @@
     // entera puede tardar en un teléfono lento, pero si deja de llegar del todo se corta y se
     // vuelve a pedir en la próxima vuelta (antes el módulo esperaba para siempre).
     const SILENCIO_MS = 15000;
-    const cuerpoJson = (res, corta) => (window.textoConTope && res.body ? window.textoConTope(res, SILENCIO_MS, corta).then(JSON.parse) : res.json());
 
     // ── Copias enteras, de una en una ───────────────────────────────────────
     // Recién entrado un usuario eran 4 descargas completas a la vez (2-3 MB sin comprimir y
@@ -373,7 +372,7 @@
                     });
                 }
                 if (!res.ok) throw new Error('HTTP ' + res.status);
-                return cuerpoJson(res, corta).then((r) => {
+                return window.jsonConTope(res, SILENCIO_MS, corta).then((r) => {
                     const cambio = !!(r.completo || Object.keys(r.datos || {}).length
                         || Object.keys(r.borrados || {}).length || Object.keys(r.catalogos || {}).length);
                     c.estado.conectado = true;

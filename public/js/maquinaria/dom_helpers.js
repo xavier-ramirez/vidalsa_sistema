@@ -19,7 +19,8 @@
  *   window.apiFetch()       fetch() con las cabeceras que TODA llamada a la app
  *                           necesitaba y cada sitio se armaba a mano.
  *
- *   window.textoConTope()   El cuerpo de una respuesta, cortando si la red se calla (teléfono).
+ *   window.textoConTope()   El cuerpo de una respuesta, cortando si la red se calla (teléfono);
+ *   window.jsonConTope()    el mismo, como JSON.
  *
  *   window.toast()          Aviso al usuario, con el guard y el respaldo a alert()
  *                           que estaban repetidos en 6 envoltorios locales.
@@ -222,6 +223,10 @@
         };
         vigilar();
         return leer().catch(function (e) { clearTimeout(reloj); throw callada ? abortado() : e; });
+    };
+    // Lo mismo, leído como JSON (la copia local y la bandeja).
+    window.jsonConTope = function (res, ms, corta) {
+        return res.body ? window.textoConTope(res, ms, corta).then(JSON.parse) : res.json();
     };
 
     /**

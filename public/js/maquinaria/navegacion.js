@@ -736,13 +736,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (_) { return null; }
     }
 
+    // Tope de una pantalla: para que el servidor conteste y, ya contestando, de silencio de la descarga.
+    const ESPERA_PANTALLA_MS = 12000;
     // opciones.html: pintar ESE html sin pedir nada (una copia guardada); opciones.desdeCache:
     // es de la caché, así que no se compara su versión (ver más abajo).
     async function loadPage(url, pushHistory = true, opciones = {}) {
         const _miNav = ++_navSeq;
         // ── Timeout de 12s: si el servidor no responde, no dejamos el spinner eternamente ──
         const controller = new AbortController();
-        const timeoutId  = setTimeout(() => controller.abort(), 12000);
+        const timeoutId  = setTimeout(() => controller.abort(), ESPERA_PANTALLA_MS);
 
         // Flag para evitar que el bloque finally oculte el preloader
         // si el bloque try ya lo manejó correctamente.
@@ -876,7 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Ya llegó la respuesta (el reloj de 12 s se apagó): si la descarga se queda a
                 // medias (teléfono), 12 s sin datos cuentan como el mismo tiempo agotado.
-                html = await window.textoConTope(response, 12000, controller);
+                html = await window.textoConTope(response, ESPERA_PANTALLA_MS, controller);
                 if (_yaNoEsLaActual()) { handledCleanup = true; return; }
                 if (!desdeCache && !response.redirected) guardarPantalla(url, html);
             }

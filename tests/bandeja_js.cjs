@@ -35,6 +35,7 @@ global.window = {
     toast: (m, t) => toasts.push([m, t]),
     escapeHtml: (s) => String(s),
     irAlInicioDeSesion() {},
+    jsonConTope: (r) => r.json(),
     apiFetch: async (url, op) => {
         if (!red) throw new TypeError('Failed to fetch');
         const p = { url, metodo: op.method, cabeceras: op.headers, cuerpo: op.body ? JSON.parse(op.body) : null };

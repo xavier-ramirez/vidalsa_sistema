@@ -187,8 +187,7 @@
         return window.apiFetch(it.url, { method: it.metodo, headers: cabeceras, body: cuerpo, signal: corta ? corta.signal : undefined })
             .then((r) => {
                 clearTimeout(tope);
-                const cuerpo = window.textoConTope && r.body ? window.textoConTope(r, SILENCIO_MS, corta).then(JSON.parse) : r.json();
-                return cuerpo.catch(() => ({})).then((b) => ({ r, b }));
+                return window.jsonConTope(r, SILENCIO_MS, corta).catch(() => ({})).then((b) => ({ r, b }));
             })
             .finally(() => clearTimeout(tope));
     }
