@@ -51,9 +51,8 @@
 .gl .pm-der { position: absolute; left: 878px; top: 172px; width: 378px; display: flex; flex-direction: column; gap: 14px; }
 .gl .pm-sub { margin: 0; }
 .gl .pm-top { display: flex; flex-direction: column; gap: 10px; }
-/* Top 4 de equipos: el primero en tono naranja, los demás en tono azul (antes, gris). */
-.gl .pm-eq { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; column-gap: 12px; row-gap: 10px; padding: 14px 16px 12px; border-radius: 12px; background: #EAF2FA; border-left: 4px solid #1F4E79; }
-.gl .pm-eq:first-child { background: #FFF1E6; border-left-color: #F26A21; }
+.gl .pm-eq { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; column-gap: 12px; row-gap: 10px; padding: 14px 16px 12px; border-radius: 12px; background: #F2F4F7; border-left: 4px solid #1F4E79; }
+.gl .pm-eq:first-child { border-left-color: #F26A21; }
 .gl .pm-eq span { width: 34px; height: 34px; border-radius: 50%; background: #1F4E79; color: #fff; font: 700 15px/34px Arial, sans-serif; text-align: center; }
 .gl .pm-eq:first-child span { background: #F26A21; }
 .gl .pm-eq-dato { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -98,18 +97,10 @@
 .gl .cb-suma > small { font: 700 12px/1.2 Arial, sans-serif; letter-spacing: .06em; color: #000; }
 .gl .cb-suma > b { font: 700 32px/1 Arial, sans-serif; color: #000; white-space: nowrap; }
 .gl .cb-suma > em { font: 700 10.5px/1 Arial, sans-serif; font-style: normal; letter-spacing: .06em; color: #F26A21; }
-/* Las tres tarjetas del cupo, cada una con su color (pedido del usuario 27-11): cupo = azul de la marca,
-   consumido = naranja (oscurecido para que el texto blanco se lea), por consumir = verde. Letra blanca. */
-.gl .cb-suma.cb-s-cupo, .gl .cb-suma.cb-s-desp, .gl .cb-suma.cb-s-falta { box-shadow: 0 6px 16px rgba(20, 40, 70, .18); }
-.gl .cb-suma.cb-s-cupo > small, .gl .cb-suma.cb-s-cupo > b,
-.gl .cb-suma.cb-s-desp > small, .gl .cb-suma.cb-s-desp > b,
-.gl .cb-suma.cb-s-falta > small, .gl .cb-suma.cb-s-falta > b { color: #fff; }
-.gl .cb-suma.cb-s-cupo { background: #1F4E79; border-left-color: #0F2D4A; }
-.gl .cb-suma.cb-s-cupo > em { color: #BFD7ED; }
-.gl .cb-suma.cb-s-desp { background: #C2410C; border-left-color: #7C2D12; }
-.gl .cb-suma.cb-s-desp > em { color: #FED7AA; }
-.gl .cb-suma.cb-s-falta { background: #2E7D32; border-left-color: #1B4D1E; }
-.gl .cb-suma.cb-s-falta > em { color: #C8E6C9; }
+.gl .cb-suma.cb-s-cupo > em { color: #F9A266; }
+.gl .cb-suma.cb-s-cupo { background: #2B3440; border-left-color: #8E9AA8; }
+.gl .cb-suma.cb-s-cupo > small, .gl .cb-suma.cb-s-cupo > b { color: #fff; }
+.gl .cb-suma.cb-s-desp { border-left-color: #F26A21; }
 .gl .cb-hist { position: absolute; left: 90px; top: 166px; width: 1100px; height: 214px; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); align-items: end; }
 .gl .cb-mes { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .gl .cb-mes em { font: 400 10.5px/1 Arial, sans-serif; font-style: normal; color: #000; letter-spacing: .04em; }
