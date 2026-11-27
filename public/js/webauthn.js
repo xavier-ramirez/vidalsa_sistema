@@ -27,6 +27,12 @@ const VidalsaWebAuthn = (() => {
     // "Ahora no": {ID_USUARIO: fecha}. No se vuelve a preguntar en NO_PREGUNTAR_DIAS.
     const NO_PREGUNTAR_KEY = 'vidalsa_webauthn_no_preguntar';
     const NO_PREGUNTAR_DIAS = 30;
+    // La huella entró con servidor y el lector NO dio la llave PRF: con ella no se puede entrar
+    // sin internet (en Android, las registradas con residentKey 'discouraged' no la dan). El
+    // próximo login con clave la cambia por una nueva, UNA sola vez (CAMBIO_PRF_KEY): si la
+    // nueva tampoco la da, el teléfono no tiene PRF y no se vuelve a pedir.
+    const SIN_PRF_KEY = 'vidalsa_webauthn_sin_prf';
+    const CAMBIO_PRF_KEY = 'vidalsa_webauthn_cambio_prf';
 
     // localStorage puede no existir o fallar (modo privado): nada de esto debe tumbar el login.
     function leer(clave) { try { return localStorage.getItem(clave); } catch { return null; } }
@@ -214,7 +220,7 @@ const VidalsaWebAuthn = (() => {
             // Recién registrada en ESTE teléfono: ni dudas ni recordatorios pendientes.
             quitar(SIN_VERIFICAR_KEY);
             quitar(VINCULAR_ESTE_KEY);
-            await prepararSinServidor(credential, body.credential_id, options.rp && options.rp.id, salRegistro);
+            if (await prepararSinServidor(credential, body.credential_id, options.rp && options.rp.id, salRegistro)) quitar(SIN_PRF_KEY);
             return true;
         } catch (e) {
             return fallo('Error al guardar la huella: ' + e.message);
@@ -427,8 +433,8 @@ const VidalsaWebAuthn = (() => {
             }
 
             let assertion;
+            const ext = extensionPrf(publicKey.allowCredentials);
             try {
-                const ext = extensionPrf(publicKey.allowCredentials);
                 assertion = await navigator.credentials.get({ publicKey: ext ? { ...publicKey, extensions: ext } : publicKey });
             } catch {
                 // Con IDs recuperados del servidor y nunca probados aquí, que el lector no
@@ -481,7 +487,8 @@ const VidalsaWebAuthn = (() => {
             if (!res.ok) throw new Error(textoError(data, 'Error de autenticación'));
             if (data && data.success) {
                 quitar(SIN_VERIFICAR_KEY); // la huella SÍ es de este teléfono
-                if (prf) window.LlaveLocal.huellaPreparada(body.credential_id, publicKey.rpId, prf);
+                if (prf) { window.LlaveLocal.huellaPreparada(body.credential_id, publicKey.rpId, prf); quitar(SIN_PRF_KEY); }
+                else if (ext) escribir(SIN_PRF_KEY, '1');   // se pidió y el lector no la dio
             }
             return data;
         } finally {
@@ -549,6 +556,11 @@ const VidalsaWebAuthn = (() => {
     // Devuelve true solo si hay que mostrar "Activar acceso con huella". Antes se mostraba
     // con solo no ver IDs en localStorage, y "Ahora no" no se recordaba.
     async function debeOfrecerRegistro(idUsuario) {
+        // La huella de este teléfono no sirve sin internet (SIN_PRF_KEY): se cambia una sola vez.
+        if (leer(SIN_PRF_KEY) && !leer(CAMBIO_PRF_KEY) && !puedeSinServidor()) {
+            escribir(CAMBIO_PRF_KEY, '1');
+            return true;
+        }
         if (tieneCredenciales()) return false;
         if (leer(VINCULAR_ESTE_KEY)) return true; // los recuperados no eran de este teléfono
 

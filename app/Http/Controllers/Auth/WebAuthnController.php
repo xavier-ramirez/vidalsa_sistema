@@ -68,7 +68,10 @@ class WebAuthnController extends Controller
             'authenticatorSelection' => [
                 'authenticatorAttachment' => 'platform',
                 'userVerification'        => 'required',
-                'residentKey'             => 'discouraged',
+                // 'preferred' y no 'discouraged': con 'discouraged' Android la guarda como credencial
+                // antigua, fuera del gestor de llaves de acceso, y esa no da la llave PRF: la huella
+                // no servía nunca sin internet (webauthn.js · SIN_PRF_KEY).
+                'residentKey'             => 'preferred',
             ],
             'attestation' => 'none',
         ]);
