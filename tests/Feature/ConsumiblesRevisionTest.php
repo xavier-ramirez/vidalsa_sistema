@@ -68,4 +68,26 @@ class ConsumiblesRevisionTest extends MySqlTestCase
         $this->actingAs($u)->patchJson('/admin/consumibles/abc/frente', ['id_frente' => 1])->assertNotFound();
         $this->actingAs($u)->deleteJson('/admin/consumibles/abc')->assertNotFound();
     }
+
+    public function test_cambiar_el_frente_recuerda_con_cual_se_cargo(): void
+    {
+        $u = $this->superAdminGlobal();
+        $sufijo = strtoupper(Str::random(5));
+        [$maturin, $veladero, $otro] = array_map(fn ($n) => FrenteTrabajo::create(['NOMBRE_FRENTE' => "PRUEBA $n $sufijo"]), ['MATURIN', 'VELADERO', 'OTRO']);
+        $c = Consumible::create(['FECHA' => '2031-03-01', 'IDENTIFICADOR' => 'REV' . Str::random(6), 'CANTIDAD' => 30,
+            'TIPO_CONSUMIBLE' => 'GASOIL', 'UNIDAD' => 'LITROS', 'ID_FRENTE' => $maturin->ID_FRENTE, 'ESTADO_EQUIPO' => 'SIN_MATCH']);
+        $cambiar = fn ($f) => $this->actingAs($u)->patchJson(route('consumibles.updateFrente', $c->ID_CONSUMIBLE), ['id_frente' => $f->ID_FRENTE])->assertOk();
+
+        $cambiar($veladero);
+        $this->assertSame([$veladero->ID_FRENTE, $maturin->ID_FRENTE], [(int) $c->fresh()->ID_FRENTE, (int) $c->fresh()->ID_FRENTE_ORIGINAL]);
+        // La Lista muestra el actual y, debajo, con cuál se cargó.
+        $html = $this->actingAs($u)->get(route('consumibles.index', ['tipo' => 'GASOIL', 'identificador' => $c->IDENTIFICADOR]))->getContent();
+        $this->assertStringContainsString("Cargado en: PRUEBA MATURIN $sufijo", $html);
+        // Un segundo cambio no pisa el original.
+        $cambiar($otro);
+        $this->assertSame($maturin->ID_FRENTE, (int) $c->fresh()->ID_FRENTE_ORIGINAL);
+        // Volver al de la carga: como si nunca se hubiera cambiado.
+        $cambiar($maturin);
+        $this->assertNull($c->fresh()->ID_FRENTE_ORIGINAL);
+    }
 }

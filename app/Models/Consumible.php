@@ -22,6 +22,7 @@ class Consumible extends Model
         'ESPECIFICACION',   // Aceites: viscosidad (15W-40, SAE90). Caucho: medida (11R22.5)
         'UNIDAD',
         'ID_FRENTE',
+        'ID_FRENTE_ORIGINAL',   // con el que se cargó; se guarda al cambiar el frente en la Lista
         // Bloque 3 — resueltos después
         'ID_EQUIPO',
         'ID_AUXILIAR',      // si el que surtió es un auxiliar (máquina de soldar, planta…)
@@ -67,6 +68,12 @@ class Consumible extends Model
     {
         // withTrashed: es historial; un frente eliminado (borrado lógico) sigue dando su nombre.
         return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE', 'ID_FRENTE')->withTrashed();
+    }
+
+    /** El frente con el que se cargó, si después se cambió (la Lista lo muestra debajo). */
+    public function frenteOriginal()
+    {
+        return $this->belongsTo(FrenteTrabajo::class, 'ID_FRENTE_ORIGINAL', 'ID_FRENTE')->withTrashed();
     }
 
     public function suministro()

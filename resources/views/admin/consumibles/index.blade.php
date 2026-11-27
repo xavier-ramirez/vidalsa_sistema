@@ -235,6 +235,7 @@
             .cons-frente-sin .cons-frente-dato span { font-style: italic; color: #64748b; }
             .cons-frente-sin s { background: #94a3b8; }
             .cons-frentes-vacio { padding: 8px 0 2px; font-size: 12px; color: #94a3b8; text-align: center; }
+            .cons-frente-antes { display: block; margin-top: 2px; color: #64748b; font-size: 11px; }
             /* Filtros: la regla global gira TODO icono de la lista abierta; aquí solo la flecha (data-flecha). */
             #filtrosForm .custom-dropdown.active .dropdown-trigger i:not([data-flecha]) { transform: none; }
             @media (max-width: 1024px) {
@@ -761,6 +762,11 @@
                                         </button>
                                         @endcan
                                     </div>
+                                    @if($c->frenteOriginal)
+                                        <span class="cons-frente-antes" title="Se cargó en este frente y luego se cambió">
+                                            Cargado en: {{ $c->frenteOriginal->NOMBRE_FRENTE }}
+                                        </span>
+                                    @endif
                                     @php
                                         $frenteConsumible = $c->ID_FRENTE;
                                         $frenteEquipo = $c->equipo?->ID_FRENTE_ACTUAL;

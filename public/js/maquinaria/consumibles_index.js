@@ -189,11 +189,25 @@ if (typeof window.ModuleManager !== 'undefined') {
                         var op = e.target.closest('[data-frente-id]');
                         if (op && l._id) guardarFrente(l._id, op.dataset.frenteId, op.textContent);
                     });
-                    // La lista es fija en la pantalla: al desplazar algo (que no sea ella) se cierra.
-                    window.addEventListener('scroll', function(e) { if (e.target !== l) l.style.display = 'none'; }, { passive: true, capture: true });
-                    window.addEventListener('resize', function() { l.style.display = 'none'; });
+                    // La lista es fija en la pantalla: al desplazar algo (que no sea ella) o cambiar el
+                    // tamaño (el teclado del teléfono al abrirse) sigue al campo; sin campo, se cierra.
+                    var seguir = function(e) {
+                        if (e && e.target === l) return;
+                        var inp = l._id && document.getElementById('sel-frente-' + l._id);
+                        if (inp && !inp.disabled && l.style.display !== 'none') colocarLista(l, inp); else l.style.display = 'none';
+                    };
+                    window.addEventListener('scroll', seguir, { passive: true, capture: true });
+                    window.addEventListener('resize', seguir);
                 }
                 return l;
+            }
+            // Debajo del campo; si no cabe, encima.
+            function colocarLista(l, inp) {
+                var r = inp.getBoundingClientRect();
+                l.style.left = r.left + 'px';
+                l.style.width = Math.max(r.width, 260) + 'px';
+                var alto = Math.min(l.scrollHeight, 260);
+                l.style.top = (r.bottom + alto + 4 > window.innerHeight ? Math.max(4, r.top - alto - 2) : r.bottom + 2) + 'px';
             }
             function pintarListaFrentes(inp, id) {
                 var l = listaFrentes(), q = inp.value.trim(), todos = [];
@@ -208,14 +222,9 @@ if (typeof window.ModuleManager !== 'undefined') {
                         return '<div data-frente-id="' + esc(f.id) + '"' + (k === 0 ? ' class="marcado"' : '') + '>' + esc(f.nombre) + '</div>';
                     }).join('')
                     : '<div class="vacio">Ningún frente se parece a «' + esc(q) + '»</div>';
-                var r = inp.getBoundingClientRect();
-                l.style.left = r.left + 'px';
-                l.style.width = Math.max(r.width, 260) + 'px';
                 l.style.display = 'block';
                 l.scrollTop = 0;
-                // Hacia abajo; si no cabe, encima del campo.
-                var alto = Math.min(l.scrollHeight, 260);
-                l.style.top = (r.bottom + alto + 4 > window.innerHeight ? Math.max(4, r.top - alto - 2) : r.bottom + 2) + 'px';
+                colocarLista(l, inp);
             }
             function marcarEnLista(paso) {
                 var l = listaFrentes(), ops = l.querySelectorAll('[data-frente-id]');

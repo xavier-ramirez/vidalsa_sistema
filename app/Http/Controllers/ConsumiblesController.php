@@ -30,7 +30,7 @@ class ConsumiblesController extends Controller
         $frentes = FrenteTrabajo::where('ESTATUS_FRENTE', 'ACTIVO')
             ->orderBy('NOMBRE_FRENTE')->get();
 
-        $query = Consumible::with(['equipo.frenteActual', 'equipo.tipo', 'equipo.documentacion', 'auxiliar', 'frente'])
+        $query = Consumible::with(['equipo.frenteActual', 'equipo.tipo', 'equipo.documentacion', 'auxiliar', 'frente', 'frenteOriginal'])
             ->orderBy('FECHA', 'desc')
             ->orderBy('ID_CONSUMIBLE', 'desc');
 
@@ -388,7 +388,13 @@ class ConsumiblesController extends Controller
             'id_frente' => 'required|exists:frentes_trabajo,ID_FRENTE,deleted_at,NULL',
         ]);
 
-        $consumible->update(['ID_FRENTE' => $request->id_frente]);
+        // La primera vez que se cambia se guarda con cuál se cargó (la Lista lo muestra debajo).
+        // Volver a ese mismo frente lo deja como si nunca se hubiera cambiado.
+        $original = $consumible->ID_FRENTE_ORIGINAL ?? $consumible->ID_FRENTE;
+        $consumible->update([
+            'ID_FRENTE'          => $request->id_frente,
+            'ID_FRENTE_ORIGINAL' => $original == $request->id_frente ? null : $original,
+        ]);
 
         $nombreFrente = FrenteTrabajo::find($request->id_frente)?->NOMBRE_FRENTE ?? '—';
 

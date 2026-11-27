@@ -739,6 +739,11 @@
             const unidad = (document.getElementById('unidadSelect').value || 'LITROS') === 'LITROS' ? 'L' : document.getElementById('unidadSelect').value.toLowerCase();
             // Primero lo que pide atención; luego los frentes de mayor a menor; al final lo que se salta.
             // Con más de un texto sin reconocer, además un botón para verlos todos juntos.
+            // El grupo que se estaba viendo ya no tiene filas (se corrigió la última): de vuelta a todas.
+            if (filtroFrente !== null && !Object.keys(porFrente).some(k => entraEnFiltro(k, filtroFrente))) {
+                filtroFrente = null;
+                aplicarFiltroFrente();
+            }
             const males = Object.keys(porFrente).filter(k => k.startsWith('mal:'));
             if (males.length > 1) porFrente.mal = males.reduce((a, k) => ({ l: a.l + porFrente[k].l, n: a.n + porFrente[k].n }), { l: 0, n: 0 });
             const peso = k => k === 'mal' ? 0 : k.startsWith('mal:') ? 1 : k === 'sin' ? 2 : k === 'saltar' ? 4 : 3;
