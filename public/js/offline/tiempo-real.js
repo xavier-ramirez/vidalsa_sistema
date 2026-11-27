@@ -69,5 +69,10 @@
         }).catch(() => window.addEventListener('online', iniciar, { once: true }));
     }
 
+    // Al volver a la app (el teléfono la dejó en segundo plano): el socket pudo morir sin avisar y,
+    // hasta que venciera SIN_LATIDO_MS, la copia seguía preguntando solo de respaldo (cada 2 min).
+    // Hasta el próximo latido (25 s) se pregunta como sin tiempo real; el latido lo vuelve a poner.
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) caido(); });
+
     iniciar();
 })();

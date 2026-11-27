@@ -43,6 +43,10 @@
     const DB_NOMBRE = 'vidalsa_bandeja';
     const CABECERA = 'X-Clave-Operacion';
     const RUTA_NOTAS = '/admin/almacen/notas-reservadas';
+    // Topes de un envío (ver mandar): hasta la respuesta, sin y con archivos; y de silencio del cuerpo.
+    const ESPERA_ENVIO_MS = 30000;
+    const ESPERA_ARCHIVOS_MS = 120000;
+    const SILENCIO_MS = 15000;
     const RUTA_ANULAR = '/admin/almacen/notas-reservadas/anular';
     const REINTENTO_MS = 30000;
 
@@ -172,8 +176,21 @@
             cabeceras['Content-Type'] = 'application/json';
             cuerpo = JSON.stringify(it.cuerpo || {});
         }
-        return window.apiFetch(it.url, { method: it.metodo, headers: cabeceras, body: cuerpo })
-            .then((r) => r.json().catch(() => ({})).then((b) => ({ r, b })));
+        // Con tope: en el teléfono un envío puede quedarse colgado (la red conecta y no contesta).
+        // Antes la operación dejaba el spinner para siempre y `subiendo` no se soltaba nunca: lo
+        // pendiente no volvía a subir. Pasado el tope cuenta como sin red: queda en la bandeja y
+        // sube luego con la MISMA clave, así que si el servidor ya lo había hecho no se repite
+        // (OperacionUnica). Con archivos (PDF, fotos) el tope es mayor: la subida va antes de la
+        // respuesta. Ya contestando, el cuerpo se corta si la red se calla (textoConTope).
+        const corta = typeof AbortController === 'function' ? new AbortController() : null;
+        const tope = corta ? setTimeout(() => corta.abort(), it.formulario ? ESPERA_ARCHIVOS_MS : ESPERA_ENVIO_MS) : null;
+        return window.apiFetch(it.url, { method: it.metodo, headers: cabeceras, body: cuerpo, signal: corta ? corta.signal : undefined })
+            .then((r) => {
+                clearTimeout(tope);
+                const cuerpo = window.textoConTope && r.body ? window.textoConTope(r, SILENCIO_MS, corta).then(JSON.parse) : r.json();
+                return cuerpo.catch(() => ({})).then((b) => ({ r, b }));
+            })
+            .finally(() => clearTimeout(tope));
     }
 
     // ── Enviar: al servidor si hay red; si no, a la bandeja ──────────────────

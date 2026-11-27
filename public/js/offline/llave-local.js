@@ -48,6 +48,7 @@
     const HUELLAS = 'vidalsa_llaves_huella';
     const PENDIENTE_HUELLA = 'vidalsa_llave_pendiente_huella';
     const ITER = 120000; // el mismo costo que el verificador de offline-auth.js
+    const ESPERA_LLAVE_MS = 10000; // /sync/llave: ver abrir()
     const sub = window.crypto && window.crypto.subtle;
     const usuario = () => (document.querySelector('meta[name="usuario-id"]') || {}).content || '';
 
@@ -88,15 +89,24 @@
         if (!dek || pend || pendHuella) {
             // Con internet: la del servidor abre la guardada (o se crea la primera vez) y, si se
             // acaba de entrar con clave, se envuelve también con ella para poder entrar sin red.
-            let r = null;
+            // Con tope: en el teléfono la red a veces conecta y no contesta, y sin esta respuesta
+            // no abría ninguna copia (los módulos se quedaban con el spinner). Pasado el tope no
+            // se manda al inicio de sesión (no es «sin internet»): queda sin llave por ahora y
+            // la próxima vez que la copia la necesite se vuelve a pedir (lista()).
+            let r = null, srv = null;
+            const corta = typeof AbortController === 'function' ? new AbortController() : null;
+            const tope = corta ? setTimeout(() => corta.abort(), ESPERA_LLAVE_MS) : null;
             try {
                 r = await (window.fetchSinInterceptor || window.fetch)('/sync/llave', {
                     credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' },
+                    signal: corta ? corta.signal : undefined,
                 });
-            } catch (e) { r = null; sinRed = true; }
-            if (r && r.ok) {
+            } catch (e) { r = null; if (!corta || !corta.signal.aborted) sinRed = true; }
+            // El cuerpo, dentro del mismo tope (puede quedarse a medias).
+            if (r && r.ok) { try { srv = deB64((await r.json()).llave); } catch (e) { srv = null; } }
+            clearTimeout(tope);
+            if (srv) {
                 sinServidor = false;
-                const srv = deB64((await r.json()).llave);
                 dek = await unaALaVez(async () => {
                     const todas = leer(localStorage, LLAVES) || {};
                     const mia = todas[u] || {};

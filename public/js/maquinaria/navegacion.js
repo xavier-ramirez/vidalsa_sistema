@@ -874,7 +874,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                html = await response.text();
+                // Ya llegó la respuesta (el reloj de 12 s se apagó): si la descarga se queda a
+                // medias (teléfono), 12 s sin datos cuentan como el mismo tiempo agotado.
+                html = await window.textoConTope(response, 12000, controller);
                 if (_yaNoEsLaActual()) { handledCleanup = true; return; }
                 if (!desdeCache && !response.redirected) guardarPantalla(url, html);
             }
@@ -1283,7 +1285,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // trasNavegar: recién se cambió de módulo. Si hubo despliegue se recarga ya (el usuario
     // acaba de llegar, no hay nada a medio escribir), igual que loadPage con las pantallas
     // que pide al servidor; así también las guardadas (Equipos, Almacén…) toman lo nuevo.
-    function revisar(trasNavegar) {
+    // alVolver: la app vuelve a verse (en el teléfono, sale del segundo plano). Abrirla ES usarla,
+    // aunque todavía no se haya tocado nada: sin esto la pregunta se saltaba justo al volver.
+    function revisar(trasNavegar, alVolver) {
         // Ya avisado (el aviso sigue en pantalla) y se cambió de módulo: se recarga aquí, sin
         // preguntar otra vez. loadPage solo recarga por una versión nueva, no por un cambio de
         // permisos: sin esto seguía con los botones y permisos viejos hasta pulsar Actualizar.
@@ -1291,12 +1295,17 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.reload();
             return;
         }
-        if (pidiendo || avisando || document.hidden || navigator.onLine === false || !window.usuarioActivo()) return;
+        if (pidiendo || avisando || document.hidden || navigator.onLine === false || !(alVolver || window.usuarioActivo())) return;
         pidiendo = true;
-        fetch('/version-vistas', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        // Con tope: con la red del teléfono colgada, `pidiendo` quedaba en true y esta pestaña no
+        // volvía a preguntar nunca (no se enteraba de ningún despliegue).
+        var corta = typeof AbortController === 'function' ? new AbortController() : null;
+        var tope = corta ? setTimeout(function () { corta.abort(); }, 10000) : null;
+        fetch('/version-vistas', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin', signal: corta ? corta.signal : undefined })
             .then(function (r) { return r.ok ? r.json() : null; })
-            .catch(function () { return null; })      // sin red o sesión vencida: se reintenta luego
+            .catch(function () { return null; })      // sin red, sesión vencida o tope: se reintenta luego
             .then(function (j) {
+                clearTimeout(tope);
                 pidiendo = false;
                 if (!j) return;
                 var otraVersion = !!(j.v && j.v !== versionInicial);
@@ -1315,7 +1324,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(revisar, CADA_MS);
     window.addEventListener('spa:contentLoaded', function () { revisar(true); });
     // Al volver a la pestaña (el caso típico: se edita, se vuelve y se mira) no hay que esperar.
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) revisar(); });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) revisar(false, true); });
 })();
 
 // Fotos protegidas en Equipos, Catálogo y el menú: sin "Guardar / Copiar / Abrir imagen" (clic derecho o

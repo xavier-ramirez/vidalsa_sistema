@@ -19,6 +19,8 @@
  *   window.apiFetch()       fetch() con las cabeceras que TODA llamada a la app
  *                           necesitaba y cada sitio se armaba a mano.
  *
+ *   window.textoConTope()   El cuerpo de una respuesta, cortando si la red se calla (teléfono).
+ *
  *   window.toast()          Aviso al usuario, con el guard y el respaldo a alert()
  *                           que estaban repetidos en 6 envoltorios locales.
  *
@@ -179,6 +181,47 @@
         }
         conf.headers = headers;
         return window.fetch(url, conf);
+    };
+
+    /**
+     * El cuerpo de una respuesta como texto, cortando si la red se queda CALLADA `ms` seguidos.
+     * En el teléfono (datos, punto de acceso, cambio de antena) una descarga puede quedarse a
+     * medias sin error: res.text()/res.json() no terminaban nunca y el spinner quedaba puesto
+     * para siempre. Aquí cada pedazo que llega reinicia el reloj (una descarga lenta que avanza
+     * no se corta); el silencio rechaza con un AbortError, como un fetch abortado. `corta` (el
+     * AbortController del fetch, opcional) se aborta también, para soltar la conexión.
+     */
+    window.textoConTope = function (res, ms, corta) {
+        if (!res.body || typeof res.body.getReader !== 'function' || typeof TextDecoder !== 'function') return res.text();
+        var lector = res.body.getReader();
+        var dec = new TextDecoder();
+        var partes = [];
+        var callada = false;
+        var reloj = null;
+        var vigilar = function () {
+            clearTimeout(reloj);
+            reloj = setTimeout(function () {
+                callada = true;
+                if (corta) corta.abort();
+                lector.cancel().catch(function () {});
+            }, ms);
+        };
+        var abortado = function () {
+            var e = new Error('La red dejó de mandar datos');
+            e.name = 'AbortError';
+            return e;
+        };
+        var leer = function () {
+            return lector.read().then(function (r) {
+                if (callada) throw abortado();
+                if (r.done) { clearTimeout(reloj); partes.push(dec.decode()); return partes.join(''); }
+                partes.push(dec.decode(r.value, { stream: true }));
+                vigilar();
+                return leer();
+            });
+        };
+        vigilar();
+        return leer().catch(function (e) { clearTimeout(reloj); throw callada ? abortado() : e; });
     };
 
     /**

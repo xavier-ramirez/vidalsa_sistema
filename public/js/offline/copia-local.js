@@ -67,20 +67,26 @@
     // estado:  { u, d, iv, ct }         clave [u, d]       · ct = { hasta, firma, esquema, espera }
     // Si el navegador no deja abrirla (ventana privada), la copia vive solo en memoria.
     let dbPromesa = null;
+    const ESPERA_BASE_MS = 8000;
     function db() {
         if (!dbPromesa) {
             dbPromesa = new Promise((resolve) => {
                 let req;
                 try { req = indexedDB.open(DB_NOMBRE, DB_VERSION); } catch (e) { resolve(null); return; }
+                // En algunos Android la apertura no avisa nunca (ni éxito ni error) y todo lo que
+                // espera la copia —el spinner del módulo— esperaba con ella. Pasado el tope la
+                // copia vive solo en memoria en esta página; si la base abre después, se cierra.
+                let tarde = false;
+                const tope = setTimeout(() => { tarde = true; resolve(null); }, ESPERA_BASE_MS);
                 req.onupgradeneeded = () => {
                     const b = req.result;
                     ['filas', 'estado'].forEach((n) => { if (b.objectStoreNames.contains(n)) b.deleteObjectStore(n); });
                     b.createObjectStore('bloques', { keyPath: ['u', 'd', 't', 'b'] });
                     b.createObjectStore('estado', { keyPath: ['u', 'd'] });
                 };
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => resolve(null);
-                req.onblocked = () => resolve(null);
+                req.onsuccess = () => { clearTimeout(tope); if (tarde) req.result.close(); else resolve(req.result); };
+                req.onerror = () => { clearTimeout(tope); resolve(null); };
+                req.onblocked = () => { clearTimeout(tope); tarde = true; resolve(null); };
             }).then((b) => (b ? podarOtrosUsuarios(b).then(() => b) : null));
         }
         return dbPromesa;
@@ -295,6 +301,11 @@
 
     // Tope para que el servidor EMPIECE a contestar (ver sincronizar).
     const ESPERA_RESPUESTA_MS = 20000;
+    // Ya contestando, tope de SILENCIO de la descarga (dom_helpers · textoConTope): una copia
+    // entera puede tardar en un teléfono lento, pero si deja de llegar del todo se corta y se
+    // vuelve a pedir en la próxima vuelta (antes el módulo esperaba para siempre).
+    const SILENCIO_MS = 15000;
+    const cuerpoJson = (res, corta) => (window.textoConTope && res.body ? window.textoConTope(res, SILENCIO_MS, corta).then(JSON.parse) : res.json());
 
     // ── Copias enteras, de una en una ───────────────────────────────────────
     // Recién entrado un usuario eran 4 descargas completas a la vez (2-3 MB sin comprimir y
@@ -362,7 +373,7 @@
                     });
                 }
                 if (!res.ok) throw new Error('HTTP ' + res.status);
-                return res.json().then((r) => {
+                return cuerpoJson(res, corta).then((r) => {
                     const cambio = !!(r.completo || Object.keys(r.datos || {}).length
                         || Object.keys(r.borrados || {}).length || Object.keys(r.catalogos || {}).length);
                     c.estado.conectado = true;
