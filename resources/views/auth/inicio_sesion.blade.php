@@ -406,11 +406,12 @@
     // Aviso "sin conexión": evita que el navegador muestre su página de error (la
     // "boba fea") cuando el login no puede contactar al servidor. Con una sesión anterior
     // en este equipo se entra igual escribiendo la clave (lo llama también la huella cuando
-    // no pudo abrir lo guardado); sin ella, la primera vez hace falta internet.
+    // no pudo abrir lo guardado). Sin ella (nunca entró aquí escribiendo la clave con internet,
+    // o el teléfono borró los datos del sitio) se dice qué hacer para tenerla.
     function avisarSinConexion() {
         mostrarMsgLogin(window.OfflineAuth && window.OfflineAuth.tieneOffline()
             ? TEXTO_SIN_CONEXION
-            : 'Sin conexión.\nPara entrar por primera vez en este equipo hace falta internet.');
+            : 'Sin conexión.\nPara entrar sin internet, entra antes una vez con internet escribiendo tu clave.');
     }
 
     // Punto ÚNICO que escribe el token CSRF. Valida que lo recibido SEA un token (y no el
