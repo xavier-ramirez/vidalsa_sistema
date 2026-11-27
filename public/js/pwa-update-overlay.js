@@ -20,12 +20,13 @@
  * window.pwaMostrarActualizando(): sale en el acto y se queda hasta que esa página recarga.
  *
  * A PROPÓSITO no recarga la página: en una página interna (formulario a medias) perdería
- * el trabajo del usuario. Única excepción: el LOGIN con los dos campos vacíos y sin un aviso
- * a la vista («Tu sesión expiró»…, que no se repetiría: la URL ya se limpió). Ahí no se
- * pierde nada y es la copia guardada: sin recargar se quedaba el diseño anterior hasta la
- * próxima vez. Se recarga en dos casos: se activó un SW nuevo, o el SW avisa 'login-nuevo'
- * (el login que bajó por detrás no es el que enseñó: hubo un despliegue). Como mucho una vez
- * por minuto, por si algún día el HTML trajera algo distinto en cada petición.
+ * el trabajo del usuario. Única excepción: el LOGIN sin nada escrito (el correo que pone el
+ * propio login no cuenta) y sin un aviso a la vista («Tu sesión expiró»…, que no se
+ * repetiría: la URL ya se limpió). Ahí no se pierde nada y es la copia guardada: sin
+ * recargar se quedaba el diseño anterior hasta la próxima vez. Se recarga en dos casos: se
+ * activó un SW nuevo, o el SW avisa 'login-nuevo' (el login que bajó por detrás no es el que
+ * enseñó: hubo un despliegue). Como mucho una vez por minuto, por si algún día el HTML
+ * trajera algo distinto en cada petición.
  * Un login que se queda abierto mucho rato busca SW nuevo al volver a la pestaña.
  * No re-registra el SW (el login ya lo registra): solo se engancha a la registración
  * existente para vigilar la instalación. Timeout de seguridad para no dejar al usuario
@@ -93,8 +94,15 @@
         if (!enLogin || window._loginEnCurso) return false;
         var aviso = document.getElementById('offlineLoginMsg');
         if (aviso && aviso.style.display !== 'none') return false;
+        // El correo que puso el propio login (offline-auth.js: el de la última sesión) no es algo
+        // escrito: sin esto, en todo equipo donde ya se entró una vez el login nunca contaba
+        // como vacío y no se ponía al día solo.
+        var puesto = window.OfflineAuth && window.OfflineAuth.tieneOffline() ? window.OfflineAuth.identidad() : null;
         var campos = document.querySelectorAll('#loginForm .custom-input');
-        for (var i = 0; i < campos.length; i++) if (campos[i].value) return false;
+        for (var i = 0; i < campos.length; i++) {
+            var v = campos[i].value;
+            if (v && !(campos[i].id === 'login_identifier' && v === puesto)) return false;
+        }
         return true;
     }
     function recargarLoginVacio() {
