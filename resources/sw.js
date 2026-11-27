@@ -110,7 +110,7 @@ function huellaLogin(html) {
 }
 
 // Hubo un despliegue: el login que se enseñó desde la caché ya no es el del servidor.
-// Las pestañas en el login deciden si recargan (pwa-update-overlay.js: solo con los campos vacíos).
+// Las pestañas en el login deciden si recargan (pwa-update-overlay.js: solo sin nada escrito).
 function avisarLoginNuevo() {
     return self.clients.matchAll({ type: 'window' }).then((ventanas) => ventanas.forEach((v) => {
         if (new URL(v.url).pathname === '/') v.postMessage({ tipo: 'login-nuevo' });
