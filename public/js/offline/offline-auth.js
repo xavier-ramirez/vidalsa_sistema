@@ -298,10 +298,16 @@
             .finally(function () { if (tope) clearTimeout(tope); });
     }
 
+    // Un solo sondeo a la vez: el que ya va le sirve a quien pregunte (conServidor).
+    let sondeo = null;
+    function preguntar() {
+        if (!sondeo) sondeo = hayServidor(4000).then(function (hay) { sondeo = null; sinServidor = !hay; refrescarAccesos(); return hay; });
+        return sondeo;
+    }
     function sondearServidor() {
         if (!hayAlgoQueDecidir()) return;
         sondeoLanzado = true;
-        hayServidor(4000).then(function (hay) { sinServidor = !hay; refrescarAccesos(); });
+        preguntar();
     }
 
     // Punto ÚNICO que decide qué se ve según haya servidor.
@@ -381,16 +387,17 @@
     });
 
     // ¿Se intenta el inicio de sesión normal? Lo preguntan el submit y la huella.
-    //   · La pantalla cree que SÍ hay servidor: no se pregunta; el propio inicio de sesión lo
-    //     descubre (y si no llega, entrarSinServidor).
-    //   · Cree que NO hay: se pregunta otra vez (el servidor pudo volver). Solo si contesta se
-    //     intenta el inicio normal; si falla o no contesta en 4 s, se entra con lo guardado.
-    //     Antes, sin respuesta se probaba además el inicio normal: 10 s más (16 s con el wifi
-    //     sin salida). Si el servidor solo estaba lento, reingreso.js canjea el pase en cuanto
-    //     conteste, así que entrar en local no deja a nadie fuera.
+    //   · La pantalla cree que SÍ hay servidor y no hay sondeo en vuelo: no se pregunta; el
+    //     propio inicio de sesión lo descubre (y si no llega, entrarSinServidor).
+    //   · Cree que NO hay, o el sondeo de la carga todavía no contestó (se pulsó enseguida):
+    //     se espera ese sondeo o se pregunta otra vez. Solo si contesta se intenta el inicio
+    //     normal; si falla o no contesta en 4 s, se entra con lo guardado. Sin esperarlo, con
+    //     el wifi sin salida el inicio normal agotaba su tope de 10 s. Si el servidor solo
+    //     estaba lento, reingreso.js canjea el pase en cuanto conteste, así que entrar en
+    //     local no deja a nadie fuera.
     window.OfflineAuth.conServidor = function () {
-        if (!sinServidor) return Promise.resolve(true);
-        return hayServidor(4000).then(function (hay) { sinServidor = !hay; refrescarAccesos(); return hay === true; });
+        if (!sinServidor && !sondeo) return Promise.resolve(true);
+        return preguntar().then(function (hay) { return hay === true; });
     };
 
     // Un intento no llegó al servidor (el inicio de sesión o la huella): desde aquí cuenta

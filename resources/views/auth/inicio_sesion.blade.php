@@ -732,8 +732,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // El re-primado del challenge tras cada intento lo maneja el propio
         // módulo VidalsaWebAuthn (dueño único del precache). Sin servidor, la huella se
         // comprueba en el equipo (abre lo guardado con su llave, como la clave sin red).
-        // Igual que «Iniciar sesión»: si la pantalla cree que no hay servidor, se vuelve a
-        // preguntar (conServidor contesta al instante si ya lo hay, o si no hay red).
+        // Igual que «Iniciar sesión»: si la pantalla cree que no hay servidor, o el sondeo de
+        // la carga no contestó todavía, se pregunta (conServidor, como mucho 4 s).
         var off = window.OfflineAuth;
         (off ? off.conServidor() : Promise.resolve(true))
             .then(function (hay) { return hay ? VidalsaWebAuthn.autenticar() : VidalsaWebAuthn.autenticarSinServidor(); })
